@@ -134,7 +134,7 @@ export class WhimsyPlaylistSection extends ZenLibrarySearchSection {
     `;
   }
 
-  render() {
+  renderItems() {
     const items = this.items.filter(item => this.#matches(item));
     if (!items.length) {
       return html`<div class="zen-library-empty" data-l10n-id=${this.items.length

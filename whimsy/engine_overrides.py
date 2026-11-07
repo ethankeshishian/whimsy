@@ -106,7 +106,82 @@ def override_default_bookmarks():
 # W11-07: Settings → Home's choices (Whimsy Home and Firefox Home) are a
 # patch now, src/browser/components/preferences/config/
 # whimsy-home-startup-mjs.patch, not text fixes here.
-ENGINE_TEXT_FIXES = []
+_CALL_PIP_EMPTIED_GUARD = (
+    "        if (lazy.PIP_AUTO_CLOSE &&\n"
+    "            !ChromeUtils.importESModule(\n"
+    "              \"resource:///modules/whimsy/WhimsyCallVideos.sys.mjs\"\n"
+    "            ).callVideos.has(this.getWeakVideo())) {\n"
+    "          let video = this.getWeakVideo();"
+)
+ENGINE_TEXT_FIXES = [
+    ("auto-pip-share-deliberate-skip",
+     "toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
+     "          PictureInPicture.weakAutoPipBrowserClosedDeliberately.delete(browser);\n          break;",
+     "          ChromeUtils.importESModule(\n"
+     "            \"resource:///modules/whimsy/WhimsyMedia.sys.mjs\"\n"
+     "          ).WhimsyMedia.recordAutoPipSkip(browser);\n"
+     "          PictureInPicture.weakAutoPipBrowserClosedDeliberately.delete(browser);\n          break;",
+     "Preserve Firefox's deliberate-close skip for Whimsy's delayed fallback, "
+     "even when the hidden-page message arrives before TabSelect."),
+    ("auto-pip-retain-deliberate-skip",
+     "toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
+     "          PictureInPicture.weakAutoPipBrowserClosedDeliberately.has(browser)\n",
+     "          ChromeUtils.importESModule(\n"
+     "            \"resource:///modules/whimsy/WhimsyMedia.sys.mjs\"\n"
+     "          ).WhimsyMedia.shouldSkipAutoPip(browser)\n",
+     "Late or repeated hidden-page messages must respect the skip after Firefox's "
+     "one-use close mark has been consumed by the fallback."),
+    ("auto-pip-cancel-fallback-on-close",
+     "toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
+     "        PictureInPicture.weakAutoPipBrowserClosedDeliberately.add(browser);",
+     "        PictureInPicture.weakAutoPipBrowserClosedDeliberately.add(browser);\n"
+     "        ChromeUtils.importESModule(\n"
+     "          \"resource:///modules/whimsy/WhimsyMedia.sys.mjs\"\n"
+     "        ).WhimsyMedia.recordAutoPipSkip(browser);",
+     "Record every deliberate background-player close synchronously and cancel "
+     "its pending fallback before teardown can hide the page again."),
+    ("auto-pip-check-skip-at-open",
+     "toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
+     "    this.currentPlayerCount += 1;",
+     # All automatic launchers (including calls) pass autoFocus=false. Check
+     # after IPC, before opening a window; manual launches remain available.
+     "    if (videoData.autoFocus === false && ChromeUtils.importESModule(\n"
+     "      \"resource:///modules/whimsy/WhimsyMedia.sys.mjs\"\n"
+     "    ).WhimsyMedia.shouldSkipAutoPip(wgp.browsingContext.top.embedderElement)) {\n"
+     "      return;\n"
+     "    }\n\n"
+     "    this.currentPlayerCount += 1;",
+     "Reject automatic requests already in flight when the player was closed."),
+    ("call-pip-keep-emptied-tile",
+     "toolkit/actors/PictureInPictureChild.sys.mjs",
+     "        if (lazy.PIP_AUTO_CLOSE) {\n          let video = this.getWeakVideo();",
+     _CALL_PIP_EMPTIED_GUARD,
+     "Keep an emptied call tile open for the camera-off placeholder and resumption; "
+     "ordinary videos retain Firefox's auto-close behavior."),
+    # Also upgrade engines that already have the original blanket exemption.
+    ("call-pip-restart-sourced-tile",
+     "toolkit/actors/PictureInPictureChild.sys.mjs",
+     _CALL_PIP_EMPTIED_GUARD,
+     _CALL_PIP_EMPTIED_GUARD.replace(
+         "!ChromeUtils", "(!ChromeUtils"
+     ).replace(
+         ").callVideos.has(this.getWeakVideo())) {",
+         ").callVideos.has(this.getWeakVideo()) ||\n"
+         "            this.getWeakVideo()?.srcObject || this.getWeakVideo()?.src)) {"
+     ),
+     "Only source-less call tiles need the camera-off placeholder. Resetting an "
+     "active stream must still close and reopen PiP through the unload retry."),
+    ("vpn-scope-after-status-site-inclusions",
+     "browser/components/ipprotection/content/ipprotection-content.mjs",
+     "        ${this.statusCardTemplate()}\n        <div class=\"vpn-bottom-content\">",
+     "        ${this.statusCardTemplate()}\n        <slot name=\"whimsy-after-status\"></slot>\n        <div class=\"vpn-bottom-content\">",
+     "Place Whimsy scope after the status card, before native panel actions."),
+    ("vpn-scope-after-status-default",
+     "browser/components/ipprotection/content/ipprotection-content.mjs",
+     "      ${this.statusCardTemplate()} ${this.exclusionToggleTemplate()}",
+     "      ${this.statusCardTemplate()} <slot name=\"whimsy-after-status\"></slot> ${this.exclusionToggleTemplate()}",
+     "Place Whimsy scope after the status card, before native panel actions."),
+]
 
 # fix7 settings: Firefox's VPN (IP Protection) is Mozilla's service, but its
 # strings say "{ -brand-product-name }'s built-in VPN", which reads "Whimsy's

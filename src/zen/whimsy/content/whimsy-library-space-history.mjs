@@ -44,7 +44,7 @@ const ARCHIVE_FEATURE = "whimsy.feature.archive-view";
 const SNOOZE_FEATURE = "whimsy.feature.snooze-tab";
 // Fluent variant keys can't start with a digit.
 const IDLE_KEYS = { "12h": "h12", "24h": "h24", "7d": "d7", "30d": "d30" };
-const REASONS = ["idle", "closed", "tree", "snooze", "fire"];
+const REASONS = ["idle", "closed", "mini", "tree", "snooze", "fire"];
 
 function reasonOf(entry) {
   return entry.reason == "manual" ? "closed" : REASONS.includes(entry.reason) ? entry.reason : "closed";

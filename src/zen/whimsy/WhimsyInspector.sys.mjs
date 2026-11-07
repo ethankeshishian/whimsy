@@ -42,10 +42,10 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 const PANEL_SHEET = "chrome://browser/content/whimsy/whimsy-inspector.css";
 const FONT_PANEL_ID = "whimsy-font-inspector-panel";
 const FONT_PANEL_WIDTH = 320;
-// W13 F10: Element Info is a fixed 360px wide (it never jumps sideways
+// W13 F10, r1 item 11: Element Info is a fixed 392px wide (it never jumps sideways
 // between elements); its height follows its content.
 const ELEMENT_PANEL_ID = "whimsy-element-inspector-panel";
-const ELEMENT_PANEL_WIDTH = 360;
+const ELEMENT_PANEL_WIDTH = 392;
 // The card shows a skeleton only when the page takes this long to answer.
 const READING_DELAY_MS = 150;
 const SOURCES = new Set(["web", "local", "system", "fallback"]);

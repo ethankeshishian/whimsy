@@ -4,6 +4,15 @@
 
 # Whimsy's own strings, linked into the browser window and Settings.
 
+## Settings → Privacy & Security
+
+whimsy-autofill-header = Autofill
+whimsy-autofill-payments =
+    .label = Save and fill payment methods
+whimsy-autofill-addresses =
+    .label = Save and fill addresses
+whimsy-autofill-manager-note = When a password manager extension turns off browser password saving, { -brand-short-name } also turns off payment and address autofill by default. Your choices in Autofill below always take priority. Saved payment methods and addresses are kept.
+
 ## After an update (sidebar notification; see ZenSidebarNotification.mjs)
 
 whimsy-updated-heading = { -brand-short-name } updated
@@ -524,6 +533,15 @@ whimsy-tabs-archive-idle-after-7d =
 whimsy-tabs-archive-idle-after-30d =
     .label = 30 days
 whimsy-tabs-archive-idle-after-never =
+    .label = Never
+whimsy-mini-archive-after = Archive Mini windows after
+whimsy-mini-archive-after-6h =
+    .label = 6 hours
+whimsy-mini-archive-after-12h =
+    .label = 12 hours
+whimsy-mini-archive-after-24h =
+    .label = 24 hours
+whimsy-mini-archive-after-never =
     .label = Never
 whimsy-tabs-archive-view =
     .label = Keep closed tabs in the Archive (History → Archive, or “View Archive…”)
@@ -1194,6 +1212,10 @@ whimsy-vpn-urlbar-off =
 whimsy-vpn-urlbar-connecting =
     .tooltiptext = Firefox IP Protection is connecting…
     .aria-label = VPN connecting
+whimsy-vpn-urlbar-paused =
+    .tooltiptext = VPN is paused for this call until it ends.
+    .aria-label = VPN is paused
+whimsy-vpn-paused = VPN is paused
 whimsy-vpn-urlbar-on-browser =
     .tooltiptext = Firefox IP Protection is on in all spaces. Click to turn the VPN off.
     .aria-label = VPN on, all spaces
@@ -1214,25 +1236,11 @@ whimsy-vpn-call-detail = The call reloads without VPN until it ends.
 whimsy-vpn-call-pause = Pause VPN
 whimsy-vpn-call-keep = Keep On
 whimsy-vpn-call-paused = VPN paused on { $host } until the call ends
-# W15: Settings > Privacy > Manage website rules.
-whimsy-vpn-rules-description = Set rules for sites that need extra privacy or VPN turned off.
-whimsy-vpn-rules-included-header =
-    .label = Always use VPN
-whimsy-vpn-rules-included-empty = No sites yet. Turn the VPN on for a site from the VPN panel and it shows up here.
-whimsy-vpn-rules-excluded-header =
-    .label = Never use VPN
-whimsy-vpn-rules-excluded-empty = No sites yet. Turn the VPN off for a site from the VPN panel and it shows up here.
-whimsy-vpn-rules-remove =
-    .title = Remove { $site }
-    .aria-label = Remove { $site }
 
-## B: Whimsy's section at the bottom of Firefox's VPN panel (the chevron).
-whimsy-vpn-panel-name = Use VPN in this browser
+## B: The scope choice after Firefox's VPN status card (the chevron).
+whimsy-vpn-scope-heading = Use VPN in
 whimsy-vpn-site-setup = Sign in with a Mozilla account to turn it on
-whimsy-vpn-site-off = Off · hides your location from sites
 whimsy-vpn-site-connecting = Connecting…
-whimsy-vpn-site-on-browser = VPN on · All spaces
-whimsy-vpn-site-on-space = VPN on · All spaces in { $profile }
 whimsy-vpn-site-elsewhere = Off in this space · on in others
 whimsy-vpn-site-scope =
     .aria-label = Protect
@@ -1295,6 +1303,7 @@ whimsy-live-folder-option-mark-read =
 
 ## wave3/private: floating calls.
 
+# Closing a floating call keeps it closed until the user revisits its tab.
 whimsy-media-call-pip =
     .label = Float a video call in picture-in-picture when you switch away from its tab
 
@@ -1321,6 +1330,17 @@ whimsy-action-split-change-orientation = Change Split View Orientation
 # wave3/cmdbar: recent tabs in the empty command bar (Arc).
 whimsy-command-recent-tabs = Recent Tabs
 whimsy-command-switch-tab = Switch to Tab
+whimsy-command-upcoming-meeting = Upcoming Meeting
+whimsy-command-join-meeting = Join Meeting
+whimsy-command-meeting-until = { $until } · Join Meeting
+whimsy-command-recent-documents = Recent Documents
+whimsy-command-open-document = Open Document
+whimsy-command-mail-unread = { $count } unread · Switch to Tab
+whimsy-mail-unread-preview =
+    { $count ->
+        [one] { $count } unread message
+       *[other] { $count } unread messages
+    }
 whimsy-command-recent-tabs-toggle =
     .label = Show recent tabs when the command bar opens empty
 
@@ -1455,6 +1475,7 @@ whimsy-library-archive-yesterday = Yesterday
 whimsy-library-archive-filter-reason = Why it left
 whimsy-library-archive-reason-idle = Unused
 whimsy-library-archive-reason-closed = Closed
+whimsy-library-archive-reason-mini = Mini
 whimsy-library-archive-reason-tree = Closed with its branch
 whimsy-library-archive-reason-snooze = Snoozed
 whimsy-library-archive-reason-fire = Burned
@@ -1554,7 +1575,7 @@ whimsy-handoff-send =
 whimsy-library-playlist-title = Playlist
 whimsy-library-playlist-search =
     .placeholder = Search playlist…
-whimsy-playlist-empty = Nothing saved yet. Right-click a video or audio file and choose Save to Playlist.
+whimsy-playlist-empty = Playlist keeps videos and audio to watch later. Right-click a video or audio file and choose Save to Playlist.
 whimsy-playlist-no-results = No matches
 whimsy-context-playlist-add =
     .label = Save to Playlist
@@ -2157,7 +2178,7 @@ whimsy-capture-editor-save-copy =
     .label = Save Copy
 whimsy-capture-editor-title = Edit Screenshot
 whimsy-capture-preview =
-    .aria-label = The screenshot as it will be copied
+    .aria-label = Screenshot preview for editing
 whimsy-capture-backdrop-label = Backdrop
 whimsy-capture-backdrop-group =
     .aria-label = Backdrop
@@ -2186,7 +2207,7 @@ whimsy-capture-hand-style-group =
 whimsy-capture-done =
     .label = Done
 whimsy-capture-hint = Emails, phone numbers, keys and card numbers are found for you.
-whimsy-capture-hint-hand = Drag over anything to black it out. Click a box to take it away.
+whimsy-capture-hint-hand = Drag over private details to hide them. Click a box to remove it.
 whimsy-action-capture-edit = Edit Last Screenshot
 whimsy-action-capture-redact-last = Redact Last Screenshot
 # W10-59: a tile beside Visible and Full Page; the page as a phone shows it.
@@ -4608,6 +4629,8 @@ whimsy-setting-auto-archive = Auto-Archive Idle Tabs
     .keywords = archive idle tabs, close old tabs, tab cleanup, auto archive
 whimsy-setting-archive-idle-after = Archive Tabs After
     .keywords = auto archive time, idle time, 12 hours, 24 hours, 7 days, 30 days
+whimsy-setting-mini-archive-after = Archive Mini Windows After
+    .keywords = mini windows, little arc, auto archive time, cleanup, 6 hours, 12 hours, 24 hours, never
 whimsy-setting-form-protection = Unsaved Form Protection
     .keywords = forms, drafts, unsaved changes, protect tabs
 whimsy-setting-archive-view = Tab Archive
@@ -5135,6 +5158,7 @@ whimsy-call-pip-mic-turn-on =
     .tooltip = Turn On Microphone ({ $shortcut })
     .aria-label = Turn On Microphone
 # $shortcut (string) - the key that does the same, e.g. ⌘E
+whimsy-call-pip-camera-off = Camera off
 whimsy-call-pip-camera-turn-off =
     .tooltip = Turn Off Camera ({ $shortcut })
     .aria-label = Turn Off Camera
@@ -5198,13 +5222,21 @@ whimsy-call-options-default-call =
 whimsy-call-options-default-device = This Device
 whimsy-call-options-fallback =
     { $known ->
-        [yes] { $app }'s own mute isn't on this page right now, so the buttons block this device.
-       *[no] The call's own mute isn't on this page right now, so the buttons block this device.
+        [yes] { $app }'s own mute isn't on this page right now. The buttons block this device instead.
+       *[no] The call's own mute isn't on this page right now. The buttons block this device instead.
     }
 whimsy-call-options-mic-heading = Microphone
 whimsy-call-options-camera-heading = Camera
-whimsy-call-options-mic-in-call = Muted in the call
-whimsy-call-options-camera-in-call = Off in the call
+whimsy-call-options-mic-in-call =
+    { $known ->
+        [yes] Muted in { $app }
+       *[no] Muted in the call
+    }
+whimsy-call-options-camera-in-call =
+    { $known ->
+        [yes] Off in { $app }
+       *[no] Off in the call
+    }
 whimsy-call-options-mic-device = Blocked on this device
 whimsy-call-options-camera-device = Blocked on this device
 # Under the mute a plain press of the small player's or PiP's button does.
@@ -5236,3 +5268,8 @@ whimsy-toast-close-button =
 # Clicking it shows them all.
 # $count (number) - the toasts not shown
 whimsy-toast-more = +{ $count } more
+
+whimsy-setting-autofill-payments = Autofill Payment Methods
+    .keywords = autofill, payments, credit cards, debit cards, billing, password manager
+whimsy-setting-autofill-addresses = Autofill Addresses
+    .keywords = autofill, addresses, shipping, contact details, forms, password manager

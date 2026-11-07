@@ -3,7 +3,7 @@
 
 "use strict";
 
-// W13 F10 (wave12 F10, option A): Element Info is a fixed 360px wide and as
+// W13 F10 (r1 item 11): Element Info is a fixed 392px wide and as
 // tall as what it shows: no scrollbar when it fits; in a short window only
 // its body scrolls and the header stays. Picking another element keeps the
 // card and its width, and its height eases to the new content (160ms). Its
@@ -45,9 +45,9 @@ add_task(async function test_hugs_content_at_fixed_width() {
   const panel = await inspect(window, "#card");
   const card = panel.querySelector(".whimsy-surface-view");
   const body = panel.querySelector(".whimsy-element-body");
-  // 360px minus the panel's 10px padding and 1px border on each side
+  // 392px minus the panel's 10px padding and 1px border on each side
   // (popup.css's ::part(content), box-sizing: border-box).
-  Assert.less(Math.abs(card.getBoundingClientRect().width - (360 - 2 * 10 - 2 * 1)), 1.5, "360px wide");
+  Assert.less(Math.abs(card.getBoundingClientRect().width - (392 - 2 * 10 - 2 * 1)), 1.5, "392px wide");
   ok(body.scrollHeight <= body.clientHeight + 1, "Everything fits: no scrollbar");
   is(getComputedStyle(body).overflowY, "auto", "The body would scroll, if it had to");
   const header = panel.querySelector(".whimsy-surface-header");

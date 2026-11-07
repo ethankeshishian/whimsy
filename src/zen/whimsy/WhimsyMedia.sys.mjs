@@ -107,6 +107,33 @@ const PIP_GRACE_MS = 1000;
 const AUTO_PIP_FALLBACK_MS = 400;
 
 export const WhimsyMedia = {
+  _autoPipSkipped: new WeakSet(),
+  _autoPipTimers: new WeakMap(),
+
+  // Firefox may consume its one-use close mark before TabSelect reaches us.
+  // Its VideoTabHidden handler records that decision here for our fallback.
+  recordAutoPipSkip(browser) {
+    this._autoPipSkipped.add(browser);
+    this.cancelAutoPip(browser);
+  },
+
+  cancelAutoPip(browser) {
+    const pending = this._autoPipTimers.get(browser);
+    if (pending) {
+      pending.win.clearTimeout(pending.timer);
+      this._autoPipTimers.delete(browser);
+    }
+  },
+
+  // Firefox's mark is one-use; our suppression lasts until TabSelect returns
+  // to this browser, including late hidden-page messages and queued opens.
+  shouldSkipAutoPip(browser) {
+    if (lazy.PictureInPicture.weakAutoPipBrowserClosedDeliberately?.has(browser)) {
+      this.recordAutoPipSkip(browser);
+    }
+    return this._autoPipSkipped.has(browser);
+  },
+
   get backgroundMuteMode() {
     if (!Services.prefs.getBoolPref(MUTE_FEATURE_PREF, true)) {
       return "off";
@@ -182,6 +209,12 @@ export const WhimsyMedia = {
     };
     let recheck = null;
     container.addEventListener("TabSelect", event => {
+      const browser = event.target.linkedBrowser;
+      this.cancelAutoPip(browser);
+      if (this._autoPipSkipped.has(browser)) {
+        lazy.PictureInPicture.weakAutoPipBrowserClosedDeliberately?.delete(browser);
+      }
+      this._autoPipSkipped.delete(browser);
       try {
         this.giveAutoPipAMoment(win, event.detail?.previousTab, update);
         this.ensureAutoPip(win, event.detail?.previousTab);
@@ -288,6 +321,12 @@ export const WhimsyMedia = {
     }, PIP_GRACE_MS);
   },
 
+  // A switch is complete once its grace period has ended and muting has
+  // been reevaluated. Callers must keep the originating browser alive until then.
+  isAutoPipPending(tab) {
+    return !!tab?.[PIP_GRACE];
+  },
+
   autoPipCandidate(tab) {
     if (
       !tab ||
@@ -318,11 +357,17 @@ export const WhimsyMedia = {
     }
     const PiP = lazy.PictureInPicture;
     const browser = tab.linkedBrowser;
-    // Read now: Firefox's path clears it as soon as it sees the page hide.
+    this.cancelAutoPip(browser);
+    // Cover both event orders: our TabSelect before Firefox's hidden-page
+    // message, or Firefox consuming the mark before our TabSelect.
     const skip = !!PiP.weakAutoPipBrowserClosedDeliberately?.has(browser);
-    win.setTimeout(() => {
+    if (skip) {
+      this.recordAutoPipSkip(browser);
+    }
+    const timer = win.setTimeout(() => {
+      this._autoPipTimers.delete(browser);
       try {
-        if (skip) {
+        if (this.shouldSkipAutoPip(browser)) {
           PiP.weakAutoPipBrowserClosedDeliberately?.delete(browser);
           return;
         }
@@ -331,13 +376,14 @@ export const WhimsyMedia = {
         console.error("Whimsy: auto PiP fallback", e);
       }
     }, AUTO_PIP_FALLBACK_MS);
+    this._autoPipTimers.set(browser, { win, timer });
     return true;
   },
 
   // Asks each frame with a PiP-able video to pop it out; the page skips it
   // when Firefox's own auto-PiP has it (or the video is already out).
   requestAutoPip(tab) {
-    if (!this.autoPipCandidate(tab) || this.hasPlayer(tab.linkedBrowser)) {
+    if (!this.autoPipCandidate(tab) || this.shouldSkipAutoPip(tab.linkedBrowser) || this.hasPlayer(tab.linkedBrowser)) {
       return 0;
     }
     let asked = 0;

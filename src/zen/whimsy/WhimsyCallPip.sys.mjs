@@ -19,8 +19,8 @@
 // video in Firefox's picture-in-picture player. Firefox's own TabSelect
 // handling closes it again when you come back (the window opens while the
 // call's tab is in the background, which is how it marks an automatic
-// PiP), and closing the window by hand skips the next automatic one, as
-// Firefox does for videos.
+// PiP), and closing the window by hand keeps it closed until you return
+// to the call's tab, as Firefox does for videos.
 //
 // Not covered: Arc's floating window also has a leave button. Zoom's web
 // client draws video on a <canvas>, which picture-in-picture can't show.
@@ -174,6 +174,8 @@ function keyMatches(keyEl, event) {
 }
 
 export const WhimsyCallPip = {
+  _closedByHand: new WeakSet(),
+
   get enabled() {
     return (
       Services.prefs.getBoolPref(FEATURE_PREF, true) && Services.prefs.getBoolPref(PIP_ENABLED_PREF, true)
@@ -307,6 +309,7 @@ export const WhimsyCallPip = {
       return;
     }
     this._observerSet = true;
+    this.installDeliberateCloseHook();
     this.installCameraIntent();
     Services.obs.addObserver(this, "domwindowopened");
     // W13-R3: a camera or microphone blocked (or allowed) for a site hides
@@ -316,6 +319,29 @@ export const WhimsyCallPip = {
     for (const pipWin of Services.wm.getEnumerator("Toolkit:PictureInPicture")) {
       this.hookPipWindow(pipWin);
     }
+  },
+
+  // Firefox consumes its deliberate-close flag as soon as closing the PiP
+  // hides the video tab. Keep our own record before that happens, so the
+  // unload retry cannot reopen a call the user has just closed.
+  installDeliberateCloseHook() {
+    if (this._deliberateCloseHookInstalled) {
+      return;
+    }
+    const pip = lazy.PictureInPicture;
+    const original = pip.closeSinglePipWindow;
+    const self = this;
+    pip.closeSinglePipWindow = function (...args) {
+      const { reason, actorRef } = args[0];
+      if (["CloseButton", "ClosePlayerShortcut", "Shortcut"].includes(reason)) {
+        const browser = this.weakWinToBrowser.get(this.getWeakPipPlayer(actorRef));
+        if (self.isInCallBrowser(browser) && self.isBackground(browser)) {
+          self._closedByHand.add(browser);
+        }
+      }
+      return original.apply(this, args);
+    };
+    this._deliberateCloseHookInstalled = true;
   },
 
   observe(subject, topic) {
@@ -480,13 +506,81 @@ export const WhimsyCallPip = {
           }
         }
       }, true);
-      pipWin.addEventListener("unload", () => this.onCallPipClosed(pipWin._whimsyCallBrowser), { once: true });
+      pipWin.addEventListener("unload", () => {
+        pipWin.clearInterval(pipWin._whimsyLiveVideoTimer);
+        pipWin._whimsyLiveVideoTimer = null;
+        this.onCallPipClosed(pipWin._whimsyCallBrowser);
+      }, { once: true });
     }
     this.showCaptionsButton(pipWin, browser);
+    this.renderCameraOff(pipWin, browser);
     if (this.controlsEnabled) {
       this.addPipButtons(pipWin);
       this.watch(browser);
       this.renderPip(pipWin, browser);
+    }
+  },
+
+  renderCameraOff(pipWin, browser) {
+    const doc = pipWin.document;
+    let box = doc.getElementById("whimsy-call-camera-off");
+    if (!box) {
+      doc.l10n?.addResourceIds(["browser/whimsy.ftl"]);
+      box = doc.createElement("div");
+      box.id = "whimsy-call-camera-off";
+      box.setAttribute("role", "status");
+      Object.assign(box.style, {
+        position: "fixed", inset: "0", zIndex: "1", background: "#1c1c1e", color: "white",
+        textAlign: "center", alignContent: "center", pointerEvents: "none",
+        font: "500 16px/1.5 system-ui, sans-serif",
+      });
+      const icon = doc.createElement("span");
+      icon.setAttribute("aria-hidden", "true");
+      Object.assign(icon.style, {
+        display: "block", width: "48px", height: "48px", margin: "0 auto 12px",
+        background: `center / contain no-repeat url("${ICON}video-blocked-fill.svg")`,
+        MozContextProperties: "fill", fill: "currentColor",
+      });
+      const label = doc.createElement("span");
+      doc.l10n.setAttributes(label, "whimsy-call-pip-camera-off");
+      box.append(icon, label);
+      const controls = doc.getElementById("controls");
+      if (controls) {
+        controls.style.zIndex = "2";
+      }
+      doc.body.insertBefore(box, doc.body.firstChild);
+    }
+    box.hidden = !this.isInCallBrowser(browser) || this.shownState(browser, "camera") != "off";
+    if (box.hidden) {
+      pipWin.clearInterval(pipWin._whimsyLiveVideoTimer);
+      pipWin._whimsyLiveVideoTimer = null;
+    } else if (!pipWin._whimsyLiveVideoTimer) {
+      pipWin._whimsyLiveVideoTimer = pipWin.setInterval(() => this.checkCallLiveVideo(pipWin, browser), 1000);
+    }
+  },
+
+  async checkCallLiveVideo(pipWin, browser) {
+    if (pipWin.closed || pipWin._whimsyLiveVideoPending || pipWin._whimsySwappingVideo ||
+        pipWin.document.getElementById("whimsy-call-camera-off")?.hidden ||
+        !this.enabled || !this.isInCallBrowser(browser) || !this.isBackground(browser)) {
+      return;
+    }
+    pipWin._whimsyLiveVideoPending = true;
+    try {
+      const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+      const live = await actor?.sendQuery("Whimsy:CallLiveVideo");
+      if (live && !pipWin.closed && !pipWin.document.getElementById("whimsy-call-camera-off")?.hidden &&
+          this.enabled && this.isInCallBrowser(browser) && this.isBackground(browser) &&
+          !this._closedByHand.has(browser)) {
+        pipWin._whimsySwappingVideo = true;
+        // Programmatic close has no deliberate-close reason. The unload hook
+        // reuses floatWhenReady(browser, { tries: 6 }) after the clone detaches.
+        pipWin.close();
+      }
+    } catch (e) {
+      // Navigation or teardown while the page was answering.
+    } finally {
+      pipWin._whimsyLiveVideoPending = false;
     }
   },
 
@@ -509,7 +603,7 @@ export const WhimsyCallPip = {
     return false;
   },
 
-  // W14 21.7: Firefox closes the call's PiP when its video is emptied or
+  // W14 21.7: Firefox closes the call's PiP when its video is
   // removed, which a call page does when it re-renders a tile (turning a
   // camera off and on). While you're still on another tab in the call, it
   // comes back; a PiP you closed yourself (Firefox's deliberate closes) or
@@ -527,6 +621,9 @@ export const WhimsyCallPip = {
   // with every camera off has no video to show; it floats once one
   // starts), for as long as the call's tab stays in the background.
   floatWhenReady(browser, { tries = RETRY_TRIES } = {}) {
+    if (this._closedByHand.has(browser)) {
+      return;
+    }
     const win = browser?.ownerDocument?.defaultView;
     if (!win || win.closed || !this.enabled || !this.isInCallBrowser(browser) || !this.isBackground(browser)) {
       return;
@@ -1170,6 +1267,7 @@ export const WhimsyCallPip = {
 
   renderPip(pipWin, browser) {
     const doc = pipWin.document;
+    this.renderCameraOff(pipWin, browser);
     if (!doc?.getElementById("whimsy-call-controls")) {
       return;
     }
@@ -1387,6 +1485,9 @@ export const WhimsyCallPip = {
   },
 
   onTabSelect(win, previous, selected) {
+    if (this.isInCall(selected)) {
+      this._closedByHand.delete(selected.linkedBrowser);
+    }
     if (!previous || previous == selected || previous.closing || !previous.isConnected) {
       return false;
     }

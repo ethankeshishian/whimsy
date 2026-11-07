@@ -11,6 +11,7 @@
 
 const PAGE =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_highlight.html";
+const { WhimsyCopy } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCopy.sys.mjs");
 const OFFER_ID = "whimsy-copy-highlight-action";
 
 const clipboardText = () => SpecialPowers.getClipboardData("text/plain");
@@ -85,10 +86,28 @@ add_task(async function test_selection_offers_link_to_highlight() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// A clicked offer starts closing before its tab is removed. The next copy
+// must retire that DOM synchronously, even while the exit motion is pending.
+add_task(async function test_copy_retires_closing_offer() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  try {
+    await selectParagraph(tab.linkedBrowser);
+    await WhimsyCopy.copyFromShortcut(window, { markdown: false });
+    const offer = gZenUIManager.toasts.getToast("whimsy-copy-highlight");
+    ok(offer, "Selected text has an offer");
+    const closing = offer.close();
+    document.getElementById("cmd_zenCopyCurrentURLMarkdown").doCommand();
+    ok(!document.getElementById(OFFER_ID), "A new copy removes even a closing offer immediately");
+    await closing;
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
 add_task(async function test_no_selection_no_offer() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   await clearClipboard();
-  document.getElementById("cmd_zenCopyCurrentURL").doCommand();
+  await WhimsyCopy.copyFromShortcut(window, { markdown: false });
   await TestUtils.waitForCondition(() => clipboardText() == PAGE, "Copied");
   await TestUtils.waitForCondition(zenCopyToast, "The usual toast");
   ok(!document.getElementById(OFFER_ID), "No offer without a selection");
@@ -106,7 +125,7 @@ add_task(async function test_field_selection_no_offer() {
     field.select();
   });
   await clearClipboard();
-  document.getElementById("cmd_zenCopyCurrentURL").doCommand();
+  await WhimsyCopy.copyFromShortcut(window, { markdown: false });
   await TestUtils.waitForCondition(() => clipboardText().startsWith("https://example.com/"), "Copied");
   await TestUtils.waitForCondition(zenCopyToast, "The usual toast");
   ok(!document.getElementById(OFFER_ID), "A field's text can't be linked to: no offer");
@@ -119,7 +138,6 @@ add_task(async function test_markdown_copy_no_offer() {
   await clearClipboard();
   document.getElementById("cmd_zenCopyCurrentURLMarkdown").doCommand();
   await TestUtils.waitForCondition(() => clipboardText().includes(PAGE), "Copied as Markdown");
-  await new Promise(r => setTimeout(r, 300));
   ok(!document.getElementById(OFFER_ID), "Only Copy URL offers it");
   BrowserTestUtils.removeTab(tab);
 });

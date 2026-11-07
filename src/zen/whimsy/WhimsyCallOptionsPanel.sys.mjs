@@ -172,10 +172,13 @@ export const WhimsyCallOptionsPanel = {
         icon.setAttribute("src", ICON[kind]);
         row.prepend(icon);
         const detail = row.querySelector(".whimsy-surface-row-detail");
-        detail.id = `${labelId}-detail`;
-        toggle.setAttribute("aria-describedby", detail.id);
+        if (detail) {
+          detail.id = `${labelId}-detail`;
+          toggle.setAttribute("aria-describedby", detail.id);
+          detail.hidden = true;
+        }
         group.append(row);
-        rows.push({ kind, which, row, toggle, detail });
+        rows.push({ kind, which, row, label, toggle, detail });
       }
       view.append(heading.caption, group);
     }
@@ -185,12 +188,15 @@ export const WhimsyCallOptionsPanel = {
       seg.select(pip.buttonsDefault);
       setL10n(doc, seg.buttons[0], "whimsy-call-options-default-call", args);
       const missing = KINDS.filter(kind => !pip.displayState(browser, kind).inCallAvailable);
-      const fallback = pip.buttonsDefault == "call" && missing.length > 0;
+      const fallback = missing.length > 0;
       warn.hidden = !fallback;
       if (fallback) {
         setL10n(doc, warnText, "whimsy-call-options-fallback", args);
       }
-      for (const { kind, which, row, toggle, detail } of rows) {
+      for (const { kind, which, row, label, toggle, detail } of rows) {
+        if (which == "call") {
+          setL10n(doc, label, LABEL[kind].call, args);
+        }
         const d = pip.displayState(browser, kind);
         const available = which == "device" || d.inCallAvailable;
         // While the page answers a press, the knob stays where it was moved.
@@ -201,14 +207,37 @@ export const WhimsyCallOptionsPanel = {
         row.classList.toggle("whimsy-call-options-dim", !available);
         const hinted = pip.pressDoes(browser, kind) == which;
         row.toggleAttribute("whimsy-call-options-hinted", hinted && available);
-        if (!available) {
-          setL10n(doc, detail, MISSING[kind], args);
-          detail.hidden = false;
-        } else if (hinted) {
-          setL10n(doc, detail, HINT[kind]);
-          detail.hidden = false;
-        } else {
+        if (detail) {
           detail.hidden = true;
+        }
+        if (!available) {
+          if (detail) {
+            setL10n(doc, detail, MISSING[kind], args);
+            detail.hidden = false;
+          }
+          const token = (row._l10nToken = {});
+          doc.l10n.formatValue(MISSING[kind], args).then(text => {
+            if (row._l10nToken === token) {
+              row.setAttribute("tooltiptext", text);
+              toggle.setAttribute("aria-description", text);
+            }
+          });
+        } else if (hinted) {
+          if (detail) {
+            setL10n(doc, detail, HINT[kind]);
+            detail.hidden = false;
+          }
+          row.removeAttribute("tooltiptext");
+          const token = (row._l10nToken = {});
+          doc.l10n.formatValue(HINT[kind]).then(text => {
+            if (row._l10nToken === token) {
+              toggle.setAttribute("aria-description", text);
+            }
+          });
+        } else {
+          row._l10nToken = null;
+          row.removeAttribute("tooltiptext");
+          toggle.removeAttribute("aria-description");
         }
       }
     };

@@ -9,7 +9,7 @@
 // floating above every other window (full Arc parity, decided in the
 // build plan). Arc's flow: a link from Slack or Mail opens here so it never
 // costs you a tab in one of your spaces; glance at it, then either close it
-// (Cmd+W or the close button — gone for good, no history or session entry)
+// (Cmd+W or the close button — the page goes to the Archive)
 // or press "Open in <Space name>" (Cmd+O, matching Arc) to adopt it into a
 // real tab, or pick a different one (the caret button or Cmd+Shift+O).
 // wave7, from the 120 fps recording little-095501:
@@ -53,6 +53,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   CustomizableUI: "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
   WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs",
   WhimsyPrivateLock: "resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs",
   WhimsyProfileMoves: "resource:///modules/whimsy/WhimsyProfileMoves.sys.mjs",
@@ -365,6 +366,7 @@ export const WhimsyQuickWindow = {
       features: `location,resizable,${position},width=${width},height=${height}`,
     });
     win._whimsyQuickWindow = true;
+    win._whimsyMiniLastActive = Date.now();
     win._whimsyMiniBarOnly = barOnly;
     this._windows = (this._windows ?? []).filter(w => !w.closed);
     this._windows.push(win);
@@ -602,7 +604,7 @@ export const WhimsyQuickWindow = {
       if (win.closed || tab.closing) {
         continue;
       }
-      const landed = target.gBrowser.adoptTab(tab, { selectTab: tab == selected, spaceId });
+      const landed = this.adoptTab(target, tab, { selectTab: tab == selected, spaceId });
       moved ||= !!landed;
       if (tab == selected) {
         adopted = landed;
@@ -620,24 +622,57 @@ export const WhimsyQuickWindow = {
     return adopted ?? null;
   },
 
+  adoptTab(target, tab, options) {
+    // Gecko closes the source window while adopting its last tab, leaving
+    // that tab in the source strip without marking it closing. Exclude it
+    // before adoption, including when reduced motion closes synchronously.
+    const moved = tab.documentGlobal._whimsyMiniMovedTabs ??= new WeakSet();
+    moved.add(tab);
+    let landed;
+    try {
+      landed = target.gBrowser.adoptTab(tab, options);
+      return landed;
+    } finally {
+      if (!landed) {
+        moved.delete(tab);
+      }
+    }
+  },
+
   // wave6/parity: Little Arc fades out in place (~100 ms, no scale) when it
   // closes. Every close path (Cmd+W on its one tab, the close button, Esc in
   // the bar-only panel, moving the page to a space) ends in win.close(), so that's where the
   // fade goes; with reduced motion it closes at once.
   fadeOnClose(win) {
     const close = win.close.bind(win);
+    const archiveAndClose = () => {
+      // Closing a window need not dispatch TabClose for its remaining pages.
+      // Adopted and already closing tabs have left Mini and must stay skipped.
+      if (!win.closed) {
+        for (const tab of win.gBrowser.tabs) {
+          if (!tab.closing) {
+            try {
+              lazy.WhimsyArchive.recordClose(win, tab);
+            } catch (e) {
+              console.error("Whimsy: Mini archive close", e);
+            }
+          }
+        }
+      }
+      close();
+    };
     win.close = () => {
       const root = win.document.documentElement;
       if (root.hasAttribute(CLOSING_ATTR)) {
         return;
       }
       if (win.matchMedia("(prefers-reduced-motion: reduce)").matches || win.closed) {
-        close();
+        archiveAndClose();
         return;
       }
       root.setAttribute(CLOSING_ATTR, "");
       const ms = parseFloat(win.getComputedStyle(root).getPropertyValue("--whimsy-mini-close-duration")) || 100;
-      win.setTimeout(close, ms);
+      win.setTimeout(archiveAndClose, ms);
     };
   },
 
@@ -761,6 +796,11 @@ export const WhimsyQuickWindow = {
   // card as in a main window. Zen's own nav bar and sidebar stay hidden.
   initChrome(win) {
     const { document } = win;
+    const onDeactivate = () => {
+      win._whimsyMiniLastActive = Date.now();
+    };
+    win.addEventListener("deactivate", onDeactivate);
+    win.addEventListener("unload", () => win.removeEventListener("deactivate", onDeactivate), { once: true });
     // Mini is often closed moments after it opens. A urlbar query still
     // running then (Top Sites, started when its address bar wakes up) would
     // deliver results to a window whose urlbar actor is gone, which throws in
@@ -1912,10 +1952,11 @@ export const WhimsyQuickWindow = {
       added.setAttribute("zen-workspace-id", space.uuid);
       target.gZenWorkspaces.moveTabToWorkspace(added, space.uuid);
       placed.set(tab, added);
+      (win._whimsyMiniMovedTabs ??= new WeakSet()).add(tab);
     }
     for (const tab of adopt) {
       if (!win.closed && !tab.closing) {
-        placed.set(tab, target.gBrowser.adoptTab(tab, { selectTab: false, spaceId: space.uuid }));
+        placed.set(tab, this.adoptTab(target, tab, { selectTab: false, spaceId: space.uuid }));
       }
     }
     landed = placed.get(selected) ?? [...placed.values()].find(Boolean) ?? null;

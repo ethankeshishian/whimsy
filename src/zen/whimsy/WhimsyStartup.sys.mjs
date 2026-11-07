@@ -9,6 +9,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  ExtensionPreferencesManager: "resource://gre/modules/ExtensionPreferencesManager.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
@@ -31,6 +32,42 @@ export function clearRetiredPrefs() {
   }
 }
 
+// The privacy API only controls password saving. Let the same password
+// manager handle cards and addresses too, unless the person chose otherwise
+// in Settings. Default-branch writes never change or erase that user choice.
+export const WhimsyAutofill = {
+  _initialized: false,
+  _generation: 0,
+
+  init() {
+    if (this._initialized) {
+      return;
+    }
+    this._initialized = true;
+    Services.prefs.addObserver("signon.rememberSignons", this);
+    this.refresh().catch(e => console.error("Whimsy: autofill defaults", e));
+  },
+
+  observe(_subject, topic, name) {
+    if (topic == "nsPref:changed" && name == "signon.rememberSignons") {
+      this.refresh().catch(e => console.error("Whimsy: autofill defaults", e));
+    }
+  },
+
+  async refresh() {
+    const generation = ++this._generation;
+    const setting = await lazy.ExtensionPreferencesManager.getSetting("services.passwordSavingEnabled");
+    // A later notification may finish first during extension startup/unload.
+    if (generation != this._generation) {
+      return;
+    }
+    const enabled = !(setting?.id && setting.value === false);
+    const defaults = Services.prefs.getDefaultBranch("");
+    defaults.setBoolPref("extensions.formautofill.creditCards.enabled", enabled);
+    defaults.setBoolPref("extensions.formautofill.addresses.enabled", enabled);
+  },
+};
+
 export class WhimsyStartup {
   QueryInterface = ChromeUtils.generateQI(["nsIObserver"]);
 
@@ -38,6 +75,7 @@ export class WhimsyStartup {
     if (topic != "profile-after-change") {
       return;
     }
+    WhimsyAutofill.init();
     try {
       lazy.WhimsyUpdates.initChannel();
     } catch (e) {

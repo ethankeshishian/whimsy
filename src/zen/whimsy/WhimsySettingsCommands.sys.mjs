@@ -175,6 +175,8 @@ export const SETTINGS = [
     feature: ["ai-providers"], when: aiAllowed },
   { name: "firefox-tab-groups", setting: "whimsyAIFirefoxTabGroups", pref: "browser.tabs.groups.smart.userEnabled",
     feature: ["ai-providers"], when: aiAllowed },
+  { name: "autofill-payments", setting: "whimsyAutofillPayments", pref: "extensions.formautofill.creditCards.enabled" },
+  { name: "autofill-addresses", setting: "whimsyAutofillAddresses", pref: "extensions.formautofill.addresses.enabled" },
   { name: "strip-tracking", setting: "whimsyStripTracking", feature: ["strip-tracking"],
     get: () => Services.prefs.getBoolPref(STRIP_PREFS[0], false),
     // Same as the Settings switch: on restores the defaults (so Tracking
@@ -326,6 +328,12 @@ export const SETTINGS = [
       { value: "tab", l10nId: "whimsy-external-links-tab" },
       { value: "glance", l10nId: "whimsy-external-links-glance" },
     ] },
+  { name: "mini-archive-after", setting: "whimsyMiniArchiveAfter", pref: "whimsy.mini.archive-after",
+    feature: ["auto-archive-tabs"],
+    choices: ["6h", "12h", "24h", "never"].map(value => ({
+      value,
+      l10nId: `whimsy-mini-archive-after-${value}`,
+    })) },
   { name: "glance-size", setting: "whimsyGlanceSize", pref: "whimsy.glance.size", feature: ["glance-size"],
     command: ["cmd_whimsyGlanceSize"] },
   { name: "peek-essential-links", setting: "whimsyPeekEssentialLinks", pref: "zen.glance.open-essential-external-links",

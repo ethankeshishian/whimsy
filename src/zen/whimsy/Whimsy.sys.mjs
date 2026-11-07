@@ -527,6 +527,10 @@ export const Whimsy = {
   },
 
   initWindow(win) {
+    // Expose the shared connectivity probe for Browser Console diagnostics.
+    ChromeUtils.defineESModuleGetters(win, {
+      WhimsyNetProbe: "resource:///modules/whimsy/WhimsyNetErrorParent.sys.mjs",
+    });
     const run = (name, fn) => {
       try {
         fn();
@@ -544,8 +548,8 @@ export const Whimsy = {
     const deferred = [];
     const later = (name, fn) => deferred.push([name, fn]);
     run("stylesheet", () => {
-      win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET);
       win.windowUtils.loadSheetUsingURIString(SURFACE_SHEET, win.windowUtils.AUTHOR_SHEET);
+      win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET);
     });
     // batch12: Mini Whimsy, Arc's Little Arc (quick window). Set before
     // anything else reads the document, so whimsy-browser.css's rules

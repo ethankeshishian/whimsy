@@ -355,7 +355,7 @@ export const WhimsyVPN = {
     return this.canTurnOn() ? this.turnOn(win) : null;
   },
 
-  // The address bar control and the panel's switch: like toggle(), except
+  // The address bar control: like toggle(), except
   // that where the VPN is on for other spaces but not this one ("off
   // here"), turning it on adds this space instead of stopping it for all.
   async toggleHere(win) {
@@ -380,6 +380,7 @@ export const WhimsyVPN = {
   //   on          connected, and this space is covered ("browser" or
   //               "space" scope)
   //   elsewhere   connected for other spaces, not this one (off here)
+  //   paused      connected, with a temporary call exception for this tab
   uiState(win) {
     if (!this.wrapperEnabled || !this.masterEnabled ||
       lazy.IPProtectionService.state == lazy.IPProtectionStates.UNAVAILABLE) {
@@ -391,6 +392,9 @@ export const WhimsyVPN = {
     const scoped = lazy.WhimsyVPNScope.buttonState(win);
     if (scoped == "connecting" || (this.holding && scoped != "elsewhere")) {
       return { state: "connecting", scope: null };
+    }
+    if (this.canTurnOff() && this._paused.has(win.gBrowser?.selectedBrowser)) {
+      return { state: "paused", scope: null };
     }
     if (scoped == "browser" || scoped == "space") {
       return { state: "on", scope: scoped };
@@ -482,34 +486,26 @@ export const WhimsyVPN = {
     return control;
   },
 
-  // B: Whimsy's own section at the bottom of Firefox's IP Protection panel
-  // (the chevron's panel): a "Use VPN in this browser" switch with its state
-  // line and, only while it's on or connecting, the scope choice (All
-  // spaces | All spaces in <profile>) across the full width. It sits after
-  // the panel's body, not in it: Firefox clears and refills the body
-  // (ipprotection-content, a Lit element), and its createPanel() only runs
-  // while the body is empty. Built once per window and updated in place, so
-  // the knob and the thumb slide, the words never blank, and the scope row
-  // opens and closes.
-  buildPanelSection(win, view) {
+  // B: The scope choice follows Firefox's status card, even while off.
+  // Lit renders into the shadow root and leaves this slotted child intact.
+  buildPanelSection(win, content) {
     const doc = win.document;
     const S = lazy.WhimsySurface;
-    const section = doc.createXULElement("vbox");
+    const section = doc.createElementNS(HTML_NS, "div");
     section.id = SECTION_ID;
     section.className = "whimsy-vpn-panel-section whimsy-surface-tokens";
+    section.slot = "whimsy-after-status";
     const group = S.group(doc);
     group.classList.add("whimsy-vpn-panel-group");
-    const toggle = S.switch(doc, {
-      labelledBy: "whimsy-vpn-panel-name",
-      id: "whimsy-vpn-panel-switch",
-      onChange: () => this.toggleHere(win),
-    });
-    toggle.setAttribute("aria-describedby", "whimsy-vpn-panel-detail");
-    const { row, label } = S.row(doc, { l10nId: "whimsy-vpn-panel-name", detailL10nId: "whimsy-vpn-site-off", trailing: [toggle] });
-    label.id = "whimsy-vpn-panel-name";
-    const detail = row.querySelector(".whimsy-surface-row-detail");
+    const heading = doc.createElementNS(HTML_NS, "div");
+    heading.id = "whimsy-vpn-scope-heading";
+    heading.className = "whimsy-vpn-scope-heading";
+    doc.l10n.setAttributes(heading, "whimsy-vpn-scope-heading");
+    const detail = doc.createElementNS(HTML_NS, "div");
     detail.id = "whimsy-vpn-panel-detail";
-    row.classList.add("whimsy-vpn-panel-row");
+    detail.className = "whimsy-surface-row-detail";
+    detail.hidden = true;
+    doc.l10n.setAttributes(detail, "whimsy-vpn-site-elsewhere");
     const seg = S.seg(doc, {
       name: "whimsy-vpn-scope",
       label: null,
@@ -523,22 +519,17 @@ export const WhimsyVPN = {
         }
       },
     });
-    doc.l10n.setAttributes(seg.group, "whimsy-vpn-site-scope");
+    seg.group.setAttribute("aria-labelledby", heading.id);
     const scopeRow = doc.createElementNS(HTML_NS, "div");
     scopeRow.className = "whimsy-vpn-scope-row";
     const inner = doc.createElementNS(HTML_NS, "div");
     inner.className = "whimsy-vpn-scope-inner";
     inner.append(seg.group);
     scopeRow.append(inner);
-    group.append(row, scopeRow);
+    group.append(heading, scopeRow, detail);
     section.append(group);
-    const body = view.querySelector(".panel-subview-body");
-    if (body) {
-      body.after(section);
-    } else {
-      view.append(section);
-    }
-    this._siteParts.set(section, { row, toggle, detail, seg, scopeRow });
+    content.append(section);
+    this._siteParts.set(section, { detail, seg });
     return section;
   },
 
@@ -550,34 +541,27 @@ export const WhimsyVPN = {
   renderPanelSection(win, view = win.document.getElementById("PanelUI-ipprotection")) {
     const doc = win.document;
     let section = doc.getElementById(SECTION_ID);
-    const { state, scope } = this.uiState(win);
-    if (state == "hidden" || state == "setup" || !view) {
+    const { state } = this.uiState(win);
+    const content = view?.querySelector("ipprotection-content");
+    if (state == "hidden" || state == "setup" || !content) {
       section?.remove();
       return null;
     }
-    if (!section || !this._siteParts.has(section) || section.parentNode != view) {
+    if (!section || !this._siteParts.has(section) || section.parentNode != content) {
       section?.remove();
-      section = this.buildPanelSection(win, view);
+      section = this.buildPanelSection(win, content);
     }
-    const { row, toggle, detail, seg, scopeRow } = this._siteParts.get(section);
+    const { detail, seg } = this._siteParts.get(section);
     const Scope = lazy.WhimsyVPNScope;
     const profile = Scope.profileName(Scope.profileForWindow(win) ?? 0);
-    const on = state == "on" || state == "connecting";
-    row.setAttribute("state", state);
-    toggle.checked = on;
-    const id = state == "on" ? `whimsy-vpn-site-on-${scope}` : `whimsy-vpn-site-${state}`;
-    const args = state == "on" && scope == "space" ? { profile } : null;
-    const now = doc.l10n.getAttributes(detail);
-    if (now.id != id || JSON.stringify(now.args ?? null) != JSON.stringify(args)) {
-      doc.l10n.setAttributes(detail, id, args);
-    }
+    section.setAttribute("state", state);
+    detail.hidden = state != "elsewhere" && state != "paused";
+    doc.l10n.setAttributes(detail, state == "paused" ? "whimsy-vpn-paused" : "whimsy-vpn-site-elsewhere");
     const spaceButton = seg.buttons[1];
     if (doc.l10n.getAttributes(spaceButton).args?.profile != profile) {
       doc.l10n.setAttributes(spaceButton, "whimsy-vpn-scope-space", { profile });
     }
     seg.select(Scope.scopeChoice(win));
-    scopeRow.toggleAttribute("open", on);
-    scopeRow.inert = !on;
     return section;
   },
 
@@ -637,7 +621,9 @@ export const WhimsyVPN = {
         }
       }
     };
-    win.document.addEventListener("ViewShowing", onShowing, true);
+    // Firefox creates ipprotection-content in the view's own ViewShowing
+    // handler. Wait for bubbling so the slotted section has a host.
+    win.document.addEventListener("ViewShowing", onShowing);
     win.addEventListener("unload", () => {
       for (const pref of prefs) {
         Services.prefs.removeObserver(pref, update);
@@ -645,7 +631,7 @@ export const WhimsyVPN = {
       for (const [target, name] of events) {
         target.removeEventListener(name, update);
       }
-      win.document.removeEventListener("ViewShowing", onShowing, true);
+      win.document.removeEventListener("ViewShowing", onShowing);
     }, { once: true });
     update();
   },
@@ -779,6 +765,7 @@ export const WhimsyVPN = {
       cleanup: [],
     };
     this._paused.set(browser, entry);
+    this.updateAllUi();
     const tab = win.gBrowser.getTabForBrowser(browser);
     const onAttr = event => {
       if (event.target != tab || !event.detail?.changed?.includes("sharing") ||
@@ -837,12 +824,13 @@ export const WhimsyVPN = {
     } else {
       Services.perms.removeFromPrincipal(entry.principal, RULE_PERM);
     }
+    this.updateAllUi();
   },
 
   initWindow(win) {
     // vpnspace: Firefox's panel stays Firefox's (sign-in, location, usage);
-    // W13 F02 adds the address bar control and a section in the panel, both
-    // running toggle(), and takes Firefox's own toolbar button out of the
+    // W13 F02 adds the address bar control and a scope choice in the panel,
+    // and takes Firefox's own toolbar button out of the
     // default toolbar so there's exactly one visible control.
     this.hideButton();
     // Watches the switch itself, so it starts and stops with it.

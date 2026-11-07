@@ -174,21 +174,24 @@ add_task(async function test_zoom_stepper_reader_saved_zoom() {
     browser.browsingContext.currentWindowGlobal.getActor("AboutReader").sendAsyncMessage("Reader:ToggleReaderMode", {});
     await TestUtils.waitForCondition(() => browser.currentURI.spec.startsWith("about:reader"), "In Reader View");
     await openPanel();
-    const [out, value, into] = rowOf("zoom").querySelector(".whimsy-site-settings-stepper").children;
+    // Reader messages can rebuild the section after popupshown. Always
+    // inspect/click the controls currently on screen, not a detached row.
+    const control = name => rowOf("zoom").querySelector(`.whimsy-site-settings-zoom-${name}`);
+    const value = () => control("value");
     const shown = () => `${Math.round(ZoomManager.getZoomForBrowser(browser) * 100)}%`;
-    await TestUtils.waitForCondition(() => value.textContent == shown(), `The % shows the zoom (${value.textContent})`);
-    for (const [button, more] of [[into, true], [into, true], [out, false], [out, false], [out, false]]) {
+    await TestUtils.waitForCondition(() => value().textContent == shown(), `The % shows the zoom (${value().textContent})`);
+    for (const [button, more] of [["in", true], ["in", true], ["out", false], ["out", false], ["out", false]]) {
       const before = ZoomManager.getZoomForBrowser(browser);
-      EventUtils.synthesizeMouseAtCenter(button, {});
+      EventUtils.synthesizeMouseAtCenter(control(button), {});
       await TestUtils.waitForCondition(() => {
         const now = ZoomManager.getZoomForBrowser(browser);
         return more ? now > before : now < before;
       }, `${more ? "+" : "−"} steps the zoom`);
-      await TestUtils.waitForCondition(() => value.textContent == shown(), `...and the % follows (${value.textContent})`);
+      await TestUtils.waitForCondition(() => value().textContent == shown(), `...and the % follows (${value().textContent})`);
       is(panel().state, "open", "The panel stays open");
     }
-    EventUtils.synthesizeMouseAtCenter(value, {});
-    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) == 1 && value.textContent == "100%",
+    EventUtils.synthesizeMouseAtCenter(value(), {});
+    await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) == 1 && value().textContent == "100%",
       "The % resets Reader View's zoom");
     await closePanel();
     browser.browsingContext.currentWindowGlobal.getActor("AboutReader").sendAsyncMessage("Reader:ToggleReaderMode", {});
@@ -226,12 +229,12 @@ add_task(async function test_reader_zoom_shortcuts_follow() {
     await TestUtils.waitForCondition(() => document.getElementById("reader-mode-button").hasAttribute("readeractive"), "Reader View is on");
     const fontSize = Services.prefs.getIntPref("reader.font_size", 0);
     await openPanel();
-    const value = rowOf("zoom").querySelector(".whimsy-site-settings-zoom-value");
+    const value = () => rowOf("zoom").querySelector(".whimsy-site-settings-zoom-value");
     const zoomButton = document.getElementById("urlbar-zoom-button");
     EventUtils.synthesizeKey("+", { accelKey: true });
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "⌘+ zooms the Reader View page");
     const shown = `${Math.round(ZoomManager.getZoomForBrowser(browser) * 100)}%`;
-    await TestUtils.waitForCondition(() => value.textContent == shown, `The stepper follows (${value.textContent})`);
+    await TestUtils.waitForCondition(() => value().textContent == shown, `The stepper follows (${value().textContent})`);
     await TestUtils.waitForCondition(() => !zoomButton.hidden && zoomButton.getAttribute("label") == shown,
       `...and so does the address bar's zoom button (${zoomButton.getAttribute("label")})`);
     is(Services.prefs.getIntPref("reader.font_size", 0), fontSize, "Reader's own text size is left alone");
@@ -240,7 +243,7 @@ add_task(async function test_reader_zoom_shortcuts_follow() {
     EventUtils.synthesizeKey("+", { accelKey: true });
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "⌘+ again");
     EventUtils.synthesizeKey("0", { accelKey: true });
-    await TestUtils.waitForCondition(() => Math.abs(ZoomManager.getZoomForBrowser(browser) - 1) < 0.001 && value.textContent == "100%",
+    await TestUtils.waitForCondition(() => Math.abs(ZoomManager.getZoomForBrowser(browser) - 1) < 0.001 && value().textContent == "100%",
       "⌘0 resets it, and the stepper follows");
     await closePanel();
   } finally {
@@ -417,25 +420,40 @@ add_task(async function test_open_in_full_screen() {
   clearAll();
   const calls = [];
   const original = WhimsySiteSettings.enterFullscreen;
+  const tabs = [];
+  // Keep a neutral tab selected during teardown. Removing the last fixture
+  // otherwise selects an existing example.com tab while its rule is on.
+  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  tabs.push(keep);
   WhimsySiteSettings.enterFullscreen = win => calls.push(win);
-  registerCleanupFunction(() => (WhimsySiteSettings.enterFullscreen = original));
+  try {
+    WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, true);
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+    tabs.push(tab);
+    is(calls.length, 1, "Opening the site goes full screen");
+    is(calls[0], window, "in its window");
 
-  WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, true);
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
-  is(calls.length, 1, "Opening the site goes full screen");
-  is(calls[0], window, "in its window");
+    const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+    tabs.push(other);
+    await BrowserTestUtils.switchTab(gBrowser, tab);
+    is(calls.length, 1, "Coming back to the same tab doesn't force it again");
+    await BrowserTestUtils.switchTab(gBrowser, keep);
+    await BrowserTestUtils.removeTab(other);
+    await BrowserTestUtils.removeTab(tab);
 
-  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
-  await BrowserTestUtils.switchTab(gBrowser, tab);
-  is(calls.length, 1, "Coming back to the same tab doesn't force it again");
-  BrowserTestUtils.removeTab(other);
-  BrowserTestUtils.removeTab(tab);
-
-  WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, false);
-  const tab3 = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
-  is(calls.length, 1, "Forgotten: the site opens normally");
-  BrowserTestUtils.removeTab(tab3);
-  WhimsySiteSettings.enterFullscreen = original;
+    WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, false);
+    const tab3 = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+    tabs.push(tab3);
+    is(calls.length, 1, "Forgotten: the site opens normally");
+  } finally {
+    clearAll();
+    WhimsySiteSettings.enterFullscreen = original;
+    for (const tab of tabs.reverse()) {
+      if (tab.isConnected && !tab.closing) {
+        await BrowserTestUtils.removeTab(tab);
+      }
+    }
+  }
 });
 
 // W10-16: "Turn off fullscreen doesn't end full screen". The switch's off

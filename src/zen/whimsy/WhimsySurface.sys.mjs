@@ -181,7 +181,7 @@ export const WhimsySurface = {
       if (o.initialFocus !== false) {
         const initial = typeof o.initialFocus == "function" ? o.initialFocus() : o.initialFocus;
         const first = initial ?? footer?.querySelector("[default='true']") ?? this.focusables(view)[0];
-        first?.focus();
+        first?.focus({ focusVisible: false });
       }
       o.onShown?.();
     });

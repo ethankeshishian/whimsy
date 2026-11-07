@@ -29,6 +29,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCallControls.sys.mjs",
     "WhimsyCallOptionsPanel.sys.mjs",
     "WhimsyCallPip.sys.mjs",
+    "WhimsyCallVideos.sys.mjs",
     "WhimsyCaptions.sys.mjs",
     "WhimsyCaptionsChild.sys.mjs",
     "WhimsyCaptureCard.sys.mjs",

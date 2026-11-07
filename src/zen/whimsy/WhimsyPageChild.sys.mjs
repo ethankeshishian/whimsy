@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PRESS_AGAIN_SHARED_KEY: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   // W13-R3: call controls.
   WhimsyCallControls: "resource:///modules/whimsy/WhimsyCallControls.sys.mjs",
+  callVideos: "resource:///modules/whimsy/WhimsyCallVideos.sys.mjs",
 });
 
 // W13-R3: how long a toggle waits for the page to show the change (a camera
@@ -333,6 +334,14 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // wave3: floating calls (WhimsyCallPip).
       case "Whimsy:CallPip":
         return this.callPip();
+      case "Whimsy:CallLiveVideo": {
+        const live = this.liveCallVideos();
+        // Muting your camera can show the placeholder while the floated
+        // tile still plays. Another tile (including your self-view) is only
+        // a replacement when the current clone has stopped playing.
+        return !live.some(video => video.isCloningElementVisually) &&
+          live.some(video => !video.isCloningElementVisually);
+      }
       // W13-R3: the call page's own microphone and camera toggles (Meet),
       // the one source of truth for the small player and PiP.
       case "Whimsy:CallControlsWatch":
@@ -465,6 +474,12 @@ export class WhimsyPageChild extends JSWindowActorChild {
     this.stopCallControls();
   }
 
+  liveCallVideos() {
+    return [...(this.document?.querySelectorAll("video") ?? [])].filter(
+      video => !video.paused && video.readyState >= 2 && video.videoWidth > 0 && this.area(video) > 0
+    );
+  }
+
   // wave3: floating calls. Puts the call's main video (the active speaker's
   // tile, the biggest playing one, preferring others over your own mirrored
   // self-view) in picture-in-picture, the way Firefox's own tab-switch PiP
@@ -496,12 +511,13 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return false;
       }
     };
-    const live = videos.filter(v => !v.paused && v.readyState >= 2 && v.videoWidth > 0 && this.area(v) > 0);
+    const live = this.liveCallVideos();
     if (!live.length) {
       return false;
     }
     live.sort((a, b) => Number(mirrored(a)) - Number(mirrored(b)) || this.area(b) - this.area(a));
     const launcher = this.manager.getActor("PictureInPictureLauncher");
+    lazy.callVideos.add(live[0]);
     launcher.togglePictureInPicture({ video: live[0], reason: "AutoPip" }, false).catch(console.error);
     return true;
   }

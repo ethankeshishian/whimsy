@@ -153,6 +153,37 @@ function inView(rect, win) {
   return visibleW >= 12 && visibleH >= 12;
 }
 
+// Sample the visible box: page hit-testing ignores pointer-events:none
+// scrims and retargets shadow content to its host.
+function isUncovered(box, rect, win) {
+  if (!inView(rect, win)) {
+    return false;
+  }
+  const left = Math.max(rect.left, 0);
+  const top = Math.max(rect.top, 0);
+  const right = Math.min(rect.right, win.innerWidth);
+  const bottom = Math.min(rect.bottom, win.innerHeight);
+  const insetX = Math.min(8, (right - left) / 2);
+  const insetY = Math.min(8, (bottom - top) / 2);
+  const hosts = new Set();
+  for (let node = box; node; node = node.getRootNode().host) {
+    const host = node.getRootNode().host;
+    if (host) {
+      hosts.add(host);
+    }
+  }
+  return [
+    [(left + right) / 2, (top + bottom) / 2],
+    [left + insetX, top + insetY],
+    [right - insetX, top + insetY],
+    [left + insetX, bottom - insetY],
+    [right - insetX, bottom - insetY],
+  ].some(([x, y]) => {
+    const hit = box.ownerDocument.elementFromPoint(x, y);
+    return hit && (box == hit || box.contains(hit) || hosts.has(hit));
+  });
+}
+
 // What Cmd+V on `element` uploads to: { input } or { dropZone }, or null.
 // The one rule for what is an upload target: the paste, the badges and the
 // command all go through it.
@@ -902,7 +933,12 @@ export class WhimsyUploadChild extends JSWindowActorChild {
         clearTimeout(this.mutationTimer);
         this.mutationTimer = setTimeout(() => this.scheduleReport(), 150);
       });
-      this.observer.observe(this.document.documentElement, { childList: true, subtree: true });
+      this.observer.observe(this.document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class", "style", "hidden", "open", "aria-hidden"],
+      });
     } catch (e) {
       this.observer = null;
     }
@@ -960,7 +996,7 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     if (!zoomed) {
       for (const box of this.boxes) {
         const rect = rectOf(box);
-        if (rect && inView(rect, win)) {
+        if (rect && isUncovered(box, rect, win)) {
           targets.push({ id: this.idOf(box), x: rect.left, y: rect.top, w: rect.width, h: rect.height });
           if (targets.length >= MAX_REPORTED) {
             break;
@@ -987,7 +1023,7 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     const win = this.contentWindow;
     return this.boxes.filter(box => {
       const rect = rectOf(box);
-      return rect && inView(rect, win);
+      return rect && isUncovered(box, rect, win);
     }).slice(0, 3);
   }
 

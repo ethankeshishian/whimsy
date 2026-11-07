@@ -31,6 +31,89 @@ async function waitForState(id, state) {
   return WhimsyPlaylist.get(id);
 }
 
+add_task(async function test_library_search_sections_have_shared_layout() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.playlist", true]] });
+  const library = document.querySelector("zen-library");
+  ok(library, "The Library exists");
+  const { ZenLibrarySearchSection } = window.ChromeUtils.importESModule(
+    "moz-src:///zen/library/sections/ZenLibrarySearchSection.mjs",
+    { global: "current" }
+  );
+  const wasOpen = library.constructor.isLibraryOpen;
+  const wasTab = library.activeTab;
+  await TestUtils.waitForCondition(
+    () => library.zenLibrarySections["whimsy-playlist"],
+    "Playlist is registered"
+  );
+
+  try {
+    let checkedPlaylist = false;
+    for (const [id, Section] of Object.entries(library.zenLibrarySections)) {
+      if (!(Section.prototype instanceof ZenLibrarySearchSection)) {
+        continue;
+      }
+      library.activeTab = id;
+      await library.constructor.animateProgress(1);
+      await library.updateComplete;
+      const section = await TestUtils.waitForCondition(
+        () => library.querySelector(`.zen-library-section[data-section="${id}"]`),
+        `${id} is mounted`
+      );
+      await section.updateComplete;
+      ok(section.querySelector(".zen-library-search-box"), `${id} has a search box`);
+      ok(section.querySelector(".zen-library-search-results"), `${id} has a results scroller`);
+      ok(section.querySelector(".zen-library-search-sentinel"), `${id} has a scroll sentinel`);
+      checkedPlaylist ||= id == "whimsy-playlist";
+      if (id == "whimsy-playlist") {
+        await TestUtils.waitForCondition(
+          () => section.querySelector('[data-l10n-id="whimsy-playlist-empty"]'),
+          "An empty Playlist explains what to save"
+        );
+        await SpecialPowers.pushPrefEnv({ set: [["whimsy.playlist.offline-download", false]] });
+        try {
+          await BrowserTestUtils.withNewTab(PAGE, async browser => {
+            const item = await WhimsyPlaylist.add(window, {
+              url: VIDEO + "?library-search", title: "Saved concert", browser,
+            });
+            try {
+              await TestUtils.waitForCondition(
+                () => section.querySelector(".whimsy-playlist-row"),
+                "The saved video appears in Playlist"
+              );
+              const input = section.querySelector(".zen-library-search-box input");
+              input.value = "no-such-playlist-title";
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+              await TestUtils.waitForCondition(
+                () => section.querySelector('[data-l10n-id="whimsy-playlist-no-results"]'),
+                "Typing a search reaches the no-results state"
+              );
+              input.value = "concert";
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+              await TestUtils.waitForCondition(
+                () => section.querySelector(".whimsy-playlist-row"),
+                "A matching search shows the saved video"
+              );
+              input.value = "";
+              input.dispatchEvent(new Event("input", { bubbles: true }));
+              await TestUtils.waitForCondition(() => section.searchQuery == "", "Search is cleared");
+            } finally {
+              await WhimsyPlaylist.remove(item.id);
+            }
+          });
+        } finally {
+          await SpecialPowers.popPrefEnv();
+        }
+      }
+    }
+    ok(checkedPlaylist, "Playlist is covered by the search section checks");
+  } finally {
+    await library.constructor.animateProgress(0);
+    library.activeTab = wasTab;
+    await library.constructor.animateProgress(wasOpen ? 1 : 0);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 add_task(async function test_save_and_download() {
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
     toasts.length = 0;

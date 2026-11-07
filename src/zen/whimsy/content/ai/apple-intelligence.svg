@@ -1,0 +1,12 @@
+<!-- Apple brand mark identifying Apple Intelligence. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="intelligence" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#f28b59"/>
+      <stop offset=".35" stop-color="#e65a9c"/>
+      <stop offset=".65" stop-color="#a66bea"/>
+      <stop offset="1" stop-color="#539cf4"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#intelligence)" d="M17.1 1.2c.1 1.4-.4 2.7-1.3 3.7-.9 1-2.1 1.6-3.4 1.5-.2-1.3.4-2.7 1.2-3.6.9-1 2.3-1.6 3.5-1.6ZM20.9 17.2c-.5 1.2-.8 1.7-1.4 2.8-.9 1.4-2.1 3.1-3.7 3.1-1.4 0-1.8-.9-3.7-.9s-2.3.9-3.7.9c-1.6 0-2.7-1.5-3.6-2.9C2.3 16.3 2 11.5 3.5 9.1c1.1-1.7 2.8-2.7 4.4-2.7 1.6 0 2.6.9 3.9.9 1.2 0 2-.9 3.9-.9 1.4 0 3 .8 4.1 2.1-3.6 2-3 7.1 1.1 8.7Z"/>
+</svg>

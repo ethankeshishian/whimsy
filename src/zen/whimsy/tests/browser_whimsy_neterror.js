@@ -9,6 +9,11 @@ const realCheck = WhimsyNetProbe.check;
 WhimsyNetProbe.check = async () => null;
 registerCleanupFunction(() => (WhimsyNetProbe.check = realCheck));
 
+add_task(async function connectivity_probe_is_exposed_on_browser_window() {
+  is(window.WhimsyNetProbe, WhimsyNetProbe, "The browser window exposes the shared connectivity probe");
+  is(typeof window.WhimsyNetProbe.check, "function", "The console probe exposes check()");
+});
+
 async function withWhimsyError(error, test, certificate = false) {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   const browser = tab.linkedBrowser;

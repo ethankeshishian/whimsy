@@ -180,7 +180,10 @@ async function closeWithKey(tab) {
 
 async function closeAndWaitForReset(tab) {
   await closeWithKey(tab);
-  await TestUtils.waitForCondition(() => JSON.parse(SessionStore.getTabState(tab)).entries.length == 1, "...and reset it to its pinned page");
+  // Reset/unload updates SessionStore asynchronously. Keep this poll
+  // synchronous: a pending TabStateFlusher.flush would defeat maxTries.
+  await TestUtils.waitForCondition(() => JSON.parse(SessionStore.getTabState(tab)).entries.length == 1,
+    "...and reset it to its pinned page", 100, 300);
 }
 
 async function cleanUp(kind, tab, keep) {

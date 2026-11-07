@@ -53,45 +53,53 @@ function action(commandId) {
 }
 
 add_task(async function test_smart_buttons_registry_and_availability() {
-  ok(WhimsySmartButtons.enabled, "Smart buttons feature is enabled");
+  // Own the page/state under test. A preceding file may leave an HTTP page
+  // selected, which Firefox correctly considers translatable regardless of
+  // model readiness. withNewTab restores selection and removes our mutations.
+  await BrowserTestUtils.withNewTab("about:blank", async () => {
+    ok(WhimsySmartButtons.enabled, "Smart buttons feature is enabled");
 
-  // Duplicate commands removed: Firefox's native commands are used
-  ok(!WhimsyCommands.get("cmd_whimsyToggleReader"), "cmd_whimsyToggleReader duplicate is not registered");
-  ok(!WhimsyCommands.get("cmd_whimsyDownloads"), "cmd_whimsyDownloads duplicate is not registered");
+    // Duplicate commands removed: Firefox's native commands are used
+    ok(!WhimsyCommands.get("cmd_whimsyToggleReader"), "cmd_whimsyToggleReader duplicate is not registered");
+    ok(!WhimsyCommands.get("cmd_whimsyDownloads"), "cmd_whimsyDownloads duplicate is not registered");
 
-  // Picture-in-Picture command with icon and availability check
-  const pipCmd = { ...WhimsyCommands.get("cmd_whimsyPictureInPicture"), ...action("cmd_whimsyPictureInPicture") };
-  ok(WhimsyCommands.get("cmd_whimsyPictureInPicture"), "cmd_whimsyPictureInPicture is registered");
-  is(pipCmd.l10nId, "whimsy-action-picture-in-picture", "PiP command l10n id");
-  is(pipCmd.icon, "chrome://global/skin/media/picture-in-picture-open.svg", "PiP command icon");
-  ok(typeof pipCmd.isAvailable === "function", "PiP command has isAvailable function");
-  is(pipCmd.isAvailable(window), false, "PiP command is unavailable without eligible video");
+    // Picture-in-Picture command with icon and availability check
+    const pipCmd = { ...WhimsyCommands.get("cmd_whimsyPictureInPicture"), ...action("cmd_whimsyPictureInPicture") };
+    ok(WhimsyCommands.get("cmd_whimsyPictureInPicture"), "cmd_whimsyPictureInPicture is registered");
+    is(pipCmd.l10nId, "whimsy-action-picture-in-picture", "PiP command l10n id");
+    is(pipCmd.icon, "chrome://global/skin/media/picture-in-picture-open.svg", "PiP command icon");
+    ok(typeof pipCmd.isAvailable === "function", "PiP command has isAvailable function");
+    is(pipCmd.isAvailable(window), false, "PiP command is unavailable without eligible video");
 
-  // Play or Pause Media command with icon and availability check
-  const mediaCmd = { ...WhimsyCommands.get("cmd_whimsyPlayPauseMedia"), ...action("cmd_whimsyPlayPauseMedia") };
-  ok(WhimsyCommands.get("cmd_whimsyPlayPauseMedia"), "cmd_whimsyPlayPauseMedia is registered");
-  is(mediaCmd.l10nId, "whimsy-action-play-pause-media", "Media command l10n id");
-  is(mediaCmd.icon, "chrome://browser/skin/zen-icons/media-unmute.svg", "Media command icon");
-  ok(typeof mediaCmd.isAvailable === "function", "Media command has isAvailable function");
+    // Play or Pause Media command with icon and availability check
+    const mediaCmd = { ...WhimsyCommands.get("cmd_whimsyPlayPauseMedia"), ...action("cmd_whimsyPlayPauseMedia") };
+    ok(WhimsyCommands.get("cmd_whimsyPlayPauseMedia"), "cmd_whimsyPlayPauseMedia is registered");
+    is(mediaCmd.l10nId, "whimsy-action-play-pause-media", "Media command l10n id");
+    is(mediaCmd.icon, "chrome://browser/skin/zen-icons/media-unmute.svg", "Media command icon");
+    ok(typeof mediaCmd.isAvailable === "function", "Media command has isAvailable function");
 
-  const tab = gBrowser.selectedTab;
-  tab.soundplaying = true;
-  is(mediaCmd.isAvailable(window), true, "Media command is available when sound is playing");
-  tab.soundplaying = false;
+    const tab = gBrowser.selectedTab;
+    tab.soundplaying = true;
+    is(mediaCmd.isAvailable(window), true, "Media command is available when sound is playing");
+    tab.soundplaying = false;
 
-  // Translate Page command with icon and availability check
-  const translateCmd = { ...WhimsyCommands.get("cmd_whimsyTranslatePage"), ...action("cmd_whimsyTranslatePage") };
-  ok(WhimsyCommands.get("cmd_whimsyTranslatePage"), "cmd_whimsyTranslatePage is registered");
-  is(translateCmd.l10nId, "whimsy-action-translate-page", "Translate command l10n id");
-  is(translateCmd.icon, "chrome://browser/skin/translations.svg", "Translate command icon");
-  ok(typeof translateCmd.isAvailable === "function", "Translate command has isAvailable function");
+    // Translate Page command with icon and availability check
+    const translateCmd = { ...WhimsyCommands.get("cmd_whimsyTranslatePage"), ...action("cmd_whimsyTranslatePage") };
+    ok(WhimsyCommands.get("cmd_whimsyTranslatePage"), "cmd_whimsyTranslatePage is registered");
+    is(translateCmd.l10nId, "whimsy-action-translate-page", "Translate command l10n id");
+    is(translateCmd.icon, "chrome://browser/skin/translations.svg", "Translate command icon");
+    ok(typeof translateCmd.isAvailable === "function", "Translate command has isAvailable function");
 
-  // Running commands executes cleanly
-  // (Translate isn't run: tests have no translation models.)
-  ok(!translateCmd.isAvailable(window), "Translate isn't offered on a page Firefox can't translate");
-  for (const id of ["cmd_whimsyPictureInPicture", "cmd_whimsyPlayPauseMedia"]) {
-    document.getElementById(id).doCommand();
-  }
+    await TestUtils.waitForCondition(() => document.getElementById("translations-button").hidden,
+      "Translations UI reflects the restricted page", 100, 300);
+    ok(!translateCmd.isAvailable(window), "Translate isn't offered on a page Firefox can't translate");
+
+    // Running commands executes cleanly
+    // (Translate isn't run: tests have no translation models.)
+    for (const id of ["cmd_whimsyPictureInPicture", "cmd_whimsyPlayPauseMedia"]) {
+      document.getElementById(id).doCommand();
+    }
+  });
 });
 
 add_task(async function test_downloads_button_not_moved() {
@@ -186,6 +194,7 @@ add_task(async function test_pip_button_no_audio_repurposing() {
   ok(pipBtn, "PiP button exists in address bar");
 
   const tab = gBrowser.selectedTab;
+  const originalSoundplaying = tab.soundplaying;
   tab.soundplaying = true;
 
   // With audio playing, PiP button must NOT be repurposed with audio-playing attribute
@@ -194,7 +203,7 @@ add_task(async function test_pip_button_no_audio_repurposing() {
     !pipBtn.hasAttribute("whimsy-audio-playing"),
     "PiP button does not hijack audio playback (M9 parity)"
   );
-  tab.soundplaying = false;
+  tab.soundplaying = originalSoundplaying;
 });
 
 add_task(async function test_feature_switch_off_never_hides_downloads() {

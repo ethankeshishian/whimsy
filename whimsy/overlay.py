@@ -78,6 +78,89 @@ HOOKS = [
 
 HOTFIXES = [
     {
+        "id": "spaces-recreate-missing-empty-tab",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "A removed empty-tab sentinel leaves no close-selection fallback. "
+               "In Scratch this selects an Essential and leaves/deletes the space.",
+        "old": "      gZenUIManager.testingEnabled &&\n"
+               "      this._emptyTab &&\n"
+               "      (this._emptyTab.closing || !this._emptyTab.isConnected)\n"
+               "    ) {\n"
+               "      this._emptyTab = gBrowser.tabs.find(\n"
+               '        tab => tab.hasAttribute("zen-empty-tab") && !tab.closing\n'
+               "      );\n"
+               "    }",
+        "new": "      this.#hasFinishedInitialization &&\n"
+               "      !this._whimsyRestoringEmptyTab &&\n"
+               "      (!this._emptyTab || this._emptyTab.closing || !this._emptyTab.isConnected)\n"
+               "    ) {\n"
+               "      // Recover the sentinel before workspace selection or tab-close fallback.\n"
+               "      this._whimsyRestoringEmptyTab = true;\n"
+               "      try {\n"
+               "        this.#initializeEmptyTab();\n"
+               "      } finally {\n"
+               "        this._whimsyRestoringEmptyTab = false;\n"
+               "      }\n"
+               "    }",
+    },
+    {
+        "id": "spaces-reuse-only-live-empty-tab",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Empty-tab recovery must not reuse a sentinel still being removed.",
+        "old": '      if (tab.hasAttribute("zen-empty-tab") && !tab.pinned) {',
+        "new": '      if (tab.hasAttribute("zen-empty-tab") && !tab.pinned && !tab.closing && tab.isConnected) {',
+    },
+    {
+        "id": "library-spaces-defer-resize-write",
+        "file": "src/zen/library/sections/ZenLibrarySpacesSection.mjs",
+        "why": "Writing an ancestor's width during resize delivery resizes "
+               "the observed section again, leaving undelivered notifications.",
+        "old": "  #resizeObserver = new ResizeObserver(() => this.#updateLibraryWidth());",
+        "new": "  #resizeObserver = new ResizeObserver(() => {\n"
+               "    // Change the ancestor's width after resize delivery has finished.\n"
+               "    window.requestAnimationFrame(() => {\n"
+               "      if (this.isConnected) {\n"
+               "        this.#updateLibraryWidth();\n"
+               "      }\n"
+               "    });\n"
+               "  });",
+    },
+    {
+        "id": "library-spaces-copy-group-events",
+        "file": "src/zen/library/sections/ZenLibrarySpacesSection.mjs",
+        "why": "Connecting pinned tab copies dispatches group events on the real "
+               "collapsed pins section, causing an endless card rebuild loop.",
+        "old": "    if (this.contains(event.target) || lazy.isLibraryCopy(event.target)) {",
+        "new": "    // Group events target the real group and carry the copied tab in detail.\n"
+               "    if (\n"
+               "      this.contains(event.target) ||\n"
+               "      lazy.isLibraryCopy(event.target) ||\n"
+               "      lazy.isLibraryCopy(event.detail)\n"
+               "    ) {",
+    },
+    {
+        "id": "library-spaces-pins-workspace",
+        "file": "src/zen/library/sections/ZenLibrarySpacesSection.mjs",
+        "why": "Real pins group events belong to the enclosing workspace; "
+               "refresh only that card instead of every space.",
+        "old": '    target?.closest?.("[zen-workspace-id]")?.getAttribute("zen-workspace-id") ??\n'
+               "    null",
+        "new": '    target?.closest?.("[zen-workspace-id]")?.getAttribute("zen-workspace-id") ??\n'
+               '    target?.closest?.("zen-workspace")?.id ??\n'
+               "    null",
+    },
+    {
+        "id": "library-copy-event-detail-comment",
+        "file": "src/zen/library/ZenLibraryUtils.sys.mjs",
+        "why": "Group events identify the copied tab through detail, not their target.",
+        "old": " * Every copy is marked as it is made, tabs and folders alike, and what has to\n"
+               " * be held back are the events a tab or a folder raises about itself, so the\n"
+               " * element in hand is the whole answer.",
+        "new": " * Every copy is marked as it is made, tabs and folders alike. Check the\n"
+               " * event target for events raised on the copy itself, and event.detail for\n"
+               " * TabGrouped and TabUngrouped, which are dispatched on the real group.",
+    },
+    {
         "id": "pinned-tab-null-l10n-arg",
         "file": "src/zen/tabs/ZenPinnedTabManager.mjs",
         "why": "A null isEssential argument makes Fluent drop the whole tab "

@@ -54,6 +54,7 @@ function spaceOf(target) {
   return (
     target?.getAttribute?.("zen-workspace-id") ??
     target?.closest?.("[zen-workspace-id]")?.getAttribute("zen-workspace-id") ??
+    target?.closest?.("zen-workspace")?.id ??
     null
   );
 }
@@ -95,7 +96,12 @@ export class ZenLibrarySpacesSection extends MozLitElement {
     // A copy fires the same events as the real thing while it is being
     // built, and a copy that has just been thrown away fires them from
     // outside this element, where `contains` no longer answers for it.
-    if (this.contains(event.target) || lazy.isLibraryCopy(event.target)) {
+    // Group events target the real group and carry the copied tab in detail.
+    if (
+      this.contains(event.target) ||
+      lazy.isLibraryCopy(event.target) ||
+      lazy.isLibraryCopy(event.detail)
+    ) {
       return;
     }
     if (
@@ -109,7 +115,14 @@ export class ZenLibrarySpacesSection extends MozLitElement {
   #refreshTimer = null;
   /** @type {Set<string>|null} The spaces to rebuild, or null for every card */
   #pendingSpaces = new Set();
-  #resizeObserver = new ResizeObserver(() => this.#updateLibraryWidth());
+  #resizeObserver = new ResizeObserver(() => {
+    // Change the ancestor's width after resize delivery has finished.
+    window.requestAnimationFrame(() => {
+      if (this.isConnected) {
+        this.#updateLibraryWidth();
+      }
+    });
+  });
   /** @type {IntersectionObserver?} Fills a card once it is in view */
   #cardObserver = null;
   /** @type {Set<Element>} The cards close enough to be worth building */

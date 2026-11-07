@@ -156,8 +156,76 @@ export const WhimsyTabs = {
     update();
     this.initLoadingLine(win);
     this.initBadges(win);
+    this.initMailHover(win);
     this.initGroupByDomain(win);
     this.initPinnedMarks(win);
+  },
+
+  // Mail summaries use the title only; a missing count means zero, not
+  // message data fetched from the signed-in account. Other sites get no row.
+  mailUnreadCount(tab) {
+    const browser = this.contentOwner(tab)?.linkedBrowser;
+    try {
+      const url = new URL(browser?.currentURI?.spec);
+      const mail = url.protocol == "https:" && (
+        ["mail.google.com", "outlook.live.com", "outlook.office.com", "outlook.office365.com",
+          "mail.yahoo.com", "mail.proton.me", "mail.protonmail.com", "mail.aol.com"].includes(url.hostname) ||
+        (["www.icloud.com", "icloud.com"].includes(url.hostname) && /^\/mail(?:\/|$)/.test(url.pathname))
+      );
+      // Outlook's calendar shares its host with mail.
+      if (!mail || /^\/calendar(?:\/|$)/.test(url.pathname)) {
+        return null;
+      }
+      return parseUnreadCount(browser.contentTitle || tab.label);
+    } catch {
+      return null;
+    }
+  },
+
+  updateMailHover(win, tab) {
+    const panel = win.document.getElementById("tab-preview-panel");
+    if (!panel) {
+      return;
+    }
+    let row = panel.querySelector("#whimsy-mail-unread-preview");
+    const count = tab ? this.mailUnreadCount(tab) : null;
+    if (count == null) {
+      row?.remove();
+      return;
+    }
+    if (!row) {
+      row = win.document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      row.id = "whimsy-mail-unread-preview";
+      // Keep the summary beside the native preview's title and address.
+      (panel.querySelector(".tab-preview-title")?.parentElement || panel).append(row);
+    }
+    win.document.l10n.setAttributes(row, "whimsy-mail-unread-preview", { count });
+  },
+
+  initMailHover(win) {
+    let hovered = null;
+    const onHover = event => {
+      hovered = event.target.closest?.("tab");
+      this.updateMailHover(win, hovered);
+    };
+    const onPopup = event => {
+      if (event.target.id == "tab-preview-panel") {
+        this.updateMailHover(win, hovered);
+      }
+    };
+    const onTitle = event => {
+      if (event.target == hovered) {
+        this.updateMailHover(win, hovered);
+      }
+    };
+    win.addEventListener("TabHoverStart", onHover);
+    win.addEventListener("popupshowing", onPopup);
+    win.gBrowser.tabContainer.addEventListener("TabAttrModified", onTitle);
+    win.addEventListener("unload", () => {
+      win.removeEventListener("TabHoverStart", onHover);
+      win.removeEventListener("popupshowing", onPopup);
+      win.gBrowser.tabContainer.removeEventListener("TabAttrModified", onTitle);
+    }, { once: true });
   },
 
   // fix7/tabs: stray blue lines on pinned tabs. Two things drew them:

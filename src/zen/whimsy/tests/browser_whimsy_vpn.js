@@ -44,8 +44,12 @@ add_task(async function test_defaults() {
   ok(Services.prefs.getBoolPref("whimsy.feature.vpn"), "The feature switch is on");
   ok(Services.prefs.getBoolPref("browser.ipProtection.enabled"), "IP Protection is on by default");
   ok(
-    Services.prefs.getBoolPref("browser.ipProtection.features.siteInclusions"),
-    'Per-site "always use VPN" is on by default, on top of the existing exclusions'
+    !Services.prefs.getDefaultBranch("").getBoolPref("browser.ipProtection.features.siteInclusions"),
+    "Site inclusions stays off until Firefox provides a working add-rule flow"
+  );
+  ok(
+    Services.prefs.getDefaultBranch("").getBoolPref("browser.ipProtection.features.siteExceptions"),
+    "Site exclusions stay on for the panel toggle and website settings dialog"
   );
 });
 

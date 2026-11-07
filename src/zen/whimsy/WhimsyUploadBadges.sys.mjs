@@ -109,6 +109,15 @@ export const WhimsyUploadBadges = {
       return;
     }
     windows.add(win);
+    // Native panels can cover the page without a new target report.
+    const renderAfterOverlay = () => win.requestAnimationFrame(() => {
+      if (windows.has(win)) {
+        this.render(win.gBrowser.selectedBrowser);
+      }
+    });
+    for (const type of ["dialogopen", "dialogclose", "popupshown", "popuphidden"]) {
+      win.addEventListener(type, renderAfterOverlay, true);
+    }
     win.addEventListener("activate", () => this.check());
     win.gBrowser.tabContainer.addEventListener("TabSelect", event => this.onTabSelect(win, event));
     // A copy in Whimsy: Cmd+C or Cmd+X anywhere in the window, or a copy
@@ -328,6 +337,44 @@ export const WhimsyUploadBadges = {
       state.highlight.className = "whimsy-paste-highlight";
       state.highlight.hidden = true;
       state.layer.append(state.highlight);
+      // Tab dialogs live outside .browserStack. Observe their container,
+      // ignoring our own rendering so badge changes cannot feed this observer.
+      const container = browser.closest(".browserSidebarContainer");
+      if (container) {
+        let queued = false;
+        const win = doc.defaultView;
+        const observer = new win.MutationObserver(records => {
+          if (queued || !records.some(record => !state.layer.contains(record.target))) {
+            return;
+          }
+          queued = true;
+          win.requestAnimationFrame(() => {
+            queued = false;
+            if (browser.isConnected) {
+              this.render(browser);
+            }
+          });
+        });
+        observer.observe(container, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["class", "style", "hidden", "open"],
+        });
+        const tabContainer = win.gBrowser.tabContainer;
+        const cleanup = () => {
+          observer.disconnect();
+          tabContainer.removeEventListener("TabClose", onTabClose);
+          win.removeEventListener("unload", cleanup);
+        };
+        const onTabClose = event => {
+          if (event.target.linkedBrowser == browser) {
+            cleanup();
+          }
+        };
+        tabContainer.addEventListener("TabClose", onTabClose);
+        win.addEventListener("unload", cleanup, { once: true });
+      }
     }
     if (state.layer.parentNode != stack) {
       stack.append(state.layer);
@@ -449,6 +496,7 @@ export const WhimsyUploadBadges = {
       avoid && top < avoid.y + avoid.h && top + BADGE_H > avoid.y && left < avoid.x + avoid.w && right > avoid.x;
 
     const kind = clip?.kind == "file" ? "file" : "image";
+    const visible = new Set();
     for (const id of shown) {
       const target = byId.get(id);
       const r = toLayer(target);
@@ -485,10 +533,22 @@ export const WhimsyUploadBadges = {
       }
       button.style.top = `${Math.round(top)}px`;
       button.style.right = `${Math.round(right)}px`;
+      // Measure the actual pill (including its hot/status width), then ignore
+      // our layer when asking what chrome would receive the pointer here.
+      button.hidden = false;
+      const badgeRect = button.getBoundingClientRect();
+      const hit = browser.ownerDocument.elementsFromPoint(
+        badgeRect.left + badgeRect.width / 2,
+        badgeRect.top + badgeRect.height / 2
+      ).find(element => !state.layer.contains(element));
+      button.hidden = hit != browser;
+      if (!button.hidden) {
+        visible.add(id);
+      }
     }
 
-    // The drag-style highlight on the hot box.
-    if (hot != null) {
+    // The drag-style highlight follows only an uncovered pill.
+    if (hot != null && visible.has(hot)) {
       const r = toLayer(byId.get(hot));
       Object.assign(state.highlight.style, {
         left: `${Math.round(r.x)}px`,

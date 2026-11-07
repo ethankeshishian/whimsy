@@ -292,3 +292,92 @@ add_task(async function test_command_and_switches() {
   Services.prefs.clearUserPref(WhimsyPasteGuard.ENABLED_PREF);
   BrowserTestUtils.removeTab(tab);
 });
+
+// Upload pills must follow page and chrome occlusion, even when a site's
+// popup changes only a class. Force only the clipboard mode; target reporting
+// and both hit-tests still run through the real actors and chrome layer.
+async function withUploadOverlayPage(run) {
+  const { WhimsyUploadBadges } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyUploadBadges.sys.mjs"
+  );
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.upload-clipboard", true],
+    ["whimsy.uploadClipboard.badges", true],
+  ] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  const originalModeFor = WhimsyUploadBadges.modeFor;
+  WhimsyUploadBadges.modeFor = function(target) {
+    return target == browser ? "badges" : originalModeFor.call(this, target);
+  };
+  const badges = () => [...browser.closest(".browserStack").querySelectorAll(".whimsy-paste-badge")]
+    .filter(button => !button.hidden && button.getBoundingClientRect().width > 0);
+  try {
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.head.innerHTML = `<style>
+        #upload-zone { position: fixed; left: 40%; top: 45%; width: 180px; height: 100px; }
+        #upload-modal { display: none; position: fixed; inset: 0; z-index: 9999; background: white; }
+        #upload-modal.shown { display: block; }
+        #upload-modal.pass-through { pointer-events: none; }
+      </style>`;
+      content.document.body.innerHTML = `<div id="upload-zone" class="dropzone">Upload</div>
+        <div id="upload-modal">Site popup</div>`;
+    });
+    WhimsyUploadBadges.push(browser);
+    await TestUtils.waitForCondition(() => badges().length == 1, "An uncovered upload target has a badge");
+    await run(browser, badges);
+  } finally {
+    WhimsyUploadBadges.modeFor = originalModeFor;
+    WhimsyUploadBadges.push(browser);
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+}
+
+add_task(async function test_upload_badge_under_site_modal() {
+  await withUploadOverlayPage(async (browser, badges) => {
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.getElementById("upload-modal").classList.add("shown");
+    });
+    await TestUtils.waitForCondition(() => badges().length == 0, "A class-toggled site popup hides the badge");
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.getElementById("upload-modal").classList.remove("shown");
+    });
+    await TestUtils.waitForCondition(() => badges().length == 1, "Closing the site popup restores the badge");
+  });
+});
+
+add_task(async function test_upload_badge_through_pointer_events_none() {
+  await withUploadOverlayPage(async (browser, badges) => {
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.getElementById("upload-modal").classList.add("shown");
+    });
+    await TestUtils.waitForCondition(() => badges().length == 0, "The intercepting modal hides the badge first");
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.getElementById("upload-modal").classList.add("pass-through");
+    });
+    await TestUtils.waitForCondition(() => badges().length == 1, "A pointer-events:none modal allows the badge");
+  });
+});
+
+add_task(async function test_upload_badge_under_tab_dialog() {
+  await withUploadOverlayPage(async (browser, badges) => {
+    // Tab dialogs allow only chrome: frames. This packaged page loads standalone
+    // without dialog arguments; PAGE remains the upload fixture underneath it.
+    const { dialog, closedPromise } = gBrowser.getTabDialogBox(browser).open(
+      "chrome://global/content/aboutAbout.html",
+      { features: "resizable=yes" }
+    );
+    try {
+      await dialog._dialogReady;
+      const doc = dialog._frame.contentDocument;
+      doc.body.style.cssText = "width:80vw;height:70vh";
+      await dialog.resizeDialog();
+      await TestUtils.waitForCondition(() => badges().length == 0, "A tab dialog hides the upload badge");
+    } finally {
+      dialog.close();
+      await closedPromise;
+    }
+    await TestUtils.waitForCondition(() => badges().length == 1, "Closing the tab dialog restores the badge");
+  });
+});

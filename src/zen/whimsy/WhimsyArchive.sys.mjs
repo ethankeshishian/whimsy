@@ -42,6 +42,13 @@ const PRIVATE_TAB_ATTR = "whimsy-private";
 const SWEEP_FEATURE_PREF = "whimsy.feature.auto-archive-tabs";
 const VIEW_FEATURE_PREF = "whimsy.feature.archive-view";
 const IDLE_PREF = "whimsy.tabs.archive.idle-after";
+const MINI_IDLE_PREF = "whimsy.mini.archive-after";
+const MINI_IDLE_MS = {
+  "6h": 6 * 3600 * 1000,
+  "12h": 12 * 3600 * 1000,
+  "24h": 24 * 3600 * 1000,
+  never: Infinity,
+};
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 
 // Custom tab values (SessionStore.setCustomTabValue): they're collected
@@ -187,14 +194,14 @@ export const WhimsyArchive = {
   recordClose(win, tab) {
     if (
       !this.viewEnabled ||
+      win._whimsyMiniMovedTabs?.has(tab) ||
       lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
       tab.hasAttribute(PRIVATE_TAB_ATTR) ||
       tab.hasAttribute("zen-empty-tab") ||
       tab.hasAttribute("zen-glance-tab") ||
-      win._whimsyQuickWindow ||
       // wave9/mini: a site's popup (a sign-in popup closing itself) is not
       // a tab you closed; Zen's session manager skips popups too.
-      !win.toolbar.visible
+      (!win._whimsyQuickWindow && !win.toolbar.visible)
     ) {
       return null;
     }
@@ -237,7 +244,7 @@ export const WhimsyArchive = {
       url: active?.url || "",
       image,
       closedAt: now,
-      reason: state.extData[REASON_KEY] || "closed",
+      reason: win._whimsyQuickWindow ? "mini" : state.extData[REASON_KEY] || "closed",
       groupId: state.extData[GROUP_KEY] || null,
       zenWorkspace: full.zenWorkspace || tab.getAttribute("zen-workspace-id") || "",
       state,
@@ -282,7 +289,7 @@ export const WhimsyArchive = {
   initSweep(win) {
     const timerId = win.setInterval(() => {
       try {
-        this.sweepWindow(win);
+        this.sweepTick(win);
       } catch (e) {
         console.error("Whimsy: archive sweep", e);
       }
@@ -290,12 +297,45 @@ export const WhimsyArchive = {
     win.addEventListener("unload", () => win.clearInterval(timerId), { once: true });
   },
 
+  sweepTick(win) {
+    if (win.closed || !this.sweepEnabled) {
+      return;
+    }
+    if (win._whimsyQuickWindow) {
+      this.sweepMiniWindow(win);
+    } else {
+      this.sweepWindow(win);
+    }
+  },
+
+  sweepMiniWindow(win) {
+    const choice = Services.prefs.getStringPref(MINI_IDLE_PREF, "6h");
+    const threshold = MINI_IDLE_MS[choice] ?? MINI_IDLE_MS["6h"];
+    const now = Date.now();
+    if (
+      !Number.isFinite(threshold) ||
+      win.document.hasFocus() ||
+      !Number.isFinite(win._whimsyMiniLastActive) ||
+      now - win._whimsyMiniLastActive < threshold
+    ) {
+      return;
+    }
+    const tabs = [...win.gBrowser.tabs];
+    if (tabs.some(tab => this.isSweepExempt(tab, { includeSelected: false }))) {
+      return;
+    }
+    this.archiveTabs(win, tabs, { reason: "mini", groupId: `mini-${now}` });
+    if (!win.closed) {
+      win.close();
+    }
+  },
+
   // Tabs that stay out of the sweep no matter how long they've sat: pinned,
   // Essentials, playing or showing picture-in-picture, the selected tab,
   // and anything in a split view.
-  isSweepExempt(tab) {
+  isSweepExempt(tab, { includeSelected = true } = {}) {
     return (
-      tab.selected ||
+      (includeSelected && tab.selected) ||
       tab.hasAttribute(PRIVATE_TAB_ATTR) ||
       tab.pinned ||
       tab.hasAttribute("zen-essential") ||
@@ -310,7 +350,7 @@ export const WhimsyArchive = {
   },
 
   sweepWindow(win) {
-    if (!this.sweepEnabled) {
+    if (!this.sweepEnabled || win._whimsyQuickWindow) {
       return;
     }
     const threshold = this.idleThresholdMs();

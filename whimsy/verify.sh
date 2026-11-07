@@ -112,4 +112,5 @@ ls "$WHIMSY_SHOTS"
 # gate) of a clean checkout, testing a full build of that same commit, lets
 # it move the release tag (.surfer/verify/verified.json).
 python3 whimsy/updater/updater.py record-verify "$MODE" "$status" || true
+python3 whimsy/vfail.py || true
 exit $status

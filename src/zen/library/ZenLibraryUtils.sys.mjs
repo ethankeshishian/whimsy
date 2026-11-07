@@ -62,9 +62,9 @@ for (const [group, extensions] of Object.entries(GROUP_EXTENSIONS)) {
 export const LIBRARY_COPY_ATTRIBUTE = "zen-library-copy";
 
 /**
- * Every copy is marked as it is made, tabs and folders alike, and what has to
- * be held back are the events a tab or a folder raises about itself, so the
- * element in hand is the whole answer.
+ * Every copy is marked as it is made, tabs and folders alike. Check the
+ * event target for events raised on the copy itself, and event.detail for
+ * TabGrouped and TabUngrouped, which are dispatched on the real group.
  *
  * @param {EventTarget} target - What an event happened to
  * @returns {boolean} Whether it is one of the library's copies, connected or

@@ -261,7 +261,7 @@ class nsZenWorkspaces {
   #initializeEmptyTab() {
     for (const tab of gBrowser.tabs) {
       // Check if session store has an empty tab
-      if (tab.hasAttribute("zen-empty-tab") && !tab.pinned) {
+      if (tab.hasAttribute("zen-empty-tab") && !tab.pinned && !tab.closing && tab.isConnected) {
         this.log("Found existing empty tab from session store!");
         this._emptyTab = tab;
         return;
@@ -2025,13 +2025,17 @@ class nsZenWorkspaces {
 
   makeSureEmptyTabIsFirst() {
     if (
-      gZenUIManager.testingEnabled &&
-      this._emptyTab &&
-      (this._emptyTab.closing || !this._emptyTab.isConnected)
+      this.#hasFinishedInitialization &&
+      !this._whimsyRestoringEmptyTab &&
+      (!this._emptyTab || this._emptyTab.closing || !this._emptyTab.isConnected)
     ) {
-      this._emptyTab = gBrowser.tabs.find(
-        tab => tab.hasAttribute("zen-empty-tab") && !tab.closing
-      );
+      // Recover the sentinel before workspace selection or tab-close fallback.
+      this._whimsyRestoringEmptyTab = true;
+      try {
+        this.#initializeEmptyTab();
+      } finally {
+        this._whimsyRestoringEmptyTab = false;
+      }
     }
     const emptyTab = this._emptyTab;
     if (emptyTab) {

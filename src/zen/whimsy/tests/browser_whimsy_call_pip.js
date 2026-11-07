@@ -17,7 +17,7 @@ function pipWindow() {
 }
 
 // One call for the whole file: a second getUserMedia in the same run never
-// resolved under the fake devices, so both tasks use this call and it hangs
+// resolved under the fake devices, so the tasks use this call and it hangs
 // up at the end.
 let sharedCall = null;
 async function openCall() {
@@ -120,6 +120,85 @@ add_task(async function test_call_floats_and_returns() {
   await closed2;
 
   BrowserTestUtils.removeTab(other);
+});
+
+add_task(async function test_call_pip_stays_closed_until_call_tab_is_revisited() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  try {
+    const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+    gBrowser.selectedTab = other;
+    const pip = await opened;
+    await TestUtils.waitForCondition(() => pip._whimsyCallBrowser == browser, "The call floats");
+
+    const closed = BrowserTestUtils.domWindowClosed(pip);
+    EventUtils.synthesizeMouseAtCenter(pip.document.getElementById("close"), {}, pip);
+    await closed;
+    ok(WhimsyCallPip._closedByHand.has(browser), "Closing the player records the user's choice");
+
+    // Wait beyond the unload retry, including Firefox consuming its flag
+    // when the call page becomes hidden after the player closes.
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    ok(!pipWindow(), "The call PiP stays closed after two seconds");
+    ok(WhimsyCallPip._closedByHand.has(browser), "Whimsy retains the deliberate-close record");
+
+    gBrowser.selectedTab = call;
+    ok(!WhimsyCallPip._closedByHand.has(browser), "Revisiting the call clears the record");
+    const reopened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+    gBrowser.selectedTab = other;
+    const pip2 = await reopened;
+    await TestUtils.waitForCondition(() => pip2._whimsyCallBrowser == browser, "Leaving the call floats it again");
+    const closed2 = BrowserTestUtils.domWindowClosed(pip2);
+    gBrowser.selectedTab = call;
+    await closed2;
+  } finally {
+    gBrowser.selectedTab = call;
+    BrowserTestUtils.removeTab(other);
+  }
+});
+
+// Minimize uses the same CloseButton reason as X: Firefox can consume its
+// own deliberate-close flag before Whimsy's delayed unload retry runs.
+add_task(async function test_call_pip_minimize_stays_closed_until_call_tab_is_revisited() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  const other = BrowserTestUtils.addTab(gBrowser, "about:blank");
+  try {
+    const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+    gBrowser.selectedTab = other;
+    const pip = await opened;
+    await TestUtils.waitForCondition(() => pip._whimsyCallBrowser == browser, "The call floats");
+
+    const minimize = pip.document.getElementById("minimize");
+    ok(minimize, "The call PiP has its minimize button");
+    EventUtils.synthesizeMouseAtCenter(pip.document.getElementById("controls"), { type: "mousemove" }, pip);
+    const closed = BrowserTestUtils.domWindowClosed(pip);
+    EventUtils.synthesizeMouseAtCenter(minimize, {}, pip);
+    await closed;
+    ok(WhimsyCallPip._closedByHand.has(browser), "Minimizing records the user's choice");
+    is(gBrowser.selectedTab, other, "Minimizing keeps the call tab in the background");
+
+    // Wait beyond the unload retry and Firefox consuming its own flag.
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    ok(!pipWindow(), "The minimized call PiP stays closed after two seconds");
+    ok(WhimsyCallPip._closedByHand.has(browser), "Whimsy retains the minimize record");
+
+    gBrowser.selectedTab = call;
+    ok(!WhimsyCallPip._closedByHand.has(browser), "Revisiting the call clears the minimize record");
+    const reopened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+    gBrowser.selectedTab = other;
+    const pip2 = await reopened;
+    await TestUtils.waitForCondition(() => pip2._whimsyCallBrowser == browser, "Leaving the call floats it again");
+    const closed2 = BrowserTestUtils.domWindowClosed(pip2);
+    gBrowser.selectedTab = call;
+    await closed2;
+  } finally {
+    gBrowser.selectedTab = call;
+    BrowserTestUtils.removeTab(other);
+  }
 });
 
 // The call's microphone and camera in the PiP window are covered by

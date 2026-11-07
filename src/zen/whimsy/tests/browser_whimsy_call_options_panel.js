@@ -370,6 +370,9 @@ async function test_fallback_shows_when_the_page_mute_is_missing() {
     await TestUtils.waitForCondition(() => detailOf(panel, "mic-in-call") == "Mic button", "…and the hint returns");
   } finally {
     panel.hidePopup();
+    // All tasks share this call. A failed fallback check must not leave
+    // its controls removed for the next task.
+    await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.restoreControls());
   }
 }
 addViaTasks(test_fallback_shows_when_the_page_mute_is_missing);

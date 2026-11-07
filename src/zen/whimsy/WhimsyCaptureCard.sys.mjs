@@ -61,8 +61,6 @@ const VIEWER_SHEET = "chrome://browser/content/whimsy/whimsy-capture-viewer.css"
 const FLASH_MS = 1500;
 
 const EDITOR_ID = "whimsy-capture-editor";
-const EDITOR_WIDTH = 720;
-const PREVIEW_HEIGHT = 360;
 
 export const BACKDROPS = ["gradient", "white", "dark", "none"];
 export const SHAPES = { auto: null, "16:9": 16 / 9, "1:1": 1, "4:5": 4 / 5 };
@@ -754,7 +752,7 @@ export const WhimsyCaptureCard = {
     };
     const fromLibrary = capture.from == "library";
     const area = S.pageArea(win).getBoundingClientRect();
-    const width = Math.max(320, Math.min(EDITOR_WIDTH, Math.round(area.width - 40)));
+    const width = Math.max(320, Math.round(area.width - 80));
     const parts = S.create(win, {
       id: EDITOR_ID,
       width,
@@ -943,6 +941,7 @@ export const WhimsyCaptureCard = {
     };
     panel._setTool = setTool;
 
+    let previewHeight = 1;
     // Draws the preview and the controls' state.
     const sync = () => {
       for (const b of backdrops.children) {
@@ -962,13 +961,21 @@ export const WhimsyCaptureCard = {
       const { canvas, layout } = this.compose(doc, state.image, state);
       state.layout = layout;
       const maxW = width - 20;
-      const scale = Math.min(1, maxW / canvas.width, PREVIEW_HEIGHT / canvas.height);
+      const scale = Math.min(1, maxW / canvas.width, previewHeight / canvas.height);
       state.scale = scale;
-      preview.width = Math.max(1, Math.round(canvas.width * scale));
-      preview.height = Math.max(1, Math.round(canvas.height * scale));
+      const cssW = Math.max(1, Math.round(canvas.width * scale));
+      const cssH = Math.max(1, Math.round(canvas.height * scale));
+      // Keep pointer coordinates in CSS pixels; only the backing store
+      // follows the screen density, capped at the source resolution.
+      const backing = Math.min(win.devicePixelRatio || 1, 1 / scale);
+      preview.width = Math.round(cssW * backing);
+      preview.height = Math.round(cssH * backing);
+      preview.style.width = `${cssW}px`;
+      preview.style.height = `${cssH}px`;
       const p = preview.getContext("2d");
-      p.clearRect(0, 0, preview.width, preview.height);
-      p.drawImage(canvas, 0, 0, preview.width, preview.height);
+      p.setTransform(preview.width / cssW, 0, 0, preview.height / cssH, 0, 0);
+      p.clearRect(0, 0, cssW, cssH);
+      p.drawImage(canvas, 0, 0, cssW, cssH);
       if (state.drawing) {
         const r = state.drawing;
         p.strokeStyle = "rgba(255, 255, 255, 0.9)";
@@ -1039,6 +1046,7 @@ export const WhimsyCaptureCard = {
     });
 
     sync();
+    const shown = new Promise(resolve => panel.addEventListener("popupshown", resolve, { once: true }));
     S.open(win, panel, { at: "page-top-center" });
     // Edit pressed as soon as the viewer shows: its image may not have been
     // read yet (W16-19's check found createImageBitmap(null) there).
@@ -1050,6 +1058,14 @@ export const WhimsyCaptureCard = {
       state.image = await win.createImageBitmap(capture.blob);
     }
     if (panel.isConnected) {
+      await shown;
+      await doc.l10n.translateFragment(panel);
+      // Measure the actual header, wrapped toolbar, hint and footer after
+      // layout, leaving room around the editor and for the stage padding.
+      const nonImageHeight = panel.getBoundingClientRect().height - stage.getBoundingClientRect().height;
+      const stageStyle = win.getComputedStyle(stage);
+      const stagePadding = parseFloat(stageStyle.paddingTop) + parseFloat(stageStyle.paddingBottom);
+      previewHeight = Math.max(1, Math.floor(area.height - 80 - nonImageHeight - stagePadding));
       sync();
     }
     return panel;

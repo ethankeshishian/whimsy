@@ -247,6 +247,28 @@ add_task(async function test_scratch_space() {
   }
 });
 
+// A removed internal sentinel (for example after test-window cleanup) must
+// be recreated before switching into an empty space or closing its last tab.
+add_task(async function test_scratch_recovers_removed_empty_tab() {
+  const startSpace = gZenWorkspaces.activeWorkspace;
+  const scratch = await WhimsyPrivate.openScratch(window, { withTab: true });
+  const tab = gBrowser.selectedTab;
+  await waitForPage(tab);
+  const emptyTab = gZenWorkspaces._emptyTab;
+  ok(emptyTab?.isConnected, "There is a live empty-tab sentinel");
+  await closeTab(emptyTab);
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  await gZenWorkspaces.changeWorkspaceWithID(scratch.uuid);
+  const replacement = gZenWorkspaces._emptyTab;
+  ok(replacement?.isConnected && !replacement.closing, "Switching recreates the sentinel");
+  isnot(replacement, emptyTab, "The removed sentinel is not reused");
+  await closeTab(tab);
+  is(gBrowser.selectedTab, replacement, "Closing the last private tab selects the live sentinel");
+  is(WhimsyPrivate.getScratch(window)?.uuid, scratch.uuid, "Scratch stays until left");
+  await gZenWorkspaces.changeWorkspaceWithID(startSpace);
+  await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Leaving empty Scratch removes it");
+});
+
 // W10-09: the Private Space opens empty, so closing its last tab no longer
 // removes it (its empty state comes back); leaving it empty does.
 add_task(async function test_closing_last_scratch_tab_keeps_it_until_left() {

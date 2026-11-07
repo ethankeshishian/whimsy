@@ -116,13 +116,13 @@ function normalRows(results) {
     r.providerName == "UrlbarProviderRemoteTabs" ||
     (r.payload?.url ?? "").includes(`${TOKEN}=history`) ||
     (r.payload?.url ?? "").includes(`${TOKEN}=bookmark`) ||
-    (r.payload?.url ?? "").includes(`${TOKEN}=tab`) ||
+    (r.payload?.tabUrl ?? r.payload?.url ?? "").includes(`${TOKEN}=tab`) ||
     (r.payload?.suggestion ?? "").includes(TOKEN)
   );
 }
 
 function describe(results) {
-  return JSON.stringify(results.map(r => [r.providerName, r.source, r.payload?.url ?? r.payload?.suggestion]));
+  return JSON.stringify(results.map(r => [r.providerName, r.source, r.payload?.tabUrl ?? r.payload?.url ?? r.payload?.suggestion]));
 }
 
 add_task(async function the_normal_bar_still_suggests() {
@@ -177,7 +177,7 @@ add_task(async function a_private_tab_bar_lists_private_tabs_only() {
   ok(recent.length >= 1, `The empty private bar lists recent private tabs: ${describe(results)}`);
   const privateURLs = new Set(gZenWorkspaces.allStoredTabs.filter(t => WhimsyPrivate.isPrivateTab(t))
     .map(t => t.linkedBrowser.currentURI.spec));
-  ok(recent.every(r => privateURLs.has(r.payload.url) && r.payload.url != TAB_URL), "…and only private ones");
+  ok(recent.every(r => privateURLs.has(r.payload.tabUrl) && r.payload.tabUrl != TAB_URL), "…and only private ones");
   gURLBar.select();
   results = await typeInBar(TOKEN);
   is(normalRows(results).length, 0, `Typing still lists nothing from normal browsing: ${describe(results)}`);

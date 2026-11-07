@@ -11,7 +11,6 @@
 
 var gWhimsySettings = {
   PANE: "paneZenLooks",
-  VPN_RULES_PANE: "paneVpnSiteRules",
 
   init() {
     document.addEventListener("paneshown", event => {
@@ -23,8 +22,6 @@ var gWhimsySettings = {
         this.insertTabsGroup();
       } else if (["paneAbout", "paneGeneral"].includes(event.detail.category)) {
         this.insertAboutGroup(event.detail.category);
-      } else if (event.detail.category == this.VPN_RULES_PANE) {
-        this.initVpnSiteRules();
       }
     });
     // batch7: hardware video decoding toggle, in its own listener so it runs
@@ -310,13 +307,15 @@ var gWhimsySettings = {
     };
     for (const group of groups) {
       const feature = group.dataset.whimsyFeature;
-      if (!this.lazy.Whimsy.featureEnabled(feature)) {
+      if (feature && !this.lazy.Whimsy.featureEnabled(feature)) {
         group.remove();
         continue;
       }
       group.hidden = false;
       inits[feature]?.();
     }
+    this.initPrefCheckbox("whimsyAutofillPayments", "extensions.formautofill.creditCards.enabled");
+    this.initPrefCheckbox("whimsyAutofillAddresses", "extensions.formautofill.addresses.enabled");
   },
 
   // Reject cookie banners: Whimsy's built-in Autoconsent add-on
@@ -506,94 +505,6 @@ var gWhimsySettings = {
     update();
   },
 
-  // W15: Firefox's "Manage website rules" page (vpnSiteRules) ships with no
-  // items (bug 2068284), and siteInclusions (on in Whimsy) hides the old
-  // exceptions list, so this fills the page: "Always use VPN" (ALLOW) and
-  // "Never use VPN" (DENY) from the ipp-vpn permissions, each row removable.
-  initVpnSiteRules() {
-    const pane = document.querySelector(`setting-pane[data-category="${this.VPN_RULES_PANE}"]`);
-    if (!pane || pane.querySelector("#whimsyVpnSiteRules")) {
-      return;
-    }
-    const kinds = [
-      { key: "included", capability: Ci.nsIPermissionManager.ALLOW_ACTION },
-      { key: "excluded", capability: Ci.nsIPermissionManager.DENY_ACTION },
-    ];
-    const host = document.createElement("div");
-    host.id = "whimsyVpnSiteRules";
-    host.className = "whimsy-vpn-rules";
-    const intro = document.createElement("p");
-    intro.className = "description-deemphasized";
-    document.l10n.setAttributes(intro, "whimsy-vpn-rules-description");
-    host.append(intro);
-    const lists = new Map();
-    for (const { key } of kinds) {
-      const card = document.createElement("moz-card");
-      const fieldset = document.createElement("moz-fieldset");
-      fieldset.setAttribute("headinglevel", "3");
-      document.l10n.setAttributes(fieldset, `whimsy-vpn-rules-${key}-header`);
-      const list = document.createElement("div");
-      list.id = `whimsyVpnRules-${key}`;
-      fieldset.append(list);
-      card.append(fieldset);
-      host.append(card);
-      lists.set(key, list);
-    }
-    const render = () => {
-      const perms = Services.perms.getAllByTypes(["ipp-vpn"]);
-      for (const { key, capability } of kinds) {
-        const sites = perms
-          .filter(perm => perm.capability == capability)
-          .map(perm => ({ perm, name: perm.principal.host || perm.principal.originNoSuffix }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-        const rows = sites.map(({ perm, name }) => {
-          const item = document.createElement("moz-box-item");
-          item.className = "whimsy-vpn-rule";
-          item.setAttribute("label", name);
-          item.dataset.site = name;
-          const remove = document.createElement("moz-button");
-          remove.setAttribute("type", "ghost");
-          remove.setAttribute("iconsrc", "chrome://global/skin/icons/delete.svg");
-          remove.setAttribute("slot", "actions");
-          remove.className = "whimsy-vpn-rule-remove";
-          document.l10n.setAttributes(remove, "whimsy-vpn-rules-remove", { site: name });
-          remove.addEventListener("click", () => Services.perms.removeFromPrincipal(perm.principal, "ipp-vpn"));
-          item.append(remove);
-          return item;
-        });
-        if (!rows.length) {
-          const empty = document.createElement("p");
-          empty.className = "description-deemphasized whimsy-vpn-rules-empty";
-          document.l10n.setAttributes(empty, `whimsy-vpn-rules-${key}-empty`);
-          lists.get(key).replaceChildren(empty);
-          continue;
-        }
-        const group = document.createElement("moz-box-group");
-        group.append(...rows);
-        lists.get(key).replaceChildren(group);
-      }
-    };
-    const observer = {
-      observe(subject, topic) {
-        if (topic == "perm-changed" && subject?.QueryInterface(Ci.nsIPermission).type == "ipp-vpn") {
-          render();
-        }
-      },
-    };
-    Services.obs.addObserver(observer, "perm-changed");
-    window.addEventListener("unload", () => Services.obs.removeObserver(observer, "perm-changed"), {
-      once: true,
-    });
-    render();
-    const group = pane.querySelector('setting-group[groupid="vpnSiteRules"]');
-    if (group) {
-      group.hidden = true;
-      group.after(host);
-    } else {
-      (pane.querySelector("section") ?? pane).append(host);
-    }
-  },
-
   // tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox IS the
   // real master switch (browser.ipProtection.enabled); the status line and
   // "Manage" button read/drive Firefox's own service and toolbar button, so
@@ -602,7 +513,7 @@ var gWhimsySettings = {
     this.initPrefCheckbox("whimsyVpnEnabled", "browser.ipProtection.enabled");
     // wave9/designfix (M7): one VPN section. Firefox's own VPN group has
     // no on/off switch, only what follows from it (start automatically,
-    // the website rules page, data used), so it stays, right under
+    // website settings, data used), so it stays, right under
     // Whimsy's card, which holds the switch, the status and Manage.
     const card = document.getElementById("whimsyVpnGroup");
     const firefoxVpn = document.querySelector('setting-group[groupid="ipprotection"]');
@@ -1536,18 +1447,16 @@ Object.assign(gWhimsySettings, {
     };
     const browserWindow = () => Services.wm.getMostRecentWindow("navigator:browser");
     const nameOf = provider => WhimsyAIProviders.providerName(provider);
-    // W16-24: Claude, ChatGPT and Gemini wear their logos, the ones Firefox
-    // ships for its AI chatbot choice (genai/assets/brands; that folder's
-    // LICENSE notes the marks may be trademarks). Firefox has none for
-    // Apple Intelligence or Ollama, and their marks' terms haven't been
-    // checked, so those two keep letter tiles.
+    // Firefox supplies Claude, ChatGPT and Gemini's brand assets; the local
+    // providers' SVGs ship with Whimsy. All tiles use the same image treatment.
     const BRANDS = "chrome://browser/content/genai/assets/brands/";
+    const LOCAL_BRANDS = "chrome://browser/content/whimsy/ai/";
     const TILES = {
-      apple: { letter: "A", color: "#6a4fd8" },
+      apple: { logo: LOCAL_BRANDS + "apple-intelligence.svg" },
       claude: { logo: BRANDS + "claude.svg" },
       openai: { logo: BRANDS + "chatgpt.svg" },
       gemini: { logo: BRANDS + "gemini.svg" },
-      ollama: { letter: "Ol", color: "#5f5b70" },
+      ollama: { logo: LOCAL_BRANDS + "ollama.svg" },
     };
     const paintTile = (tile, provider) => {
       const { letter, color, logo } = TILES[provider];

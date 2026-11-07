@@ -48,10 +48,13 @@ async function openPlayingVideo() {
 
 async function closeAllPlayers() {
   for (const win of players()) {
-    const closed = BrowserTestUtils.domWindowClosed(win);
-    win.close();
-    await closed;
+    // The module handles an already-closed window. Do not await an unload
+    // event here: it may have fired before cleanup starts.
+    void PictureInPicture.closePipWindow(win).catch(error => info(`PiP close: ${error}`));
   }
+  // Player closure is observable even if actor/tab bookkeeping is stale.
+  await TestUtils.waitForCondition(() => players().every(win => win.closed),
+    "All PiP player windows closed", 100, 300);
 }
 
 add_task(async function test_leaving_the_tab_pops_out_unmuted() {

@@ -115,6 +115,17 @@
 
 # Settings → Privacy & Security: moved in above Firefox's privacy groups.
 <html:template id="template-whimsyPrivacy" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyAutofillGroup" data-category="panePrivacy" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-autofill-header"/></label>
+    <description id="whimsyAutofillManagerNote"
+                 data-l10n-id="whimsy-autofill-manager-note"/>
+    <html:moz-checkbox id="whimsyAutofillPayments"
+                       data-l10n-id="whimsy-autofill-payments"
+                       aria-describedby="whimsyAutofillManagerNote"/>
+    <html:moz-checkbox id="whimsyAutofillAddresses"
+                       data-l10n-id="whimsy-autofill-addresses"
+                       aria-describedby="whimsyAutofillManagerNote"/>
+  </groupbox>
   <html:div id="whimsyCookieBannersGroup" data-category="panePrivacy" data-whimsy-feature="cookie-banners" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">
       <html:moz-fieldset data-l10n-id="whimsy-cookie-banners-header" headinglevel="3"
@@ -680,6 +691,17 @@
       <radio value="tab" data-l10n-id="whimsy-external-links-tab"/>
       <radio value="glance" data-l10n-id="whimsy-external-links-glance"/>
     </radiogroup>
+    <hbox align="center" data-whimsy-feature="auto-archive-tabs">
+      <label id="whimsyMiniArchiveAfterLabel" control="whimsyMiniArchiveAfter" data-l10n-id="whimsy-mini-archive-after"/>
+      <menulist id="whimsyMiniArchiveAfter" preference="whimsy.mini.archive-after" data-pref-type="string">
+        <menupopup>
+          <menuitem value="6h" data-l10n-id="whimsy-mini-archive-after-6h"/>
+          <menuitem value="12h" data-l10n-id="whimsy-mini-archive-after-12h"/>
+          <menuitem value="24h" data-l10n-id="whimsy-mini-archive-after-24h"/>
+          <menuitem value="never" data-l10n-id="whimsy-mini-archive-after-never"/>
+        </menupopup>
+      </menulist>
+    </hbox>
   </groupbox>
   <groupbox id="whimsyLinksGlanceGroup" data-category="paneWhimsyLinks" hidden="true" class="highlighting-group">
     <label class="whimsy-links-own-heading"><html:h2 data-l10n-id="whimsy-links-glance-header"/></label>

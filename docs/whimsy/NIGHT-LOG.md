@@ -199,3 +199,120 @@
 - Wave 11 features:
   - W11-16: Fast trackpad swiping skips hidden spaces and never wraps. Unified all relative space stepping into one shared helper in `WhimsySpaceSwitchQueue.sys.mjs` (`stepRelative`), called by `changeWorkspaceShortcut` (Next/Previous commands, trackpad swipe gestures, mid-flight swipe bursts, sidebar wheel scroll, mouse forward/back) and the space switcher's arrows (`#zen-workspaces-button` keydown). Steps across visible spaces only (`!space.whimsyHidden`). Enforces W10-03 edge rule on all paths: left stops at first space, right past last space opens New Space when settled or stops at last in a burst, never wraps. Wrapped `ZenSpaceAddSwipe.prototype.readySwipeAddSpace` to count visible spaces. Extended `browser_whimsy_space_edges.js` with fast bursts of synthetic swipe events and hidden space in middle, plus switcher arrow tests.
 
+
+- 2026-11-06 Library Spaces idle rebuild fix: added and applied three targeted overlay hotfixes to ignore copy-backed group event detail, scope real pinned-section events to the enclosing workspace id, and correct the isLibraryCopy comment. Added browser_whimsy_library_spaces_idle.js and registered it in browser.toml: three pinned tabs, collapsed and expanded cases, one-second settling and two-second childList observation asserting zero rebuilds. node --check passed for all three touched JS/MJS files; git diff --check passed. Browser regression unrun per code-only instructions; no mach/npm/verify, engine writes, commits, stash or push.
+
+- 2026-11-06 upload badge dialog fixture: replaced the blocked top-level data: URL in test_upload_badge_under_tab_dialog with the existing HTTPS PAGE fixture; inject the original title/body and dimensions into the loaded dialog and await resizeDialog. Badge occlusion/restoration assertions and real actor/chrome hit-tests remain intact. Required PATH precheck passed (135 changed files); node --check passed. No mochitests/build/import/verify run. Left with the existing uncommitted wave changes; did not commit pre-existing work.
+
+- 2026-11-06 upload badge dialog CSP correction: use chrome://global/content/aboutAbout.html, a packaged standalone HTML page with no required dialog arguments, because the tab-dialog frame-src policy rejects the HTTPS fixture too. Keep PAGE for the underlying upload page, preserve _dialogReady, 80vw/70vh sizing, awaited resizeDialog, and both badge hide/restore assertions; leave the chrome page's content and styles intact. Required PATH precheck passed (138 changed files); node --check and scoped git diff --check passed. No mochitests/build/import/verify run. Changes remain uncommitted because the test and log already contain uncommitted wave work.
+
+- 2026-11-06 finalverify26 Mini archive Settings fix: registered whimsyMiniArchiveAfter in WhimsySettingsCommands.SETTINGS with its string pref, auto-archive feature gate, all four existing localized choices, and a localized command title/search keywords. The new menu was omitted from the Settings registry. Required PATH precheck passed (142 changed files); no mochitests/build/import/verify run.
+- 2026-11-06 finalverify26 VPN scope fix: moved the document ViewShowing listener and matching removal from capture to bubble phase. Firefox creates ipprotection-content in the target view handler; capture ran first, found no host and returned, so scope never rendered after its move into the native content slot. Existing tests already assert the intended after-status slot, both native branches, reopen uniqueness, and Lit re-render survival; selectors/assertions unchanged. Required PATH precheck passed (142 changed files); no mochitests/build/import/verify run. Commits for these two fixes blocked: git add cannot create .git/index.lock (Operation not permitted); all changes remain uncommitted.
+- 2026-11-07 finalverify27 Scratch repair: summary log and matching .surfer/verify/whimsy.log show last-tab close entering leaveScratchForEssential from Tabbrowser.#blurTab, switching to the normal space, then null-browser switcher errors continuing into the next task. Zen's makeSureEmptyTabIsFirst only searched for a replacement sentinel in testing mode and could leave _emptyTab undefined; Scratch's existing Essential close fallback requires it. Added overlay hotfixes to recreate/reuse a live sentinel before workspace selection, reject closing/disconnected sentinels, and guard synchronous TabOpen reentry. Applied only through overlay.py. Added a scratch regression that removes the sentinel, switches away/back, closes the last private tab, and verifies Scratch stays on the replacement until left; existing assertions unchanged. Extracted-source Node checks passed for missing/closing/detached recovery, live reuse and reentry; syntax and overlay check passed. No mochitests/build/import/verify or commit run; browser behavior remains unverified.
+
+- 2026-11-07 full verify #28 zoom/copy races (code-only): Reader:UpdateReaderButton and navigation schedule a site-settings render that replaces every row; the Reader zoom tests retained detached controls whose FullZoomChange listener stops updating. Changed the saved-zoom and Reader-shortcut tests to resolve live controls on each check/click, preserving every zoom assertion. Copy's clicked highlight toast starts an animated close, removes its owner listeners, and is excluded by getToast(); the next copy previously left its button in the DOM until motion completed. WhimsyCopy now instantly retires highlight toasts including closing ones at copy start and when showing plain feedback, and rejects superseded selection replies or replies from a navigated document. Added a closing-offer browser regression, awaited copy completion in the no-selection/field tests, and removed the Markdown test's arbitrary delay. Node syntax checks, scoped diff whitespace check, and precheck passed (177 changed files; its binaries-build recommendation concerns existing moz.build changes). A Node VM harness running the actual copy module passed closing-toast retirement, superseded-query, navigation-during-query, and empty-selection cases. No mochitests, build, import, verify or commit run; no Zen files edited.
+
+- 2026-11-07 full verify #29 repairs (code only, uncommitted): traced all five Call Options failures to hidden row details and fallback wording that no longer explains the device block. Restored visible localized hints/missing-control reasons and aria-describedby, retaining current app-aware labels/tooltips; restored the device-block explanation in both Fluent branches. The fallback task aborted before restoreControls(), leaving the shared call without controls and causing the later two-panel camera failure; its finally now restores the controls too. Capture-card's density fixture opened a synced browser window: the log records its startup tab copied to the harness, a ZenWindowSync close-time docshell swap error, and the same tab id surviving as a non-sentinel about:blank. Made that measurement-only fixture explicitly unsynced (respecting Zen's inverted preference), awaited workspace initialization and asserted isolation; all density/coordinate checks remain. Settings search was selecting the standalone whimsyAutofillManagerNote description with data-category as a group, which can never satisfy groupLabel; wrapped the note in a labelled Autofill group. Audited all 31 template group labels against whimsy.ftl, including the Mini archive group's heading; all ids exist. No scratch/sentinel, copy, overlay or Zen-source edits were needed. Validation: precheck passed (181 changed files), scoped git diff --check passed, and a temporary Node harness exercising the actual Call Options module passed two-view hint/default/missing-control/restoration and camera-switch state checks. No mochitests, build, import, verify or commit run; runtime verification remains outstanding.
+
+- 2026-11-07 verify workflow tools (wf1, uncommitted): added whimsy/vfail.py for compact text/mozlog failure reports, durations, load/leak hints and failed.txt; added vrerun.sh for two isolated headless runs per listed file with separate logs and explicit harness-error handling. Added opt-in tests/head-leakcheck.js (also linked as whimsy/leakcheck) to check file-end windows/tabs/popups/page and UI zoom after ordinary cleanup; existing shared head/manifest remain unchanged pending browser validation. verify.sh now prints vfail after recording results without changing status or gate semantics. Usage and limits: docs/superpowers/agy/wf1-notes.md. Python compilation, shell/JS syntax, synthetic parser and exact embedded classifier fixtures, and a Node cleanup mock passed. Parsed the existing live whimsy.log plus four raw logs and wrote failed.txt; results provisional. No mach, verify, mochitest, import/build, updater/control state changes or commit.
+
+- 2026-11-07 settings/PiP mochitest repairs (source only): whimsyAutofillGroup contained only its heading and explanatory description; added localized payment/address moz-checkbox controls, bound through the existing observed preference helper to the actual autofill prefs. Native detailed management remains in Firefox's separate Passwords & Autofill pane. Extended the existing autofill Settings task to check containment, effective values, user changes and external preference changes; the settings-strings control selector/assertion is unchanged. Traced ordinary-video PiP suppression to Firefox's VideoTabHidden handler consuming the deliberate-close mark before Whimsy's TabSelect snapshot: preserve its skip decision via a narrowly anchored engine_overrides.py hook into WhimsyMedia, retain it through the delayed fallback, and reset it on returning to the tab. The log records a fresh player opening during the failing task, rather than only an old window surviving. The call module already has durable _closedByHand tracking; the call-only emptied-tile override does not apply to this sourced, ordinary MP4 fixture, and both remain unchanged. Also await preceding test's PiP attribute teardown/tab removals and replace the failure task's fixed delay with the post-grace background-muted condition; zero-player and one-switch-consumption assertions remain unchanged. Precheck, Node syntax, XHTML parse, scoped diff whitespace checks and an actual-module Node mock covering all three close-mark consumption orders, next departure and ordinary fallback passed. Verified the engine hook's unique anchor, application idempotence and resulting JS syntax in memory/a temporary file only. No mach/mochitest, build, import, overlay apply, verify or commit; no control.json or Updater-directory changes. The new engine text hook is applied by engine_overrides.py during the next normal import (overlay.py apply alone does not install engine-only hooks).
+
+
+### 2026-11-07 — settings audit and order/load cleanup (no browser run)
+
+Read the full-run order in `.surfer/verify/whimsy.log`, ran `python3
+whimsy/vfail.py`, and inspected `.surfer/verify/rerun.a9077Q` (two isolated
+runs per file). No mach, mochitest, import, build, verify, commit, control.json
+change, or Updater change was made.
+
+- Added Settings registry entries for payment/address autofill with the actual
+  Firefox prefs and Fluent names/keywords; added search cases for “debit cards”
+  and “shipping”. Existing settings strings/audit/search assertions remain.
+- PiP: the full run records PictureInPicture:Close actor destruction immediately
+  after the first task and Request/Close destruction after the final task.
+  Added per-task finally cleanup tracking tabs before load, awaiting switch
+  grace completion, pausing media, closing players, and waiting for parent
+  bookkeeping and video cloning to clear before removing originating browsers.
+  Replaced 1.5-second sleeps with the actual grace condition and allowed 30s
+  for the deliberate-close/muting condition. No preceding file is proved to
+  leak a PiP player by this log.
+- Popup extension: the empty first message is a root-path example.com content
+  script injection, shifting the opener/popup messages and leaving the final
+  content message queued. Queues belong to each ExtensionTestUtils instance;
+  this is not evidence of another extension's queue leaking. Limited this
+  fixture's match patterns to the two actual OAuth pages, so unrelated existing
+  pages cannot produce its messages; popup/tab removal is awaited in finally
+  before unloading the extension. No messages are discarded or assertions
+  weakened.
+- Fullscreen: “Got 2” counts enterFullscreen calls, not tabs/windows. Removing
+  the fixture while its example.com rule is on can select another example.com
+  browser. Added a neutral keep tab selected before removal, awaited removals,
+  and finally restoration of the stub, site rules, and tabs. The log contains
+  no tab identities establishing which earlier file supplied that browser.
+- Translate: Firefox restricts by the selected page's scheme/content type, not
+  model readiness or language preferences. Test now opens an owned about:blank
+  page, waits for the native button to reflect it, and restores selection by
+  withNewTab cleanup. It no longer assumes the inherited selected page is
+  restricted. No leaking Translations pref is established by this evidence.
+- Reopen pinned: reset/unload and SessionStore updates are asynchronous. Poll
+  freshly flushed tab state with 30s condition waits; replaced remaining
+  arbitrary sleeps with completion conditions. Per-task finally removes owned
+  restored/pinned/Essential tabs and closes the menu/toast even after failure.
+- Adopted head-leakcheck for these five repaired files as a pilot, adding
+  original-tab URL checks so navigation leaks are visible even when identities
+  and counts match. Deferred DEFAULT/shared-head adoption: the helper has not
+  been browser-validated, and browser runs are expressly forbidden here.
+
+Validation: precheck passed (202 changed files, including pre-existing edits);
+Node syntax checks passed. git diff --check reports only a pre-existing extra
+blank line at whimsy-browser.css:7246, outside these changes. Browser behavior,
+including the settings_strings/search regressions, remains unverified until an
+authorized targeted run; isolated old passes are not validation of these edits.
+
+### Follow-up: undo fix12 isolated-test regressions (2026-11-07)
+
+- Compared the two test files with `git show HEAD:<path>` and inspected
+  `.surfer/verify/rerun.THb0CP/{1-1,2-1}.log`. Restored HEAD's test flows,
+  removing fix12's per-task wrappers, awaited tab cleanup, and extra waits.
+- PiP cleanup now requests closure through PictureInPicture.closePipWindow
+  and polls for no open player windows (100ms, 300 tries). It succeeds
+  immediately if players are already gone; it does not await an unload
+  event or require tab/WeakMap/clone state to clear. Product unload clears
+  player state; the browser WeakMap decrement belongs to the actor's
+  closeSinglePipWindow path, so window closure alone is not that predicate.
+- Reopen-pinned retains only a 30s synchronous condition poll for the
+  existing SessionStore reset assertion. Removed flushing inside that poll:
+  TestUtils awaits the predicate, so a pending flush defeats maxTries.
+  command_w_then_command_shift_t and its cleanup match HEAD exactly.
+- Reviewed head.js and head-leakcheck.js: leak reporting is synchronous,
+  contains no awaited cleanup or retries, and queues its report only once.
+  The separate existing vsync settle wait is bounded to 300 tries. No shared
+  helper changes were needed.
+- Validation: Node syntax checks passed for both tests and head-leakcheck;
+  scoped git diff --check passed. No mach/mochitest/build/verify was run;
+  no commit, control.json, or Updater changes.
+
+### PiP deliberate-close race (2026-11-07)
+
+- Found a product ordering hole in the non-call fallback: its 400ms timer
+  deletes Firefox's one-use deliberate-close mark. A later (or repeated)
+  VideoTabHidden IPC checked only that consumed mark, ignoring Whimsy's
+  retained skip, and could reopen the player. The full log's actor-close
+  AbortError at test entry shows overlapping teardown, but does not identify
+  the reopened player's browser or prove the exact IPC order in that run.
+- WhimsyMedia now tracks/cancels pending fallback timers on deliberate close
+  and return to the tab, rechecks suppression at timer fire and request time,
+  and keeps suppression until the originating tab is selected again.
+- Added narrowly scoped engine_overrides hooks: the native hidden handler
+  checks the retained suppression; native deliberate close records it before
+  teardown; automatic parent open requests check it after IPC, before player
+  creation. Automatic requests use autoFocus=false, including call PiP;
+  manual opens remain available. No test/assertion changes.
+- Validation: Node syntax checks for WhimsyMedia and the in-memory patched
+  native module; Python AST check and override anchor/idempotence checks.
+  A temporary Node harness exercised delayed/repeated hidden IPC, close-time
+  cancellation, fire-time checks, queued automatic open rejection, manual
+  open, TabSelect reset, and normal fallback. All passed. Overrides were
+  validated in memory only; no import, mach, mochitest, build, or verify run.
+  No commit, control.json, or Updater changes.

@@ -208,15 +208,15 @@ async function pixelAt(blob, fx, fy) {
 }
 
 // Draws a box over the editor's preview, from and to fractions of it.
-function drawBox(ed, [fx1, fy1, fx2, fy2]) {
+function drawBox(ed, [fx1, fy1, fx2, fy2], win = window) {
   const preview = ed.querySelector(".whimsy-capture-preview");
   const p = preview.getBoundingClientRect();
   const from = { x: p.left + p.width * fx1, y: p.top + p.height * fy1 };
   const to = { x: p.left + p.width * fx2, y: p.top + p.height * fy2 };
-  EventUtils.synthesizeMouseAtPoint(from.x, from.y, { type: "mousedown" });
-  EventUtils.synthesizeMouseAtPoint((from.x + to.x) / 2, (from.y + to.y) / 2, { type: "mousemove" });
-  EventUtils.synthesizeMouseAtPoint(to.x, to.y, { type: "mousemove" });
-  EventUtils.synthesizeMouseAtPoint(to.x, to.y, { type: "mouseup" });
+  EventUtils.synthesizeMouseAtPoint(from.x, from.y, { type: "mousedown" }, win);
+  EventUtils.synthesizeMouseAtPoint((from.x + to.x) / 2, (from.y + to.y) / 2, { type: "mousemove" }, win);
+  EventUtils.synthesizeMouseAtPoint(to.x, to.y, { type: "mousemove" }, win);
+  EventUtils.synthesizeMouseAtPoint(to.x, to.y, { type: "mouseup" }, win);
   const mid = { x: (fx1 + fx2) / 2, y: (fy1 + fy2) / 2 };
   const px = preview.getContext("2d").getImageData(Math.round(mid.x * preview.width), Math.round(mid.y * preview.height), 1, 1).data;
   return { mid, preview: [...px.slice(0, 3)] };
@@ -232,6 +232,69 @@ add_task(function test_defaults_and_layout() {
   Assert.less(Math.abs(wide.width / wide.height - 16 / 9), 0.01, "16:9");
   const tall = layoutFor(300, 300, { backdrop: "gradient", shape: "4:5" });
   Assert.less(Math.abs(tall.width / tall.height - 4 / 5), 0.01, "4:5");
+});
+
+add_task(async function test_editor_preview_resolution_size_and_coordinates() {
+  // Keep the preview at most half the source width, so density 2 can
+  // double the backing store without reaching the source-resolution cap.
+  // This window only measures the editor. Syncing it copies its startup
+  // blank tab into the harness window and transfers it there on close.
+  const win = await BrowserTestUtils.openNewBrowserWindow({
+    width: 900, height: 1000,
+    zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false),
+  });
+  const density = Object.getOwnPropertyDescriptor(win, "devicePixelRatio");
+  const source = new OffscreenCanvas(1600, 1200);
+  const context = source.getContext("2d");
+  context.fillStyle = "white";
+  context.fillRect(0, 0, source.width, source.height);
+  const blob = await source.convertToBlob();
+  let previousBox;
+  const images = new Map();
+  try {
+    await win.gZenWorkspaces.promiseInitialized;
+    ok(win.gZenWorkspaces.privateWindowOrDisabled, "The editor fixture has no synced tabs");
+    for (const ratio of [1, 2]) {
+      Object.defineProperty(win, "devicePixelRatio", { configurable: true, value: ratio });
+      const capture = {
+        from: "viewer", blob, images, originalHidden: false, private: true,
+        editState: { hidden: false, backdrop: "none", shape: "auto", handStyle: "black" },
+      };
+      const ed = await WhimsyCaptureCard.openEditor(win, { capture, tool: "hand" });
+      const preview = ed.querySelector(".whimsy-capture-preview");
+      const cssWidth = parseFloat(preview.style.width);
+      const cssHeight = parseFloat(preview.style.height);
+      is(preview.width, ratio * cssWidth, `At density ${ratio}, the backing width follows screen resolution`);
+      is(preview.height, ratio * cssHeight, "The backing height follows screen resolution too");
+      Assert.greater(cssHeight, 360, "A 1000px tall window has a preview taller than the old cap");
+      Assert.lessOrEqual(preview.width, source.width, "The preview never needs more pixels than the image");
+      Assert.lessOrEqual(preview.height, source.height, "The backing height is capped at source resolution");
+      const box = drawBox(ed, [0.2, 0.25, 0.6, 0.5], win);
+      Assert.deepEqual(box.preview, [0, 0, 0], "Hand redaction appears under the drag");
+      EventUtils.synthesizeMouseAtCenter(footerButton(ed, "done"), {}, win);
+      await TestUtils.waitForCondition(() => !!capture.editState.boxes, "Done keeps the image coordinates");
+      is(capture.editState.boxes.length, 1, "One drag creates one redaction");
+      const actual = capture.editState.boxes[0];
+      for (const [key, expected] of Object.entries({ x: 320, y: 300, width: 640, height: 300 })) {
+        Assert.lessOrEqual(Math.abs(actual[key] - expected), 2, `${key} maps from CSS pixels to image pixels`);
+      }
+      if (previousBox) {
+        Assert.deepEqual(actual, previousBox, "Screen density leaves the hand-drawn image coordinates unchanged");
+      }
+      previousBox = actual;
+      await TestUtils.waitForCondition(() => !win.document.getElementById("whimsy-capture-editor"), "Done closes the editor");
+    }
+  } finally {
+    if (density) {
+      Object.defineProperty(win, "devicePixelRatio", density);
+    } else {
+      delete win.devicePixelRatio;
+    }
+    for (const image of images.values()) {
+      image.close();
+    }
+    await BrowserTestUtils.closeWindow(win);
+  }
 });
 
 // 1: after a drag, one button; it opens the viewer. One Esc closes (W16-15).

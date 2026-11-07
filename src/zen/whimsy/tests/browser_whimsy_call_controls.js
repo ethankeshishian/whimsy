@@ -1096,6 +1096,146 @@ add_task(async function test_unanswered_press_shows_a_toast() {
   }
 });
 
+// Empty every tile, as when the last participant turns their camera off.
+// Keep the streams alive so restoring the same element exercises clone resumption.
+async function emptyCallVideos(call) {
+  return SpecialPowers.spawn(call.linkedBrowser, [], () => {
+    const { callVideos } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCallVideos.sys.mjs");
+    const videos = [...content.document.querySelectorAll("video")];
+    const floated = videos.find(video => video.isCloningElementVisually);
+    const shared = !!floated && callVideos.has(floated);
+    for (const video of videos) {
+      video.wrappedJSObject.whimsySavedStream = video.srcObject;
+      video.srcObject = null;
+    }
+    content.document.querySelector('[data-is-muted][aria-label*="camera"]').setAttribute("data-is-muted", "true");
+    return shared;
+  });
+}
+
+async function restoreCallVideos(call) {
+  await SpecialPowers.spawn(call.linkedBrowser, [], async () => {
+    content.document.getElementById("whimsy-replacement-video")?.remove();
+    content.document.querySelector('[data-is-muted][aria-label*="camera"]').setAttribute("data-is-muted", "false");
+    for (const video of content.document.querySelectorAll("video")) {
+      if (!("whimsySavedStream" in video.wrappedJSObject)) {
+        continue;
+      }
+      video.srcObject = video.wrappedJSObject.whimsySavedStream;
+      delete video.wrappedJSObject.whimsySavedStream;
+      await video.play();
+    }
+  });
+}
+
+add_task(async function test_emptied_call_pip_stays_open_and_resumes() {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["media.videocontrols.picture-in-picture.auto-close.enabled", true],
+    ["media.videocontrols.picture-in-picture.auto-close.timeoutMs", 1000],
+  ] });
+  const call = await openCall();
+  const floating = await float(call);
+  const { pip } = floating;
+  try {
+    ok(await emptyCallVideos(call), "The content process shares the call-video registry with the page actor");
+    await TestUtils.waitForCondition(() => !pip.closed &&
+      pip.document.getElementById("whimsy-call-camera-off")?.hidden === false, "Camera off shows the placeholder");
+    // Wait beyond Firefox's normal emptied-video timeout.
+    await new Promise(resolve => setTimeout(resolve, 2000)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    ok(!pip.closed, "The same call PiP stays open two seconds after srcObject becomes null");
+    await pip.document.l10n.translateFragment(pip.document.getElementById("whimsy-call-camera-off"));
+    is(pip.document.getElementById("whimsy-call-camera-off").textContent, "Camera off", "The placeholder is localized");
+    ok(!pipControl(pip, "camera").hidden && !pipControl(pip, "mic").hidden, "Both call controls remain available");
+    is(await call.linkedBrowser.browsingContext.currentWindowGlobal.getActor("WhimsyPage")
+      .sendQuery("Whimsy:CallLiveVideo"), false, "No live replacement exists");
+    await restoreCallVideos(call);
+    await TestUtils.waitForCondition(() => pip.document.getElementById("whimsy-call-camera-off").hidden,
+      "Camera on hides the placeholder");
+    await TestUtils.waitForCondition(async () => SpecialPowers.spawn(call.linkedBrowser, [], () =>
+      [...content.document.querySelectorAll("video")].some(video => video.isCloningElementVisually && video.readyState >= 2)),
+    "The original cloned video resumes");
+    ok(!pip.closed, "Resuming the same video keeps the same PiP");
+  } finally {
+    await selectTab(call);
+    await restoreCallVideos(call);
+    BrowserTestUtils.removeTab(floating.other);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_camera_off_pip_moves_to_a_new_live_tile() {
+  const call = await openCall();
+  let floating = await float(call);
+  try {
+    await emptyCallVideos(call);
+    await TestUtils.waitForCondition(() => floating.pip.document.getElementById("whimsy-call-camera-off")?.hidden === false,
+      "The camera-off placeholder is visible");
+    const closed = BrowserTestUtils.domWindowClosed(floating.pip);
+    const reopened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+    await SpecialPowers.spawn(call.linkedBrowser, [], async () => {
+      const source = content.document.querySelector("video");
+      const video = content.document.createElement("video");
+      video.id = "whimsy-replacement-video";
+      video.muted = true;
+      video.style.cssText = "width: 640px; height: 360px";
+      content.document.body.append(video);
+      video.srcObject = source.wrappedJSObject.whimsySavedStream;
+      await video.play();
+    });
+    await closed;
+    floating = { ...floating, pip: await reopened };
+    await TestUtils.waitForCondition(async () => SpecialPowers.spawn(call.linkedBrowser, [], () =>
+      content.document.getElementById("whimsy-replacement-video").isCloningElementVisually),
+    "The new live tile floats");
+    ok(!WhimsyCallPip._closedByHand.has(call.linkedBrowser), "A video swap is not a deliberate close");
+  } finally {
+    await selectTab(call);
+    await restoreCallVideos(call);
+    BrowserTestUtils.removeTab(floating.other);
+  }
+});
+
+add_task(async function test_non_call_emptied_video_still_closes() {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["media.videocontrols.picture-in-picture.auto-close.enabled", true],
+    ["media.videocontrols.picture-in-picture.auto-close.timeoutMs", 1000],
+  ] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  try {
+    const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+    await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
+      const canvas = content.document.createElement("canvas");
+      canvas.width = 320;
+      canvas.height = 180;
+      const video = content.document.createElement("video");
+      video.muted = true;
+      content.document.body.append(video);
+      video.srcObject = canvas.captureStream(10);
+      content.setInterval(() => {
+        canvas.getContext("2d").fillRect(0, 0, 320, 180);
+      }, 100);
+      await video.play();
+      await content.windowGlobalChild.getActor("PictureInPictureLauncher")
+        .togglePictureInPicture({ video, reason: "ContextMenu" }, false);
+    });
+    const pip = await opened;
+    ok(!WhimsyCallPip.isInCall(tab), "A canvas stream alone is not a call");
+    ok(await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      const { callVideos } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCallVideos.sys.mjs");
+      return !callVideos.has(content.document.querySelector("video"));
+    }), "Ordinary PiP is not in the call-video registry");
+    const closed = BrowserTestUtils.domWindowClosed(pip);
+    await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      content.document.querySelector("video").srcObject = null;
+    });
+    await closed;
+    ok(pip.closed, "Firefox still closes an emptied non-call PiP");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // W14 21.7: a call page re-rendering its tile empties the video, and
 // Firefox closes the PiP; while you're on another tab it comes back.
 add_task(async function test_call_pip_reopens_after_a_tile_rerender() {

@@ -130,7 +130,7 @@ add_task(async function test_extension_runs_in_sign_in_popup() {
     useAddonManager: "temporary",
     manifest: {
       permissions: ["tabs", "cookies"],
-      content_scripts: [{ matches: ["https://example.com/*"], js: ["cs.js"], run_at: "document_start", all_frames: true }],
+      content_scripts: [{ matches: [OPENER, POPUP], js: ["cs.js"], run_at: "document_start", all_frames: true }],
     },
     background() {
       browser.runtime.onMessage.addListener(async (message, sender) => {
@@ -172,8 +172,10 @@ add_task(async function test_extension_runs_in_sign_in_popup() {
   const key = WhimsyProfiles.keyFor(profileId);
   // Limited to the opener's profile: the per-profile isolation is on.
   WhimsySpaceExtensions.setAllowedProfiles(extension.id, [key]);
+  let tab;
+  let popup;
   try {
-    const tab = BrowserTestUtils.addTab(gBrowser, OPENER, { userContextId: profileId });
+    tab = BrowserTestUtils.addTab(gBrowser, OPENER, { userContextId: profileId });
     gBrowser.selectedTab = tab;
     const browser = tab.linkedBrowser;
     await TestUtils.waitForCondition(() => browser.currentURI.spec == OPENER && !browser.webProgress?.isLoadingDocument,
@@ -183,7 +185,7 @@ add_task(async function test_extension_runs_in_sign_in_popup() {
 
     const opened = BrowserTestUtils.waitForNewWindow({ url: POPUP });
     await BrowserTestUtils.synthesizeMouseAtCenter("#continue", {}, browser);
-    const popup = await opened;
+    popup = await opened;
     const popupBrowser = popup.gBrowser.selectedBrowser;
     const seen = await extension.awaitMessage("content");
     is(seen.message, "whimsy_oauth_popup.html", "Its content script runs in the sign-in popup");
@@ -205,8 +207,14 @@ add_task(async function test_extension_runs_in_sign_in_popup() {
     is(state.ran, "ran", "The content script ran in the popup's page");
     is(state.hook, "called", "The page's passkey request reaches the extension's hook");
     await BrowserTestUtils.closeWindow(popup);
-    BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(tab);
   } finally {
+    if (popup && !popup.closed) {
+      await BrowserTestUtils.closeWindow(popup);
+    }
+    if (tab?.isConnected && !tab.closing) {
+      await BrowserTestUtils.removeTab(tab);
+    }
     WhimsySpaceExtensions.setAllowedProfiles(extension.id, null);
     await extension.unload();
   }

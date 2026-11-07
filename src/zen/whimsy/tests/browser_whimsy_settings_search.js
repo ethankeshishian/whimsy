@@ -64,6 +64,8 @@ add_task(async function test_every_whimsy_group_is_searchable() {
     // The searches users tried.
     const cases = [
       ["Claude", "whimsyClaudeGroup"],
+      ["debit cards", "whimsyAutofillPayments"],
+      ["shipping", "whimsyAutofillAddresses"],
       ["vpn", "whimsyVpnGroup"],
       ["glance size", "whimsyGlanceSizeRow"],
       ["transparency", "whimsyLookGroup"],

@@ -655,9 +655,9 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
   fill: currentColor;
   opacity: 0.7;
 }
-.whimsy-call-options-panel .whimsy-surface-row[whimsy-call-options-hinted] .whimsy-surface-row-detail {
-  font-weight: 600;
-  color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 80%, currentColor);
+.whimsy-call-options-panel .whimsy-surface-row[whimsy-call-options-hinted] .whimsy-call-options-icon {
+  fill: var(--zen-primary-color, AccentColor);
+  opacity: 1;
 }
 .whimsy-call-options-dim :is(.whimsy-surface-row-label, .whimsy-call-options-icon, .whimsy-surface-switch) {
   opacity: 0.5;

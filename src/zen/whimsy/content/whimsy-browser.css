@@ -1630,7 +1630,7 @@ notification-message[value="whimsy-claude-control"] {
    the VPN control while the VPN is on or turning on, or its panel is open;
    Reader, Translate and Picture-in-Picture while active. */
 :root[zen-single-toolbar="true"] #urlbar:not([breakout-extend]) {
-  & #whimsy-vpn-urlbar:not([state="on"], [state="connecting"]) {
+  & #whimsy-vpn-urlbar:not([state="on"], [state="connecting"], [state="paused"]) {
     opacity: 0;
     visibility: collapse;
 
@@ -1643,8 +1643,7 @@ notification-message[value="whimsy-claude-control"] {
     #navigator-toolbox[zen-has-implicit-hover="true"] &,
     &:focus-within,
     &:has(> [aria-expanded="true"]),
-    #urlbar[has-popup-open="true"] &,
-    :root[zen-has-empty-tab="true"] & {
+    #urlbar[has-popup-open="true"] & {
       opacity: 1;
       visibility: visible;
       transition: opacity 0.15s !important;
@@ -1738,6 +1737,7 @@ notification-message[value="whimsy-claude-control"] {
 #whimsy-vpn-urlbar,
 .whimsy-vpn-panel-section {
   --whimsy-vpn-on: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
+  --whimsy-vpn-paused: light-dark(rgb(181, 92, 15), rgb(255, 170, 79));
   --whimsy-vpn-connecting: light-dark(rgb(181, 128, 15), rgb(211, 155, 32));
 }
 .whimsy-vpn-dot {
@@ -1758,6 +1758,10 @@ notification-message[value="whimsy-claude-control"] {
     background-color: var(--whimsy-vpn-on);
     box-shadow: none;
   }
+  #whimsy-vpn-urlbar[state="paused"] & {
+    background-color: var(--whimsy-vpn-paused);
+    box-shadow: none;
+  }
   #whimsy-vpn-urlbar[state="on"] &::after {
     content: "";
     position: absolute;
@@ -1775,25 +1779,21 @@ notification-message[value="whimsy-claude-control"] {
   to { box-shadow: 0 0 0 7px transparent; }
 }
 
-/* B: Whimsy's section at the bottom of Firefox's IP Protection panel: the
-   switch row, and while on the scope choice across the full width. */
+/* B: Scope follows the native status card and can be chosen while off. */
 .whimsy-vpn-panel-section {
-  padding: 0 var(--arrowpanel-padding, 8px) var(--arrowpanel-padding, 8px);
-  border-top: 1px solid var(--panel-separator-color, light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1)));
-  padding-top: var(--arrowpanel-padding, 8px);
+  display: flex;
+  flex-direction: column;
+  padding: var(--arrowpanel-padding, 8px);
 }
-/* W14 3d: opens and closes in place (200ms height, a fade) instead of the
-   panel jumping. */
+.whimsy-vpn-scope-heading {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.whimsy-vpn-panel-section[state="paused"] #whimsy-vpn-panel-detail {
+  color: var(--whimsy-vpn-paused);
+}
 .whimsy-vpn-scope-row {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition: grid-template-rows 200ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms ease-out;
-
-  &[open] {
-    grid-template-rows: 1fr;
-    opacity: 1;
-  }
+  display: block;
 }
 .whimsy-vpn-scope-inner {
   display: flex;
@@ -1818,7 +1818,6 @@ notification-message[value="whimsy-claude-control"] {
 @media (prefers-reduced-motion: reduce) {
   .whimsy-vpn-urlbar-toggle,
   .whimsy-vpn-urlbar-chevron,
-  .whimsy-vpn-scope-row,
   .whimsy-vpn-dot,
   .whimsy-vpn-dot::after {
     transition: none;
@@ -1836,6 +1835,10 @@ notification-message[value="whimsy-claude-control"] {
    Shape | Hide private details | Redact by hand (and Black Out / Blur
    while it's picked); the footer has Copy, Download and the way out.
    Its header drags it (F07). */
+.whimsy-capture-editor .whimsy-surface-view {
+  /* The editor measures its image budget from the page area. */
+  max-height: none;
+}
 .whimsy-capture-stage {
   padding: 8px;
   border-radius: 8px;
@@ -7043,6 +7046,10 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
 }
 
 .whimsy-paste-badge {
+  &[hidden] {
+    display: none;
+  }
+
   position: absolute;
   display: flex;
   align-items: center;
@@ -7206,3 +7213,34 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     margin-block: 0 !important;
   }
 }
+/* The empty command bar's recent tabs: "Switch to Tab" as in Firefox and
+   Zen's own switch-tab rows. */
+.urlbarView-row[dynamicType="whimsy-recent-tab"] .urlbarView-action {
+  margin-inline: auto 28px !important;
+  margin-block: -2px;
+  padding: 4px 8px;
+  background: transparent !important;
+  align-items: center;
+  display: flex;
+  font-weight: 600;
+  position: relative;
+  scale: 0.93;
+  transform-origin: right;
+  opacity: 0.7;
+
+  .urlbarView-row[selected] & {
+    opacity: 1;
+  }
+
+  &::after {
+    content: "";
+    width: 28px;
+    height: 28px;
+    background-color: currentColor;
+    mask: url("chrome://browser/skin/zen-icons/urlbar-arrow.svg") center / contain no-repeat;
+    pointer-events: none;
+    position: absolute;
+    right: -26px;
+  }
+}
+

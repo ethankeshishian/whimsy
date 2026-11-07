@@ -24,6 +24,8 @@ support-files = ["whimsy_no_copy_keys.html"]
 
 ["browser_whimsy_app_icon.js"]
 
+["browser_whimsy_autofill_manager.js"]
+
 ["browser_whimsy_cookie_banners.js"]
 support-files = ["cookie_banner.html"]
 
@@ -201,6 +203,8 @@ support-files = ["whimsy_article.html"]
 
 ["browser_whimsy_library_notes.js"]
 
+["browser_whimsy_library_spaces_idle.js"]
+
 # W13 notes (option C): the Notes tab badge, note cards, the F09 A open card, the empty state.
 ["browser_whimsy_library_notes_cards.js"]
 
@@ -326,9 +330,6 @@ support-files = ["whimsy_calendar.sjs"]
 # W13 F02: the address bar VPN control (A) and This Site's VPN row with the site icon badge (B).
 ["browser_whimsy_vpn_controls.js"]
 
-# W15: Settings > Privacy > Manage website rules lists the Always/Never use VPN sites.
-["browser_whimsy_vpn_site_rules.js"]
-
 # legacy: Firefox/Zen/Mozilla leftovers (prefs, branding URLs, About dialog,
 # default bookmarks, Zen strings, and what was kept at upstream values).
 ["browser_whimsy_legacy.js"]
@@ -355,6 +356,7 @@ support-files = ["whimsy_call.html"]
 ["browser_whimsy_split_restore.js"]
 # wave3/cmdbar: recent tabs in the empty command bar.
 ["browser_whimsy_recent_tabs.js"]
+["browser_whimsy_command_context.js"]
 
 # wave3/cmdbar: offline bangs and the Settings editor.
 ["browser_whimsy_bangs.js"]
@@ -383,6 +385,7 @@ support-files = ["whimsy_call.html"]
 
 # fixD: automatic picture-in-picture isn't blocked by background muting (tabs and spaces).
 ["browser_whimsy_pip_auto.js"]
+head = "head.js head-leakcheck.js"
 support-files = ["whimsy_video_sound.html", "whimsy_video_sound.mp4", "whimsy_media.html", "whimsy_audio.ogg"]
 
 # fixD (user follow-up): Firefox's PiP buttons: X closes and pauses; Back to tab keeps playing.
@@ -821,6 +824,7 @@ support-files = [
 
 # batch9: W9-06 smart address bar buttons
 ["browser_whimsy_smart_buttons.js"]
+head = "head.js head-leakcheck.js"
 # wave9: Font Inspector ("What Font Is This?").
 ["browser_whimsy_font_inspector.js"]
 support-files = ["whimsy_pagedev_font.ttf"]
@@ -842,6 +846,7 @@ support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_
 ["browser_whimsy_mini_command_bar.js"]
 # wave9/mini W8-23 (normal window): a site's sign-in popup gets Firefox's popup chrome (read-only address + identity), stays attached to its opener, and Whimsy's window extras skip it.
 ["browser_whimsy_site_popups.js"]
+head = "head.js head-leakcheck.js"
 support-files = [
   "whimsy_oauth_opener.html",
   "whimsy_oauth_popup.html",
@@ -855,8 +860,12 @@ support-files = [
 
 ["browser_whimsy_mini_tabs.js"]
 support-files = ["whimsy_mini_links.html", "whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
+
+# Mini windows archive after inactivity; manual closes share the Mini reason.
+["browser_whimsy_mini_archive.js"]
 # wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
 ["browser_whimsy_site_settings.js"]
+head = "head.js head-leakcheck.js"
 support-files = ["whimsy_article.html"]
 
 # batch10: View Page Source line wrap option + command (W10-34)
@@ -917,6 +926,7 @@ support-files = ["whimsy_call_captions.html"]
 
 # B1: ⌘⇧T reopens a closed pinned tab or Essential too.
 ["browser_whimsy_reopen_pinned.js"]
+head = "head.js head-leakcheck.js"
 support-files = ["whimsy_email_form.html"]
 
 # W13-R3: a call's microphone and camera in sync: Meet, the small player, PiP.

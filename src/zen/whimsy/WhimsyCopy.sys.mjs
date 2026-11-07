@@ -56,6 +56,8 @@ const COMMANDS = {
 };
 const MENU_ID = "context_whimsyCopyLinks";
 const TOAST_TIMEOUT_MS = 3000;
+// Only the latest copy in a window may publish async selection feedback.
+const copyRequests = new WeakMap();
 
 function escapeHTML(text) {
   return text.replace(
@@ -150,15 +152,18 @@ export const WhimsyCopy = {
   // already on the clipboard; the toast says so and offers "Share a link
   // directly to this text instead?", which copies Link to Highlight (the
   // existing command) over it. With nothing selected, the usual toast.
-  async offerHighlight(win, links) {
+  async offerHighlight(win, links, request = copyRequests.get(win)) {
     const browser = win.gBrowser.selectedBrowser;
+    const windowGlobal = browser.browsingContext?.currentWindowGlobal;
     let selected = null;
     try {
-      selected = await browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage").sendQuery("Whimsy:Selection");
+      selected = await windowGlobal?.getActor("WhimsyPage").sendQuery("Whimsy:Selection");
     } catch (e) {
       // No page actor (a privileged page): no selection to link to.
     }
-    if (win.closed || win.gBrowser.selectedBrowser != browser) {
+    if (win.closed || copyRequests.get(win) != request ||
+        win.gBrowser.selectedBrowser != browser ||
+        browser.browsingContext?.currentWindowGlobal != windowGlobal) {
       return false;
     }
     if (!selected?.text || selected.inField) {
@@ -341,17 +346,33 @@ export const WhimsyCopy = {
     if (!links.length) {
       return null;
     }
+    const request = {};
+    copyRequests.set(win, request);
+    this.closeHighlightToast(win);
     this.writeClipboard(win, this.format(links, { markdown }), {
       isPrivate: browserIsPrivate(win) || links.some(link => link.isPrivate),
     });
     if (offerHighlight) {
-      return this.offerHighlight(win, links).catch(e => {
+      return this.offerHighlight(win, links, request).catch(e => {
         console.error("Whimsy: copy toast", e);
-        this.showToast(win, links, { markdown, current });
+        if (!win.closed && copyRequests.get(win) == request) {
+          this.showToast(win, links, { markdown, current });
+        }
       });
     }
     this.showToast(win, links, { markdown, current });
     return null;
+  },
+
+  closeHighlightToast(win) {
+    // getToast() excludes toasts already fading out. A clicked offer has
+    // removed its owner listeners, so a subsequent tab switch won't remove
+    // that DOM either. Retire it even if its exit animation is still pending.
+    for (const toast of win.gZenUIManager?.toasts?.getToasts({ includeClosing: true }) ?? []) {
+      if (toast.key == "whimsy-copy-highlight") {
+        toast.close({ instant: true });
+      }
+    }
   },
 
   showToast(win, links, { markdown, current = true }) {
@@ -386,7 +407,7 @@ export const WhimsyCopy = {
       };
     }
     // One copy toast: an earlier Link to Highlight offer gives way.
-    gZenUIManager.toasts?.getToast("whimsy-copy-highlight")?.close({ instant: true });
+    this.closeHighlightToast(win);
     gZenUIManager.showToast(messageId, { l10nArgs, button, timeout: TOAST_TIMEOUT_MS });
     // Zen reuses a toast that's still showing, keeping its old text: refresh
     // the count and tracker wording, and show which URL was copied under the
