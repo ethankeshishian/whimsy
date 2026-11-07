@@ -99,6 +99,32 @@ function isEditableTarget(win, takeover = false) {
 const lastPinnedClose = new WeakMap();
 // W16-9: per window, the "Reopened where you left it" toast and its tab.
 const pinnedReopenToasts = new WeakMap();
+// A restored URI/history is visible before SessionStore has finished restoring
+// content. In particular, explicitUnloadTabs flushes that content before it
+// discards it. Do not overlap that unload/reset with restore completion.
+const pinnedRestores = new WeakMap();
+
+function setPinnedTabState(tab, state) {
+  let finish;
+  const done = new Promise(resolve => { finish = resolve; });
+  const complete = () => {
+    tab.removeEventListener("SSTabRestored", complete);
+    tab.removeEventListener("TabClose", complete);
+    if (pinnedRestores.get(tab) == done) {
+      pinnedRestores.delete(tab);
+    }
+    finish();
+  };
+  tab.addEventListener("SSTabRestored", complete);
+  tab.addEventListener("TabClose", complete);
+  pinnedRestores.set(tab, done);
+  try {
+    lazy().SessionStore.setTabState(tab, state);
+  } catch (e) {
+    complete();
+    throw e;
+  }
+}
 
 // ⌘⇧T gives a reset pinned tab back the history it had before ⌘W.
 // Returns the URL it's back on (W16-9), or null when nothing was restored.
@@ -113,7 +139,7 @@ function restorePreResetState(tab) {
     const now = JSON.parse(SessionStore.getTabState(tab));
     const home = tab._zenPinnedInitialState?.entry?.url;
     if (now.entries?.length == 1 && now.entries[0].url == home) {
-      SessionStore.setTabState(tab, saved);
+      setPinnedTabState(tab, saved);
       const state = JSON.parse(saved);
       return state.entries?.[(state.index || state.entries.length) - 1]?.url ?? null;
     }
@@ -297,7 +323,10 @@ export const WhimsyUndo = {
       if (record) {
         lastPinnedClose.set(win, record);
       }
-      const running = original.call(this, event, selectedTab, ...rest);
+      const pending = tabs.map(tab => pinnedRestores.get(tab)).filter(Boolean);
+      const running = pending.length
+        ? Promise.all(pending).then(() => original.call(this, event, selectedTab, ...rest))
+        : original.call(this, event, selectedTab, ...rest);
       if (record) {
         record.done = running.catch(() => {});
       }
@@ -378,6 +407,7 @@ export const WhimsyUndo = {
     }
     // Once it has finished coming back (so the toast, and its ⌘⇧T, never
     // race the restore's own load).
+    await pinnedRestores.get(tab);
     await this.untilLoaded(win, tab);
     if (!tab.isConnected || !tab.selected) {
       return null;
@@ -435,6 +465,7 @@ export const WhimsyUndo = {
     const entry = pinnedReopenToasts.get(win);
     pinnedReopenToasts.delete(win);
     entry?.toast?.close?.();
+    await pinnedRestores.get(tab);
     await this.untilLoaded(win, tab);
     if (tab?.isConnected && tab.pinned) {
       win.gZenPinnedTabManager?.resetPinnedTab(tab);

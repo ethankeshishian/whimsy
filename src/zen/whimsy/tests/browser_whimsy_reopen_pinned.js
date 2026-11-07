@@ -3,6 +3,29 @@
 
 "use strict";
 
+// The release verify recorded 49s against the harness's 45s file limit.
+requestLongerTimeout(2);
+
+// Include replacement/implicit blank tabs, and run even when a task throws.
+const startingTabs = new Set(gBrowser.tabs);
+async function removeTestTab(tab) {
+  if (!tab.isConnected || tab.closing || startingTabs.has(tab)) {
+    return;
+  }
+  if (tab.hasAttribute("zen-essential")) {
+    gZenPinnedTabManager.removeEssentials(tab);
+  }
+  if (tab.pinned) {
+    gBrowser.unpinTab(tab);
+  }
+  await BrowserTestUtils.removeTab(tab);
+}
+registerCleanupFunction(async () => {
+  for (const tab of [...gBrowser.tabs]) {
+    await removeTestTab(tab);
+  }
+});
+
 // B1: ⌘⇧T reopens the most recently closed tab of any kind: a normal tab,
 // a pinned tab and an Essential, closed the ways a person closes them.
 
@@ -58,8 +81,8 @@ for (const kind of ["pinned", "essential"]) {
     if (tab.pinned) {
       gBrowser.unpinTab(tab);
     }
-    BrowserTestUtils.removeTab(tab);
-    BrowserTestUtils.removeTab(back);
+    await BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(back);
   });
 }
 
@@ -94,8 +117,8 @@ for (const kind of ["normal", "pinned", "essential"]) {
     if (back.pinned) {
       gBrowser.unpinTab(back);
     }
-    BrowserTestUtils.removeTab(back);
-    BrowserTestUtils.removeTab(keep);
+    await BrowserTestUtils.removeTab(back);
+    await BrowserTestUtils.removeTab(keep);
   });
 }
 
@@ -141,7 +164,7 @@ add_task(async function cancelled_pinned_close_is_not_a_close() {
 
   gBrowser.unpinTab(formTab);
   for (const tab of [formTab, other, back]) {
-    BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(tab);
   }
   await SpecialPowers.popPrefEnv();
 });
@@ -180,10 +203,12 @@ async function closeWithKey(tab) {
 
 async function closeAndWaitForReset(tab) {
   await closeWithKey(tab);
-  // Reset/unload updates SessionStore asynchronously. Keep this poll
-  // synchronous: a pending TabStateFlusher.flush would defeat maxTries.
-  await TestUtils.waitForCondition(() => JSON.parse(SessionStore.getTabState(tab)).entries.length == 1,
-    "...and reset it to its pinned page", 100, 300);
+  // Check both history and the canonical URL on this same tab. A lazy
+  // browser exposes its cached state here before being picked by hand.
+  await TestUtils.waitForCondition(() => {
+    const state = JSON.parse(SessionStore.getTabState(tab));
+    return state.entries.length == 1 && state.entries[0].url == tab._zenPinnedInitialState?.entry?.url;
+  }, "...and reset it to its pinned page");
 }
 
 async function cleanUp(kind, tab, keep) {
@@ -193,8 +218,8 @@ async function cleanUp(kind, tab, keep) {
   if (tab.pinned) {
     gBrowser.unpinTab(tab);
   }
-  BrowserTestUtils.removeTab(tab);
-  BrowserTestUtils.removeTab(keep);
+  await BrowserTestUtils.removeTab(tab);
+  await BrowserTestUtils.removeTab(keep);
 }
 
 async function reopenFromTabMenu(onTab) {
@@ -247,7 +272,7 @@ add_task(async function picked_by_hand_after_reset_stays_home() {
   is(tab.linkedBrowser.currentURI.spec, home, "⌘⇧T later doesn't put the old page back");
   isnot(gBrowser.selectedTab, tab, "...nor jump to the tab picked by hand");
   for (const reopened of gBrowser.tabs.filter(t => !before.has(t))) {
-    BrowserTestUtils.removeTab(reopened);
+    await BrowserTestUtils.removeTab(reopened);
   }
   await cleanUp("pinned", tab, keep);
 });
@@ -296,7 +321,7 @@ for (const how of ["key", "button"]) {
     await closed;
     await reopenWithKey();
     const back = await TestUtils.waitForCondition(() => found(closedURL), "⌘⇧T reopens the last closed tab");
-    BrowserTestUtils.removeTab(back);
+    await BrowserTestUtils.removeTab(back);
     await cleanUp("pinned", tab, keep);
   });
 }

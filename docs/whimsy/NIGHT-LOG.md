@@ -316,3 +316,38 @@ authorized targeted run; isolated old passes are not validation of these edits.
   open, TabSelect reset, and normal fallback. All passed. Overrides were
   validated in memory only; no import, mach, mochitest, build, or verify run.
   No commit, control.json, or Updater changes.
+
+
+### Pinned reopen / second-close restore ordering (2026-11-07)
+
+- Read the release log around the failing navigated-pinned task and isolated
+  rerun logs. The release task starts at 15:46.87, has unlabelled JS exceptions
+  at 15:47.21 and "Given tab is not restoring" at 15:47.30, then times out at
+  16:22.59. Isolated rerun.6VAC5d/2-1 has the same sequence at 0:06.96,
+  0:07.03, and 0:37.10. These errors support overlapping restore teardown;
+  they do not carry a stack/browser identity proving the exact IPC ordering.
+- Product ordering hole (candidate a): WhimsyUndo restored saved history with
+  setTabState and immediately selected the tab. SessionStore #restoreTab
+  publishes cached history/lazy URI before asynchronous content restoration
+  completes. URI/canGoBack therefore do not establish completion. A second
+  Cmd+W entered Zen's explicitUnloadTabs (ZenPinnedTabManager:430), which
+  flushes/discards before resetting at :449. SessionStore's asynchronous
+  #restoreTabContentForBrowser completion calls #resetLocalTabRestoringState
+  without an epoch check; an unload/another reset can already have cleared
+  or replaced that state. The keep navigation has a different browser, and
+  the test polls the same persistent pinned tab object.
+- WhimsyUndo now tracks its own restores until SSTabRestored (or TabClose),
+  registering before setTabState. A second pinned close and the Back to Pinned
+  Page action wait on that completion; the reopen toast does too. No arbitrary
+  longer restore wait, and no upstream Zen file edits.
+- Test removals are awaited, with a registered failure-safe sweep of every
+  tab absent from the starting set (including keep and implicit blank tabs).
+  The reset assertion additionally requires the canonical pinned URL. Removed
+  the 300-try workaround; requestLongerTimeout(2) covers the recorded 49s vs
+  45s file limit, independently of the race fix.
+- Validation: Node syntax checks, git diff --check, overlay.py check (zero
+  problems), and four Node regression cases exercising the actual product
+  wrapper with delayed restore completion all pass. This verifies the added
+  serialization, not Gecko's full race: browser integration remains unrun as
+  requested. No mach, mochitest, build, verify, commit, control.json, or Updater
+  changes.
