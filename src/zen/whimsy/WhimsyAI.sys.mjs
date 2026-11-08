@@ -13,7 +13,7 @@
 // generative, and Whimsy's translate features build on them.
 // Whimsy's own AI features must check WhimsyAI.blocked before doing anything.
 
-// W10-28: Settings → AI's "Enable AI" (on by default) replaced "Turn off
+// W10-28: Settings → AI's "Enable AI" (W23: off until a provider connects) replaced "Turn off
 // all AI features": checked now means enabled. whimsy.ai.blocked was the
 // old switch; a profile that had it on starts with AI off, and for one
 // release it is kept as !enabled, so a rolled-back build (which still
@@ -134,7 +134,7 @@ export const WhimsyAI = {
 
   // Whether Enable AI is on (Settings → AI).
   get enabled() {
-    return Services.prefs.getBoolPref(PREF, true);
+    return Services.prefs.getBoolPref(PREF, false);
   },
 
   // True when the user turned AI off. Every Whimsy AI feature checks this.

@@ -66,20 +66,27 @@ add_task(async function shots_hint_toasts() {
 // Motion (09-discovery): in with scale 0 -> 1 on Zen's spring.
 add_task(async function shots_hint_toast_mid_animation() {
   for (const ms of [120, 250]) {
-    const toast = await showHint("ask");
-    await whimsyShotMid("w23-ai-base-disc-1.1", () => toast.element.getAnimations({ subtree: true })[0], ms)
-      .catch(e => info(`No entrance animation to hold: ${e}`));
-    await toast.shown;
-    toast.close({ instant: true });
+    const motion = whimsyCaptureMotion(el => el.hasAttribute?.("whimsy-ai-hint") || el.classList?.contains("zen-toast"));
+    try {
+      const toast = await showHint("ask");
+      await whimsyShotMid("w23-ai-base-disc-1.1", motion.get, ms);
+      await toast.shown;
+      toast.close({ instant: true });
+    } finally {
+      motion.stop();
+    }
   }
 });
 
 add_task(async function shots_masked_fields() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ROOT + "whimsy_ai_sensitive.html");
-  for (const sel of ["#pw", "#cc", "#otp"]) {
-    await BrowserTestUtils.synthesizeMouseAtCenter(sel, {}, tab.linkedBrowser);
-    EventUtils.sendString("4111" + "111111111111");
-  }
+  // Filled without typing: the shot is of the masks, and typed fixtures
+  // would leave form drafts behind.
+  await SpecialPowers.spawn(tab.linkedBrowser, [["hunter" + "2", "4111" + "111111111111", "48" + "2913"]], values => {
+    const doc = content.document;
+    ["#pw", "#cc", "#otp"].forEach((sel, i) => (doc.querySelector(sel).value = values[i]));
+    doc.getElementById("mirror").textContent = values[0];
+  });
   await WhimsyAIContext.withMask(tab.linkedBrowser, () =>
     whimsyShot("w23-ai-base-mask-fields", tab.linkedBrowser.browsingContext.currentWindowGlobal));
   BrowserTestUtils.removeTab(tab);

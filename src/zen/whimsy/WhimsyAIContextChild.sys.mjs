@@ -22,6 +22,8 @@ const MAX_IMAGES = 60;
 const MAX_HEADINGS = 60;
 const MIN_IMAGE_PX = 48;
 const PAD = 2;
+const MIN_MIRROR = 3;
+const MAX_MIRROR_NODES = 20_000;
 
 export class WhimsyAIContextChild extends JSWindowActorChild {
   #mask = null;
@@ -68,14 +70,46 @@ export class WhimsyAIContextChild extends JSWindowActorChild {
       return [{ x: 0, y: 0, width: win.innerWidth, height: win.innerHeight, kind: "frame" }];
     }
     const rects = [];
-    for (const { el, kind } of sensitiveFields(this.document)) {
+    const fields = sensitiveFields(this.document);
+    for (const { el, kind } of fields) {
       const r = el.getBoundingClientRect();
       if (r.width <= 0 || r.height <= 0) {
         continue;
       }
       rects.push({ x: r.left - PAD, y: r.top - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2, kind });
     }
+    rects.push(...this.#mirrorRects(fields));
     return rects;
+  }
+
+  // A secret a page shows again in its own text ("Your code is 482913").
+  #mirrorRects(fields) {
+    const values = [...new Set(fields.map(f => fieldValue(f.el).trim()).filter(v => v.length >= MIN_MIRROR))];
+    const body = this.document.body;
+    if (!values.length || !body) {
+      return [];
+    }
+    const out = [];
+    const walker = this.document.createTreeWalker(body, this.contentWindow.NodeFilter.SHOW_TEXT);
+    const range = this.document.createRange();
+    for (let node = walker.nextNode(), n = 0; node && n < MAX_MIRROR_NODES; node = walker.nextNode(), n++) {
+      const text = node.data;
+      if (text.length < MIN_MIRROR || fields.some(f => f.el.contains(node))) {
+        continue;
+      }
+      for (const value of values) {
+        for (let at = text.indexOf(value); at >= 0; at = text.indexOf(value, at + value.length)) {
+          range.setStart(node, at);
+          range.setEnd(node, at + value.length);
+          for (const r of range.getClientRects()) {
+            if (r.width > 0 && r.height > 0) {
+              out.push({ x: r.left - PAD, y: r.top - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2, kind: "mirror" });
+            }
+          }
+        }
+      }
+    }
+    return out;
   }
 
   extract({ redact = true } = {}) {

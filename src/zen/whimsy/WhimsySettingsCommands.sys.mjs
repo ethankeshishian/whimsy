@@ -148,8 +148,6 @@ export const SETTINGS = [
       { value: "gemini", l10nId: "whimsy-ai-name-gemini" },
       { value: "ollama", l10nId: "whimsy-ai-name-ollama" },
     ] },
-  { name: "ai-plan-fallback", setting: "whimsyAIPlanFallback", feature: ["ai-providers"],
-    exempt: "shown in Settings only once a plan is connected" },
   { name: "ai-connect-methods", setting: "whimsyAISheetMethods", feature: ["ai-providers"],
     exempt: "the sign-in options inside the Connect sheet" },
   { name: "ai-claude-key", setting: "whimsyAIKey", feature: ["ai-providers"], exempt: "an API key, typed or pasted in Settings" },

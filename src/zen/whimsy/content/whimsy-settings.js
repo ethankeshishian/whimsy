@@ -1419,7 +1419,7 @@ Object.assign(gWhimsySettings, {
       return;
     }
     this._aiProvidersWired = true;
-    const { WhimsyAIProviders, ACCOUNT_ORDER, PLAN_PROVIDERS, PLAN_FALLBACK_PREF } = ChromeUtils.importESModule(
+    const { WhimsyAIProviders, ACCOUNT_ORDER, PLAN_PROVIDERS } = ChromeUtils.importESModule(
       "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs"
     );
     const $ = id => document.getElementById(id);
@@ -1735,7 +1735,6 @@ Object.assign(gWhimsySettings, {
           setL10n($("whimsyAIModelValue"), "whimsy-ai-model-default");
         }
       }
-      $("whimsyAIPlanFallback").hidden = !WhimsyAIProviders.anyPlanAvailable();
     };
 
     const refresh = async () => {
@@ -1819,7 +1818,6 @@ Object.assign(gWhimsySettings, {
       });
     }
     $("whimsyAIManageUsage").addEventListener("command", () => WhimsyAIProviders.manageUsage(browserWindow()));
-    this.initPrefToggle("whimsyAIPlanFallback", PLAN_FALLBACK_PREF, false);
 
     // ---- Sheets: connecting, disconnecting ----
     let modal = null;
@@ -2226,6 +2224,7 @@ Object.assign(gWhimsySettings, {
     Services.obs.addObserver(changed, "whimsy-ai-accounts-changed");
     const watched = [
       "whimsy.ai.provider",
+      "whimsy.ai.order",
       "whimsy.ai.openai.model",
       "whimsy.ai.gemini.model",
       "whimsy.ai.claude.model",

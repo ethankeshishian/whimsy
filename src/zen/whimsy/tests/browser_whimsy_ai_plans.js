@@ -16,6 +16,8 @@ const { WhimsyAIOpenAIAuth, sseEvents } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyAIOpenAIAuth.sys.mjs"
 );
 const { WhimsyAIClaudeCode } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIClaudeCode.sys.mjs");
+const { WhimsyAIRouter } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIRouter.sys.mjs");
+const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
 const { OSKeyStoreTestUtils } = ChromeUtils.importESModule("resource://testing-common/OSKeyStoreTestUtils.sys.mjs");
 const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
 
@@ -41,10 +43,15 @@ registerCleanupFunction(async () => {
     "whimsy.ai.openai.model",
     "whimsy.ai.claude.model",
     "whimsy.ai.openai.plan-welcomed",
-    "whimsy.ai.enabled",
+    "whimsy.ai.auto-enabled",
+    "whimsy.ai.order",
+    "whimsy.ai.resting",
+    "whimsy.ai.claude-code.stream-probe",
+    "whimsy.ai.gemini.model",
   ]) {
     Services.prefs.clearUserPref(pref);
   }
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
   if (deviceNameHadUserValue) {
     Services.prefs.setStringPref(DEVICE_NAME_PREF, deviceNameValue);
   } else {
@@ -306,6 +313,9 @@ add_task(async function test_sign_in_with_chatgpt() {
   await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "bad-response", "No response.completed: no answer");
   mock.stream = 'data: {"type":"response.failed","response":{"error":{"code":"subscription_sharing_usage_limit_exceeded"}}}\n\n';
   await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-limit", "A spent plan says so");
+  ok(WhimsyAIProviders.resting("openai"), "and rests");
+  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-limit", "Resting, it isn't asked again");
+  WhimsyAIProviders.clearResting("openai");
   mock.stream = 'data: {"type":"error","code":"subscription_sharing_user_not_eligible"}\n\n';
   await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-ineligible", "An ineligible plan says so");
   mock.stream = null;
@@ -404,7 +414,7 @@ add_task(async function test_sign_in_refusals() {
   BrowserTestUtils.removeTab(page);
   Services.prefs.setBoolPref("whimsy.ai.enabled", false);
   await rejectsWith(pending, "sign-in-cancelled", "Enable AI off cancels a waiting sign-in");
-  Services.prefs.clearUserPref("whimsy.ai.enabled");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
   for (const tab of [...gBrowser.tabs]) {
     if (tab != before && tab.linkedBrowser.currentURI.spec.startsWith("http://127.0.0.1")) {
       BrowserTestUtils.removeTab(tab);
@@ -427,14 +437,19 @@ async function fakeClaude() {
       `d="${dir}"`,
       'if [ "$1" = auth ] && [ "$2" = status ]; then cat "$d/status.json"; exit 0; fi',
       'if [ "$1" = auth ] && [ "$2" = login ]; then cp "$d/after-login.json" "$d/status.json"; exit 0; fi',
+      'if [ "$1" = --version ]; then echo "9.9.9 (Claude Code)"; exit 0; fi',
       'printf "%s\\n" "$@" > "$d/args.txt"',
+      'prev=""; for a in "$@"; do if [ "$prev" = --mcp-config ]; then stat -f %Lp "$a" > "$d/mode.txt"; cp "$a" "$d/mcp.json"; printf "%s" "$a" > "$d/mcp-path.txt"; fi; prev="$a"; done',
       'cat > "$d/stdin.txt"',
-      'cat "$d/result.json"',
+      'if [ -f "$d/hang" ]; then exec sleep 30; fi',
+      'case "$*" in *stream-json*) if [ -f "$d/stream.jsonl" ]; then cat "$d/stream.jsonl"; else cat "$d/result.json"; fi;; *) cat "$d/result.json";; esac',
     ].join("\n") + "\n"
   );
   await IOUtils.setPermissions(script, 0o755);
   const write = (name, value) => IOUtils.writeJSON(PathUtils.join(dir, name), value);
-  return { dir, write, read: name => IOUtils.readUTF8(PathUtils.join(dir, name)) };
+  const writeText = (name, value) => IOUtils.writeUTF8(PathUtils.join(dir, name), value);
+  const remove = name => IOUtils.remove(PathUtils.join(dir, name), { ignoreAbsent: true });
+  return { dir, write, writeText, remove, read: name => IOUtils.readUTF8(PathUtils.join(dir, name)) };
 }
 
 add_task(async function test_claude_plan_through_claude_code() {
@@ -450,11 +465,12 @@ add_task(async function test_claude_plan_through_claude_code() {
   await fake.write("after-login.json", { loggedIn: true, email: "me@example.com", subscriptionType: "max" });
   await WhimsyAIProviders.connectPlan(window, "claude");
   is((await WhimsyAIProviders.connection("claude")).label, "me@example.com", "Claude Code's own sign-in ran; connected");
-
-  Services.prefs.setStringPref("whimsy.ai.provider", "claude");
-  ok(!(await WhimsyAIProviders.isReady()), "Automatic features don't use the plan");
-  ok(await WhimsyAIProviders.isReady({ userStarted: true }), "Things the person starts do");
-  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-user-only", "An automatic request is turned away");
+  // Connecting probes stream-json in the background; let it finish first.
+  await TestUtils.waitForCondition(() => WhimsyAIProviders._claudePlanStreams !== null, "The stream probe ran");
+  Services.prefs.clearUserPref("whimsy.ai.claude-code.stream-probe");
+  WhimsyAIProviders._claudePlanStreams = false;
+  Assert.deepEqual(WhimsyAIProviders.order, ["claude"], "Claude is in the order");
+  ok(await WhimsyAIProviders.isReady(), "Automatic features may use the plan");
 
   await fake.write("result.json", { type: "result", subtype: "success", is_error: false, result: "Answer" });
   is(await WhimsyAIProviders.complete({ prompt: "Page text; rm -rf ~", system: "Be brief", userStarted: true }), "Answer", "Claude Code answers");
@@ -468,14 +484,151 @@ add_task(async function test_claude_plan_through_claude_code() {
 
   await fake.write("result.json", { type: "result", subtype: "success", is_error: true, result: "Claude usage limit reached. Resets 10pm" });
   await rejectsWith(WhimsyAIProviders.complete({ prompt: "x", userStarted: true }), "plan-limit", "A spent plan says so");
+  ok(WhimsyAIProviders.resting("claude")?.message.startsWith("Claude usage limit reached"), "A spent plan rests, in its words");
+  WhimsyAIProviders.clearResting("claude");
   await fake.write("result.json", { type: "result", subtype: "success", is_error: true, result: "Invalid API key · Please run /login" });
   await rejectsWith(WhimsyAIProviders.complete({ prompt: "x", userStarted: true }), "claude-code-signed-out", "Signed out of Claude Code says so");
+
+
+  await plan_runs_unattended(fake);
+  await plan_gets_temp_mcp_config_and_deletes_it(fake);
+  await plan_no_stream_whole_answer(fake);
+  await plan_stream_json_when_supported(fake);
 
   await WhimsyAIProviders.disconnect("claude");
   ok(!(await WhimsyAIProviders.connection("claude")), "Disconnecting stops using Claude Code");
   ok(JSON.parse(await fake.read("status.json")).loggedIn, "and leaves Claude Code signed in");
   Services.prefs.clearUserPref("whimsy.ai.provider");
+  Services.prefs.clearUserPref("whimsy.ai.order");
+  Services.prefs.clearUserPref("whimsy.ai.auto-enabled");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
   WhimsyAIClaudeCode.setTestSearchPath(null);
   await IOUtils.remove(fake.dir, { recursive: true });
   await IOUtils.remove(empty, { recursive: true });
+});
+
+// W23: the plan serves automatic work too (routines, previews, the index).
+async function plan_runs_unattended(fake) {
+  await fake.write("result.json", { type: "result", subtype: "success", is_error: false, result: "Routine answer" });
+  is(await WhimsyAIProviders.complete({ prompt: "x", userStarted: false }), "Routine answer", "plan_runs_unattended: an automatic request is answered");
+  is(await WhimsyAIClaudeCode.complete({ prompt: "x" }), "Routine answer", "and Claude Code itself has no gate");
+}
+
+// Connectors reach Claude Code as a 0600 --mcp-config file that's gone
+// after the run, whether it finishes or is stopped.
+async function plan_gets_temp_mcp_config_and_deletes_it(fake) {
+  const servers = [
+    { name: "granola", url: "https://mcp.example/granola", headers: { authorization: "Bearer " + "tok-" + "1" } },
+    { name: "my files", command: "/usr/bin/true", args: ["--x"] },
+  ];
+  await fake.write("result.json", { type: "result", subtype: "success", is_error: false, result: "With connectors" });
+  is(await WhimsyAIClaudeCode.complete({ prompt: "x", mcpServers: servers }), "With connectors", "Answered with connectors");
+  const args = (await fake.read("args.txt")).split("\n").slice(0, -1);
+  const file = await fake.read("mcp-path.txt");
+  Assert.deepEqual(
+    args,
+    ["-p", "--output-format", "json", "--tools", "", "--mcp-config", file, "--strict-mcp-config", "--allowedTools", "mcp__granola,mcp__my_files", "--no-session-persistence"],
+    "Claude Code's own tools stay off; only the connectors' tools may run"
+  );
+  ok(file.startsWith(PathUtils.join(PathUtils.tempDir, "whimsy-claude-code")) && /mcp-[0-9a-f-]+\.json$/.test(file), "The file is in Whimsy's Claude Code folder");
+  is((await fake.read("mode.txt")).trim(), "600", "and only this user can read it");
+  const config = JSON.parse(await fake.read("mcp.json"));
+  is(config.mcpServers.granola.url, "https://mcp.example/granola", "An address server");
+  is(config.mcpServers.my_files.command, "/usr/bin/true", "A command server");
+  ok(!(await IOUtils.exists(file)), "The file is deleted after the run");
+  const folder = await IOUtils.stat(PathUtils.parent(file));
+  is(folder.permissions & 0o777, 0o700, "Its folder is 0700");
+
+  await fake.remove("mcp-path.txt");
+  await fake.writeText("hang", "1");
+  const controller = new AbortController();
+  const pending = WhimsyAIClaudeCode.complete({ prompt: "x", mcpServers: servers, signal: controller.signal });
+  await TestUtils.waitForCondition(() => IOUtils.exists(PathUtils.join(fake.dir, "mcp-path.txt")), "Claude Code started");
+  const stopped = await fake.read("mcp-path.txt");
+  controller.abort();
+  await rejectsWith(pending, "aborted", "Stopping the run");
+  ok(!(await IOUtils.exists(stopped)), "deletes the file too");
+  await fake.remove("hang");
+
+  await WhimsyAIClaudeCode.complete({ prompt: "x" });
+  const plain = (await fake.read("args.txt")).split("\n");
+  ok(!plain.includes("--mcp-config"), "No connectors: no config file");
+}
+
+// Probe says no: the answer arrives whole, as one text event.
+async function plan_no_stream_whole_answer(fake) {
+  await fake.remove("stream.jsonl");
+  Services.prefs.clearUserPref("whimsy.ai.claude-code.stream-probe");
+  await fake.write("result.json", { type: "result", subtype: "success", is_error: false, result: "The whole answer" });
+  await WhimsyAIProviders.refreshCapabilities("claude");
+  ok(!WhimsyAIProviders.capabilities("claude").streaming, "plan_no_stream_whole_answer: no partial messages, no streaming");
+  ok(Services.prefs.getStringPref("whimsy.ai.claude-code.stream-probe").includes("9.9.9"), "The probe is kept per version");
+  const events = [];
+  const result = await WhimsyAIRouter.run({ task: "chat", messages: [{ role: "user", content: "hi" }], onEvent: e => events.push(e) });
+  const texts = events.filter(e => e.type == "text");
+  is(texts.length, 1, "One text event");
+  is(texts[0].delta, "The whole answer", "with the whole answer");
+  is(result.provider, "claude", "from the plan");
+}
+
+// Probe says yes: text and thinking stream as deltas.
+async function plan_stream_json_when_supported(fake) {
+  const line = value => JSON.stringify(value);
+  const delta = d => line({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: d } });
+  await fake.writeText(
+    "stream.jsonl",
+    [
+      line({ type: "system", subtype: "init" }),
+      delta({ type: "thinking_delta", thinking: "Thinking it over" }),
+      delta({ type: "text_delta", text: "Streamed " }),
+      delta({ type: "text_delta", text: "answer" }),
+      line({ type: "result", subtype: "success", is_error: false, result: "Streamed answer" }),
+    ].join("\n") + "\n"
+  );
+  Services.prefs.clearUserPref("whimsy.ai.claude-code.stream-probe");
+  await WhimsyAIProviders.refreshCapabilities("claude");
+  ok(WhimsyAIProviders.capabilities("claude").streaming, "plan_stream_json_when_supported: the probe turns streaming on");
+  const events = [];
+  const result = await WhimsyAIRouter.run({ task: "chat", messages: [{ role: "user", content: "hi" }], onEvent: e => events.push(e) });
+  Assert.deepEqual(events.filter(e => e.type == "text").map(e => e.delta), ["Streamed ", "answer"], "Several text deltas");
+  ok(events.some(e => e.type == "thinking" && e.text == "Thinking it over"), "and its thinking");
+  is(result.text, "Streamed answer", "The answer reads whole");
+  const args = (await fake.read("args.txt")).split("\n");
+  ok(args.includes("stream-json") && args.includes("--include-partial-messages") && args.includes("--verbose"), "with stream-json arguments");
+  await fake.remove("stream.jsonl");
+  WhimsyAIProviders._claudePlanStreams = null;
+  Services.prefs.clearUserPref("whimsy.ai.claude-code.stream-probe");
+}
+
+// W23: AI is off until the first provider connects, and only that first
+// connection turns it on.
+add_task(async function ai_off_until_first_connection() {
+  const server = new HttpServer();
+  server.start(-1);
+  const base = `http://localhost:${server.identity.primaryPort}`;
+  server.registerPrefixHandler("/gemini/", (request, response) => {
+    response.setHeader("content-type", "application/json");
+    response.write(JSON.stringify({ models: [{ name: "models/gemini-a", supportedGenerationMethods: ["generateContent"] }] }));
+  });
+  const { ENDPOINTS } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  const saved = ENDPOINTS.gemini;
+  ENDPOINTS.gemini = `${base}/gemini`;
+  Services.prefs.clearUserPref("whimsy.ai.enabled");
+  Services.prefs.clearUserPref("whimsy.ai.auto-enabled");
+  ok(!WhimsyAI.enabled, "Fresh profile: AI is off");
+  ok(!WhimsyAIProviders.enabled, "and no provider can be used");
+  await WhimsyAIProviders.connectKey("gemini", "AIza" + "Test" + "0003");
+  ok(WhimsyAI.enabled, "The first connection turns AI on");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+  await WhimsyAIProviders.disconnect("gemini");
+  await WhimsyAIProviders.connectKey("gemini", "AIza" + "Test" + "0003");
+  ok(!WhimsyAI.enabled, "After the person turns it off, a later connection leaves it off");
+  await WhimsyAIProviders.disconnect("gemini");
+  ENDPOINTS.gemini = saved;
+  await new Promise(r => server.stop(r));
+  for (const pref of ["whimsy.ai.auto-enabled", "whimsy.ai.order", "whimsy.ai.gemini.model"]) {
+    Services.prefs.clearUserPref(pref);
+  }
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  await WhimsyAI.pending;
 });

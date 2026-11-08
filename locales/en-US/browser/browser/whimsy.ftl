@@ -1619,9 +1619,6 @@ whimsy-ai-model-error = Couldn’t load the models
 whimsy-ai-plan-using = Using { $provider } plan
 whimsy-ai-manage-usage-button =
     .label = Manage usage
-whimsy-ai-plan-fallback =
-    .label = When a plan runs out, use the next provider
-    .description = Only for that request, and only when another provider is connected. Off, nothing switches by itself.
 whimsy-ai-accounts-heading = Providers
 whimsy-ai-account-off-local = On this Mac
 whimsy-ai-account-off-key = API key
@@ -1740,7 +1737,6 @@ whimsy-ai-error-plan-limit = Your { $provider } plan has no room left
 whimsy-ai-error-plan-limit-detail = Included usage is used up for now.
 whimsy-ai-error-signed-out = { $provider } signed you out. Sign in again in Settings → AI.
 whimsy-ai-error-plan-ineligible = Your { $provider } plan can’t be used here. Use an API key instead.
-whimsy-ai-error-plan-user-only = Your { $provider } plan is used only for things you start
 whimsy-ai-error-sign-in-cancelled = Sign-in didn’t finish
 whimsy-ai-error-claude-code-missing = Install Claude Code to use your Claude plan
 whimsy-ai-error-claude-code-signed-out = Claude Code isn’t signed in. Connect Claude again in Settings → AI.
@@ -4497,7 +4493,6 @@ whimsy-setting-firefox-tab-groups = Suggest Tab Groups
     .keywords = smart tab groups, tab group suggestions, ai tab groups
 whimsy-setting-ai-provider = AI Provider
     .keywords = apple intelligence, claude, ollama, model, api key, local model
-whimsy-setting-ai-plan-fallback = Use the Next Plan When One Runs Out
 whimsy-setting-ai-connect-methods = Connect Sign-in Options
 whimsy-setting-ai-claude-key = Claude API Key
     .keywords = anthropic, api key, claude key
@@ -5242,6 +5237,12 @@ whimsy-favicon-home-button =
     .aria-label = Go to Site Home
 whimsy-action-site-home = Go to Site Home
 
+## W23 ai-core: errors from the provider router (toasts; chat's error block
+## lists what was tried itself).
+
+whimsy-ai-error-none-capable = None of your AI providers can do this. Add one that can in Settings → AI.
+whimsy-ai-error-all-failed = Every AI provider you have on failed. Try again, or check Settings → AI.
+whimsy-ai-error-offline = You're offline, and no AI on this Mac can do this.
 ## W23 ai-base: hints (one toast per surface, once ever)
 
 whimsy-ai-hint-got-it = Got it

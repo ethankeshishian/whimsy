@@ -7,7 +7,10 @@ head = "head.js"
 support-files = ["whimsy_slow_load.sjs"]
 # W11-14: the private lock's first-run question would pop up in every test
 # that opens something private; browser_whimsy_private_lock.js tests it.
+# W23 ai-core: AI is off until a provider connects; tests start with it on
+# (browser_whimsy_ai_kill_switch.js and _plans.js check the default).
 prefs = [
+  "whimsy.ai.enabled=true",
   "whimsy.privateLock.askDismissals.tabs=2",
   "whimsy.privateLock.askDismissals.space=2",
   "whimsy.privateLock.askDismissals.windows=2",
@@ -944,6 +947,8 @@ support-files = ["whimsy_meet.html"]
 
 ["browser_whimsy_favicon_home.js"]
 
+# W23 ai-core: the provider order, switches, capabilities, resting, and the router.
+["browser_whimsy_ai_router.js"]
 # W23 ai-base: the shared redactor (masked before capture), context with the
 # private wall and hidden/locked spaces, the AI store and Updates feed, the
 # hint queue, the chat facade, and this lane's screenshots.
