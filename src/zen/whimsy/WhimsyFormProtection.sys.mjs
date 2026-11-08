@@ -184,10 +184,9 @@ export const WhimsyFormDrafts = {
   // waiting for it (not on the write itself, which keeps running) after a
   // moment instead of blocking the caller.
   _bounded(promise) {
-    dump("WDBG _bounded start ms=" + this._shutdownMs + "\n");
     let timer;
-    const late = new Promise(resolve => (timer = lazy.setTimeout(() => { dump("WDBG _bounded late fired\n"); resolve(); }, this._shutdownMs)));
-    return Promise.race([promise, late]).finally(() => { dump("WDBG _bounded settled\n"); lazy.clearTimeout(timer); });
+    const late = new Promise(resolve => (timer = lazy.setTimeout(resolve, this._shutdownMs)));
+    return Promise.race([promise, late]).finally(() => lazy.clearTimeout(timer));
   },
 
   flushAtShutdown() {
@@ -332,18 +331,14 @@ export const WhimsyFormDrafts = {
 
   // Fire everywhere, or the setting turned off: memory and the file.
   async forgetAll() {
-    dump("WDBG forgetAll start writing=" + !!this._writing + "\n");
     this._private.clear();
     this._records = new Map();
     this._loading = null;
     this._dirty = false;
     lazy.clearTimeout(this._timer);
     this._timer = null;
-    dump("WDBG forgetAll before bounded\n");
     await this._bounded(this._writing);
-    dump("WDBG forgetAll after bounded\n");
     await IOUtils.remove(this.path, { ignoreAbsent: true });
-    dump("WDBG forgetAll after remove\n");
   },
 
   _scheduleWrite() {
@@ -353,30 +348,23 @@ export const WhimsyFormDrafts = {
   },
 
   async flush() {
-    dump("WDBG flush entry writing=" + !!this._writing + "\n");
     lazy.clearTimeout(this._timer);
     this._timer = null;
     await this._writing;
-    dump("WDBG flush after first await dirty=" + this._dirty + " records=" + !!this._records + "\n");
     if (!this._dirty || !this._records) {
       return;
     }
     this._dirty = false;
     this._writing = this._write([...this._records.values()].filter(r => draftFresh(r.time)));
-    dump("WDBG flush set _writing, awaiting\n");
     await this._writing;
-    dump("WDBG flush write settled\n");
     this._writing = null;
   },
 
   async _write(list) {
-    dump("WDBG _write entry\n");
     let blob;
     try {
       await lazy.OSKeyStore.ensureLoggedIn(false);
-      dump("WDBG _write after ensureLoggedIn\n");
       blob = await lazy.OSKeyStore.encrypt(JSON.stringify(list));
-      dump("WDBG _write after encrypt\n");
     } catch (e) {
       // No key store: drafts stay in memory for this session, never on
       // disk in the clear.
