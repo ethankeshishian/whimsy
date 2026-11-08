@@ -1,0 +1,1431 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+// W23 chat-shell: the chat panel, a column beside the page that ⌘E opens
+// and closes. Only ⌘E and the header's hide button close it (the video
+// Summarize toggle goes through WhimsyChat.close); Esc closes what's open
+// inside it and nothing else. It sits on either side (inside the tabs when
+// they share a side), resizes like Zen's sidebar, shrinks to 320px in a
+// narrow window and floats over a page that would get too narrow. Each tab
+// shows its own chat; private tabs get a wall. The panel implements the
+// WhimsyChat facade for its window.
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
+  WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIHints: "resource:///modules/whimsy/WhimsyAIHints.sys.mjs",
+  WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
+  WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
+  WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
+  WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
+});
+
+const HTML_NS = "http://www.w3.org/1999/xhtml";
+const SHEET = "chrome://browser/content/whimsy/whimsy-chat.css";
+const ICONS = "chrome://browser/content/whimsy/icons/";
+const FEATURE_PREF = "whimsy.feature.ai-chat";
+const AI_PREF = "whimsy.ai.enabled";
+const SIDE_PREF = "whimsy.chat.side";
+const WIDTH_PREF = "whimsy.chat.width";
+const OFF_TOAST_PREF = "whimsy.chat.ai-off-toast-seen";
+const SETUP_URL = "about:preferences?sheet=add-provider#whimsyAI";
+
+const DEFAULT_WIDTH = 380;
+const MIN_WIDTH = 320;
+const NARROW_WINDOW = 1000;
+const MIN_PAGE = 480;
+// The gap beside the panel, which is also the resize grip.
+const GAP = 8;
+// A drag that leaves less than this hides chat, as Zen's sidebar collapses.
+const SHUT_WIDTH = 160;
+const HINT_IDLE_MS = 3000;
+const PAGE_CHARS = 60000;
+
+const EASE = "cubic-bezier(0.075, 0.82, 0.165, 1)";
+const EASE_EXIT = "cubic-bezier(0.4, 0, 1, 1)";
+const DUR_IN = 240;
+const DUR_OUT = 180;
+const DUR_FADE = 150;
+
+// Brand names stay as they are in every language.
+const PROVIDER_NAMES = {
+  apple: "Apple Intelligence",
+  claude: "Claude",
+  ollama: "Ollama",
+  openai: "ChatGPT",
+  gemini: "Gemini",
+  test: "Test",
+};
+
+const panels = new WeakMap();
+
+const featureOn = () => Services.prefs.getBoolPref(FEATURE_PREF, true);
+
+function h(doc, tag, attrs = {}, ...children) {
+  const el = doc.createElementNS(HTML_NS, tag);
+  for (const [name, value] of Object.entries(attrs)) {
+    if (value == null || value === false) {
+      continue;
+    }
+    if (name == "l10n") {
+      doc.l10n.setAttributes(el, ...(Array.isArray(value) ? value : [value]));
+    } else if (name == "class") {
+      el.className = value;
+    } else if (name == "dataset") {
+      Object.assign(el.dataset, value);
+    } else if (name.startsWith("on")) {
+      el.addEventListener(name.slice(2), value);
+    } else {
+      el.setAttribute(name, value === true ? "" : value);
+    }
+  }
+  el.append(...children.filter(c => c != null && c !== false));
+  return el;
+}
+
+function icon(doc, name) {
+  return h(doc, "span", { class: "whimsy-chat-icon", "data-icon": name, "aria-hidden": "true" });
+}
+
+function iconButton(doc, id, l10nId, name, onclick) {
+  return h(doc, "button", { id, class: "whimsy-chat-btn", l10n: l10nId, onclick }, icon(doc, name));
+}
+
+function reducedMotion(win) {
+  return win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function timeOf(ms, win) {
+  return new win.Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(ms);
+}
+
+// The list's time column: a time today, "Yesterday", a weekday this week,
+// else a date.
+function whenLabel(doc, ms) {
+  const win = doc.defaultView;
+  const then = new Date(ms);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = 86400000;
+  if (then >= today) {
+    return h(doc, "span", { class: "whimsy-chat-conv-time" }, timeOf(ms, win));
+  }
+  if (then >= today - day) {
+    return h(doc, "span", { class: "whimsy-chat-conv-time", l10n: "whimsy-chat-list-yesterday" });
+  }
+  const opts = then >= today - 6 * day ? { weekday: "short" } : { month: "short", day: "numeric" };
+  return h(doc, "span", { class: "whimsy-chat-conv-time" }, new win.Intl.DateTimeFormat(undefined, opts).format(then));
+}
+
+// `text` with every match of `needle` in a <mark>.
+function marked(doc, text, needle) {
+  const out = [];
+  if (!needle) {
+    return [text];
+  }
+  const lower = text.toLowerCase();
+  const n = needle.toLowerCase();
+  let at = 0;
+  let i;
+  while ((i = lower.indexOf(n, at)) != -1) {
+    out.push(text.slice(at, i), h(doc, "mark", {}, text.slice(i, i + n.length)));
+    at = i + n.length;
+  }
+  out.push(text.slice(at));
+  return out;
+}
+
+function snippet(text, needle) {
+  const flat = String(text ?? "").replace(/\s+/g, " ").trim();
+  const i = flat.toLowerCase().indexOf(needle.toLowerCase());
+  if (i < 0) {
+    return flat.slice(0, 80);
+  }
+  const start = Math.max(0, i - 30);
+  const end = Math.min(flat.length, i + needle.length + 40);
+  return `${start ? "…" : ""}${flat.slice(start, end)}${end < flat.length ? "…" : ""}`;
+}
+
+function messageText(msg) {
+  return typeof msg?.text == "string" ? msg.text : typeof msg?.content == "string" ? msg.content : "";
+}
+
+function isWebTab(tab) {
+  const spec = tab?.linkedBrowser?.currentURI?.spec ?? "";
+  return /^(https?|file):/.test(spec);
+}
+
+class ChatPanel {
+  constructor(win) {
+    this.win = win;
+    this.doc = win.document;
+    this.el = null;
+    this._open = false;
+    this.ready = false;
+    this.thread = null;
+    // tab -> {threadId} or {draft: true}: what the tab showed last.
+    this.shown = new WeakMap();
+    // threadId -> the answer streaming into it.
+    this.streams = new Map();
+    this.renderToken = 0;
+    this.tasksExpanded = false;
+    this.knownTasks = new Set();
+  }
+
+  // ---- The facade ----
+
+  get isOpen() {
+    return this._open;
+  }
+
+  get private() {
+    return lazy.WhimsyAIContext.isPrivate(this.win.gBrowser.selectedTab);
+  }
+
+  impl() {
+    return {
+      open: opts => this.open(opts),
+      toggle: () => this.toggle(),
+      close: opts => this.close(opts),
+      isOpen: () => this.isOpen,
+    };
+  }
+
+  // ---- Build ----
+
+  build() {
+    if (this.el) {
+      return;
+    }
+    const { doc, win } = this;
+    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+
+    this.header = h(
+      doc,
+      "header",
+      { class: "whimsy-chat-head", oncontextmenu: e => this.openHeadMenu(e) },
+      iconButton(doc, "whimsy-chat-list-button", "whimsy-chat-list-button", "menu", () => this.openList()),
+      h(doc, "h2", { class: "whimsy-chat-head-title" }),
+      h(doc, "h2", { class: "whimsy-chat-head-private", l10n: "whimsy-chat-private-title", hidden: true }),
+      iconButton(doc, "whimsy-chat-new-button", "whimsy-chat-new-button", "plus", () => this.newChat()),
+      iconButton(doc, "whimsy-chat-hide-button", "whimsy-chat-hide-button", "chat-hide", () => this.close({ reason: "hide" }))
+    );
+    this.header.querySelector("#whimsy-chat-hide-button").setAttribute("aria-keyshortcuts", "Meta+E");
+    this.title = this.header.querySelector(".whimsy-chat-head-title");
+
+    this.tasksStrip = h(
+      doc,
+      "div",
+      { class: "whimsy-chat-tasks", hidden: true, role: "group" },
+      h(
+        doc,
+        "div",
+        { class: "whimsy-chat-tasks-head" },
+        h(doc, "span", { class: "whimsy-chat-tasks-label", l10n: "whimsy-chat-tasks-label" }),
+        h(doc, "button", {
+          class: "whimsy-chat-btn whimsy-chat-tasks-fold",
+          l10n: "whimsy-chat-tasks-collapse",
+          hidden: true,
+          onclick: () => {
+            this.tasksExpanded = false;
+            this.renderTasks();
+          },
+        }, icon(doc, "chevron"))
+      ),
+      h(doc, "div", { class: "whimsy-chat-task-summary", hidden: true }),
+      h(doc, "div", { class: "whimsy-chat-task-rows" })
+    );
+
+    this.body = h(doc, "div", { class: "whimsy-chat-body", role: "log", "aria-live": "polite" });
+
+    this.composer = h(doc, "textarea", {
+      class: "whimsy-chat-input",
+      rows: "1",
+      l10n: "whimsy-chat-composer",
+      oninput: () => this.autosize(),
+      onkeydown: e => this.onComposerKey(e),
+    });
+    this.sendButton = h(doc, "button", { class: "whimsy-chat-send", l10n: "whimsy-chat-send", onclick: () => this.onSendButton() }, icon(doc, "send"));
+    this.chips = h(doc, "div", { class: "whimsy-chat-chips" });
+    this.modelRow = h(
+      doc,
+      "div",
+      { class: "whimsy-chat-model" },
+      h(doc, "span", { class: "whimsy-chat-model-start" }, h(doc, "span", { class: "whimsy-chat-model-name" })),
+      h(doc, "span", { class: "whimsy-chat-model-end" })
+    );
+    this.foot = h(
+      doc,
+      "footer",
+      { class: "whimsy-chat-foot" },
+      this.modelRow,
+      h(doc, "div", { class: "whimsy-chat-composer" }, this.chips, h(doc, "div", { class: "whimsy-chat-composer-row" }, this.composer, this.sendButton))
+    );
+
+    this.list = this.buildList();
+    this.splitter = h(doc, "div", {
+      class: "whimsy-chat-splitter",
+      role: "separator",
+      "aria-orientation": "vertical",
+      l10n: "whimsy-chat-splitter",
+      onmousedown: e => this.startDrag(e),
+      ondblclick: () => this.resetWidth(),
+      onclick: e => e.detail >= 2 && this.resetWidth(),
+    });
+    this.panel = h(doc, "div", { class: "whimsy-chat-panel" }, this.header, this.tasksStrip, this.body, this.foot, this.list);
+    this.el = h(
+      doc,
+      "aside",
+      { id: "whimsy-chat", hidden: true, l10n: "whimsy-chat-panel", onkeydown: e => this.onKeyDown(e) },
+      this.splitter,
+      this.panel
+    );
+    this.el.setAttribute("role", "complementary");
+    this.buildHeadMenu();
+    this.layout();
+  }
+
+  buildList() {
+    const { doc } = this;
+    this.search = h(doc, "input", {
+      type: "search",
+      class: "whimsy-chat-search",
+      l10n: "whimsy-chat-search",
+      oninput: () => {
+        this.win.clearTimeout(this.searchTimer);
+        this.searchTimer = this.win.setTimeout(() => this.renderList(), 80);
+      },
+    });
+    this.listBody = h(doc, "div", { class: "whimsy-chat-list-body" });
+    return h(
+      doc,
+      "section",
+      { class: "whimsy-chat-list", hidden: true },
+      h(
+        doc,
+        "div",
+        { class: "whimsy-chat-list-head" },
+        iconButton(doc, "whimsy-chat-list-back", "whimsy-chat-list-back", "back", () => this.closeList()),
+        h(doc, "h2", { l10n: "whimsy-chat-list-title" }),
+        iconButton(doc, "whimsy-chat-list-new", "whimsy-chat-new-button", "plus", () => this.newChat())
+      ),
+      h(doc, "div", { class: "whimsy-chat-search-box" }, icon(doc, "search"), this.search),
+      this.listBody,
+      h(doc, "p", { class: "whimsy-chat-list-foot", l10n: "whimsy-chat-list-foot" })
+    );
+  }
+
+  buildHeadMenu() {
+    const { doc } = this;
+    const menu = doc.createXULElement("menupopup");
+    menu.id = "whimsy-chat-head-menu";
+    const move = doc.createXULElement("menuitem");
+    move.addEventListener("command", () => this.setSide(this.side == "left" ? "right" : "left"));
+    const hide = doc.createXULElement("menuitem");
+    doc.l10n.setAttributes(hide, "whimsy-chat-menu-hide");
+    hide.setAttribute("key", "key_cmd_whimsyChatToggle");
+    hide.addEventListener("command", () => this.close({ reason: "hide" }));
+    menu.append(move, hide);
+    menu.addEventListener("popupshowing", () =>
+      doc.l10n.setAttributes(move, this.side == "left" ? "whimsy-chat-menu-move-right" : "whimsy-chat-menu-move-left")
+    );
+    (doc.getElementById("mainPopupSet") ?? doc.documentElement).append(menu);
+    this.headMenu = menu;
+  }
+
+  openHeadMenu(event) {
+    event.preventDefault();
+    this.headMenu.openPopupAtScreen(event.screenX, event.screenY, true, event);
+  }
+
+  // ---- Place, size, side ----
+
+  get side() {
+    return Services.prefs.getStringPref(SIDE_PREF, "right") == "left" ? "left" : "right";
+  }
+
+  setSide(side) {
+    Services.prefs.setStringPref(SIDE_PREF, side == "left" ? "left" : "right");
+  }
+
+  get prefWidth() {
+    return Services.prefs.getIntPref(WIDTH_PREF, DEFAULT_WIDTH);
+  }
+
+  width() {
+    const max = Math.floor(this.win.innerWidth / 2);
+    if (this.win.innerWidth < NARROW_WINDOW) {
+      return MIN_WIDTH;
+    }
+    return Math.max(MIN_WIDTH, Math.min(this.dragWidth ?? this.prefWidth, max));
+  }
+
+  layout() {
+    if (!this.el) {
+      return;
+    }
+    const { doc } = this;
+    const wrapper = doc.getElementById("zen-tabbox-wrapper");
+    const tabbox = doc.getElementById("tabbrowser-tabbox");
+    if (!wrapper || !tabbox) {
+      return;
+    }
+    const side = this.side;
+    this.el.setAttribute("side", side);
+    if (side == "left" && this.el.nextElementSibling != tabbox) {
+      tabbox.before(this.el);
+    } else if (side == "right" && this.el.previousElementSibling != tabbox) {
+      tabbox.after(this.el);
+    }
+    // The leftmost column holds the traffic lights over its header.
+    this.el.toggleAttribute("lead", side == "left" && doc.documentElement.getAttribute("zen-right-side") == "true");
+    const width = this.width();
+    this.el.style.setProperty("--whimsy-chat-width", `${width}px`);
+    this.el.toggleAttribute("overlay", wrapper.getBoundingClientRect().width - width - GAP < MIN_PAGE);
+  }
+
+  startDrag(event) {
+    if (event.button != 0) {
+      return;
+    }
+    event.preventDefault();
+    if (event.detail >= 2) {
+      this.resetWidth();
+      return;
+    }
+    const { win } = this;
+    const startX = event.screenX;
+    const startWidth = this.width();
+    const dir = this.side == "right" ? -1 : 1;
+    let moved = false;
+    let frame = 0;
+    let lastX = startX;
+    this.splitter.setAttribute("resizing", "true");
+    const apply = () => {
+      frame = 0;
+      const raw = startWidth + (lastX - startX) * dir;
+      if (raw < SHUT_WIDTH) {
+        end();
+        this.dragWidth = null;
+        this.close({ reason: "drag" });
+        return;
+      }
+      this.dragWidth = Math.max(MIN_WIDTH, Math.min(raw, Math.floor(win.innerWidth / 2)));
+      this.layout();
+    };
+    const move = e => {
+      if (e.screenX != startX) {
+        moved = true;
+      }
+      lastX = e.screenX;
+      frame ||= win.requestAnimationFrame(apply);
+    };
+    const end = () => {
+      win.removeEventListener("mousemove", move, true);
+      win.removeEventListener("mouseup", up, true);
+      this.splitter.removeAttribute("resizing");
+      if (frame) {
+        win.cancelAnimationFrame(frame);
+        frame = 0;
+      }
+    };
+    const up = e => {
+      lastX = e.screenX;
+      if (moved && this._open) {
+        apply();
+      }
+      end();
+      if (moved && this.dragWidth != null) {
+        Services.prefs.setIntPref(WIDTH_PREF, Math.round(this.dragWidth));
+      }
+      this.dragWidth = null;
+      this.layout();
+    };
+    win.addEventListener("mousemove", move, true);
+    win.addEventListener("mouseup", up, true);
+  }
+
+  resetWidth() {
+    Services.prefs.clearUserPref(WIDTH_PREF);
+    this.layout();
+  }
+
+  // ---- Open and close ----
+
+  async open(opts = {}) {
+    if (!featureOn() || !lazy.WhimsyAI.enabled) {
+      return false;
+    }
+    this.build();
+    const wasOpen = this._open;
+    if (!wasOpen) {
+      this._open = true;
+      this.el.hidden = false;
+      this.layout();
+      this.animateIn();
+      lazy.WhimsyChat.tasksChanged();
+    }
+    if (opts.threadId) {
+      await this.showThread(opts.threadId);
+    } else if (!wasOpen) {
+      await this.showTab(this.win.gBrowser.selectedTab);
+    }
+    if (opts.prompt != null) {
+      this.composer.value = opts.prompt;
+      this.autosize();
+    }
+    if (opts.send) {
+      await this.send();
+    }
+    if ((opts.focus ?? "composer") == "composer" && this._open) {
+      this.composer.focus();
+    }
+    return true;
+  }
+
+  close({ reason = "key" } = {}) {
+    if (!this._open) {
+      return;
+    }
+    this._open = false;
+    this.reason = reason;
+    this.closeList({ focus: false });
+    const hadFocus = this.el.contains(this.doc.activeElement);
+    this.animateOut();
+    if (hadFocus || reason == "key" || reason == "hide") {
+      this.win.gBrowser.selectedBrowser.focus();
+    }
+  }
+
+  toggle() {
+    if (this._open) {
+      this.close({ reason: "key" });
+      return false;
+    }
+    return this.open();
+  }
+
+  // ⌘E: open or close; with AI off, the toast first and setup after.
+  onKey() {
+    if (!lazy.WhimsyAI.enabled) {
+      this.aiOff();
+      return;
+    }
+    lazy.WhimsyAIHints.used("chat");
+    this.toggle();
+  }
+
+  aiOff() {
+    const { win } = this;
+    if (!Services.prefs.getBoolPref(OFF_TOAST_PREF, false)) {
+      Services.prefs.setBoolPref(OFF_TOAST_PREF, true);
+      const toast = win.gZenUIManager?.toasts?.open("whimsy-chat-ai-off-title", {
+        key: "whimsy-chat-ai-off",
+        descriptionId: "whimsy-chat-ai-off-body",
+        icon: `${ICONS}chat.svg`,
+        buttons: [{ id: "whimsy-chat-ai-off-setup", l10nId: "whimsy-chat-ai-off-setup", command: () => WhimsyChatPanel.openSetup(win) }],
+      });
+      toast?.element?.setAttribute("whimsy-chat-ai-off", "true");
+      return;
+    }
+    WhimsyChatPanel.openSetup(win);
+  }
+
+  animations() {
+    return [this.el, this.panel, this.body].flatMap(el => el.getAnimations());
+  }
+
+  animateIn() {
+    for (const a of this.animations()) {
+      a.cancel();
+    }
+    const dir = this.side == "right" ? 1 : -1;
+    if (reducedMotion(this.win)) {
+      this.panel.animate({ opacity: [0, 1] }, { duration: DUR_IN, easing: "linear" });
+      return;
+    }
+    if (!this.el.hasAttribute("overlay")) {
+      const full = `${this.width() + GAP}px`;
+      this.el.animate({ width: ["0px", full], minWidth: ["0px", full] }, { duration: DUR_IN, easing: EASE });
+    }
+    this.panel.animate(
+      { translate: [`${dir * 28}px 0`, "0 0"], opacity: [0, 1] },
+      { duration: DUR_IN, easing: EASE }
+    );
+  }
+
+  animateOut() {
+    for (const a of this.animations()) {
+      a.cancel();
+    }
+    const dir = this.side == "right" ? 1 : -1;
+    const done = () => {
+      if (!this._open) {
+        this.el.hidden = true;
+      }
+    };
+    if (reducedMotion(this.win)) {
+      this.panel.animate({ opacity: [1, 0] }, { duration: DUR_OUT, easing: "linear" }).finished.then(done, () => {});
+      return;
+    }
+    if (!this.el.hasAttribute("overlay")) {
+      const full = `${this.width() + GAP}px`;
+      this.el.animate({ width: [full, "0px"], minWidth: [full, "0px"] }, { duration: DUR_OUT, easing: EASE_EXIT, fill: "forwards" });
+    }
+    this.panel
+      .animate({ translate: ["0 0", `${dir * 28}px 0`], opacity: [1, 0] }, { duration: DUR_OUT, easing: EASE_EXIT, fill: "forwards" })
+      .finished.then(() => {
+        done();
+        for (const a of this.animations()) {
+          a.cancel();
+        }
+      }, () => {});
+  }
+
+  // ---- Keys ----
+
+  onKeyDown(event) {
+    if (event.key != "Escape") {
+      return;
+    }
+    // Esc closes what's open inside chat, and never chat itself.
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.listOpen) {
+      this.closeList();
+    }
+  }
+
+  onComposerKey(event) {
+    if (event.key == "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      this.send();
+    }
+  }
+
+  autosize() {
+    const c = this.composer;
+    c.style.height = "";
+    const full = c.scrollHeight;
+    if (c.value && full > c.clientHeight) {
+      c.style.height = `${Math.min(full, 160)}px`;
+    }
+    c.style.overflowY = full > 160 ? "auto" : "hidden";
+    this.sendButton.toggleAttribute("off", !c.value.trim() && !this.streams.has(this.thread?.id));
+  }
+
+
+  // ---- Tabs and threads ----
+
+  async showTab(tab) {
+    if (!this.el || !this._open) {
+      return;
+    }
+    const token = ++this.renderToken;
+    this.ready = false;
+    if (lazy.WhimsyAIContext.isPrivate(tab)) {
+      this.renderWall();
+      this.ready = true;
+      return;
+    }
+    const state = this.shown.get(tab);
+    let thread = null;
+    if (state?.threadId) {
+      thread = await lazy.WhimsyAIStore.thread(state.threadId);
+    } else if (state?.draft) {
+      thread = lazy.WhimsyChatThreads.draft(tab);
+    }
+    thread ??= await lazy.WhimsyChatThreads.forTab(tab);
+    if (token != this.renderToken) {
+      return;
+    }
+    await this.renderThread(thread, token);
+  }
+
+  async showThread(threadId) {
+    const thread = await lazy.WhimsyAIStore.thread(threadId);
+    if (!thread) {
+      return;
+    }
+    const tab = this.win.gBrowser.selectedTab;
+    if (lazy.WhimsyAIContext.isPrivate(tab)) {
+      return;
+    }
+    this.shown.set(tab, { threadId });
+    this.closeList({ focus: false });
+    await this.renderThread(thread, ++this.renderToken);
+  }
+
+  newChat() {
+    const tab = this.win.gBrowser.selectedTab;
+    if (lazy.WhimsyAIContext.isPrivate(tab)) {
+      return;
+    }
+    this.shown.set(tab, { draft: true });
+    this.closeList({ focus: false });
+    this.renderThread(lazy.WhimsyChatThreads.draft(tab), ++this.renderToken).then(() => this.composer.focus());
+  }
+
+  setPrivate(on) {
+    if (this.el.hasAttribute("private") == on) {
+      return;
+    }
+    this.el.toggleAttribute("private", on);
+    // A state, not a navigation: the content crossfades.
+    this.body.animate({ opacity: [0, 1] }, { duration: DUR_FADE, easing: "linear" });
+  }
+
+  renderWall() {
+    const { doc } = this;
+    this.setPrivate(true);
+    this.thread = null;
+    this.title.hidden = true;
+    this.header.querySelector(".whimsy-chat-head-private").hidden = false;
+    for (const id of ["whimsy-chat-list-button", "whimsy-chat-new-button"]) {
+      this.header.querySelector(`#${id}`).disabled = true;
+    }
+    this.closeList({ focus: false });
+    this.composer.value = "";
+    this.composer.disabled = true;
+    doc.l10n.setAttributes(this.composer, "whimsy-chat-composer-private");
+    this.sendButton.disabled = true;
+    this.chips.replaceChildren();
+    this.body.replaceChildren(
+      h(
+        doc,
+        "div",
+        { class: "whimsy-chat-wall" },
+        h(doc, "span", { class: "whimsy-chat-wall-tile" }, icon(doc, "lock")),
+        h(doc, "h3", { l10n: "whimsy-chat-wall-title" }),
+        h(doc, "p", { l10n: "whimsy-chat-wall-body" })
+      )
+    );
+  }
+
+  async renderThread(thread, token) {
+    const { doc, win } = this;
+    const tab = win.gBrowser.selectedTab;
+    this.ready = false;
+    this.setPrivate(false);
+    this.thread = thread;
+    this.title.hidden = false;
+    this.header.querySelector(".whimsy-chat-head-private").hidden = true;
+    for (const id of ["whimsy-chat-list-button", "whimsy-chat-new-button"]) {
+      this.header.querySelector(`#${id}`).disabled = false;
+    }
+    this.composer.disabled = false;
+    this.sendButton.disabled = false;
+    const streaming = !!(thread?.id && this.streams.has(thread.id));
+    this.sendButton.toggleAttribute("streaming", streaming);
+    doc.l10n.setAttributes(this.sendButton, streaming ? "whimsy-chat-stop" : "whimsy-chat-send");
+    this.title.textContent = thread?.title || tab.label;
+    this.modelRow.querySelector(".whimsy-chat-model-name").textContent =
+      PROVIDER_NAMES[lazy.WhimsyAIProviders.provider] ?? lazy.WhimsyAIProviders.provider;
+
+    const messages = thread?.id ? (await lazy.WhimsyAIStore.messages(thread.id)).filter(m => m.role != "page") : [];
+    if (token != this.renderToken) {
+      return;
+    }
+    const nodes = messages.map(m => this.renderMessage(m)).filter(Boolean);
+    const stream = thread?.id && this.streams.get(thread.id);
+    if (stream) {
+      nodes.push(stream.node);
+    }
+    if (thread?.closedTab) {
+      nodes.push(this.renderClosedNote(thread));
+    }
+    const pageTab = thread?.kind == "tab" && !thread.closedTab;
+    doc.l10n.setAttributes(
+      this.composer,
+      thread?.closedTab ? "whimsy-chat-composer-saved" : pageTab && isWebTab(tab) ? "whimsy-chat-composer" : "whimsy-chat-composer-blank"
+    );
+    if (!nodes.length) {
+      nodes.push(await this.renderEmpty(tab));
+      if (token != this.renderToken) {
+        return;
+      }
+    }
+    this.body.replaceChildren(...nodes);
+    await doc.l10n.translateFragment(this.el);
+    if (token != this.renderToken) {
+      return;
+    }
+    this.body.scrollTop = this.body.scrollHeight;
+    this.autosize();
+    this.ready = true;
+  }
+
+  // Three suggestions from what dominates the page; they fill the
+  // composer and never send.
+  async suggestionsFor(tab) {
+    if (!isWebTab(tab)) {
+      return null;
+    }
+    let counts = {};
+    let kind = "tab";
+    try {
+      const context = await lazy.WhimsyAIContext.forTab(tab);
+      const chip = context.chips[0];
+      counts = chip?.counts ?? {};
+      kind = chip?.kind ?? "tab";
+    } catch (e) {
+      console.error("Whimsy chat: suggestions", e);
+    }
+    const words = Number(counts.text) || 0;
+    if (kind == "pdf") {
+      return ["pdf", "key-points", "questions"];
+    }
+    if (counts.videos && words < 1500) {
+      return ["video-summary", "chapters", "takeaway"];
+    }
+    if (words >= 300) {
+      return ["article", "critics", counts.videos ? "video" : "key-points"];
+    }
+    return ["page", "do", "explain"];
+  }
+
+  async renderEmpty(tab) {
+    const { doc } = this;
+    const ids = await this.suggestionsFor(tab);
+    const web = !!ids;
+    const ICON_FOR = { video: "video", "video-summary": "video", chapters: "video" };
+    return h(
+      doc,
+      "div",
+      { class: "whimsy-chat-empty" },
+      h(doc, "h3", { l10n: web ? "whimsy-chat-empty-title" : "whimsy-chat-empty-title-blank" }),
+      h(doc, "p", { l10n: web ? "whimsy-chat-empty-body" : "whimsy-chat-empty-body-blank" }),
+      web &&
+        h(
+          doc,
+          "div",
+          { class: "whimsy-chat-suggest" },
+          ...ids.map(id =>
+            h(
+              doc,
+              "button",
+              {
+                class: "whimsy-chat-suggestion",
+                onclick: e => {
+                  this.composer.value = e.currentTarget.textContent;
+                  this.autosize();
+                  this.composer.focus();
+                },
+              },
+              icon(doc, ICON_FOR[id] ?? "sparkle"),
+              h(doc, "span", { l10n: `whimsy-chat-suggest-${id}` })
+            )
+          )
+        )
+    );
+  }
+
+  renderMessage(msg) {
+    const { doc, win } = this;
+    const ctx = { win, thread: this.thread, panel: this };
+    if (msg.role == "card") {
+      const render = lazy.WhimsyChat.cardRenderer(msg.kind);
+      try {
+        return render?.(doc, msg, ctx) ?? null;
+      } catch (e) {
+        console.error(`Whimsy chat: card ${msg.kind}`, e);
+        return null;
+      }
+    }
+    if (msg.role == "ai") {
+      const custom = lazy.WhimsyChat.cardRenderer("ai");
+      if (custom) {
+        try {
+          return custom(doc, msg, ctx);
+        } catch (e) {
+          console.error("Whimsy chat: answer renderer", e);
+        }
+      }
+      const node = h(doc, "div", { class: "whimsy-chat-msg", "data-role": "ai", "data-msg-id": msg.id }, h(doc, "div", { class: "whimsy-chat-text" }, messageText(msg)));
+      node.append(this.renderActions(msg));
+      return node;
+    }
+    if (msg.role == "user") {
+      return h(doc, "div", { class: "whimsy-chat-msg", "data-role": "user", "data-msg-id": msg.id }, messageText(msg));
+    }
+    if (msg.role == "note") {
+      return this.renderNote(msg);
+    }
+    if (msg.role == "error") {
+      const { id, args } = lazy.WhimsyAIProviders.errorL10n(msg.code, msg.provider);
+      return h(
+        doc,
+        "div",
+        { class: "whimsy-chat-error", role: "alert", "data-code": msg.code ?? "" },
+        icon(doc, "alert"),
+        h(doc, "span", { l10n: [id, args] })
+      );
+    }
+    return null;
+  }
+
+  renderActions(msg) {
+    const { doc, win } = this;
+    const row = h(doc, "div", { class: "whimsy-chat-actions" });
+    for (const action of lazy.WhimsyChat.answerActions(msg)) {
+      const button = h(doc, "button", { class: "whimsy-chat-btn", l10n: action.l10nId, onclick: () => action.run(win, msg) });
+      button.append(h(doc, "span", { class: "whimsy-chat-icon", style: `--whimsy-chat-icon: url("${action.icon}")`, "aria-hidden": "true" }));
+      row.append(button);
+    }
+    return row;
+  }
+
+  renderNote(msg) {
+    const { doc } = this;
+    const l10n = {
+      handoff: ["whimsy-chat-note-handoff", { from: PROVIDER_NAMES[msg.from] ?? msg.from, to: PROVIDER_NAMES[msg.to] ?? msg.to }],
+      stopped: ["whimsy-chat-note-stopped"],
+    }[msg.kind];
+    if (!l10n) {
+      const custom = lazy.WhimsyChat.cardRenderer(`note:${msg.kind}`);
+      return custom ? custom(doc, msg, { win: this.win, thread: this.thread, panel: this }) : null;
+    }
+    return h(doc, "div", { class: "whimsy-chat-note", "data-kind": msg.kind }, icon(doc, "info"), h(doc, "span", { l10n }));
+  }
+
+  renderClosedNote(thread) {
+    const { doc, win } = this;
+    return h(
+      doc,
+      "div",
+      { class: "whimsy-chat-note", "data-kind": "closed-tab" },
+      icon(doc, "tab"),
+      h(
+        doc,
+        "span",
+        { class: "whimsy-chat-note-text" },
+        h(doc, "span", { l10n: ["whimsy-chat-note-closed-tab", { time: timeOf(thread.closedTab.at ?? Date.now(), win) }] }),
+        " ",
+        h(doc, "button", {
+          class: "whimsy-chat-link",
+          l10n: "whimsy-chat-reopen-tab",
+          onclick: async () => {
+            const updated = await lazy.WhimsyChatThreads.reopenTab(win, thread);
+            if (updated) {
+              this.shown.set(win.gBrowser.selectedTab, { threadId: updated.id });
+              await this.showTab(win.gBrowser.selectedTab);
+            }
+          },
+        })
+      )
+    );
+  }
+
+  // ---- Sending ----
+
+  onSendButton() {
+    const stream = this.thread?.id && this.streams.get(this.thread.id);
+    if (stream) {
+      stream.controller.abort();
+      return;
+    }
+    this.send();
+  }
+
+  async send() {
+    const { win } = this;
+    const tab = win.gBrowser.selectedTab;
+    const text = this.composer.value.trim();
+    // Private is a wall: nothing is read, sent, or stored.
+    if (!text || lazy.WhimsyAIContext.isPrivate(tab) || !lazy.WhimsyAI.enabled || !this.thread) {
+      return;
+    }
+    if (this.thread.id && this.streams.has(this.thread.id)) {
+      return;
+    }
+    this.composer.value = "";
+    this.autosize();
+    let thread = this.thread;
+    if (thread.draft) {
+      thread = await lazy.WhimsyChatThreads.persist(thread, tab);
+      this.shown.set(tab, { threadId: thread.id });
+    }
+    if (!thread.firstAsk) {
+      thread = (await lazy.WhimsyAIStore.updateThread(thread.id, { firstAsk: text.slice(0, 200) })) ?? thread;
+    }
+    this.thread = thread;
+    const userMsg = await lazy.WhimsyAIStore.append(thread.id, { role: "user", text });
+    this.body.querySelector(".whimsy-chat-empty")?.remove();
+    this.body.append(this.renderMessage(userMsg));
+    await this.answer(thread);
+  }
+
+  async pageFor(thread) {
+    if (thread.kind != "tab") {
+      return null;
+    }
+    const tab = lazy.WhimsyChatThreads.tabOf(thread);
+    if (tab && !lazy.WhimsyAIContext.isOffLimits(tab) && isWebTab(tab)) {
+      const context = await lazy.WhimsyAIContext.forTab(tab);
+      const text = context.parts.filter(p => typeof p.text == "string").map(p => p.text).join("\n\n");
+      const page = { url: tab.linkedBrowser.currentURI.spec, title: context.title || tab.label, text };
+      await lazy.WhimsyChatThreads.savePage(thread.id, page);
+      return page;
+    }
+    if (!tab && thread.closedTab) {
+      return lazy.WhimsyChatThreads.savedPage(thread.id);
+    }
+    return null;
+  }
+
+  systemPrompt(page) {
+    const lines = [
+      "You are the chat in Whimsy, a web browser. Answer plainly and briefly, in the language the person writes in.",
+    ];
+    if (page) {
+      lines.push(
+        'When the person says "this page" or "this tab", they mean the page below.',
+        `Page title: ${page.title}`,
+        `Address: ${page.url}`,
+        "Page text:",
+        String(page.text ?? "").slice(0, PAGE_CHARS)
+      );
+    }
+    return lines.join("\n");
+  }
+
+  async answer(thread) {
+    const { doc } = this;
+    const node = h(
+      doc,
+      "div",
+      { class: "whimsy-chat-msg", "data-role": "ai", busy: true },
+      h(doc, "div", { class: "whimsy-chat-status" }, h(doc, "span", { class: "whimsy-chat-spinner" }), h(doc, "span", { l10n: "whimsy-chat-status-reading" })),
+      h(doc, "div", { class: "whimsy-chat-text" })
+    );
+    const stream = { node, text: "", controller: new AbortController() };
+    this.streams.set(thread.id, stream);
+    this.body.append(node);
+    this.body.scrollTop = this.body.scrollHeight;
+    this.sendButton.setAttribute("streaming", "true");
+    doc.l10n.setAttributes(this.sendButton, "whimsy-chat-stop");
+    this.autosize();
+    const textNode = node.querySelector(".whimsy-chat-text");
+    const notes = [];
+    let result = null;
+    let failure = null;
+    try {
+      const page = await this.pageFor(thread);
+      if (!page) {
+        doc.l10n.setAttributes(node.querySelector(".whimsy-chat-status > span:last-child"), "whimsy-chat-status-thinking");
+      }
+      const history = (await lazy.WhimsyAIStore.messages(thread.id))
+        .filter(m => m.role == "user" || m.role == "ai")
+        .map(m => ({ role: m.role == "ai" ? "assistant" : "user", content: messageText(m) }));
+      const system = this.systemPrompt(page);
+      result = await lazy.WhimsyAIRouter.run({
+        task: "chat",
+        messages: history,
+        system,
+        needs: { chars: system.length },
+        userStarted: true,
+        signal: stream.controller.signal,
+        onEvent: event => {
+          if (event.type == "text") {
+            stream.text += event.delta;
+            node.querySelector(".whimsy-chat-status")?.remove();
+            stream.node.querySelector(".whimsy-chat-text").textContent = stream.text;
+            if (this.body.contains(stream.node)) {
+              this.body.scrollTop = this.body.scrollHeight;
+            }
+          } else if (event.type == "handoff") {
+            notes.push({ role: "note", kind: "handoff", from: event.from, to: event.to, reason: event.reason });
+          }
+        },
+      });
+    } catch (e) {
+      failure = e;
+    }
+    this.streams.delete(thread.id);
+    for (const note of notes) {
+      await lazy.WhimsyAIStore.append(thread.id, note);
+    }
+    const aborted = stream.controller.signal.aborted;
+    let saved = null;
+    if (result || (aborted && stream.text)) {
+      saved = await lazy.WhimsyAIStore.append(thread.id, {
+        role: "ai",
+        text: result?.text ?? stream.text,
+        provider: result?.provider ?? null,
+        model: result?.model ?? null,
+        partial: !!result?.partial || aborted,
+      });
+    } else if (failure && !aborted) {
+      saved = await lazy.WhimsyAIStore.append(thread.id, { role: "error", code: failure.code ?? "failed", provider: failure.provider ?? null, tried: failure.tried ?? [] });
+    }
+    if (aborted) {
+      await lazy.WhimsyAIStore.append(thread.id, { role: "note", kind: "stopped" });
+    }
+    if (this.thread?.id == thread.id) {
+      this.sendButton.removeAttribute("streaming");
+      doc.l10n.setAttributes(this.sendButton, "whimsy-chat-send");
+      const live = stream.node;
+      const replacement = saved ? this.renderMessage(saved) : null;
+      const extra = [...notes.map(n => this.renderNote(n)), aborted ? this.renderNote({ kind: "stopped" }) : null].filter(Boolean);
+      if (live.isConnected) {
+        live.before(...extra);
+        if (replacement) {
+          live.replaceWith(replacement);
+        } else {
+          live.remove();
+        }
+        await doc.l10n.translateFragment(this.body);
+      }
+      this.autosize();
+    }
+  }
+
+  // ---- Conversation list ----
+
+  async openList() {
+    if (lazy.WhimsyAIContext.isPrivate(this.win.gBrowser.selectedTab)) {
+      return;
+    }
+    for (const a of this.list.getAnimations()) {
+      a.cancel();
+    }
+    this.list.removeAttribute("closing");
+    this.search.value = "";
+    await this.renderList();
+    this.list.hidden = false;
+    const reduce = reducedMotion(this.win);
+    this.list.animate(
+      reduce ? { opacity: [0, 1] } : { translate: ["16px 0", "0 0"], opacity: [0, 1] },
+      { duration: DUR_IN, easing: EASE }
+    );
+    this.search.focus();
+  }
+
+  closeList({ focus = true } = {}) {
+    if (!this.listOpen) {
+      return;
+    }
+    if (focus && this.list.contains(this.doc.activeElement)) {
+      this.header.querySelector("#whimsy-chat-list-button").focus();
+    }
+    const reduce = reducedMotion(this.win);
+    this.list.setAttribute("closing", "true");
+    const anim = this.list.animate(
+      reduce ? { opacity: [1, 0] } : { translate: ["0 0", "16px 0"], opacity: [1, 0] },
+      { duration: DUR_OUT, easing: EASE_EXIT, fill: "forwards" }
+    );
+    const hide = () => {
+      if (this.list.hasAttribute("closing")) {
+        this.list.removeAttribute("closing");
+        this.list.hidden = true;
+        anim.cancel();
+      }
+    };
+    anim.finished.then(hide, hide);
+  }
+
+  get listOpen() {
+    return this.list && !this.list.hidden && !this.list.hasAttribute("closing");
+  }
+
+  async renderList() {
+    const { doc, win } = this;
+    const query = this.search.value.trim();
+    const result = await lazy.WhimsyChatThreads.list(win, { query });
+    const rows = [];
+    const group = (l10n, threads) => {
+      if (!threads.length) {
+        return;
+      }
+      rows.push(h(doc, "div", { class: "whimsy-chat-group-label", l10n }));
+      rows.push(...threads.map(t => this.renderConv(t, query)));
+    };
+    if (query) {
+      group(["whimsy-chat-list-results", { count: result.all.length }], result.all);
+      if (!result.all.length) {
+        rows.push(h(doc, "p", { class: "whimsy-chat-list-none", l10n: "whimsy-chat-list-none" }));
+      }
+    } else {
+      group("whimsy-chat-list-this-tab", result.thisTab);
+      group("whimsy-chat-list-routines", result.routines);
+      group("whimsy-chat-list-earlier", result.all);
+      if (!rows.length) {
+        rows.push(h(doc, "p", { class: "whimsy-chat-list-none", l10n: "whimsy-chat-list-empty" }));
+      }
+    }
+    this.listBody.replaceChildren(...rows);
+    await doc.l10n.translateFragment(this.listBody);
+  }
+
+  renderConv(thread, query) {
+    const { doc } = this;
+    const routine = lazy.WhimsyChatThreads.ROUTINE_KINDS.has(thread.kind);
+    const url = thread.closedTab?.url || thread.url || "";
+    const lead = routine
+      ? h(doc, "span", { class: "whimsy-chat-conv-icon", "data-kind": "routine" }, icon(doc, "clock"))
+      : h(
+          doc,
+          "span",
+          { class: "whimsy-chat-conv-icon", "data-kind": thread.kind },
+          /^https?:/.test(url) ? h(doc, "img", { src: `page-icon:${url}`, alt: "" }) : icon(doc, "chat")
+        );
+    let sub;
+    if (query && thread.match) {
+      sub = h(doc, "span", { class: "whimsy-chat-conv-sub" }, ...marked(doc, `“${snippet(thread.match.text, query)}”`, query));
+    } else if (thread.closedTab) {
+      sub = h(doc, "span", { class: "whimsy-chat-conv-sub", l10n: "whimsy-chat-list-tab-closed" });
+    } else {
+      sub = h(doc, "span", { class: "whimsy-chat-conv-sub" }, thread.detail ?? thread.firstAsk ?? "");
+    }
+    return h(
+      doc,
+      "button",
+      {
+        class: "whimsy-chat-conv",
+        dataset: { threadId: thread.id },
+        current: thread.id == this.thread?.id,
+        onclick: () => this.showThread(thread.id).then(() => this.composer.focus()),
+      },
+      lead,
+      h(doc, "span", { class: "whimsy-chat-conv-title" }, ...marked(doc, thread.title || "", query)),
+      whenLabel(doc, thread.updated ?? thread.created ?? Date.now()),
+      sub
+    );
+  }
+
+  // ---- Tasks strip ----
+
+  renderTasks() {
+    if (!this.el) {
+      return;
+    }
+    const { doc, win } = this;
+    const strip = this.tasksStrip;
+    const tasks = lazy.WhimsyChat.tasks(win).sort((a, b) => !!b.waiting - !!a.waiting);
+    if (!tasks.length) {
+      this.tasksExpanded = false;
+      this.knownTasks.clear();
+      if (!strip.hidden && this._open && !reducedMotion(win)) {
+        strip.animate({ opacity: [1, 0] }, { duration: DUR_OUT, easing: EASE_EXIT }).finished.then(
+          () => (strip.hidden = !lazy.WhimsyChat.tasks(win).length),
+          () => {}
+        );
+      } else {
+        strip.hidden = true;
+      }
+      return;
+    }
+    strip.hidden = false;
+    if (tasks.length < 2) {
+      this.tasksExpanded = false;
+    }
+    const collapsed = tasks.length >= 2 && !this.tasksExpanded;
+    strip.toggleAttribute("collapsed", collapsed);
+    strip.querySelector(".whimsy-chat-tasks-fold").hidden = !(tasks.length >= 2 && this.tasksExpanded);
+    const source = task => lazy.WhimsyChat.taskSource(task.source);
+    const show = task => source(task)?.show?.(win, task);
+    const stop = task => source(task)?.stop?.(task);
+    const rows = tasks.map(task => {
+      const row = h(
+        doc,
+        "div",
+        { class: "whimsy-chat-task", dataset: { taskId: task.id }, waiting: !!task.waiting, hidden: collapsed },
+        h(doc, "span", { class: "whimsy-chat-task-icon" }, icon(doc, task.waiting ? "hand" : "agent")),
+        h(doc, "span", { class: "whimsy-chat-task-text" }, h(doc, "b", {}, task.title ?? ""), h(doc, "span", {}, task.detail ?? "")),
+        h(doc, "button", { class: "whimsy-chat-task-btn", "data-action": "show", l10n: "whimsy-chat-task-show", onclick: () => show(task) }),
+        h(doc, "button", { class: "whimsy-chat-task-btn is-icon", "data-action": "stop", l10n: "whimsy-chat-task-stop", onclick: () => stop(task) }, icon(doc, "stop"))
+      );
+      if (!this.knownTasks.has(task.id) && !reducedMotion(win)) {
+        row.animate({ translate: ["0 6px", "0 0"], opacity: [0, 1] }, { duration: DUR_IN, easing: EASE });
+      }
+      return row;
+    });
+    this.knownTasks = new Set(tasks.map(t => t.id));
+    strip.querySelector(".whimsy-chat-task-rows").replaceChildren(...rows);
+    const summary = strip.querySelector(".whimsy-chat-task-summary");
+    summary.hidden = !collapsed;
+    if (collapsed) {
+      const lead = tasks[0];
+      summary.replaceChildren(
+        h(doc, "span", { class: "whimsy-chat-task-icon" }, icon(doc, lead.waiting ? "hand" : "agent")),
+        h(
+          doc,
+          "span",
+          { class: "whimsy-chat-task-text" },
+          h(doc, "b", { l10n: ["whimsy-chat-tasks-count", { count: tasks.length }] }),
+          h(doc, "span", {}, tasks.map(t => t.title).join(", "))
+        ),
+        h(doc, "button", { class: "whimsy-chat-task-btn", "data-action": "show", l10n: "whimsy-chat-task-show", onclick: () => show(lead) }),
+        h(doc, "button", {
+          class: "whimsy-chat-task-btn is-icon",
+          "data-action": "expand",
+          l10n: "whimsy-chat-tasks-expand",
+          onclick: () => {
+            this.tasksExpanded = true;
+            this.renderTasks();
+          },
+        }, icon(doc, "chevron"))
+      );
+      summary.toggleAttribute("waiting", !!lead.waiting);
+    }
+  }
+
+  // ---- Discovery: the ⌘E hint, once, after a page loads while idle ----
+
+  watchForHint() {
+    const { win } = this;
+    let timer = 0;
+    const wait = () => {
+      win.clearTimeout(timer);
+      timer = win.setTimeout(() => {
+        if (!this._open && lazy.WhimsyAI.enabled && !lazy.WhimsyAIHints.seen("chat")) {
+          lazy.WhimsyAIHints.request(win, "chat");
+        }
+      }, HINT_IDLE_MS);
+    };
+    const busy = () => timer && wait();
+    this.progress = {
+      onStateChange: (browser, webProgress, request, flags) => {
+        const STOP = Ci.nsIWebProgressListener.STATE_STOP | Ci.nsIWebProgressListener.STATE_IS_WINDOW;
+        if ((flags & STOP) == STOP && webProgress?.isTopLevel && browser == win.gBrowser.selectedBrowser) {
+          if (lazy.WhimsyAI.enabled && !lazy.WhimsyAIHints.seen("chat")) {
+            wait();
+          }
+        }
+      },
+    };
+    win.gBrowser.addTabsProgressListener(this.progress);
+    for (const type of ["keydown", "mousedown", "wheel"]) {
+      win.addEventListener(type, busy, { capture: true, passive: true });
+    }
+    win.addEventListener("unload", () => win.clearTimeout(timer), { once: true });
+  }
+
+  // ---- Window wiring ----
+
+  init() {
+    const { win } = this;
+    const gBrowser = win.gBrowser;
+    const onSelect = () => {
+      if (this._open) {
+        this.showTab(gBrowser.selectedTab);
+      }
+    };
+    const onClose = event => {
+      if (!event.detail?.adoptedBy) {
+        lazy.WhimsyChatThreads.tabClosed(event.target).catch(console.error);
+      }
+    };
+    gBrowser.tabContainer.addEventListener("TabSelect", onSelect);
+    gBrowser.tabContainer.addEventListener("TabClose", onClose);
+    const onResize = () => this._open && this.layout();
+    win.addEventListener("resize", onResize);
+    const prefs = {
+      [SIDE_PREF]: () => this.layout(),
+      [WIDTH_PREF]: () => this.layout(),
+      [AI_PREF]: () => {
+        if (lazy.WhimsyAI.enabled) {
+          Services.prefs.clearUserPref(OFF_TOAST_PREF);
+        } else {
+          this.close({ reason: "ai-off" });
+        }
+      },
+      [FEATURE_PREF]: () => !featureOn() && this.close({ reason: "feature-off" }),
+    };
+    for (const [pref, fn] of Object.entries(prefs)) {
+      Services.prefs.addObserver(pref, fn);
+    }
+    const observer = {
+      observe: (subject, topic, data) => {
+        if (topic == lazy.WhimsyChat.TOPIC && data == "tasks") {
+          this.renderTasks();
+        } else if (topic == lazy.WhimsyAIStore.TOPIC && this.listOpen) {
+          this.renderList();
+        }
+      },
+    };
+    Services.obs.addObserver(observer, lazy.WhimsyChat.TOPIC);
+    Services.obs.addObserver(observer, lazy.WhimsyAIStore.TOPIC);
+    this.watchForHint();
+    win.addEventListener(
+      "unload",
+      () => {
+        for (const [pref, fn] of Object.entries(prefs)) {
+          Services.prefs.removeObserver(pref, fn);
+        }
+        Services.obs.removeObserver(observer, lazy.WhimsyChat.TOPIC);
+        Services.obs.removeObserver(observer, lazy.WhimsyAIStore.TOPIC);
+        win.gBrowser?.removeTabsProgressListener(this.progress);
+        for (const stream of this.streams.values()) {
+          stream.controller.abort();
+        }
+      },
+      { once: true }
+    );
+  }
+}
+
+export const WhimsyChatPanel = {
+  SETUP_URL,
+  DEFAULT_WIDTH,
+
+  /** The window's chat panel: {open, close, toggle, isOpen, thread, composer, header, tasksStrip, body}. */
+  forWindow(win) {
+    let panel = panels.get(win);
+    if (!panel) {
+      panel = new ChatPanel(win);
+      panels.set(win, panel);
+    }
+    return panel;
+  },
+
+  /** Settings › AI, straight into the Add a provider sheet. */
+  openSetup(win) {
+    lazy.WhimsyAIProviders.pendingSettingsAction = "add-provider";
+    win.openPreferences("paneWhimsyAI", { urlParams: { sheet: "add-provider" } });
+    Services.obs.notifyObservers(null, "whimsy-ai-settings-action", "add-provider");
+  },
+
+  initWindow(win) {
+    if (!featureOn() || !win.gBrowser) {
+      return;
+    }
+    const panel = this.forWindow(win);
+    panel.init();
+    lazy.WhimsyChat.attach(win, panel.impl());
+    lazy.WhimsyAIHints.register({ id: "chat", isVisible: w => !this.forWindow(w).isOpen && Services.focus.activeWindow == w });
+
+    // ⌘E is chat's; Firefox's Use Selection for Find stays, unbound.
+    lazy.WhimsyShortcuts.releaseKey(win, "key_findSelection");
+    const ai = () => featureOn() && lazy.WhimsyAI.enabled;
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyChatToggle",
+      l10nId: "whimsy-chat-cmd-toggle",
+      run: () => panel.onKey(),
+      icon: `${ICONS}chat-hide.svg`,
+      key: { key: "E", modifiers: "accel" },
+      isAvailable: ai,
+      variants: [
+        { l10nId: "whimsy-chat-cmd-open", isAvailable: () => ai() && !panel.isOpen },
+        { l10nId: "whimsy-chat-cmd-hide", isAvailable: () => ai() && panel.isOpen },
+      ],
+    });
+    for (const [id, side] of [
+      ["cmd_whimsyChatMoveLeft", "left"],
+      ["cmd_whimsyChatMoveRight", "right"],
+    ]) {
+      lazy.WhimsyCommands.register(win, {
+        id,
+        l10nId: `whimsy-chat-cmd-move-${side}`,
+        run: () => panel.setSide(side),
+        icon: `${ICONS}chat.svg`,
+        isAvailable: () => ai() && panel.side != side,
+      });
+    }
+  },
+};

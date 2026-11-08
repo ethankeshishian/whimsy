@@ -965,6 +965,15 @@ support-files = ["whimsy_ai_sensitive.html", "whimsy_ai_payment_frame.html", "wh
 ["browser_whimsy_screens_w23_ai-base.js"]
 support-files = ["whimsy_ai_sensitive.html"]
 
+# W23 chat-shell: the chat panel (⌘E, Esc, side, resize, narrow windows),
+# per-tab threads, the conversation list, the private wall, the Tasks strip,
+# and this lane's screenshots.
+["browser_whimsy_chat_shell.js"]
+
+["browser_whimsy_chat_threads.js"]
+
+["browser_whimsy_screens_w23_chat-shell.js"]
+support-files = ["whimsy_chat_article.html"]
 # W23 agent-core: guardrail pauses (classifier, previews, the MCP hold,
 # captchas) and this lane's screenshots.
 ["browser_whimsy_agent_guard.js"]

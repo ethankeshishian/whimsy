@@ -213,3 +213,6 @@
         content/browser/whimsy/ai-settings/whimsy-ai-settings.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings.css)
         content/browser/whimsy/ai-settings/whimsy-ai-settings.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings.js)
         content/browser/whimsy/ai-settings/whimsy-ai-settings-providers.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-providers.js)
+# W23 chat-shell: the chat panel
+        content/browser/whimsy/whimsy-chat.css (../../zen/whimsy/content/whimsy-chat.css)
+        content/browser/whimsy/icons/chat-list.svg (../../zen/whimsy/content/icons/chat-list.svg)
