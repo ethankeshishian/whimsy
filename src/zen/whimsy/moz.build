@@ -207,6 +207,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyZenToasts.sys.mjs",
 ]
 
+# W23 ai-core
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAIRouter.sys.mjs",
+    "WhimsyAIStream.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

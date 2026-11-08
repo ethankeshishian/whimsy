@@ -631,7 +631,7 @@ add_task(async function w10_settings_search() {
 add_task(async function w10_settings_ai() {
   for (const dark of [0, 1]) {
     await setScheme(dark);
-    await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.provider", "claude"]] });
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.order", "claude"]] });
     await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
       const doc = browser.contentDocument;
       const header = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAICategory"));
@@ -649,7 +649,7 @@ add_task(async function w10_settings_ai() {
       header.scrollIntoView({ block: "start" });
       await settled(doc);
       await shot(`w10-settings-ai-off-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
-      Services.prefs.clearUserPref("whimsy.ai.enabled");
+      Services.prefs.setBoolPref("whimsy.ai.enabled", true);
     });
     await SpecialPowers.popPrefEnv();
     await SpecialPowers.popPrefEnv();

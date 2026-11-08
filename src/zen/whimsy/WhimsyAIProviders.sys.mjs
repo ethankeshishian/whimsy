@@ -2,24 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// AI v1: the one provider every Whimsy AI feature talks to (Tidy Tabs, tab
-// titles, Ask on Page, 5-second previews, Watch a page). The person picks
-// it in Settings → AI (W14 v2: connect each provider once, then pick the
-// one to use for AI):
+// AI v1: the providers every Whimsy AI feature talks to (Tidy Tabs, tab
+// titles, Ask on Page, previews, Watch a page, chat):
 //   - "apple":  Apple's on-device model (Foundation Models, macOS 26+). The
 //               framework is Swift-only, so a tiny helper is compiled with
 //               the Xcode command line tools on first use and cached in the
 //               profile. Nothing leaves the Mac.
-//   - "claude": the Claude Messages API with the person's own API key.
+//   - "claude": the Claude Messages API with the person's own API key, or
+//               the Claude plan through Claude Code.
 //   - "ollama": a local Ollama server.
-//   - "openai": OpenAI's Responses API with the person's own API key.
+//   - "openai": OpenAI's Responses API with the person's own API key, or the
+//               ChatGPT plan.
 //   - "gemini": Google's Gemini API with the person's own API key.
-// Rules (user, Oct 29): only the chosen provider is ever contacted; there's
-// no automatic fallback, except the opt-in "use the next one" when a plan
-// runs out (whimsy.ai.plan-fallback, W14). The AI kill switch (Enable AI, whimsy.ai.enabled,
-// WhimsyAI.sys.mjs) refuses every request and aborts the ones in flight.
-// API keys never go into prefs: each is encrypted with OSKeyStore (the
-// macOS Keychain) and the ciphertext lives in the profile.
+// W23: every connected provider is in one order (whimsy.ai.order), each
+// with its own switch (whimsy.ai.off); WhimsyAIRouter tries them in order,
+// skips what can't do the task, and hands off on quota with a note. The AI
+// kill switch (Enable AI, whimsy.ai.enabled, WhimsyAI.sys.mjs) refuses
+// every request and aborts the ones in flight; it stays off until the
+// first provider connects. API keys never go into prefs: each is encrypted
+// with OSKeyStore (the macOS Keychain) and the ciphertext lives in the
+// profile.
 
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
@@ -29,6 +31,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
+  WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
+  ndjson: "resource:///modules/whimsy/WhimsyAIStream.sys.mjs",
+  sseJSON: "resource:///modules/whimsy/WhimsyAIStream.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.ai-providers";
@@ -40,6 +45,27 @@ const OPENAI_MODEL_PREF = "whimsy.ai.openai.model";
 const GEMINI_MODEL_PREF = "whimsy.ai.gemini.model";
 // W10-28: Settings → AI's Enable AI (WhimsyAI.PREF).
 const AI_ENABLED_PREF = "whimsy.ai.enabled";
+// W23: set once the first connection has turned AI on, so a later
+// connection never turns it back on after the person turned it off.
+const AUTO_ENABLED_PREF = "whimsy.ai.auto-enabled";
+export const ORDER_PREF = "whimsy.ai.order";
+export const OFF_PREF = "whimsy.ai.off";
+export const QUICK_TEXT_APPLE_PREF = "whimsy.ai.quick-text-apple";
+export const RESTING_PREF = "whimsy.ai.resting";
+export const CHANGED_TOPIC = "whimsy-ai-providers-changed";
+// A limit message with no reset time rests the provider this long.
+const DEFAULT_REST_MS = { "plan-limit": 60 * 60 * 1000, "rate-limited": 60 * 1000 };
+// Thinking levels, as Settings and the model menu name them.
+export const THINKING_LEVELS = ["light", "normal", "deep"];
+const CLAUDE_EFFORT = { light: "low", normal: "medium", deep: "high" };
+const OPENAI_EFFORT = { light: "low", normal: "medium", deep: "high" };
+const GEMINI_BUDGET = { light: 1024, normal: 8192, deep: 24576 };
+const OLLAMA_THINK = { light: false, normal: true, deep: true };
+const USAGE_URLS = {
+  claude: "https://platform.claude.com/usage",
+  openai: "https://platform.openai.com/usage",
+  gemini: "https://aistudio.google.com/usage",
+};
 
 export const PROVIDERS = ["apple", "claude", "ollama", "openai", "gemini"];
 // The providers that send text off the computer.
@@ -48,15 +74,14 @@ export const CLOUD_PROVIDERS = ["claude", "openai", "gemini"];
 // each, encrypted with OSKeyStore).
 export const KEY_PROVIDERS = ["claude", "openai", "gemini"];
 const DEFAULT_PROVIDER = "apple";
-// W14: Settings → AI's accounts list, top to bottom; "use the next one"
-// goes down it from the provider in use.
+// Settings → AI's list of every provider, and the order an old profile's
+// connections are seeded in (whimsy.ai.order has the real order).
 export const ACCOUNT_ORDER = ["apple", "claude", "openai", "gemini", "ollama"];
 // Providers with a subscription path (L7b registers each one's plan).
 export const PLAN_PROVIDERS = ["openai", "claude"];
 const PLAN_GATES = { openai: "whimsy.feature.ai-openai-plan", claude: "whimsy.feature.ai-claude-plan" };
 // How a plan-capable provider is connected: "plan" or "key".
 const authPref = provider => `whimsy.ai.${provider}.auth`;
-export const PLAN_FALLBACK_PREF = "whimsy.ai.plan-fallback";
 const MODEL_PREFS = { claude: CLAUDE_MODEL_PREF, openai: OPENAI_MODEL_PREF, gemini: GEMINI_MODEL_PREF, ollama: OLLAMA_MODEL_PREF };
 // Ids of models that don't write text (embeddings, speech, images, ...).
 const NOT_TEXT_MODEL = /embed|tts|whisper|dall-e|moderation|image|audio|realtime|transcribe|search|computer-use|davinci|babbage|aqa/i;
@@ -69,7 +94,8 @@ export const ENDPOINTS = {
   gemini: "https://generativelanguage.googleapis.com/v1beta",
 };
 const KEY_FILE = "whimsy-ai-keys.json";
-const REQUEST_TIMEOUT_MS = 90 * 1000;
+// How long a request may go without a word (streams reset it).
+export const REQUEST_TIMEOUT_MS = 90 * 1000;
 
 // Apple's on-device model has a 4,096-token window shared by the prompt and
 // the answer, so its inputs are cut much shorter than the others'.
@@ -175,14 +201,17 @@ export const AI_ERROR_CODES = [
   "plan-limit",
   "signed-out",
   "plan-ineligible",
-  // Claude's plan serves only what the person starts (never automatic work).
-  "plan-user-only",
   "sign-in-cancelled",
   "claude-code-missing",
   "claude-code-signed-out",
   "bad-response",
   "timeout",
   "failed",
+  // W23 (WhimsyAIRouter): no enabled provider can do this, every one that
+  // could failed, or the Mac is offline and nothing on it can.
+  "none-capable",
+  "all-failed",
+  "offline",
 ];
 
 export const WhimsyAIProviders = {
@@ -203,12 +232,284 @@ export const WhimsyAIProviders = {
     return Services.prefs.getBoolPref(FEATURE_PREF, true) && !lazy.WhimsyAI.blocked;
   },
 
+  // The provider tried first: the first switched-on one in the order (the
+  // on-device one while nothing is connected).
   get provider() {
-    if (this._testProvider) {
+    if (this._testProvider && !this._testStreams) {
       return "test";
     }
-    const value = Services.prefs.getStringPref(PROVIDER_PREF, DEFAULT_PROVIDER);
-    return PROVIDERS.includes(value) ? value : DEFAULT_PROVIDER;
+    return this.order.find(id => this.isOn(id)) ?? DEFAULT_PROVIDER;
+  },
+
+  // ---- Order, switches, capabilities, resting (W23) ----
+
+  // Connected providers in the order Whimsy tries them.
+  get order() {
+    const ids = Services.prefs.getStringPref(ORDER_PREF, "").split(",").map(id => id.trim());
+    return [...new Set(ids.filter(id => PROVIDERS.includes(id)))];
+  },
+
+  setOrder(ids) {
+    const next = [...new Set((ids ?? []).filter(id => PROVIDERS.includes(id)))];
+    if (next.join(",") == this.order.join(",") && Services.prefs.prefHasUserValue(ORDER_PREF)) {
+      return;
+    }
+    Services.prefs.setStringPref(ORDER_PREF, next.join(","));
+    this._changed("order");
+  },
+
+  // A new connection goes last; one already in the order keeps its place.
+  _addToOrder(id) {
+    this._seedOrderSync();
+    if (!this.order.includes(id)) {
+      this.setOrder([...this.order, id]);
+    }
+  },
+
+  _removeFromOrder(id) {
+    this._seedOrderSync();
+    this.setOrder(this.order.filter(other => other != id));
+    this.setOn(id, true);
+    this.clearResting(id);
+  },
+
+  // Once per profile: the providers an older Whimsy had connected, the one
+  // it used (whimsy.ai.provider) first.
+  async seedOrder() {
+    if (Services.prefs.prefHasUserValue(ORDER_PREF)) {
+      return;
+    }
+    const connected = await this.connectedProviders();
+    if (Services.prefs.prefHasUserValue(ORDER_PREF)) {
+      return;
+    }
+    const used = Services.prefs.getStringPref(PROVIDER_PREF, "");
+    Services.prefs.setStringPref(ORDER_PREF, (connected.includes(used) ? [used, ...connected.filter(id => id != used)] : connected).join(","));
+  },
+
+  // A connection made before seeding finished: start from an empty order
+  // rather than from nothing.
+  _seedOrderSync() {
+    if (!Services.prefs.prefHasUserValue(ORDER_PREF)) {
+      Services.prefs.setStringPref(ORDER_PREF, "");
+    }
+  },
+
+  _offList() {
+    return Services.prefs.getStringPref(OFF_PREF, "").split(",").filter(id => PROVIDERS.includes(id));
+  },
+
+  // Off means connected but never tried, handoff included.
+  isOn(id) {
+    return !this._offList().includes(id);
+  },
+
+  setOn(id, on) {
+    const off = new Set(this._offList());
+    if (on == !off.has(id)) {
+      return;
+    }
+    if (on) {
+      off.delete(id);
+    } else {
+      off.add(id);
+    }
+    if (off.size) {
+      Services.prefs.setStringPref(OFF_PREF, [...off].join(","));
+    } else {
+      Services.prefs.clearUserPref(OFF_PREF);
+    }
+    this._changed("switch");
+  },
+
+  // Short rewrite, translate, and summarize tasks go to Apple first.
+  get quickTextOnApple() {
+    return Services.prefs.getBoolPref(QUICK_TEXT_APPLE_PREF, true);
+  },
+
+  set quickTextOnApple(value) {
+    Services.prefs.setBoolPref(QUICK_TEXT_APPLE_PREF, !!value);
+    this._changed("quick-text");
+  },
+
+  _changed(what) {
+    Services.obs.notifyObservers(null, CHANGED_TOPIC, what);
+  },
+
+  async anyConnected() {
+    if (this.order.length) {
+      return true;
+    }
+    return (await this.connectedProviders()).length > 0;
+  },
+
+  // What a provider (and model) can do. Ollama's labels come from its
+  // model details (refreshCapabilities); the Claude plan streams only once
+  // Claude Code's stream-json probe said so.
+  capabilities(id, model = this.modelOf(id)) {
+    const base = {
+      text: true,
+      images: false,
+      video: false,
+      thinking: null,
+      research: false,
+      imageGen: false,
+      code: false,
+      tools: false,
+      streaming: false,
+      onDevice: false,
+      maxInputChars: MAX_INPUT_CHARS[id] ?? 20000,
+    };
+    const name = String(model ?? "").toLowerCase();
+    switch (id) {
+      case "test":
+        return { ...base, images: true, video: true, thinking: [...THINKING_LEVELS], research: true, imageGen: true, code: true, tools: true, streaming: true };
+      case "apple":
+        return { ...base, onDevice: true };
+      case "ollama": {
+        const details = this._ollamaDetails.get(name);
+        const can = new Set(details ?? []);
+        return {
+          ...base,
+          images: can.has("vision"),
+          thinking: can.has("thinking") ? [...THINKING_LEVELS] : null,
+          tools: can.has("tools"),
+          streaming: true,
+          onDevice: /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(this.ollamaEndpoint),
+        };
+      }
+      case "claude":
+        if (this._usesPlan("claude")) {
+          return { ...base, tools: true, streaming: this._claudePlanStreams === true };
+        }
+        return { ...base, images: true, thinking: /haiku/.test(name) ? null : [...THINKING_LEVELS], code: true, tools: true, streaming: true };
+      case "openai": {
+        const reasoning = /^(o\d|gpt-5)/.test(name) || (this._usesPlan("openai") && !name);
+        return {
+          ...base,
+          images: true,
+          thinking: reasoning ? [...THINKING_LEVELS] : null,
+          research: /deep-research/.test(name),
+          imageGen: !this._usesPlan("openai"),
+          code: true,
+          tools: !this._usesPlan("openai"),
+          streaming: true,
+        };
+      }
+      case "gemini":
+        return {
+          ...base,
+          images: true,
+          video: true,
+          thinking: /gemini-(2\.5|[3-9])/.test(name) ? [...THINKING_LEVELS] : null,
+          imageGen: /image/.test(name),
+          code: true,
+          tools: true,
+          streaming: true,
+        };
+      default:
+        return base;
+    }
+  },
+
+  // Ollama model names to their capability labels, from /api/show.
+  _ollamaDetails: new Map(),
+  // Whether Claude Code streams (null: not probed yet).
+  _claudePlanStreams: null,
+
+  // Looks up what capabilities() can't know offline: an Ollama model's
+  // details, or whether Claude Code can stream on the plan.
+  async refreshCapabilities(id) {
+    if (id == "ollama") {
+      const model = this.modelOf("ollama");
+      if (!model) {
+        return;
+      }
+      try {
+        const response = await fetch(`${this.ollamaEndpoint}/api/show`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ model }),
+          credentials: "omit",
+        });
+        const data = response.ok ? await response.json() : null;
+        if (Array.isArray(data?.capabilities)) {
+          this._ollamaDetails.set(model.toLowerCase(), data.capabilities.map(String));
+        } else {
+          this._ollamaDetails.delete(model.toLowerCase());
+        }
+      } catch {
+        this._ollamaDetails.delete(model.toLowerCase());
+      }
+    } else if (id == "claude" && this._usesPlan("claude")) {
+      try {
+        this._claudePlanStreams = !!(await this._plans.claude.supportsStreamJson?.());
+      } catch {
+        this._claudePlanStreams = false;
+      }
+    } else {
+      return;
+    }
+    this._changed("capabilities");
+  },
+
+  _readResting() {
+    try {
+      const value = JSON.parse(Services.prefs.getStringPref(RESTING_PREF, "{}"));
+      return value && typeof value == "object" ? value : {};
+    } catch {
+      return {};
+    }
+  },
+
+  _writeResting(all) {
+    if (Object.keys(all).length) {
+      Services.prefs.setStringPref(RESTING_PREF, JSON.stringify(all));
+    } else {
+      Services.prefs.clearUserPref(RESTING_PREF);
+    }
+  },
+
+  // Whether a provider is out of room: until when (null: unknown) and its
+  // last limit message in its own words. Ends by itself at reset time.
+  resting(id) {
+    const all = this._readResting();
+    const entry = all[id];
+    if (!entry) {
+      return null;
+    }
+    const ends = entry.until ?? (entry.at ?? 0) + (DEFAULT_REST_MS[entry.code] ?? DEFAULT_REST_MS["plan-limit"]);
+    if (Date.now() >= ends) {
+      delete all[id];
+      this._writeResting(all);
+      this._changed("resting");
+      return null;
+    }
+    return { until: entry.until ?? null, message: String(entry.message ?? "") };
+  },
+
+  setResting(id, { until = null, message = "", code = "plan-limit" } = {}) {
+    const all = this._readResting();
+    all[id] = { until: Number.isFinite(until) ? until : null, message: String(message ?? "").slice(0, 300), code, at: Date.now() };
+    this._writeResting(all);
+    this._changed("resting");
+  },
+
+  clearResting(id) {
+    const all = this._readResting();
+    if (all[id]) {
+      delete all[id];
+      this._writeResting(all);
+      this._changed("resting");
+    }
+  },
+
+  // The provider's own usage page (a plan's when connected that way).
+  usageUrl(id) {
+    if (this._usesPlan(id)) {
+      return this._plans[id]?.usageUrl ?? null;
+    }
+    return USAGE_URLS[id] ?? null;
   },
 
   // Whether text leaves the computer with the current provider. Automatic
@@ -329,6 +630,20 @@ export const WhimsyAIProviders = {
 
   initWindow(win) {
     this._registerBuiltInPlans();
+    if (!this._seeded) {
+      this._seeded = true;
+      // Until Settings' "Use for AI" picker is gone: picking puts that
+      // provider first in the order.
+      Services.prefs.addObserver(PROVIDER_PREF, () => {
+        const picked = Services.prefs.getStringPref(PROVIDER_PREF, "");
+        if (Services.prefs.prefHasUserValue(PROVIDER_PREF) && PROVIDERS.includes(picked) && this.order[0] != picked) {
+          this.setOrder([picked, ...this.order.filter(id => id != picked)]);
+        }
+      });
+      this.seedOrder()
+        .then(() => Promise.all(["ollama", "claude"].filter(id => this.order.includes(id)).map(id => this.refreshCapabilities(id))))
+        .catch(e => console.error("Whimsy AI: the provider order", e));
+    }
     const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
     const isAvailable = () => this.enabled;
     WhimsyCommands.register(win, {
@@ -431,6 +746,7 @@ export const WhimsyAIProviders = {
     if (provider != "claude" && models.length && !Services.prefs.getStringPref(MODEL_PREFS[provider], "")) {
       Services.prefs.setStringPref(MODEL_PREFS[provider], models[0]);
     }
+    this._connected(provider);
     Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
     return models;
   },
@@ -442,6 +758,10 @@ export const WhimsyAIProviders = {
     }
     const result = await this._plans[provider].connect(win);
     Services.prefs.setStringPref(authPref(provider), "plan");
+    this._connected(provider);
+    if (provider == "claude") {
+      this.refreshCapabilities("claude").catch(() => {});
+    }
     Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
     return result;
   },
@@ -463,16 +783,30 @@ export const WhimsyAIProviders = {
     if (!models.includes(current)) {
       Services.prefs.setStringPref(OLLAMA_MODEL_PREF, models[0]);
     }
+    this._connected("ollama");
+    await this.refreshCapabilities("ollama");
     Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", "ollama");
     return models;
   },
 
-  /**
-   * Disconnects a provider: a plan is signed out (and its token revoked),
-   * a key is deleted from this Mac, Apple's helper is removed and Ollama's
-   * model forgotten. The provider in use stays picked (AI features wait
-   * until another one is picked); nothing switches by itself.
-   */
+  // A provider just connected: it goes last in the order, and the first
+  // connection ever turns AI on (W23: off until connected).
+  _connected(provider) {
+    this._addToOrder(provider);
+    if (!Services.prefs.getBoolPref(AUTO_ENABLED_PREF, false)) {
+      Services.prefs.setBoolPref(AUTO_ENABLED_PREF, true);
+      if (!lazy.WhimsyAI.enabled) {
+        Services.prefs.setBoolPref(AI_ENABLED_PREF, true);
+      }
+    }
+    this._changed("connected");
+  },
+
+  // Apple's helper is built by Settings' Set Up; that counts as connecting.
+  appleConnected() {
+    this._connected("apple");
+  },
+
   // Ends a plan sign-in that's waiting.
   cancelPlan(provider) {
     this._plans[provider]?.cancel?.();
@@ -496,6 +830,7 @@ export const WhimsyAIProviders = {
       Services.prefs.clearUserPref(OLLAMA_MODEL_PREF);
       Services.prefs.clearUserPref(OLLAMA_ENDPOINT_PREF);
     }
+    this._removeFromOrder(provider);
     Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
   },
 
@@ -520,28 +855,24 @@ export const WhimsyAIProviders = {
   setModel(provider, model) {
     if (MODEL_PREFS[provider]) {
       Services.prefs.setStringPref(MODEL_PREFS[provider], String(model ?? ""));
-    }
-  },
-
-  // "Use the next one": the next connected provider down the accounts list.
-  async nextProvider(provider) {
-    const connected = await this.connectedProviders();
-    const start = ACCOUNT_ORDER.indexOf(provider);
-    for (let i = 1; i < ACCOUNT_ORDER.length; i++) {
-      const next = ACCOUNT_ORDER[(start + i) % ACCOUNT_ORDER.length];
-      if (connected.includes(next)) {
-        return next;
+      if (provider == "ollama") {
+        this.refreshCapabilities("ollama").catch(() => {});
       }
     }
-    return null;
   },
 
+  // Tests only. An async generator fn(provider, request) stands in for
+  // every real provider (the order and switches still apply) and yields
+  // AIEvents; a plain fn(request) returning text is the one provider "test".
   setTestProvider(fn) {
     if (fn && !Cu.isInAutomation) {
       throw new Error("The test provider is for automated tests only");
     }
     this._testProvider = fn || null;
+    this._testStreams = fn?.constructor?.name == "AsyncGeneratorFunction";
   },
+
+  _testStreams: false,
 
   // Ends every request in flight the moment the kill switch goes on.
   _observe() {
@@ -561,135 +892,117 @@ export const WhimsyAIProviders = {
   },
 
   /**
-   * One completion from the chosen provider. Never falls back to another.
+   * One completion through WhimsyAIRouter (the order, switches, and
+   * handoff apply), as text.
    *
    * @param {object} request
    * @param {string} request.prompt
    * @param {string} [request.system]
    * @param {number} [request.maxTokens]
+   * @param {string} [request.task] An AIRequest task ("ask" by default).
    * @param {AbortSignal} [request.signal]
    * @returns {Promise<string>} The answer's text.
    */
-  async complete({ prompt, system = "", maxTokens = 1024, signal, userStarted = false } = {}) {
-    if (!this.enabled) {
-      throw new WhimsyAIError("blocked");
+  async complete({ prompt, system = "", maxTokens = 1024, signal, userStarted = false, task = "ask", thinking } = {}) {
+    const result = await lazy.WhimsyAIRouter.run({
+      task,
+      messages: [{ role: "user", content: String(prompt ?? "") }],
+      system,
+      maxTokens,
+      signal,
+      userStarted,
+      // Short, simple tasks: light thinking keeps them quick and cheap.
+      thinking: thinking ?? "light",
+    });
+    // Callers here need the whole answer.
+    if (result.partial) {
+      throw Object.assign(new WhimsyAIError(result.stopped || "failed"), { provider: result.provider });
     }
-    this._observe();
-    const controller = new AbortController();
-    const onAbort = () => controller.abort(signal.reason);
-    if (signal?.aborted) {
-      throw new WhimsyAIError("aborted");
-    }
-    signal?.addEventListener("abort", onAbort, { once: true });
-    const timer = setTimeout(() => controller.abort(new WhimsyAIError("timeout")), REQUEST_TIMEOUT_MS);
-    this._inflight.add(controller);
-    const request = { prompt: String(prompt ?? ""), system, maxTokens, signal: controller.signal, userStarted: !!userStarted };
-    try {
-      const provider = this.provider;
-      let text;
-      try {
-        text = await this._dispatch(provider, request);
-      } catch (error) {
-        // W14: opt-in "use the next one" when a plan runs out; this request
-        // only, never for anything else.
-        if (error?.code != "plan-limit" || controller.signal.aborted ||
-            !Services.prefs.getBoolPref(PLAN_FALLBACK_PREF, false)) {
-          throw error;
-        }
-        const next = await this.nextProvider(provider);
-        if (!next || next == provider) {
-          throw error;
-        }
-        text = await this._dispatch(next, request);
-        this.lastFallback = { from: provider, to: next };
-        Services.obs.notifyObservers(null, "whimsy-ai-plan-fallback", JSON.stringify(this.lastFallback));
-      }
-      // The switch may have gone on while the answer was on its way.
-      if (!this.enabled) {
-        throw new WhimsyAIError("blocked");
-      }
-      return String(text ?? "").trim();
-    } catch (error) {
-      if (controller.signal.aborted) {
-        const reason = controller.signal.reason;
-        throw reason instanceof WhimsyAIError ? reason : new WhimsyAIError("aborted");
-      }
-      throw error instanceof WhimsyAIError ? error : new WhimsyAIError("failed", String(error?.message || error));
-    } finally {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
-      this._inflight.delete(controller);
-    }
+    return String(result.text ?? "").trim();
   },
 
-  lastFallback: null,
-
-  // One request to one provider (a plan's own sign-in when it's connected
-  // that way).
-  async _dispatch(provider, request) {
+  /**
+   * One provider's answer as AIEvents ({ type: "text", delta },
+   * { type: "thinking", text }, { type: "citation", n, source }). The
+   * router calls this; errors are WhimsyAIErrors (until and detail say
+   * when a spent provider resets, in its own words).
+   */
+  async *stream(provider, request) {
+    if (this._testProvider) {
+      if (this._testStreams) {
+        yield* this._testProvider(provider, request);
+        return;
+      }
+      const text = await Promise.race([this._testProvider(request), aborted(request.signal)]);
+      yield { type: "text", delta: String(text ?? "") };
+      return;
+    }
     if (this._usesPlan(provider)) {
-      if (this._plans[provider].userStartedOnly && !request.userStarted) {
-        throw Object.assign(new WhimsyAIError("plan-user-only"), { provider });
+      const plan = this._plans[provider];
+      if (plan.stream && (provider != "claude" || this._claudePlanStreams === true)) {
+        yield* plan.stream(request);
+      } else {
+        yield { type: "text", delta: String((await plan.complete(request)) ?? "") };
       }
-      try {
-        return await this._plans[provider].complete(request);
-      } catch (error) {
-        if (error instanceof WhimsyAIError && !error.provider) {
-          error.provider = provider;
-        }
-        throw error;
-      }
+      return;
     }
     switch (provider) {
-      case "test":
-        return Promise.race([this._testProvider(request), aborted(request.signal)]);
       case "claude":
-        return this._claude(request);
+        yield* this._claudeStream(request);
+        return;
       case "ollama":
-        return this._ollama(request);
+        yield* this._ollamaStream(request);
+        return;
       case "openai":
-        return this._openai(request);
+        yield* this._openaiStream(request);
+        return;
       case "gemini":
-        return this._gemini(request);
+        yield* this._geminiStream(request);
+        return;
       default:
-        return this._apple(request);
+        yield { type: "text", delta: String((await this._apple(request)) ?? "") };
     }
   },
 
   /**
-   * Whether the chosen provider is set up, without setting anything up
+   * Whether a switched-on provider is set up, without setting anything up
    * (never builds the Apple helper or contacts a server). Automatic features
    * (tab titles, search-page previews, watches) wait for this, so nothing
-   * happens on its own until the person has picked and set up a provider.
-   * A plan that serves only what the person starts isn't ready for them.
+   * happens on its own until the person has connected a provider.
    *
-   * @param {object} [options]
-   * @param {boolean} [options.userStarted] The person asked for this one.
    * @returns {Promise<boolean>}
    */
-  async isReady({ userStarted = false } = {}) {
+  async isReady() {
     if (!this.enabled) {
       return false;
     }
-    switch (this.provider) {
-      case "test":
+    for (const id of lazy.WhimsyAIRouter._enabled()) {
+      if (await this._ready(id)) {
         return true;
-    }
-    if (this._usesPlan(this.provider)) {
-      if (this._plans[this.provider].userStartedOnly && !userStarted) {
-        return false;
       }
+    }
+    return false;
+  },
+
+  async _ready(provider) {
+    if (provider == "test") {
+      return true;
+    }
+    if (this._testProvider) {
+      return true;
+    }
+    if (this._usesPlan(provider)) {
       try {
-        return !!(await this._plans[this.provider].isReady());
+        return !!(await this._plans[provider].isReady());
       } catch {
         return false;
       }
     }
-    switch (this.provider) {
+    switch (provider) {
       case "claude":
       case "openai":
       case "gemini":
-        return this.hasKey(this.provider);
+        return this.hasKey(provider);
       case "ollama":
         return !!Services.prefs.getStringPref(OLLAMA_MODEL_PREF, "");
       default:
@@ -728,58 +1041,84 @@ export const WhimsyAIProviders = {
     return Services.prefs.getStringPref(CLAUDE_MODEL_PREF, "") || DEFAULT_CLAUDE_MODEL;
   },
 
-  async _claude({ prompt, system, maxTokens, signal }) {
+  async *_claudeStream({ messages, system, maxTokens, signal, thinking, model: chosen }) {
     const key = await this.getClaudeKey();
     if (!key) {
       throw new WhimsyAIError("no-key");
     }
+    const model = chosen || this.claudeModel;
     const body = {
-      model: this.claudeModel,
-      // Room for adaptive thinking on top of the short answers we ask for.
+      model,
       max_tokens: Math.max(2048, maxTokens * 2),
-      // Short, simple tasks: low effort keeps them quick and cheap.
-      output_config: { effort: "low" },
-      messages: [{ role: "user", content: prompt }],
+      stream: true,
+      messages: messages.map(m => ({
+        role: m.role,
+        content:
+          typeof m.content == "string"
+            ? m.content
+            : partsOf(m.content).map(part =>
+                part.type == "image"
+                  ? { type: "image", source: { type: "base64", media_type: part.mediaType, data: part.data } }
+                  : { type: "text", text: part.text }
+              ),
+      })),
     };
+    if (this.capabilities("claude", model).thinking) {
+      body.thinking = { type: "adaptive", display: "summarized" };
+      body.output_config = { effort: CLAUDE_EFFORT[thinking] ?? "low" };
+    }
     if (system) {
       body.system = system;
     }
-    let response;
-    try {
-      response = await fetch(`${ENDPOINTS.claude}/messages`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify(body),
-        credentials: "omit",
-        signal,
-      });
-    } catch (error) {
-      if (signal.aborted) {
-        throw error;
-      }
-      throw new WhimsyAIError("network");
-    }
-    if (response.status == 401 || response.status == 403) {
-      throw new WhimsyAIError("bad-key");
-    }
-    if (response.status == 429) {
-      throw new WhimsyAIError("rate-limited");
-    }
+    const response = await this._post(
+      `${ENDPOINTS.claude}/messages`,
+      { "x-api-key": key, "anthropic-version": "2023-06-01" },
+      body,
+      signal
+    );
     if (!response.ok) {
-      throw new WhimsyAIError("failed", `Claude API ${response.status}`);
+      throw await this._httpError("claude", response);
     }
-    const data = await response.json();
-    if (data.stop_reason == "refusal") {
-      throw new WhimsyAIError("refused");
+    if (!isStream(response)) {
+      const data = await response.json();
+      if (data.stop_reason == "refusal") {
+        throw new WhimsyAIError("refused");
+      }
+      for (const block of data.content || []) {
+        if (block.type == "thinking" && block.thinking) {
+          yield { type: "thinking", text: block.thinking };
+        } else if (block.type == "text") {
+          yield { type: "text", delta: block.text };
+        }
+      }
+      return;
     }
-    return (data.content || [])
-      .filter(block => block.type == "text")
-      .map(block => block.text)
-      .join("");
+    let citations = 0;
+    for await (const { json } of lazy.sseJSON(response.body)) {
+      switch (json.type) {
+        case "content_block_delta": {
+          const delta = json.delta ?? {};
+          if (delta.type == "text_delta") {
+            yield { type: "text", delta: delta.text ?? "" };
+          } else if (delta.type == "thinking_delta" && delta.thinking) {
+            yield { type: "thinking", text: delta.thinking };
+          } else if (delta.type == "citations_delta" && delta.citation?.url) {
+            yield { type: "citation", n: ++citations, source: { url: delta.citation.url, title: delta.citation.title ?? "" } };
+          }
+          break;
+        }
+        case "message_delta":
+          if (json.delta?.stop_reason == "refusal") {
+            throw new WhimsyAIError("refused");
+          }
+          break;
+        case "error":
+          throw streamError(json.error?.type, json.error?.message);
+        case "message_stop":
+          return;
+      }
+    }
+    throw new WhimsyAIError("bad-response", "The Claude stream ended early");
   },
 
   get _keyPath() {
@@ -848,89 +1187,96 @@ export const WhimsyAIProviders = {
 
   // ---- OpenAI (API key; the Responses API) ----
 
-  async _openai({ prompt, system, maxTokens, signal }) {
+  async *_openaiStream({ messages, system, maxTokens, signal, thinking, model: chosen }) {
     const key = await this.getKey("openai");
     if (!key) {
       throw new WhimsyAIError("no-key");
     }
-    const model = Services.prefs.getStringPref(OPENAI_MODEL_PREF, "");
+    const model = chosen || Services.prefs.getStringPref(OPENAI_MODEL_PREF, "");
     if (!model) {
       throw new WhimsyAIError("no-model");
     }
     const body = {
       model,
-      input: prompt,
+      input: openaiInput(messages),
       max_output_tokens: Math.max(2048, maxTokens * 2),
       // Nothing is kept on OpenAI's side.
       store: false,
+      stream: true,
     };
     if (system) {
       body.instructions = system;
     }
+    if (this.capabilities("openai", model).thinking) {
+      body.reasoning = { effort: OPENAI_EFFORT[thinking] ?? "low", summary: "auto" };
+    }
     const response = await this._post(`${ENDPOINTS.openai}/responses`, { authorization: `Bearer ${key}` }, body, signal);
-    if (response.status == 401 || response.status == 403) {
-      throw new WhimsyAIError("bad-key");
-    }
-    if (response.status == 404) {
-      throw new WhimsyAIError("no-model");
-    }
-    if (response.status == 429) {
-      throw new WhimsyAIError("rate-limited");
-    }
     if (!response.ok) {
-      throw new WhimsyAIError("failed", `OpenAI API ${response.status}`);
+      throw await this._httpError("openai", response);
     }
-    const data = await response.json();
-    const parts = (data.output || []).flatMap(item => (item.type == "message" ? item.content || [] : []));
-    if (parts.some(part => part.type == "refusal")) {
-      throw new WhimsyAIError("refused");
+    if (!isStream(response)) {
+      const text = responsesText((await response.json())?.output);
+      yield { type: "text", delta: text };
+      return;
     }
-    return parts.filter(part => part.type == "output_text").map(part => part.text).join("");
+    yield* responsesEvents(response.body);
   },
 
   // ---- Gemini (API key; the Generative Language API) ----
 
-  async _gemini({ prompt, system, maxTokens, signal }) {
+  async *_geminiStream({ messages, system, maxTokens, signal, thinking, model: chosen }) {
     const key = await this.getKey("gemini");
     if (!key) {
       throw new WhimsyAIError("no-key");
     }
-    const model = Services.prefs.getStringPref(GEMINI_MODEL_PREF, "");
+    const model = chosen || Services.prefs.getStringPref(GEMINI_MODEL_PREF, "");
     if (!model) {
       throw new WhimsyAIError("no-model");
     }
     const body = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: messages.map(m => ({
+        role: m.role == "assistant" ? "model" : "user",
+        parts: partsOf(m.content).map(part =>
+          part.type == "image" ? { inlineData: { mimeType: part.mediaType, data: part.data } } : { text: part.text }
+        ),
+      })),
       generationConfig: { maxOutputTokens: Math.max(2048, maxTokens * 2) },
     };
+    if (this.capabilities("gemini", model).thinking) {
+      body.generationConfig.thinkingConfig = { thinkingBudget: GEMINI_BUDGET[thinking] ?? GEMINI_BUDGET.light, includeThoughts: true };
+    }
     if (system) {
       body.systemInstruction = { parts: [{ text: system }] };
     }
     // The key goes in a header, never the address (logs, history).
-    const url = `${ENDPOINTS.gemini}/models/${encodeURIComponent(model.replace(/^models\//, ""))}:generateContent`;
+    const url = `${ENDPOINTS.gemini}/models/${encodeURIComponent(model.replace(/^models\//, ""))}:streamGenerateContent?alt=sse`;
     const response = await this._post(url, { "x-goog-api-key": key }, body, signal);
-    if (response.status == 400 || response.status == 401 || response.status == 403) {
-      let reason = "";
-      try {
-        reason = JSON.stringify((await response.json())?.error ?? "");
-      } catch {}
-      throw new WhimsyAIError(response.status == 400 && !/API_KEY_INVALID/.test(reason) ? "failed" : "bad-key");
-    }
-    if (response.status == 404) {
-      throw new WhimsyAIError("no-model");
-    }
-    if (response.status == 429) {
-      throw new WhimsyAIError("rate-limited");
-    }
     if (!response.ok) {
-      throw new WhimsyAIError("failed", `Gemini API ${response.status}`);
+      throw await this._httpError("gemini", response);
     }
-    const data = await response.json();
-    const candidate = data.candidates?.[0];
-    if (!candidate || candidate.finishReason == "SAFETY" || data.promptFeedback?.blockReason) {
-      throw new WhimsyAIError("refused");
+    const chunks = isStream(response) ? lazy.sseJSON(response.body) : oneChunk(response);
+    for await (const { json } of chunks) {
+      if (json.error) {
+        throw streamError(json.error.status, json.error.message);
+      }
+      if (json.promptFeedback?.blockReason) {
+        throw new WhimsyAIError("refused");
+      }
+      const candidate = json.candidates?.[0];
+      if (!candidate) {
+        continue;
+      }
+      if (candidate.finishReason == "SAFETY") {
+        throw new WhimsyAIError("refused");
+      }
+      for (const part of candidate.content?.parts || []) {
+        if (part.thought && part.text) {
+          yield { type: "thinking", text: part.text };
+        } else if (part.text) {
+          yield { type: "text", delta: part.text };
+        }
+      }
     }
-    return (candidate.content?.parts || []).map(part => part.text ?? "").join("");
   },
 
   // A JSON POST that never carries cookies; a failed connection is
@@ -950,6 +1296,39 @@ export const WhimsyAIProviders = {
       }
       throw new WhimsyAIError("network");
     }
+  },
+
+  // A failed HTTP answer as a WhimsyAIError, with the provider's own words
+  // (detail) and, for a limit, when it resets (until).
+  async _httpError(provider, response) {
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {}
+    const status = response.status;
+    let code;
+    if (status == 401 || status == 403) {
+      code = "bad-key";
+    } else if (status == 400) {
+      code = provider == "gemini" && /API_KEY_INVALID/.test(JSON.stringify(data?.error ?? "")) ? "bad-key" : "failed";
+    } else if (status == 404) {
+      code = "no-model";
+    } else if (status == 429) {
+      code = /insufficient_quota|credit balance/i.test(JSON.stringify(data ?? "")) ? "plan-limit" : "rate-limited";
+    } else if (status >= 500) {
+      code = "unavailable";
+    } else {
+      code = "failed";
+    }
+    const detail = typeof data?.error == "string" ? data.error : String(data?.error?.message ?? "");
+    const failure = new WhimsyAIError(code, detail || `${provider} ${status}`);
+    failure.detail = detail;
+    failure.provider = provider;
+    const until = retryAt(response.headers);
+    if (until) {
+      failure.until = until;
+    }
+    return failure;
   },
 
   // The models a key can use, for the Settings picker.
@@ -1001,22 +1380,34 @@ export const WhimsyAIProviders = {
     return (Services.prefs.getStringPref(OLLAMA_ENDPOINT_PREF, "") || "http://127.0.0.1:11434").replace(/\/+$/, "");
   },
 
-  async _ollama({ prompt, system, signal }) {
-    const model = Services.prefs.getStringPref(OLLAMA_MODEL_PREF, "");
+  async *_ollamaStream({ messages, system, signal, thinking, model: chosen }) {
+    const model = chosen || Services.prefs.getStringPref(OLLAMA_MODEL_PREF, "");
     if (!model) {
       throw new WhimsyAIError("no-model");
     }
-    const messages = [];
+    const chat = [];
     if (system) {
-      messages.push({ role: "system", content: system });
+      chat.push({ role: "system", content: system });
     }
-    messages.push({ role: "user", content: prompt });
+    for (const m of messages) {
+      const parts = partsOf(m.content);
+      const message = { role: m.role, content: parts.filter(p => p.type == "text").map(p => p.text).join("\n") };
+      const images = parts.filter(p => p.type == "image").map(p => p.data);
+      if (images.length) {
+        message.images = images;
+      }
+      chat.push(message);
+    }
+    const body = { model, messages: chat, stream: true };
+    if (this.capabilities("ollama", model).thinking) {
+      body.think = OLLAMA_THINK[thinking] ?? false;
+    }
     let response;
     try {
       response = await fetch(`${this.ollamaEndpoint}/api/chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model, messages, stream: false }),
+        body: JSON.stringify(body),
         credentials: "omit",
         signal,
       });
@@ -1026,14 +1417,24 @@ export const WhimsyAIProviders = {
       }
       throw new WhimsyAIError("unavailable");
     }
-    if (response.status == 404) {
-      throw new WhimsyAIError("no-model");
-    }
     if (!response.ok) {
-      throw new WhimsyAIError("failed", `Ollama ${response.status}`);
+      throw await this._httpError("ollama", response);
     }
-    const data = await response.json();
-    return data.message?.content ?? "";
+    const lines = isStream(response) ? lazy.ndjson(response.body) : oneObject(response);
+    for await (const line of lines) {
+      if (line.error) {
+        throw streamError("", String(line.error));
+      }
+      if (line.message?.thinking) {
+        yield { type: "thinking", text: line.message.thinking };
+      }
+      if (line.message?.content) {
+        yield { type: "text", delta: line.message.content };
+      }
+      if (line.done) {
+        return;
+      }
+    }
   },
 
   // The models the local Ollama server has, for the Settings picker.
@@ -1381,6 +1782,9 @@ export const WhimsyAIProviders = {
         return exitCode == -9 ? "apple-helper-blocked" : "apple-helper-crashed";
       }
       if (output.trim() == "available") {
+        if (!this.order.includes("apple")) {
+          this.appleConnected();
+        }
         return "available";
       }
       if (/appleIntelligenceNotEnabled/.test(output)) {
@@ -1424,6 +1828,183 @@ export const WhimsyAIProviders = {
     }
   },
 };
+
+// Parts of a message: [{ type: "text", text }, { type: "image", mediaType, data }].
+function partsOf(content) {
+  if (typeof content == "string") {
+    return [{ type: "text", text: content }];
+  }
+  return (Array.isArray(content) ? content : []).filter(part => part?.type == "text" || part?.type == "image");
+}
+
+function isStream(response) {
+  return /event-stream|ndjson/i.test(response.headers.get("content-type") ?? "");
+}
+
+// A whole JSON answer read like a one-chunk stream.
+async function* oneChunk(response) {
+  yield { json: await response.json() };
+}
+
+async function* oneObject(response) {
+  yield await response.json();
+}
+
+// An error that arrived inside a stream.
+function streamError(type, message) {
+  const text = `${type ?? ""} ${message ?? ""}`;
+  let code = "failed";
+  if (/rate_limit|RESOURCE_EXHAUSTED|rate limit/i.test(text)) {
+    code = "rate-limited";
+  } else if (/insufficient_quota|usage limit|credit balance/i.test(text)) {
+    code = "plan-limit";
+  } else if (/overloaded|UNAVAILABLE|api_error|server_error/i.test(text)) {
+    code = "unavailable";
+  }
+  const failure = new WhimsyAIError(code, String(message || type || code));
+  failure.detail = String(message ?? "");
+  return failure;
+}
+
+// When a limit resets, from Retry-After (seconds or a date) or Anthropic's
+// reset header.
+function retryAt(headers) {
+  const after = headers.get("retry-after");
+  if (after) {
+    const seconds = Number(after);
+    if (Number.isFinite(seconds)) {
+      return Date.now() + seconds * 1000;
+    }
+    const date = Date.parse(after);
+    if (Number.isFinite(date)) {
+      return date;
+    }
+  }
+  const reset = Date.parse(headers.get("anthropic-ratelimit-requests-reset") ?? "");
+  return Number.isFinite(reset) ? reset : null;
+}
+
+/**
+ * When a limit message says it resets ("resets 10pm", "resets at 10:30 PM",
+ * "resets in 2 hours", or Claude Code's "|<seconds since 1970>"), as a
+ * time; null when it doesn't say.
+ */
+export function parseResetTime(text, now = Date.now()) {
+  const value = String(text ?? "");
+  const epoch = value.match(/\|(\d{10})\b/);
+  if (epoch) {
+    return Number(epoch[1]) * 1000;
+  }
+  const inMatch = value.match(/resets?\s+in\s+(\d+)\s*(minute|min|hour|hr|h|m)/i);
+  if (inMatch) {
+    const unit = /^h/i.test(inMatch[2]) ? 3600 * 1000 : 60 * 1000;
+    return now + Number(inMatch[1]) * unit;
+  }
+  const at = value.match(/resets?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if (at) {
+    let hours = Number(at[1]) % 24;
+    const minutes = Number(at[2] ?? 0);
+    const half = at[3]?.toLowerCase();
+    if (half == "pm" && hours < 12) {
+      hours += 12;
+    } else if (half == "am" && hours == 12) {
+      hours = 0;
+    }
+    if (hours > 23 || minutes > 59) {
+      return null;
+    }
+    const date = new Date(now);
+    date.setHours(hours, minutes, 0, 0);
+    if (date.getTime() <= now) {
+      date.setDate(date.getDate() + 1);
+    }
+    return date.getTime();
+  }
+  return null;
+}
+
+// The Responses API's input: plain text for one user message, else turns.
+function openaiInput(messages) {
+  if (messages.length == 1 && messages[0].role == "user" && typeof messages[0].content == "string") {
+    return messages[0].content;
+  }
+  return messages.map(m => ({
+    role: m.role,
+    content: partsOf(m.content).map(part =>
+      part.type == "image"
+        ? { type: "input_image", image_url: `data:${part.mediaType};base64,${part.data}` }
+        : { type: m.role == "assistant" ? "output_text" : "input_text", text: part.text }
+    ),
+  }));
+}
+
+// The answer text in a finished Responses API output (refusals throw).
+export function responsesText(output) {
+  const parts = (output || []).flatMap(item => (item.type == "message" ? item.content || [] : []));
+  if (parts.some(part => part.type == "refusal")) {
+    throw new WhimsyAIError("refused");
+  }
+  return parts.filter(part => part.type == "output_text").map(part => part.text).join("");
+}
+
+// A Responses API stream as AIEvents. mapCode turns OpenAI's error codes
+// into Whimsy's (the ChatGPT plan has its own).
+export async function* responsesEvents(body, mapCode = null) {
+  let streamed = false;
+  let refused = false;
+  let citations = 0;
+  const failed = async (code, message) => {
+    const mapped = (mapCode && (await mapCode(code))) || null;
+    if (mapped) {
+      return new WhimsyAIError(mapped, message || mapped);
+    }
+    return streamError(code, message);
+  };
+  for await (const { event, json } of lazy.sseJSON(body)) {
+    switch (json?.type || event) {
+      case "response.output_text.delta":
+        if (typeof json.delta == "string" && json.delta) {
+          streamed = true;
+          yield { type: "text", delta: json.delta };
+        }
+        break;
+      case "response.reasoning_summary_text.delta":
+        if (typeof json.delta == "string" && json.delta) {
+          yield { type: "thinking", text: json.delta };
+        }
+        break;
+      case "response.output_text.annotation.added":
+        if (json.annotation?.type == "url_citation" && json.annotation.url) {
+          yield { type: "citation", n: ++citations, source: { url: json.annotation.url, title: json.annotation.title ?? "" } };
+        }
+        break;
+      case "response.refusal.delta":
+      case "response.refusal.done":
+        refused = true;
+        break;
+      case "response.completed": {
+        if (refused) {
+          throw new WhimsyAIError("refused");
+        }
+        if (!streamed) {
+          const text = responsesText(json.response?.output);
+          if (text) {
+            yield { type: "text", delta: text };
+          }
+        }
+        return;
+      }
+      case "response.failed":
+        throw await failed(json.response?.error?.code, json.response?.error?.message);
+      case "response.incomplete":
+        throw new WhimsyAIError("bad-response", "The answer stopped before it was complete");
+      case "error":
+        throw await failed(json.code ?? json.error?.code, json.message ?? json.error?.message);
+    }
+  }
+  // Only response.completed means the answer is whole.
+  throw new WhimsyAIError("bad-response", "The stream ended early");
+}
 
 function aborted(signal) {
   return new Promise((_, reject) => {

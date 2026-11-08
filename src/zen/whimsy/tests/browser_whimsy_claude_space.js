@@ -87,9 +87,10 @@ add_setup(async function () {
     WhimsyClaude.confirmSite = realConfirm;
     WhimsyClaude.forgetSitePermissions();
     const spaceId = Services.prefs.getStringPref(SPACE, "");
-    for (const pref of [ENABLED, WHOLE, ASK, FEATURE, AI_ENABLED, SPACE, PORT]) {
+    for (const pref of [ENABLED, WHOLE, ASK, FEATURE, SPACE, PORT]) {
       Services.prefs.clearUserPref(pref);
     }
+    Services.prefs.setBoolPref(AI_ENABLED, true);
     await WhimsyAI.pending;
     if (deviceNameHadUserValue) {
       Services.prefs.setStringPref(DEVICE_NAME_PREF, deviceNameValue);
@@ -507,7 +508,7 @@ add_task(async function test_switches_turn_it_off() {
   Services.prefs.setBoolPref(AI_ENABLED, false);
   ok(!WhimsyClaude.running, "The AI kill switch stops it too");
   await WhimsyAI.pending;
-  Services.prefs.clearUserPref(AI_ENABLED);
+  Services.prefs.setBoolPref(AI_ENABLED, true);
   await WhimsyAI.pending;
   Services.prefs.clearUserPref(ENABLED);
   ok(!WhimsyClaude.running, "Turning it off in Settings stops it");

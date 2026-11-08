@@ -60,7 +60,7 @@ add_setup(async () => {
     WhimsyPageWatch._testNotify = null;
     WhimsyAIReader.setTestReader(null);
     WhimsyAIProviders.setTestProvider(null);
-    Services.prefs.clearUserPref("whimsy.ai.enabled");
+    Services.prefs.setBoolPref("whimsy.ai.enabled", true);
     await WhimsyAI.pending;
     Services.prefs.clearUserPref("whimsy.feature.page-watch");
   });
@@ -188,7 +188,7 @@ add_task(async function test_kill_switch_and_private() {
   is(await checkNow(watch), null, "Checks do nothing");
   is(reads.length, 0, "and read nothing");
   await Assert.rejects(WhimsyPageWatch.add({ url: PAGE, condition: "x" }), /AI is off/, "No new watches");
-  Services.prefs.clearUserPref("whimsy.ai.enabled");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
   await WhimsyAI.pending;
   await TestUtils.waitForCondition(() => WhimsyPageWatch._timer, "Back on, the timer runs again");
   await WhimsyPageWatch.remove(watch.id);

@@ -34,8 +34,9 @@
 
 # W10-28: Enable AI (Settings → AI). Off turns off every AI feature,
 # Firefox's and Whimsy's (WhimsyAI.sys.mjs). Replaces whimsy.ai.blocked.
+# W23: off until the first provider connects (WhimsyAIProviders).
 - name: whimsy.ai.enabled
-  value: true
+  value: false
 
 # The old switch ("Turn off all AI features"). Kept for one release as
 # !whimsy.ai.enabled, so a rolled-back build reads the same answer.
@@ -424,10 +425,8 @@
 - name: whimsy.playlist.offline-download
   value: true
 
-# wave3/ai: AI provider (Settings → Privacy & Security → AI provider):
-# "apple" (on-device), "claude", "openai" or "gemini" (API keys, kept in the
-# Keychain-encrypted whimsy-ai-keys.json, never in prefs) or "ollama". Only
-# this one is used.
+# wave3/ai: the AI provider an older Whimsy used. W23: read once to put it
+# first in whimsy.ai.order; nothing picks with it any more.
 - name: whimsy.ai.provider
   value: "apple"
 
@@ -455,11 +454,6 @@
 
 - name: whimsy.ai.claude.auth
   value: ""
-
-# Opt-in: when a plan runs out, this request goes to the next connected
-# provider in Settings -> AI's list.
-- name: whimsy.ai.plan-fallback
-  value: false
 
 # OpenAI's one-time "You're using your ChatGPT plan" note has been shown.
 - name: whimsy.ai.openai.plan-welcomed
@@ -762,3 +756,29 @@
 # this device). Call Options' "Buttons mute" choice.
 - name: whimsy.call.buttons-default
   value: "call"
+
+# W23 ai-core
+# The connected AI providers in the order Whimsy tries them (comma list of
+# ids; a new connection goes last), and the ones switched off (never tried,
+# handoff included).
+- name: whimsy.ai.order
+  value: ""
+
+- name: whimsy.ai.off
+  value: ""
+
+# Short rewrite, translate, and summarize tasks go to Apple first.
+- name: whimsy.ai.quick-text-apple
+  value: true
+
+# Providers out of room until their reset (JSON, survives a restart).
+- name: whimsy.ai.resting
+  value: "{}"
+
+# The first connection has turned AI on (it never does again).
+- name: whimsy.ai.auto-enabled
+  value: false
+
+# Whether this Claude Code version streams on the plan (JSON, per version).
+- name: whimsy.ai.claude-code.stream-probe
+  value: ""
