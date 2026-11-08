@@ -5,26 +5,24 @@
 /* W23 (fu-page 1.7): Firefox's find bar as a floating card at the top right
    of the page. Opens like the command bar; reduced motion fades only. */
 
-.browserContainer:has(> findbar[whimsy-find-card]) {
-  position: relative;
-}
-
 findbar[whimsy-find-card] {
   --whimsy-find-track: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
   --whimsy-find-muted: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.6));
   --whimsy-find-error: light-dark(#d70022, #ff6b81);
   --whimsy-find-hairline: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
 
-  position: absolute;
-  top: 10px;
-  inset-inline-end: 14px;
+  /* First in the page's column, overlapping it: its margins net to zero height, so the page keeps its size. */
+  position: relative;
   z-index: 3;
+  order: -1;
+  align-self: flex-end;
   box-sizing: border-box;
   width: 400px;
   max-width: calc(100% - 28px);
   min-height: 0;
   height: 44px;
-  margin: 0 !important;
+  margin-block: 10px -54px !important;
+  margin-inline: 0 14px !important;
   padding: 0 6px 0 8px;
   align-items: center;
   border: none;

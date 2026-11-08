@@ -101,12 +101,13 @@ add_task(async function chip_scrolls_and_tints_until_scroll() {
     let tint = await TestUtils.waitForCondition(() => passageTint(browser), "Pressing the chip tints the passage");
     ok(tint.text.includes("12.30"), "the quoted passage");
     ok(await SpecialPowers.spawn(browser, [], () => content.scrollY > 0), "and scrolls to it");
-    ok(Math.abs(tint.top - tint.height / 3) < 40, `a third of the way down (${Math.round(tint.top)} of ${tint.height})`);
+    const atEnd = await SpecialPowers.spawn(browser, [], () => content.scrollY >= content.scrollMaxY - 1);
+    ok(Math.abs(tint.top - tint.height / 3) < 40 || atEnd, `a third of the way down, or as far as the page goes (${Math.round(tint.top)} of ${tint.height})`);
     ok(chip.hasAttribute("active"), "The chip shows it's the one pressed");
     await TestUtils.waitForCondition(async () => (tint = await passageTint(browser))?.level == 18, "The tint eases to 18%");
     await new Promise(r => setTimeout(r, 300));
     ok(await passageTint(browser), "and stays while nothing scrolls");
-    await SpecialPowers.spawn(browser, [], () => content.scrollBy(0, 120));
+    await SpecialPowers.spawn(browser, [], () => content.scrollBy(0, -120));
     await TestUtils.waitForCondition(async () => !(await passageTint(browser)), "The next scroll clears it");
   });
 });
