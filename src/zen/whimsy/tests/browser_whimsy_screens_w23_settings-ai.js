@@ -32,8 +32,6 @@ const TOUCHED = [
   "whimsy.ai.ollama.endpoint",
   "whimsy.feature.ai-claude-plan",
   "whimsy.feature.ai-openai-plan",
-  "whimsy.ai.hints.seen",
-  "whimsy.ai.hints.today",
 ];
 const saved = new Map(
   TOUCHED.map(name => {
@@ -90,6 +88,10 @@ function setup({ on = true, order = "apple,claude,openai,gemini", off = "" } = {
 }
 
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.ai.hints.seen", Services.prefs.getStringPref("whimsy.ai.hints.seen", "")],
+    ["whimsy.ai.hints.today", Services.prefs.getStringPref("whimsy.ai.hints.today", "")],
+  ] });
   OSKeyStoreTestUtils.setup();
   server = new HttpServer();
   server.start(-1);
