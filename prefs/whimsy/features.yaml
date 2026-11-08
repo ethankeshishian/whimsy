@@ -663,6 +663,12 @@
 - name: whimsy.feature.routines
   value: true
 
+- name: whimsy.feature.command-bar-numbers
+  value: true
+
+- name: whimsy.feature.command-bar-vpn-strip
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

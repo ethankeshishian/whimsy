@@ -84,7 +84,7 @@ function reducedMotion(win) {
   return win.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function providerName(id) {
+export function providerName(id) {
   if (id == "test") {
     return "Test";
   }

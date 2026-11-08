@@ -1005,3 +1005,13 @@ support-files = ["whimsy_claude_code_install.sjs", "whimsy_claude_code_manifest.
 ["browser_whimsy_connectors.js"]
 ["browser_whimsy_ai_onboarding.js"]
 ["browser_whimsy_screens_w23_connectors.js"]
+# W23 cmdbar-ai: Ask AI and the answer card, Recent answer and Updates,
+# ⌘1–⌘9 rows, the VPN status strip, and this lane's screenshots.
+["browser_whimsy_cmdbar_ask.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
+
+["browser_whimsy_cmdbar_updates.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
+
+["browser_whimsy_screens_w23_cmdbar-ai.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]

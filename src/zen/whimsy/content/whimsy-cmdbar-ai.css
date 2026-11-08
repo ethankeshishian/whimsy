@@ -1,0 +1,931 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 cmdbar-ai: Ask row, answer card, Updates rows, ⌘1–⌘9 numbers, the
+   VPN status strip, and the mic slot. Mockups 02-command-bar (cmd-*) and
+   fu-media 5.1. */
+
+#urlbar,
+.whimsy-ask-ghost {
+  --whimsy-ask-muted: light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.5));
+  --whimsy-ask-text: light-dark(rgba(0, 0, 0, 0.88), rgba(255, 255, 255, 0.92));
+  --whimsy-ask-text-2: light-dark(rgba(0, 0, 0, 0.7), rgba(255, 255, 255, 0.72));
+  --whimsy-ask-hover: color-mix(in srgb, var(--zen-branding-bg-reverse, currentColor) 6%, transparent);
+  --whimsy-ask-hairline: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.14));
+  --whimsy-ask-accent: var(--zen-primary-color, #3d7bfd);
+  /* Zen's accent is deep in dark mode; icons and links need a lighter one there. */
+  --whimsy-ask-accent-fg: light-dark(var(--whimsy-ask-accent), color-mix(in srgb, var(--whimsy-ask-accent), white 50%));
+  --whimsy-ask-warn: light-dark(rgb(181, 92, 15), rgb(255, 170, 79));
+  --whimsy-ask-fail: light-dark(rgb(196, 43, 28), rgb(255, 120, 105));
+  --whimsy-ask-ok: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
+  --whimsy-ask-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ---- Mode pill: "Ask AI" before the input while a card is up ---- */
+.whimsy-ask-mode {
+  display: none;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  margin-inline-end: 8px;
+  padding: 4px 8px;
+  border-radius: 50px;
+  background-color: color-mix(in srgb, var(--zen-primary-color) 50%, light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.2)) 50%);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  #urlbar[whimsy-ask] & {
+    display: inline-flex;
+  }
+}
+
+.whimsy-ask-mode-icon {
+  width: 13px;
+  height: 13px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+/* ---- Ask row ---- */
+/* No gap: the icon's own margin lines the title up with the rows around it. */
+.urlbarView-row[dynamicType="whimsy-ask"] > .urlbarView-row-inner {
+  align-items: center;
+}
+
+.whimsy-ask-icon {
+  -moz-context-properties: fill;
+  fill: var(--whimsy-ask-accent-fg) !important;
+  background-color: color-mix(in srgb, var(--whimsy-ask-accent) 14%, transparent) !important;
+}
+
+.urlbarView-row[dynamicType="whimsy-ask"] .urlbarView-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-ask-hint {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-inline-end: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+  white-space: nowrap;
+
+  .urlbarView-row[selected] & {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+.whimsy-ask-scope-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-cmdbar-key {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border: 1px solid var(--whimsy-ask-hairline);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--whimsy-ask-text-2);
+  white-space: nowrap;
+
+  .urlbarView-row[selected] & {
+    color: white !important;
+    border-color: rgba(255, 255, 255, 0.45);
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+/* The Ask row says ⌘↩ until it's selected, then ↩ (Enter asks). */
+.whimsy-ask-key-accel:not([hidden]) + .whimsy-ask-key-return {
+  display: none;
+}
+
+.urlbarView-row[selected] .whimsy-ask-key-accel {
+  display: none;
+}
+
+.urlbarView-row[selected] .whimsy-ask-key-accel + .whimsy-ask-key-return {
+  display: inline-flex;
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .urlbarView-row[dynamicType="whimsy-ask"] {
+    animation: whimsy-ask-in 150ms var(--whimsy-ask-ease);
+  }
+}
+
+/* Each chunk of words fades up as it arrives (cmd-1.5). */
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-ask-fresh {
+    animation: whimsy-ask-word 120ms var(--whimsy-ask-ease) both;
+  }
+}
+
+@keyframes whimsy-ask-word {
+  from {
+    opacity: 0.45;
+  }
+}
+
+/* The card's copy travelling into chat (cmd-1.9). */
+.whimsy-ask-ghost {
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: light-dark(rgb(255, 255, 255), rgb(38, 38, 40));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  transform-origin: 0 0;
+  pointer-events: none;
+  animation: none !important;
+}
+
+@keyframes whimsy-ask-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---- The answer card: the only row while it's up ---- */
+.urlbarView-row[dynamicType="whimsy-ask-card"] {
+  padding: 0 !important;
+  background: none !important;
+  border: 0 !important;
+  cursor: default;
+
+  & > .urlbarView-row-inner {
+    display: block;
+    padding: 0 !important;
+    background: none !important;
+  }
+}
+
+.whimsy-ask-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 12px 6px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--whimsy-ask-text);
+  white-space: normal;
+  overflow-wrap: break-word;
+  cursor: auto;
+  user-select: text;
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-ask-card {
+    animation: whimsy-ask-in 150ms var(--whimsy-ask-ease);
+  }
+}
+
+.whimsy-ask-q {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+}
+
+.whimsy-ask-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+}
+
+.whimsy-ask-brand {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.whimsy-ask-body {
+  max-width: 70ch;
+  color: var(--whimsy-ask-text);
+
+  & p,
+  & ul,
+  & ol,
+  & h4 {
+    margin: 0;
+  }
+
+  & > * + * {
+    margin-top: 8px;
+  }
+
+  & strong {
+    font-weight: 650;
+  }
+
+  & code {
+    font-family: ui-monospace, monospace;
+    font-size: 0.9em;
+  }
+}
+
+.whimsy-ask-cite {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  margin: 0 1px;
+  padding: 0 4px;
+  border-radius: 5px;
+  vertical-align: 1px;
+  background: var(--whimsy-ask-hover);
+  color: var(--whimsy-ask-text-2);
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.whimsy-ask-caret {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline-start: 4px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--zen-accent-button-background, var(--whimsy-ask-accent));
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-ask-caret {
+    animation: whimsy-ask-pulse 0.9s ease-in-out infinite alternate;
+  }
+
+  .whimsy-ask-skeleton {
+    animation: whimsy-ask-shimmer 1.1s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes whimsy-ask-pulse {
+  from {
+    opacity: 0.35;
+  }
+}
+
+@keyframes whimsy-ask-shimmer {
+  from {
+    opacity: 0.45;
+  }
+}
+
+.whimsy-ask-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.whimsy-ask-skeleton {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.1));
+}
+
+.whimsy-ask-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.whimsy-ask-source {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 300px;
+  min-height: 30px;
+  padding: 4px 10px 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--whimsy-ask-hover);
+  color: var(--whimsy-ask-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    background: light-dark(rgba(0, 0, 0, 0.09), rgba(255, 255, 255, 0.12));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, var(--whimsy-ask-accent));
+    outline-offset: 1px;
+  }
+
+  & .whimsy-ask-cite {
+    min-width: 10px;
+    padding: 0;
+    background: transparent;
+    color: var(--whimsy-ask-muted);
+  }
+
+  &[visited] .whimsy-ask-source-title {
+    color: var(--whimsy-ask-text-2);
+  }
+}
+
+.whimsy-ask-source-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 4px;
+}
+
+.whimsy-ask-source-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-ask-source-host {
+  color: var(--whimsy-ask-muted);
+  white-space: nowrap;
+}
+
+.whimsy-ask-source-opened {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--whimsy-ask-ok);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.whimsy-ask-check {
+  width: 11px;
+  height: 11px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+.whimsy-ask-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+  font-size: 12px;
+  color: var(--whimsy-ask-muted);
+}
+
+.whimsy-ask-spacer {
+  flex: 1;
+}
+
+.whimsy-ask-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--whimsy-ask-hover);
+  color: var(--whimsy-ask-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: light-dark(rgba(0, 0, 0, 0.09), rgba(255, 255, 255, 0.12));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, var(--whimsy-ask-accent));
+    outline-offset: 1px;
+  }
+}
+
+.whimsy-ask-btn-icon {
+  width: 12px;
+  height: 12px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+
+/* One line for errors and handoffs (cmd dec-6). */
+.whimsy-ask-line {
+  --tone: var(--whimsy-ask-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--tone) 10%, transparent);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--whimsy-ask-text);
+
+  &[tone="warn"] {
+    --tone: var(--whimsy-ask-warn);
+  }
+
+  &[tone="fail"] {
+    --tone: var(--whimsy-ask-fail);
+  }
+
+  &[tone="info"] {
+    --tone: var(--whimsy-ask-accent-fg);
+    padding: 0;
+    background: transparent;
+    color: var(--whimsy-ask-muted);
+    font-size: 12.5px;
+  }
+}
+
+.whimsy-ask-line-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  -moz-context-properties: fill;
+  fill: var(--tone);
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-ask-line {
+    animation: whimsy-ask-in 150ms var(--whimsy-ask-ease);
+  }
+}
+
+.whimsy-ask-card[dir="rtl"] {
+  direction: rtl;
+}
+
+@media (max-width: 800px) {
+  .whimsy-ask-foot-hint {
+    display: none;
+  }
+}
+
+/* ---- Updates rows ---- */
+.urlbarView-row:is([dynamicType="whimsy-update"], [dynamicType="whimsy-update-more"]) {
+  position: relative;
+
+  & > .urlbarView-row-inner {
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+.whimsy-update-icon {
+  --tone: var(--whimsy-ask-accent-fg);
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+
+  & img {
+    width: 16px;
+    height: 16px;
+    -moz-context-properties: fill;
+    fill: var(--tone);
+  }
+
+  &[data-type="watch"] {
+    --tone: var(--whimsy-ask-ok);
+  }
+
+  &[data-type="routine"] {
+    --tone: var(--whimsy-ask-text-2);
+  }
+
+  &[data-type="needs"] {
+    --tone: var(--whimsy-ask-warn);
+  }
+
+  &[data-type="more"] {
+    background: transparent;
+  }
+
+  .urlbarView-row:is([selected], :has(.whimsy-update-remind[open])) & {
+    background: rgba(255, 255, 255, 0.9);
+  }
+}
+
+.whimsy-update-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+
+  & .whimsy-update-title {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.whimsy-update-detail {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &[hidden] {
+    display: none;
+  }
+
+  .urlbarView-row[selected] & {
+    color: rgba(255, 255, 255, 0.8);
+  }
+}
+
+.whimsy-update-more {
+  color: var(--whimsy-ask-accent-fg);
+  font-size: 13px;
+}
+
+.whimsy-update-end {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-inline-end: 4px;
+}
+
+.whimsy-update-needs {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--whimsy-ask-warn) 16%, transparent);
+  color: var(--whimsy-ask-warn);
+  font-size: 11.5px;
+  font-weight: 650;
+
+  .urlbarView-row[selected] & {
+    background: rgba(255, 255, 255, 0.9);
+    color: color-mix(in srgb, var(--whimsy-ask-warn), black 25%) !important;
+  }
+}
+
+.whimsy-update-time {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+  white-space: nowrap;
+}
+
+.whimsy-update-btn,
+.whimsy-update-dismiss-all {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Open, Remind me, and Dismiss show on the selected row (Tab walks them),
+   and on the row whose Remind me menu is open, which keeps the selected look. */
+.urlbarView-row[selected] .whimsy-update-btn:not([hidden]),
+.urlbarView-row:has([selected]) .whimsy-update-btn:not([hidden]),
+.urlbarView-row:has(.whimsy-update-remind[open]) .whimsy-update-btn:not([hidden]),
+.urlbarView-row:hover .whimsy-update-btn:not([hidden]) {
+  display: inline-flex;
+}
+
+.urlbarView-row:is([selected], :has([selected]), :has(.whimsy-update-remind[open]), :hover) .whimsy-update-time {
+  display: none;
+}
+
+.urlbarView-row[dynamicType="whimsy-update"]:has(.whimsy-update-remind[open]) {
+  background-color: color-mix(in srgb, var(--zen-accent-button-background), transparent 40%) !important;
+
+  & *:not(.whimsy-update-open) {
+    color: white !important;
+  }
+}
+
+/* Zen paints every child of a selected row white; Open sits on white. */
+.urlbarView-row .whimsy-update-btn.whimsy-update-open {
+  background: rgba(255, 255, 255, 0.92);
+  color: color-mix(in srgb, var(--zen-accent-button-background, var(--whimsy-ask-accent)), black 55%) !important;
+}
+
+.whimsy-update-btn {
+
+  .urlbarView-row:not([selected]):not(:has([selected], .whimsy-update-remind[open])) & {
+    background: var(--whimsy-ask-hover);
+    color: var(--whimsy-ask-text) !important;
+  }
+
+  &:is(.whimsy-update-remind, .whimsy-update-dismiss) {
+    background: rgba(255, 255, 255, 0.18);
+    color: white !important;
+  }
+
+  &[selected] {
+    outline: 2px solid white;
+    outline-offset: 1px;
+  }
+}
+
+.whimsy-update-remind::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background-color: currentColor;
+  mask: url("chrome://global/skin/icons/arrow-down-12.svg") center / contain no-repeat;
+  transition: rotate 180ms var(--whimsy-ask-ease);
+}
+
+/* Open: the chevron turns up, and the button stays shown under the menu. */
+.whimsy-update-remind[open] {
+  display: inline-flex !important;
+
+  &::after {
+    rotate: 180deg;
+  }
+}
+
+/* ---- Remind me: its times as menu rows under Remind me (cmd-2.4) ----
+   One card made of rows: the first rounds its top, Pick a time… its bottom. */
+.urlbarView-row[dynamicType="whimsy-update-remind-option"] {
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-block-width: 0 !important;
+  background: none !important;
+
+  & > .urlbarView-row-inner {
+    justify-content: flex-end;
+    min-height: 0 !important;
+    padding: 0 8px !important;
+    background: none !important;
+  }
+}
+
+.whimsy-remind-option {
+  --menu-bg: light-dark(white, rgb(44, 44, 46));
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 230px;
+  min-height: 29px;
+  padding: 0 14px 0 12px;
+  box-sizing: border-box;
+  border-inline: 1px solid var(--whimsy-ask-hairline);
+  background-color: var(--menu-bg);
+  background-clip: padding-box;
+  font-size: 13px;
+  color: var(--whimsy-ask-text) !important;
+  cursor: pointer;
+  animation: whimsy-remind-in 180ms var(--whimsy-ask-ease) both;
+
+  & > * {
+    pointer-events: none;
+  }
+
+  .urlbarView-row:not([dynamicType="whimsy-update-remind-option"]) + .urlbarView-row & {
+    margin-block-start: 2px;
+    padding-block-start: 4px;
+    min-height: 33px;
+    border-block-start: 1px solid var(--whimsy-ask-hairline);
+    border-start-start-radius: 10px;
+    border-start-end-radius: 10px;
+  }
+
+  &[last] {
+    margin-block-end: 6px;
+    padding-block-end: 4px;
+    min-height: 34px;
+    border-block-end: 1px solid var(--whimsy-ask-hairline);
+    border-end-start-radius: 10px;
+    border-end-end-radius: 10px;
+    background-image: linear-gradient(var(--whimsy-ask-hairline), var(--whimsy-ask-hairline));
+    background-size: calc(100% - 12px) 1px;
+    background-position: 6px 0;
+    background-repeat: no-repeat;
+  }
+
+  &:hover,
+  &[selected] {
+    background-color: color-mix(in srgb, var(--menu-bg) 92%, light-dark(black, white));
+    outline: none;
+  }
+}
+
+/* A menu, not a selected result: Zen whitens every child of a selected row. */
+.urlbarView-row[dynamicType="whimsy-update-remind-option"] .whimsy-remind-option {
+  color: var(--whimsy-ask-text) !important;
+
+  & .whimsy-remind-option-label {
+    color: var(--whimsy-ask-text) !important;
+  }
+
+  & .whimsy-remind-option-detail {
+    color: var(--whimsy-ask-muted) !important;
+  }
+}
+
+.whimsy-remind-option-detail {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted) !important;
+  font-variant-numeric: tabular-nums;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+@keyframes whimsy-remind-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.98);
+  }
+}
+
+@keyframes whimsy-remind-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-remind-option {
+    animation-name: whimsy-remind-fade;
+  }
+
+  .whimsy-update-remind::after {
+    transition: none;
+  }
+}
+
+/* Section headings are their own rows (Zen turns Firefox's group labels off). */
+.urlbarView-row[dynamicType="whimsy-update-heading"] {
+  pointer-events: none;
+  background: none !important;
+
+  & > .urlbarView-row-inner {
+    display: flex;
+    align-items: center;
+    min-height: 0 !important;
+    padding-block: 8px 2px !important;
+    background: none !important;
+  }
+}
+
+.whimsy-update-heading-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--whimsy-ask-muted) !important;
+}
+
+.whimsy-update-dismiss-all:not([hidden]) {
+  display: inline-flex;
+  padding: 0 4px;
+  pointer-events: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted) !important;
+
+  &:hover {
+    color: var(--whimsy-ask-text) !important;
+    text-decoration: underline;
+  }
+
+  &[selected] {
+    outline: 2px solid var(--whimsy-ask-accent);
+    outline-offset: 1px;
+  }
+}
+
+/* Zen caps the results at 244px, which hid Show more below the fold.
+   Updates get about eight rows; expanded, the list scrolls inside them. */
+#urlbar-results:has(.urlbarView-row[dynamicType^="whimsy-update"]) {
+  max-height: calc(8 * 52px);
+  overflow-y: auto;
+}
+
+/* ---- ⌘1–⌘9: holding ⌘ shows each row's number in place of its time or tag ---- */
+#urlbar[whimsy-numbers] .urlbarView-row[whimsy-num] {
+  & .urlbarView-action,
+  & .urlbarView-tag,
+  & .whimsy-update-time,
+  & .whimsy-update-needs,
+  & .whimsy-ask-hint {
+    display: none !important;
+  }
+
+  & > .urlbarView-row-inner::after {
+    content: attr(whimsy-num);
+    flex: none;
+    margin-inline: auto 6px;
+    padding: 1px 5px;
+    border: 1px solid var(--whimsy-ask-hairline);
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--whimsy-ask-text-2);
+  }
+
+  &[selected] > .urlbarView-row-inner::after {
+    color: white;
+    border-color: rgba(255, 255, 255, 0.45);
+  }
+}
+
+/* ---- VPN status strip (fu-media 5.1): only in the floating bar ---- */
+.whimsy-cmdbar-vpn {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 18px;
+  border-top: 1px solid var(--whimsy-ask-hairline);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+  white-space: nowrap;
+
+  #urlbar[zen-floating-urlbar="true"] &:not([hidden]) {
+    display: flex;
+  }
+}
+
+.whimsy-cmdbar-vpn-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--whimsy-ask-ok);
+  transition: background-color 150ms;
+
+  .whimsy-cmdbar-vpn[state="paused"] & {
+    background: var(--whimsy-ask-warn);
+  }
+
+  .whimsy-cmdbar-vpn[state="connecting"] & {
+    background: light-dark(rgb(181, 128, 15), rgb(211, 155, 32));
+    opacity: 0.6;
+  }
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-cmdbar-vpn[state="connecting"] .whimsy-cmdbar-vpn-dot {
+    animation: whimsy-ask-pulse 0.9s ease-in-out infinite alternate;
+  }
+}
+
+/* The floating bar's right side is the mic only: no VPN control, no engine chip. */
+#urlbar[zen-floating-urlbar="true"] {
+  & #whimsy-vpn-urlbar,
+  & #urlbar-searchmode-switcher {
+    display: none !important;
+  }
+}
+
+.whimsy-cmdbar-mic-slot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+
+  &:empty {
+    display: none;
+  }
+}

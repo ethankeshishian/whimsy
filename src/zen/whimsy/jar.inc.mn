@@ -222,3 +222,5 @@
         content/browser/whimsy/ai-settings/whimsy-ai-settings-connectors.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-connectors.js)
         content/browser/whimsy/ai-settings/whimsy-ai-settings-connectors.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-connectors.css)
         content/browser/whimsy/whimsy-ai-onboarding.css (../../zen/whimsy/content/whimsy-ai-onboarding.css)
+# W23 cmdbar-ai
+        content/browser/whimsy/whimsy-cmdbar-ai.css (../../zen/whimsy/content/whimsy-cmdbar-ai.css)

@@ -1118,7 +1118,7 @@ export const WhimsySurface = {
       row.append(check, label);
       if (option.detailL10nId) {
         const d = html(doc, "span", "whimsy-surface-option-detail");
-        setL10n(doc, d, option.detailL10nId);
+        setL10n(doc, d, option.detailL10nId, option.detailL10nArgs);
         row.append(d);
       }
       const pick = () => {
