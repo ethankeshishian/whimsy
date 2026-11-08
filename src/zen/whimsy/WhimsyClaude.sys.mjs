@@ -1349,10 +1349,10 @@ export const WhimsyClaude = {
 
   /**
    * The tab's viewport as a canvas, with card, password, and code fields
-   * (and payment frames) covered before anything leaves this function: the
-   * page's own masks (WhimsyAIContext.withMask), and solid boxes painted
-   * over the same fields here, since a background tab may not paint the
-   * page's masks into a snapshot. Null for a private tab or no page.
+   * (and payment frames) covered before the snapshot is taken
+   * (WhimsyAIContext.withMask), and the top page's boxes painted again here
+   * before anything is encoded. Null for a private tab, no page, or a page
+   * that couldn't be masked.
    */
   async capture(tab, scale = 1) {
     const browser = tab.linkedBrowser;
@@ -1360,20 +1360,12 @@ export const WhimsyClaude = {
     if (!wg || lazy.WhimsyAIContext.isPrivate(tab)) {
       return null;
     }
-    this.registerActor();
-    const actor = wg.getActor(ACTOR);
-    const secrets = async () => (await actor.sendQuery("Claude:SecretRects").catch(() => null))?.rects;
-    let rects = await secrets();
-    if (!Array.isArray(rects)) {
-      // Without the field list nothing is captured.
+    const shot = await lazy.WhimsyAIContext.withMask(browser, async ({ masked, rects }) =>
+      masked ? { bitmap: await wg.drawSnapshot(null, scale, "rgb(255,255,255)"), rects } : null);
+    if (!shot) {
       return null;
     }
-    const bitmap = await lazy.WhimsyAIContext.withMask(browser, async () => {
-      const snapshot = await wg.drawSnapshot(null, scale, "rgb(255,255,255)");
-      // Fields that appeared while the snapshot was taken are covered too.
-      rects = rects.concat((await secrets()) ?? []);
-      return snapshot;
-    });
+    const { bitmap, rects } = shot;
     try {
       if (!bitmap.width || !bitmap.height) {
         return null;
@@ -1385,7 +1377,7 @@ export const WhimsyClaude = {
       ctx.drawImage(bitmap, 0, 0);
       ctx.fillStyle = MASK_COLOR;
       for (const r of rects) {
-        ctx.fillRect(Math.floor(r.x * scale) - 1, Math.floor(r.y * scale) - 1, Math.ceil(r.width * scale) + 2, Math.ceil(r.height * scale) + 2);
+        ctx.fillRect(Math.floor(r.x * scale), Math.floor(r.y * scale), Math.ceil(r.width * scale), Math.ceil(r.height * scale));
       }
       return canvas;
     } finally {

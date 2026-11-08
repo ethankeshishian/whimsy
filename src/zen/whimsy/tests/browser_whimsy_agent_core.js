@@ -19,6 +19,7 @@ const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 const { WhimsyHiddenSpaces } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHiddenSpaces.sys.mjs");
 const { WhimsySpaceLock } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceLock.sys.mjs");
+const { WhimsyAIContext } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIContext.sys.mjs");
 const { MASK_COLOR } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAISensitive.sys.mjs");
 
 const FEATURE = "whimsy.feature.ai-outside-agents";
@@ -135,6 +136,19 @@ async function decode(src) {
 }
 
 const MASK_RGB = MASK_COLOR.match(/\d+/g).map(Number);
+const YELLOW = [255, 230, 0];
+
+// The page's own pixels at a point (no parent-side boxes).
+async function pagePixel(tab, at) {
+  const bitmap = await tab.linkedBrowser.browsingContext.currentWindowGlobal.drawSnapshot(null, 1, "white");
+  const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0);
+  const s = bitmap.width / at.w;
+  bitmap.close();
+  return [...canvas.getContext("2d").getImageData(Math.round(at.x * s), Math.round(at.y * s), 1, 1).data].slice(0, 3);
+}
 
 add_setup(async function () {
   await gZenWorkspaces.promiseInitialized;
@@ -489,7 +503,7 @@ add_task(async function step_screenshot_masks_before_capture() {
   const scale = image.width / rect.w;
   const seen = pixel(image.data, image.width, rect.x * scale, rect.y * scale);
   ok(near(seen, MASK_RGB), `The card field is a solid mask in the agent's screenshot (${seen})`);
-  ok(!near(seen, [255, 230, 0], 60), "not the field's own yellow");
+  ok(!near(seen, YELLOW, 60), "not the field's own yellow");
   await WhimsyClaudeReplay.flush();
   const run = (await WhimsyClaudeReplay.runs()).find(r => r.taskId == task.id);
   const step = run?.steps.find(s => s.tool == "screenshot" && s.thumb);
@@ -504,8 +518,48 @@ add_task(async function step_screenshot_masks_before_capture() {
   canvas.getContext("2d").drawImage(bitmap, 0, 0);
   const plain = canvas.getContext("2d").getImageData(0, 0, bitmap.width, bitmap.height).data;
   const ps = bitmap.width / rect.w;
-  ok(near(pixel(plain, bitmap.width, rect.x * ps, rect.y * ps), [255, 230, 0], 30), "The mask lifts after the capture");
+  ok(near(pixel(plain, bitmap.width, rect.x * ps, rect.y * ps), YELLOW, 30), "The mask lifts after the capture");
   bitmap.close();
+  await own(task, "tabs_close", { tabId });
+  WhimsyAgentTasks.finish(task.id);
+});
+
+add_task(async function page_masks_paint_in_background_and_foreground_tabs() {
+  await turnOn();
+  const task = newTask();
+  const { tabId, tab } = await openTabFor(task, SENSITIVE);
+  const at = await SpecialPowers.spawn(tab.linkedBrowser, ["4242 " + "4242 4242 4242"], card => {
+    const cc = content.document.getElementById("cc");
+    cc.value = card;
+    const r = cc.getBoundingClientRect();
+    return { x: r.right - 12, y: r.top + r.height / 2, w: content.innerWidth };
+  });
+  for (const where of ["background", "foreground"]) {
+    if (where == "foreground") {
+      await BrowserTestUtils.switchTab(gBrowser, tab);
+    }
+    is(tab.selected, where == "foreground", `A ${where} tab`);
+    const seen = await WhimsyAIContext.withMask(tab.linkedBrowser, async ({ masked, rects }) => {
+      ok(masked && rects.length, `${where}: the page answered with its boxes`);
+      return pagePixel(tab, at);
+    });
+    ok(near(seen, MASK_RGB), `${where}: the page paints its own mask into the snapshot (${seen})`);
+    ok(near(await pagePixel(tab, at), YELLOW, 30), `${where}: and lifts it afterwards`);
+  }
+
+  // Overlapping captures (a screenshot and its Activity thumbnail): the
+  // first to finish doesn't lift the other's mask.
+  let release;
+  const gate = new Promise(resolve => (release = resolve));
+  const long = WhimsyAIContext.withMask(tab.linkedBrowser, async () => {
+    await gate;
+    return pagePixel(tab, at);
+  });
+  const short = await WhimsyAIContext.withMask(tab.linkedBrowser, () => pagePixel(tab, at));
+  ok(near(short, MASK_RGB), "The second capture is masked");
+  release();
+  ok(near(await long, MASK_RGB), "The first is still masked after the second ended");
+  ok(near(await pagePixel(tab, at), YELLOW, 30), "The masks lift when the last capture ends");
   await own(task, "tabs_close", { tabId });
   WhimsyAgentTasks.finish(task.id);
 });

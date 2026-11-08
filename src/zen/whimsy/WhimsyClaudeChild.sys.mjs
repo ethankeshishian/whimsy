@@ -176,8 +176,6 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
           return this.scroll(data);
         case "Claude:Describe":
           return this.describeTarget(data);
-        case "Claude:SecretRects":
-          return { rects: this.secretRects() };
         case "Claude:Captcha":
           return { captcha: this.pageCaptcha() };
       }
@@ -722,28 +720,6 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       }
     }
     return values;
-  }
-
-  // Where secret fields and payment frames are, in viewport pixels.
-  secretRects() {
-    const rects = [];
-    const add = el => {
-      const r = el.getBoundingClientRect();
-      if (r.width && r.height) {
-        rects.push({ x: r.left, y: r.top, width: r.width, height: r.height });
-      }
-    };
-    for (const el of this.doc.querySelectorAll("input, textarea, select, [contenteditable]")) {
-      if (sensitiveKind(el)) {
-        add(el);
-      }
-    }
-    for (const frame of this.doc.querySelectorAll("iframe, frame")) {
-      if (/stripe|braintree|adyen|checkout|payment|paypal|card|pay\b/i.test(`${frame.src} ${frame.name} ${frame.title} ${frame.id}`)) {
-        add(frame);
-      }
-    }
-    return rects;
   }
 
   scrub(text) {
