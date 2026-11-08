@@ -254,12 +254,17 @@ add_task(async function test_sign_in_with_chatgpt() {
     const node = $("whimsyAISheet");
     return node?.dataset.sheet == id && node.checkVisibility() && node;
   }, `The ${id} sheet opens`);
+  const settled = async () => {
+    const running = doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
+    await Promise.all(running.map(a => a.finished.catch(() => {})));
+  };
   const row = () => doc.querySelector('#whimsyAIProviderList .whimsy-ai-item[data-provider="openai"]');
 
   const addButton = await TestUtils.waitForCondition(() => $("whimsyAISetUp") ?? $("whimsyAIAddProvider"), "Add a provider is offered");
   click(addButton);
   const add = await sheetFor("add-provider");
-  await Promise.all(doc.getAnimations().map(a => a.finished.catch(() => {})));
+  await TestUtils.waitForCondition(() => add.querySelector(".whimsy-ai-choice"), "the choices are populated");
+  await settled();
   click(add.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
   const openai = await sheetFor("openai");
   is(openai.querySelector('.whimsy-ai-seg [aria-checked="true"]')?.dataset.method, "plan", "The ChatGPT plan comes first");

@@ -512,6 +512,7 @@ add_task(async function test_settings_card() {
   const addButton = await TestUtils.waitForCondition(() => $("whimsyAISetUp") ?? $("whimsyAIAddProvider"), "Add a provider is offered");
   click(addButton);
   const add = await sheetFor("add-provider");
+  await TestUtils.waitForCondition(() => add.querySelector(".whimsy-ai-choice"), "the choices are populated");
   await settled();
   // Five providers, in order, each a packaged SVG.
   const choices = [...add.querySelectorAll(".whimsy-ai-choice")];
@@ -558,6 +559,7 @@ add_task(async function test_settings_card() {
   // The model picker, in the row's details.
   click(row("gemini").querySelector('[data-action="details"]'));
   let body = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-body") && row("gemini").nextElementSibling, "Details open");
+  await settled();
   click(body.querySelector('[data-action="model"]'));
   await TestUtils.waitForCondition(() => doc.querySelectorAll("#whimsyAIModelMenu [role=option]").length == 3, "The models are listed");
   click([...doc.querySelectorAll("#whimsyAIModelMenu [role=option]")].find(o => o.dataset.value == "gemini-second"));
@@ -574,6 +576,7 @@ add_task(async function test_settings_card() {
   ok(await WhimsyAIProviders.hasKey("gemini"), "and nothing was removed");
   click(row("gemini").querySelector('[data-action="details"]'));
   body = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-body") && row("gemini").nextElementSibling, "asks again, once reopened");
+  await settled();
   click(body.querySelector('[data-action="disconnect"]'));
   confirm = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-confirm") && row("gemini").nextElementSibling, "and again");
   await settled();
@@ -585,6 +588,7 @@ add_task(async function test_settings_card() {
   // segmented choice doesn't even show, only the API key.
   click($("whimsyAISetUp") ?? $("whimsyAIAddProvider"));
   const add2 = await sheetFor("add-provider");
+  await TestUtils.waitForCondition(() => add2.querySelector(".whimsy-ai-choice"), "the choices are populated");
   await settled();
   click(add2.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
   const openai = await sheetFor("openai");
@@ -596,6 +600,7 @@ add_task(async function test_settings_card() {
   // Ollama no longer uses a native list: the server field sits in the sheet.
   click($("whimsyAISetUp") ?? $("whimsyAIAddProvider"));
   const add3 = await sheetFor("add-provider");
+  await TestUtils.waitForCondition(() => add3.querySelector(".whimsy-ai-choice"), "the choices are populated");
   await settled();
   click(add3.querySelector('.whimsy-ai-choice[data-provider="ollama"]'));
   await sheetFor("ollama");
@@ -637,6 +642,8 @@ add_task(async function test_settings_actions_and_plan_rows() {
   // Connect a provider: the sheet lists every provider not yet connected.
   WhimsyAIProviders.openSettings(null, "add-provider");
   const add = await sheetFor("add-provider");
+  await TestUtils.waitForCondition(() => add.querySelector(".whimsy-ai-choice"), "the choices are populated");
+  await settled();
   Assert.deepEqual([...add.querySelectorAll(".whimsy-ai-choice:not([aria-disabled])")].map(c => c.dataset.provider), ["apple", "claude", "openai", "gemini", "ollama"], "all of them, nothing connected yet");
   click(add.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
   await sheetFor("openai");
@@ -661,6 +668,7 @@ add_task(async function test_settings_actions_and_plan_rows() {
   click(rowOf("openai").querySelector('[data-action="details"]'));
   const body = await TestUtils.waitForCondition(() => rowOf("openai").nextElementSibling?.classList.contains("whimsy-ai-body") && rowOf("openai").nextElementSibling, "and the account, in the details");
   ok(body.textContent.includes("me@example.com"), "with the signed-in account");
+  await settled();
   click(body.querySelector('[data-action="disconnect"]'));
   const confirm = await TestUtils.waitForCondition(() => rowOf("openai").nextElementSibling?.classList.contains("whimsy-ai-confirm") && rowOf("openai").nextElementSibling, "Disconnecting a plan asks first");
   ok(confirm.textContent.includes("revokes"), "and says the token is revoked");
