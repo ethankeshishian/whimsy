@@ -463,9 +463,18 @@ class ChatPanel {
     let moved = false;
     let frame = 0;
     let lastX = startX;
+    // A stray mousemove (Gecko resyncs hover state after the `resizing`
+    // attribute below changes paint under the pointer) can reach `move` or
+    // its queued rAF after `up` already ran: without this guard that stale
+    // closure's `apply` can overwrite a width a later click (e.g. the second
+    // click of a double-click resetting it) already set.
+    let ended = false;
     this.splitter.setAttribute("resizing", "true");
     const apply = () => {
       frame = 0;
+      if (ended) {
+        return;
+      }
       const raw = startWidth + (lastX - startX) * dir;
       if (raw < SHUT_WIDTH) {
         end();
@@ -477,6 +486,9 @@ class ChatPanel {
       this.layout();
     };
     const move = e => {
+      if (ended) {
+        return;
+      }
       if (e.screenX != startX) {
         moved = true;
       }
@@ -484,6 +496,7 @@ class ChatPanel {
       frame ||= win.requestAnimationFrame(apply);
     };
     const end = () => {
+      ended = true;
       win.removeEventListener("mousemove", move, true);
       win.removeEventListener("mouseup", up, true);
       this.splitter.removeAttribute("resizing");
@@ -493,6 +506,9 @@ class ChatPanel {
       }
     };
     const up = e => {
+      if (ended) {
+        return;
+      }
       lastX = e.screenX;
       if (moved && this._open) {
         apply();

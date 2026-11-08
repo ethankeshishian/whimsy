@@ -13,7 +13,7 @@ const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/wh
 const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
 
 const PAGE = "https://example.com/";
-const PREFS = ["whimsy.chat.side", "whimsy.chat.width", "whimsy.chat.ai-off-toast-seen", "whimsy.ai.order"];
+const PREFS = ["whimsy.chat.side", "whimsy.chat.width", "whimsy.chat.ai-off-toast-seen", "whimsy.ai.order", "whimsy.ai.hints.seen"];
 
 const chat = () => WhimsyChatPanel.forWindow(window);
 const el = () => document.getElementById("whimsy-chat");
