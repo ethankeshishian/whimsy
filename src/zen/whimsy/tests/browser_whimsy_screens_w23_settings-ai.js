@@ -88,12 +88,11 @@ function setup({ on = true, order = "apple,claude,openai,gemini", off = "" } = {
 }
 
 add_setup(async function () {
-  // Discovery hints would land in the shots and count themselves shown.
-  await SpecialPowers.pushPrefEnv({ set: [
-    ["whimsy.feature.ai-hints", false],
-    ["whimsy.ai.hints.seen", Services.prefs.getStringPref("whimsy.ai.hints.seen", "")],
-    ["whimsy.ai.hints.today", Services.prefs.getStringPref("whimsy.ai.hints.today", "")],
-  ] });
+  // Discovery hints would land in the shots. head.js puts their counts back;
+  // a pref env here would re-apply one a hint wrote just before it.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", false]] });
+  ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIHints.sys.mjs").WhimsyAIHints._settleForTesting();
+  closeToasts();
   OSKeyStoreTestUtils.setup();
   server = new HttpServer();
   server.start(-1);
