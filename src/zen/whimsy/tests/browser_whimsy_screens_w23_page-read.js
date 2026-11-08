@@ -238,7 +238,7 @@ add_task(async function link_preview() {
 async function openFind(text) {
   EventUtils.synthesizeKey("f", { accelKey: true });
   const findbar = await TestUtils.waitForCondition(() => gBrowser.isFindBarInitialized() && gBrowser.getCachedFindBar(), "The find bar exists");
-  await TestUtils.waitForCondition(() => !findbar.hidden, "It opens");
+  await TestUtils.waitForCondition(() => !findbar.hidden && document.activeElement == findbar._findField, "It opens, focused");
   if (text) {
     findbar._findField.select();
     EventUtils.sendString(text);
@@ -251,7 +251,12 @@ async function openFind(text) {
 async function closeFind() {
   const findbar = gBrowser.getCachedFindBar();
   for (const id of ["whimsy-ask-panel", "whimsy-find-menu"]) {
-    document.getElementById(id)?.hidePopup?.();
+    const popup = document.getElementById(id);
+    if (popup?.state == "open") {
+      const hidden = BrowserTestUtils.waitForPopupEvent(popup, "hidden");
+      popup.hidePopup();
+      await hidden;
+    }
   }
   findbar?.close(true);
   // The pointer leaves ⋯ so the next shot doesn't show it hovered.
