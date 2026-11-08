@@ -39,6 +39,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCheatSheet.sys.mjs",
     "WhimsyClaude.sys.mjs",
     "WhimsyClaudeChild.sys.mjs",
+    "WhimsyClaudeCodeInstall.sys.mjs",
     "WhimsyClaudeParent.sys.mjs",
     "WhimsyClaudeReplay.sys.mjs",
     "WhimsyClaudeShield.sys.mjs",

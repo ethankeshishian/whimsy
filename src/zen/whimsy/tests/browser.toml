@@ -971,3 +971,7 @@ support-files = ["whimsy_ai_sensitive.html"]
 support-files = ["whimsy_agent_checkout.html", "whimsy_agent_send.html", "whimsy_agent_settings.html", "whimsy_agent_captcha.html"]
 
 ["browser_whimsy_screens_w23_agent-core.js"]
+
+# W23 settings-ai: Claude Code verified install
+["browser_whimsy_claude_code_install.js"]
+support-files = ["whimsy_claude_code_install.sjs", "whimsy_claude_code_manifest.json", "whimsy_claude_code_manifest.json.sig"]
