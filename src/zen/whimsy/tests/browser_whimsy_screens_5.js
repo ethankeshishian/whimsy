@@ -382,6 +382,9 @@ add_task(async function scratch_keep() {
 add_task(async function compact_peek_with_transparency() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   const wasCompact = gZenCompactModeManager.preference;
+  // Zen remembers the last toggle for the next launch.
+  const STARTUP = "zen.view.compact.enable-at-startup";
+  const startup = Services.prefs.prefHasUserValue(STARTUP) ? Services.prefs.getBoolPref(STARTUP) : null;
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.look.transparency", 50]] });
   const toolbox = document.getElementById("navigator-toolbox");
   try {
@@ -394,6 +397,11 @@ add_task(async function compact_peek_with_transparency() {
     toolbox.removeAttribute("zen-user-show");
     gZenCompactModeManager.preference = wasCompact;
     await TestUtils.waitForCondition(() => !document.documentElement.hasAttribute("zen-compact-animating"));
+    if (startup === null) {
+      Services.prefs.clearUserPref(STARTUP);
+    } else {
+      Services.prefs.setBoolPref(STARTUP, startup);
+    }
     await SpecialPowers.popPrefEnv();
     BrowserTestUtils.removeTab(tab);
   }
@@ -573,8 +581,8 @@ add_task(async function liquid_glass() {
 add_task(async function ai_provider_and_tidy_tabs() {
   await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
-    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProviderGroup"));
-    await TestUtils.waitForCondition(() => group.checkVisibility(), "AI provider card visible");
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProviderList"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "AI provider list visible");
     group.scrollIntoView({ block: "center" });
     await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
     await shot("wave3-ai-provider", browser.browsingContext.currentWindowGlobal);

@@ -265,7 +265,8 @@ export const WhimsyAIClaudeCode = {
         signal: controller.signal,
         timeoutMs: SIGN_IN_TIMEOUT_MS,
       }).then(
-        () => "exited",
+        // An old Claude Code has no `auth login`: offer the verified update.
+        ({ stdout, stderr }) => (/unknown command|unknown option|did you mean/i.test(`${stdout}\n${stderr}`) ? "outdated" : "exited"),
         () => "exited"
       );
       for (;;) {
@@ -277,6 +278,9 @@ export const WhimsyAIClaudeCode = {
         if (now.loggedIn) {
           controller.abort(error("aborted"));
           return { label: now.email };
+        }
+        if (step == "outdated") {
+          throw error("claude-code-outdated");
         }
         if (step == "exited") {
           throw error("claude-code-signed-out");

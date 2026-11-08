@@ -241,22 +241,35 @@ add_task(async function test_sse_across_chunks() {
 
 add_task(async function test_sign_in_with_chatgpt() {
   const mock = await mockOpenAI();
-  Services.prefs.setStringPref("whimsy.ai.provider", "openai");
   const tabsBefore = gBrowser.tabs.length;
   await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
   const settingsTab = gBrowser.selectedTab;
   const doc = gBrowser.selectedBrowser.contentDocument;
   const win = gBrowser.selectedBrowser.contentWindow;
   const $ = id => doc.getElementById(id);
-  const row = () => doc.querySelector('#whimsyAIAccounts [data-provider="openai"]');
-  await TestUtils.waitForCondition(() => row()?.querySelector("button[data-action]") && $("whimsyAIProviderGroup").checkVisibility(), "Settings → AI shows");
+  await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root, "Settings → AI shows");
+  const S = win.WhimsyAISettings;
+  const click = node => EventUtils.synthesizeMouseAtCenter(node, {}, win);
+  const sheetFor = id => TestUtils.waitForCondition(() => {
+    const node = $("whimsyAISheet");
+    return node?.dataset.sheet == id && node.checkVisibility() && node;
+  }, `The ${id} sheet opens`);
+  const settled = async () => {
+    const running = doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
+    await Promise.all(running.map(a => a.finished.catch(() => {})));
+  };
+  const row = () => doc.querySelector('#whimsyAIProviderList .whimsy-ai-item[data-provider="openai"]');
 
-  EventUtils.synthesizeMouseAtCenter(row().querySelector("button[data-action]"), {}, win);
-  await TestUtils.waitForCondition(() => !$("whimsyAISheet").hidden, "Connect ChatGPT opens its sheet");
-  is(doc.querySelector('#whimsyAISheetMethods [aria-checked="true"]').dataset.method, "plan", "The ChatGPT plan comes first");
-  ok($("whimsyAIPlanNote").textContent || $("whimsyAIPlanNote").getAttribute("data-l10n-id") == "whimsy-ai-plan-note-openai", "with a note on what happens");
-  await TestUtils.waitForCondition(() => $("whimsyAIPlanConnect").checkVisibility() && !$("whimsyAIPlanConnect").disabled, "Continue with ChatGPT can be pressed");
-  EventUtils.synthesizeMouseAtCenter($("whimsyAIPlanConnect"), {}, win);
+  const addButton = await TestUtils.waitForCondition(() => $("whimsyAISetUp") ?? $("whimsyAIAddProvider"), "Add a provider is offered");
+  click(addButton);
+  const add = await sheetFor("add-provider");
+  await TestUtils.waitForCondition(() => add.querySelector(".whimsy-ai-choice"), "the choices are populated");
+  await settled();
+  click(add.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
+  const openai = await sheetFor("openai");
+  is(openai.querySelector('.whimsy-ai-seg [aria-checked="true"]')?.dataset.method, "plan", "The ChatGPT plan comes first");
+  const continueButton = await TestUtils.waitForCondition(() => $("whimsyAIOpenAIContinue")?.checkVisibility() && !$("whimsyAIOpenAIContinue").disabled && $("whimsyAIOpenAIContinue"), "Continue with ChatGPT can be pressed");
+  click(continueButton);
 
   await TestUtils.waitForCondition(() => mock.authorize.length == 1, "OpenAI's sign-in page opens");
   const params = mock.authorize[0];
@@ -271,13 +284,13 @@ add_task(async function test_sign_in_with_chatgpt() {
   is(redirect.hostname, "127.0.0.1", "The callback is on loopback");
   is(redirect.pathname, "/auth/callback", "at one path");
 
-  await TestUtils.waitForCondition(() => !$("whimsyAIPlanWelcome").hidden, "First sign-in: OpenAI's one-time welcome");
+  await TestUtils.waitForCondition(() => $("whimsyAIOpenAIDone")?.checkVisibility(), "First sign-in: OpenAI's one-time welcome");
   is(gBrowser.selectedTab, settingsTab, "The sign-in tab closed, back on Settings");
   is(gBrowser.tabs.length, tabsBefore + 1, "and nothing else stayed open");
   ok(!PrivateBrowsingUtils.isWindowPrivate(window), "It signed in in a normal window");
-  EventUtils.synthesizeMouseAtCenter($("whimsyAIPlanWelcomeDone"), {}, win);
-  await TestUtils.waitForCondition(() => $("whimsyAISheet").hidden, "Done closes the sheet");
-  await TestUtils.waitForCondition(() => !$("whimsyAIPlanLabel").hidden && $("whimsyAIPlanLabel").getAttribute("data-l10n-id") == "whimsy-ai-plan-using", "Settings says 'Using ChatGPT plan'");
+  click($("whimsyAIOpenAIDone"));
+  await TestUtils.waitForCondition(() => !S.sheet, "Done closes the sheet");
+  await TestUtils.waitForCondition(() => row()?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-row-plan-openai", "Settings says 'ChatGPT plan', in the row");
 
   // The listener is gone after its one callback.
   await rejectsWith(fetch(params.get("redirect_uri")).then(() => ({ code: "answered" })), undefined, "The loopback listener closed");
@@ -356,14 +369,16 @@ add_task(async function test_sign_in_with_chatgpt() {
   is(mock.revoked.at(-1).get("client_id"), ISSUED, "for the issued client");
 
   gBrowser.selectedTab = settingsTab;
-  await TestUtils.waitForCondition(() => row().querySelector("button[data-action]").dataset.action == "connect", "The row offers Connect again");
+  await TestUtils.waitForCondition(() => !row(), "The row goes with the plan");
   WhimsyAIProviders.openSettings(window, "plan-openai");
-  await TestUtils.waitForCondition(() => mock.authorize.length == 3, "Sign in with ChatGPT (the command) starts the sign-in");
-  await TestUtils.waitForCondition(() => WhimsyAIProviders.planInUse == "openai" && $("whimsyAISheet").hidden, "and finishes, no welcome again");
+  await sheetFor("openai");
+  await TestUtils.waitForCondition(() => $("whimsyAIOpenAIContinue")?.checkVisibility() && !$("whimsyAIOpenAIContinue").disabled, "Sign in with ChatGPT (the command) opens the sheet, ready to continue");
+  click($("whimsyAIOpenAIContinue"));
+  await TestUtils.waitForCondition(() => mock.authorize.length == 3, "and starts the sign-in");
+  await TestUtils.waitForCondition(() => WhimsyAIProviders.planInUse == "openai" && !S.sheet, "and finishes, no welcome again");
   await WhimsyAIProviders.disconnect("openai");
 
   BrowserTestUtils.removeTab(settingsTab);
-  Services.prefs.clearUserPref("whimsy.ai.provider");
   Services.prefs.clearUserPref("whimsy.ai.openai.model");
   Services.prefs.clearUserPref("whimsy.ai.openai.plan-welcomed");
   await mock.stop();

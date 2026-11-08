@@ -47,6 +47,7 @@
 # fixB: the Archive as a Library section
 # W11-15: the Hidden Spaces panel's empty-state glyph
         content/browser/whimsy/icons/eye-slash.svg (../../zen/whimsy/content/icons/eye-slash.svg)
+        content/browser/whimsy/icons/card.svg (../../zen/whimsy/content/icons/card.svg)
         content/browser/whimsy/icons/reader-on.svg (../../zen/whimsy/content/icons/reader-on.svg)
         content/browser/whimsy/icons/redact.svg (../../zen/whimsy/content/icons/redact.svg)
 # W21: the "⋯" Call Options button (Zen's own icon set has no overflow glyph)
@@ -208,6 +209,10 @@
         content/browser/whimsy/icons/video-chip.svg (../../zen/whimsy/content/icons/video-chip.svg)
         content/browser/whimsy/icons/chat.svg (../../zen/whimsy/content/icons/chat.svg)
         content/browser/whimsy/icons/updates.svg (../../zen/whimsy/content/icons/updates.svg)
+# W23 settings-ai: Settings › AI, one page
+        content/browser/whimsy/ai-settings/whimsy-ai-settings.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings.css)
+        content/browser/whimsy/ai-settings/whimsy-ai-settings.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings.js)
+        content/browser/whimsy/ai-settings/whimsy-ai-settings-providers.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-providers.js)
 # W23 chat-shell: the chat panel
         content/browser/whimsy/whimsy-chat.css (../../zen/whimsy/content/whimsy-chat.css)
         content/browser/whimsy/icons/chat-list.svg (../../zen/whimsy/content/icons/chat-list.svg)

@@ -116,6 +116,9 @@ function cleanSnapshot(data) {
 const SAVE_PREF = "whimsy.forms.saveDrafts";
 const DRAFTS_FILE = "whimsy-form-drafts.json";
 const DRAFTS_WRITE_MS = 1000;
+// The Keychain can sit on an unlock or "allow access" prompt; quitting gives
+// up on the last write after this long (the previous file stays).
+const DRAFTS_SHUTDOWN_MS = 3000;
 
 function draftKey(url) {
   try {
@@ -155,6 +158,7 @@ export const WhimsyFormDrafts = {
   _timer: null,
   _writing: null,
   _initialized: false,
+  _shutdownMs: DRAFTS_SHUTDOWN_MS,
 
   get path() {
     return PathUtils.join(PathUtils.profileDir, DRAFTS_FILE);
@@ -171,7 +175,15 @@ export const WhimsyFormDrafts = {
     this._initialized = true;
     Services.prefs.addObserver(SAVE_PREF, this);
     Services.obs.addObserver(this, "last-pb-context-exited");
-    lazy.AsyncShutdown.profileBeforeChange.addBlocker("WhimsyFormDrafts: write the drafts", () => this.flush());
+    lazy.AsyncShutdown.profileBeforeChange.addBlocker("WhimsyFormDrafts: write the drafts", () => this.flushAtShutdown(), {
+      fetchState: () => ({ dirty: this._dirty, writing: !!this._writing }),
+    });
+  },
+
+  flushAtShutdown() {
+    let timer;
+    const late = new Promise(resolve => (timer = lazy.setTimeout(resolve, this._shutdownMs)));
+    return Promise.race([this.flush(), late]).finally(() => lazy.clearTimeout(timer));
   },
 
   observe(subject, topic) {

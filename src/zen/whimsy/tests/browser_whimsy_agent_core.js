@@ -277,6 +277,7 @@ add_task(async function test_settings_connection_and_rotation() {
   await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
     await TestUtils.waitForCondition(() => doc.getElementById("whimsyClaudeCommand")?.textContent, "Settings shows the ready command");
+    ok(doc.getElementById("whimsyAISection-outside-agents")?.contains(doc.getElementById("whimsyClaudeGroup")), "The Claude group lives in the outside-agents section");
     ok(!doc.getElementById("whimsyClaudeWholeBrowser") && !doc.getElementById("whimsyClaudeAsk"), "No whole-browser or ask-per-site switches");
     ok(!doc.getElementById("whimsyClaudeForgetSites"), "No Forget Allowed Sites");
     const command = doc.getElementById("whimsyClaudeCommand");

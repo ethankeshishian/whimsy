@@ -18,6 +18,24 @@ registerCleanupFunction(function whimsyCloseToasts() {
   }
 });
 
+// Form drafts and AI keys are encrypted with OSKeyStore. The real Keychain
+// item only answers the build that made it: a rebuilt (ad-hoc signed) binary
+// gets an "allow access" prompt nobody answers, and OSKeyStore's one serial
+// queue then hangs every later call, the drafts' shutdown write too. Like
+// Firefox's own tests (OSKeyStoreTestUtils), every file gets its own
+// throwaway item, deleted after the file's own cleanups.
+{
+  const { OSKeyStore } = ChromeUtils.importESModule("resource://gre/modules/OSKeyStore.sys.mjs");
+  const realLabel = OSKeyStore.STORE_LABEL;
+  OSKeyStore.STORE_LABEL = "test-whimsy-" + Math.random().toString(36).slice(2);
+  registerCleanupFunction(() => registerCleanupFunction(async function whimsyDropTestKeyStore() {
+    const { WhimsyFormDrafts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
+    await WhimsyFormDrafts.flush();
+    await OSKeyStore.cleanup().catch(() => {});
+    OSKeyStore.STORE_LABEL = realLabel;
+  }));
+}
+
 registerCleanupFunction(function whimsyQueueSettle() {
   // Registered from inside a cleanup, so it runs after the test's own.
   registerCleanupFunction(async function whimsySettleVsync() {
@@ -65,6 +83,10 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   "browser.engagement.ctrlTab.has-used",
   // Zen's URL bar learner records every pick (ZenUBResultsLearner).
   "zen.urlbar.suggestions-learner",
+  // W23: the ⌘E hint shows after any page load once the browser is idle,
+  // so it can land in whichever test runs next.
+  "whimsy.ai.hints.seen",
+  "whimsy.ai.hints.today",
   // Opening about:preferences lazily caches a default device name (from the
   // FxAccounts device list) the first time anything reads it.
   "identity.fxaccounts.account.device.name",
@@ -134,6 +156,7 @@ add_setup(function whimsySnapshotLeakedPrefs() {
   });
 
   registerCleanupFunction(() => registerCleanupFunction(function whimsyRestoreLeakedPrefs() {
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIHints.sys.mjs").WhimsyAIHints._settleForTesting();
     const { WhimsySyncedMap } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSync.sys.mjs");
     for (const pref of snapshot) {
       // A synced map (whimsy.profiles.*) would merge its cache straight back.
