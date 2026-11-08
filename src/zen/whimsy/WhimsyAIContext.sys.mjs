@@ -33,6 +33,8 @@ const LOCAL_PROVIDERS = new Set(["apple", "ollama"]);
 const PLAN_AUTH = { claude: "whimsy.ai.claude.auth", openai: "whimsy.ai.openai.auth" };
 
 const sources = new Map();
+// Captures in progress per browser; masks lift when the last one ends.
+const maskHolds = new WeakMap();
 
 function emptyLeftOut() {
   return { private: 0, hidden: 0, locked: 0 };
@@ -308,23 +310,44 @@ export const WhimsyAIContext = {
 
   /**
    * Covers every secret field (and every payment frame) with a solid box,
-   * runs `fn`, then lifts the masks, also when `fn` throws.
+   * runs `fn`, then lifts the masks, also when `fn` throws. Captures of the
+   * same tab may overlap (a screenshot and its Activity thumbnail): the
+   * masks lift only when the last one ends.
+   *
+   * `fn` gets `{ masked, rects }`: whether the top page answered (false
+   * when it should have and didn't), and its boxes in viewport pixels.
    *
    * @param {Element} browser
    * @param {Function} fn
    */
   async withMask(browser, fn) {
-    const actors = frames(browser).map(wg => actorOf(wg)).filter(Boolean);
-    const send = on => Promise.all(actors.map(actor =>
-      actor.sendQuery(`${ACTOR}:Mask`, { on }).catch(() => [])));
+    const send = on => Promise.all(frames(browser).map(async wg => {
+      const actor = actorOf(wg);
+      if (!actor) {
+        return { wg, rects: [], answered: null };
+      }
+      try {
+        return { wg, rects: (await actor.sendQuery(`${ACTOR}:Mask`, { on })) ?? [], answered: true };
+      } catch {
+        return { wg, rects: [], answered: false };
+      }
+    }));
+    maskHolds.set(browser, (maskHolds.get(browser) ?? 0) + 1);
     try {
-      await send(true);
+      const answers = await send(true);
+      const top = answers.find(a => a.wg.browsingContext == browser.browsingContext);
       // The boxes are painted before anything is captured.
       await new Promise(resolve => browser.documentGlobal.requestAnimationFrame(() =>
         browser.documentGlobal.requestAnimationFrame(resolve)));
-      return await fn();
+      return await fn({ masked: top?.answered !== false, rects: top?.rects ?? [] });
     } finally {
-      await send(false);
+      const left = maskHolds.get(browser) - 1;
+      if (left > 0) {
+        maskHolds.set(browser, left);
+      } else {
+        maskHolds.delete(browser);
+        await send(false);
+      }
     }
   },
 

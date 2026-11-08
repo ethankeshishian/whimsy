@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Hearth Coffee · Checkout</title>
+<style>body { font: 14px sans-serif; margin: 20px; } section { margin: 16px 0; }</style>
+</head>
+<body>
+<h1>Checkout</h1>
+<a id="cart" href="#cart">Go to checkout</a>
+<form id="order">
+  <p>Ethiopia Guji, 12 oz × 2 · $34.00</p>
+  <p>Shipping · $4.40</p>
+  <p id="total">Total $38.40</p>
+  <label>Ship to <input id="ship" name="ship" value="1200 Valencia St"></label>
+  <label>Card number <input id="cc" autocomplete="cc-number" value=""></label>
+  <button id="place" type="submit">Place order</button>
+</form>
+<section id="room">
+  <h2>Your room</h2>
+  <p>Deluxe double · Dec 12 to 15 · €492 total</p>
+  <button id="confirm" type="button">Confirm</button>
+</section>
+<p id="result"></p>
+<script>
+  document.getElementById("order").addEventListener("submit", e => {
+    e.preventDefault();
+    document.getElementById("result").textContent += "ordered ";
+  });
+  document.getElementById("confirm").addEventListener("click", () => {
+    document.getElementById("result").textContent += "confirmed ";
+  });
+</script>
+</body>
+</html>

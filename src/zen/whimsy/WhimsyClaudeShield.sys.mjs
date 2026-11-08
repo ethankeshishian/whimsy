@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The prompt-injection shield for the Claude space
+// The prompt-injection shield for agents
 // (whimsy.feature.claude-shield). A web page can hide text meant for an AI
 // ("ignore your previous instructions and ...") where the person can't see
 // it. Before page text reaches Claude:
@@ -13,10 +13,11 @@
 //   "tag" characters, which can spell out a hidden message), scans what's
 //   left plus what was hidden for text that addresses an AI, and wraps the
 //   page in delimiters with a one-off nonce the page can't forge;
-// - WhimsyClaude pauses Claude on a match and asks the person (Continue /
-//   Stop) on the tab, and writes an audit line naming the page.
+// - W23: WhimsyClaude never obeys a match and never pauses for one: the
+//   agent carries on, the task's thread gets a notice with the snippet
+//   (folded per site), and an audit line names the page.
 //
-// The heuristics only decide when to ask; they never block on their own.
+// The heuristics only decide when to tell the person; they never block.
 
 const FEATURE_PREF = "whimsy.feature.claude-shield";
 
@@ -117,6 +118,26 @@ export const WhimsyClaudeShield = {
       found.push("hidden");
     }
     return found;
+  },
+
+  // The words that tripped a rule, with a little around them, for the
+  // notice in the thread ("This page tried to give me instructions").
+  snippet(seen, hidden = "") {
+    for (const source of [String(hidden || ""), String(seen || "")]) {
+      for (const rule of RULES) {
+        if (rule.where == "hidden" && source != hidden) {
+          continue;
+        }
+        const match = rule.re.exec(source.slice(0, MAX_SCAN));
+        if (match) {
+          const start = Math.max(0, source.lastIndexOf("\n", match.index) + 1, match.index - 60);
+          const endLine = source.indexOf("\n", match.index + match[0].length);
+          const end = Math.min(endLine == -1 ? source.length : endLine, match.index + match[0].length + 80);
+          return source.slice(start, end).replace(/\s+/g, " ").trim().slice(0, 200);
+        }
+      }
+    }
+    return "";
   },
 
   nonce() {

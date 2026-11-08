@@ -30,7 +30,6 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArcMenus: "resource:///modules/whimsy/WhimsyArcMenus.sys.mjs",
-  WhimsyClaude: "resource:///modules/whimsy/WhimsyClaude.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyHiddenSpaces: "resource:///modules/whimsy/WhimsyHiddenSpaces.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
@@ -284,24 +283,6 @@ export const WhimsyAccessCommands = {
     return true;
   },
 
-  claudeSpace(win) {
-    try {
-      const id = lazy.WhimsyClaude.enabled ? lazy.WhimsyClaude.claudeSpaceId : "";
-      return id ? (win.gZenWorkspaces?.getWorkspaces().find(space => space.uuid == id) ?? null) : null;
-    } catch (e) {
-      return null;
-    }
-  },
-
-  async openClaudeSpace(win) {
-    const space = this.claudeSpace(win);
-    if (!space) {
-      return false;
-    }
-    await win.gZenWorkspaces.changeWorkspaceWithID(space.uuid);
-    return true;
-  },
-
   whatsNew(win) {
     win.openTrustedLinkIn(CHANGELOG_URL, "tab");
   },
@@ -491,13 +472,6 @@ export const WhimsyAccessCommands = {
       run: w => this.addFinderFolder(w),
       icon: ICONS.folder,
       isAvailable: () => feature("finder-folders"),
-    });
-    register({
-      id: "cmd_whimsyOpenClaudeSpace",
-      l10nId: "whimsy-action-open-claude-space",
-      run: w => this.openClaudeSpace(w),
-      icon: ICONS.claude,
-      isAvailable: w => !!this.claudeSpace(w) && w.gZenWorkspaces?.activeWorkspace != this.claudeSpace(w)?.uuid,
     });
     register({
       id: "cmd_whimsyWhatsNew",

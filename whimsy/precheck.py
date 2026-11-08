@@ -158,6 +158,28 @@ def check_owner_global():
                 problems.append(f"{path}:{n}: .ownerGlobal is undefined in this engine; use .documentGlobal")
 
 
+def check_moved_modules():
+    """A resource:// module that moved to moz-src:/// fails to load; in tests that's a deliberate crash."""
+    dist = "engine/obj-aarch64-apple-darwin/dist/bin"
+    moved = {}
+    for base, _dirs, names in os.walk(os.path.join(dist, "moz-src")):
+        for name in names:
+            if name.endswith(".sys.mjs"):
+                moved.setdefault(name, "moz-src:///" + os.path.relpath(os.path.join(base, name), os.path.join(dist, "moz-src")))
+    if not moved:
+        return
+    pattern = re.compile(r"resource://(gre/modules|/modules)/([\w.]+\.sys\.mjs)")
+    for path in glob.glob("src/zen/whimsy/**/*.*js", recursive=True):
+        if not path.endswith((".js", ".mjs")):
+            continue
+        for n, line in enumerate(open(path, encoding="utf-8", errors="replace"), 1):
+            for m in pattern.finditer(line):
+                where = "modules" if m.group(1) == "gre/modules" else "browser/modules"
+                name = m.group(2)
+                if name in moved and not os.path.exists(os.path.join(dist, where, name)):
+                    problems.append(f"{path}:{n}: {m.group(0)} doesn't exist; use {moved[name]}")
+
+
 def needed_build(files):
     full = [f for f in files if f in ("surfer.json", "configs/common/mozconfig") or f.startswith("configs/")]
     native = [f for f in files if f.endswith((".patch", ".cpp", ".h", ".mm", ".idl", ".rs"))
@@ -181,6 +203,7 @@ check_jars(files)
 check_app_icons(known)
 check_l10n_containers(files)
 check_owner_global()
+check_moved_modules()
 
 overlay = subprocess.run([sys.executable, "whimsy/overlay.py", "check"], capture_output=True, text=True)
 if overlay.returncode:

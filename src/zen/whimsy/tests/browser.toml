@@ -301,9 +301,10 @@ support-files = ["whimsy_linear.sjs"]
 ["browser_whimsy_neterror.js"]
 support-files = ["whimsy_netprobe.sjs"]
 
-# tierC-claude: the Claude space (local MCP server, scope, Stop).
-["browser_whimsy_claude_space.js"]
-support-files = ["whimsy_claude.html"]
+# tierC-claude, W23 agent-core: the agent's tools (local MCP server, task-scoped
+# Stop, scope on every call, masking, retries, outside-agent connect).
+["browser_whimsy_agent_core.js"]
+support-files = ["whimsy_claude.html", "whimsy_ai_sensitive.html", "whimsy_claude_injection.html"]
 
 # meeting: Next meeting in the sidebar.
 ["browser_whimsy_next_meeting.js"]
@@ -963,3 +964,10 @@ support-files = ["whimsy_ai_sensitive.html", "whimsy_ai_payment_frame.html", "wh
 
 ["browser_whimsy_screens_w23_ai-base.js"]
 support-files = ["whimsy_ai_sensitive.html"]
+
+# W23 agent-core: guardrail pauses (classifier, previews, the MCP hold,
+# captchas) and this lane's screenshots.
+["browser_whimsy_agent_guard.js"]
+support-files = ["whimsy_agent_checkout.html", "whimsy_agent_send.html", "whimsy_agent_settings.html", "whimsy_agent_captcha.html"]
+
+["browser_whimsy_screens_w23_agent-core.js"]

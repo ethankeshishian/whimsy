@@ -1437,9 +1437,6 @@ FEATURES = [
     # wave1/fun: Whimsy network error branding
     {"id": "net-error-branding", "title": "Whimsy network error illustrations",
      "detect": [("prefs", r"name:\s*browser\.neterror\.whimsy-branding")]},
-    # tierC-claude: the Claude space (Claude in Chrome parity via a local MCP server).
-    {"id": "claude-space", "title": "Claude space: a local MCP server lets Claude Code read and use tabs in a dedicated Claude space (off until turned on in Settings)",
-     "detect": [("src/zen", r"(?i)mcp-?server|claude-?space|modelcontextprotocol")]},
     # meeting: Next meeting in the sidebar.
     {"id": "next-meeting", "title": "Next meeting in the sidebar: Apple Calendar and Google Calendar accounts, a Join button for Meet/Zoom/Teams, and a card 15 min before",
      "detect": [("src/zen", r"(?i)EKEventStore|next-?meeting|meeting-?chip")]},
@@ -1563,8 +1560,8 @@ FEATURES = [
     # translated on-device by Firefox Translations.
     {"id": "video-captions", "title": "Translated captions: CC on a video's speed control shows its captions in your language, translated on your Mac",
      "detect": [("src/zen/media", r"(?i)(translated|live)-?captions|caption-?translat")]},
-    # wave5/safety: the Claude space's prompt-injection shield.
-    {"id": "claude-shield", "title": "Claude prompt-injection shield: hidden page text never reaches Claude, page content is marked untrusted, and pages that instruct Claude pause it (Continue / Stop)",
+    # wave5/safety: the prompt-injection shield for agents.
+    {"id": "claude-shield", "title": "Prompt-injection shield: hidden page text never reaches an agent, page content is marked untrusted, and a page that instructs the agent gets one notice in the thread",
      "detect": [("src/zen", r"(?i)prompt-?injection")]},
     # wave5/safety: agent replay of Claude runs at whimsy://replay.
     {"id": "claude-replay", "title": "Claude replay: each Claude run is kept as a timeline of steps with page snapshots at whimsy://replay (never private tabs; Clear history clears it)",
