@@ -530,7 +530,7 @@ function citationPill(doc, win, thread, c) {
       e.currentTarget.setAttribute("active", "true");
       WhimsyChatAnswer.showCitation(win, thread, source);
     },
-  }, String(c?.n ?? ""));
+  }, source?.page ? h(doc, "span", { l10n: ["whimsy-summary-cite-page", { page: source.page }] }) : String(c?.n ?? ""));
 }
 
 function thinkingLine(doc, msg) {
@@ -1126,6 +1126,10 @@ export const WhimsyChatAnswer = {
     if (source?.summary && !(await lazy.WhimsyAIPage.quoteOnPage(tab, quote))) {
       await lazy.WhimsyAIPage.passageGone(win, thread);
       return false;
+    }
+    // Scrolled a third of the way down and tinted until the next scroll (page-1.3).
+    if (await lazy.WhimsyAIPage.showPassage(win, tab, quote, source)) {
+      return true;
     }
     const finder = tab.linkedBrowser.finder;
     finder.fastFind(quote, false, false);

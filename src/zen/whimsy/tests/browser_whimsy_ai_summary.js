@@ -19,11 +19,19 @@ const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", 
 const PAGE = ROOT + "whimsy_ai_page.html";
 const LONG = ROOT + "whimsy_ai_long.html";
 
+const PDF = ROOT + "whimsy_ai_lease.pdf";
+const SCANNED = ROOT + "whimsy_ai_scanned.pdf";
+
 let prompts = [];
+// A summary streams as text: a lead line, then "- point || quote" lines.
+function lines({ lead = "", points = [] }) {
+  return [lead, ...points.map(p => `- ${p.text} || ${p.quote ?? ""}`)].filter(Boolean).join("\n");
+}
 function provider(answer) {
   return request => {
     prompts.push(request.prompt);
-    return JSON.stringify(typeof answer == "function" ? answer(request) : answer);
+    const a = typeof answer == "function" ? answer(request) : answer;
+    return a.points ? lines(a) : JSON.stringify(a);
   };
 }
 
@@ -35,6 +43,18 @@ const PLANNING = {
     { text: "Priya owns the budget", quote: "Budget owner: Priya." },
   ],
 };
+
+function passageTint(browser) {
+  return SpecialPowers.spawn(browser, [], () => {
+    for (const [name, highlight] of content.CSS.highlights) {
+      if (name.startsWith("whimsy-passage-")) {
+        const range = [...highlight][0];
+        return { level: Number(name.slice(15)), text: range.toString(), top: range.getBoundingClientRect().top, height: content.innerHeight };
+      }
+    }
+    return null;
+  });
+}
 
 add_setup(async () => {
   prompts = [];
@@ -61,7 +81,7 @@ add_task(async function chip_only_when_quote_on_page() {
   });
 });
 
-add_task(async function chip_scrolls_and_tints() {
+add_task(async function chip_scrolls_and_tints_until_scroll() {
   WhimsyAIProviders.setTestProvider(provider({
     lead: "Freight rules.",
     points: [{ text: "Rule twelve covers late slots", quote: "Article 12 sentence 30 explains slot rule 12.30 for cross-border freight." }],
@@ -75,11 +95,91 @@ add_task(async function chip_scrolls_and_tints() {
     const chip = await TestUtils.waitForCondition(() => panel?.querySelector('.whimsy-chat-cite[data-n="1"]'), "The chip shows");
     is(await SpecialPowers.spawn(browser, [], () => content.scrollY), 0, "Starts at the top");
     EventUtils.synthesizeMouseAtCenter(chip, {}, window);
-    await TestUtils.waitForCondition(
-      () => SpecialPowers.spawn(browser, [], () => content.scrollY > 0 && content.getSelection().toString().includes("12.30")),
-      "Pressing the chip scrolls to the passage and marks it"
-    );
+    let tint = await TestUtils.waitForCondition(() => passageTint(browser), "Pressing the chip tints the passage");
+    ok(tint.text.includes("12.30"), "the quoted passage");
+    ok(await SpecialPowers.spawn(browser, [], () => content.scrollY > 0), "and scrolls to it");
+    ok(Math.abs(tint.top - tint.height / 3) < 40, `a third of the way down (${Math.round(tint.top)} of ${tint.height})`);
     ok(chip.hasAttribute("active"), "The chip shows it's the one pressed");
+    await TestUtils.waitForCondition(async () => (tint = await passageTint(browser))?.level == 18, "The tint eases to 18%");
+    await new Promise(r => setTimeout(r, 300));
+    ok(await passageTint(browser), "and stays while nothing scrolls");
+    await SpecialPowers.spawn(browser, [], () => content.scrollBy(0, 120));
+    await TestUtils.waitForCondition(async () => !(await passageTint(browser)), "The next scroll clears it");
+  });
+});
+
+add_task(async function summary_streams_with_chips() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], ["whimsy.ai.order", "claude"], ["whimsy.ai.off", ""]] });
+  let release;
+  const gate = new Promise(r => (release = r));
+  WhimsyAIProviders.setTestProvider(async function* () {
+    yield { type: "text", delta: "Planning for the offsite.\n- The offsite is in Lis" };
+    await gate;
+    yield { type: "text", delta: "bon || The offsite is on March 14 in Lisbon.\n- Priya owns the budget || Budget owner: Priya." };
+  });
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async () => {
+      const done = WhimsyAIPage.summarizeInChat(window, gBrowser.selectedTab);
+      const panel = document.getElementById("whimsy-chat") ?? (await TestUtils.waitForCondition(() => document.getElementById("whimsy-chat")));
+      const live = await TestUtils.waitForCondition(() => panel.querySelector(".whimsy-chat-msg[busy] .whimsy-chat-text li"), "Points stream in");
+      ok(live.textContent.includes("The offsite is in Lis"), "as they come");
+      ok(!panel.querySelector(".whimsy-chat-msg[busy]").textContent.includes("||"), "without the quote markers");
+      ok(!panel.querySelector(".whimsy-chat-msg[busy] .whimsy-chat-cite"), "a chip waits for its passage");
+      release();
+      const msg = await done;
+      is(msg.citations.length, 2, "Both passages are on the page");
+      ok(!msg.text.includes("||"), "The saved answer has no markers");
+      ok(panel.querySelector('.whimsy-chat-msg[data-role="ai"] .whimsy-chat-cite[data-n="2"]'), "and both chips show");
+    });
+  } finally {
+    WhimsyAIProviders.setTestProvider(null);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function pdf_chip_turns_page() {
+  WhimsyAIProviders.setTestProvider(provider({
+    lead: "A lease for 18 Harbour Lane.",
+    points: [{ text: "Notice is two months after the first year", quote: "The tenant may end this lease with two months written notice after the first twelve months." }],
+  }));
+  prompts = [];
+  await BrowserTestUtils.withNewTab(PDF, async browser => {
+    await TestUtils.waitForCondition(
+      () => SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.PDFViewerApplication?.pdfDocument),
+      "The viewer has the document"
+    );
+    const msg = await WhimsyAIPage.summarizeInChat(window, gBrowser.selectedTab);
+    ok(/Page 3/.test(prompts.at(-1)), "Read page by page");
+    is(msg.citations[0].source.page, 3, "The chip knows its page");
+    const panel = document.getElementById("whimsy-chat");
+    const chip = await TestUtils.waitForCondition(() => panel.querySelector('.whimsy-chat-cite[data-n="1"]'), "The chip shows");
+    await TestUtils.waitForCondition(() => chip.textContent.trim() == "p. 3", "and names the page");
+    EventUtils.synthesizeMouseAtCenter(chip, {}, window);
+    await TestUtils.waitForCondition(
+      () => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.PDFViewerApplication.page == 3),
+      "Pressing it turns to that page"
+    );
+  });
+});
+
+add_task(async function scanned_pdf_ocr_first() {
+  WhimsyAIProviders.setTestProvider(provider({
+    lead: "A scanned lease.",
+    points: [{ text: "Rent is due on the first", quote: "" }],
+  }));
+  prompts = [];
+  await BrowserTestUtils.withNewTab(SCANNED, async browser => {
+    await TestUtils.waitForCondition(
+      () => SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.PDFViewerApplication?.pdfDocument),
+      "The viewer has the document"
+    );
+    const msg = await WhimsyAIPage.summarizeInChat(window, gBrowser.selectedTab);
+    is(msg.role, "ai", "A scanned PDF still gets a summary");
+    ok(/monthly rent/i.test(prompts.at(-1)), "from text recognized on this Mac first");
+    const panel = document.getElementById("whimsy-chat");
+    const note = await TestUtils.waitForCondition(() => panel.querySelector('.whimsy-chat-note[data-kind="ocr"]'), "The answer says so");
+    await TestUtils.waitForCondition(() => /text recognition on this Mac/.test(note.textContent), "in words");
+    ok(note.compareDocumentPosition(panel.querySelector('.whimsy-chat-msg[data-role="ai"]')) & Node.DOCUMENT_POSITION_FOLLOWING, "above the answer");
   });
 });
 

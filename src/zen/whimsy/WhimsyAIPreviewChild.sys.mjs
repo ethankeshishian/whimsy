@@ -15,6 +15,9 @@ const AI_ENABLED_PREF = "whimsy.ai.enabled";
 // side reports a hover right away.
 const LINK_CARDS_PREF = "whimsy.feature.link-cards";
 // Arc: "Google, DuckDuckGo, Bing, X, Threads and Hacker News".
+// page-1.3: a passage's tint eases from 32% to 18% over 600ms.
+const LEVELS = [32, 30, 28, 26, 24, 22, 20, 18];
+const TINT_MS = 600;
 const HOVER_SITES =
   /(^|\.)(google\.[a-z.]+|duckduckgo\.com|bing\.com|x\.com|twitter\.com|threads\.net|threads\.com|news\.ycombinator\.com)$/i;
 
@@ -50,9 +53,229 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
   }
 
   receiveMessage({ name, data }) {
-    if (name == "WhimsyAIPreview:Scroll") {
-      this.scrollBy(data);
+    switch (name) {
+      case "WhimsyAIPreview:Scroll":
+        this.scrollBy(data);
+        break;
+      case "WhimsyAIPreview:Passage":
+        return this.tintPassage(data);
+      case "WhimsyAIPreview:PdfPages":
+        return this.pdfPages(data);
+      case "WhimsyAIPreview:PdfTurn":
+        return this.pdfTurn(data);
     }
+    return null;
+  }
+
+  didDestroy() {
+    this.clearPassage();
+  }
+
+  // ---- A summary's passage chip (page-1.3) ----
+
+  findPassage(win, quote) {
+    const sel = win.getSelection();
+    const body = win.document.body;
+    if (!body) {
+      return null;
+    }
+    const tries = [quote, quote.split(/\s+/).slice(0, 8).join(" ")];
+    for (const text of tries) {
+      sel.removeAllRanges();
+      sel.collapse(body, 0);
+      if (text.length >= 8 && win.find(text, false, false, false, false, false, false) && sel.rangeCount) {
+        const range = sel.getRangeAt(0).cloneRange();
+        sel.removeAllRanges();
+        return range;
+      }
+    }
+    sel.removeAllRanges();
+    return null;
+  }
+
+  // Scrolls the passage a third of the way down and tints it with the
+  // accent, 32% easing to 18%, until the next scroll.
+  async tintPassage({ quote, color, reduced }) {
+    const win = this.contentWindow;
+    this.clearPassage();
+    if (!win || !quote) {
+      return false;
+    }
+    const range = this.findPassage(win, String(quote));
+    if (!range) {
+      return false;
+    }
+    const token = (this.passageToken = (this.passageToken ?? 0) + 1);
+    const behavior = reduced ? "instant" : "smooth";
+    const rect = range.getBoundingClientRect();
+    const target = Math.max(0, Math.min(win.scrollMaxY, win.scrollY + rect.top - win.innerHeight / 3));
+    let moved = false;
+    if (win.scrollMaxY > 0) {
+      moved = Math.abs(target - win.scrollY) > 1;
+      win.scrollTo({ top: target, behavior });
+    } else {
+      const el = range.startContainer.nodeType == 1 ? range.startContainer : range.startContainer.parentElement;
+      el?.scrollIntoView({ block: "center", behavior });
+      moved = !reduced;
+    }
+    if (moved && !reduced) {
+      await new Promise(resolve => {
+        const done = () => {
+          win.clearTimeout(timer);
+          win.removeEventListener("scrollend", done, true);
+          resolve();
+        };
+        const timer = win.setTimeout(done, 1000);
+        win.addEventListener("scrollend", done, true);
+      });
+    }
+    if (token != this.passageToken || !this.contentWindow) {
+      return false;
+    }
+    this.paintPassage(win, range, String(color || "AccentColor"), reduced);
+    return true;
+  }
+
+  paintPassage(win, range, color, reduced) {
+    const utils = win.windowUtils;
+    if (this.passageSheet?.color != color) {
+      if (this.passageSheet) {
+        try {
+          utils.removeSheetUsingURIString(this.passageSheet.uri, utils.AUTHOR_SHEET);
+        } catch {}
+      }
+      const rules = LEVELS.map(p => `::highlight(whimsy-passage-${p}){background-color:color-mix(in srgb,${color} ${p}%,transparent)}`).join("");
+      const uri = "data:text/css," + encodeURIComponent(rules);
+      utils.loadSheetUsingURIString(uri, utils.AUTHOR_SHEET);
+      this.passageSheet = { uri, color };
+    }
+    const highlights = win.CSS.highlights;
+    const highlight = new win.Highlight(range);
+    let name = null;
+    const show = level => {
+      const next = `whimsy-passage-${level}`;
+      if (next != name) {
+        if (name) {
+          highlights.delete(name);
+        }
+        highlights.set(next, highlight);
+        name = next;
+      }
+    };
+    const token = this.passageToken;
+    const clear = () => {
+      if (name) {
+        highlights.delete(name);
+        name = null;
+      }
+      win.removeEventListener("scroll", onScroll, true);
+    };
+    const onScroll = () => {
+      if (this.passageToken == token) {
+        this.clearPassage();
+      }
+    };
+    this.passageClear = clear;
+    if (reduced) {
+      show(LEVELS.at(-1));
+    } else {
+      const start = win.performance.now();
+      const step = now => {
+        if (this.passageToken != token || !name && now != start) {
+          return;
+        }
+        const t = Math.min(1, (now - start) / TINT_MS);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const want = 32 - 14 * eased;
+        show(LEVELS.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a)));
+        if (t < 1) {
+          win.requestAnimationFrame(step);
+        }
+      };
+      step(start);
+    }
+    // The arrival's own last scroll events have fired by the next frame.
+    win.requestAnimationFrame(() => {
+      if (this.passageToken == token) {
+        win.addEventListener("scroll", onScroll, { capture: true, passive: true });
+      }
+    });
+  }
+
+  clearPassage() {
+    this.passageToken = (this.passageToken ?? 0) + 1;
+    try {
+      this.passageClear?.();
+    } catch {}
+    this.passageClear = null;
+  }
+
+  // ---- PDFs in Firefox's viewer ----
+
+  get pdfApp() {
+    const app = this.contentWindow?.wrappedJSObject?.PDFViewerApplication;
+    return app?.pdfDocument ? app : null;
+  }
+
+  // Each page's text; a page with no text layer is read by on-device text
+  // recognition first (page-11.3).
+  async pdfPages({ ocr = true, maxPages = 400 } = {}) {
+    const app = this.pdfApp;
+    if (!app) {
+      return null;
+    }
+    const pdf = app.pdfDocument;
+    const count = Math.min(Number(pdf.numPages) || 0, maxPages);
+    const pages = [];
+    let recognized = 0;
+    for (let n = 1; n <= count; n++) {
+      const page = await pdf.getPage(n);
+      const content = await page.getTextContent();
+      let text = [...Cu.waiveXrays(content).items].map(item => String(item?.str ?? "")).join(" ").replace(/\s+/g, " ").trim();
+      if (!text && ocr) {
+        text = await this.recognizePage(page);
+        if (text) {
+          recognized++;
+        }
+      }
+      pages.push({ n, text });
+    }
+    return { pages, total: Number(pdf.numPages) || count, recognized };
+  }
+
+  async recognizePage(page) {
+    const win = this.contentWindow;
+    const doc = win.document;
+    try {
+      const content = win.wrappedJSObject;
+      const scale = new content.Object();
+      scale.scale = 2;
+      const viewport = page.getViewport(scale);
+      const canvas = doc.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const params = new content.Object();
+      params.canvasContext = Cu.waiveXrays(canvas.getContext("2d"));
+      params.viewport = viewport;
+      await page.render(params).promise;
+      const img = doc.createElement("img");
+      img.src = canvas.toDataURL("image/png");
+      await img.decode();
+      const lines = await img.recognizeCurrentImageText();
+      return [...lines].map(line => String(line.string ?? "")).join(" ").replace(/\s+/g, " ").trim();
+    } catch (e) {
+      console.error("Whimsy: PDF text recognition", e);
+      return "";
+    }
+  }
+
+  pdfTurn({ page }) {
+    const app = this.pdfApp;
+    if (!app || !(page >= 1)) {
+      return false;
+    }
+    app.page = page;
+    return true;
   }
 
   // The preview card owns wheel input over its rect; replay it on the page underneath.

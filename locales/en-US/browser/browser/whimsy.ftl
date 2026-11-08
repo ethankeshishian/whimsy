@@ -6092,3 +6092,6 @@ whimsy-summary-long-done = I’ve read the rest of this page, all { $total } sec
 whimsy-summary-read-rest = Read the rest
 whimsy-summary-passage-gone = That passage isn’t on the page anymore. It may have changed since I read it.
 whimsy-summary-again = Sum up again
+# A passage chip in a PDF names its page.
+whimsy-summary-cite-page = p. { $page }
+whimsy-summary-ocr = This PDF is scanned, so I read it with text recognition on this Mac. Small print may be off.

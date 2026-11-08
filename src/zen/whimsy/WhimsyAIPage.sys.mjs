@@ -21,15 +21,20 @@ import { AI_ERROR_CODES } from "resource:///modules/whimsy/WhimsyAIProviders.sys
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
+  WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyChatAnswer: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
+  WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
   WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyLinkHover: "resource:///modules/whimsy/WhimsyLinkHover.sys.mjs",
+  noteLine: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
 });
 
 const ASK_PREF = "whimsy.feature.ask-on-page";
@@ -323,27 +328,37 @@ export const WhimsyAIPage = {
     });
     lazy.WhimsyChat.registerCard("summary", (doc, msg, ctx) => this.renderSummaryCard(doc, msg, ctx));
     lazy.WhimsyChat.registerCard("note:passage-gone", (doc, msg, ctx) => this.renderGoneNote(doc, msg, ctx));
+    lazy.WhimsyChat.registerCard("note:ocr", doc => this.renderOcrNote(doc));
   },
 
   /**
-   * Sums up the whole page in `tab`. A page too long for one read is read
-   * in two passes: every heading and each section's opening, then the
-   * sections that answer the question in full. `skip` lists sections a
-   * previous part already read.
-   *
-   * @returns {Promise<{lead: string, points: {text: string, passage?: {quote: string, n: number}}[],
-   *   read: {sections: number, total: number, skipped: number, words: number, done: number[], long: boolean}}>}
+   * Reads the page in `tab` for a summary: the whole text, or for a page
+   * too long for one read, every heading and each section's opening, then
+   * the sections that answer the question in full. `skip` lists sections a
+   * previous part already read. A PDF is read page by page, and a page with
+   * no text layer through on-device text recognition first.
    */
-  async summarizePage(win, tab, { question = "", signal, skip = [] } = {}) {
+  async readForSummary(win, tab, { question = "", signal, skip = [] } = {}) {
     if (!this.summaryEnabled || !tab || lazy.WhimsyAIContext.isOffLimits(tab)) {
       throw Object.assign(new Error("blocked"), { code: "blocked" });
     }
-    const page = await lazy.WhimsyAIContext.extract(tab.linkedBrowser);
-    const text = String(page.text ?? "");
+    const pdf = await this.pdfPages(tab);
+    let text;
+    let sections;
+    let title;
+    if (pdf) {
+      sections = pdf.pages.filter(p => p.text).map(p => ({ title: `Page ${p.n}`, text: p.text, page: p.n }));
+      text = sections.map(p => p.text).join("\n\n");
+      title = tab.label;
+    } else {
+      const page = await lazy.WhimsyAIContext.extract(tab.linkedBrowser);
+      text = String(page.text ?? "");
+      sections = splitSections(text, page.headings ?? []);
+      title = page.title || tab.label;
+    }
     if (!text.trim()) {
       throw Object.assign(new Error("No text"), { code: "no-text" });
     }
-    const sections = splitSections(text, page.headings ?? []);
     const budget = Math.floor(lazy.WhimsyAIProviders.maxInputChars * 0.8);
     const skipped = new Set(skip);
     let chosen = sections.map((_, i) => i).filter(i => !skipped.has(i));
@@ -351,33 +366,12 @@ export const WhimsyAIPage = {
     if (long) {
       chosen = await this._pickSections(sections, chosen, { question, budget, signal });
     }
-    const body = chosen.map(i => `${sections[i].title}\n${sections[i].text}`).join("\n\n");
-    const ask = question || "Sum up this page.";
-    const result = await lazy.WhimsyAIProviders.completeJSON({
-      task: "summary",
-      system: SUMMARY_SYSTEM,
-      prompt:
-        `${ask}\n\nWrite one short lead sentence, then 3 to 5 points of at most 15 words each. For each point, copy the one ` +
-        "sentence from the page it comes from, word for word (empty if none).\n" +
-        'Reply as JSON: {"lead": "...", "points": [{"text": "...", "quote": "..."}]}\n\n' +
-        `Page title: ${page.title || tab.label}\n<page>\n${body.slice(0, budget)}\n</page>`,
-      maxTokens: 900,
-      signal,
-      userStarted: true,
-    });
-    let n = 0;
-    const points = (Array.isArray(result?.points) ? result.points : [])
-      .map(p => ({ text: String(p?.text ?? p ?? "").trim(), quote: findQuote(text, String(p?.quote ?? "")) }))
-      .filter(p => p.text)
-      .slice(0, 6)
-      .map(p => (p.quote ? { text: p.text, passage: { quote: p.quote, n: ++n } } : { text: p.text }));
-    if (!points.length) {
-      throw Object.assign(new Error("No points"), { code: "bad-response" });
-    }
     const done = [...skipped, ...chosen].sort((a, b) => a - b);
     return {
-      lead: String(result?.lead ?? "").trim(),
-      points,
+      title,
+      text,
+      pages: pdf?.pages ?? null,
+      body: chosen.map(i => `${sections[i].title}\n${sections[i].text}`).join("\n\n").slice(0, budget),
       read: {
         sections: chosen.length,
         total: sections.length,
@@ -385,8 +379,46 @@ export const WhimsyAIPage = {
         words: text.split(/\s+/).filter(Boolean).length,
         done,
         long,
+        pdf: !!pdf,
+        recognized: pdf?.recognized ?? 0,
       },
     };
+  },
+
+  /**
+   * Sums up the whole page in `tab`, streamed: `onEvent` gets the router's
+   * events with the text as shown (points as Markdown) and a citation for
+   * each point whose passage is really on the page.
+   *
+   * @returns {Promise<{lead: string, points: {text: string, passage?: {quote: string, n: number, page?: number}}[],
+   *   read: object, provider: string|null}>}
+   */
+  async summarizePage(win, tab, { question = "", signal, skip = [], read = null, onEvent = null } = {}) {
+    read ??= await this.readForSummary(win, tab, { question, signal, skip });
+    const source = { tabKey: lazy.WhimsyAIContext.tabKey(tab), url: tab.linkedBrowser.currentURI.spec, title: tab.label, summary: true };
+    const writer = new SummaryWriter(read, source, onEvent);
+    const ask = question || "Sum up this page.";
+    const result = await lazy.WhimsyAIRouter.run({
+      task: "summary",
+      system: SUMMARY_SYSTEM,
+      messages: [{
+        role: "user",
+        content:
+          `${ask}\n\nWrite one short lead sentence on its own line, then 3 to 5 points, each on its own line starting with "- ", ` +
+          'at most 15 words each. After each point write " || " and then the one sentence from the page it comes from, ' +
+          "word for word (nothing after || if none). Plain text only.\n\n" +
+          `${read.pages ? "Document" : "Page"} title: ${read.title}\n<page>\n${read.body}\n</page>`,
+      }],
+      needs: { chars: read.body.length },
+      userStarted: true,
+      signal,
+      onEvent: event => writer.event(event),
+    });
+    writer.finish(result?.text);
+    if (!writer.points.length) {
+      throw Object.assign(new Error("No points"), { code: "bad-response" });
+    }
+    return { lead: writer.lead, points: writer.points, read: read.read, provider: result?.provider ?? writer.provider };
   },
 
   // First pass: headings and openings; the model picks what answers the
@@ -439,14 +471,15 @@ export const WhimsyAIPage = {
     for (const point of summary.points) {
       const line = /[.!?]["”’)\]]*$/.test(point.text) ? point.text : `${point.text}.`;
       if (point.passage) {
-        citations.push({ n: point.passage.n, at: text.length + 2, source: { ...source, quote: point.passage.quote } });
+        const page = point.passage.page ? { page: point.passage.page } : {};
+        citations.push({ n: point.passage.n, at: text.length + 2, source: { ...source, quote: point.passage.quote, ...page } });
       }
       text += `- ${line}\n`;
     }
     return { text: text.trimEnd(), citations };
   },
 
-  /** ⌘K Summarize: "Sum up this page" in the tab's chat, answered with passage chips. */
+  /** ⌘K Summarize: "Sum up this page" in the tab's chat, streamed, with passage chips. */
   async summarizeInChat(win, tab, { question = "", skip = [] } = {}) {
     if (!this.summaryEnabled || !tab || lazy.WhimsyAIContext.isOffLimits(tab)) {
       return null;
@@ -458,17 +491,87 @@ export const WhimsyAIPage = {
       await lazy.WhimsyAIStore.append(thread.id, { role: "user", text: ask });
     }
     await lazy.WhimsyChat.open(win, { threadId: thread.id, focus: "card" });
+    const live = await this._liveAnswer(win, thread);
     let saved;
     try {
-      const summary = await this.summarizePage(win, tab, { question, skip });
+      const read = await this.readForSummary(win, tab, { question, skip });
+      if (read.read.recognized) {
+        const note = await lazy.WhimsyAIStore.append(thread.id, { role: "note", kind: "ocr" });
+        live?.node.before(lazy.WhimsyChatPanel.forWindow(win).renderNote(note));
+        if (live) {
+          await win.document.l10n.translateFragment(live.node.previousElementSibling);
+        }
+      }
+      const summary = await this.summarizePage(win, tab, { question, read, onEvent: event => live?.event(event) });
       const { text, citations } = this.summaryMessage(summary, tab);
-      saved = await lazy.WhimsyAIStore.append(thread.id, { role: "ai", text, citations, provider: lazy.WhimsyAIProviders.provider });
+      saved = await lazy.WhimsyAIStore.append(thread.id, { role: "ai", text, citations, provider: summary.provider ?? lazy.WhimsyAIProviders.provider });
       await lazy.WhimsyAIStore.append(thread.id, { role: "card", kind: "summary", read: summary.read, question });
     } catch (error) {
       saved = await lazy.WhimsyAIStore.append(thread.id, { role: "error", code: error?.code || "failed" });
     }
     await lazy.WhimsyChat.open(win, { threadId: thread.id, focus: "card" });
     return saved;
+  },
+
+  // The answer as it streams, in the open chat showing `thread`.
+  async _liveAnswer(win, thread) {
+    const panel = lazy.WhimsyChatPanel.forWindow(win);
+    if (!panel?.body || panel.thread?.id != thread.id) {
+      return null;
+    }
+    const live = lazy.WhimsyChatAnswer.live(panel, thread);
+    panel.body.querySelector(".whimsy-chat-empty")?.remove();
+    panel.body.append(live.node);
+    await win.document.l10n.translateFragment(live.node);
+    panel.body.scrollTop = panel.body.scrollHeight;
+    return live;
+  },
+
+  // A scanned PDF: read by text recognition first, and the answer says so (page-11.3).
+  renderOcrNote(doc) {
+    return lazy.noteLine(doc, { kind: "ocr", iconUrl: "chrome://browser/skin/zen-icons/sparkles.svg", l10n: "whimsy-summary-ocr" });
+  },
+
+  /** A PDF in Firefox's viewer: each page's text (recognized when scanned), else null. */
+  async pdfPages(tab) {
+    const browser = tab.linkedBrowser;
+    if (browser.documentContentType != "application/pdf") {
+      return null;
+    }
+    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyAIPreview");
+    if (!actor) {
+      return null;
+    }
+    const app = await waitForPdf(actor);
+    return app ? actor.sendQuery("WhimsyAIPreview:PdfPages", { ocr: true }).catch(() => null) : null;
+  },
+
+  /**
+   * Turns to a passage: scrolled a third of the way down and tinted with the
+   * accent until the next scroll; in a PDF, turned to its page first.
+   * False when the page has no such text (the caller falls back to Find).
+   */
+  async showPassage(win, tab, quote, source = null) {
+    const browser = tab.linkedBrowser;
+    const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyAIPreview");
+    if (!actor) {
+      return false;
+    }
+    try {
+      if (browser.documentContentType == "application/pdf") {
+        if (source?.page) {
+          await actor.sendQuery("WhimsyAIPreview:PdfTurn", { page: source.page });
+        }
+        return false;
+      }
+      const style = win.getComputedStyle(win.document.documentElement);
+      const color = style.getPropertyValue("--zen-primary-color").trim() || "AccentColor";
+      const reduced = win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      return !!(await actor.sendQuery("WhimsyAIPreview:Passage", { quote, color, reduced }));
+    } catch (e) {
+      console.error("Whimsy: passage", e);
+      return false;
+    }
   },
 
   /** "Read the rest": the sections the last part skipped, in the next part. */
@@ -799,4 +902,162 @@ function findQuote(pageText, quote) {
   // Allow a trimmed quote: its first eight words must be on the page.
   const start = q.split(" ").slice(0, 8).join(" ");
   return start.length >= 8 && text.includes(start) ? q : "";
+}
+
+// Turns a streamed summary ("lead", then "- point || quote" lines) into what
+// the chat shows: Markdown points, each followed by a citation once its line
+// is complete and its passage is really on the page. What's shown only ever
+// grows, so the live answer can append it as it comes.
+class SummaryWriter {
+  constructor(read, source, onEvent) {
+    this.read = read;
+    this.source = source;
+    this.onEvent = onEvent;
+    this.raw = "";
+    this.shown = "";
+    this.lineShown = 0;
+    this.lead = "";
+    this.points = [];
+    this.n = 0;
+    this.provider = null;
+  }
+
+  emit(event) {
+    try {
+      this.onEvent?.(event);
+    } catch (e) {
+      console.error("Whimsy: summary listener", e);
+    }
+  }
+
+  event(event) {
+    if (event.type == "text") {
+      this.push(event.delta ?? "");
+      return;
+    }
+    if (event.type == "citation") {
+      return;
+    }
+    if (event.type == "status" && event.provider) {
+      this.provider = event.provider;
+    } else if (event.type == "handoff") {
+      this.provider = event.to;
+    }
+    this.emit(event);
+  }
+
+  push(delta) {
+    this.raw += delta;
+    let cut;
+    while ((cut = this.raw.indexOf("\n")) >= 0) {
+      const line = this.raw.slice(0, cut);
+      this.raw = this.raw.slice(cut + 1);
+      this.complete(line);
+    }
+    this.partial(this.raw);
+  }
+
+  finish(text) {
+    // A provider that doesn't stream hands the text over whole.
+    if (!this.shown && !this.points.length && !this.lead && text) {
+      this.push(String(text));
+    }
+    if (this.raw) {
+      this.complete(this.raw);
+      this.raw = "";
+    }
+  }
+
+  // The part of an unfinished line that is sure to stay as shown.
+  partial(line) {
+    const bullet = /^\s*[-*•]\s+/.exec(line);
+    if (!bullet && /^\s*[-*•]?\s*$/.test(line)) {
+      return;
+    }
+    let text = bullet ? line.slice(bullet[0].length) : line.trimStart();
+    const bar = text.indexOf("||");
+    if (bar >= 0) {
+      text = text.slice(0, bar);
+    }
+    text = text.replace(/[\s|]+$/, "");
+    this.show((bullet ? "- " : "") + text);
+  }
+
+  show(lineText) {
+    if (lineText.length > this.lineShown) {
+      const delta = lineText.slice(this.lineShown);
+      this.lineShown = lineText.length;
+      this.shown += delta;
+      this.emit({ type: "text", delta });
+    }
+  }
+
+  complete(line) {
+    if (!line.trim()) {
+      this.lineShown = 0;
+      return;
+    }
+    const bullet = /^\s*[-*•]\s+/.exec(line);
+    let [text, quote = ""] = (bullet ? line.slice(bullet[0].length) : line.trim()).split("||");
+    text = text.trim();
+    if (!bullet) {
+      if (!this.lead && !this.points.length) {
+        this.lead = text;
+        this.show(text);
+        this.emit({ type: "text", delta: "\n\n" });
+        this.shown += "\n\n";
+      }
+      this.lineShown = 0;
+      return;
+    }
+    if (!text) {
+      this.lineShown = 0;
+      return;
+    }
+    this.show(`- ${text}`);
+    const point = { text };
+    const found = findQuote(this.read.text, quote.trim());
+    if (found && this.points.length < 6) {
+      point.passage = { quote: found, n: ++this.n };
+      const page = pageOf(this.read.pages, found);
+      if (page) {
+        point.passage.page = page;
+      }
+      this.emit({ type: "citation", n: point.passage.n, source: { ...this.source, quote: found, ...(page ? { page } : {}) } });
+    }
+    const end = /[.!?]["”’)\]]*$/.test(text) ? "\n" : ".\n";
+    this.shown += end;
+    this.emit({ type: "text", delta: end });
+    this.points.push(point);
+    this.lineShown = 0;
+  }
+}
+
+function normText(s) {
+  return String(s ?? "")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// The PDF page a quote is on.
+function pageOf(pages, quote) {
+  if (!pages) {
+    return 0;
+  }
+  const start = normText(quote).split(" ").slice(0, 8).join(" ");
+  return pages.find(p => normText(p.text).includes(start))?.n ?? 0;
+}
+
+// Firefox's viewer loads the document after the page itself.
+async function waitForPdf(actor) {
+  for (let i = 0; i < 50; i++) {
+    const pages = await actor.sendQuery("WhimsyAIPreview:PdfPages", { ocr: false, maxPages: 0 }).catch(() => null);
+    if (pages) {
+      return true;
+    }
+    await new Promise(resolve => lazy.setTimeout(resolve, 100));
+  }
+  return false;
 }
