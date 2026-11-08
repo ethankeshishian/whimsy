@@ -535,7 +535,7 @@ var WhimsyAISettings = {
   },
 
   _focusables(root) {
-    return [...root.querySelectorAll("button:not([disabled]), input:not([disabled]), a[href], [tabindex='0'], moz-toggle")].filter(n => n.getClientRects().length);
+    return [...root.querySelectorAll("button:not([disabled]), input:not([disabled]), a[href], [tabindex='0'], moz-toggle")].filter(n => n.getClientRects().length && n.getAttribute("tabindex") != "-1");
   },
 
   _sheetKeys(event) {

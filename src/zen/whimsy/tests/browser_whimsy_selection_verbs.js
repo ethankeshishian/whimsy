@@ -298,6 +298,10 @@ add_task(async function test_user_skills_share_the_registry() {
   await SpecialPowers.pushPrefEnv({
     set: [["whimsy.verbs.skills", "# comment\nWiki | https://en.wikipedia.org/w/index.php?search=%s\nBroken | ftp://x/%s"]],
   });
+  // W23: the lines move to Settings › AI › Commands as Link commands.
+  const { WhimsyAICommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAICommands.sys.mjs");
+  await WhimsyAICommands._resetForTesting();
+  await WhimsyAICommands.init();
   WhimsyVerbs.registerVerb({
     id: "test-skill",
     label: "Shout",
@@ -307,10 +311,11 @@ add_task(async function test_user_skills_share_the_registry() {
   try {
     await BrowserTestUtils.withNewTab(PAGE, async browser => {
       const subject = await subjectFor(browser, "place");
-      const ids = WhimsyVerbs.verbsFor(window, subject).map(v => v.id);
-      Assert.deepEqual(ids.slice(-2), ["test-skill", "skill:Wiki"], "Registered skills, then pref skills, last");
-      ok(!ids.includes("skill:Broken"), "Only http(s) skills");
-      await WhimsyVerbs.runVerb(window, "skill:Wiki", subject);
+      const verbs = WhimsyVerbs.verbsFor(window, subject);
+      const wiki = verbs.at(-1);
+      Assert.deepEqual([verbs.at(-2).id, wiki.label], ["test-skill", "Wiki"], "Registered verbs, then your Link commands, last");
+      ok(!verbs.some(v => v.label == "Broken"), "Only http(s) addresses");
+      await WhimsyVerbs.runVerb(window, wiki.id, subject);
       is(calls.at(-1).url, "https://en.wikipedia.org/w/index.php?search=1%20Infinite%20Loop%2C%20Cupertino", "%s is the selection");
       await WhimsyVerbs.runVerb(window, "test-skill", subject);
       is(calls.at(-1).text, "1 INFINITE LOOP, CUPERTINO", "A registered verb runs");
@@ -319,6 +324,8 @@ add_task(async function test_user_skills_share_the_registry() {
     WhimsyVerbs.unregisterVerb("test-skill");
     calls.restore();
     await SpecialPowers.popPrefEnv();
+    await WhimsyAICommands._resetForTesting();
+    await WhimsyAICommands.init();
   }
 });
 

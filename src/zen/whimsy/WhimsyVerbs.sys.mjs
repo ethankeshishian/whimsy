@@ -46,11 +46,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   gWhimsyNotesStore: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
   WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
   WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
+  WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
+  linkFor: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
 const FEATURE_PREF = "whimsy.feature.selection-verbs";
-const SKILLS_PREF = "whimsy.verbs.skills";
 const NOTES_PREF = "whimsy.feature.notes";
 const COMMAND_ID = "cmd_whimsySelectionVerbs";
 const KEY_ID = "key_whimsySelectionVerbs";
@@ -486,30 +487,18 @@ const BUILT_IN = [
   },
 ];
 
-// whimsy.verbs.skills: "Label | URL template" per line; "#" starts a comment.
+// Your Link commands (W23: Settings › AI › Commands, where the old
+// whimsy.verbs.skills lines moved), "%s" the selection or the page address.
 function userSkills() {
-  const lines = Services.prefs.getStringPref(SKILLS_PREF, "").split(/\r?\n/);
-  const skills = [];
-  for (const line of lines) {
-    const [label, template] = line.split("|").map(p => p?.trim());
-    if (!label || label.startsWith("#") || !/^https?:\/\//i.test(template ?? "")) {
-      continue;
-    }
-    skills.push({
-      id: `skill:${label}`,
-      label,
-      icon: `${ICONS}sparkles.svg`,
-      scope: "both",
-      run(win, s) {
-        const url = template
-          .replace(/%s/g, enc(s.kind == "selection" ? s.text : s.url))
-          .replace(/%t/g, enc(s.title))
-          .replace(/%u/g, enc(s.url));
-        WhimsyVerbs.openTab(win, url);
-      },
-    });
-  }
-  return skills;
+  return lazy.WhimsyAICommands.links().map(link => ({
+    id: `skill:${link.id}`,
+    label: link.name,
+    icon: `${ICONS}link.svg`,
+    scope: "both",
+    run(win, s) {
+      WhimsyVerbs.openTab(win, lazy.linkFor(link.url, s));
+    },
+  }));
 }
 
 // Matches the label's words from their start, then anywhere, then as a
