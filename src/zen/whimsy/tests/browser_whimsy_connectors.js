@@ -143,7 +143,10 @@ async function openConnectors() {
   return { tab, win, doc, S: win.WhimsyAISettings, row, $: id => doc.getElementById(id) };
 }
 
-const click = (page, node) => EventUtils.synthesizeMouseAtCenter(node, {}, page.win);
+const click = (page, node) => {
+  node.scrollIntoView({ block: "center", behavior: "instant" });
+  EventUtils.synthesizeMouseAtCenter(node, {}, page.win);
+};
 
 async function settledPage(page) {
   await Promise.all(page.doc.getAnimations().filter(a => a.playState == "running").map(a => a.finished.catch(() => {})));
@@ -291,6 +294,7 @@ add_task(async function expired_token_one_button() {
 });
 
 add_task(async function settings_grouped_like_onboarding() {
+  await WhimsyConnectors.disconnect("google");
   const page = await openConnectors();
   const captions = [...page.doc.querySelectorAll("#whimsyConnectorsList > .whimsy-ai-caption")].map(c => c.getAttribute("data-l10n-id"));
   Assert.deepEqual(captions, ["whimsy-connectors-group-schedule", "whimsy-connectors-group-work", "whimsy-connectors-group-mcp"], "Grouped like onboarding");

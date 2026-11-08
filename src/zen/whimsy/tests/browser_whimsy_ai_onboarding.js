@@ -37,9 +37,20 @@ let stage = null;
 function shell() {
   stage?.remove();
   const doc = document;
-  stage = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  stage.id = "zen-welcome";
-  stage.innerHTML = `<div id="zen-welcome-pages"><div id="zen-welcome-page-sidebar"><div id="zen-welcome-page-sidebar-buttons"><button class="zen-big-accent-button"></button></div></div><div id="zen-welcome-page-content"></div></div>`;
+  const el = (tag, id, parent) => {
+    const node = doc.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    if (id) {
+      node.id = id;
+    }
+    parent?.append(node);
+    return node;
+  };
+  stage = el("div", "zen-welcome");
+  const pages = el("div", "zen-welcome-pages", stage);
+  const side = el("div", "zen-welcome-page-sidebar", pages);
+  const buttons = el("div", "zen-welcome-page-sidebar-buttons", side);
+  el("button", null, buttons).className = "zen-big-accent-button";
+  el("div", "zen-welcome-page-content", pages);
   doc.documentElement.append(stage);
   return stage;
 }

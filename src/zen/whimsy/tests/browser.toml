@@ -1004,3 +1004,4 @@ support-files = ["whimsy_claude_code_install.sjs", "whimsy_claude_code_manifest.
 # W23 connectors
 ["browser_whimsy_connectors.js"]
 ["browser_whimsy_ai_onboarding.js"]
+["browser_whimsy_screens_w23_connectors.js"]
