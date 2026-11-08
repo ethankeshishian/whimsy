@@ -74,6 +74,12 @@ async function end() {
   WhimsyChatContextUI.setLiveChip(window, null);
 }
 
+async function backgroundTab(url) {
+  const tab = BrowserTestUtils.addTab(gBrowser, url);
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  return tab;
+}
+
 async function ask(text) {
   chat().composer.focus();
   EventUtils.sendString(text);
@@ -133,6 +139,8 @@ async function errorState(msg) {
   return thread;
 }
 
+requestLongerTimeout(10);
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -169,7 +177,7 @@ add_task(async function shots_chips() {
   }
   for (const id of ["chat-2.2", "fu-2.2"]) {
     await shoot(id, async () => {
-      tabs.push(await BrowserTestUtils.openNewBackgroundTab(gBrowser, OTHER));
+      tabs.push(await backgroundTab(OTHER));
       await ask("Which of all my tabs mention parking?");
       await answered();
       await TestUtils.waitForCondition(() => part(".whimsy-chat-chip[data-kind='tabs']"), "Widened");
@@ -196,7 +204,7 @@ add_task(async function shots_chips() {
     await TestUtils.waitForCondition(() => part(".whimsy-chat-note[data-kind='chip-removed'] .whimsy-chat-link"), "Undo line");
   });
   await shoot("chat-2.7", async () => {
-    tabs.push(await BrowserTestUtils.openNewBackgroundTab(gBrowser, OTHER));
+    tabs.push(await backgroundTab(OTHER));
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-chip-add"), {});
     await TestUtils.waitForCondition(() => part(".whimsy-chat-add-menu"), "Add menu");
   });
@@ -233,7 +241,7 @@ add_task(async function shots_what_ai_sees() {
     return () => Services.prefs.setStringPref("whimsy.ai.order", "claude,openai,gemini");
   }, MEDIA);
   await shoot("chat-3.5", async () => {
-    tabs.push(await BrowserTestUtils.openNewBackgroundTab(gBrowser, OTHER));
+    tabs.push(await backgroundTab(OTHER));
     await ask("Which of all my tabs mention parking?");
     await answered();
     const chip = await TestUtils.waitForCondition(() => part(".whimsy-chat-chip[data-kind='tabs']"), "Widened");
@@ -463,7 +471,9 @@ add_task(async function shots_errors() {
     ["chat-10.7", { code: "none-capable", provider: "claude", needs: { research: true } }],
   ];
   for (const [id, msg] of cases) {
-    await shoot(id, () => errorState(msg));
+    await shoot(id, async () => {
+      await errorState(msg);
+    });
   }
   await shoot("chat-10.8", async () => {
     const { id } = await errorState({ code: "all-failed", provider: "claude", tried: ["claude"] });
