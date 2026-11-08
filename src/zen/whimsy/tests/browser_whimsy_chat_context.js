@@ -143,3 +143,57 @@ add_task(async function what_ai_sees_rows_drill_in_and_leave_out() {
   ok(chat().isOpen, "Chat stays open");
   await closeAll(tab);
 });
+
+add_task(async function split_view_one_chat_chip_per_pane() {
+  await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-chat-context-" + Math.random().toString(16).slice(2)));
+  calls = [];
+  const a = await BrowserTestUtils.openNewForegroundTab(gBrowser, ARTICLE);
+  const b = await BrowserTestUtils.openNewForegroundTab(gBrowser, OTHER);
+  gZenViewSplitter.splitTabs([a, b], "vsep");
+  await TestUtils.waitForCondition(() => gZenViewSplitter._data.find(g => g.tabs.includes(a))?.tabs.length == 2, "Split");
+  EventUtils.synthesizeKey("e", { accelKey: true });
+  await TestUtils.waitForCondition(() => chat().isOpen && chat().ready && parts(".whimsy-chat-chip[data-kind='pane']").length == 2, "One chip per pane");
+  type("Compare these");
+  await answered();
+  ok(calls.at(-1).request.system.includes("Buffalo"), "The first pane is sent");
+  ok(calls.at(-1).request.system.includes(OTHER), "and so is the second");
+  const threadId = chat().thread.id;
+  const other = gBrowser.selectedTab == a ? b : a;
+  gBrowser.selectedTab = other;
+  await TestUtils.waitForTick();
+  await TestUtils.waitForCondition(() => chat().ready, "Chat settled after the focus change");
+  is(chat().thread.id, threadId, "Focusing the other pane keeps the split's one chat");
+  is(parts(".whimsy-chat-msg[data-role='ai']").length, 1, "with its answer");
+  is(parts(".whimsy-chat-chip[data-kind='pane']").length, 2, "and both chips");
+  gZenViewSplitter.unsplitCurrentView();
+  await closeAll(a, b);
+});
+
+add_task(async function granola_live_chip_while_panel_closed() {
+  await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-chat-context-" + Math.random().toString(16).slice(2)));
+  calls = [];
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ARTICLE);
+  ok(!chat().isOpen, "Chat is closed");
+  WhimsyChatContextUI.setLiveChip(window, {
+    id: "granola",
+    kind: "granola",
+    label: "Granola",
+    counts: { text: 1 },
+    parts: [{ chipId: "granola", kind: "text", size: 30, text: "Meeting notes: ship on Friday" }],
+  });
+  ok(!chat().isOpen, "A meeting starting doesn't open chat");
+  EventUtils.synthesizeKey("e", { accelKey: true });
+  const chip = await TestUtils.waitForCondition(() => chat().isOpen && chat().ready && part(".whimsy-chat-chip[data-chip='granola']"), "Opening chat shows the Granola chip");
+  ok(chip.hasAttribute("live"), "marked live");
+  ok(part(".whimsy-chat-chip[data-kind='tab']"), "beside this tab's chip");
+  type("What did we decide?");
+  await answered();
+  ok(calls.at(-1).request.system.includes("ship on Friday"), "The meeting's notes are sent");
+  chat().close({ reason: "key" });
+  await TestUtils.waitForCondition(() => el().hidden, "Chat closed");
+  WhimsyChatContextUI.setLiveChip(window, null);
+  EventUtils.synthesizeKey("e", { accelKey: true });
+  await TestUtils.waitForCondition(() => chat().isOpen && chat().ready && part(".whimsy-chat-chip[data-kind='tab']"), "Chat open again");
+  ok(!part(".whimsy-chat-chip[data-chip='granola']"), "The chip goes when the meeting ends");
+  await closeAll(tab);
+});

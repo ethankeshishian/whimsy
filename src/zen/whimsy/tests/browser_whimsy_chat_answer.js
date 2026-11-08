@@ -326,6 +326,40 @@ add_task(async function research_report_saved_and_opens_as_tab_and_posts_update(
   await closeAll(tab);
 });
 
+add_task(async function research_keeps_going_with_panel_closed() {
+  await fresh();
+  WhimsyAIUpdates._resetForTesting();
+  const tab = await openOn();
+  const g = gate();
+  script = async function* () {
+    yield { type: "artifact", artifact: { kind: "progress", title: "Deep research", lines: ["Reading 12 sources"] } };
+    await g.promise;
+    yield { type: "text", delta: "Done: rents ran lower." };
+    yield { type: "artifact", artifact: { kind: "report", title: "Closed panel report", markdown: "Rents ran lower.", sources: 2 } };
+  };
+  type("Do deep research on parking reform");
+  await TestUtils.waitForCondition(() => part(".whimsy-chat-research[live]"), "The progress card shows");
+  chat().close({ reason: "key" });
+  await TestUtils.waitForCondition(() => el().hidden, "Chat closed");
+  ok(chat().streams.size, "Research keeps going with the panel closed");
+  const tabs = gBrowser.tabs.length;
+  g.open();
+  await TestUtils.waitForCondition(() => gBrowser.tabs.length == tabs + 1, "The report lands as a tab");
+  is(gBrowser.selectedTab, tab, "without taking you away");
+  await TestUtils.waitForCondition(async () => {
+    const list = await WhimsyAIUpdates.list();
+    return list.updates.concat(list.recent ? [list.recent] : []).some(u => u.source == "research");
+  }, "and in Updates");
+  ok(!chat().isOpen, "Chat stays closed");
+  EventUtils.synthesizeKey("e", { accelKey: true });
+  await TestUtils.waitForCondition(() => chat().isOpen && chat().ready && part(".whimsy-chat-report"), "Reopening chat shows the report card");
+  ok(!part(".whimsy-chat-research[live]"), "in place of the progress card");
+  const reportTab = gBrowser.tabs.find(t => t.linkedBrowser.currentURI.spec.endsWith(".md"));
+  BrowserTestUtils.removeTab(reportTab);
+  await WhimsyAIStore.clear({ kinds: ["reports"] });
+  await closeAll(tab);
+});
+
 add_task(async function image_artifact_save_copy() {
   await fresh();
   const tab = await openOn();
