@@ -878,7 +878,7 @@ Object.assign(gWhimsySettings, {
       return;
     }
     const group = template.content.firstElementChild;
-    const featureOn = this.lazy.Whimsy.featureEnabled("claude-space");
+    const featureOn = this.lazy.Whimsy.featureEnabled("ai-outside-agents");
     template.remove();
     if (!featureOn) {
       return;
@@ -896,9 +896,7 @@ Object.assign(gWhimsySettings, {
 
   initClaudeGroup() {
     const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
-    this.initPrefCheckbox("whimsyClaudeEnable", "whimsy.claude.enabled");
-    this.initPrefCheckbox("whimsyClaudeWholeBrowser", "whimsy.claude.whole-browser");
-    this.initPrefCheckbox("whimsyClaudeAsk", "whimsy.claude.ask-per-site");
+    this.initPrefCheckbox("whimsyClaudeEnable", "whimsy.ai.outside-agents");
     this.initPrefCheckbox("whimsyClaudeReplay", "whimsy.claude.replay");
     const $ = id => document.getElementById(id);
     // wave5/safety: Claude runs (agent replay).
@@ -916,12 +914,9 @@ Object.assign(gWhimsySettings, {
     // The command and JSON only exist while the server runs; it starts a
     // moment after the switch is turned on.
     const refresh = () => {
-      const enabled = Services.prefs.getBoolPref("whimsy.claude.enabled", false);
       const blocked = !Services.prefs.getBoolPref("whimsy.ai.enabled", true);
       $("whimsyClaudeAIBlocked").hidden = !blocked;
       $("whimsyClaudeEnable").disabled = blocked;
-      $("whimsyClaudeWholeBrowser").disabled = !enabled || blocked;
-      $("whimsyClaudeAsk").disabled = !enabled || blocked;
       const info = WhimsyClaude.connectInfo();
       $("whimsyClaudeConnect").hidden = !info;
       $("whimsyClaudeCommand").textContent = info?.command ?? "";
@@ -942,8 +937,7 @@ Object.assign(gWhimsySettings, {
         button.disabled = false;
       }
     });
-    $("whimsyClaudeForgetSites").addEventListener("command", () => WhimsyClaude.forgetSitePermissions());
-    const prefs = ["whimsy.claude.enabled", "whimsy.ai.enabled"];
+    const prefs = ["whimsy.ai.outside-agents", "whimsy.ai.enabled"];
     for (const pref of prefs) {
       Services.prefs.addObserver(pref, refresh);
     }

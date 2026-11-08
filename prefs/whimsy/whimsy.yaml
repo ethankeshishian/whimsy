@@ -240,31 +240,14 @@
 # shown, so it only shows once a year.
 - name: whimsy.year.last-toast-year
   value: 0
-# tierC-claude: the Claude space (Settings → Privacy & Security → Claude).
-# Off until the user turns it on: then Whimsy runs a local MCP server on
-# 127.0.0.1 for Claude Code, and Claude can use the tabs in the Claude space.
-- name: whimsy.claude.enabled
-  value: false
-
-# Let Claude use every normal tab, not just the Claude space (private tabs
-# and Scratch are never included).
-- name: whimsy.claude.whole-browser
-  value: false
-
-# Ask before Claude clicks, types or fills forms on a site for the first
-# time, and before it uses a tab outside the Claude space.
-- name: whimsy.claude.ask-per-site
-  value: true
-
-# The server's port (picked at random the first time, then kept so the
-# connect command keeps working), its bearer token, and the Claude space.
+# tierC-claude, W23: outside agents' local MCP server on 127.0.0.1. Its
+# port (picked at random the first time, then kept so the connect command
+# keeps working) and the retired bearer-token pref (the token lives in a
+# private profile file).
 - name: whimsy.claude.port
   value: 0
 
 - name: whimsy.claude.token
-  value: ""
-
-- name: whimsy.claude.space-id
   value: ""
 # meeting: Next meeting in the sidebar (Library → Meetings).
 # Read macOS Calendar (EventKit). Off until the person turns it on, which is
@@ -771,3 +754,21 @@
 # How many hints showed today ("YYYY-MM-DD:n"); three a day at most.
 - name: whimsy.ai.hints.today
   value: ""
+
+# W23 agent-core
+# Outside agents (Claude Code and other MCP apps) may use Whimsy. Off until
+# turned on; never while AI is off.
+- name: whimsy.ai.outside-agents
+  value: false
+
+# Keep outside apps in their own space: a normal, visible AI space with its
+# own container (created when this turns on), and its id.
+- name: whimsy.ai.outside-agents.own-space
+  value: false
+
+- name: whimsy.ai.outside-agents.space-id
+  value: ""
+
+# Activity is kept this many days: 7, 30, or 90, or 0 for forever.
+- name: whimsy.ai.activity.days
+  value: 30

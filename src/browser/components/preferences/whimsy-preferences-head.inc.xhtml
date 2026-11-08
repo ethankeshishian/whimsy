@@ -561,14 +561,12 @@
 # Connect Claude Code helper (shows the command and JSON to copy; never
 # runs anything).
 <html:template id="template-whimsyClaude" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <html:div id="whimsyClaudeGroup" data-category="paneWhimsyAI" data-whimsy-feature="claude-space" hidden="hidden" class="whimsy-setting-card whimsy-ai-section">
+  <html:div id="whimsyClaudeGroup" data-category="paneWhimsyAI" data-whimsy-feature="ai-outside-agents" hidden="hidden" class="whimsy-setting-card whimsy-ai-section">
     <label><html:h2 data-l10n-id="whimsy-ai-claude-heading"/></label>
     <html:moz-card role="presentation">
       <!-- W10-28: the section's h2 names it; no second heading here. -->
       <html:moz-fieldset data-l10n-id="whimsy-claude-fieldset">
         <html:moz-checkbox id="whimsyClaudeEnable" data-l10n-id="whimsy-claude-enable"/>
-        <html:moz-checkbox id="whimsyClaudeWholeBrowser" data-l10n-id="whimsy-claude-whole-browser"/>
-        <html:moz-checkbox id="whimsyClaudeAsk" data-l10n-id="whimsy-claude-ask"/>
         <html:moz-checkbox id="whimsyClaudeReplay" data-l10n-id="whimsy-claude-replay"/>
         <hbox align="center" class="whimsy-claude-buttons">
           <button id="whimsyClaudeShowRuns" data-l10n-id="whimsy-claude-show-runs"/>
@@ -585,7 +583,6 @@
             <button id="whimsyClaudeCopyCommand" data-l10n-id="whimsy-claude-copy-command"/>
             <button id="whimsyClaudeCopyJSON" data-l10n-id="whimsy-claude-copy-json"/>
             <button id="whimsyClaudeNewToken" data-l10n-id="whimsy-claude-new-token"/>
-            <button id="whimsyClaudeForgetSites" data-l10n-id="whimsy-claude-forget-sites"/>
             <html:span id="whimsyClaudeStatus" class="whimsy-updates-detail" role="status"></html:span>
           </hbox>
         </html:details>

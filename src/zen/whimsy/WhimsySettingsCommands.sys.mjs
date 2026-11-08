@@ -65,7 +65,6 @@ const ICON = "chrome://browser/skin/zen-icons/settings.svg";
 const featureOn = id => Services.prefs.getBoolPref(`whimsy.feature.${id}`, true);
 const mac = () => AppConstants.platform == "macosx";
 const aiAllowed = () => Services.prefs.getBoolPref("whimsy.ai.enabled", true) && featureOn("ai-providers");
-const claudeOn = () => aiAllowed() && Services.prefs.getBoolPref("whimsy.claude.enabled", false);
 
 const STRIP_PREFS = [
   "privacy.query_stripping.enabled",
@@ -221,13 +220,9 @@ export const SETTINGS = [
   { name: "email-aliases", setting: "whimsyEmailAliasesButton", pref: "whimsy.email-aliases.button",
     feature: ["email-aliases"] },
   { name: "handoff", setting: "whimsyHandoffSend", pref: "whimsy.handoff.send", feature: ["handoff"], when: mac },
-  { name: "claude", setting: "whimsyClaudeEnable", pref: "whimsy.claude.enabled", feature: ["claude-space"],
+  { name: "claude", setting: "whimsyClaudeEnable", pref: "whimsy.ai.outside-agents", feature: ["ai-outside-agents"],
     when: aiAllowed },
-  { name: "claude-whole-browser", setting: "whimsyClaudeWholeBrowser", pref: "whimsy.claude.whole-browser",
-    feature: ["claude-space"], when: claudeOn },
-  { name: "claude-ask", setting: "whimsyClaudeAsk", pref: "whimsy.claude.ask-per-site", feature: ["claude-space"],
-    when: claudeOn },
-  { name: "claude-replay", setting: "whimsyClaudeReplay", pref: "whimsy.claude.replay", feature: ["claude-space"] },
+  { name: "claude-replay", setting: "whimsyClaudeReplay", pref: "whimsy.claude.replay", feature: ["ai-activity"] },
 
   // About
   { name: "update-channel", setting: "whimsyUpdatesChannel", pref: "whimsy.update-channel",

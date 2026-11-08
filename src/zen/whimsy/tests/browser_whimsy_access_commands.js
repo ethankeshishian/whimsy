@@ -28,7 +28,6 @@ const COMMANDS = {
   cmd_zenManageWorkspaces: "whimsy-action-manage-spaces",
   cmd_zenOpenSpaceRoutingSettings: "whimsy-action-air-traffic-control",
   cmd_whimsyAddFinderFolder: "whimsy-action-add-finder-folder",
-  cmd_whimsyOpenClaudeSpace: "whimsy-action-open-claude-space",
   cmd_whimsyWhatsNew: "whimsy-action-whats-new",
   cmd_whimsyViewClaudeReplays: "whimsy-action-view-claude-replays",
   cmd_whimsyChangeTabIcon: "whimsy-action-change-tab-icon",

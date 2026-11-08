@@ -2,41 +2,53 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Agent replay for the Claude space (whimsy.feature.claude-replay): each
-// Claude run is kept as a timeline of steps (the tool, its target, the
-// page's URL and title, a small thumbnail) so the person can look back at
-// what Claude did. whimsy://replay (whimsy-replay.js) lists the runs.
+// Activity (W23; was agent replay): every agent run, Whimsy's own and
+// outside apps', is kept as a timeline of steps (the tool, its target, the
+// page's address and title, a small thumbnail) so the person can look back
+// at what an agent did. Settings › AI › Activity and whimsy://replay
+// ("Agent runs") list the runs; one run is one task (WhimsyAgentTasks).
 //
-// - Local only: a private file in the profile (whimsy-claude/runs.json,
-//   mode 0600), bounded (runs, steps, bytes, age) and pruned on every save.
-// - Private tabs, private windows and Scratch are never captured, not even
-//   their URL; WhimsyClaude never lets Claude use them anyway.
-// - Clear history (and the Fire button's "Everything") clears it, along
-//   with the shield's audit log; clearing a time range clears that range.
-// - whimsy.claude.replay (Settings → Claude) turns recording off.
-//
-// A run starts when Claude Code connects (MCP initialize), after Stop, or
-// after a quiet spell.
+// - Local only: <profile>/whimsy-ai/agent-runs.json, mode 0600, bounded
+//   (runs, steps, bytes) and kept 7, 30 (default), or 90 days, or forever
+//   (whimsy.ai.activity.days: 7|30|90|0).
+// - Private tabs, private windows, and Scratch are never captured, not even
+//   their address. Thumbnails are taken with card, password, and code
+//   fields masked first (WhimsyAIContext.withMask), never blurred later.
+// - The Fire button (WhimsyAIStore "activity"), Clear history, and Delete
+//   Run clear it; clearing a time range clears that range.
+// - whimsy.claude.replay turns recording off.
+
+import { redactText } from "resource:///modules/whimsy/WhimsyAISensitive.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyClaude: "resource:///modules/whimsy/WhimsyClaude.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
-const FEATURE_PREF = "whimsy.feature.claude-replay";
+const FEATURE_PREF = "whimsy.feature.ai-activity";
 const KEEP_PREF = "whimsy.claude.replay";
+const DAYS_PREF = "whimsy.ai.activity.days";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const RETENTION_CHOICES = [7, 30, 90, 0];
 
 const LIMITS = {
-  runs: 30,
-  steps: 150,
-  bytes: 6 * 1024 * 1024,
-  ageMs: 30 * 24 * 60 * 60 * 1000,
-  gapMs: 15 * 60 * 1000,
+  runs: 500,
+  steps: 300,
+  bytes: 20 * 1024 * 1024,
+  // Only the newest runs keep thumbnails.
+  thumbRuns: 60,
 };
+
+function retentionMs() {
+  const days = Services.prefs.getIntPref(DAYS_PREF, 30);
+  return RETENTION_CHOICES.includes(days) && days > 0 ? days * DAY_MS : days == 0 ? Infinity : 30 * DAY_MS;
+}
 const THUMB_WIDTH = 320;
 const SAVE_DELAY_MS = 1000;
 const CLIP = 120;
@@ -63,19 +75,17 @@ function clip(value, max = CLIP) {
 }
 
 function filePath() {
+  return PathUtils.join(lazy.WhimsyAIStore.dir, "agent-runs.json");
+}
+
+// Before W23.
+function oldFilePath() {
   return PathUtils.join(PathUtils.profileDir, "whimsy-claude", "runs.json");
 }
 
 const state = {
   runs: null,
   loading: null,
-  newRun: true,
-  client: "",
-  // Which run new steps go in: a counter bumped for each new run, the
-  // Claude generation (Stop bumps it), and the run that key last used.
-  runKey: 0,
-  generation: null,
-  keyRun: { key: -1, id: "" },
   saveTimer: null,
   saving: Promise.resolve(),
   pending: new Set(),
@@ -84,12 +94,26 @@ const state = {
 
 export const WhimsyClaudeReplay = {
   LIMITS,
+  RETENTION_CHOICES,
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true) && Services.prefs.getBoolPref(KEEP_PREF, true);
   },
 
-  // Once per session: Clear history clears the replay.
+  /** Days runs are kept: 7, 30, 90, or 0 (forever). */
+  get retentionDays() {
+    const days = Services.prefs.getIntPref(DAYS_PREF, 30);
+    return RETENTION_CHOICES.includes(days) ? days : 30;
+  },
+
+  set retentionDays(days) {
+    if (!RETENTION_CHOICES.includes(days)) {
+      throw new Error(`Activity is kept 7, 30, or 90 days, or forever (0), not ${days}`);
+    }
+    Services.prefs.setIntPref(DAYS_PREF, days);
+  },
+
+  // Once per session: Clear history and the Fire button clear it.
   init() {
     if (state.observing) {
       return;
@@ -97,9 +121,16 @@ export const WhimsyClaudeReplay = {
     state.observing = true;
     Services.obs.addObserver(this, "browser:purge-session-history");
     Services.obs.addObserver(this, "quit-application-granted");
+    Services.prefs.addObserver(DAYS_PREF, this);
+    lazy.WhimsyAIStore.registerClearer("activity", ({ since }) => this.clear(since ?? 0));
   },
 
   observe(subject, topic, data) {
+    if (topic == "nsPref:changed") {
+      // A shorter time takes older runs away now.
+      this.load().then(() => this.save()).catch(e => console.error("Whimsy: Activity", e));
+      return;
+    }
     if (topic == "quit-application-granted") {
       this.flush().catch(e => console.error("Whimsy: Claude replay", e));
       return;
@@ -107,12 +138,6 @@ export const WhimsyClaudeReplay = {
     // data is the start of the cleared range (microseconds), if any.
     const since = data ? Number(data) / 1000 : 0;
     this.clear(Number.isFinite(since) ? since : 0).catch(e => console.error("Whimsy: Claude replay", e));
-  },
-
-  // Claude Code (re)connected, or the person pressed Stop.
-  startRun(client = "") {
-    state.newRun = true;
-    state.client = clip(client, 60);
   },
 
   // --- Recording ---
@@ -126,8 +151,7 @@ export const WhimsyClaudeReplay = {
     return !(
       !win ||
       lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
-      lazy.WhimsyPrivate.isPrivateTab(tab) ||
-      tab.linkedBrowser?.browsingContext?.usePrivateBrowsing ||
+      lazy.WhimsyAIContext.isPrivate(tab) ||
       lazy.WhimsyPrivate.isScratchId(win, tab.getAttribute("zen-workspace-id")) ||
       win._whimsyQuickWindow
     );
@@ -142,11 +166,11 @@ export const WhimsyClaudeReplay = {
       case "click":
         return args.ref ? clip(args.ref) : Array.isArray(args.coordinate) ? `(${args.coordinate.map(Math.round).join(", ")})` : "";
       case "type":
-        return `“${clip(args.text, 60)}”${args.ref ? ` → ${clip(args.ref, 20)}` : ""}`;
+        return `“${clip(redactText(args.text).text, 60)}”${args.ref ? ` → ${clip(args.ref, 20)}` : ""}`;
       case "key":
         return clip(args.keys, 60);
       case "form_input":
-        return `${clip(args.ref, 20)} = ${clip(args.value, 40)}`;
+        return `${clip(args.ref, 20)} = ${clip(redactText(String(args.value ?? "")).text, 40)}`;
       case "scroll":
         return clip(`${args.direction || "down"}${args.amount ? ` ×${args.amount}` : ""}`);
       case "find":
@@ -159,26 +183,21 @@ export const WhimsyClaudeReplay = {
     return "";
   },
 
-  // One step. `tab` is the tab Claude used (null for tabs_list or a closed
-  // tab); its page and a thumbnail are captured unless it's private.
+  // One step of a task's run. `tab` is the tab the agent used (null for
+  // tabs_list or a closed tab); its page and a masked thumbnail are kept
+  // unless it's private.
   record(step, tab = null) {
     if (!this.enabled || !this.capturable(tab)) {
       return Promise.resolve();
     }
-    // Decided now, in call order, not after the thumbnail's await.
-    if (state.newRun || (step.generation !== undefined && step.generation !== state.generation)) {
-      state.runKey++;
-    }
-    state.newRun = false;
-    state.generation = step.generation ?? state.generation;
-    const promise = this._record(step, tab, state.runKey)
-      .catch(e => console.error("Whimsy: Claude replay", e))
+    const promise = this._record(step, tab)
+      .catch(e => console.error("Whimsy: Activity", e))
       .finally(() => state.pending.delete(promise));
     state.pending.add(promise);
     return promise;
   },
 
-  async _record({ tool, args, ok = true, error = "", url = "", title = "" }, tab, key) {
+  async _record({ tool, args, ok = true, error = "", url = "", title = "", task = null }, tab) {
     const uri = tab?.linkedBrowser?.currentURI;
     const web = uri && (uri.schemeIs("http") || uri.schemeIs("https"));
     const entry = {
@@ -197,18 +216,24 @@ export const WhimsyClaudeReplay = {
       entry.thumb = thumb;
     }
     const runs = await this.load();
-    let run = state.keyRun.key == key ? runs.find(r => r.id == state.keyRun.id) : null;
-    if (!run || entry.t - run.end > LIMITS.gapMs) {
+    const taskId = task?.id ?? "";
+    let run = runs.find(r => r.taskId == taskId);
+    if (!run) {
       run = {
         id: `${entry.t.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        taskId,
+        client: task?.client == "whimsy" ? "whimsy" : "outside",
+        clientName: clip(task?.clientName ?? "", 60),
+        mode: task?.mode ?? "drive",
+        threadId: task?.threadId ?? null,
+        title: clip(task?.title ?? "", 120),
         start: entry.t,
         end: entry.t,
-        client: state.client,
         steps: [],
       };
       runs.unshift(run);
-      state.keyRun = { key, id: run.id };
     }
+    run.threadId ??= task?.threadId ?? null;
     run.steps.push(entry);
     run.end = entry.t;
     if (run.steps.length > LIMITS.steps) {
@@ -228,7 +253,8 @@ export const WhimsyClaudeReplay = {
       return null;
     }
     const width = browser.clientWidth || browser.getBoundingClientRect().width || 1280;
-    const bitmap = await wg.drawSnapshot(null, Math.min(1, THUMB_WIDTH / width), "rgb(255,255,255)");
+    const bitmap = await lazy.WhimsyAIContext.withMask(browser, () =>
+      wg.drawSnapshot(null, Math.min(1, THUMB_WIDTH / width), "rgb(255,255,255)"));
     try {
       if (!bitmap.width || !bitmap.height) {
         return null;
@@ -252,10 +278,12 @@ export const WhimsyClaudeReplay = {
     state.loading ??= (async () => {
       let runs = [];
       try {
-        if (await IOUtils.exists(filePath())) {
-          const data = await IOUtils.readJSON(filePath());
+        const path = (await IOUtils.exists(filePath())) ? filePath() : oldFilePath();
+        if (await IOUtils.exists(path)) {
+          const data = await IOUtils.readJSON(path);
           runs = Array.isArray(data?.runs) ? data.runs : [];
         }
+        await IOUtils.remove(oldFilePath(), { ignoreAbsent: true });
       } catch (e) {
         console.error("Whimsy: Claude replay file", e);
       }
@@ -270,10 +298,16 @@ export const WhimsyClaudeReplay = {
   // Bounded: recent runs only, a step cap per run, and a byte cap
   // (oldest runs go first, then the oldest thumbnails).
   prune(runs, now = Date.now()) {
+    const keep = retentionMs();
     runs = runs
-      .filter(run => run && Array.isArray(run.steps) && run.steps.length && now - run.end <= LIMITS.ageMs)
+      .filter(run => run && Array.isArray(run.steps) && run.steps.length && now - run.end <= keep)
       .sort((a, b) => b.end - a.end)
       .slice(0, LIMITS.runs);
+    for (const run of runs.slice(LIMITS.thumbRuns)) {
+      for (const step of run.steps) {
+        delete step.thumb;
+      }
+    }
     for (const run of runs) {
       if (run.steps.length > LIMITS.steps) {
         run.steps.splice(0, run.steps.length - LIMITS.steps);
@@ -310,7 +344,7 @@ export const WhimsyClaudeReplay = {
         state.runs = this.prune(state.runs);
         const path = filePath();
         const dir = PathUtils.parent(path);
-        await IOUtils.makeDirectory(dir, { permissions: 0o700 });
+        await IOUtils.makeDirectory(dir, { permissions: 0o700, createAncestors: true });
         if (!state.runs.length) {
           await IOUtils.remove(path, { ignoreAbsent: true });
           return;
@@ -332,9 +366,11 @@ export const WhimsyClaudeReplay = {
 
   // --- Reading (whimsy://replay) ---
 
-  async runs() {
+  /** Runs, newest first; `client` "whimsy" or "outside" filters them. */
+  async runs({ client = null } = {}) {
     await Promise.all([...state.pending]);
-    return structuredClone(await this.load());
+    const runs = structuredClone(await this.load());
+    return client ? runs.filter(run => (run.client ?? "outside") == client) : runs;
   },
 
   // Clears every run, or only steps from `since` (ms) on.
@@ -351,7 +387,6 @@ export const WhimsyClaudeReplay = {
       state.runs = [];
       await lazy.WhimsyClaude.clearAudit();
     }
-    state.newRun = true;
     await this.save();
     Services.obs.notifyObservers(null, "whimsy-claude-replay-changed");
   },
@@ -366,7 +401,8 @@ export const WhimsyClaudeReplay = {
   // A run as plain text, for Copy log.
   logText(run) {
     const time = t => new Date(t).toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
-    const lines = [`Claude run ${time(run.start)} – ${time(run.end)}${run.client ? ` (${run.client})` : ""}`];
+    const who = run.client == "whimsy" ? "Whimsy" : run.clientName || "Outside agent";
+    const lines = [`${who} run ${time(run.start)} – ${time(run.end)}`];
     run.steps.forEach((step, i) => {
       let line = `${i + 1}. ${time(step.t)} ${step.tool}`;
       if (step.target) {
