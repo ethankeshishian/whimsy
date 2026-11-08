@@ -263,9 +263,9 @@ EXTRA_JS_MODULES.whimsy += [
 # W23 commands
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyAICommands.sys.mjs",
+    "WhimsyAISelectionCard.sys.mjs",
     "WhimsyAIViewShare.sys.mjs",
     "WhimsyAIViewShareChild.sys.mjs",
-    "WhimsyAISelectionCard.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

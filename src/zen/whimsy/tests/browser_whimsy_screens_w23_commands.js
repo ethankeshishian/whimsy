@@ -222,3 +222,230 @@ add_task(async function shots_mid_animation() {
   ok(visible(page.$("whimsyAISheet")), "The sheet finished opening");
   await done(page);
 });
+
+// ---- ⌘K (02-command-bar cmd-3.x, fu-media 3.5 and 4.10) and the
+// right-click card (05-page page-2.x, fu-page 2.4, 2.6, and 2.8).
+
+const { WhimsyVerbs, WhimsyContextCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVerbs.sys.mjs");
+const { WhimsyAISelectionCard } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAISelectionCard.sys.mjs");
+const { WhimsyAIViewShare } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIViewShare.sys.mjs");
+const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+
+UrlbarTestUtils.init(this);
+
+const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+const IMPROVED = "Hi Priya, sorry for the slow reply. We probably should have moved the launch sooner, but there’s still time if we decide this week.";
+
+async function closeBar() {
+  if (gURLBar.view.isOpen) {
+    await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.view.close());
+  }
+  gURLBar.blur();
+  gURLBar.searchMode = null;
+  WhimsyVerbs.sessions.delete(window);
+}
+
+async function selectIn(browser, id) {
+  await SpecialPowers.spawn(browser, [id], elementId => {
+    const el = content.document.getElementById(elementId);
+    el.focus?.();
+    if (el.localName == "textarea" || el.localName == "input") {
+      el.setSelectionRange(0, el.value.length);
+      return;
+    }
+    const range = content.document.createRange();
+    range.selectNodeContents(el);
+    content.getSelection().removeAllRanges();
+    content.getSelection().addRange(range);
+  });
+}
+
+async function cmdkShot(state, kind, { select = null, typed = null, hover = null } = {}) {
+  await seed();
+  WhimsyContextCommands.detectLanguage = text => (/[؀-ۿ]/.test(text) ? "ar" : "en");
+  WhimsyAIViewShare.imageText = { hasText: () => false };
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${ROOT}whimsy_cmdk.html?kind=${kind}`);
+  try {
+    await whimsyBothSchemes(`w23-commands-${state}`, async () => {
+      if (select) {
+        await selectIn(tab.linkedBrowser, select);
+      }
+      if (hover) {
+        await BrowserTestUtils.synthesizeMouseAtCenter(`#${hover}`, { type: "mousemove" }, tab.linkedBrowser);
+      }
+      EventUtils.synthesizeKey("k", { accelKey: true });
+      await TestUtils.waitForCondition(() => WhimsyVerbs.sessions.get(window)?.groups, "⌘K opened its menu");
+      await UrlbarTestUtils.promiseSearchComplete(window);
+      if (typed) {
+        EventUtils.sendString(typed);
+        await UrlbarTestUtils.promiseSearchComplete(window);
+      }
+      await document.l10n.translateFragment(gURLBar.view.panel);
+      ok(gURLBar.view.isOpen, `${state} shows`);
+      return closeBar;
+    });
+  } finally {
+    WhimsyContextCommands.detectLanguage = null;
+    WhimsyAIViewShare.imageText = null;
+    BrowserTestUtils.removeTab(tab);
+  }
+}
+
+add_task(async function shots_cmdk() {
+  await cmdkShot("cmd-3.1", "article", { select: "sel" });
+  await cmdkShot("cmd-3.2", "field", { select: "field" });
+  await cmdkShot("cmd-3.3", "video");
+  await cmdkShot("cmd-3.9", "video", { typed: "tra" });
+  await cmdkShot("cmd-3.10", "video", { typed: "what does he say about battery" });
+  await cmdkShot("cmd-3.11", "article", { select: "sel", typed: "" });
+  await cmdkShot("cmd-3.16", "foreign", { select: "sel" });
+  await cmdkShot("fu-media-3.5", "images");
+  await cmdkShot("fu-media-4.10", "empty", { typed: "summ" });
+});
+
+add_task(async function shots_cmdk_product() {
+  const fake = (id, label) => ({ id, group: "product", label, icon: "chrome://browser/content/whimsy/icons/compare.svg", run() {} });
+  WhimsyVerbs.registerVerb(fake("compare", "Compare prices"));
+  WhimsyVerbs.registerVerb({ ...fake("watch-price", "Watch price"), icon: "chrome://browser/content/whimsy/icons/eye.svg", tag: "$999.00" });
+  try {
+    await cmdkShot("cmd-3.6", "product");
+  } finally {
+    WhimsyVerbs.unregisterVerb("compare");
+    WhimsyVerbs.unregisterVerb("watch-price");
+  }
+});
+
+// The card: the provider answers `answer`, after `gate` when one is set.
+let cardAnswer = IMPROVED;
+let cardGate = null;
+let cardFails = false;
+
+function stubCard() {
+  WhimsyAIProviders.setTestProvider(async function* () {
+    if (cardFails) {
+      throw Object.assign(new Error("down"), { code: "failed" });
+    }
+    const words = cardAnswer.split(" ");
+    yield { type: "text", delta: words.slice(0, 6).join(" ") + " " };
+    await cardGate;
+    yield { type: "text", delta: words.slice(6).join(" ") };
+  });
+}
+
+const menu = () => document.getElementById("contentAreaContextMenu");
+const card = () => document.getElementById("whimsy-ai-selection-card");
+
+async function rightClick(browser, id) {
+  await selectIn(browser, id);
+  const opened = BrowserTestUtils.waitForEvent(menu(), "popupshown");
+  await BrowserTestUtils.synthesizeMouseAtCenter(`#${id}`, { type: "contextmenu", button: 2 }, browser);
+  await opened;
+  await document.l10n.translateFragment(menu());
+}
+
+async function openCard(browser, target, row, { done = true } = {}) {
+  await rightClick(browser, target);
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-ai-selection-card");
+  menu().activateItem(document.getElementById(`context-whimsy-ai-${row}`));
+  await shown;
+  await TestUtils.waitForCondition(() => WhimsyAISelectionCard.card?.status == (done ? "done" : "streaming") || WhimsyAISelectionCard.card?.status == "error", "The card has its answer");
+  await document.l10n.translateFragment(card());
+}
+
+async function closeCard() {
+  if (card()?.state == "open") {
+    const hidden = BrowserTestUtils.waitForEvent(card(), "popuphidden");
+    WhimsyAISelectionCard.close();
+    await hidden;
+  }
+}
+
+function cardShot(state, prepare) {
+  return whimsyBothSchemes(`w23-commands-${state}`, async () => {
+    await seed();
+    stubCard();
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${ROOT}whimsy_ai_selection.html`);
+    try {
+      await prepare(tab.linkedBrowser);
+    } catch (e) {
+      BrowserTestUtils.removeTab(tab);
+      throw e;
+    }
+    return async () => {
+      if (menu().state == "open") {
+        menu().hidePopup();
+      }
+      await closeCard();
+      closeToasts();
+      cardGate = null;
+      cardFails = false;
+      cardAnswer = IMPROVED;
+      WhimsyAIProviders.setTestProvider(null);
+      BrowserTestUtils.removeTab(tab);
+    };
+  });
+}
+
+add_task(async function shots_right_click() {
+  // page-2.1: the four rows above Cut.
+  await cardShot("page-2.1", browser => rightClick(browser, "draft"));
+  // fu-page 2.4: the card under the selection, Replace the default.
+  await cardShot("fu-page-2.4", browser => openCard(browser, "draft", "improve"));
+  // page-2.3: mid-answer, the buttons dim.
+  await cardShot("page-2.3", async browser => {
+    cardGate = new Promise(() => {});
+    await openCard(browser, "draft", "improve", { done: false });
+  });
+  // page-2.7: Fix marks what changed.
+  await cardShot("page-2.7", async browser => {
+    cardAnswer = "Hi Priya, sorry for the late reply. I think we should have moved the launch sooner, but there is still time if we decide this week.";
+    await openCard(browser, "draft", "fix");
+  });
+  // page-2.9 and fu-page 2.8: read-only text gets Copy and Insert after.
+  await cardShot("page-2.9", async browser => {
+    cardAnswer = "Les trains de nuit sont revenus en Europe parce que l’avion est devenu plus difficile à aimer.";
+    await openCard(browser, "article", "improve");
+  });
+  // fu-page 2.6: after Undo, the original is back and the card reopens on Replace.
+  await cardShot("fu-page-2.6", async browser => {
+    await openCard(browser, "draft", "improve");
+    const hidden = BrowserTestUtils.waitForEvent(card(), "popuphidden");
+    EventUtils.synthesizeMouseAtCenter(document.getElementById("whimsy-ai-card-replace"), {});
+    await hidden;
+    const reopened = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-ai-selection-card");
+    await TestUtils.waitForCondition(() => WhimsyAISelectionCard.replaced, "Replaced");
+    await WhimsyAISelectionCard.replaced.undoEntry.undo();
+    await reopened;
+    await document.l10n.translateFragment(card());
+  });
+  // page-2.12: an error is one line and what to do next.
+  await cardShot("page-2.12", async browser => {
+    cardFails = true;
+    await openCard(browser, "draft", "improve");
+  });
+});
+
+add_task(async function shots_card_mid_animation() {
+  // The card opens with the panel's fade; held halfway.
+  await seed();
+  stubCard();
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${ROOT}whimsy_ai_selection.html`);
+  try {
+    await rightClick(tab.linkedBrowser, "draft");
+    const showing = BrowserTestUtils.waitForEvent(document, "popupshowing", true, e => e.target.id == "whimsy-ai-selection-card");
+    menu().activateItem(document.getElementById("context-whimsy-ai-improve"));
+    await showing;
+    const animation = await TestUtils.waitForCondition(() => card()?.getAnimations({ subtree: true })[0] ?? (card()?.state == "open" ? "none" : null), "The card animates in");
+    if (animation == "none") {
+      info("The panel opened without an animation here; no mid frame");
+    } else {
+      await whimsyShotMid("w23-commands-card-open", () => card().getAnimations({ subtree: true })[0] ?? animation, 60);
+    }
+    await TestUtils.waitForCondition(() => card()?.state == "open", "The card opened");
+    ok(true, "The card finished opening");
+  } finally {
+    await closeCard();
+    WhimsyAIProviders.setTestProvider(null);
+    BrowserTestUtils.removeTab(tab);
+  }
+});

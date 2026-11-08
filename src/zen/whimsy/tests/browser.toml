@@ -1019,6 +1019,7 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 # W23 commands: the store, Link commands, Settings › AI › Commands, and screenshots
 ["browser_whimsy_ai_commands.js"]
 ["browser_whimsy_screens_w23_commands.js"]
+support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
 
 ["browser_whimsy_cmdk_ai.js"]
 support-files = ["whimsy_cmdk.html", "whimsy_test_image.png"]
