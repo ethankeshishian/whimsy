@@ -168,8 +168,13 @@ export const WhimsyFindCard = {
   },
 
   syncStatus(findbar) {
+    // A closing tab takes its find bar apart while a search's status can still land.
+    const wrapper = findbar.getElement("findbar-textbox-wrapper");
+    if (!wrapper || !findbar.isConnected) {
+      return;
+    }
     const notFound = findbar._findField.getAttribute("status") == "notfound" && !!findbar._findField.value;
-    findbar.getElement("findbar-textbox-wrapper").toggleAttribute("notfound", notFound && !findbar.hasAttribute("whimsy-image-matches"));
+    wrapper.toggleAttribute("notfound", notFound && !findbar.hasAttribute("whimsy-image-matches"));
     if (notFound) {
       this.showCount(findbar, { total: 0 });
     }
@@ -187,7 +192,7 @@ export const WhimsyFindCard = {
         [...imageMatchers].map(fn => Promise.resolve(fn({ browser: findbar.browser, text, findbar })).catch(() => 0))
       );
       images = found.reduce((sum, n) => sum + (Number(n) || 0), 0);
-      if (findbar._findField.value != text) {
+      if (!findbar.isConnected || findbar._findField.value != text) {
         return;
       }
     }
