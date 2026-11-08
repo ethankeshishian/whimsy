@@ -704,6 +704,37 @@ add_task(async function test_shutdown_write_is_bounded() {
   await WhimsyFormDrafts.flush();
 });
 
+// Fire ("Forget All") calls forgetAll() directly, not at shutdown: an
+// unanswered Keychain prompt must not hold that up either.
+add_task(async function test_forget_all_write_is_bounded() {
+  const realLogin = OSKeyStore.ensureLoggedIn;
+  const realBound = WhimsyFormDrafts._shutdownMs;
+  const prompt = Promise.withResolvers();
+  OSKeyStore.ensureLoggedIn = () => prompt.promise;
+  WhimsyFormDrafts._shutdownMs = 200;
+  let flushing;
+  try {
+    ok(await WhimsyFormDrafts.put({ url: PAGE, data: draft() }), "Stored");
+    // Starts the write that hangs on the prompt; forgetAll() has to wait on
+    // this same in-flight write (it reaches the Keychain too).
+    flushing = WhimsyFormDrafts.flush();
+    await TestUtils.waitForCondition(() => WhimsyFormDrafts._writing, "The write starts");
+    const start = Date.now();
+    await WhimsyFormDrafts.forgetAll();
+    Assert.less(Date.now() - start, 2000, "Fire doesn't wait for the prompt");
+    is(await fileText(), null, "The file is gone");
+  } finally {
+    OSKeyStore.ensureLoggedIn = realLogin;
+    WhimsyFormDrafts._shutdownMs = realBound;
+    prompt.resolve({ authenticated: true });
+    // The write forgetAll() didn't wait for still lands once the prompt
+    // answers, with the pre-forgetAll draft: put it back to a clean slate
+    // rather than leave that stale file for the next test.
+    await flushing;
+    await WhimsyFormDrafts._resetForTests();
+  }
+});
+
 // Tests never reach the person's real Keychain item (head.js).
 add_task(async function test_tests_use_a_throwaway_keystore() {
   ok(OSKeyStore.STORE_LABEL.startsWith("test-"), "A throwaway Keychain item");

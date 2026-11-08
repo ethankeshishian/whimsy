@@ -180,10 +180,17 @@ export const WhimsyFormDrafts = {
     });
   },
 
-  flushAtShutdown() {
+  // A pending write can hang on an unanswered Keychain prompt; give up on
+  // waiting for it (not on the write itself, which keeps running) after a
+  // moment instead of blocking the caller.
+  _bounded(promise) {
     let timer;
     const late = new Promise(resolve => (timer = lazy.setTimeout(resolve, this._shutdownMs)));
-    return Promise.race([this.flush(), late]).finally(() => lazy.clearTimeout(timer));
+    return Promise.race([promise, late]).finally(() => lazy.clearTimeout(timer));
+  },
+
+  flushAtShutdown() {
+    return this._bounded(this.flush());
   },
 
   observe(subject, topic) {
@@ -330,7 +337,7 @@ export const WhimsyFormDrafts = {
     this._dirty = false;
     lazy.clearTimeout(this._timer);
     this._timer = null;
-    await this._writing;
+    await this._bounded(this._writing);
     await IOUtils.remove(this.path, { ignoreAbsent: true });
   },
 
