@@ -241,6 +241,20 @@ add_task(async function resize_bounds_and_double_click_reset() {
   for (const t of ["mousedown", "mouseup", "click", "dblclick", "mousemove"]) {
     window.addEventListener(t, log, true);
   }
+  const proto = Object.getPrototypeOf(chat());
+  const origLayout = proto.layout;
+  proto.layout = function (...args) {
+    const stack = new Error().stack.split("\n").slice(1, 4).join("<");
+    const r = origLayout.apply(this, args);
+    diag.push(
+      `layout() t=${(performance.now() - t0).toFixed(2)} dragWidth=${this.dragWidth} pref=${Services.prefs.prefHasUserValue(
+        "whimsy.chat.width"
+      )}:${Services.prefs.getIntPref("whimsy.chat.width", -1)} resultW=${Math.round(
+        panel.getBoundingClientRect().width
+      )} via[${stack}]`
+    );
+    return r;
+  };
   snap("before-click1");
   EventUtils.synthesizeMouse(splitter(), 4, 100, { clickCount: 1 });
   snap("after-click1");
@@ -248,6 +262,7 @@ add_task(async function resize_bounds_and_double_click_reset() {
   snap("after-click2-sync");
   await settle();
   snap("after-settle");
+  proto.layout = origLayout;
   for (const t of ["mousedown", "mouseup", "click", "dblclick", "mousemove"]) {
     window.removeEventListener(t, log, true);
   }
