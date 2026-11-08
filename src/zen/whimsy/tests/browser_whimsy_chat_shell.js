@@ -227,9 +227,18 @@ add_task(async function resize_bounds_and_double_click_reset() {
   await drag(400);
   ok(chat().isOpen, "A drag that isn't nearly shut keeps chat open");
   is(Math.round(panel.getBoundingClientRect().width) >= 320, true, "No narrower than 320px");
+  const seen = [];
+  const log = e => seen.push(`${e.type}:${e.detail}:${e.target.className || e.target.localName}`);
+  for (const t of ["mousedown", "mouseup", "click", "dblclick"]) {
+    window.addEventListener(t, log, true);
+  }
   EventUtils.synthesizeMouse(splitter(), 4, 100, { clickCount: 1 });
   EventUtils.synthesizeMouse(splitter(), 4, 100, { clickCount: 2 });
   await settle();
+  for (const t of ["mousedown", "mouseup", "click", "dblclick"]) {
+    window.removeEventListener(t, log, true);
+  }
+  info(`DIAG ${seen.join(" ")}; pref ${Services.prefs.prefHasUserValue("whimsy.chat.width")}; inner ${window.innerWidth}`);
   is(Math.round(panel.getBoundingClientRect().width), 380, "Double-click resets the width");
   ok(!Services.prefs.prefHasUserValue("whimsy.chat.width"), "and forgets it");
   await closeChat();
