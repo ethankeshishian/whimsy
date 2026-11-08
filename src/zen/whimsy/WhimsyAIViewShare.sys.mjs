@@ -5,18 +5,6 @@
 // W23 ⌘K: the view's make-up when ⌘K opens (WhimsyAIViewShareChild), plus
 // which images in view have text (WhimsyImageText, when it's built in).
 
-let imageText;
-function imageTextModule() {
-  if (imageText === undefined) {
-    try {
-      imageText = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyImageText.sys.mjs").WhimsyImageText ?? null;
-    } catch {
-      imageText = null;
-    }
-  }
-  return imageText;
-}
-
 // Right-click targets' secret-field check, per tab: {sensitive, at}.
 const contextTargets = new WeakMap();
 
@@ -36,7 +24,9 @@ export class WhimsyAIViewShareParent extends JSWindowActorParent {
 }
 
 export const WhimsyAIViewShare = {
-  // Tests stand in for WhimsyImageText: {hasText(src) -> boolean|Promise}.
+  // Which images have text: WhimsyImageText sets itself here when it's
+  // built in ({hasText(src) -> boolean|Promise}); without it, none do.
+  // (Importing a module that isn't built crashes Gecko's loader.)
   imageText: null,
 
   /**
@@ -55,7 +45,7 @@ export const WhimsyAIViewShare = {
     if (!view) {
       return null;
     }
-    const reader = this.imageText ?? imageTextModule();
+    const reader = this.imageText;
     for (const image of view.images) {
       try {
         image.hasText = reader?.hasText ? !!(await reader.hasText(image.src)) : false;

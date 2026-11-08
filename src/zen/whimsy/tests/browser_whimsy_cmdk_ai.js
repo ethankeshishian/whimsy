@@ -122,33 +122,6 @@ function groupsOf(rows) {
   return out;
 }
 
-add_task(async function pages_load() {
-  for (const kind of ["field", "empty", "video", "one-image", "article"]) {
-    info(`BISECT opening ${kind}`);
-    await BrowserTestUtils.withNewTab(PAGE(kind), async () => {});
-    info(`BISECT closed ${kind}`);
-  }
-  ok(true, "pages load");
-  await BrowserTestUtils.withNewTab(PAGE("article"), async browser => {
-    await select(browser, "sel");
-    info("BISECT subjectFor");
-    const subject = await WhimsyVerbs.subjectFor(window);
-    info("BISECT measure");
-    const view = await WhimsyAIViewShare.measure(window);
-    info(`BISECT measured ${JSON.stringify(view)}`);
-    const sel = await WhimsyAIViewShare.selectionInfo(subject.context);
-    info(`BISECT selectionInfo ${JSON.stringify(sel)}`);
-    subject.view = view;
-    const groups = WhimsyContextCommands.rank(window, subject, view);
-    info(`BISECT ranked ${groups.length}`);
-    await WhimsyVerbs.start(window, subject);
-    info("BISECT started");
-    await UrlbarTestUtils.promiseSearchComplete(window);
-    info("BISECT searched");
-    await closeBar();
-  });
-});
-
 add_task(async function selection_order() {
   await BrowserTestUtils.withNewTab(PAGE("article"), async browser => {
     await select(browser, "sel");
