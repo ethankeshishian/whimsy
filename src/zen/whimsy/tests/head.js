@@ -63,6 +63,8 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   "whimsy.updates.seen-install",
   "whimsy.teach.seen",
   "browser.engagement.ctrlTab.has-used",
+  // Zen's URL bar learner records every pick (ZenUBResultsLearner).
+  "zen.urlbar.suggestions-learner",
   // Opening about:preferences lazily caches a default device name (from the
   // FxAccounts device list) the first time anything reads it.
   "identity.fxaccounts.account.device.name",
