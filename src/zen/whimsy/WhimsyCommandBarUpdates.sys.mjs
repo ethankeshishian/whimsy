@@ -32,6 +32,7 @@ const FEATURE = "whimsy.feature.ai-updates";
 const TYPE = "whimsy-update";
 const HEADING_TYPE = "whimsy-update-heading";
 const MORE_TYPE = "whimsy-update-more";
+const OPTION_TYPE = "whimsy-update-remind-option";
 const VISIBLE = 5;
 const ICONS = "chrome://browser/content/whimsy/icons/";
 const SPARKLE = "chrome://browser/skin/zen-icons/sparkles.svg";
@@ -49,6 +50,8 @@ const TYPE_ICONS = {
 let nextTarget = 0;
 const targets = new Map();
 const expanded = new WeakSet();
+// The update whose Remind me menu is open, drawn as rows under it.
+const remindOpen = new WeakMap();
 
 function topWindow() {
   return lazy.BrowserWindowTracker.getTopWindow();
@@ -160,6 +163,14 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
       withHeadings.push(row);
     }
     rows.splice(0, rows.length, ...withHeadings);
+    const menuAt = rows.findIndex(r => r.update && r.update.id == remindOpen.get(win));
+    if (menuAt < 0) {
+      remindOpen.delete(win);
+    } else {
+      const { group, update } = rows[menuAt];
+      const options = [...remindTimes(), { id: "pick" }];
+      rows.splice(menuAt + 1, 0, ...options.map((option, i) => ({ group, update, option, last: i == options.length - 1 })));
+    }
     context.maxResults = Math.max(context.maxResults ?? 0, rows.length + 4);
     for (const [index, row] of rows.entries()) {
       const target = ++nextTarget;
@@ -168,7 +179,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
         type: UrlbarShared.RESULT_TYPE.DYNAMIC,
         source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
         suggestedIndex: index,
-        payload: { dynamicType: row.heading ? HEADING_TYPE : row.more ? MORE_TYPE : TYPE, target, group: row.group, more: row.more ?? 0 },
+        payload: { dynamicType: row.heading ? HEADING_TYPE : row.more ? MORE_TYPE : row.option ? OPTION_TYPE : TYPE, target, group: row.group, more: row.more ?? 0 },
       }));
     }
     if (list.whileClosed.length) {
@@ -184,6 +195,24 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
   }
 
   getViewTemplate(result) {
+    if (result.payload.dynamicType == OPTION_TYPE) {
+      // Menu items drawn in the bar: a popup would take focus and close it.
+      return {
+        attributes: { role: "presentation" },
+        children: [
+          {
+            name: "option",
+            tag: "span",
+            classList: ["whimsy-remind-option"],
+            attributes: { selectable: true, role: "menuitem", "data-command": "whimsy-remind-at" },
+            children: [
+              { name: "label", tag: "span", classList: ["whimsy-remind-option-label"] },
+              { name: "detail", tag: "span", classList: ["whimsy-remind-option-detail"] },
+            ],
+          },
+        ],
+      };
+    }
     if (result.payload.dynamicType == MORE_TYPE) {
       // A command, so picking it keeps the bar open and expands in place.
       return {
@@ -246,6 +275,15 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
         dismissAll: target.group == "recent" ? hide : { ...show({}), l10n: { id: "whimsy-cmdbar-dismiss-all" } },
       };
     }
+    if (target.option) {
+      const { id, at } = target.option;
+      const clock = new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+      return {
+        option: { attributes: { "data-option": id, last: target.last ? "" : null } },
+        label: { l10n: { id: `whimsy-cmdbar-remind-${id}` } },
+        detail: id == "pick" ? hide : { ...show({}), l10n: { id: id == "week" ? "whimsy-cmdbar-remind-detail-week" : "whimsy-cmdbar-remind-detail", args: { time: clock } } },
+      };
+    }
     if (target.more) {
       return {
         iconImg: { attributes: { src: "chrome://browser/skin/zen-icons/chevron.svg" } },
@@ -278,7 +316,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
       needs: u.needsYou ? { ...show({}), l10n: { id: "whimsy-cmdbar-needs-you" } } : hide,
       time: u.dueAt && u.dueAt > Date.now() ? { ...show({}), l10n: { id: "whimsy-cmdbar-in-minutes", args: { minutes: Math.max(1, Math.round((u.dueAt - Date.now()) / 60000)) } } } : { ...show({}), textContent: timeLabel(win, u.surfaced ?? u.posted) },
       open: lead ? { ...show({}), l10n: { id: u.nextStep.l10nId } } : { ...show({}), l10n: { id: u.dimmed ? "whimsy-cmdbar-prep-anyway" : "whimsy-cmdbar-open" } },
-      remind: { ...show({}), l10n: { id: "whimsy-cmdbar-remind-me" } },
+      remind: { ...show({ open: remindOpen.get(win) == u.id ? "" : null, "aria-expanded": String(remindOpen.get(win) == u.id) }), l10n: { id: "whimsy-cmdbar-remind-me" } },
       dismiss: { ...show({}), l10n: { id: "whimsy-cmdbar-dismiss" } },
     };
   }
@@ -300,11 +338,14 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     if (!target || !win || win.closed || !on()) {
       return;
     }
-    const el = details.element;
     const part = { "whimsy-open": "open", "whimsy-remind": "remind", "whimsy-dismiss": "dismiss", "whimsy-dismiss-all": "dismissAll" }[details.selType] ?? "row";
     if (target.more) {
       expanded.add(win);
       WhimsyCommandBarUpdates.refresh(win);
+      return;
+    }
+    if (target.option) {
+      WhimsyCommandBarUpdates.pickRemind(win, target.update, target.option);
       return;
     }
     if (part == "dismissAll") {
@@ -316,8 +357,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
       return;
     }
     if (part == "remind") {
-      // Opened after the key or click that asked for it, which would close it.
-      win.setTimeout(() => WhimsyCommandBarUpdates.openRemind(win, target.update, el?.isConnected ? el : null), 0);
+      WhimsyCommandBarUpdates.toggleRemind(win, target.update);
       return;
     }
     WhimsyCommandBarUpdates.open(win, target, { accel: !!(details.event?.metaKey || details.event?.ctrlKey) });
@@ -344,7 +384,12 @@ export const WhimsyCommandBarUpdates = {
   initWindow(win) {
     this.init();
     win.gURLBar?.inputField?.addEventListener("keydown", event => this.onKey(win, event), true);
-    win.gURLBar?.controller?.addListener({ onViewClose: () => expanded.delete(win) });
+    win.gURLBar?.controller?.addListener({
+      onViewClose: () => {
+        expanded.delete(win);
+        remindOpen.delete(win);
+      },
+    });
     lazy.WhimsyAIHints.register({
       id: "updates",
       isVisible: w => !!w.gURLBar?.view.isOpen && !!w.gURLBar.view.panel.querySelector(`.urlbarView-row[dynamicType="${TYPE}"]`),
@@ -381,12 +426,82 @@ export const WhimsyCommandBarUpdates = {
   },
 
   // After the engagement that asked for it is done, or the query is cancelled.
-  refresh(win) {
-    win.setTimeout(() => {
-      if (win.gURLBar?.view.isOpen) {
-        win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
+  // `then` runs once the new rows are drawn.
+  refresh(win, then = null) {
+    win.setTimeout(async () => {
+      if (!win.gURLBar?.view.isOpen) {
+        return;
+      }
+      win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
+      if (then) {
+        await win.gURLBar.lastQueryContextPromise;
+        win.requestAnimationFrame(() => win.gURLBar.view.isOpen && then());
       }
     }, 0);
+  },
+
+  visibleRows(win) {
+    return [...win.gURLBar.view.panel.querySelectorAll("#urlbar-results > .urlbarView-row")]
+      .filter(r => !r.hasAttribute("hidden") && r.style.display != "none");
+  },
+
+  rowOfUpdate(win, id) {
+    return this.visibleRows(win).find(r => {
+      const t = targets.get(win.gURLBar.view.getResultFromElement(r)?.payload.target);
+      return r.getAttribute("dynamicType") == TYPE && t?.update?.id == id;
+    });
+  },
+
+  optionRows(win) {
+    return this.visibleRows(win).filter(r => r.getAttribute("dynamicType") == OPTION_TYPE);
+  },
+
+  selectRow(win, row) {
+    const index = this.visibleRows(win).indexOf(row);
+    if (index >= 0) {
+      win.gURLBar.view.selectedRowIndex = index;
+    }
+  },
+
+  /** Remind me opens (or closes) its times as menu rows under the update. */
+  toggleRemind(win, update) {
+    if (remindOpen.get(win) == update.id) {
+      this.closeRemind(win);
+      return;
+    }
+    remindOpen.set(win, update.id);
+    this.refresh(win, () => {
+      const first = this.optionRows(win)[0];
+      if (first) {
+        this.selectRow(win, first);
+      }
+    });
+  },
+
+  /** Closes only the menu, and puts the focus back on Remind me. */
+  closeRemind(win) {
+    const id = remindOpen.get(win);
+    remindOpen.delete(win);
+    this.refresh(win, () => {
+      const row = this.rowOfUpdate(win, id);
+      if (!row) {
+        return;
+      }
+      this.selectRow(win, row);
+      const view = win.gURLBar.view;
+      for (let i = 0; i < 3 && !view.selectedElement?.classList.contains("whimsy-update-remind"); i++) {
+        view.selectBy(1, { userPressedTab: true });
+      }
+    });
+  },
+
+  pickRemind(win, update, option) {
+    remindOpen.delete(win);
+    if (option.id == "pick") {
+      this.pickTime(win, update);
+      return;
+    }
+    this.remind(win, update, option.at);
   },
 
   selectedTarget(win) {
@@ -399,8 +514,27 @@ export const WhimsyCommandBarUpdates = {
   },
 
   onKey(win, event) {
-    // ↓ and ↑ step over section headings (Tab still reaches Dismiss all).
     const view = win.gURLBar?.view;
+    // The Remind me menu: Esc closes only it; ↑ and ↓ stay in it.
+    if (remindOpen.has(win) && view?.isOpen && !event.metaKey && !event.altKey && !event.ctrlKey) {
+      if (event.key == "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.closeRemind(win);
+        return;
+      }
+      const options = this.optionRows(win);
+      if ((event.key == "ArrowDown" || event.key == "ArrowUp") && !event.shiftKey && options.length) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const at = options.indexOf(view.selectedElement?.closest(".urlbarView-row"));
+        const step = event.key == "ArrowUp" ? -1 : 1;
+        const next = at < 0 ? (step > 0 ? 0 : options.length - 1) : (at + step + options.length) % options.length;
+        this.selectRow(win, options[next]);
+        return;
+      }
+    }
+    // ↓ and ↑ step over section headings (Tab still reaches Dismiss all).
     if ((event.key == "ArrowDown" || event.key == "ArrowUp") && !event.metaKey && !event.altKey && !event.shiftKey &&
       view?.isOpen && view.panel.querySelector(`.urlbarView-row[dynamicType="${HEADING_TYPE}"]`)) {
       event.preventDefault();
@@ -497,56 +631,49 @@ export const WhimsyCommandBarUpdates = {
     }, { count: ids.length });
   },
 
-  openRemind(win, update, anchor) {
-    const times = remindTimes();
-    const clock = at => new Date(at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    const options = times.map(t => ({
-      value: t.id,
-      l10nId: `whimsy-cmdbar-remind-${t.id}`,
-      detailL10nId: t.id == "week" ? "whimsy-cmdbar-remind-detail-week" : "whimsy-cmdbar-remind-detail",
-      detailL10nArgs: { time: clock(t.at) },
-    }));
-    options.push({ value: "pick", l10nId: "whimsy-cmdbar-remind-pick", rule: true });
-    this._menuOpen = true;
-    lazy.WhimsySurface.openListbox(win, {
-      id: "whimsy-cmdbar-remind-menu",
-      anchor: anchor ?? win.gURLBar,
-      options,
-      value: null,
-      width: 230,
-      onHidden: () => {
-        this._menuOpen = false;
-      },
-      onPick: value => {
-        if (value == "pick") {
-          this.pickTime(win, update);
-          return;
-        }
-        this.remind(win, update, times.find(t => t.id == value).at);
-      },
-    });
-  },
-
+  // A field needs focus, which would close the floating bar under it, so
+  // the bar closes first and comes back with Updates once the time is set.
   pickTime(win, update) {
     const doc = win.document;
+    win.gURLBar.view.close();
+    win.gURLBar.handleRevert?.();
     const input = doc.createElementNS("http://www.w3.org/1999/xhtml", "input");
     input.type = "datetime-local";
+    input.className = "whimsy-remind-pick-input";
     const soon = new Date(Date.now() + 2 * 60 * 60 * 1000);
     soon.setMinutes(0, 0, 0);
     input.value = new Date(soon.getTime() - soon.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    const parts = lazy.WhimsySurface.create(win, { id: "whimsy-cmdbar-remind-pick", width: 260 });
-    const save = doc.createElementNS("http://www.w3.org/1999/xhtml", "button");
-    save.className = "whimsy-surface-button";
-    doc.l10n.setAttributes(save, "whimsy-cmdbar-remind-set");
-    save.addEventListener("click", () => {
-      const at = new Date(input.value).getTime();
+    let at = 0;
+    const parts = lazy.WhimsySurface.create(win, {
+      id: "whimsy-cmdbar-remind-pick",
+      titleL10nId: "whimsy-cmdbar-remind-pick-title",
+      width: 300,
+      footer: true,
+      initialFocus: input,
+      onHidden: () => {
+        if (at > Date.now()) {
+          this.remind(win, update, at);
+        }
+        this.reopen(win);
+      },
+    });
+    const set = () => {
+      at = new Date(input.value).getTime();
       lazy.WhimsySurface.close(parts.panel);
-      if (at > Date.now()) {
-        this.remind(win, update, at);
+    };
+    input.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        set();
       }
     });
-    parts.view.append(input, save);
-    lazy.WhimsySurface.open(win, parts.panel, { anchor: win.gURLBar });
+    parts.footer.append(
+      lazy.WhimsySurface.footerButton(doc, { l10nId: "whimsy-cmdbar-remind-cancel", onCommand: () => lazy.WhimsySurface.close(parts.panel) }),
+      lazy.WhimsySurface.footerButton(doc, { l10nId: "whimsy-cmdbar-remind-set", primary: true, onCommand: set }),
+    );
+    parts.view.append(input);
+    lazy.WhimsySurface.finish(parts);
+    lazy.WhimsySurface.open(win, parts.panel, { at: "page-top-center" });
   },
 
   async remind(win, update, at) {

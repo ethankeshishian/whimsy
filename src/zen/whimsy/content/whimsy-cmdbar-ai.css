@@ -625,6 +625,107 @@
   height: 10px;
   background-color: currentColor;
   mask: url("chrome://browser/skin/zen-icons/chevron.svg") center / contain no-repeat;
+  transition: rotate 180ms var(--whimsy-ask-ease);
+}
+
+/* Open: the chevron turns up, and the button stays shown under the menu. */
+.whimsy-update-remind[open] {
+  display: inline-flex !important;
+
+  &::after {
+    rotate: 180deg;
+  }
+}
+
+/* ---- Remind me: its times as menu rows under the update (cmd-2.4) ---- */
+.urlbarView-row[dynamicType="whimsy-update-remind-option"] {
+  min-height: 0 !important;
+  padding-block: 0 !important;
+  background: none !important;
+
+  & > .urlbarView-row-inner {
+    min-height: 0 !important;
+    padding: 0 8px 0 46px !important;
+    background: none !important;
+  }
+}
+
+.whimsy-remind-option {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: min(230px, 100%);
+  min-height: 28px;
+  padding: 2px 10px;
+  box-sizing: border-box;
+  background: var(--whimsy-ask-hover);
+  font-size: 13px;
+  color: var(--whimsy-ask-text) !important;
+  cursor: pointer;
+  animation: whimsy-remind-in 180ms var(--whimsy-ask-ease) both;
+
+  .urlbarView-row:not([dynamicType="whimsy-update-remind-option"]) + .urlbarView-row & {
+    margin-block-start: 2px;
+    border-start-start-radius: 8px;
+    border-start-end-radius: 8px;
+    padding-block-start: 4px;
+  }
+
+  &[last] {
+    border-block-start: 1px solid var(--whimsy-ask-hairline);
+    border-end-start-radius: 8px;
+    border-end-end-radius: 8px;
+    padding-block-end: 4px;
+    margin-block-end: 4px;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--zen-branding-bg-reverse, currentColor) 10%, transparent);
+  }
+
+  &[selected] {
+    background: var(--zen-primary-color, var(--whimsy-ask-accent));
+    color: white !important;
+
+    & .whimsy-remind-option-detail {
+      color: rgba(255, 255, 255, 0.8);
+    }
+  }
+}
+
+.whimsy-remind-option-detail {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+  font-variant-numeric: tabular-nums;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+@keyframes whimsy-remind-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.98);
+  }
+}
+
+@keyframes whimsy-remind-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-remind-option {
+    animation-name: whimsy-remind-fade;
+  }
+
+  .whimsy-update-remind::after {
+    transition: none;
+  }
 }
 
 /* Section headings are their own rows (Zen turns Firefox's group labels off). */

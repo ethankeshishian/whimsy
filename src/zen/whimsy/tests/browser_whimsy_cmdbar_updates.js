@@ -26,6 +26,8 @@ async function fresh() {
   WhimsyAIUpdates._setClockForTesting(() => clock);
 }
 
+const optionRows = () => rows().filter(r => r.getAttribute("dynamicType") == "whimsy-update-remind-option");
+const selectedOption = () => gURLBar.view.selectedElement?.closest(".urlbarView-row[dynamicType='whimsy-update-remind-option']")?.querySelector(".whimsy-remind-option").dataset.option ?? null;
 const groupOf = row => gURLBar.view.getResultFromElement(row)?.payload.group;
 
 add_task(async function recent_answer_row_for_10_minutes_then_gone() {
@@ -124,18 +126,56 @@ add_task(async function remind_menu_times_and_returns_at_top() {
   EventUtils.synthesizeKey("KEY_Tab");
   EventUtils.synthesizeKey("KEY_Tab");
   ok(gURLBar.view.selectedElement?.classList.contains("whimsy-update-remind"), "Tab walks Open, then Remind me");
-  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", false, e => e.target.id == "whimsy-cmdbar-remind-menu");
   EventUtils.synthesizeKey("KEY_Enter");
-  await shown;
-  const menu = document.getElementById("whimsy-cmdbar-remind-menu");
-  await TestUtils.waitForTick();
-  is(menu.state, "open", "The menu stays open");
-  is(menu.querySelectorAll("[role=option]").length, 5, "Five choices");
-  menu.querySelector("[role=option]").click();
+  await TestUtils.waitForCondition(() => optionRows().length == 5 && selectedOption() == "hour", "Five times under the update, the first selected");
+  ok(gURLBar.view.isOpen && gURLBar.focused, "The bar stays open with the input focused");
+  const remind = updateRows()[1].querySelector(".whimsy-update-remind");
+  ok(remind.hasAttribute("open") && remind.getAttribute("aria-expanded") == "true", "Remind me shows it's open");
+  is(document.l10n.getAttributes(optionRows()[1].querySelector(".whimsy-remind-option-detail")).args.time,
+    new Date(remindTimes()[1].at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }), "Real clock times");
+  EventUtils.synthesizeKey("KEY_ArrowDown");
+  is(selectedOption(), "evening", "↓ moves through the times");
+  EventUtils.synthesizeKey("KEY_ArrowUp");
+  EventUtils.synthesizeKey("KEY_ArrowUp");
+  is(selectedOption(), "pick", "↑ wraps inside the menu");
+  EventUtils.synthesizeKey("KEY_Escape");
+  await TestUtils.waitForCondition(() => !optionRows().length && gURLBar.view.selectedElement?.classList.contains("whimsy-update-remind"), "Esc closes only the menu, back on Remind me");
+  ok(gURLBar.view.isOpen, "The bar is still open");
+  ok(!updateRows()[1].querySelector(".whimsy-update-remind").hasAttribute("open"), "and the chevron turns back");
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(() => selectedOption() == "hour", "Open again");
+  EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 1, "It left Updates");
+  await TestUtils.waitForCondition(() => updateRows().length == 1 && !optionRows().length, "and the bar");
+  ok(gURLBar.view.isOpen, "The bar stays open");
   clock += 3600000 + 1000;
   const back = (await WhimsyAIUpdates.list()).updates;
   is(back[0].title, "Prep for Design review", "and came back on top");
+  await closeBar();
+});
+
+add_task(async function remind_pick_a_time_comes_back_to_the_bar() {
+  await fresh();
+  const posted = await post(1, { title: "Prep for Design review" });
+  await openEmptyBar();
+  EventUtils.synthesizeKey("KEY_ArrowDown");
+  const remind = updateRows()[0].querySelector(".whimsy-update-remind");
+  await TestUtils.waitForCondition(() => remind.getBoundingClientRect().width > 0, "Remind me shows on the selected row");
+  EventUtils.synthesizeMouseAtCenter(remind, {});
+  await TestUtils.waitForCondition(() => optionRows().length == 5, "A click opens the menu too");
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", false, e => e.target.id == "whimsy-cmdbar-remind-pick");
+  EventUtils.synthesizeMouseAtCenter(optionRows()[4].querySelector(".whimsy-remind-option"), {});
+  await shown;
+  const panel = document.getElementById("whimsy-cmdbar-remind-pick");
+  const input = panel.querySelector("input[type=datetime-local]");
+  await TestUtils.waitForCondition(() => document.activeElement == input, "The time field has focus");
+  const at = new Date(clock + 3 * 24 * 3600000);
+  at.setHours(9, 30, 0, 0);
+  input.value = new Date(at.getTime() - at.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 0, "Reminded at the picked time");
+  is((await WhimsyAIUpdates.get(posted.id)).remindAt, Math.floor(at.getTime() / 60000) * 60000, "at that time");
+  await TestUtils.waitForCondition(() => gURLBar.view.isOpen && gURLBar.focused, "The bar came back after the pick");
   await closeBar();
 });
 

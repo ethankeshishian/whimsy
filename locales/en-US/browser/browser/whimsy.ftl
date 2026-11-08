@@ -5752,6 +5752,8 @@ whimsy-cmdbar-remind-pick = Pick a time…
 whimsy-cmdbar-remind-detail = { $time }
 whimsy-cmdbar-remind-detail-week = Mon { $time }
 whimsy-cmdbar-remind-set = Remind me
+whimsy-cmdbar-remind-pick-title = Remind me at
+whimsy-cmdbar-remind-cancel = Cancel
 whimsy-cmdbar-dismissed-toast = Dismissed from the command bar
 whimsy-cmdbar-dismissed-all-toast =
     { $count ->

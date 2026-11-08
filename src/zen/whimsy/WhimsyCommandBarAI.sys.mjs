@@ -853,7 +853,7 @@ export const WhimsyCommandBarAI = {
       return [];
     }
     return [...view.panel.querySelectorAll(".urlbarView-row")]
-      .filter(row => !row.hidden && ![CARD_TYPE, "whimsy-update-heading"].includes(row.getAttribute("dynamicType")) && row.getBoundingClientRect().height > 0)
+      .filter(row => !row.hidden && ![CARD_TYPE, "whimsy-update-heading", "whimsy-update-remind-option"].includes(row.getAttribute("dynamicType")) && row.getBoundingClientRect().height > 0)
       .slice(0, 9);
   },
 
