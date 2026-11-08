@@ -156,6 +156,7 @@ add_setup(function whimsySnapshotLeakedPrefs() {
   });
 
   registerCleanupFunction(() => registerCleanupFunction(function whimsyRestoreLeakedPrefs() {
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIHints.sys.mjs").WhimsyAIHints._settleForTesting();
     const { WhimsySyncedMap } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSync.sys.mjs");
     for (const pref of snapshot) {
       // A synced map (whimsy.profiles.*) would merge its cache straight back.

@@ -255,6 +255,13 @@ export const WhimsyAIHints = {
     today = fn ?? (() => new Date().toLocaleDateString("en-CA"));
   },
 
+  // Between test files: no hint left waiting or showing to count itself
+  // shown after the file's prefs are put back. Registrations stay.
+  _settleForTesting() {
+    waiting = null;
+    current?.toast.close({ instant: true });
+  },
+
   _resetForTesting() {
     current?.toast.close({ instant: true });
     current = null;
