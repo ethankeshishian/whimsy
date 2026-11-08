@@ -32,6 +32,8 @@ const TOUCHED = [
   "whimsy.ai.ollama.endpoint",
   "whimsy.feature.ai-claude-plan",
   "whimsy.feature.ai-openai-plan",
+  "whimsy.ai.hints.seen",
+  "whimsy.ai.hints.today",
 ];
 const saved = new Map(
   TOUCHED.map(name => {
@@ -448,6 +450,7 @@ add_task(async function shots_install_steps() {
   setup();
   claudeCode = { installed: false, loggedIn: false, email: "" };
   const page = await openAI();
+  await atProviders(page);
   page.S.openSheet("claude");
   await sheet(page, "claude");
   const install = await TestUtils.waitForCondition(() => page.$("whimsyAIClaudeInstall"), "Install shows");
