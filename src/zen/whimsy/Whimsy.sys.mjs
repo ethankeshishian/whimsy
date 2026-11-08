@@ -14,6 +14,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
   WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
+  WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
   WhimsyCommandBarUpdates: "resource:///modules/whimsy/WhimsyCommandBarUpdates.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
@@ -642,6 +643,8 @@ export const Whimsy = {
     // Providers check their switches and AI on every query.
     run("ai-ask", () => lazy.WhimsyCommandBarAI.initWindow(win));
     run("ai-updates", () => lazy.WhimsyCommandBarUpdates.initWindow(win));
+    // W23 commands: the store loads (and old skills move over) on the first window.
+    run("ai-commands", () => lazy.WhimsyAICommands.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

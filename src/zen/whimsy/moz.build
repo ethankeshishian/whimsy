@@ -260,6 +260,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyMCPClient.sys.mjs",
 ]
 
+# W23 commands
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAICommands.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]
