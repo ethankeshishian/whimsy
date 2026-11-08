@@ -197,7 +197,9 @@ function formFields(form, max = 8) {
       continue;
     }
     if (f.kind) {
-      out.push({ label: safe(f.label || f.name, 60), value: "", hidden: true, sensitive: f.kind });
+      const note = { card: "whimsy-agent-hidden-card", password: "whimsy-agent-hidden-password" }[f.kind];
+      out.push({ label: safe(f.label || f.name, 60), value: "", hidden: true, sensitive: f.kind,
+        note: note ? l10n().formatValueSync(note) : "" });
     } else if (String(f.value ?? "").trim()) {
       out.push({ label: safe(f.label || f.name, 60), value: safe(f.value, 200), guessed: !!f.guessed });
     }
@@ -228,7 +230,7 @@ function preview(kind, target, host, { amount, file } = {}) {
         out.amount = amount;
       }
       fields.push(...formFields(target.form));
-      if (target.form?.fields?.some(f => f.kind == "card") || target.cardOnPage) {
+      if (!fields.some(f => f.sensitive == "card") && target.cardOnPage) {
         fields.push(field("whimsy-agent-field-card", "", { hidden: true, sensitive: "card",
           note: bundle.formatValueSync("whimsy-agent-hidden-card") }));
       }

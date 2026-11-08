@@ -434,10 +434,18 @@ export const WhimsyClaude = {
       id: "cmd_whimsyAgentStop",
       l10nId: "whimsy-agent-stop-command",
       icon: "chrome://browser/content/whimsy/icons/stop.svg",
-      key: { key: ".", modifiers: "accel" },
       isAvailable: () => lazy.WhimsyAgentTasks.list().length > 0,
       run: w => this.stopCurrentTask(w),
     });
+    // ⌘. stops the agent task while one runs; otherwise it stays Firefox's
+    // Stop (loading), so nothing is shadowed when no agent is working.
+    win.addEventListener("keydown", event => {
+      if (event.key == "." && event.getModifierState("Accel") && !event.shiftKey && !event.altKey &&
+          lazy.WhimsyAgentTasks.list().length && this.stopCurrentTask(win)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }, true);
   },
 
   observe(subject, topic, data) {
@@ -1102,8 +1110,14 @@ export const WhimsyClaude = {
       let timer;
       const listener = {
         onStateChange(b, webProgress, request, flags) {
+          // A new tab's initial about:blank isn't the page being waited for.
+          let blank = false;
+          try {
+            blank = request?.QueryInterface(Ci.nsIChannel).originalURI?.spec == "about:blank";
+          } catch (e) {}
           if (
             b == browser &&
+            !blank &&
             webProgress.isTopLevel &&
             flags & Ci.nsIWebProgressListener.STATE_STOP &&
             flags & Ci.nsIWebProgressListener.STATE_IS_NETWORK

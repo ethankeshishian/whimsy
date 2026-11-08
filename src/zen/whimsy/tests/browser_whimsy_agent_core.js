@@ -406,13 +406,13 @@ add_task(async function outside_agent_cannot_list_private_tab() {
   const secret = WhimsyPrivate.openPrivateTab(window, { url: PAGE + "?private", force: true });
   await BrowserTestUtils.browserLoaded(secret.linkedBrowser, false, PAGE + "?private");
   ok(!PrivateBrowsingUtils.isWindowPrivate(window), "A private tab in a normal window");
-  const listed = JSON.parse(textOf(await ok_result(outside("tabs_list"), "tabs_list")));
+  const listed = JSON.parse(textOf(await ok_result(outside("tabs_list", {}, "private-session"), "tabs_list")));
   ok(listed.some(t => t.url.endsWith("?normal")), "The normal tab is listed");
   ok(!listed.some(t => t.url.includes("?private")), "The private tab isn't");
   const privateId = WhimsyClaude.tabId(secret);
-  const read = await outside("read_page", { tabId: privateId });
+  const read = await outside("read_page", { tabId: privateId }, "private-session");
   ok(read.isError && !textOf(read).includes("Order form"), "and can't be read by id");
-  ok((await outside("screenshot", { tabId: privateId })).isError, "or captured");
+  ok((await outside("screenshot", { tabId: privateId }, "private-session")).isError, "or captured");
   BrowserTestUtils.removeTab(secret);
   BrowserTestUtils.removeTab(normal);
 });
