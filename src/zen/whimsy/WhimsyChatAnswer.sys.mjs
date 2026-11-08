@@ -205,7 +205,47 @@ export function renderMarkdown(doc, text, ctx) {
       blocks.push(codeBlock(doc, { language: fence[1], code: code.join("\n").replace(MARK, "") }));
       continue;
     }
+    // A table: a | row, then a |---| rule, then rows.
+    if (/^\s*\|.*\|\s*$/.test(line) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] ?? "")) {
+      flushPara();
+      flushList();
+      const cells = row => row.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+      const head = cells(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+        rows.push(cells(lines[i++]));
+      }
+      i--;
+      blocks.push(
+        h(
+          doc,
+          "div",
+          { class: "whimsy-chat-table-wrap" },
+          h(
+            doc,
+            "table",
+            { class: "whimsy-chat-table" },
+            h(doc, "thead", {}, h(doc, "tr", {}, head.map(c => h(doc, "th", {}, inline(doc, c, ctx))))),
+            h(doc, "tbody", {}, rows.map(r => h(doc, "tr", {}, head.map((_, j) => h(doc, "td", {}, inline(doc, r[j] ?? "", ctx))))))
+          )
+        )
+      );
+      continue;
+    }
+    // "0:42 What it says" in a list: the time is a pill that plays the video from there.
     const item = line.match(/^\s*(?:[-*•]|(\d+)[.)])\s+(.*)$/);
+    const time = item?.[2].match(/^((?:\d+:)?\d{1,2}:\d{2})\s+(.*)$/);
+    if (time) {
+      flushPara();
+      if (!list || list.localName != "ul" || !list.classList.contains("whimsy-chat-times")) {
+        flushList();
+        list = h(doc, "ul", { class: "whimsy-chat-times" });
+      }
+      const seconds = time[1].split(":").reduce((n, part) => n * 60 + Number(part), 0);
+      list.append(h(doc, "li", {}, h(doc, "button", { class: "whimsy-chat-time", "data-seconds": String(seconds), onclick: () => ctx?.seek?.(seconds) }, time[1]), " ", inline(doc, time[2], ctx)));
+      continue;
+    }
     if (item) {
       flushPara();
       const ordered = !!item[1];
@@ -622,7 +662,8 @@ function renderSaved(doc, msg, ctx) {
   const cites = msg.citations ?? [];
   const { text } = marked(String(msg.text ?? ""), cites, true);
   const pill = n => citationPill(doc, win, thread, cites.find(c => c.n == n) ?? { n });
-  node.append(h(doc, "div", { class: "whimsy-chat-text whimsy-chat-md" }, renderMarkdown(doc, text, { pill })));
+  const seek = seconds => WhimsyChatAnswer.seekVideo(win, thread, seconds);
+  node.append(h(doc, "div", { class: "whimsy-chat-text whimsy-chat-md" }, renderMarkdown(doc, text, { pill, seek })));
   const cards = (msg.artifacts ?? []).map(a => artifactCard(doc, win, msg, a)).filter(Boolean);
   if (cards.length) {
     node.append(h(doc, "div", { class: "whimsy-chat-cards" }, cards));
@@ -1084,6 +1125,16 @@ export const WhimsyChatAnswer = {
     finder.fastFind(quote, false, false);
     finder.highlight(true, quote, false, true);
     return true;
+  },
+
+  /** A time in a video summary plays the chat's video from there. */
+  async seekVideo(win, thread, seconds) {
+    const tab = (thread ? lazy.WhimsyChatThreads.tabOf(thread) : null) ?? win.gBrowser.selectedTab;
+    if (win.gBrowser.selectedTab != tab && !tab.splitView) {
+      win.gBrowser.selectedTab = tab;
+    }
+    const actor = tab.linkedBrowser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+    return actor ? actor.sendQuery("Whimsy:CastControl", { action: "seek", time: seconds }).catch(() => false) : false;
   },
 
   // ---- Pass-through ----

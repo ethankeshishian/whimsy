@@ -384,3 +384,20 @@ add_task(async function image_artifact_save_copy() {
   ok(Services.clipboard.hasDataMatchingFlavors(["image/png"], Ci.nsIClipboard.kGlobalClipboard), "as an image");
   await closeAll(tab);
 });
+
+add_task(async function tables_and_video_times() {
+  await fresh();
+  const tab = await openOn();
+  script = async function* () {
+    yield { type: "text", delta: "| | Store A | Store B |\n|---|---|---|\n| Price | $129 | $119 |\n\n- 0:42 Parking minimums raise rents\n- 1:03:15 Buffalo's results" };
+  };
+  type("Compare these");
+  await answered();
+  const table = part(".whimsy-chat-msg[data-role='ai'] table.whimsy-chat-table");
+  ok(table, "A Markdown table is a table");
+  is(table.querySelectorAll("tbody td").length, 3, "with its cells");
+  const times = parts(".whimsy-chat-time");
+  is(times.length, 2, "Each time in a summary is a pill");
+  is(times[1].dataset.seconds, String(3600 + 3 * 60 + 15), "that knows where it points");
+  await closeAll(tab);
+});
