@@ -300,8 +300,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     const el = details.element;
     const part = { "whimsy-open": "open", "whimsy-remind": "remind", "whimsy-dismiss": "dismiss", "whimsy-dismiss-all": "dismissAll" }[details.selType] ?? "row";
     if (target.more) {
-      expanded.add(win);
-      WhimsyCommandBarUpdates.reopen(win);
+      WhimsyCommandBarUpdates.reopen(win, { expand: true });
       return;
     }
     if (part == "dismissAll") {
@@ -365,8 +364,11 @@ export const WhimsyCommandBarUpdates = {
   },
 
   // Picking a whole row closes the view; these rows keep the bar going.
-  reopen(win) {
+  reopen(win, { expand = false } = {}) {
     win.setTimeout(() => {
+      if (expand) {
+        expanded.add(win);
+      }
       win.gURLBar.focus();
       win.gURLBar.value = "";
       win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
@@ -401,6 +403,15 @@ export const WhimsyCommandBarUpdates = {
       for (let i = 0; i < 2 && isHeading(); i++) {
         view.selectBy(1, { reverse });
       }
+      return;
+    }
+    // ⌘Z right after a dismiss in the bar undoes it (the input is empty, so
+    // there's no typing to undo).
+    if (event.key?.toLowerCase() == "z" && (event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey &&
+      !win.gURLBar.value && lazy.WhimsyUndo.canUndo(win)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      lazy.WhimsyUndo.undo(win);
       return;
     }
     if (event.key != "Backspace" || event.metaKey || event.altKey || event.ctrlKey) {

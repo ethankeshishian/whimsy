@@ -576,8 +576,8 @@ export const WhimsyVPN = {
     if (strip) {
       return strip;
     }
-    const view = win.gURLBar?.view?.panel?.querySelector(".urlbarView-body-outer");
-    if (!view) {
+    const panel = win.gURLBar?.view?.panel;
+    if (!panel) {
       return null;
     }
     strip = doc.createElementNS(HTML_NS, "div");
@@ -591,7 +591,7 @@ export const WhimsyVPN = {
     const label = doc.createElementNS(HTML_NS, "span");
     label.className = "whimsy-cmdbar-vpn-label";
     strip.append(dot, label);
-    view.after(strip);
+    panel.append(strip);
     return strip;
   },
 

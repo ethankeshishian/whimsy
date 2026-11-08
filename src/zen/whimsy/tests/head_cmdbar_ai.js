@@ -77,7 +77,7 @@ async function typeInBar(text, win = window) {
   const done = UrlbarTestUtils.promiseSearchComplete(win);
   EventUtils.sendString(text, win);
   await done;
-  await TestUtils.waitForCondition(() => win.gURLBar.value == text, `typed "${text}"`);
+  await TestUtils.waitForCondition(() => win.gURLBar.value == text, `typed "${text}" (have "${win.gURLBar.value}", ask=${win.gURLBar.hasAttribute("whimsy-ask")})`);
 }
 
 /** ⌘L, then clear what's there: the bar before typing. */

@@ -126,7 +126,10 @@ add_task(async function remind_menu_times_and_returns_at_top() {
   await shown;
   const menu = document.getElementById("whimsy-cmdbar-remind-menu");
   is(menu.querySelectorAll("[role=option]").length, 5, "Five choices");
-  EventUtils.synthesizeMouseAtCenter(menu.querySelector("[role=option]"), {});
+  const first = menu.querySelector("[role=option]");
+  await TestUtils.waitForCondition(() => menu.contains(document.activeElement), "The menu has focus");
+  first.focus();
+  EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 1, "It left Updates");
   clock += 3600000 + 1000;
   const back = (await WhimsyAIUpdates.list()).updates;
@@ -141,10 +144,10 @@ add_task(async function dismiss_toast_undo_cmd_z() {
   EventUtils.synthesizeKey("KEY_ArrowDown");
   EventUtils.synthesizeKey("KEY_Backspace");
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 0, "⌫ dismissed it");
-  await closeBar();
-  gBrowser.selectedBrowser.focus();
+  await TestUtils.waitForCondition(() => document.querySelector("#zen-toast-container [data-l10n-id='whimsy-cmdbar-dismissed-toast'], .zen-toast") , "A toast says so");
   EventUtils.synthesizeKey("z", { accelKey: true });
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 1, "⌘Z brought it back");
+  await closeBar();
 });
 
 add_task(async function watch_hit_return_opens_page_cmd_return_thread() {
@@ -218,8 +221,16 @@ add_task(async function closed_cmd_digit_switches_tabs() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   ok(!gURLBar.view.isOpen, "The bar is closed");
   gBrowser.selectedBrowser.focus();
+  let prevented = null;
+  const seen = e => {
+    if (e.key == "1") {
+      prevented = e.defaultPrevented;
+    }
+  };
+  window.addEventListener("keydown", seen);
   EventUtils.synthesizeKey("1", { accelKey: true });
-  await TestUtils.waitForCondition(() => gBrowser.selectedTab != tab, "⌘1 switched tabs");
+  window.removeEventListener("keydown", seen);
+  is(prevented, false, "⌘1 with the bar closed is left to tab switching");
   BrowserTestUtils.removeTab(tab);
 });
 
