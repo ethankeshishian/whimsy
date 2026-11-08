@@ -116,6 +116,12 @@ const visible = node => !!node?.checkVisibility();
 const click = (page, node) => EventUtils.synthesizeMouseAtCenter(node, {}, page.win);
 const clickToggle = (page, toggle) => click(page, toggle.buttonEl);
 
+// Rows unfold and sheets fade in; a person clicks once they're there.
+async function settled(page) {
+  const running = page.doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
+  await Promise.all(running.map(a => a.finished.catch(() => {})));
+}
+
 async function sheet(page, id) {
   return TestUtils.waitForCondition(() => {
     const node = page.$("whimsyAISheet");
@@ -163,6 +169,7 @@ add_task(async function first_connection_turns_ai_on_and_page_opens_up() {
   await TestUtils.waitForCondition(() => visible($("whimsyAISetUp")), "Set up AI shows");
   click(page, $("whimsyAISetUp"));
   const add = await sheet(page, "add-provider");
+  await settled(page);
   click(page, add.querySelector('.whimsy-ai-choice[data-provider="gemini"]'));
   await sheet(page, "gemini");
   await typeKey(page, "gemini");
@@ -194,6 +201,7 @@ add_task(async function header_switch_off_confirms_in_page() {
   ok(Services.prefs.getBoolPref("whimsy.ai.enabled"), "and AI is on");
   clickToggle(page, toggle);
   const again = await TestUtils.waitForCondition(() => $("whimsyAIConfirmSlot").querySelector(".whimsy-ai-confirm"), "It asks again");
+  await settled(page);
   click(page, again.querySelector("[data-action=confirm]"));
   await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref("whimsy.ai.enabled"), "Turn off turns AI off");
   const card = await TestUtils.waitForCondition(() => visible($("whimsyAIOffCard")) && !visible($("whimsyAIOn")) && $("whimsyAIOffCard"), "The page folds to the card");
@@ -270,6 +278,23 @@ add_task(async function deep_link_opens_add_provider_sheet() {
   await done(page);
 });
 
+add_task(async function deep_link_search_opens_add_provider_sheet() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences?sheet=add-provider#whimsyAI");
+  const win = tab.linkedBrowser.contentWindow;
+  WhimsyAIProviders.pendingSettingsAction = "add-provider";
+  Services.obs.notifyObservers(null, "whimsy-ai-settings-action", "add-provider");
+  const page = { tab, win, doc: win.document, $: id => win.document.getElementById(id) };
+  await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root, "Settings › AI is built");
+  page.S = win.WhimsyAISettings;
+  await sheet(page, "add-provider");
+  Services.obs.notifyObservers(null, "whimsy-ai-settings-action", "add-provider");
+  await new Promise(r => setTimeout(r, 100));
+  is(page.doc.querySelectorAll('#whimsyAISheet[data-sheet="add-provider"]').length, 1, "One sheet, however many ways it was asked for");
+  is(win.location.search, "", "The query is used once");
+  is(win.location.hash, "#whimsyAI", "on the AI page");
+  await done(page);
+});
+
 add_task(async function drag_and_alt_arrow_reorder() {
   Services.prefs.setStringPref("whimsy.ai.order", "claude,openai,gemini");
   const page = await openAI();
@@ -314,7 +339,7 @@ add_task(async function switch_off_dims_row() {
   await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.ai.off", "") == "openai", "Off is remembered");
   const r = row(page, "openai");
   await TestUtils.waitForCondition(() => r.hasAttribute("data-off"), "The row is marked off");
-  ok(Number(page.win.getComputedStyle(r.querySelector(".whimsy-ai-tile")).opacity) < 1, "and dimmed");
+  await TestUtils.waitForCondition(() => Number(page.win.getComputedStyle(r).opacity) < 0.7, "and dimmed");
   is(r.querySelector(".whimsy-ai-item-detail").getAttribute("data-l10n-id"), "whimsy-ai-row-off", "It says it's off");
   ok(visible(r.querySelector("[data-action=grip]")), "It can still be dragged");
   is(WhimsyAIProviders.provider, "claude", "Claude is still tried first");
@@ -356,6 +381,7 @@ add_task(async function add_provider_appends_and_toasts() {
   const add = await sheet(page, "add-provider");
   const openai = add.querySelector('.whimsy-ai-choice[data-provider="openai"]');
   is(openai.getAttribute("aria-disabled"), "true", "ChatGPT is already connected");
+  await settled(page);
   click(page, add.querySelector('.whimsy-ai-choice[data-provider="gemini"]'));
   await sheet(page, "gemini");
   await typeKey(page, "gemini");
@@ -374,7 +400,7 @@ add_task(async function quick_text_switch_only_with_apple() {
   const page = await openAI();
   await listReady(page);
   ok(!visible(page.$("whimsyAIQuickTextCard")), "No Apple: no quick-text switch");
-  Services.prefs.setStringPref("whimsy.ai.order", "claude,apple");
+  WhimsyAIProviders.setOrder(["claude", "apple"]);
   await TestUtils.waitForCondition(() => visible(page.$("whimsyAIQuickTextCard")), "With Apple, it shows");
   const toggle = page.$("whimsyAIQuickText");
   ok(toggle.pressed, "on by default");
@@ -447,6 +473,7 @@ add_task(async function install_continues_when_sheet_closes_and_toasts() {
   page.S.openSheet("claude");
   await sheet(page, "claude");
   const install = await TestUtils.waitForCondition(() => page.$("whimsyAIClaudeInstall"), "Claude Code isn't here: Install shows");
+  await settled(page);
   click(page, install);
   const steps = await TestUtils.waitForCondition(() => page.$("whimsyAIInstallSteps"), "The steps show");
   await TestUtils.waitForCondition(() => page.$("whimsyAIInstallSteps")?.querySelector('[data-step="download"]')?.dataset.state == "busy", "Downloading");

@@ -660,7 +660,15 @@
     state.head.prepend(tile);
   }
 
+  // A rebuilt sheet keeps focus inside it.
   function clear(state) {
+    if (state.sheet.contains(document.activeElement)) {
+      setTimeout(() => {
+        if (S.sheet == state && !state.sheet.contains(document.activeElement)) {
+          (S._focusables(state.sheet).find(n => !n.classList.contains("whimsy-ai-x")) ?? state.sheet.querySelector(".whimsy-ai-x"))?.focus();
+        }
+      }, 0);
+    }
     state.body.replaceChildren();
     state.footer.replaceChildren();
   }

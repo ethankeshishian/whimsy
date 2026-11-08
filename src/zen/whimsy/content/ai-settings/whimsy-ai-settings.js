@@ -511,7 +511,9 @@ var WhimsyAISettings = {
         this.closeSheet();
       }
     });
-    sheet.addEventListener("keydown", event => this._sheetKeys(event));
+    const onKey = event => this._sheetKeys(event);
+    document.addEventListener("keydown", onKey);
+    state.cleanups.push(() => document.removeEventListener("keydown", onKey));
     try {
       open(state, opts, this.ctx);
     } catch (e) {
@@ -533,7 +535,7 @@ var WhimsyAISettings = {
 
   _sheetKeys(event) {
     const state = this._sheet;
-    if (!state) {
+    if (!state || event.defaultPrevented) {
       return;
     }
     if (event.key == "Escape") {
@@ -594,20 +596,30 @@ var WhimsyAISettings = {
       return;
     }
     let action = this.providers.takeSettingsAction?.() ?? null;
-    const match = /[#?&]sheet=([\w-]+)/.exec(decodeURIComponent(location.hash || ""));
-    if (match) {
-      action = match[1];
-      history.replaceState(null, "", "#whimsyAI");
-    }
+    const linked = this._linkedSheet ?? this.readLink();
+    this._linkedSheet = null;
+    action = linked ?? action;
     if (!action) {
       return;
     }
     const [sheet, method] = { connect: ["add-provider"], "plan-openai": ["openai", "plan"], "plan-claude": ["claude", "plan"] }[action] ?? [action];
+    if (this._sheet?.id == sheet) {
+      return;
+    }
     if (this._sheets.has(sheet)) {
       this.openSheet(sheet, { restoreFocus: this.toggle, method });
     } else if (this._sections.has(sheet)) {
       this.jumpTo(sheet);
     }
+  },
+
+  // ?sheet=<id> in the address (before or after #whimsyAI), used once.
+  readLink() {
+    const match = /[?&]sheet=([\w-]+)/.exec(decodeURIComponent(location.hash || "")) ?? /[?&]sheet=([\w-]+)/.exec(location.search || "");
+    if (match) {
+      history.replaceState(null, "", `${location.pathname}#whimsyAI`);
+    }
+    return match?.[1] ?? null;
   },
 
   // ---- shared bits for section files ----
@@ -624,6 +636,10 @@ var WhimsyAISettings = {
     return this.LOGOS[id] ?? "chrome://browser/skin/zen-icons/sparkles.svg";
   },
 };
+
+// Read before Settings picks its pane from the hash: "#whimsyAI?sheet=…"
+// would otherwise name no pane.
+WhimsyAISettings._linkedSheet = WhimsyAISettings.readLink();
 
 // ---- Features (fu-settings dec-10) ----
 

@@ -112,41 +112,41 @@ add_task(async function test_migration_and_mirror() {
   await WhimsyAI.pending;
 });
 
-// W10-28: Settings → AI: Enable AI heads its own pane; off dims and
-// disables everything below it, with a note.
+// W10-28, W23: Settings → AI is its own pane. The header switch turns AI
+// off after an in-page confirm; off, the page is one card whose button
+// turns it back on.
 add_task(async function test_settings_pane() {
+  Services.prefs.setStringPref("whimsy.ai.order", "gemini");
   await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
-    const nav = await TestUtils.waitForCondition(() => doc.getElementById("category-whimsy-ai"), "AI is in the sidebar");
+    const win = browser.contentWindow;
+    const $ = id => doc.getElementById(id);
+    const nav = await TestUtils.waitForCondition(() => $("category-whimsy-ai"), "AI is in the sidebar");
     is(nav.getAttribute("view"), "paneWhimsyAI", "It opens the AI pane");
-    const toggle = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIEnable"));
-    await TestUtils.waitForCondition(() => toggle.checkVisibility(), "Enable AI shows");
-    ok(toggle.pressed, "Enable AI is on");
-    ok(!doc.getElementById("whimsyBlockAI"), "The old Privacy switch is gone");
-    ok(!doc.querySelector('#mainPrefPane [data-category="panePrivacy"] #whimsyAIUse'), "No AI controls left in Privacy");
-    const rest = [...doc.querySelectorAll('[data-category="paneWhimsyAI"].whimsy-ai-rest')];
-    ok(rest.length >= 2, "Provider and Features sit under it");
-    const note = doc.getElementById("whimsyAIOffNote");
-    ok(note.hidden, "No note while AI is on");
+    const toggle = await TestUtils.waitForCondition(() => $("whimsyAIEnable"));
+    await TestUtils.waitForCondition(() => toggle.checkVisibility(), "The AI switch shows");
+    ok(toggle.pressed, "AI is on");
+    ok(!$("whimsyBlockAI"), "The old Privacy switch is gone");
+    ok(!doc.querySelector('#mainPrefPane [data-category="panePrivacy"] #whimsyAIProviderList'), "No AI controls left in Privacy");
+    ok($("whimsyAIOn").checkVisibility() && !$("whimsyAIOffCard").checkVisibility(), "Sections show, no off card");
 
-    toggle.click();
+    EventUtils.synthesizeMouseAtCenter(toggle.buttonEl, {}, win);
+    const strip = await TestUtils.waitForCondition(() => $("whimsyAIConfirmSlot").querySelector(".whimsy-ai-confirm"), "It asks first");
+    await Promise.all(doc.getAnimations().map(a => a.finished.catch(() => {})));
+    EventUtils.synthesizeMouseAtCenter(strip.querySelector("[data-action=confirm]"), {}, win);
     await TestUtils.waitForCondition(() => WhimsyAI.blocked, "Turning it off blocks AI");
     await WhimsyAI.pending;
     is(Services.prefs.getStringPref("browser.ai.control.default"), "blocked", "Firefox's AI is blocked");
-    await TestUtils.waitForCondition(() => !note.hidden, "The note says AI is off");
-    for (const section of rest) {
-      ok(section.inert && section.hasAttribute("data-ai-off"), `#${section.id} is dimmed and out of reach`);
-      const controls = [...section.querySelectorAll("input, button, menulist, moz-toggle")];
-      ok(controls.every(c => c.disabled), `#${section.id}: every control is disabled`);
-    }
-    toggle.click();
-    await TestUtils.waitForCondition(() => !WhimsyAI.blocked, "Turning it on restores it");
+    await TestUtils.waitForCondition(() => $("whimsyAIOffCard").checkVisibility() && !$("whimsyAIOn").checkVisibility(), "The page is one card");
+    ok(!toggle.checkVisibility(), "and the card's button is the way back");
+    EventUtils.synthesizeMouseAtCenter($("whimsyAITurnOn"), {}, win);
+    await TestUtils.waitForCondition(() => !WhimsyAI.blocked, "Turn on AI restores it");
     await WhimsyAI.pending;
-    await TestUtils.waitForCondition(() => note.hidden, "The note goes");
-    ok(rest.every(section => !section.inert), "Everything is usable again");
-    ok(!doc.getElementById("whimsyAITidyTabs").disabled, "A feature switch works again");
+    await TestUtils.waitForCondition(() => $("whimsyAIOn").checkVisibility(), "The sections come back");
+    ok(!$("whimsyAITidyTabs").disabled, "A feature switch works again");
   });
   Services.prefs.setBoolPref(WhimsyAI.PREF, true);
+  Services.prefs.clearUserPref("whimsy.ai.order");
 });
 
 // The old links to AI in Privacy & Security land on the AI pane.
