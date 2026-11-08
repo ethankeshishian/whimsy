@@ -21,57 +21,13 @@ registerCleanupFunction(() => {
 // file stays under the time limit).
 requestLongerTimeout(2);
 
-const SHOTS = Services.env.get("WHIMSY_SHOTS");
-
-async function shot(name, windowGlobal = window.browsingContext.currentWindowGlobal) {
-  if (!SHOTS) {
-    return;
-  }
-  // A page's snapshot defaults to the window's size; crop it to the page's
-  // own viewport so no white margin shows beside or below it.
-  const embedder = windowGlobal.browsingContext.embedderElement;
-  const rect = embedder?.localName == "browser" ?
-    new DOMRect(0, 0, embedder.clientWidth, embedder.clientHeight) : null;
-  const bitmap = await whimsySnapshot(windowGlobal, rect);
-  const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  canvas.getContext("2d").drawImage(bitmap, 0, 0);
-  const blob = await new Promise(resolve => canvas.toBlob(resolve));
-  const path = PathUtils.join(SHOTS, `${name}.png`);
-  await IOUtils.write(path, new Uint8Array(await blob.arrayBuffer()));
-  info(`Saved ${path}`);
-}
-
-// Helpers shared with browser_whimsy_screens.js.
+// W23: the screenshot helpers live in head.js now.
+const shot = whimsyShot;
+const setScheme = whimsySetScheme;
+const settled = whimsySettled;
 
 // fixB: every rebuilt panel ("sheet"), in light and dark, plus Zen's
 // Delete Space confirm (now in-window) and the Archive in the Library.
-// wave5/uxfix: dark shots must really be dark. The system pref alone flips
-// prefers-color-scheme, but Zen paints the window from its space theme in
-// JS, so repaint it and wait for the change to land before drawing.
-async function setScheme(dark) {
-  await SpecialPowers.pushPrefEnv({ set: [
-    ["ui.systemUsesDarkTheme", dark],
-    ["browser.theme.toolbar-theme", dark ? 0 : 1],
-    ["browser.theme.content-theme", dark ? 0 : 1],
-  ] });
-  const want = dark ? "dark" : "light";
-  await TestUtils.waitForCondition(() =>
-    window.matchMedia(`(prefers-color-scheme: ${want})`).matches, `The window is ${want}`);
-  window.gZenThemePicker?.onWorkspaceChange?.(window.gZenWorkspaces?.getActiveWorkspace?.());
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-}
-
-// Waits until every finite animation in the window has finished, so a
-// sheet or dialog isn't caught mid-fade.
-async function settled(doc = document) {
-  await TestUtils.waitForCondition(() =>
-    doc.getAnimations().every(a =>
-      a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity),
-  "Animations have settled").catch(() => info("Some animation kept running"));
-}
-
 async function sheetShot(name, panelId, open, ready = null) {
   for (const dark of [0, 1]) {
     await setScheme(dark);

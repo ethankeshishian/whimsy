@@ -166,3 +166,84 @@ function closeToasts(win = window) {
     toast.close({ instant: true });
   }
 }
+
+// W23: screenshot helpers shared by every browser_whimsy_screens*.js file.
+// Without WHIMSY_SHOTS they only run the setup (a quick smoke check).
+const WHIMSY_SHOTS_DIR = Services.env.get("WHIMSY_SHOTS");
+
+async function whimsyShot(name, windowGlobal = window.browsingContext.currentWindowGlobal) {
+  if (!WHIMSY_SHOTS_DIR) {
+    return;
+  }
+  // A page's snapshot defaults to the window's size; crop it to the page's
+  // own viewport so no white margin shows beside or below it.
+  const embedder = windowGlobal.browsingContext.embedderElement;
+  const rect = embedder?.localName == "browser" ?
+    new DOMRect(0, 0, embedder.clientWidth, embedder.clientHeight) : null;
+  const bitmap = await whimsySnapshot(windowGlobal, rect);
+  const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve));
+  const path = PathUtils.join(WHIMSY_SHOTS_DIR, `${name}.png`);
+  await IOUtils.write(path, new Uint8Array(await blob.arrayBuffer()));
+  info(`Saved ${path}`);
+}
+
+// Dark shots must really be dark. The system pref alone flips
+// prefers-color-scheme, but Zen paints the window from its space theme in
+// JS, so repaint it and wait for the change to land before drawing. Pops
+// with SpecialPowers.popPrefEnv().
+async function whimsySetScheme(dark) {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["ui.systemUsesDarkTheme", dark ? 1 : 0],
+    ["browser.theme.toolbar-theme", dark ? 0 : 1],
+    ["browser.theme.content-theme", dark ? 0 : 1],
+  ] });
+  const want = dark ? "dark" : "light";
+  await TestUtils.waitForCondition(() =>
+    window.matchMedia(`(prefers-color-scheme: ${want})`).matches, `The window is ${want}`);
+  window.gZenThemePicker?.onWorkspaceChange?.(window.gZenWorkspaces?.getActiveWorkspace?.());
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+
+// Waits until every finite animation in the document has finished, so a
+// sheet or dialog isn't caught mid-fade.
+async function whimsySettled(doc = document) {
+  await TestUtils.waitForCondition(() =>
+    doc.getAnimations().every(a =>
+      a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity),
+  "Animations have settled").catch(() => info("Some animation kept running"));
+}
+
+// Shoots `<name>-light` and `<name>-dark`. `prepare(dark)` shows the state
+// and may return a cleanup function, run before the scheme is popped.
+async function whimsyBothSchemes(name, prepare) {
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    let cleanup = null;
+    try {
+      cleanup = await prepare(dark);
+      await whimsySettled();
+      await whimsyShot(`${name}-${dark ? "dark" : "light"}`);
+    } finally {
+      await cleanup?.();
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+// Holds the animation `getAnimation()` returns at `ms` and shoots
+// `<name>-mid-<ms>`, then lets it finish.
+async function whimsyShotMid(name, getAnimation, ms) {
+  const animation = await TestUtils.waitForCondition(getAnimation, `${name}: the animation started`);
+  animation.pause();
+  animation.currentTime = ms;
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  try {
+    await whimsyShot(`${name}-mid-${ms}`);
+  } finally {
+    animation.play();
+  }
+}

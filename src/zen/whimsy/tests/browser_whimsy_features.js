@@ -35,6 +35,43 @@ add_task(async function test_startup_hook_ran() {
   }
 });
 
+// W23: every AI-wave feature has its switch, on (Zen ships none of them).
+const W23_FEATURES = [
+  "ai-chat", "ai-ask", "ai-updates", "ai-context-commands", "ai-selection-commands", "ai-commands",
+  "ai-related", "ai-memory", "ai-agent", "ai-task-folder", "ai-outside-agents", "ai-activity",
+  "ai-connectors", "ai-onboarding", "ai-hints", "ai-summary", "ai-draft-reply", "ai-form-fill",
+  "ai-translate", "ai-page-edits", "ai-scam-warning", "ai-compare", "ai-tab-requests", "find-card",
+  "ai-video-summary", "video-speed-range", "video-default-speed", "image-text", "read-aloud",
+  "dictation", "media-settings", "routines", "link-previews", "ask-on-page", "page-watch",
+  "claude-replay", "ai-providers",
+];
+
+add_task(async function test_w23_feature_switches() {
+  for (const id of W23_FEATURES) {
+    ok(Services.prefs.getPrefType(`whimsy.feature.${id}`) == Services.prefs.PREF_BOOL, `whimsy.feature.${id} exists`);
+    ok(Whimsy.featureEnabled(id), `whimsy.feature.${id} is on`);
+  }
+});
+
+// W23: the icon set later lanes use for commands and chips.
+const W23_ICONS = [
+  "agent", "apple", "background", "brain", "chat-hide", "claude", "clock", "compare", "drive",
+  "eye", "fire-settings", "gemini", "gmail", "google", "google-calendar", "google-drive",
+  "granola", "hand", "ibeam", "image-chip", "image-text", "jira", "linear", "listen", "mask",
+  "mcp", "memory", "mic", "microsoft", "onedrive", "openai", "outlook", "pause", "pdf", "pip",
+  "remind", "routines", "scam", "split-pane", "stop", "summarize", "tabs-all", "task-folder",
+  "text-chip", "thinking", "uturn-backward", "video-chip",
+];
+
+add_task(async function icons_exist() {
+  for (const name of W23_ICONS) {
+    const url = `chrome://browser/content/whimsy/icons/${name}.svg`;
+    const response = await fetch(url);
+    ok(response.ok, `${url} loads`);
+    ok((await response.text()).includes("<svg"), `${name}.svg is an SVG`);
+  }
+});
+
 add_task(async function test_ui_zoom_scales_chrome_only() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.ui-zoom", 150]] });
   await TestUtils.waitForCondition(
