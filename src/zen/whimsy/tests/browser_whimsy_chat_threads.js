@@ -164,6 +164,8 @@ add_task(async function thread_outlives_tab_and_reopen_restores() {
   BrowserTestUtils.removeTab(tab);
   await TestUtils.waitForCondition(async () => (await WhimsyAIStore.thread(thread.id))?.closedTab, "The thread remembers its tab closed");
   is((await WhimsyAIStore.thread(thread.id)).closedTab.url, PAGE_B, "with its address");
+  ok((await WhimsyChatThreads.savedPage(thread.id))?.title, "and the copy of the page it read");
+  ok(!WhimsyChatThreads.tabOf(await WhimsyAIStore.thread(thread.id)), "Its tab is gone");
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE_A);
   await WhimsyChat.open(window, { threadId: thread.id });
   await TestUtils.waitForCondition(() => part(".whimsy-chat-note[data-kind='closed-tab']"), "A note says the tab closed");
@@ -232,7 +234,8 @@ add_task(async function tasks_strip_collapses_with_two() {
   await TestUtils.waitForCondition(() => strip.hasAttribute("collapsed"), "Two tasks collapse to one line");
   is(parts(".whimsy-chat-task:not([hidden])").length, 0, "The rows fold away");
   ok(!part(".whimsy-chat-task-summary").hidden, "into one line");
-  ok(part(".whimsy-chat-task-summary").textContent.includes("2"), "that counts the tasks");
+  await document.l10n.translateFragment(part(".whimsy-chat-task-summary"));
+  ok(part(".whimsy-chat-task-summary").textContent.includes("2 tasks"), "that counts the tasks");
   EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-task-summary [data-action='expand']"), {});
   await TestUtils.waitForCondition(() => !strip.hasAttribute("collapsed"), "Expanding lists both");
   const second = parts(".whimsy-chat-task").find(r => r.dataset.taskId == "t2");
