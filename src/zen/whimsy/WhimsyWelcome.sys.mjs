@@ -138,7 +138,7 @@ export const WhimsyWelcome = {
         }
         result.splice(at + 1, 0, ...WhimsyAIOnboarding.pages(win, helpers));
       }
-      return result;
+      return result.length == pages.length ? pages : result;
     } catch (e) {
       console.error("Whimsy: onboarding", e);
       return pages;

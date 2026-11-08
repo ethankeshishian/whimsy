@@ -181,6 +181,8 @@ add_task(async function scope_switch_reopens_consent() {
   const page = await openConnectors();
   click(page, page.row("google").querySelector(".whimsy-ai-chev"));
   const toggle = await TestUtils.waitForCondition(() => page.doc.querySelector('.whimsy-ai-body moz-toggle[data-scope="drive"]'), "The scopes show");
+  await settledPage(page);
+  await toggle.updateComplete;
   ok(!toggle.pressed, "Drive is off");
   signIns.length = 0;
   click(page, toggle.buttonEl);
@@ -196,6 +198,7 @@ add_task(async function disconnect_confirms_and_names_routines() {
     click(page, page.row("google").querySelector(".whimsy-ai-chev"));
   }
   const button = await TestUtils.waitForCondition(() => page.doc.querySelector('.whimsy-ai-body [data-action="disconnect"]'), "Disconnect shows");
+  await settledPage(page);
   click(page, button);
   const strip = await TestUtils.waitForCondition(() => page.doc.querySelector(".whimsy-ai-confirm"), "Disconnect asks in the page");
   await TestUtils.waitForCondition(() => strip.textContent.includes("Daily brief and Meeting prep"), "The confirm names the routines that stop");
