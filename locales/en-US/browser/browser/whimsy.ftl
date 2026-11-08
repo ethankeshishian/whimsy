@@ -5257,6 +5257,110 @@ whimsy-ai-hint-image-text-body = Drag to select it, press ⌘C to copy it, and f
 whimsy-ai-hint-agent-mode-title = I can work in your tabs
 whimsy-ai-hint-agent-mode-body = Drive shows every step here. Background works on the side.
 
+## W23 chat-shell: the chat panel (⌘E), its header, conversation list,
+## Tasks strip, private wall, and the AI-off toast
+
+whimsy-chat-panel =
+    .aria-label = Chat
+whimsy-chat-list-button =
+    .title = Chats
+    .aria-label = Chats
+whimsy-chat-new-button =
+    .title = New chat
+    .aria-label = New chat
+whimsy-chat-hide-button =
+    .title = Hide chat ⌘E
+    .aria-label = Hide chat
+whimsy-chat-splitter =
+    .aria-label = Resize chat
+whimsy-chat-private-title = Private tab
+whimsy-chat-empty-title = Ask about this page
+whimsy-chat-empty-body = Chat reads the whole tab, not just what’s on screen. Nothing is sent until you ask.
+whimsy-chat-empty-title-blank = Ask anything
+whimsy-chat-empty-body-blank = Nothing is sent until you ask.
+whimsy-chat-suggest-article = Sum up this article
+whimsy-chat-suggest-critics = What do critics say?
+whimsy-chat-suggest-video = What’s in the video?
+whimsy-chat-suggest-key-points = What are the key points?
+whimsy-chat-suggest-video-summary = Summarize this video
+whimsy-chat-suggest-chapters = List the chapters
+whimsy-chat-suggest-takeaway = What’s the main takeaway?
+whimsy-chat-suggest-pdf = Sum up this PDF
+whimsy-chat-suggest-questions = What questions does it leave open?
+whimsy-chat-suggest-page = What’s this page about?
+whimsy-chat-suggest-do = What can I do here?
+whimsy-chat-suggest-explain = Explain the hard parts
+whimsy-chat-composer =
+    .placeholder = Ask about this tab…
+whimsy-chat-composer-blank =
+    .placeholder = Ask anything…
+whimsy-chat-composer-saved =
+    .placeholder = Ask about the saved copy…
+whimsy-chat-composer-private =
+    .placeholder = Chat is off in private tabs
+whimsy-chat-send =
+    .title = Send
+    .aria-label = Send
+whimsy-chat-stop =
+    .title = Stop
+    .aria-label = Stop
+whimsy-chat-status-reading = Reading the page…
+whimsy-chat-status-thinking = Thinking…
+whimsy-chat-wall-title = Chat can’t see private tabs
+whimsy-chat-wall-body = Nothing in this tab reaches AI, even if you ask. Switch to a normal tab to chat about it.
+whimsy-chat-note-closed-tab = The tab for this chat was closed. Answers use the copy saved at { $time }.
+whimsy-chat-reopen-tab = Reopen tab
+whimsy-chat-note-handoff = { $to } answered, because { $from } isn’t available right now.
+whimsy-chat-note-stopped = Stopped. The answer so far is kept.
+whimsy-chat-list-back =
+    .title = Back to chat
+    .aria-label = Back to chat
+whimsy-chat-list-title = Chats
+whimsy-chat-search =
+    .placeholder = Search chats
+whimsy-chat-list-this-tab = This tab
+whimsy-chat-list-routines = Routines
+whimsy-chat-list-earlier = Earlier
+whimsy-chat-list-results =
+    { $count ->
+        [one] 1 chat
+       *[other] { $count } chats
+    }
+whimsy-chat-list-none = No chats match.
+whimsy-chat-list-empty = No chats yet.
+whimsy-chat-list-foot = Stored on this Mac only. The Fire button clears them.
+whimsy-chat-list-tab-closed = Tab closed
+whimsy-chat-list-yesterday = Yesterday
+whimsy-chat-tasks-label = Tasks
+whimsy-chat-tasks-count =
+    { $count ->
+        [one] 1 task
+       *[other] { $count } tasks
+    }
+whimsy-chat-task-show = Show
+whimsy-chat-task-stop =
+    .title = Stop this task
+    .aria-label = Stop this task
+whimsy-chat-tasks-expand =
+    .title = Show every task
+    .aria-label = Show every task
+whimsy-chat-tasks-collapse =
+    .title = Fold tasks into one line
+    .aria-label = Fold tasks into one line
+whimsy-chat-menu-move-left =
+    .label = Move chat to the left
+whimsy-chat-menu-move-right =
+    .label = Move chat to the right
+whimsy-chat-menu-hide =
+    .label = Hide chat
+whimsy-chat-cmd-toggle = Open or Hide Chat
+whimsy-chat-cmd-open = Open Chat
+whimsy-chat-cmd-hide = Hide Chat
+whimsy-chat-cmd-move-left = Move Chat to the Left
+whimsy-chat-cmd-move-right = Move Chat to the Right
+whimsy-chat-ai-off-title = Chat needs an AI
+whimsy-chat-ai-off-body = Press ⌘E again to set one up.
+whimsy-chat-ai-off-setup = Set up AI
 ## W23 agent-core: tasks, guardrail pauses, outside agents, and Activity
 
 whimsy-agent-stop-command = Stop the Agent Task
