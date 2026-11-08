@@ -130,60 +130,55 @@ export const WhimsyAIOnboarding = {
         const wasState = card.dataset.state;
         card.dataset.state = state;
         doc.l10n.setAttributes(detail, d ?? ui.defaultDetail, detailArgs);
-        // One tick later: rebuilding the trail here, synchronously, would
-        // detach a button that's still mid-click (its own click handler is
-        // what called set()), which fails the a11y check on that node.
-        queueMicrotask(() => {
-          trail.replaceChildren();
-          if (status) {
-            const s = this._el(doc, "span", "whimsy-onb-status", trail);
-            s.dataset.tone = tone;
-            s.setAttribute("role", "status");
-            if (tone == "busy") {
-              this._el(doc, "span", "whimsy-onb-spinner", s);
-            } else if (tone == "pass" || tone == "fail") {
-              const icon = this._el(doc, "img", "", s);
-              icon.src = tone == "pass" ? CHECK : ALERT;
-              icon.alt = "";
-              if (tone == "pass" && wasState != "done" && !reduced(doc.defaultView) && !this.instant) {
-                ui.pop = icon.animate({ scale: [0.6, 1], opacity: [0, 1] }, { duration: 350, easing: SPRING });
-              }
-            }
-            this._el(doc, "span", "", s, status);
-          }
-          if (cancel) {
-            const c = this._el(doc, "button", "whimsy-onb-action is-quiet", trail, "whimsy-onb-cancel");
-            c.dataset.action = "cancel";
-            c.addEventListener("click", cancel);
-          }
-          if (button) {
-            const b = this._el(doc, "button", "whimsy-onb-action", trail, button);
-            b.dataset.action = "connect";
-            b.addEventListener("click", () => onAction());
-          }
-          card.querySelector(".whimsy-onb-note")?.remove();
-          if (note) {
-            const outer = this._el(doc, "div", "whimsy-onb-note", card);
-            outer.dataset.tone = noteTone ?? "fail";
-            const inner = this._el(doc, "div", "", outer);
-            if (progress != null) {
-              const bar = this._el(doc, "span", "whimsy-onb-progress", inner);
-              bar.style.setProperty("--p", `${Math.round(progress * 100)}%`);
-              this._el(doc, "i", "", bar);
-            }
-            this._el(doc, "span", "", inner, note);
-            if (actions.length) {
-              const box = this._el(doc, "span", "whimsy-onb-note-actions", inner);
-              for (const [l10nId, run, accent] of actions) {
-                const b = this._el(doc, "button", `whimsy-onb-note-btn${accent ? " is-accent" : ""}`, box, l10nId);
-                b.addEventListener("click", run);
-              }
-            }
-            if (wasState != state && !reduced(doc.defaultView) && !this.instant) {
-              ui.unfold = outer.animate({ gridTemplateRows: ["0fr", "1fr"], opacity: [0, 1] }, { duration: 300, easing: "cubic-bezier(0.34, 1.2, 0.64, 1)" });
+        trail.replaceChildren();
+        if (status) {
+          const s = this._el(doc, "span", "whimsy-onb-status", trail);
+          s.dataset.tone = tone;
+          s.setAttribute("role", "status");
+          if (tone == "busy") {
+            this._el(doc, "span", "whimsy-onb-spinner", s);
+          } else if (tone == "pass" || tone == "fail") {
+            const icon = this._el(doc, "img", "", s);
+            icon.src = tone == "pass" ? CHECK : ALERT;
+            icon.alt = "";
+            if (tone == "pass" && wasState != "done" && !reduced(doc.defaultView) && !this.instant) {
+              ui.pop = icon.animate({ scale: [0.6, 1], opacity: [0, 1] }, { duration: 350, easing: SPRING });
             }
           }
-        });
+          this._el(doc, "span", "", s, status);
+        }
+        if (cancel) {
+          const c = this._el(doc, "button", "whimsy-onb-action is-quiet", trail, "whimsy-onb-cancel");
+          c.dataset.action = "cancel";
+          c.addEventListener("click", cancel);
+        }
+        if (button) {
+          const b = this._el(doc, "button", "whimsy-onb-action", trail, button);
+          b.dataset.action = "connect";
+          b.addEventListener("click", () => onAction());
+        }
+        card.querySelector(".whimsy-onb-note")?.remove();
+        if (note) {
+          const outer = this._el(doc, "div", "whimsy-onb-note", card);
+          outer.dataset.tone = noteTone ?? "fail";
+          const inner = this._el(doc, "div", "", outer);
+          if (progress != null) {
+            const bar = this._el(doc, "span", "whimsy-onb-progress", inner);
+            bar.style.setProperty("--p", `${Math.round(progress * 100)}%`);
+            this._el(doc, "i", "", bar);
+          }
+          this._el(doc, "span", "", inner, note);
+          if (actions.length) {
+            const box = this._el(doc, "span", "whimsy-onb-note-actions", inner);
+            for (const [l10nId, run, accent] of actions) {
+              const b = this._el(doc, "button", `whimsy-onb-note-btn${accent ? " is-accent" : ""}`, box, l10nId);
+              b.addEventListener("click", run);
+            }
+          }
+          if (wasState != state && !reduced(doc.defaultView) && !this.instant) {
+            ui.unfold = outer.animate({ gridTemplateRows: ["0fr", "1fr"], opacity: [0, 1] }, { duration: 300, easing: "cubic-bezier(0.34, 1.2, 0.64, 1)" });
+          }
+        }
       },
     };
     ui.set({ state: "idle", button: action });
@@ -583,104 +578,100 @@ export const WhimsyAIOnboarding = {
       ...["apple", "claude", "openai"].filter(id => s.providers.has(id)).map(id => PROVIDER_NAMES[id]),
       ...Object.keys(CONNECTORS).filter(id => s.services.has(id)).map(id => CONNECTOR_NAMES[id]),
     ];
-    // Deferred a tick: building this overlay (and fading the card behind
-    // it) synchronously would mutate the page while the button that led
-    // here is still mid-click, which fails the a11y check on that button.
-    queueMicrotask(() => {
-      const overlay = this._el(doc, "div", "", null);
-      overlay.id = "whimsy-onb-done";
-      overlay.setAttribute("role", "dialog");
-      overlay.setAttribute("aria-labelledby", "whimsy-onb-done-title");
-      const glow = this._el(doc, "div", "whimsy-onb-glow", overlay);
-      const sparkBox = this._el(doc, "div", "whimsy-onb-sparks", overlay);
-      const sparks = SPARKS.map(([x, y, size, delay, accent]) => {
-        const spark = this._el(doc, "span", `whimsy-onb-spark${accent ? " is-accent" : ""}`, sparkBox);
-        spark.style.cssText = `--x:${x}px;--y:${y}px;--s:${size}px`;
-        spark.dataset.delay = delay;
-        return spark;
-      });
-      const inner = this._el(doc, "div", "whimsy-onb-done-inner", overlay);
-      const row = this._el(doc, "div", "whimsy-onb-done-marks", inner);
-      const n = marks.length;
-      const tiles = marks.map((src, i) => {
-        const tile = this._el(doc, "span", "whimsy-onb-mark", row);
-        const mid = (n - 1) / 2;
-        tile.style.setProperty("--lift", `${-(mid - Math.abs(i - mid)) * 6}px`);
-        tile.dataset.delay = Math.abs(i - mid) * 60;
-        const img = this._el(doc, "img", "", tile);
-        img.src = src;
-        img.alt = "";
-        return tile;
-      });
-      const all = s.providers.size + s.services.size >= 9;
-      const list = new Intl.ListFormat(undefined, { type: "conjunction" }).format(names);
-      const t1 = this._el(doc, "h1", "whimsy-onb-t1", inner, "whimsy-onb-done-title");
-      t1.id = "whimsy-onb-done-title";
-      const t2 = this._el(doc, "p", "whimsy-onb-t2", inner, all ? "whimsy-onb-done-text-all" : names.length == 1 ? "whimsy-onb-done-text-one" : "whimsy-onb-done-text-list", { names: list });
-      const t3 = this._el(doc, "div", "whimsy-onb-t3", inner);
-      const go = this._el(doc, "button", "zen-big-accent-button primary", t3, "whimsy-onb-done-continue");
-      go.id = "whimsy-onb-done-continue";
-      go.style.width = "100%";
-      const t4 = this._el(doc, "p", "whimsy-onb-t4", inner, "whimsy-onb-done-hint");
-      const card = doc.getElementById("zen-welcome-pages");
-      (doc.getElementById("zen-welcome") ?? doc.documentElement).append(overlay);
-      const animations = [];
-      const play = (node, keyframes, options) => {
-        if (!this.instant) {
-          animations.push(node.animate(keyframes, { fill: "backwards", ...options }));
-        }
-      };
-      if (reduced(win)) {
-        play(overlay, { opacity: [0, 1] }, { duration: 250 });
-        if (card) {
-          play(card, { opacity: [1, 0] }, { duration: 250, fill: "forwards" });
-        }
-      } else {
-        if (card) {
-          play(card, { opacity: [1, 0], scale: [1, 0.94] }, { duration: 220, easing: EXIT, fill: "forwards" });
-        }
-        play(glow, { opacity: [0, 1], scale: [0.6, 1] }, { duration: 700, delay: 120, easing: "cubic-bezier(0.2, 0, 0, 1)" });
-        tiles.forEach(tile => play(tile, { opacity: [0, 1], translate: ["0 24px", "0 0"], scale: [0.6, 1] }, { duration: 520, delay: 160 + Number(tile.dataset.delay), easing: SPRING }));
-        sparks.forEach(spark => play(spark, { opacity: [0, 1, 0.7], scale: [0, 1.15, 1], rotate: ["-30deg", "0deg", "0deg"] }, { duration: 900, delay: 400 + Number(spark.dataset.delay), easing: "cubic-bezier(0.2, 0, 0, 1)" }));
-        [t1, t2, t3].forEach((node, i) => play(node, { opacity: [0, 1], translate: ["0 12px", "0 0"] }, { duration: 450, delay: 520 + i * 30, easing: TEXT_SPRING }));
-        play(t4, { opacity: [0, 1] }, { duration: 250, delay: 900, easing: "ease-out" });
-      }
-      if (card && this.instant) {
-        card.style.opacity = "0";
-      }
-      this.celebration = { overlay, animations, tiles };
-      let finished = false;
-      const finish = () => {
-        if (finished) {
-          return;
-        }
-        finished = true;
-        win.removeEventListener("keydown", onKey, true);
-        const out = this.instant ? null : overlay.animate({ opacity: [1, 0] }, { duration: 180, fill: "forwards" });
-        const done = () => {
-          overlay.remove();
-          for (const a of animations) {
-            a.cancel();
-          }
-          if (card) {
-            card.style.opacity = "";
-          }
-          this.celebration = null;
-          onDone?.();
-        };
-        out ? out.finished.then(done, done) : done();
-      };
-      const onKey = event => {
-        if (event.key == "Enter" && !event.repeat) {
-          event.preventDefault();
-          event.stopPropagation();
-          finish();
-        }
-      };
-      win.addEventListener("keydown", onKey, true);
-      go.addEventListener("click", finish);
-      go.focus();
+    const overlay = this._el(doc, "div", "", null);
+    overlay.id = "whimsy-onb-done";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-labelledby", "whimsy-onb-done-title");
+    const glow = this._el(doc, "div", "whimsy-onb-glow", overlay);
+    const sparkBox = this._el(doc, "div", "whimsy-onb-sparks", overlay);
+    const sparks = SPARKS.map(([x, y, size, delay, accent]) => {
+      const spark = this._el(doc, "span", `whimsy-onb-spark${accent ? " is-accent" : ""}`, sparkBox);
+      spark.style.cssText = `--x:${x}px;--y:${y}px;--s:${size}px`;
+      spark.dataset.delay = delay;
+      return spark;
     });
+    const inner = this._el(doc, "div", "whimsy-onb-done-inner", overlay);
+    const row = this._el(doc, "div", "whimsy-onb-done-marks", inner);
+    const n = marks.length;
+    const tiles = marks.map((src, i) => {
+      const tile = this._el(doc, "span", "whimsy-onb-mark", row);
+      const mid = (n - 1) / 2;
+      tile.style.setProperty("--lift", `${-(mid - Math.abs(i - mid)) * 6}px`);
+      tile.dataset.delay = Math.abs(i - mid) * 60;
+      const img = this._el(doc, "img", "", tile);
+      img.src = src;
+      img.alt = "";
+      return tile;
+    });
+    const all = s.providers.size + s.services.size >= 9;
+    const list = new Intl.ListFormat(undefined, { type: "conjunction" }).format(names);
+    const t1 = this._el(doc, "h1", "whimsy-onb-t1", inner, "whimsy-onb-done-title");
+    t1.id = "whimsy-onb-done-title";
+    const t2 = this._el(doc, "p", "whimsy-onb-t2", inner, all ? "whimsy-onb-done-text-all" : names.length == 1 ? "whimsy-onb-done-text-one" : "whimsy-onb-done-text-list", { names: list });
+    const t3 = this._el(doc, "div", "whimsy-onb-t3", inner);
+    const go = this._el(doc, "button", "zen-big-accent-button primary", t3, "whimsy-onb-done-continue");
+    go.id = "whimsy-onb-done-continue";
+    go.style.width = "100%";
+    const t4 = this._el(doc, "p", "whimsy-onb-t4", inner, "whimsy-onb-done-hint");
+    const card = doc.getElementById("zen-welcome-pages");
+    (doc.getElementById("zen-welcome") ?? doc.documentElement).append(overlay);
+    const animations = [];
+    const play = (node, keyframes, options) => {
+      if (!this.instant) {
+        animations.push(node.animate(keyframes, { fill: "backwards", ...options }));
+      }
+    };
+    if (reduced(win)) {
+      play(overlay, { opacity: [0, 1] }, { duration: 250 });
+      if (card) {
+        play(card, { opacity: [1, 0] }, { duration: 250, fill: "forwards" });
+      }
+    } else {
+      if (card) {
+        play(card, { opacity: [1, 0], scale: [1, 0.94] }, { duration: 220, easing: EXIT, fill: "forwards" });
+      }
+      play(glow, { opacity: [0, 1], scale: [0.6, 1] }, { duration: 700, delay: 120, easing: "cubic-bezier(0.2, 0, 0, 1)" });
+      tiles.forEach(tile => play(tile, { opacity: [0, 1], translate: ["0 24px", "0 0"], scale: [0.6, 1] }, { duration: 520, delay: 160 + Number(tile.dataset.delay), easing: SPRING }));
+      sparks.forEach(spark => play(spark, { opacity: [0, 1, 0.7], scale: [0, 1.15, 1], rotate: ["-30deg", "0deg", "0deg"] }, { duration: 900, delay: 400 + Number(spark.dataset.delay), easing: "cubic-bezier(0.2, 0, 0, 1)" }));
+      [t1, t2, t3].forEach((node, i) => play(node, { opacity: [0, 1], translate: ["0 12px", "0 0"] }, { duration: 450, delay: 520 + i * 30, easing: TEXT_SPRING }));
+      play(t4, { opacity: [0, 1] }, { duration: 250, delay: 900, easing: "ease-out" });
+    }
+    if (card && this.instant) {
+      card.style.opacity = "0";
+    }
+    this.celebration = { overlay, animations, tiles };
+    let finished = false;
+    const finish = () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      win.removeEventListener("keydown", onKey, true);
+      const out = this.instant ? null : overlay.animate({ opacity: [1, 0] }, { duration: 180, fill: "forwards" });
+      const done = () => {
+        overlay.remove();
+        for (const a of animations) {
+          a.cancel();
+        }
+        if (card) {
+          card.style.opacity = "";
+        }
+        this.celebration = null;
+        onDone?.();
+      };
+      out ? out.finished.then(done, done) : done();
+    };
+    const onKey = event => {
+      if (event.key == "Enter" && !event.repeat) {
+        event.preventDefault();
+        event.stopPropagation();
+        finish();
+      }
+    };
+    win.addEventListener("keydown", onKey, true);
+    go.addEventListener("click", finish);
+    go.focus();
+    return overlay;
   },
 };
 
