@@ -48,6 +48,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
   linkFor: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
+  WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
+  WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIHints: "resource:///modules/whimsy/WhimsyAIHints.sys.mjs",
+  WhimsyAIViewShare: "resource:///modules/whimsy/WhimsyAIViewShare.sys.mjs",
+  WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  LanguageDetector: "resource://gre/modules/translations/LanguageDetector.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -58,6 +66,8 @@ const KEY_ID = "key_whimsySelectionVerbs";
 // Cmd+K's own command: verbs only for a selection, else Firefox's search.
 const KEY_COMMAND_ID = "cmd_whimsySelectionVerbsKey";
 const DYNAMIC_TYPE = "whimsy-verb";
+// A greyed row that can't be picked (fu-media 4.10).
+const OFF_TYPE = "whimsy-verb-off";
 const ICONS = "chrome://browser/skin/zen-icons/";
 const MAX_SNIPPET = 40;
 
@@ -527,6 +537,292 @@ function score(label, query) {
   return i == q.length ? 1 : 0;
 }
 
+// ---------------------------------------------------------------------------
+// W23 ⌘K: context-aware AI commands (spec "⌘K"; cmd-3.x, cmd dec-11–15).
+// With AI on in a normal tab, ⌘K measures the view once as it opens and
+// groups commands: the selection's (AI text commands, then today's verbs
+// with Search first, then yours), or with nothing selected the kinds of
+// content by how much of the view each takes (ties article > video >
+// image, three rows each), a product page's commands on top. The order is
+// frozen while the bar is open. Typing flattens everything into one ranked
+// list; with no match, an Ask row scoped to the screen, then web search.
+// AI off or private: exactly the verbs above, unchanged.
+
+const CONTEXT_FEATURE = "whimsy.feature.ai-context-commands";
+const SPARKLE = `${ICONS}sparkles.svg`;
+const WICONS = "chrome://browser/content/whimsy/icons/";
+const VIEW_KINDS = ["article", "video", "image"];
+const TOP_ROWS = 3;
+const MIN_SHARE = 0.04;
+// "This page": optional rows other lanes register keep this order, with
+// "Change this page…" right above Zap Elements.
+const PAGE_ORDER = ["pip", "change-page", "zap", "translate", "copy-markdown", "note", "email", "linear-new"];
+
+function contextOn(win) {
+  const tab = win?.gBrowser?.selectedTab;
+  return Services.prefs.getBoolPref(CONTEXT_FEATURE, true) && lazy.WhimsyAI.enabled && !!tab && !lazy.WhimsyAIContext.isPrivate(tab);
+}
+
+function chat(win, opts) {
+  win.gURLBar.view.close();
+  return lazy.WhimsyChat.open(win, { focus: "composer", ...opts });
+}
+
+function languageName(tag) {
+  try {
+    return new Intl.DisplayNames([Services.locale.appLocaleAsBCP47], { type: "language" }).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
+}
+
+const base = tag => String(tag ?? "").split("-")[0].toLowerCase();
+
+// The AI rows each kind of content offers. `text` rows answer in the bar's
+// card on read-only text and replace in place in a field.
+const AI_ROWS = {
+  selection: [
+    { id: "ai:explain", l10nId: "whimsy-cmdk-explain", icon: SPARKLE, prompt: "Explain the text below simply and briefly, in the language I use. Say what it means and why it matters.\n\n{selection}" },
+    { id: "ai:translate", command: "translate", translate: true },
+    { id: "ai:ask-selection", l10nId: "whimsy-cmdk-ask-selection", icon: `${WICONS}chat.svg`, run: (win, s) => chat(win, { prompt: `“${firstLine(s.text, 200)}” ` }) },
+  ],
+  field: [
+    { id: "ai:improve", command: "improve" },
+    { id: "ai:fix", command: "fix" },
+    { id: "ai:translate", command: "translate", translate: true },
+  ],
+  article: [
+    {
+      id: "ai:summarize-page",
+      l10nId: "whimsy-cmdk-summarize-page",
+      icon: `${WICONS}summarize.svg`,
+      unavailable: (win, s, view) => ((view?.textChars ?? 0) < 200 ? "whimsy-cmdk-unavailable-no-text" : null),
+      run: win => chat(win, { prompt: lazy.l10n.formatValueSync("whimsy-cmdk-summarize-prompt"), send: true }),
+    },
+    { id: "ai:ask-page", l10nId: "whimsy-cmdk-ask-page", icon: `${WICONS}chat.svg`, run: win => chat(win) },
+  ],
+  video: [{ id: "ai:ask-video", l10nId: "whimsy-cmdk-ask-video", icon: `${WICONS}chat.svg`, run: win => chat(win) }],
+  image: [
+    {
+      id: "ai:ask-image",
+      l10nId: "whimsy-cmdk-ask-image",
+      l10nArgs: (s, view) => ({ count: lazy.WhimsyAIViewShare.pickImages(view).length }),
+      icon: `${WICONS}chat.svg`,
+      run: win => chat(win),
+    },
+  ],
+  product: [{ id: "ai:ask-product", l10nId: "whimsy-cmdk-ask-product", icon: `${WICONS}chat.svg`, run: win => chat(win) }],
+};
+
+export const WhimsyContextCommands = {
+  // Tests stand in for language detection: text -> BCP 47 tag or null.
+  detectLanguage: null,
+
+  async languageOf(text) {
+    if (this.detectLanguage) {
+      return this.detectLanguage(text);
+    }
+    try {
+      const { language, languages } = await lazy.LanguageDetector.detectLanguage(text);
+      const tag = languages?.[0]?.languageCode || language || null;
+      return tag == "un" || tag == "und" ? null : tag;
+    } catch {
+      return null;
+    }
+  },
+
+  /** Fills in what ⌘K needs to rank: the view, the selection's field and language. */
+  async prepare(win, subject) {
+    subject.view = await lazy.WhimsyAIViewShare.measure(win);
+    if (subject.kind == "selection") {
+      const info = subject.context ? await lazy.WhimsyAIViewShare.selectionInfo(subject.context) : null;
+      subject.editable = !!info?.editable;
+      subject.sensitive = info?.sensitive ?? null;
+      const lang = await this.languageOf(subject.text);
+      const mine = Services.locale.appLocaleAsBCP47;
+      subject.foreign = lang && base(lang) != base(mine) ? { from: lang, to: mine } : null;
+    }
+    return subject;
+  },
+
+  // A row as the bar shows it.
+  aiRow(def, subject, view) {
+    const cmd = def.command ? lazy.WhimsyAICommands.get(def.command) : null;
+    if (def.command && (!cmd || cmd.hidden)) {
+      return null;
+    }
+    const row = {
+      id: def.id,
+      icon: def.icon ?? cmd?.icon,
+      label: cmd?.name || lazy.l10n.formatValueSync(def.l10nId, def.l10nArgs?.(subject, view)),
+      run: def.run ?? ((win, s) => this.runText(win, s, cmd ?? { name: lazy.l10n.formatValueSync(def.l10nId), prompt: def.prompt, result: "copy" })),
+    };
+    if (def.translate && subject.foreign) {
+      row.tag = lazy.l10n.formatValueSync("whimsy-cmdk-translate-pair", { from: languageName(subject.foreign.from), to: languageName(subject.foreign.to) });
+    } else if (subject.editable && subject.kind == "selection") {
+      row.tag = lazy.l10n.formatValueSync("whimsy-commands-result-replace");
+    }
+    const reason = def.unavailable?.(null, subject, view);
+    if (reason) {
+      row.unavailable = lazy.l10n.formatValueSync(reason);
+    }
+    return row;
+  },
+
+  verbRow(win, verb, subject, view) {
+    const row = { id: verb.id, icon: verb.icon, label: WhimsyVerbs.labelFor(verb, subject, win), run: (w, s) => verb.run(w, s) };
+    if (verb.tag) {
+      row.tag = typeof verb.tag == "function" ? verb.tag(win, subject, view) : verb.tag;
+    }
+    const reason = verb.unavailable?.(win, subject, view);
+    if (reason) {
+      row.unavailable = typeof reason == "string" ? lazy.l10n.formatValueSync(reason) : reason.text;
+    }
+    return row;
+  },
+
+  // Your commands, tagged with their output; "Edit commands…" last.
+  yours(win, subject) {
+    const rows = [];
+    for (const cmd of lazy.WhimsyAICommands.list().filter(c => !c.builtIn)) {
+      rows.push({
+        id: `cmd:${cmd.id}`,
+        icon: cmd.icon,
+        label: cmd.name,
+        tag: lazy.l10n.formatValueSync(`whimsy-commands-result-${cmd.result}`),
+        run: (w, s) => (cmd.result == "link" ? lazy.WhimsyAICommands.run(w, cmd.id, s) : this.runText(w, s, cmd)),
+      });
+    }
+    rows.push({
+      id: "edit-commands",
+      icon: `${ICONS}edit-theme.svg`,
+      label: lazy.l10n.formatValueSync("whimsy-action-edit-commands"),
+      tag: lazy.l10n.formatValueSync("whimsy-cmdk-tag-settings"),
+      run: w => lazy.WhimsyAICommands.openSettings(w),
+    });
+    return rows;
+  },
+
+  /**
+   * The groups ⌘K shows for a subject and the view (cmd dec-11), each
+   * {kind, label, rows, all}: `rows` what shows before typing, `all`
+   * what typing searches.
+   */
+  rank(win, subject, view = subject.view) {
+    const groups = [];
+    const registered = kind => WhimsyVerbs.registered.filter(v => v.group == kind && (!v.isAvailable || v.isAvailable(win, subject, view)));
+    const make = (kind, label, rows, { top = Infinity } = {}) => {
+      const all = rows.filter(Boolean);
+      if (all.length) {
+        groups.push({ kind, label, all, rows: all.filter(r => !r.unavailable).slice(0, top) });
+      }
+    };
+    const verbs = WhimsyVerbs.verbsFor(win, subject).filter(v => !v.group && !String(v.id).startsWith("skill:"));
+    const title = firstLine(subject.title ?? "", MAX_SNIPPET);
+    if (subject.kind == "selection") {
+      const kind = subject.editable ? "field" : "selection";
+      let ai = AI_ROWS[kind].map(def => this.aiRow(def, subject, view));
+      if (subject.foreign) {
+        ai = [...ai.filter(r => r?.id == "ai:translate"), ...ai.filter(r => r?.id != "ai:translate")];
+      }
+      if (!subject.sensitive) {
+        make(kind, { id: subject.editable ? "whimsy-cmdk-group-field" : "whimsy-cmdk-group-selection", args: { text: firstLine(subject.text, MAX_SNIPPET) } }, ai);
+      }
+      const today = verbs.filter(v => v.id != "translate" || subject.sensitive);
+      make("verbs", { id: "whimsy-cmdk-group-verbs" }, today.map(v => this.verbRow(win, v, subject, view)));
+      make("yours", { id: "whimsy-cmdk-group-yours" }, this.yours(win, subject));
+      return groups;
+    }
+    const shares = view?.shares ?? {};
+    const kinds = VIEW_KINDS.filter(k => (shares[k] ?? 0) >= MIN_SHARE || (k == "article" && !view))
+      .sort((a, b) => Math.round((shares[b] ?? 0) * 50) - Math.round((shares[a] ?? 0) * 50) || VIEW_KINDS.indexOf(a) - VIEW_KINDS.indexOf(b));
+    if (view?.product) {
+      kinds.unshift("product");
+    }
+    for (const [i, kind] of kinds.entries()) {
+      const rows = [...registered(kind).map(v => this.verbRow(win, v, subject, view)), ...AI_ROWS[kind].map(def => this.aiRow(def, subject, view))];
+      if (kind == "product") {
+        // Compare and Watch price (the page's chips) lead.
+        rows.sort((a, b) => (/compare|watch-price/.test(b.id) ? 1 : 0) - (/compare|watch-price/.test(a.id) ? 1 : 0));
+      }
+      make(kind, this.groupLabel(kind, i == 0, title, view), rows, { top: kind == "product" ? 4 : TOP_ROWS });
+    }
+    const page = [...registered("page"), ...verbs].sort((a, b) => {
+      const at = id => (PAGE_ORDER.includes(id) ? PAGE_ORDER.indexOf(id) : PAGE_ORDER.length);
+      return at(a.id) - at(b.id);
+    });
+    make("page", kinds.length ? { id: "whimsy-cmdk-group-page" } : { id: "whimsy-verbs-row-page", args: { text: title } }, page.map(v => this.verbRow(win, v, subject, view)));
+    make("yours", { id: "whimsy-cmdk-group-yours" }, this.yours(win, subject));
+    return groups;
+  },
+
+  groupLabel(kind, first, title, view) {
+    if (kind == "image") {
+      const count = lazy.WhimsyAIViewShare.pickImages(view).length;
+      return { id: "whimsy-cmdk-group-image", args: { count } };
+    }
+    return first ? { id: `whimsy-cmdk-group-${kind}-top`, args: { title } } : { id: `whimsy-cmdk-group-${kind}` };
+  },
+
+  /** Typing: every row, by match (word starts first), unavailable ones greyed. */
+  filter(groups, query) {
+    const seen = new Set();
+    const rows = [];
+    for (const group of groups) {
+      for (const row of group.all) {
+        if (seen.has(row.id)) {
+          continue;
+        }
+        seen.add(row.id);
+        const value = score(row.label, query);
+        if (value > 0) {
+          rows.push({ row, value, index: rows.length });
+        }
+      }
+    }
+    return rows.sort((a, b) => b.value - a.value || a.index - b.index).map(r => r.row);
+  },
+
+  // A text command: in a field it replaces the selection in place; on
+  // read-only text it answers in the bar's card.
+  async runText(win, subject, cmd) {
+    const { WhimsyAICommands: commands } = lazy;
+    const prompt = commands.promptFor(cmd, subject);
+    if (subject.editable && (cmd.result == "replace" || cmd.builtIn)) {
+      win.gURLBar.view.close();
+      try {
+        const { text } = cmd.id && commands.get(cmd.id) ? await commands.run(win, cmd.id, subject) : { text: "" };
+        if (text && (await this.replace(subject, text))) {
+          lazy.WhimsyUndo.showToast(win, "whimsy-cmdk-replaced-toast", { undo: () => this.undoReplace(subject) }, { name: cmd.name });
+        }
+      } catch (e) {
+        console.error("Whimsy: ⌘K command", e);
+        win.gZenUIManager?.showToast?.("whimsy-cmdk-failed-toast", { l10nArgs: { name: cmd.name } });
+      }
+      return;
+    }
+    const question = subject.kind == "selection" ? `${cmd.name}: “${firstLine(subject.text, MAX_SNIPPET)}”` : cmd.name;
+    win.setTimeout(() => lazy.WhimsyCommandBarAI.ask(win, question, { prompt, provider: cmd.model && cmd.model != "auto" ? cmd.model : null }), 0);
+  },
+
+  async replace(subject, text) {
+    try {
+      return !!(await subject.context?.currentWindowGlobal?.getActor("WhimsyAIViewShare").sendQuery("Whimsy:ReplaceSelection", { text }));
+    } catch (e) {
+      console.error("Whimsy: replace in place", e);
+      return false;
+    }
+  },
+
+  async undoReplace(subject) {
+    try {
+      await subject.context?.currentWindowGlobal?.getActor("WhimsyAIViewShare").sendQuery("Whimsy:UndoReplace");
+    } catch (e) {
+      console.error("Whimsy: undo replace", e);
+    }
+  },
+};
+
 let nextSubjectId = 0;
 
 export const WhimsyVerbs = {
@@ -696,6 +992,7 @@ export const WhimsyVerbs = {
           url,
           title,
           event: parseEvent(found.text),
+          context,
         };
       } catch (e) {
         // A frame that went away.
@@ -717,16 +1014,30 @@ export const WhimsyVerbs = {
 
   /**
    * Cmd+K: with text selected, its verbs (Search first); otherwise exactly
-   * Firefox's Cmd+K, the web search.
+   * Firefox's Cmd+K, the web search. With AI on in a normal tab, the
+   * context-aware menu (WhimsyContextCommands), selection or not.
    */
   async openFromKey(win) {
     const subject = this.enabled ? await this.subjectFor(win) : null;
-    if (subject?.kind != "selection") {
+    const aware = !!subject && contextOn(win);
+    if (subject?.kind != "selection" && !aware) {
       this.search(win);
       return null;
     }
+    if (aware) {
+      await WhimsyContextCommands.prepare(win, subject);
+      subject.groups = WhimsyContextCommands.rank(win, subject);
+    }
     await this.start(win, subject);
+    if (aware) {
+      lazy.WhimsyCommandBarAI.askHintWhenDrawn(win, "context-commands");
+    }
     return subject;
+  },
+
+  /** The ⌘K groups for a subject and the view's share (cmd dec-11). */
+  rank(subject, viewShare, win = lazy.BrowserWindowTracker.getTopWindow()) {
+    return WhimsyContextCommands.rank(win, subject, viewShare);
   },
 
   // Firefox's own Cmd+K (key_search): focus the web search.
@@ -802,6 +1113,11 @@ export const WhimsyVerbs = {
 
   initWindow(win) {
     this.init();
+    win.windowUtils.loadSheetUsingURIString("chrome://browser/content/whimsy/whimsy-cmdk.css", win.windowUtils.AUTHOR_SHEET);
+    lazy.WhimsyAIHints.register({
+      id: "context-commands",
+      isVisible: w => !!this.sessions.get(w)?.groups && !!w.gURLBar?.view.isOpen,
+    });
     const shortcuts = lazy.WhimsyShortcuts;
     // The command bar's "Actions for Selection" (selection or page verbs)
     // is a registered command; Cmd+K is its own command (verbs only for a
@@ -1064,6 +1380,10 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
     }
     const { win, subject } = session;
     const query = context.searchString ?? "";
+    if (subject.groups) {
+      this.#contextRows(subject, query, addCallback);
+      return;
+    }
     const snippet = subject.kind == "selection" ? firstLine(subject.text, MAX_SNIPPET) : subject.title;
     const rows = WhimsyVerbs.verbsFor(win, subject)
       .map((verb, index) => ({ verb, index, label: WhimsyVerbs.labelFor(verb, subject, win) }))
@@ -1096,21 +1416,99 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
     }
   }
 
-  getViewTemplate() {
+  #result(subject, row, rowLabel, heuristic = false, extra = {}) {
+    return new lazy.UrlbarResult({
+      type: UrlbarShared.RESULT_TYPE.DYNAMIC,
+      source: UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS,
+      heuristic,
+      rowLabel,
+      payload: {
+        dynamicType: row.unavailable ? OFF_TYPE : DYNAMIC_TYPE,
+        zenAction: true,
+        whimsyVerb: row.id,
+        subjectId: subject.id,
+        title: row.label,
+        icon: row.icon ?? "",
+        tag: row.tag ?? "",
+        detail: row.unavailable ?? "",
+        ...extra,
+      },
+    });
+  }
+
+  // ⌘K's groups in their frozen order; typing flattens them (cmd-3.9),
+  // and with nothing to pick, Ask about what's on screen, then search.
+  #contextRows(subject, query, addCallback) {
+    if (!query.trim()) {
+      for (const group of subject.groups) {
+        for (const row of group.rows) {
+          addCallback(this, this.#result(subject, row, group.label));
+        }
+      }
+      return;
+    }
+    const rows = WhimsyContextCommands.filter(subject.groups, query);
+    let first = true;
+    for (const row of rows) {
+      addCallback(this, this.#result(subject, row, { id: "whimsy-cmdk-group-commands" }, first && !row.unavailable));
+      first &&= !!row.unavailable;
+    }
+    if (!first) {
+      return;
+    }
+    const text = query.trim();
+    const search = { id: "web-search", icon: `${ICONS}search-glass.svg`, label: text, tag: lazy.l10n.formatValueSync("whimsy-cmdk-search-with", { engine: subject.engineName || defaultEngineName(lazy.BrowserWindowTracker.getTopWindow()) }) };
+    if (!rows.length) {
+      const scope = subject.groups[0]?.kind == "video" ? "video" : "page";
+      const ask = { id: "ask", icon: SPARKLE, label: text, tag: lazy.l10n.formatValueSync(scope == "video" ? "whimsy-cmdbar-ask-video" : "whimsy-cmdk-ask-page") };
+      addCallback(this, this.#result(subject, ask, { id: "whimsy-cmdk-no-match" }, true, { query: text, scope }));
+      addCallback(this, this.#result(subject, search, { id: "whimsy-cmdk-no-match" }, false, { query: text }));
+      return;
+    }
+    addCallback(this, this.#result(subject, search, { id: "whimsy-cmdk-group-search" }, false, { query: text }));
+  }
+
+  getViewTemplate(result) {
+    const off = result.payload.dynamicType == OFF_TYPE;
     return {
-      attributes: { selectable: true },
+      attributes: off ? { "aria-disabled": "true" } : { selectable: true },
       children: [
         { name: "icon", tag: "img", classList: ["urlbarView-favicon"] },
         { name: "title", tag: "span", classList: ["urlbarView-title"] },
+        { name: "detail", tag: "span", classList: ["whimsy-cmdk-detail"] },
+        { name: "tag", tag: "span", classList: ["whimsy-cmdk-tag"] },
       ],
     };
   }
 
   getViewUpdate(result) {
+    const { icon, title, tag, detail } = result.payload;
     return {
-      icon: { attributes: { src: result.payload.icon } },
-      title: { textContent: result.payload.title },
+      icon: { attributes: { src: icon || null, hidden: !icon || null } },
+      title: { textContent: title },
+      detail: { textContent: detail ?? "", attributes: { hidden: !detail || null } },
+      tag: { textContent: tag ?? "", attributes: { hidden: !tag || null } },
     };
+  }
+
+  #runContext(win, subject, payload) {
+    const { whimsyVerb: id, query, scope } = payload;
+    const row = subject.groups.flatMap(g => g.all).find(r => r.id == id);
+    if ((!row && id != "ask" && id != "web-search") || row?.unavailable) {
+      return;
+    }
+    WhimsyVerbs.sessions.delete(win);
+    win.gURLBar.searchMode = null;
+    lazy.WhimsyAIHints.used("context-commands");
+    if (id == "ask") {
+      win.setTimeout(() => lazy.WhimsyCommandBarAI.ask(win, query, { scope }), 0);
+      return;
+    }
+    win.gBrowser.selectedBrowser.focus();
+    const run = id == "web-search" ? () => BUILT_IN[0].run(win, { ...subject, text: query }) : () => row.run(win, subject);
+    Promise.resolve()
+      .then(run)
+      .catch(e => console.error(`Whimsy: ⌘K ${id}`, e));
   }
 
   onEngagement(_context, _controller, details) {
@@ -1118,6 +1516,10 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
     const subject = WhimsyVerbs.subjects.get(subjectId);
     const win = details.element?.documentGlobal ?? lazy.BrowserWindowTracker.getTopWindow();
     if (!subject || !win || !WhimsyVerbs.enabled) {
+      return;
+    }
+    if (subject.groups) {
+      this.#runContext(win, subject, details.result.payload);
       return;
     }
     WhimsyVerbs.sessions.delete(win);

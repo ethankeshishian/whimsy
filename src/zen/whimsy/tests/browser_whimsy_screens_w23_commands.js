@@ -200,11 +200,24 @@ add_task(async function shots_empty_and_deleted() {
 });
 
 add_task(async function shots_mid_animation() {
-  // The sheet fades and scales in over 160ms; held at 80ms.
+  // The sheet fades and scales in over 160ms and its scrim over 150ms; both held at 80ms.
   await seed();
   const page = await openCommands();
   click(page, page.$("whimsyCommandsNew"));
-  await whimsyShotMid("w23-commands-sheet-open", () => page.S.sheet?.animation, 80);
+  const both = () => {
+    const { animation: a, scrimAnimation: s } = page.S.sheet ?? {};
+    return a && s && {
+      pause: () => (a.pause(), s.pause()),
+      set currentTime(ms) {
+        a.currentTime = s.currentTime = ms;
+      },
+      get currentTime() {
+        return a.currentTime;
+      },
+      play: () => (a.play(), s.play()),
+    };
+  };
+  await whimsyShotMid("w23-commands-sheet-open", both, 80);
   await settled(page);
   ok(visible(page.$("whimsyAISheet")), "The sheet finished opening");
   await done(page);

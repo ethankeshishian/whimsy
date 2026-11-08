@@ -482,6 +482,16 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
+    // W23 ⌘K: the view's make-up when ⌘K opens, and what the selection sits in.
+    ChromeUtils.registerWindowActor("WhimsyAIViewShare", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIViewShare.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyAIViewShareChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
     // wave5/quick: link lasso. The child only acts on an Option-drag the
     // page didn't handle; the parent makes the folder.
     ChromeUtils.registerWindowActor("WhimsyLasso", {
