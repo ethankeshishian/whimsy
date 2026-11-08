@@ -32,6 +32,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyChatAnswer: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
   WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
   WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
+  WhimsyFindCard: "resource:///modules/whimsy/WhimsyFindCard.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyLinkHover: "resource:///modules/whimsy/WhimsyLinkHover.sys.mjs",
   noteLine: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
@@ -83,6 +84,7 @@ export const WhimsyAIPage = {
     }
     const state = { findbars: new WeakSet() };
     windows.set(win, state);
+    lazy.WhimsyFindCard.initWindow(win);
     win.addEventListener("TabFindInitialized", event => {
       const findbar = win.gBrowser.getCachedFindBar(event.target);
       if (findbar) {
@@ -117,6 +119,8 @@ export const WhimsyAIPage = {
       return;
     }
     state.findbars.add(findbar);
+    lazy.WhimsyFindCard.attach(win, findbar);
+    const card = lazy.WhimsyFindCard.isCard(findbar);
     const doc = win.document;
     const field = findbar._findField;
     const ask = doc.createXULElement("toolbarbutton");
@@ -133,12 +137,22 @@ export const WhimsyAIPage = {
       this.askEnabled &&
       !!field.value.trim() &&
       field.getAttribute("status") == "notfound" &&
-      findbar.findMode == findbar.FIND_NORMAL;
+      findbar.findMode == findbar.FIND_NORMAL &&
+      !findbar.hasAttribute("whimsy-image-matches");
+    // In the floating card, Ask keeps its place so nothing moves when it shows (fu-page 1.7).
     const update = () => {
-      ask.hidden = !askable();
+      if (card) {
+        ask.hidden = !this.askEnabled || findbar.findMode != findbar.FIND_NORMAL;
+        ask.toggleAttribute("askable", askable());
+      } else {
+        ask.hidden = !askable();
+      }
     };
+    update();
     new win.MutationObserver(update).observe(field, { attributes: true, attributeFilter: ["status"] });
+    new win.MutationObserver(update).observe(findbar, { attributes: true, attributeFilter: ["whimsy-image-matches"] });
     field.addEventListener("input", update);
+    findbar.addEventListener("WhimsyFindUIUpdated", update);
     const send = () => {
       this.askOnPage(win, findbar, field.value.trim()).catch(error => console.error("Whimsy: Ask on Page", error));
     };
@@ -241,13 +255,29 @@ export const WhimsyAIPage = {
   showAnswer(win, findbar, { question, loading, answer, quote, error }, panel = null) {
     const doc = win.document;
     panel ??= this._askPanel(win);
+    const card = lazy.WhimsyFindCard.isCard(findbar);
+    panel.toggleAttribute("whimsy-find-card", card);
+    panel.toggleAttribute("hidepopovertail", card);
     const box = doc.createElementNS(HTML, "div");
     box.className = "whimsy-ask-body";
     box.setAttribute("aria-live", "polite");
     const q = doc.createElementNS(HTML, "div");
     q.className = "whimsy-ask-question";
     q.textContent = question;
-    box.append(q);
+    if (card) {
+      // page-1.8 under the floating bar: the question with a close, then the answer.
+      const head = doc.createElementNS(HTML, "div");
+      head.className = "whimsy-ask-head";
+      const close = doc.createElementNS(HTML, "button");
+      close.className = "whimsy-ask-close";
+      doc.l10n.setAttributes(close, "whimsy-ask-close");
+      close.addEventListener("click", () => this.hideAnswer(win));
+      head.append(q, close);
+      box.append(head);
+    } else {
+      box.append(q);
+    }
+    let find = null;
     if (loading) {
       const status = doc.createElementNS(HTML, "div");
       status.className = "whimsy-ai-loading";
@@ -267,34 +297,86 @@ export const WhimsyAIPage = {
         const blockquote = doc.createElementNS(HTML, "blockquote");
         blockquote.className = "whimsy-ask-quote";
         blockquote.textContent = quote;
-        const find = doc.createElementNS(HTML, "button");
+        find = doc.createElementNS(HTML, "button");
         find.className = "whimsy-ask-find";
         doc.l10n.setAttributes(find, "whimsy-ask-find-on-page");
         find.addEventListener("click", () => this.findQuote(win, findbar, quote));
-        box.append(blockquote, find);
+        box.append(blockquote);
+        if (!card) {
+          box.append(find);
+        }
       }
     }
     const plan = lazy.WhimsyAIProviders.planInUse;
-    if (plan) {
-      const footer = doc.createElementNS(HTML, "div");
+    let footer = null;
+    if (plan || card) {
+      footer = doc.createElementNS(HTML, "div");
       footer.className = "whimsy-ask-plan";
       const label = doc.createElementNS(HTML, "span");
-      doc.l10n.setAttributes(label, "whimsy-ai-plan-using", { provider: lazy.WhimsyAIProviders.providerName(plan) });
+      if (plan) {
+        doc.l10n.setAttributes(label, "whimsy-ai-plan-using", { provider: lazy.WhimsyAIProviders.providerName(plan) });
+      } else {
+        doc.l10n.setAttributes(label, "whimsy-ask-using", { provider: lazy.WhimsyAIProviders.providerName() });
+      }
       footer.append(label);
-      if (lazy.WhimsyAIProviders.canManageUsage(plan)) {
+      if (plan && lazy.WhimsyAIProviders.canManageUsage(plan)) {
         const manage = doc.createElementNS(HTML, "button");
         manage.className = "whimsy-ask-manage";
         doc.l10n.setAttributes(manage, "whimsy-ask-manage-usage");
         manage.addEventListener("click", () => lazy.WhimsyAIProviders.manageUsage(win, plan));
         footer.append(manage);
       }
+    }
+    if (card) {
+      const foot = doc.createElementNS(HTML, "div");
+      foot.className = "whimsy-ask-foot";
+      foot.append(footer);
+      if (find) {
+        foot.append(find);
+      }
+      if (answer && !loading && !error) {
+        const more = doc.createElementNS(HTML, "button");
+        more.className = "whimsy-ask-continue";
+        doc.l10n.setAttributes(more, "whimsy-ask-continue");
+        more.addEventListener("click", () => {
+          this.continueInChat(win, findbar, { question, answer, quote }).catch(e => console.error("Whimsy: Continue in chat", e));
+        });
+        foot.append(more);
+      }
+      box.append(foot);
+    } else if (footer) {
       box.append(footer);
     }
     panel.replaceChildren(box);
     if (panel.state == "closed" || panel.state == "hiding") {
-      panel.openPopup(findbar._findField, "after_start", 0, 6, false, false);
+      if (card) {
+        panel.openPopup(findbar, "after_end", 0, 8, false, false);
+      } else {
+        panel.openPopup(findbar._findField, "after_start", 0, 6, false, false);
+      }
     }
     return panel;
+  },
+
+  /** Moves a find-bar answer into the tab's chat, where the conversation goes on. */
+  async continueInChat(win, findbar, { question, answer, quote }) {
+    const tab = win.gBrowser.getTabForBrowser(findbar.browser);
+    if (!tab) {
+      return null;
+    }
+    let thread = await lazy.WhimsyChatThreads.forTab(tab);
+    thread = await lazy.WhimsyChatThreads.persist(thread, tab);
+    const source = { tabKey: lazy.WhimsyAIContext.tabKey(tab), url: findbar.browser.currentURI.spec, title: tab.label, quote: quote || "" };
+    await lazy.WhimsyAIStore.append(thread.id, { role: "user", text: question });
+    await lazy.WhimsyAIStore.append(thread.id, {
+      role: "ai",
+      text: answer,
+      citations: quote ? [{ n: 1, at: answer.length, source }] : [],
+      provider: lazy.WhimsyAIProviders.provider,
+    });
+    this.hideAnswer(win);
+    await lazy.WhimsyChat.open(win, { threadId: thread.id });
+    return thread;
   },
 
   hideAnswer(win) {

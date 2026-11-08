@@ -132,6 +132,14 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     if (token != this.passageToken || !this.contentWindow) {
       return false;
     }
+    // The layout can shift while the scroll runs (a side panel opening, images loading): land exactly.
+    if (win.scrollMaxY > 0) {
+      const landed = range.getBoundingClientRect().top - win.innerHeight / 3;
+      const fixed = Math.max(0, Math.min(win.scrollMaxY, win.scrollY + landed));
+      if (Math.abs(fixed - win.scrollY) > 8) {
+        win.scrollTo({ top: fixed, behavior: "instant" });
+      }
+    }
     this.paintPassage(win, range, String(color || "AccentColor"), reduced);
     return true;
   }
@@ -229,7 +237,8 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     const pages = [];
     let recognized = 0;
     for (let n = 1; n <= count; n++) {
-      const page = await pdf.getPage(n);
+      // Values a content promise resolves to come back Xray-wrapped; pdf.js's objects are plain JS.
+      const page = Cu.waiveXrays(await pdf.getPage(n));
       const content = await page.getTextContent();
       let text = [...Cu.waiveXrays(content).items].map(item => String(item?.str ?? "")).join(" ").replace(/\s+/g, " ").trim();
       if (!text && ocr) {
@@ -257,7 +266,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       const params = new content.Object();
       params.canvasContext = Cu.waiveXrays(canvas.getContext("2d"));
       params.viewport = viewport;
-      await page.render(params).promise;
+      await Cu.waiveXrays(page.render(params)).promise;
       const img = doc.createElement("img");
       img.src = canvas.toDataURL("image/png");
       await img.decode();

@@ -6095,3 +6095,21 @@ whimsy-summary-again = Sum up again
 # A passage chip in a PDF names its page.
 whimsy-summary-cite-page = p. { $page }
 whimsy-summary-ocr = This PDF is scanned, so I read it with text recognition on this Mac. Small print may be off.
+# Find as a floating card at the top right (fu-page 1.7), with Ask.
+whimsy-find-options-command = Find Options
+whimsy-find-more =
+    .tooltiptext = More find options
+    .aria-label = More find options
+whimsy-find-menu =
+    .aria-label = Find options
+whimsy-find-highlight-all = Highlight All
+whimsy-find-match-case = Match Case
+whimsy-find-match-diacritics = Match Diacritics
+whimsy-find-whole-words = Whole Words
+whimsy-find-links-only = Find in Links Only
+whimsy-ask-close =
+    .title = Close
+    .aria-label = Close
+# $provider is the AI that answered, like Claude.
+whimsy-ask-using = Using { $provider }
+whimsy-ask-continue = Continue in chat

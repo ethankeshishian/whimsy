@@ -1009,3 +1009,5 @@ support-files = ["whimsy_claude_code_install.sjs", "whimsy_claude_code_manifest.
 # W23 page-read
 ["browser_whimsy_ai_summary.js"]
 support-files = ["whimsy_ai_page.html", "whimsy_ai_long.html", "whimsy_ai_lease.pdf", "whimsy_ai_scanned.pdf"]
+["browser_whimsy_find_card.js"]
+support-files = ["whimsy_ai_page.html"]

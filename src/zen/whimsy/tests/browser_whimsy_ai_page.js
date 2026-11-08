@@ -59,6 +59,12 @@ function askButton(findbar) {
   return findbar.querySelector(".whimsy-ask-button");
 }
 
+// The floating find card keeps Ask laid out and marks it askable; the old bar hides it.
+function askOffered(findbar) {
+  const ask = askButton(findbar);
+  return !!ask && !ask.hidden && (!findbar.hasAttribute("whimsy-find-card") || ask.hasAttribute("askable"));
+}
+
 add_task(async function test_ask_on_page() {
   ok(Services.prefs.getBoolPref("whimsy.feature.ask-on-page"), "The feature switch is on");
   await BrowserTestUtils.withNewTab(PAGE, async () => {
@@ -66,12 +72,12 @@ add_task(async function test_ask_on_page() {
     let findbar = await openFind("Lisbon");
     await TestUtils.waitForCondition(() => findbar._findField.getAttribute("status") != "pending", "Find ran");
     await new Promise(r => setTimeout(r, 300));
-    ok(askButton(findbar)?.hidden, "Found text doesn't offer Ask");
+    ok(!askOffered(findbar), "Found text doesn't offer Ask");
 
     // Not on the page: Ask appears, and Enter asks.
     requests = [];
     findbar = await openFind("where is the offsite");
-    await TestUtils.waitForCondition(() => !askButton(findbar).hidden, "The Ask button appears when nothing is found");
+    await TestUtils.waitForCondition(() => askOffered(findbar), "The Ask button appears when nothing is found");
     EventUtils.synthesizeKey("KEY_Enter");
     const panel = await TestUtils.waitForCondition(() => {
       const p = document.getElementById("whimsy-ask-panel");
@@ -91,7 +97,7 @@ add_task(async function test_ask_on_page() {
     // A made-up quote isn't offered.
     WhimsyAIProviders.setTestProvider(() => JSON.stringify({ answer: "Yes.", quote: "Something the page never says at all." }));
     findbar = await openFind("is there a quote");
-    await TestUtils.waitForCondition(() => !askButton(findbar).hidden, "Ask again");
+    await TestUtils.waitForCondition(() => askOffered(findbar), "Ask again");
     askButton(findbar).doCommand();
     await TestUtils.waitForCondition(() => panel.state == "open" && panel.querySelector(".whimsy-ask-answer"), "Answered");
     ok(!panel.querySelector(".whimsy-ask-quote"), "No quote that isn't on the page");
@@ -102,7 +108,7 @@ add_task(async function test_ask_on_page() {
     Services.prefs.setBoolPref("whimsy.ai.enabled", false);
     findbar = await openFind("still not here");
     await new Promise(r => setTimeout(r, 300));
-    ok(askButton(findbar).hidden, "No Ask with AI turned off");
+    ok(!askOffered(findbar), "No Ask with AI turned off");
     requests = [];
     EventUtils.synthesizeKey("KEY_Enter");
     await new Promise(r => setTimeout(r, 300));
@@ -490,7 +496,7 @@ add_task(async function test_private_return_doesnt_ask_the_cloud() {
   };
   try {
     const findbar = await openFind("where is the offsite");
-    await TestUtils.waitForCondition(() => !askButton(findbar).hidden, "Nothing found: Ask is offered");
+    await TestUtils.waitForCondition(() => askOffered(findbar), "Nothing found: Ask is offered");
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
     await new Promise(r => setTimeout(r, 300));
     is(asked, 0, "Return in a private tab doesn't ask the cloud");
