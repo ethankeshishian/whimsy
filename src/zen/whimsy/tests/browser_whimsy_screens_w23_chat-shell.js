@@ -106,6 +106,8 @@ add_task(async function shots_open_close() {
   await whimsyBothSchemes(NAME("chat-1.1"), async () => closeChat());
   await whimsyBothSchemes(NAME("chat-1.3"), async () => {
     await openChat();
+    const box = part(".whimsy-chat-composer");
+    info(`Composer ${box.getBoundingClientRect().height}px; ` + [...box.querySelectorAll("*")].map(e => `${e.className}:${Math.round(e.getBoundingClientRect().height)}`).join(", "));
     return closeChat;
   });
   for (const dark of [false, true]) {

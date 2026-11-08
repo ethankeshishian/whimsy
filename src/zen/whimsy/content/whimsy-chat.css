@@ -438,6 +438,7 @@
   color: var(--whimsy-chat-accent);
   font: inherit;
   font-weight: 600;
+  white-space: nowrap;
   &:hover {
     text-decoration: underline;
   }

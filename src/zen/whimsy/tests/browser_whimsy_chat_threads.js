@@ -176,7 +176,10 @@ add_task(async function thread_outlives_tab_and_reopen_restores() {
   ok(last.system.includes("Address: " + PAGE_B), "Follow-ups use the copy of the closed tab's page");
   info("Reopening the tab");
   const tabsBefore = gBrowser.tabs.length;
-  EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-note[data-kind='closed-tab'] button"), {});
+  const reopen = part(".whimsy-chat-note[data-kind='closed-tab'] button");
+  reopen.scrollIntoView({ block: "center" });
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  EventUtils.synthesizeMouseAtCenter(reopen, {});
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == tabsBefore + 1, "A tab opens");
   const back = gBrowser.selectedTab;
   info("Selected: " + back.linkedBrowser.currentURI.spec);
