@@ -82,6 +82,12 @@ add_task(async function updates_order_and_show_more() {
   is(await labelOf(list[0], "Updates"), "Updates", "headed Updates");
   const more = list[5];
   is(document.l10n.getAttributes(more.querySelector(".urlbarView-title")).args.count, 2, "Show 2 more");
+  const mr = more.querySelector(".whimsy-update-more").getBoundingClientRect();
+  const hit = document.elementFromPoint(mr.x + mr.width / 2, mr.y + mr.height / 2);
+  info(`DIAG more rect ${JSON.stringify(mr)} bar ${JSON.stringify(gURLBar.getBoundingClientRect())} view ${JSON.stringify(gURLBar.view.panel.getBoundingClientRect())} hit ${hit?.localName}#${hit?.id}.${hit?.className} inUrlbar=${gURLBar.contains(hit)}`);
+  await new Promise(r => setTimeout(r, 500));
+  const mr2 = more.querySelector(".whimsy-update-more").getBoundingClientRect();
+  info(`DIAG later rect ${JSON.stringify(mr2)} view ${JSON.stringify(gURLBar.view.panel.getBoundingClientRect())}`);
   EventUtils.synthesizeMouseAtCenter(more.querySelector(".whimsy-update-more"), {});
   await TestUtils.waitForCondition(() => updateRows().length == 7, "Expanded in place");
   ok(gURLBar.hasAttribute("whimsy-updates-expanded"), "and scrolls inside the bar");
