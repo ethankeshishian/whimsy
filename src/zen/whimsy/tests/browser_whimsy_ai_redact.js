@@ -21,11 +21,18 @@ const YELLOW = [255, 230, 0];
 const MASK = MASK_COLOR.match(/\d+/g).map(Number);
 
 async function typeInto(browser, selector, text) {
+  browser.focus();
   await BrowserTestUtils.synthesizeMouseAtCenter(selector, {}, browser);
-  await SpecialPowers.spawn(browser, [selector], sel => {
-    content.document.querySelector(sel).focus();
-  });
+  await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [selector], sel => {
+    const el = content.document.querySelector(sel);
+    el.focus();
+    return content.document.hasFocus() && content.document.activeElement == el;
+  }), `${selector} has focus`);
   EventUtils.sendString(text);
+  await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [selector, text], (sel, want) => {
+    const el = content.document.querySelector(sel);
+    return (el.value ?? el.textContent).includes(want);
+  }), `${selector} holds what was typed`);
 }
 
 async function rectOf(browser, selector) {

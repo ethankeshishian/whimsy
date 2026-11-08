@@ -80,9 +80,15 @@ add_task(async function shots_hint_toast_mid_animation() {
 
 add_task(async function shots_masked_fields() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ROOT + "whimsy_ai_sensitive.html");
-  for (const sel of ["#pw", "#cc", "#otp"]) {
-    await BrowserTestUtils.synthesizeMouseAtCenter(sel, {}, tab.linkedBrowser);
-    EventUtils.sendString("4111" + "111111111111");
+  const browser = tab.linkedBrowser;
+  browser.focus();
+  for (const [sel, text] of [["#pw", "hunter" + "2"], ["#cc", "4111" + "111111111111"], ["#otp", "48" + "2913"]]) {
+    await BrowserTestUtils.synthesizeMouseAtCenter(sel, {}, browser);
+    await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [sel], s =>
+      content.document.activeElement == content.document.querySelector(s)), `${sel} has focus`);
+    EventUtils.sendString(text);
+    await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [sel, text], (s, t) =>
+      content.document.querySelector(s).value == t), `${sel} is filled`);
   }
   await WhimsyAIContext.withMask(tab.linkedBrowser, () =>
     whimsyShot("w23-ai-base-mask-fields", tab.linkedBrowser.browsingContext.currentWindowGlobal));
