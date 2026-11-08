@@ -633,7 +633,7 @@
 .urlbarView-row[dynamicType="whimsy-update"]:has(.whimsy-update-remind[open]) {
   background-color: color-mix(in srgb, var(--zen-accent-button-background), transparent 40%) !important;
 
-  & * {
+  & *:not(.whimsy-update-open) {
     color: white !important;
   }
 }

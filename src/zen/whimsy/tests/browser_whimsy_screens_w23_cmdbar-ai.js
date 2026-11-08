@@ -307,7 +307,7 @@ add_task(async function shots_motion_mid() {
   });
   EventUtils.synthesizeKey("KEY_Enter", { accelKey: true });
   await flight;
-  await whimsyShotMid(NAME("cmd-1.9-handoff"), () => WhimsyCommandBarAI._flight, 150);
+  await whimsyShotMid(NAME("cmd-1.9-handoff"), () => WhimsyCommandBarAI._flight, 80);
   await TestUtils.waitForCondition(() => !document.querySelector(".whimsy-ask-ghost"), "Landed");
   WhimsyChat.close(window, { reason: "key" });
   await seed();
