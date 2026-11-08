@@ -76,6 +76,28 @@ add_task(async function floating_card_top_right() {
     const page = browser.getBoundingClientRect();
     const style = getComputedStyle(findbar);
     info(`card ${JSON.stringify(card)} page ${JSON.stringify(page)} position ${style.position} top ${style.top} parent ${findbar.parentNode.className} ${getComputedStyle(findbar.parentNode).position}`);
+    // DIAG (remove): what lays the card out.
+    const desc = el => `${el.localName}#${el.id}.${[...el.classList].join(".")}`;
+    const cs = el => {
+      const c = getComputedStyle(el);
+      return `disp=${c.display} pos=${c.position} dir=${c.flexDirection} order=${c.order} align=${c.alignSelf} m=${c.margin} tr=${c.transform} contain=${c.contain} rect=${JSON.stringify(el.getBoundingClientRect())}`;
+    };
+    for (let el = findbar; el && el.localName; el = el.parentElement) {
+      info(`DIAG chain ${desc(el)} ${cs(el)}`);
+      if (el.localName == "tabbrowser-tabbox" || el.id == "browser") {
+        break;
+      }
+    }
+    for (const sib of findbar.parentElement.children) {
+      info(`DIAG sib ${desc(sib)} ${cs(sib)}`);
+    }
+    info(`DIAG quads ${JSON.stringify(findbar.getBoxQuads().map(q => q.getBounds()))} offsetParent ${findbar.offsetParent ? desc(findbar.offsetParent) : "n/a"}`);
+    for (const rule of InspectorUtils.getCSSStyleRules(findbar)) {
+      const t = rule.cssText;
+      if (/position|order|display|margin|top|inset|align|grid|float/.test(t)) {
+        info(`DIAG rule ${rule.parentStyleSheet?.href} :: ${t.slice(0, 300).replace(/\s+/g, " ")}`);
+      }
+    }
     Assert.lessOrEqual(Math.abs(page.right - card.right - 14), 2, `It sits 14px from the page's right edge (${page.right - card.right})`);
     Assert.lessOrEqual(Math.abs(card.top - page.top - 10), 2, `and 10px below its top (${card.top - page.top})`);
     is(Math.round(card.width), 400, "400px wide");
