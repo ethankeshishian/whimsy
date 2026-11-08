@@ -410,7 +410,7 @@ export const WhimsyCommandBarUpdates = {
     }
     win.gURLBar.focus();
     win.gURLBar.select();
-    win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
+    this.requery(win);
   },
 
   // Picking a whole row closes the view; these rows keep the bar going.
@@ -421,8 +421,14 @@ export const WhimsyCommandBarUpdates = {
       }
       win.gURLBar.focus();
       win.gURLBar.value = "";
-      win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
+      this.requery(win);
     }, 0);
+  },
+
+  // Firefox ends the search session on any pick but its own few commands,
+  // and drops picks made after that, so each re-query starts a new one.
+  requery(win) {
+    win.gURLBar.startQuery({ searchString: "", allowAutofill: false, event: new win.Event("command") });
   },
 
   // After the engagement that asked for it is done, or the query is cancelled.
@@ -432,7 +438,7 @@ export const WhimsyCommandBarUpdates = {
       if (!win.gURLBar?.view.isOpen) {
         return;
       }
-      win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
+      this.requery(win);
       if (then) {
         await win.gURLBar.lastQueryContextPromise;
         win.requestAnimationFrame(() => win.gURLBar.view.isOpen && then());
