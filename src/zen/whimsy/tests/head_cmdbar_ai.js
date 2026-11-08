@@ -62,6 +62,7 @@ async function setupAI() {
     WhimsyAIProviders.setTestProvider(null);
     WhimsyAIUpdates._setClockForTesting(() => Date.now());
     Services.prefs.clearUserPref("whimsy.ai.hints.seen");
+    Services.prefs.clearUserPref("whimsy.ai.cmdbar.answer-saved-shown");
   });
 }
 

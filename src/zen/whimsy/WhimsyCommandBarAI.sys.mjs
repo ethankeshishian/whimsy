@@ -41,6 +41,8 @@ const CARD_TYPE = "whimsy-ask-card";
 const LOADING_MS = 300;
 const HOLD_MS = 400;
 const PAGE_CHARS = 60000;
+const SAVED_HINT_PREF = "whimsy.ai.cmdbar.answer-saved-shown";
+const REDUCED = "(prefers-reduced-motion: reduce)";
 
 const QUESTION_WORDS = new Set([
   "what", "which", "who", "whom", "whose", "when", "where", "why", "how", "is", "are", "was", "were",
@@ -161,6 +163,15 @@ export function citeAt(text, at, done) {
   }
   const end = text.slice(at).match(SENTENCE_END);
   return end ? at + end.index : done ? text.length : -1;
+}
+
+/** `text` up to the end of its last whole sentence. */
+function wholeSentences(text) {
+  let end = 0;
+  for (const m of text.matchAll(new RegExp(SENTENCE_END.source, "g"))) {
+    end = m.index + m[0].length;
+  }
+  return text.slice(0, end);
 }
 
 // Citation marks go at the end of the sentence each citation arrived in.
@@ -741,12 +752,64 @@ export const WhimsyCommandBarAI = {
     }
     await this.save(card);
     const threadId = card.threadId;
+    const flight = this.takeOff(win, card);
     this.end(win, { toChat: true });
     win.gURLBar.view.close();
     win.gURLBar.handleRevert?.();
     win.gBrowser.selectedBrowser.focus();
     if (threadId) {
       await lazy.WhimsyChat.open(win, { threadId });
+    }
+    this.land(win, flight);
+  },
+
+  /**
+   * The hand-off into chat (cmd-1.9): a copy of the card stays where it was
+   * while the bar closes, then travels into the thread (FLIP translate +
+   * scale, 300ms) and fades as it lands. Reduced motion: it only fades.
+   */
+  takeOff(win, card) {
+    const el = card.el;
+    const from = el?.isConnected ? el.getBoundingClientRect() : null;
+    if (!from?.width) {
+      return null;
+    }
+    const ghost = el.cloneNode(true);
+    for (const node of [ghost, ...ghost.querySelectorAll("[id]")]) {
+      node.removeAttribute("id");
+    }
+    ghost.classList.add("whimsy-ask-ghost");
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.inert = true;
+    Object.assign(ghost.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px` });
+    win.document.documentElement.append(ghost);
+    return { ghost, from };
+  },
+
+  async land(win, flight) {
+    if (!flight) {
+      return;
+    }
+    const { ghost, from } = flight;
+    await new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
+    const panel = win.document.getElementById("whimsy-chat");
+    const msgs = panel && !panel.hidden ? [...panel.querySelectorAll(".whimsy-chat-msg")] : [];
+    const to = (msgs[1] ?? msgs[0] ?? panel)?.getBoundingClientRect();
+    const travel = !win.matchMedia(REDUCED).matches && to?.width > 0;
+    const scale = travel ? Math.min(1, to.width / from.width) : 1;
+    const move = travel ? `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${scale})` : "none";
+    this._flight = ghost.animate(
+      travel
+        ? [{ transform: "none", opacity: 1 }, { opacity: 1, offset: 0.6 }, { transform: move, opacity: 0 }]
+        : [{ opacity: 1 }, { opacity: 0 }],
+      { duration: travel ? 300 : 100, easing: travel ? "cubic-bezier(0.2, 0, 0, 1)" : "linear", fill: "forwards" }
+    );
+    try {
+      await this._flight.finished;
+    } catch {
+      // Cancelled: the window closed or a test held it.
+    } finally {
+      ghost.remove();
     }
   },
 
@@ -759,6 +822,7 @@ export const WhimsyCommandBarAI = {
     this.stop(win);
     await this.save(card);
     const threadId = card.threadId;
+    const flight = this.takeOff(win, card);
     this.end(win, { toChat: true });
     win.gURLBar.view.close();
     win.gURLBar.handleRevert?.();
@@ -766,6 +830,7 @@ export const WhimsyCommandBarAI = {
     if (threadId) {
       await lazy.WhimsyChat.open(win, { threadId, prompt, send: true });
     }
+    this.land(win, flight);
   },
 
   /** Opens a cited source: beside the asking tab, or in the background with ⌘. */
@@ -795,6 +860,35 @@ export const WhimsyCommandBarAI = {
     const index = card.tab?.isConnected ? card.tab._tPos + 1 : undefined;
     const tab = gBrowser.addTab(source.url, { index, triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
     gBrowser.selectedTab = tab;
+    this.answerSavedHint(win);
+  },
+
+  // cmd-1.24: the first time a source takes you away, say how to get back.
+  answerSavedHint(win) {
+    const toasts = win.gZenUIManager?.toasts;
+    if (!toasts || Services.prefs.getBoolPref(SAVED_HINT_PREF, false) || !lazy.WhimsyAIUpdates.recentAnswer()) {
+      return;
+    }
+    Services.prefs.setBoolPref(SAVED_HINT_PREF, true);
+    const keys = Services.appinfo.OS == "Darwin" ? "⌘L" : "Ctrl+L";
+    toasts.open("whimsy-cmdbar-answer-saved", {
+      key: "whimsy-cmdbar-answer-saved",
+      descriptionId: "whimsy-cmdbar-answer-saved-body",
+      descriptionArgs: { keys },
+      icon: SPARKLE,
+      buttons: [{ id: "whimsy-cmdbar-show-answer", l10nId: "whimsy-cmdbar-show-answer", keys, command: () => this.showRecent(win) }],
+    });
+  },
+
+  /** Opens the bar on the Recent answer's card, as it was left. */
+  showRecent(win) {
+    const snap = lazy.WhimsyAIUpdates.recentAnswer();
+    if (!snap || !aiOn()) {
+      return;
+    }
+    win.gURLBar.focus();
+    win.gURLBar.value = "";
+    this.reopen(win, snap);
   },
 
   retry(win, opts = {}) {
@@ -966,6 +1060,34 @@ export const WhimsyCommandBarAI = {
     region.setAttribute("aria-busy", busy ? "true" : "false");
   },
 
+  // Words that arrived since the last draw fade in as one chunk (cmd-1.5).
+  // A restored card draws whole, with no replay.
+  freshWords(card, wrap, busy) {
+    const doc = wrap.ownerDocument;
+    const from = card.drawn ?? (busy ? 0 : Infinity);
+    const walker = doc.createTreeWalker(wrap, 4 /* NodeFilter.SHOW_TEXT */);
+    const fresh = [];
+    let seen = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (seen + node.data.length > from) {
+        fresh.push([node, Math.max(0, from - seen)]);
+      }
+      seen += node.data.length;
+    }
+    card.drawn = seen;
+    for (const [node, at] of fresh) {
+      const pill = node.parentElement?.closest(".whimsy-ask-cite");
+      if (pill) {
+        pill.classList.add("whimsy-ask-fresh");
+        continue;
+      }
+      const tail = at ? node.splitText(at) : node;
+      const span = h(doc, "span", { class: "whimsy-ask-fresh" });
+      tail.replaceWith(span);
+      span.append(tail);
+    }
+  },
+
   render(win, card) {
     const el = card.el;
     if (!el?.isConnected) {
@@ -986,10 +1108,13 @@ export const WhimsyCommandBarAI = {
       const metaId = card.status == "loading" || card.status == "waiting" ? (card.readPage ? "whimsy-cmdbar-meta-reading" : "whimsy-cmdbar-meta-thinking") : card.readPage ? "whimsy-cmdbar-meta-tab-web" : "whimsy-cmdbar-meta-web";
       body.push(h(doc, "div", { class: "whimsy-ask-meta" }, brand(doc, provider), h(doc, "span", { l10n: [metaId, { who }] })));
     }
-    if (card.text) {
+    // Reduced motion: the answer lands a whole sentence at a time.
+    const text = busy && win.matchMedia(REDUCED).matches ? wholeSentences(card.text) : card.text;
+    if (text) {
       const pills = { pill: n => h(doc, "span", { class: "whimsy-ask-cite" }, String(n)) };
-      const blocks = lazy.answerModule.renderMarkdown(doc, marked(card.text, card.citations, !busy), pills);
+      const blocks = lazy.answerModule.renderMarkdown(doc, marked(text, card.citations, !busy), pills);
       const wrap = h(doc, "div", { class: "whimsy-ask-body", dir: "auto" }, blocks);
+      this.freshWords(card, wrap, busy);
       if (busy) {
         const last = wrap.lastElementChild ?? wrap;
         last.append(h(doc, "span", { class: "whimsy-ask-caret", "aria-hidden": "true" }));

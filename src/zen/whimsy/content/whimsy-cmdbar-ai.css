@@ -6,13 +6,16 @@
    VPN status strip, and the mic slot. Mockups 02-command-bar (cmd-*) and
    fu-media 5.1. */
 
-#urlbar {
+#urlbar,
+.whimsy-ask-ghost {
   --whimsy-ask-muted: light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.5));
   --whimsy-ask-text: light-dark(rgba(0, 0, 0, 0.88), rgba(255, 255, 255, 0.92));
   --whimsy-ask-text-2: light-dark(rgba(0, 0, 0, 0.7), rgba(255, 255, 255, 0.72));
   --whimsy-ask-hover: color-mix(in srgb, var(--zen-branding-bg-reverse, currentColor) 6%, transparent);
   --whimsy-ask-hairline: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.14));
   --whimsy-ask-accent: var(--zen-primary-color, #3d7bfd);
+  /* Zen's accent is deep in dark mode; icons and links need a lighter one there. */
+  --whimsy-ask-accent-fg: light-dark(var(--whimsy-ask-accent), color-mix(in srgb, var(--whimsy-ask-accent), white 50%));
   --whimsy-ask-warn: light-dark(rgb(181, 92, 15), rgb(255, 170, 79));
   --whimsy-ask-fail: light-dark(rgb(196, 43, 28), rgb(255, 120, 105));
   --whimsy-ask-ok: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
@@ -54,7 +57,7 @@
 
 .whimsy-ask-icon {
   -moz-context-properties: fill;
-  fill: var(--whimsy-ask-accent) !important;
+  fill: var(--whimsy-ask-accent-fg) !important;
   background-color: color-mix(in srgb, var(--whimsy-ask-accent) 14%, transparent) !important;
 }
 
@@ -131,6 +134,34 @@
   .urlbarView-row[dynamicType="whimsy-ask"] {
     animation: whimsy-ask-in 150ms var(--whimsy-ask-ease);
   }
+}
+
+/* Each chunk of words fades up as it arrives (cmd-1.5). */
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-ask-fresh {
+    animation: whimsy-ask-word 120ms var(--whimsy-ask-ease) both;
+  }
+}
+
+@keyframes whimsy-ask-word {
+  from {
+    opacity: 0.45;
+  }
+}
+
+/* The card's copy travelling into chat (cmd-1.9). */
+.whimsy-ask-ghost {
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: light-dark(rgb(255, 255, 255), rgb(38, 38, 40));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  transform-origin: 0 0;
+  pointer-events: none;
+  animation: none !important;
 }
 
 @keyframes whimsy-ask-in {
@@ -427,7 +458,7 @@
   }
 
   &[tone="info"] {
-    --tone: var(--whimsy-ask-accent);
+    --tone: var(--whimsy-ask-accent-fg);
     padding: 0;
     background: transparent;
     color: var(--whimsy-ask-muted);
@@ -470,7 +501,7 @@
 }
 
 .whimsy-update-icon {
-  --tone: var(--whimsy-ask-accent);
+  --tone: var(--whimsy-ask-accent-fg);
   display: grid;
   place-items: center;
   flex: none;
@@ -502,7 +533,7 @@
     background: transparent;
   }
 
-  .urlbarView-row[selected] & {
+  .urlbarView-row:is([selected], :has(.whimsy-update-remind[open])) & {
     background: rgba(255, 255, 255, 0.9);
   }
 }
@@ -540,7 +571,7 @@
 }
 
 .whimsy-update-more {
-  color: var(--whimsy-ask-accent);
+  color: var(--whimsy-ask-accent-fg);
   font-size: 13px;
 }
 
@@ -615,7 +646,7 @@
 
 .whimsy-update-btn {
 
-  .urlbarView-row:not([selected]):not(:has([selected])) & {
+  .urlbarView-row:not([selected]):not(:has([selected], .whimsy-update-remind[open])) & {
     background: var(--whimsy-ask-hover);
     color: var(--whimsy-ask-text) !important;
   }

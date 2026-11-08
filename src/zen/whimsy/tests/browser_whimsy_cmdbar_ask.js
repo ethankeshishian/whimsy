@@ -122,6 +122,11 @@ add_task(async function open_source_beside_and_close() {
   is(gBrowser.selectedTab, tab, "and is selected");
   await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "The bar closed");
   ok(WhimsyAIUpdates.recentAnswer(), "The answer is the Recent answer");
+  const toast = await TestUtils.waitForCondition(() => document.getElementById("whimsy-cmdbar-show-answer"), "The first time, a toast says how to get back");
+  is(document.l10n.getAttributes(toast).id, "whimsy-cmdbar-show-answer", "Show answer");
+  toast.click();
+  await TestUtils.waitForCondition(() => cardEl()?.querySelector(".whimsy-ask-source[visited]"), "Show answer reopens the card, the source marked");
+  await closeBar();
   BrowserTestUtils.removeTab(tab);
   BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
   BrowserTestUtils.removeTab(asking);
@@ -263,4 +268,54 @@ add_task(async function answer_wraps_inside_the_card() {
   Assert.lessOrEqual(body.scrollWidth, cardEl().clientWidth, "The answer wraps instead of running past the card");
   Assert.greater(body.getBoundingClientRect().height, 30, "onto more than one line");
   await closeBar();
+});
+
+add_task(async function second_source_no_toast() {
+  await freshStore();
+  Services.prefs.setBoolPref("whimsy.ai.cmdbar.answer-saved-shown", true);
+  const url = "https://example.org/browser/zen/whimsy/tests/whimsy_chat_article.html";
+  script = citing(url, "Tech Specs");
+  await askWithKeys();
+  await answered();
+  const loaded = BrowserTestUtils.waitForNewTab(gBrowser, url);
+  EventUtils.synthesizeMouseAtCenter(cardEl().querySelector(".whimsy-ask-source"), {});
+  const tab = await loaded;
+  await new Promise(r => setTimeout(r, 300));
+  ok(!document.getElementById("whimsy-cmdbar-show-answer"), "Only the first time");
+  BrowserTestUtils.removeTab(tab);
+  Services.prefs.clearUserPref("whimsy.ai.cmdbar.answer-saved-shown");
+});
+
+add_task(async function words_fade_in_as_they_arrive() {
+  await freshStore();
+  const g = gate();
+  script = async function* () {
+    yield { type: "text", delta: "The 13-inch is the lightest." };
+    await g.promise;
+    yield { type: "text", delta: " The 15-inch is heavier." };
+  };
+  await askWithKeys();
+  await TestUtils.waitForCondition(() => cardEl().querySelector(".whimsy-ask-body .whimsy-ask-fresh"), "The first words fade in");
+  g.open();
+  await TestUtils.waitForCondition(() => {
+    const fresh = [...cardEl().querySelectorAll(".whimsy-ask-body .whimsy-ask-fresh")].map(e => e.textContent).join("");
+    return fresh.includes("heavier") && !fresh.includes("lightest");
+  }, "Only the new chunk fades; what was there stays put");
+  await answered();
+  await closeBar();
+});
+
+add_task(async function open_in_chat_card_travels() {
+  await freshStore();
+  await askWithKeys();
+  await answered();
+  WhimsyCommandBarAI._flight = null;
+  EventUtils.synthesizeKey("KEY_Enter", { accelKey: true });
+  await TestUtils.waitForCondition(() => WhimsyChat.isOpen(window), "⌘↩ opened chat");
+  await TestUtils.waitForCondition(() => WhimsyCommandBarAI._flight, "The card travels into chat");
+  const ghost = document.querySelector(".whimsy-ask-ghost");
+  ok(ghost?.inert && ghost.getAttribute("aria-hidden") == "true", "as an inert copy");
+  await WhimsyCommandBarAI._flight.finished;
+  await TestUtils.waitForCondition(() => !document.querySelector(".whimsy-ask-ghost"), "and is gone once it lands");
+  WhimsyChat.close(window, { reason: "key" });
 });
