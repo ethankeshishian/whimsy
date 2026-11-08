@@ -349,7 +349,11 @@ add_task(async function shots_list() {
     const body = await TestUtils.waitForCondition(() => row(page, "claude").nextElementSibling?.classList.contains("whimsy-ai-body") && row(page, "claude").nextElementSibling, "Details open");
     await settled(page);
     click(page, body.querySelector("[data-action=model]"));
-    await TestUtils.waitForCondition(() => page.$("whimsyAIModelMenu"), "The model menu opens");
+    const menu = await TestUtils.waitForCondition(() => page.$("whimsyAIModelMenu"), "The model menu opens");
+    const under = body.querySelector("[data-action=model]").getBoundingClientRect();
+    const box = menu.getBoundingClientRect();
+    ok(Math.abs(box.top - under.bottom - 4) < 2 && Math.abs(box.left - under.left) < 2, "It opens under its button");
+    Assert.less(box.width, page.win.innerWidth / 2, "as a menu, not a full-width list");
     return () => (WhimsyAIProviders.models = realModels);
   });
   await shoot("set-2.7", async page => {

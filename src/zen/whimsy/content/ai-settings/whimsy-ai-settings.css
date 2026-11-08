@@ -1259,8 +1259,24 @@
   }
 }
 
-/* The model menu (styled listbox, never a native one) keeps
-   .whimsy-ai-popup from whimsy-preferences.css. */
+/* The model menu: a styled listbox (never a native one) on the sheets' surface. */
+.whimsy-ai-popup {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 280px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--ai-panel-bg);
+  color: light-dark(#15141a, #fbfbfe);
+  font-size: 13px;
+  box-shadow: 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.14)), 0 10px 30px -6px light-dark(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.55));
+}
+
 .whimsy-ai-dropdown {
   appearance: none;
   display: inline-flex;
