@@ -664,8 +664,9 @@
   }
 }
 
-/* Expanded: the list scrolls inside the bar, about eight rows. */
-#urlbar[whimsy-updates-expanded] .urlbarView-results {
+/* Zen caps the results at 244px, which hid Show more below the fold.
+   Updates get about eight rows; expanded, the list scrolls inside them. */
+#urlbar-results:has(.urlbarView-row[dynamicType^="whimsy-update"]) {
   max-height: calc(8 * 52px);
   overflow-y: auto;
 }
