@@ -21,6 +21,8 @@ const FIND_PREFS = [
   "accessibility.typeaheadfind.casesensitive",
   "findbar.matchdiacritics",
   "findbar.entireword",
+  // Firefox's bar counts down its first-open flashes in this one.
+  "accessibility.typeaheadfind.flashBar",
 ];
 
 function fakeProvider() {

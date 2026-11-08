@@ -172,14 +172,16 @@ export const WhimsyFindCard = {
     );
   },
 
-  // The options Firefox's bar showed as checkboxes, as checkable rows.
+  // The options Firefox's bar showed as checkboxes, as checkable rows. The
+  // rows call what the (hidden) checkboxes' command handlers call, which
+  // also checks the boxes, rather than clicking controls nobody can see.
   options(findbar) {
     const box = id => findbar.getElement(id);
     return [
-      { id: "highlight", l10nId: "whimsy-find-highlight-all", checked: box("highlight").checked, toggle: () => box("highlight").click() },
-      { id: "case", l10nId: "whimsy-find-match-case", checked: box("find-case-sensitive").checked, toggle: () => box("find-case-sensitive").click() },
-      { id: "diacritics", l10nId: "whimsy-find-match-diacritics", checked: box("find-match-diacritics").checked, toggle: () => box("find-match-diacritics").click() },
-      { id: "words", l10nId: "whimsy-find-whole-words", checked: box("find-entire-word").checked, toggle: () => box("find-entire-word").click() },
+      { id: "highlight", l10nId: "whimsy-find-highlight-all", checked: box("highlight").checked, toggle: () => findbar.toggleHighlight(!box("highlight").checked) },
+      { id: "case", l10nId: "whimsy-find-match-case", checked: box("find-case-sensitive").checked, toggle: () => findbar._setCaseSensitivity(box("find-case-sensitive").checked ? 0 : 1) },
+      { id: "diacritics", l10nId: "whimsy-find-match-diacritics", checked: box("find-match-diacritics").checked, toggle: () => findbar._setDiacriticMatching(box("find-match-diacritics").checked ? 0 : 1) },
+      { id: "words", l10nId: "whimsy-find-whole-words", checked: box("find-entire-word").checked, toggle: () => findbar.toggleEntireWord(!box("find-entire-word").checked) },
       { id: "links", l10nId: "whimsy-find-links-only", checked: !!findbar._whimsyLinksOnly, toggle: () => this.setLinksOnly(findbar, !findbar._whimsyLinksOnly), rule: true },
     ];
   },

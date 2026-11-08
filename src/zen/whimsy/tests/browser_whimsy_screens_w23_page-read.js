@@ -67,6 +67,8 @@ add_setup(async () => {
     ["accessibility.typeaheadfind.casesensitive", branch.getIntPref("accessibility.typeaheadfind.casesensitive", 0)],
     ["findbar.entireword", branch.getBoolPref("findbar.entireword", false)],
     ["findbar.matchdiacritics", branch.getIntPref("findbar.matchdiacritics", 0)],
+    ["accessibility.typeaheadfind.flashBar", branch.getIntPref("accessibility.typeaheadfind.flashBar", 0)],
+    ["pdfjs.featuresNotificationImpressionCount", branch.getIntPref("pdfjs.featuresNotificationImpressionCount", 0)],
   ] });
   WhimsyAIProviders.setTestProvider(provider);
   registerCleanupFunction(async () => {
@@ -127,28 +129,29 @@ add_task(async function passage_tint() {
     const chip = await TestUtils.waitForCondition(() => panel.querySelector('.whimsy-chat-cite[data-n="2"]'), "The chip shows");
     EventUtils.synthesizeMouseAtCenter(chip, {});
     // The tint fades from 32% to 18% over 600ms: shoot its first frames once.
-    // The page's own frames are held on the tint's first one (the refresh
-    // driver in test mode), so the shot can't miss it.
+    // The page reports the tint's first frame itself (no round trip per
+    // poll), so the shot follows it within a frame or two.
     if (!dark) {
-      const level = await SpecialPowers.spawn(tab.linkedBrowser, [], () => new Promise(resolve => {
+      const seen = await SpecialPowers.spawn(tab.linkedBrowser, [], () => new Promise(resolve => {
+        const start = content.performance.now();
         const look = () => {
           for (let l = 32; l >= 18; l -= 2) {
             if (content.CSS.highlights.has(`whimsy-passage-${l}`)) {
-              content.windowUtils.advanceTimeAndRefresh(0);
-              resolve(l);
+              resolve({ level: l, scrollY: content.scrollY });
               return;
             }
+          }
+          if (content.performance.now() - start > 5000) {
+            resolve({ level: 0, scrollY: content.scrollY, size: content.CSS.highlights.size });
+            return;
           }
           content.requestAnimationFrame(look);
         };
         look();
       }));
-      try {
-        Assert.greaterOrEqual(level, 28, "The tint starts strong");
-        await whimsyShot(NAME("passage-mid-start"));
-      } finally {
-        await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.windowUtils.restoreNormalRefresh());
-      }
+      info(`Tint first seen: ${JSON.stringify(seen)}; chip active ${chip.hasAttribute("active")}`);
+      Assert.greaterOrEqual(seen.level, 28, "The tint starts strong");
+      await whimsyShot(NAME("passage-mid-start"));
     }
     await TestUtils.waitForCondition(async () => (await tint(tab.linkedBrowser)) == 18, "The tint settles");
     return closer(tab);

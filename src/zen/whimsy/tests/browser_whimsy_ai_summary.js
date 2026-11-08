@@ -61,6 +61,9 @@ function passageTint(browser) {
 
 add_setup(async () => {
   prompts = [];
+  // pdf.js counts how often it has shown its new-features notice.
+  const impressions = "pdfjs.featuresNotificationImpressionCount";
+  await SpecialPowers.pushPrefEnv({ set: [[impressions, Services.prefs.getIntPref(impressions, 0)]] });
   registerCleanupFunction(async () => {
     WhimsyAIProviders.setTestProvider(null);
     WhimsyChat.close(window, { reason: "hide" });
