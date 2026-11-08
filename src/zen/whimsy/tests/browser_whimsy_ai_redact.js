@@ -67,7 +67,8 @@ add_task(async function password_card_otp_fields_never_in_text() {
   ok(!data.text.includes(PASSWORD), "The password isn't in the text, not even mirrored into the page");
   ok(!data.text.includes(CARD) && !data.text.includes(CARD.replace(/ /g, "")), "The card number isn't in the text");
   ok(!data.text.includes(OTP), "The one-time code isn't in the text");
-  is(data.sensitiveRects.length, 4, "Four secret fields are known");
+  is(data.sensitiveRects.filter(r => r.kind != "mirror").length, 4, "Four secret fields are known");
+  is(data.sensitiveRects.filter(r => r.kind == "mirror").length, 1, "So is the password the page shows again");
   BrowserTestUtils.removeTab(tab);
 });
 
@@ -96,16 +97,13 @@ add_task(async function masks_cross_origin_payment_frame() {
     }
     await new Promise(r => content.requestAnimationFrame(() => content.requestAnimationFrame(r)));
   });
-  info("frame: " + JSON.stringify(await SpecialPowers.spawn(frameBC, [], () => ({
-    bg: content.getComputedStyle(content.document.body).backgroundColor, w: content.innerWidth, h: content.innerHeight,
-  }))));
   const data = await WhimsyAIContext.extract(browser);
   ok(data.text.includes("Store page text"), "The store's own text is there");
   ok(!data.text.includes("Pay securely"), "Nothing from the payment frame is in the text");
   const r = await rectOf(browser, "#pay");
-  const x = r.x + r.width - 10;
+  // Clear of the frame's scrollbar, which holds nothing of the page's.
+  const x = r.x + r.width - 30;
   const y = r.y + r.height - 10;
-  info("rect " + JSON.stringify(r) + " samples " + JSON.stringify(await Promise.all([[r.x + 5, r.y + 5], [r.x + 150, r.y + 60], [x, y], [5, 5]].map(([a, b]) => pixelAt(browser, a, b)))));
   near(await pixelAt(browser, x, y), YELLOW, "Unmasked, the frame shows");
   const masked = await WhimsyAIContext.withMask(browser, () => pixelAt(browser, x, y));
   near(masked, MASK, "Masked, the whole payment frame is the mask colour");
@@ -117,7 +115,7 @@ add_task(async function otp_in_contenteditable_is_masked() {
   const browser = tab.linkedBrowser;
   is(await SpecialPowers.spawn(browser, [], () => content.document.getElementById("otpedit").textContent.length > 0), true,
     "The code was typed into the contenteditable");
-  for (const sel of ["#otpedit", "#pw", "#cc", "#otp"]) {
+  for (const sel of ["#otpedit", "#pw", "#cc", "#otp", "#mirror"]) {
     const r = await rectOf(browser, sel);
     const px = await WhimsyAIContext.withMask(browser, () => pixelAt(browser, r.x + 10, r.y + r.height / 2));
     near(px, MASK, `${sel} is masked`);

@@ -66,11 +66,15 @@ add_task(async function shots_hint_toasts() {
 // Motion (09-discovery): in with scale 0 -> 1 on Zen's spring.
 add_task(async function shots_hint_toast_mid_animation() {
   for (const ms of [120, 250]) {
-    const toast = await showHint("ask");
-    await whimsyShotMid("w23-ai-base-disc-1.1", () => toast.element.getAnimations({ subtree: true })[0], ms)
-      .catch(e => info(`No entrance animation to hold: ${e}`));
-    await toast.shown;
-    toast.close({ instant: true });
+    const motion = whimsyCaptureMotion(el => el.hasAttribute?.("whimsy-ai-hint") || el.classList?.contains("zen-toast"));
+    try {
+      const toast = await showHint("ask");
+      await whimsyShotMid("w23-ai-base-disc-1.1", motion.get, ms);
+      await toast.shown;
+      toast.close({ instant: true });
+    } finally {
+      motion.stop();
+    }
   }
 });
 

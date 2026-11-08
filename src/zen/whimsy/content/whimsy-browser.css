@@ -7285,3 +7285,19 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     .whimsy-home-button > image { opacity: 1; }
   }
 }
+
+/* W23 ai-base: a discovery hint is Zen's toast with a second line that
+   wraps (09-discovery: text 330px wide, the line at 75%, weight 500). */
+#zen-toast-container .zen-toast[whimsy-ai-hint] {
+  max-height: none;
+
+  & > vbox {
+    max-width: 330px;
+  }
+
+  & > vbox > label.description {
+    white-space: normal;
+    opacity: 0.75;
+    font-weight: 500;
+  }
+}

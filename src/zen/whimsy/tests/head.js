@@ -235,15 +235,44 @@ async function whimsyBothSchemes(name, prepare) {
 }
 
 // Holds the animation `getAnimation()` returns at `ms` and shoots
-// `<name>-mid-<ms>`, then lets it finish.
+// `<name>-mid-<ms>`, then lets it finish. A Web Animation or Motion's
+// controls (whimsyCaptureMotion).
 async function whimsyShotMid(name, getAnimation, ms) {
   const animation = await TestUtils.waitForCondition(getAnimation, `${name}: the animation started`);
   animation.pause();
-  animation.currentTime = ms;
+  if ("currentTime" in animation) {
+    animation.currentTime = ms;
+  } else {
+    animation.time = ms / 1000;
+  }
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   try {
     await whimsyShot(`${name}-mid-${ms}`);
   } finally {
     animation.play();
   }
+}
+
+// Zen animates with Motion (JS, no Web Animation to hold). Until the
+// returned stop() runs, Motion's controls for `element` (or the first
+// element `match` accepts) are kept; get() returns the latest.
+function whimsyCaptureMotion(match, win = window) {
+  const real = win.gZenUIManager.motion;
+  let latest = null;
+  win.Motion = {
+    ...real,
+    animate(target, ...rest) {
+      const controls = real.animate(target, ...rest);
+      if (typeof match == "function" ? match(target) : target == match) {
+        latest = controls;
+      }
+      return controls;
+    },
+  };
+  return {
+    get: () => latest,
+    stop() {
+      win.Motion = real;
+    },
+  };
 }
