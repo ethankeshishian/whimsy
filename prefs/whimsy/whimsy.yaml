@@ -781,6 +781,8 @@
 
 # Whether this Claude Code version streams on the plan (JSON, per version).
 - name: whimsy.ai.claude-code.stream-probe
+  value: ""
+
 # W23 ai-base
 # Discovery hints already seen (comma list of ids); each shows once ever.
 - name: whimsy.ai.hints.seen
