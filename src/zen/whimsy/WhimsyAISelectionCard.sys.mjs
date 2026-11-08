@@ -342,7 +342,18 @@ export const WhimsyAISelectionCard = {
     }
     if (this.card == card) {
       this.render(card);
-      card.parts?.panel.querySelector("[default='true']:not([disabled])")?.focus({ focusVisible: false });
+      this.focusDefault(card);
+    }
+  },
+
+  // Enter takes the default (Replace, or Insert after on read-only text) once the answer is in.
+  focusDefault(card, button = null) {
+    const panel = card.parts?.panel;
+    const focus = () => (button ?? panel.querySelector("[default='true']:not([disabled])"))?.focus({ focusVisible: false });
+    if (panel?.state == "open") {
+      focus();
+    } else {
+      panel?.addEventListener("popupshown", focus, { once: true });
     }
   },
 
@@ -497,7 +508,7 @@ export const WhimsyAISelectionCard = {
     this.card = card;
     card.status = "done";
     this.open(card);
-    card.parts.panel.addEventListener("popupshown", () => card.parts.replace?.focus({ focusVisible: false }), { once: true });
+    this.focusDefault(card, card.parts.replace);
   },
 
   async insertAfter(card) {
