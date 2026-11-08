@@ -718,9 +718,13 @@ add_task(async function test_forget_all_write_is_bounded() {
     // Starts the write that hangs on the prompt; forgetAll() has to wait on
     // this same in-flight write (it reaches the Keychain too).
     flushing = WhimsyFormDrafts.flush();
+    dump("WDBG test before waitForCondition writing=" + !!WhimsyFormDrafts._writing + "\n");
     await TestUtils.waitForCondition(() => WhimsyFormDrafts._writing, "The write starts");
+    dump("WDBG test after waitForCondition\n");
     const start = Date.now();
+    dump("WDBG test before forgetAll\n");
     await WhimsyFormDrafts.forgetAll();
+    dump("WDBG test after forgetAll\n");
     Assert.less(Date.now() - start, 2000, "Fire doesn't wait for the prompt");
     is(await fileText(), null, "The file is gone");
   } finally {
