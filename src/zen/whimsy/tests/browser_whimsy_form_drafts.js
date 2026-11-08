@@ -677,3 +677,23 @@ add_task(async function test_fields_without_an_id_restore() {
   BrowserTestUtils.removeTab(gBrowser.getTabForBrowser(reopened));
   await WhimsyFormDrafts.delete({ url: page });
 });
+
+// DIAG (temporary): does the real Keychain item answer this build?
+add_task(async function diag_real_keystore() {
+  const testLabel = OSKeyStore.STORE_LABEL;
+  OSKeyStore.STORE_LABEL = OSKeyStoreTestUtils.ORIGINAL_STORE_LABEL;
+  OSKeyStore._isLocked = true;
+  const native = Cc["@mozilla.org/security/oskeystore;1"].getService(Ci.nsIOSKeyStore);
+  const race = (name, p) => {
+    const t0 = Date.now();
+    return Promise.race([
+      p.then(v => `${name}: resolved ${typeof v} after ${Date.now() - t0}ms`, e => `${name}: rejected ${e?.result ?? e} after ${Date.now() - t0}ms`),
+      new Promise(r => setTimeout(() => r(`${name}: STILL PENDING after 20000ms`), 20000)),
+    ]);
+  };
+  info("DIAG label " + OSKeyStore.STORE_LABEL);
+  info("DIAG " + (await race("asyncSecretAvailable", native.asyncSecretAvailable(OSKeyStore.STORE_LABEL))));
+  info("DIAG " + (await race("encrypt", OSKeyStore.encrypt("diag"))));
+  OSKeyStore.STORE_LABEL = testLabel;
+  ok(true, "diag done");
+});
