@@ -72,6 +72,14 @@
   }
 }
 
+/* The official OpenAI mark is a single-colour swirl (fill="context-fill" in
+   openai.svg): black on light tiles, white on dark ones. */
+.whimsy-onb-logo > img[src$="openai.svg"],
+.whimsy-onb-mark > img[src$="openai.svg"] {
+  -moz-context-properties: fill;
+  fill: light-dark(#0d0d0d, #ffffff);
+}
+
 .whimsy-onb-body {
   display: flex;
   flex-direction: column;
