@@ -725,7 +725,10 @@ WhimsyAISettings.register({
   isAvailable: () => !!document.getElementById("whimsyClaudeGroup"),
   build(container) {
     const group = document.getElementById("whimsyClaudeGroup");
-    group.querySelector(":scope > label")?.remove();
+    // The section's own heading names it on screen; keep the group's own
+    // (it's still what Settings search and screen readers find it by),
+    // just not shown twice.
+    group.querySelector(":scope > label")?.classList.add("visually-hidden");
     group.hidden = false;
     container.append(group);
   },
