@@ -47,9 +47,9 @@
 }
 
 /* ---- Ask row ---- */
+/* No gap: the icon's own margin lines the title up with the rows around it. */
 .urlbarView-row[dynamicType="whimsy-ask"] > .urlbarView-row-inner {
   align-items: center;
-  gap: 10px;
 }
 
 .whimsy-ask-icon {
