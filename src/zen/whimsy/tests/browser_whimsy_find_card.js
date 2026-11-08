@@ -96,7 +96,12 @@ add_task(async function floating_card_top_right() {
     await typeIn(findbar, "Lisbon");
     await TestUtils.waitForCondition(() => /^\d+\/\d+$/.test(count(findbar) ?? ""), "The count shows current of total");
     ok(findbar.querySelector(".whimsy-find-field .whimsy-find-count").getBoundingClientRect().width > 0, "inside the field");
+    const toasts = document.getElementById("zen-toast-container");
+    if (toasts) {
+      Assert.greaterOrEqual(parseFloat(getComputedStyle(toasts).top), page.top + 54, "Zen's toasts line up under the card");
+    }
     await closeFind(findbar);
+    ok(!document.documentElement.hasAttribute("whimsy-find-card-open"), "and go back up when it closes");
   });
 });
 

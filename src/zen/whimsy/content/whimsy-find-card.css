@@ -12,6 +12,11 @@
   align-self: start;
 }
 
+/* Zen's toasts (top right) line up under an open card instead of covering it. */
+:root[whimsy-find-card-open] #zen-toast-container {
+  top: calc(var(--whimsy-find-card-bottom) + var(--zen-toast-spacing, 8px));
+}
+
 findbar[whimsy-find-card] {
   --whimsy-find-track: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
   --whimsy-find-muted: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.6));

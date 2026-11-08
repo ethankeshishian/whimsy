@@ -36,6 +36,7 @@ export const WhimsyFindCard = {
       return;
     }
     windows.add(win);
+    win.gBrowser.tabContainer.addEventListener("TabSelect", () => this.syncToasts(win));
     try {
       win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
     } catch (e) {
@@ -121,6 +122,7 @@ export const WhimsyFindCard = {
       }
     });
     new win.MutationObserver(() => this.syncStatus(findbar)).observe(field, { attributes: true, attributeFilter: ["status"] });
+    new win.MutationObserver(() => this.syncToasts(win)).observe(findbar, { attributes: true, attributeFilter: ["hidden"] });
     findbar.addEventListener("findbarclose", () => {
       lazy.WhimsySurface.close(doc.getElementById(MENU_ID));
       if (findbar._whimsyLinksOnly) {
@@ -128,6 +130,21 @@ export const WhimsyFindCard = {
         findbar.removeAttribute("whimsy-links-only");
       }
     });
+  },
+
+  // Zen's toasts sit at the top right too: while the selected tab's card is
+  // open they line up under it instead of covering it.
+  syncToasts(win) {
+    const gBrowser = win.gBrowser;
+    const findbar = gBrowser.isFindBarInitialized() ? gBrowser.getCachedFindBar() : null;
+    const open = this.isCard(findbar) && !findbar.hidden;
+    const root = win.document.documentElement;
+    if (open) {
+      // The card's resting place (10px down, 44px tall), not its opening frame.
+      const top = findbar.parentElement.getBoundingClientRect().top;
+      root.style.setProperty("--whimsy-find-card-bottom", `${Math.round(top + 54)}px`);
+    }
+    root.toggleAttribute("whimsy-find-card-open", open);
   },
 
   syncStatus(findbar) {

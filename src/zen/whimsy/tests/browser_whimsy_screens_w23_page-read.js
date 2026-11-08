@@ -102,16 +102,16 @@ async function summaryIn(url, prepare = null) {
   return { tab, panel };
 }
 
-// DIAG (remove): what a click at an element's centre would land on.
-function hitInfo(el) {
-  const r = el.getBoundingClientRect();
-  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-  const desc = n => n ? `${n.localName}#${n.id}.${[...(n.classList ?? [])].join(".")}` : "null";
-  const chain = [];
-  for (let n = hit; n && chain.length < 6; n = n.parentElement) {
-    chain.push(desc(n));
-  }
-  info(`DIAG hit ${desc(el)} rect ${JSON.stringify(r)} -> ${chain.join(" < ")}; focused ${Services.focus.activeWindow == window} pointer ${getComputedStyle(el).pointerEvents}`);
+// Waits until `el` stops moving (a panel sliding in), so a click lands on it.
+async function steady(el) {
+  let last = "";
+  await TestUtils.waitForCondition(async () => {
+    await new Promise(r => requestAnimationFrame(r));
+    const now = JSON.stringify(el.getBoundingClientRect());
+    const still = now == last;
+    last = now;
+    return still;
+  }, "It has stopped moving");
 }
 
 function closer(tab) {
@@ -139,7 +139,7 @@ add_task(async function passage_tint() {
   await whimsyBothSchemes(NAME("passage"), async dark => {
     const { tab, panel } = await summaryIn(LONG);
     const chip = await TestUtils.waitForCondition(() => panel.querySelector('.whimsy-chat-cite[data-n="2"]'), "The chip shows");
-    hitInfo(chip);
+    await steady(chip);
     EventUtils.synthesizeMouseAtCenter(chip, {});
     // The tint fades from 32% to 18% over 600ms: shoot its first frames once.
     // The page reports the tint's first frame itself (no round trip per
@@ -270,7 +270,7 @@ add_task(async function find_card() {
     });
     await whimsyBothSchemes(NAME("find-menu"), async () => {
       const findbar = await openFind("Lisbon");
-      hitInfo(findbar.querySelector(".whimsy-find-more"));
+      await steady(findbar.querySelector(".whimsy-find-more"));
       EventUtils.synthesizeMouseAtCenter(findbar.querySelector(".whimsy-find-more"), {});
       await TestUtils.waitForCondition(() => document.getElementById("whimsy-find-menu")?.state == "open", "The ⋯ menu opens");
       return closeFind;
