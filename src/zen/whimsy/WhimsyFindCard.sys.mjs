@@ -110,6 +110,26 @@ export const WhimsyFindCard = {
       counts(result);
       this.showCount(findbar, result);
     };
+    // The menu's toggles search again; a miss that lands after the card has
+    // closed must not bring it back (Firefox reopens the bar on a missed
+    // Find Again). A Find Again pressed after closing still reopens it.
+    let askedAt = 0;
+    let closedAt = 0;
+    for (const name of ["_find", "onFindAgainCommand"]) {
+      const real = findbar[name].bind(findbar);
+      findbar[name] = (...args) => {
+        askedAt = win.performance.now();
+        return real(...args);
+      };
+    }
+    const findResult = findbar.onFindResult.bind(findbar);
+    findbar.onFindResult = data => {
+      if (findbar.hidden && closedAt > askedAt && data.result == Ci.nsITypeAheadFind.FIND_NOTFOUND) {
+        return;
+      }
+      findResult(data);
+    };
+    findbar.addEventListener("findbarclose", () => (closedAt = win.performance.now()));
     const updateUI = findbar._updateFindUI.bind(findbar);
     findbar._updateFindUI = () => {
       updateUI();

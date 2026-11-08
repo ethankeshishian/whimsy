@@ -16,6 +16,8 @@ const { WhimsyChat } = ChromeUtils.importESModule("resource:///modules/whimsy/Wh
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const PAGE = ROOT + "whimsy_ai_page.html";
 
+const { WhimsyFindCard } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFindCard.sys.mjs");
+
 const FIND_PREFS = [
   "findbar.highlightAll",
   "accessibility.typeaheadfind.casesensitive",
@@ -144,14 +146,25 @@ add_task(async function menu_checkable_rows_drive_findbar() {
     await TestUtils.waitForCondition(() => menu.state == "closed", "Esc closes the menu");
     await TestUtils.waitForCondition(() => document.activeElement == findbar._findField, "back in the field");
     ok(!findbar.hidden, "The find bar stays open");
-    // DIAG (remove): who reopens the bar after it closes.
-    const realOpen = findbar.open;
-    findbar.open = function (...args) {
-      info(`DIAG open(${args}) hidden=${this.hidden} ${new Error().stack.split("\n").slice(1, 8).join(" | ")}`);
-      return realOpen.apply(this, args);
-    };
+    // An option toggled just before closing searches again; its late miss
+    // ("Lisbon" is no link) must not bring the card back.
+    const finder = findbar.browser.finder;
+    const missed = new Promise(resolve => {
+      const listener = {
+        onFindResult(data) {
+          if (data.result == Ci.nsITypeAheadFind.FIND_NOTFOUND) {
+            finder.removeResultListener(listener);
+            resolve(data.result);
+          }
+        },
+      };
+      finder.addResultListener(listener);
+    });
+    WhimsyFindCard.setLinksOnly(findbar, true);
     await closeFind(findbar);
-    findbar.open = realOpen;
+    is(await missed, Ci.nsITypeAheadFind.FIND_NOTFOUND, "Links Only misses after the card closed");
+    await TestUtils.waitForTick();
+    ok(findbar.hidden, "and the late miss doesn't reopen the card");
   });
 });
 
