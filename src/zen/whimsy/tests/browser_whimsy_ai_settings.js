@@ -558,3 +558,24 @@ add_task(async function no_use_for_ai_picker_or_command() {
   ok(!page.doc.querySelector("#whimsyAIUse, #whimsyAIProviderMenu, select, menulist"), "No picker in the page");
   await done(page);
 });
+
+// DIAG (temporary): why the AI-off page sits ~100px lower.
+add_task(async function diag_off_gap() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", false]] });
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIOffCard")?.checkVisibility(), "off card");
+    await new Promise(r => setTimeout(r, 1000));
+    const mc = doc.querySelector(".main-content");
+    const r = el => { const b = el.getBoundingClientRect(); return `${el.tagName}#${el.id}.${el.className} top=${Math.round(b.top)} h=${Math.round(b.height)}`; };
+    info("DIAG mc " + r(mc) + " scrollTop=" + mc.scrollTop + " scrollH=" + mc.scrollHeight + " clientH=" + mc.clientHeight);
+    const sc = doc.getElementById("search-container");
+    info("DIAG sc " + r(sc) + " pt=" + doc.defaultView.getComputedStyle(sc).paddingTop);
+    for (const c of sc.children) { info("DIAG sc-child " + r(c) + " hidden=" + c.hidden); }
+    let e = sc; while (e && e != doc.documentElement) { info("DIAG anc " + r(e) + " mt=" + doc.defaultView.getComputedStyle(e).marginTop + " pt=" + doc.defaultView.getComputedStyle(e).paddingTop); e = e.parentElement; }
+    for (const c of mc.children) { info("DIAG mc-child " + r(c)); }
+    for (const c of doc.querySelector(".pane-container").children) { info("DIAG pc-child " + r(c)); }
+  });
+  await SpecialPowers.popPrefEnv();
+  ok(true, "diag");
+});
