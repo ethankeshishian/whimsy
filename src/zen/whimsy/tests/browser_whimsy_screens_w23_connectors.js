@@ -153,7 +153,7 @@ add_task(async function onboarding_states() {
     ["onb-1.1", async () => renderPage(WhimsyAIOnboarding.pages(window)[0])],
     ["onb-1.8", async () => {
       const content = await renderPage(WhimsyAIOnboarding.pages(window)[0]);
-      content.querySelector('[data-id="claude"] [data-action="connect"]').click();
+      EventUtils.synthesizeMouseAtCenter(content.querySelector('[data-id="claude"] [data-action="connect"]'), {}, window);
     }],
     ["onb-2.1", async () => {
       const [, connect] = WhimsyAIOnboarding.pages(window);
@@ -164,7 +164,7 @@ add_task(async function onboarding_states() {
       const [, connect] = WhimsyAIOnboarding.pages(window);
       WhimsyAIOnboarding.session.providers.add("claude");
       const content = await renderPage(connect);
-      content.querySelector('[data-id="microsoft"] [data-action="connect"]').click();
+      EventUtils.synthesizeMouseAtCenter(content.querySelector('[data-id="microsoft"] [data-action="connect"]'), {}, window);
     }],
     ["onb-5.1", async () => {
       WhimsyAIOnboarding.pages(window);
@@ -206,7 +206,7 @@ add_task(async function onb_card_failure_unfold_mid() {
   WhimsyAIOnboarding.connectProvider = () => Promise.reject(Object.assign(new Error("x"), { code: "sign-in-failed" }));
   try {
     const content = await renderPage(WhimsyAIOnboarding.pages(window)[0]);
-    content.querySelector('[data-id="openai"] [data-action="connect"]').click();
+    EventUtils.synthesizeMouseAtCenter(content.querySelector('[data-id="openai"] [data-action="connect"]'), {}, window);
     await whimsyShotMid("w23-connectors-onb-card-fail", () => content.querySelector('[data-id="openai"] .whimsy-onb-note')?.getAnimations()[0], 150);
     ok(content.querySelector('[data-id="openai"]').dataset.state == "failed", "onb-card-fail: the card reached the failed state");
   } finally {
