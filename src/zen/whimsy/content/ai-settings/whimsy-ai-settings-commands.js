@@ -31,12 +31,11 @@
     const P = S.providers;
     if (cmd.result == "link") {
       document.l10n.setAttributes(node, "whimsy-commands-model-none");
+    } else if (cmd.model == "apple" || (cmd.builtIn && cmd.task != "summary" && P.quickTextOnApple && P.order.includes("apple") && P.isOn("apple"))) {
+      document.l10n.setAttributes(node, "whimsy-commands-model-apple");
     } else if (cmd.model && cmd.model != "auto") {
       node.removeAttribute("data-l10n-id");
       node.textContent = P.providerName(cmd.model);
-    } else if (cmd.builtIn && cmd.task != "summary" && P.quickTextOnApple && P.order.includes("apple") && P.isOn("apple")) {
-      node.removeAttribute("data-l10n-id");
-      node.textContent = P.providerName("apple");
     } else {
       document.l10n.setAttributes(node, "whimsy-commands-model-auto");
     }
@@ -556,6 +555,9 @@
       input.addEventListener("input", () => {
         input.removeAttribute("aria-invalid");
         error.hidden = true;
+        if (error.nextElementSibling?.classList.contains("whimsy-ai-hint")) {
+          error.nextElementSibling.hidden = false;
+        }
       });
     }
 
@@ -583,6 +585,11 @@
         for (const [l10nId, input, error] of shown) {
           const bad = !!l10nId && !input.closest("[hidden]");
           error.hidden = !bad;
+          // The problem takes the hint's place, as in the mockup.
+          const hint = error.nextElementSibling;
+          if (hint?.classList.contains("whimsy-ai-hint")) {
+            hint.hidden = bad;
+          }
           if (bad) {
             input.setAttribute("aria-invalid", "true");
           } else {

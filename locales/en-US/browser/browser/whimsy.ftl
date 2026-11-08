@@ -6224,6 +6224,7 @@ whimsy-commands-model = Model
 whimsy-commands-model-auto = Auto
 whimsy-commands-model-auto-choice = Auto (your provider order)
 whimsy-commands-model-none = No model
+whimsy-commands-model-apple = Apple
 whimsy-commands-address = Address
 whimsy-commands-address-hint = %s is replaced by the selected text. No model is used; nothing is sent to AI.
 whimsy-commands-token-selection = The selected text
