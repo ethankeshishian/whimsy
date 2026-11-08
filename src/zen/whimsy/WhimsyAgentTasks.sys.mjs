@@ -474,7 +474,7 @@ export const WhimsyAgentTasks = {
       return;
     }
     await lazy.WhimsyAIStore.writeDoc(RUNNING_DOC, []);
-    const l10n = new Localization(["browser/whimsy.ftl"], true);
+    const l10n = new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true);
     for (const t of left) {
       if (t.threadId) {
         await lazy.WhimsyAIStore.append(t.threadId,

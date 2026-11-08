@@ -1149,13 +1149,13 @@ export const WhimsyClaude = {
   // Loads with retries: reload after 5s and 15s, shown as "trying again
   // (2 of 3)". Then Drive pauses (Try again / Skip this site / End task)
   // and Background skips the site and carries on.
-  async loadWithRetries(tab, ctx, begin) {
+  async loadWithRetries(tab, ctx, begin, target = null) {
     const { task } = ctx;
     const browser = tab.linkedBrowser;
     for (;;) {
       for (let n = 1; n <= 3; n++) {
         if (n > 1) {
-          lazy.WhimsyAgentTasks.step(task, { step: "retry", n, of: 3, host: this.hostOf(tab) });
+          lazy.WhimsyAgentTasks.step(task, { step: "retry", n, of: 3, host: target?.host || this.hostOf(tab) });
           await delay(timing.retries[n - 2] ?? 0);
           this.assertLive(ctx);
         }
@@ -1170,7 +1170,7 @@ export const WhimsyClaude = {
         }
         this.assertLive(ctx);
       }
-      const host = this.hostOf(tab);
+      const host = target?.host || this.hostOf(tab);
       if (task.mode == "background") {
         lazy.WhimsyAgentTasks.skipSite(task, host);
         throw new ToolError(`${host} didn't load after 3 tries, so it's skipped. Carry on with the rest; the person sees the skipped sites at the end.`);
@@ -1468,8 +1468,7 @@ export const WhimsyClaude = {
         await this.loadWithRetries(tab, ctx, () =>
           tab.linkedBrowser.fixupAndLoadURIString(uri.spec, {
             triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-          })
-        );
+          }), uri);
       }
       return (await this.guardTabs([tab], ctx))[0];
     },
@@ -1500,7 +1499,7 @@ export const WhimsyClaude = {
               triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
             });
           }
-        });
+        }, uri);
         this.assertLive(ctx);
         return (await this.guardTabs([tab], ctx))[0];
       });

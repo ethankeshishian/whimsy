@@ -68,7 +68,7 @@ function safe(value, max) {
 }
 
 function l10n() {
-  return new Localization(["browser/whimsy.ftl"], true);
+  return new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true);
 }
 
 function hostOf(url) {
