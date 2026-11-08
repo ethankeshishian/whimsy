@@ -19,7 +19,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
-  ContextualIdentityService: "resource://gre/modules/ContextualIdentityService.sys.mjs",
+  ContextualIdentityService: "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
@@ -191,13 +191,12 @@ export const WhimsyOutsideAgents = {
       return;
     }
     observing = true;
-    // Not inside the pref notification: the space is made on the next turn.
-    Services.prefs.addObserver(OWN_SPACE_PREF, () => Services.tm.dispatchToMainThread(() => {
+    Services.prefs.addObserver(OWN_SPACE_PREF, () => {
       const win = this.window();
       if (this.ownSpace && win) {
         this.ensureOwnSpace(win).catch(e => console.error("Whimsy: outside agents space", e));
       }
-    }));
+    });
   },
 
   window() {

@@ -301,7 +301,6 @@ add_task(async function test_tools_for_a_task() {
   // Enter in a field submits its form: a submit pause first.
   await ok_result(own(task, "type", { tabId, ref: search, text: "" }), "focus the field");
   const pending = own(task, "key", { tabId, keys: "Enter" });
-  pending.then(r => info("DIAG key result: " + textOf(r)));
   const pause = await waitForPause(task, "submit");
   ok(pause.allowForTask, "A submit pause may be allowed for this task");
   WhimsyAgentTasks.decide(task.id, "do");
@@ -703,7 +702,7 @@ add_task(async function own_space_limits_outside_apps() {
     Services.prefs.clearUserPref(OWN_ID);
     if (space) {
       await gZenWorkspaces.removeWorkspace(space.uuid);
-      const { ContextualIdentityService } = ChromeUtils.importESModule("resource://gre/modules/ContextualIdentityService.sys.mjs");
+      const { ContextualIdentityService } = ChromeUtils.importESModule("moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs");
       ContextualIdentityService.remove(space.containerTabId);
     }
     BrowserTestUtils.removeTab(mine);

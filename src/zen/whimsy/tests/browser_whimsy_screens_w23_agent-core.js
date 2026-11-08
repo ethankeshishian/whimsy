@@ -26,7 +26,7 @@ add_task(async function shot_fu_agent_3_4_ai_space() {
     Services.prefs.clearUserPref(OWN_ID);
     if (space) {
       await gZenWorkspaces.removeWorkspace(space.uuid);
-      const { ContextualIdentityService } = ChromeUtils.importESModule("resource://gre/modules/ContextualIdentityService.sys.mjs");
+      const { ContextualIdentityService } = ChromeUtils.importESModule("moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs");
       ContextualIdentityService.remove(space.containerTabId);
     }
   }
