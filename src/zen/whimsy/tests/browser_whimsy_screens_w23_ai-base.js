@@ -17,6 +17,7 @@ add_setup(async function () {
     ["whimsy.ai.enabled", true],
     ["whimsy.ai.hints.seen", ""],
     ["whimsy.ai.hints.today", ""],
+    ["whimsy.forms.saveDrafts", false],
   ] });
   WhimsyAIHints._setTimingForTesting({ gapMs: 0, timeoutMs: 0 });
   registerCleanupFunction(() => {

@@ -20,6 +20,11 @@ const OTP = "48" + "2913";
 const YELLOW = [255, 230, 0];
 const MASK = MASK_COLOR.match(/\d+/g).map(Number);
 
+// Typing here is fixture data, not a draft to keep.
+add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.forms.saveDrafts", false]] });
+});
+
 async function typeInto(browser, selector, text) {
   browser.focus();
   await BrowserTestUtils.synthesizeMouseAtCenter(selector, {}, browser);
