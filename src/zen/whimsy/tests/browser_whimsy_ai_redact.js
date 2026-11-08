@@ -20,9 +20,16 @@ const OTP = "48" + "2913";
 const YELLOW = [255, 230, 0];
 const MASK = MASK_COLOR.match(/\d+/g).map(Number);
 
-// Typing here is fixture data, not a draft to keep.
+// Typing here is fixture data: whatever drafts it leaves use the test key
+// store and are gone before the next file.
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.forms.saveDrafts", false]] });
+  const { OSKeyStoreTestUtils } = ChromeUtils.importESModule("resource://testing-common/OSKeyStoreTestUtils.sys.mjs");
+  const { WhimsyFormDrafts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
+  OSKeyStoreTestUtils.setup();
+  registerCleanupFunction(async () => {
+    await WhimsyFormDrafts.forgetAll();
+    await OSKeyStoreTestUtils.cleanup();
+  });
 });
 
 async function typeInto(browser, selector, text) {

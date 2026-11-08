@@ -12,12 +12,23 @@ const { WhimsyAIContext } = ChromeUtils.importESModule("resource:///modules/whim
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 
+// Typing here is fixture data: whatever drafts it leaves use the test key
+// store and are gone before the next file.
+add_setup(async function () {
+  const { OSKeyStoreTestUtils } = ChromeUtils.importESModule("resource://testing-common/OSKeyStoreTestUtils.sys.mjs");
+  const { WhimsyFormDrafts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
+  OSKeyStoreTestUtils.setup();
+  registerCleanupFunction(async () => {
+    await WhimsyFormDrafts.forgetAll();
+    await OSKeyStoreTestUtils.cleanup();
+  });
+});
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [
     ["whimsy.ai.enabled", true],
     ["whimsy.ai.hints.seen", ""],
     ["whimsy.ai.hints.today", ""],
-    ["whimsy.forms.saveDrafts", false],
   ] });
   WhimsyAIHints._setTimingForTesting({ gapMs: 0, timeoutMs: 0 });
   registerCleanupFunction(() => {
