@@ -677,3 +677,34 @@ add_task(async function test_fields_without_an_id_restore() {
   BrowserTestUtils.removeTab(gBrowser.getTabForBrowser(reopened));
   await WhimsyFormDrafts.delete({ url: page });
 });
+
+// A Keychain prompt nobody answers (unlock, or "allow access" for a rebuilt
+// app) must not hold up quitting: the shutdown write gives up after a moment.
+add_task(async function test_shutdown_write_is_bounded() {
+  await WhimsyFormDrafts.flush();
+  const before = await fileText();
+  const realLogin = OSKeyStore.ensureLoggedIn;
+  const realBound = WhimsyFormDrafts._shutdownMs;
+  const prompt = Promise.withResolvers();
+  OSKeyStore.ensureLoggedIn = () => prompt.promise;
+  WhimsyFormDrafts._shutdownMs = 200;
+  try {
+    ok(await WhimsyFormDrafts.put({ url: PAGE, data: draft() }), "Stored");
+    const start = Date.now();
+    await WhimsyFormDrafts.flushAtShutdown();
+    Assert.less(Date.now() - start, 2000, "Quitting waits a moment, not for the prompt");
+    is(await fileText(), before, "The file on disk is the previous one");
+  } finally {
+    OSKeyStore.ensureLoggedIn = realLogin;
+    WhimsyFormDrafts._shutdownMs = realBound;
+    prompt.resolve({ authenticated: true });
+  }
+  await WhimsyFormDrafts.flush();
+  await WhimsyFormDrafts.delete({ url: PAGE });
+  await WhimsyFormDrafts.flush();
+});
+
+// Tests never reach the person's real Keychain item (head.js).
+add_task(async function test_tests_use_a_throwaway_keystore() {
+  ok(OSKeyStore.STORE_LABEL.startsWith("test-"), "A throwaway Keychain item");
+});

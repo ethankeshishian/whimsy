@@ -18,6 +18,24 @@ registerCleanupFunction(function whimsyCloseToasts() {
   }
 });
 
+// Form drafts and AI keys are encrypted with OSKeyStore. The real Keychain
+// item only answers the build that made it: a rebuilt (ad-hoc signed) binary
+// gets an "allow access" prompt nobody answers, and OSKeyStore's one serial
+// queue then hangs every later call, the drafts' shutdown write too. Like
+// Firefox's own tests (OSKeyStoreTestUtils), every file gets its own
+// throwaway item, deleted after the file's own cleanups.
+{
+  const { OSKeyStore } = ChromeUtils.importESModule("resource://gre/modules/OSKeyStore.sys.mjs");
+  const realLabel = OSKeyStore.STORE_LABEL;
+  OSKeyStore.STORE_LABEL = "test-whimsy-" + Math.random().toString(36).slice(2);
+  registerCleanupFunction(() => registerCleanupFunction(async function whimsyDropTestKeyStore() {
+    const { WhimsyFormDrafts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
+    await WhimsyFormDrafts.flush();
+    await OSKeyStore.cleanup().catch(() => {});
+    OSKeyStore.STORE_LABEL = realLabel;
+  }));
+}
+
 registerCleanupFunction(function whimsyQueueSettle() {
   // Registered from inside a cleanup, so it runs after the test's own.
   registerCleanupFunction(async function whimsySettleVsync() {
