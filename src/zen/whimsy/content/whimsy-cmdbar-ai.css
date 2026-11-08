@@ -161,6 +161,8 @@
   font-size: 15px;
   line-height: 1.55;
   color: var(--whimsy-ask-text);
+  white-space: normal;
+  overflow-wrap: break-word;
   cursor: auto;
   user-select: text;
 }
@@ -488,10 +490,6 @@
     --tone: var(--whimsy-ask-ok);
   }
 
-  &[data-type="prep"] {
-    --tone: #d97757;
-  }
-
   &[data-type="routine"] {
     --tone: var(--whimsy-ask-text-2);
   }
@@ -588,20 +586,34 @@
   cursor: pointer;
 }
 
-/* Open, Remind me, and Dismiss show on the selected row (Tab walks them). */
+/* Open, Remind me, and Dismiss show on the selected row (Tab walks them),
+   and on the row whose Remind me menu is open, which keeps the selected look. */
 .urlbarView-row[selected] .whimsy-update-btn:not([hidden]),
 .urlbarView-row:has([selected]) .whimsy-update-btn:not([hidden]),
+.urlbarView-row:has(.whimsy-update-remind[open]) .whimsy-update-btn:not([hidden]),
 .urlbarView-row:hover .whimsy-update-btn:not([hidden]) {
   display: inline-flex;
 }
 
-.urlbarView-row:is([selected], :has([selected]), :hover) .whimsy-update-time {
+.urlbarView-row:is([selected], :has([selected]), :has(.whimsy-update-remind[open]), :hover) .whimsy-update-time {
   display: none;
 }
 
+.urlbarView-row[dynamicType="whimsy-update"]:has(.whimsy-update-remind[open]) {
+  background-color: color-mix(in srgb, var(--zen-accent-button-background), transparent 40%) !important;
+
+  & * {
+    color: white !important;
+  }
+}
+
+/* Zen paints every child of a selected row white; Open sits on white. */
+.urlbarView-row .whimsy-update-btn.whimsy-update-open {
+  background: rgba(255, 255, 255, 0.92);
+  color: color-mix(in srgb, var(--zen-accent-button-background, var(--whimsy-ask-accent)), black 55%) !important;
+}
+
 .whimsy-update-btn {
-  background: rgba(255, 255, 255, 0.9);
-  color: color-mix(in srgb, var(--zen-accent-button-background, var(--whimsy-ask-accent)), black 35%) !important;
 
   .urlbarView-row:not([selected]):not(:has([selected])) & {
     background: var(--whimsy-ask-hover);
@@ -624,7 +636,7 @@
   width: 10px;
   height: 10px;
   background-color: currentColor;
-  mask: url("chrome://browser/skin/zen-icons/chevron.svg") center / contain no-repeat;
+  mask: url("chrome://global/skin/icons/arrow-down-12.svg") center / contain no-repeat;
   transition: rotate 180ms var(--whimsy-ask-ease);
 }
 
@@ -637,29 +649,36 @@
   }
 }
 
-/* ---- Remind me: its times as menu rows under the update (cmd-2.4) ---- */
+/* ---- Remind me: its times as menu rows under Remind me (cmd-2.4) ----
+   One card made of rows: the first rounds its top, Pick a time… its bottom. */
 .urlbarView-row[dynamicType="whimsy-update-remind-option"] {
   min-height: 0 !important;
-  padding-block: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-block-width: 0 !important;
   background: none !important;
 
   & > .urlbarView-row-inner {
+    justify-content: flex-end;
     min-height: 0 !important;
-    padding: 0 8px 0 46px !important;
+    padding: 0 8px !important;
     background: none !important;
   }
 }
 
 .whimsy-remind-option {
+  --menu-bg: light-dark(white, rgb(44, 44, 46));
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 8px;
-  width: min(230px, 100%);
-  min-height: 28px;
-  padding: 2px 10px;
+  gap: 12px;
+  width: 230px;
+  min-height: 29px;
+  padding: 0 14px 0 12px;
   box-sizing: border-box;
-  background: var(--whimsy-ask-hover);
+  border-inline: 1px solid var(--whimsy-ask-hairline);
+  background-color: var(--menu-bg);
+  background-clip: padding-box;
   font-size: 13px;
   color: var(--whimsy-ask-text) !important;
   cursor: pointer;
@@ -671,37 +690,50 @@
 
   .urlbarView-row:not([dynamicType="whimsy-update-remind-option"]) + .urlbarView-row & {
     margin-block-start: 2px;
-    border-start-start-radius: 8px;
-    border-start-end-radius: 8px;
     padding-block-start: 4px;
+    min-height: 33px;
+    border-block-start: 1px solid var(--whimsy-ask-hairline);
+    border-start-start-radius: 10px;
+    border-start-end-radius: 10px;
   }
 
   &[last] {
-    border-block-start: 1px solid var(--whimsy-ask-hairline);
-    border-end-start-radius: 8px;
-    border-end-end-radius: 8px;
+    margin-block-end: 6px;
     padding-block-end: 4px;
-    margin-block-end: 4px;
+    min-height: 34px;
+    border-block-end: 1px solid var(--whimsy-ask-hairline);
+    border-end-start-radius: 10px;
+    border-end-end-radius: 10px;
+    background-image: linear-gradient(var(--whimsy-ask-hairline), var(--whimsy-ask-hairline));
+    background-size: calc(100% - 12px) 1px;
+    background-position: 6px 0;
+    background-repeat: no-repeat;
   }
 
-  &:hover {
-    background: color-mix(in srgb, var(--zen-branding-bg-reverse, currentColor) 10%, transparent);
-  }
-
+  &:hover,
   &[selected] {
-    background: var(--zen-primary-color, var(--whimsy-ask-accent));
-    color: white !important;
+    background-color: color-mix(in srgb, var(--menu-bg) 92%, light-dark(black, white));
+    outline: none;
+  }
+}
 
-    & .whimsy-remind-option-detail {
-      color: rgba(255, 255, 255, 0.8);
-    }
+/* A menu, not a selected result: Zen whitens every child of a selected row. */
+.urlbarView-row[dynamicType="whimsy-update-remind-option"] .whimsy-remind-option {
+  color: var(--whimsy-ask-text) !important;
+
+  & .whimsy-remind-option-label {
+    color: var(--whimsy-ask-text) !important;
+  }
+
+  & .whimsy-remind-option-detail {
+    color: var(--whimsy-ask-muted) !important;
   }
 }
 
 .whimsy-remind-option-detail {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
-  color: var(--whimsy-ask-muted);
+  color: var(--whimsy-ask-muted) !important;
   font-variant-numeric: tabular-nums;
 
   &[hidden] {
@@ -757,9 +789,12 @@
   display: inline-flex;
   padding: 0 4px;
   pointer-events: auto;
-  color: var(--whimsy-ask-accent) !important;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted) !important;
 
   &:hover {
+    color: var(--whimsy-ask-text) !important;
     text-decoration: underline;
   }
 

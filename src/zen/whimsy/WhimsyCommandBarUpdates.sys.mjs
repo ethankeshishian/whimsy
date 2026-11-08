@@ -38,11 +38,11 @@ const ICONS = "chrome://browser/content/whimsy/icons/";
 const SPARKLE = "chrome://browser/skin/zen-icons/sparkles.svg";
 const TYPE_ICONS = {
   answer: SPARKLE,
-  needs: "chrome://browser/skin/zen-icons/security-warning.svg",
+  needs: "chrome://browser/skin/zen-icons/selectable/bell.svg",
   watch: `${ICONS}eye.svg`,
   research: `${ICONS}thinking.svg`,
   agent: `${ICONS}agent.svg`,
-  prep: `${ICONS}google-calendar.svg`,
+  prep: "chrome://browser/content/whimsy/space-icons/calendar.svg",
   routine: `${ICONS}routines.svg`,
 };
 
