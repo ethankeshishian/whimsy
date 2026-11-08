@@ -28,6 +28,12 @@
   color-scheme: light dark;
 }
 
+/* Zen centres a short pane (margin: auto); with AI off the page is one card,
+   which then floated mid-window. It starts at the top like the mockups. */
+.pane-container:has(#whimsyAIPage:not([hidden])) {
+  margin-block-start: 0;
+}
+
 #whimsyAIPage {
   display: flex;
   flex-direction: column;
