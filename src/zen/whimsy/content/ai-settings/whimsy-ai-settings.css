@@ -130,7 +130,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  scroll-margin-top: 96px;
+  scroll-margin-top: 64px;
 }
 
 .whimsy-ai-sec-head {
@@ -654,6 +654,10 @@
   &[data-tone="fail"] {
     --note: var(--ai-error);
     background: color-mix(in srgb, var(--ai-error) 10%, transparent);
+
+    &::before {
+      mask-image: url("chrome://global/skin/icons/error.svg");
+    }
   }
 
   &[data-tone="info"] {
@@ -692,7 +696,7 @@
     width: 14px;
     height: 14px;
     background: currentColor;
-    mask: url("chrome://browser/skin/zen-icons/check.svg") center / 14px no-repeat;
+    mask: url("chrome://global/skin/icons/check-filled.svg") center / 14px no-repeat;
   }
 
   &:empty {
@@ -849,17 +853,36 @@
   flex-direction: column;
   gap: 8px;
   margin: 0;
-  padding: 12px 14px 12px 32px;
+  padding: 12px 14px;
+  list-style: none;
+  counter-reset: whimsy-ai-how;
   font-size: 12.5px;
   line-height: 1.45;
   background: var(--ai-track);
 
-  & span {
-    color: var(--ai-muted);
+  & li {
+    position: relative;
+    padding-inline-start: 28px;
+    counter-increment: whimsy-ai-how;
+
+    &::before {
+      content: counter(whimsy-ai-how);
+      position: absolute;
+      inset-inline-start: 0;
+      top: 1px;
+      display: grid;
+      place-items: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--ai-primary) 18%, transparent);
+      color: var(--ai-accent);
+      font-size: 10px;
+      font-weight: 600;
+    }
   }
 
   & b {
-    color: CanvasText;
     font-weight: 600;
   }
 }
@@ -1155,7 +1178,7 @@
 
   &[data-state="done"]::before {
     background: var(--ai-success);
-    mask: url("chrome://browser/skin/zen-icons/check.svg") center / 14px no-repeat;
+    mask: url("chrome://global/skin/icons/check-filled.svg") center / 14px no-repeat;
   }
 
   &[data-state="busy"]::before {
@@ -1249,5 +1272,51 @@
 
   &[aria-selected="true"] {
     font-weight: 600;
+  }
+}
+
+.whimsy-ai-popup-item {
+  position: relative;
+  padding-inline-start: 28px;
+
+  &[aria-selected="true"] {
+    font-weight: inherit;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: 9px;
+      top: calc(50% - 6px);
+      width: 12px;
+      height: 12px;
+      background: currentColor;
+      mask: url("chrome://global/skin/icons/check.svg") center / 12px no-repeat;
+    }
+  }
+}
+
+.whimsy-ai-input.whimsy-ai-mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+.whimsy-ai-btn.whimsy-ai-ext::after {
+  content: "";
+  width: 11px;
+  height: 11px;
+  background: currentColor;
+  mask: url("chrome://global/skin/icons/open-in-new.svg") center / 11px no-repeat;
+}
+
+.whimsy-ai-note-body:has(> b:first-child) {
+  display: block;
+
+  & > b {
+    font-weight: 600;
+    margin-inline-end: 4px;
+  }
+
+  & > .whimsy-ai-actions {
+    margin-top: 6px;
   }
 }

@@ -223,6 +223,7 @@ function shoot(state, prepare, { opts = {} } = {}) {
       }
       extra = await prepare(page, dark);
       await settled(page);
+      ok(visible(page.$("whimsyAIPage")), `${state} (${dark ? "dark" : "light"}) is ready`);
     } catch (e) {
       await done(page);
       throw e;
@@ -247,6 +248,7 @@ async function mid(state, ms, start, getAnimation) {
   page.unfolds = [];
   await start(page);
   await whimsyShotMid(`w23-settings-ai-${state}`, () => getAnimation(page), ms);
+  ok(true, `${state} at ${ms}ms`);
   await settled(page);
   await done(page);
 }

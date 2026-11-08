@@ -404,7 +404,7 @@ var WhimsyAISettings = {
     if (this._jumping) {
       return;
     }
-    const line = top.getBoundingClientRect().bottom + 8;
+    const line = top.getBoundingClientRect().bottom + 40;
     const scroller = this._scroller();
     const atEnd = scroller.scrollTop > 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
     let current = null;
