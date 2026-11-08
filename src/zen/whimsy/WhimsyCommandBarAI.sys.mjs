@@ -67,6 +67,13 @@ function urlLike(text) {
 }
 
 /** Whether `text` reads like a question or a request (never URL-like). */
+
+// A hint asks whether its row is on screen, so ask once the view has drawn it.
+function askHintWhenDrawn(win, id) {
+  Promise.resolve(win?.gURLBar?.lastQueryContextPromise).then(() => {
+    win.requestAnimationFrame(() => lazy.WhimsyAIHints.request(win, id));
+  }, () => {});
+}
 export function looksLikeQuestion(text) {
   const t = String(text ?? "").trim();
   if (t.length < 3 || urlLike(t)) {
@@ -331,7 +338,7 @@ export class WhimsyAskProvider extends UrlbarProvider {
       suggestedIndex: 1,
       payload: { dynamicType: ASK_TYPE, query: text, scope: scopeOf(text) },
     }));
-    lazy.WhimsyAIHints.request(win, "ask");
+    askHintWhenDrawn(win, "ask");
   }
 
   getViewTemplate(result) {
@@ -404,6 +411,7 @@ export class WhimsyAskProvider extends UrlbarProvider {
 export const WhimsyCommandBarAI = {
   provider: null,
   looksLikeQuestion,
+  askHintWhenDrawn,
   scopeOf,
   LOADING_MS,
 

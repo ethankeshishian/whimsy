@@ -186,7 +186,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
       lazy.WhimsyAIUpdates.markSeen?.([]);
     }
     if (list.updates.length || list.whileClosed.length) {
-      lazy.WhimsyAIHints.request(win, "updates");
+      lazy.WhimsyCommandBarAI.askHintWhenDrawn(win, "updates");
     }
   }
 
