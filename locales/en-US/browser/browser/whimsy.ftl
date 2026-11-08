@@ -6097,6 +6097,10 @@ whimsy-summary-cite-page = p. { $page }
 whimsy-summary-ocr = This PDF is scanned, so I read it with text recognition on this Mac. Small print may be off.
 # Find as a floating card at the top right (fu-page 1.7), with Ask.
 whimsy-find-options-command = Find Options
+whimsy-look-find-card =
+    .label = Find as a floating card at the top right of the page
+whimsy-setting-find-card = Floating Find
+    .keywords = find bar, find in page, search page, cmd f, find card
 whimsy-find-more =
     .tooltiptext = More find options
     .aria-label = More find options
