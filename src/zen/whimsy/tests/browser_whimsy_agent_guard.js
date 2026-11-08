@@ -115,6 +115,7 @@ add_task(async function send_pauses() {
   const pending = own(task, "click", { tabId, ref: refIn(tree, /button "Send"/) });
   const pause = await waitForPause(task, "send");
   is(fieldValue(pause.preview, "To"), "Maya Chen <maya@example.org>", "Every recipient");
+  info("TMPDIAG " + JSON.stringify(pause.preview.fields));
   is(fieldValue(pause.preview, "Message"), "Dec 12 to 15 works for me.", "and the full text");
   WhimsyAgentTasks.decide(task.id, "self");
   is(task.pause.yours, true, "I'll edit it: the step is the person's");
