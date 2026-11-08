@@ -613,11 +613,15 @@ var WhimsyAISettings = {
     }
   },
 
-  // ?sheet=<id> in the address (before or after #whimsyAI), used once.
+  // ?sheet=<id> in the address (before or after #whimsyAI), used once. An
+  // about: page can only rewrite its hash, so a used query is marked in
+  // the history entry instead.
   readLink() {
-    const match = /[?&]sheet=([\w-]+)/.exec(decodeURIComponent(location.hash || "")) ?? /[?&]sheet=([\w-]+)/.exec(location.search || "");
+    const inHash = /[?&]sheet=([\w-]+)/.exec(decodeURIComponent(location.hash || ""));
+    const inQuery = history.state?.whimsySheetUsed ? null : /[?&]sheet=([\w-]+)/.exec(location.search || "");
+    const match = inHash ?? inQuery;
     if (match) {
-      history.replaceState(null, "", `${location.href.split(/[?#]/)[0]}#whimsyAI`);
+      history.replaceState({ ...history.state, whimsySheetUsed: true }, "", inHash ? "#whimsyAI" : undefined);
     }
     return match?.[1] ?? null;
   },

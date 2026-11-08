@@ -290,7 +290,9 @@ add_task(async function deep_link_search_opens_add_provider_sheet() {
   Services.obs.notifyObservers(null, "whimsy-ai-settings-action", "add-provider");
   await new Promise(r => setTimeout(r, 100));
   is(page.doc.querySelectorAll('#whimsyAISheet[data-sheet="add-provider"]').length, 1, "One sheet, however many ways it was asked for");
-  is(win.location.search, "", "The query is used once");
+  page.S.closeSheet();
+  page.S._takeAction();
+  ok(!page.S.sheet, "The query is used once");
   is(win.location.hash, "#whimsyAI", "on the AI page");
   await done(page);
 });
