@@ -208,3 +208,7 @@
         content/browser/whimsy/icons/video-chip.svg (../../zen/whimsy/content/icons/video-chip.svg)
         content/browser/whimsy/icons/chat.svg (../../zen/whimsy/content/icons/chat.svg)
         content/browser/whimsy/icons/updates.svg (../../zen/whimsy/content/icons/updates.svg)
+# W23 settings-ai: Settings › AI, one page
+        content/browser/whimsy/ai-settings/whimsy-ai-settings.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings.css)
+        content/browser/whimsy/ai-settings/whimsy-ai-settings.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings.js)
+        content/browser/whimsy/ai-settings/whimsy-ai-settings-providers.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-providers.js)

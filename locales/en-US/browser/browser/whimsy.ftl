@@ -1607,8 +1607,6 @@ whimsy-ai-ollama-status-offline = Ollama isn’t running at this address, or has
 
 whimsy-ai-provider-heading = Use for AI
 whimsy-ai-provider-description = Tidy Tabs, tab titles, Ask on Page, link previews and page watches use this provider, and only this one.
-whimsy-ai-use-label = Provider
-whimsy-ai-use-none = Connect a provider below first
 whimsy-ai-model-label = Model
 whimsy-ai-model-default = Default
 whimsy-ai-model-loading = Loading…
@@ -1631,10 +1629,6 @@ whimsy-ai-account-signed-out = { $provider } plan · signed out
 whimsy-ai-account-connected =
     .aria-label = Connected
     .title = Connected
-whimsy-ai-use-notconnected = Not connected
-whimsy-ai-use-detail-plan = Plan
-whimsy-ai-use-detail-key = API key
-whimsy-ai-use-detail-local = On this Mac
 whimsy-ai-connect-row =
     .label = Connect…
     .aria-label = Connect { $provider }
@@ -1674,7 +1668,7 @@ whimsy-ai-plan-callback-failed = Sign-in didn’t finish. Go back to Whimsy and 
 whimsy-ai-connect-error-sign-in-cancelled = Sign-in didn’t finish. Try again.
 whimsy-ai-connect-error-plan-ineligible = Your plan can’t be used here. Use an API key instead.
 whimsy-ai-connect-error-claude-code-missing = Install Claude Code first (claude.com/claude-code), then try again.
-whimsy-ai-connect-error-claude-code-signed-out = Claude Code isn’t signed in. In Terminal, run “claude” and type /login, then try again.
+whimsy-ai-connect-error-claude-code-signed-out = Claude Code isn’t signed in. Sign in with Claude to try again.
 whimsy-ai-connect-error-unavailable = { $provider } isn’t available right now. Try again later.
 whimsy-ai-key-field =
     .placeholder = Paste your API key
@@ -1706,7 +1700,6 @@ whimsy-ai-confirm-cancel =
 whimsy-ai-confirm-disconnect =
     .label = Disconnect
 whimsy-action-ai-connect = Connect AI Provider
-whimsy-action-ai-use = Use for AI
 whimsy-action-ai-sign-in-chatgpt = Sign in with ChatGPT
 
 ## wave3/ai: AI errors (toasts)
@@ -4479,21 +4472,8 @@ whimsy-setting-cookie-banners = Reject Cookie Banners
 whimsy-setting-ai = AI
     .keywords = enable ai, artificial intelligence, ai features, kill switch, block ai, disable ai, chatbot, llm
 # W10-28: Firefox's own AI rows in Settings → AI.
-whimsy-setting-firefox-chatbot = Firefox Chatbot
-    .keywords = chatbot, ai chatbot, sidebar chatbot, chatgpt, claude, gemini, copilot
-whimsy-setting-firefox-link-previews = Firefox Link Previews
-    .keywords = link preview, key points, preview summary
-whimsy-setting-firefox-tab-groups = Suggest Tab Groups
-    .keywords = smart tab groups, tab group suggestions, ai tab groups
 whimsy-setting-ai-provider = AI Provider
     .keywords = apple intelligence, claude, ollama, model, api key, local model
-whimsy-setting-ai-connect-methods = Connect Sign-in Options
-whimsy-setting-ai-claude-key = Claude API Key
-    .keywords = anthropic, api key, claude key
-whimsy-setting-ai-ollama-endpoint = Ollama Address
-    .keywords = ollama, local model, endpoint, server
-whimsy-setting-ai-ollama-model = Ollama Model
-    .keywords = ollama, local model, llama, model
 whimsy-setting-tidy-tabs = Tidy Tabs
     .keywords = broom, sort tabs, organize tabs, group tabs, ai tabs, arc max
 whimsy-setting-tidy-titles = Tidy Tab Titles
@@ -5305,3 +5285,250 @@ whimsy-agent-change-off-on = Off → On
 whimsy-agent-new-site = new to you
 # $value (String) - what it would type; $field (String) - the field's label
 whimsy-agent-will-type = { $value } in “{ $field }”
+
+## W23 settings-ai: Settings › AI, one page (header switch, off card,
+## Off limits, jump strip, Providers and its sheets, Claude Code's
+## verified install, and Features)
+
+whimsy-ai-page-title = AI
+whimsy-ai-page-on = On
+whimsy-ai-page-off = Off
+whimsy-ai-page-switch =
+    .aria-label = AI
+whimsy-ai-jump-label =
+    .aria-label = Sections
+whimsy-ai-jump-providers = Providers
+whimsy-ai-jump-outside-agents = Outside agents
+whimsy-ai-jump-features = Features
+whimsy-ai-off-confirm-title = Turn off AI?
+whimsy-ai-off-confirm-text = Chat, ⌘K commands, routines, and the agent stop. Providers, connectors, and memories stay on this Mac for when you turn it back on.
+whimsy-ai-off-confirm-ok = Turn off
+whimsy-ai-confirm-cancel-button = Cancel
+whimsy-ai-off-title = AI is off
+whimsy-ai-off-setup-text = Use AI you already have to sum up pages, fix your writing, and get things done in your tabs. Connect Apple Intelligence, Claude, ChatGPT, Gemini, or Ollama. There’s no Whimsy account and no AI bill from us.
+whimsy-ai-off-setup = Set up AI
+whimsy-ai-off-kept-text = Nothing in Whimsy uses AI. Your providers, connectors, and memories are kept on this Mac.
+whimsy-ai-off-turn-on = Turn on AI
+whimsy-ai-off-forget = Forget everything…
+whimsy-ai-limits-heading = Off limits to AI
+whimsy-ai-limits-desc = True for chat, commands, routines, Whimsy’s agent, and outside agents. These can’t be changed.
+whimsy-ai-limits-private = Private tabs and windows
+whimsy-ai-limits-private-detail = AI never sees, opens, or acts in them, even when you ask.
+whimsy-ai-limits-hidden = Hidden spaces
+whimsy-ai-limits-hidden-detail = Used only when you ask. A locked one still needs your Touch ID or password.
+whimsy-ai-limits-cards = Cards and passwords
+whimsy-ai-limits-cards-detail = Never sent to AI. Your password manager or Firefox autofill fills them.
+
+whimsy-ai-providers-heading = Providers
+whimsy-ai-providers-desc = Whimsy uses the first one that can do the job. If it runs out or can’t do something, the next switched-on one takes over and says so. Drag to change the order.
+whimsy-ai-providers-list =
+    .aria-label = Providers, in the order Whimsy tries them
+whimsy-ai-how-button = How Whimsy picks
+whimsy-ai-how-1-title = Quick text runs on this Mac.
+whimsy-ai-how-1 = Rewrite, translate, and summarize use Apple Intelligence when it’s on, even if it’s lower in the list.
+whimsy-ai-how-2-title = Everything else goes top to bottom.
+whimsy-ai-how-2 = Whimsy uses the first switched-on provider that can do the job. One that can’t is skipped, and chat says so in one line.
+whimsy-ai-how-3-title = Out of room, the next one takes over.
+whimsy-ai-how-3 = Only providers you switched on. A half-finished answer is kept and you choose to continue; it never switches silently.
+whimsy-ai-how-4-title = Routines and background work count too.
+whimsy-ai-how-4 = They follow the same order, plans included.
+whimsy-ai-quick-text =
+    .label = Quick text on this Mac first
+    .description = Rewrite, translate, and summarize run on Apple Intelligence, even if it’s lower in the list.
+whimsy-ai-add-provider = Add a provider…
+# $provider (String), $rank (Number), $count (Number)
+whimsy-ai-row-grip =
+    .aria-label = Reorder { $provider }, { $rank } of { $count }. Option and the arrow keys move it.
+# $provider (String)
+whimsy-ai-row-switch =
+    .aria-label = Use { $provider }
+whimsy-ai-row-details =
+    .aria-label = { $provider } details
+whimsy-ai-row-usage = Usage
+whimsy-ai-row-apple = On this Mac · no limit
+# $model (String)
+whimsy-ai-row-ollama = On this Mac · { $model } · no limit
+# $label (String) - the account, when known
+whimsy-ai-row-plan-claude = Claude plan through Claude Code
+whimsy-ai-row-plan-openai = ChatGPT plan
+# $hint (String) - the key's last four characters; $provider (String)
+whimsy-ai-row-key = API key ending { $hint } · billed by { $provider }
+whimsy-ai-row-key-nohint = API key · billed by { $provider }
+whimsy-ai-row-connected = Connected
+whimsy-ai-row-off = Off · not used, even when others run out
+whimsy-ai-row-resting-pill = Resting
+# $message (String) - the provider's own words
+whimsy-ai-row-resting = Hit its limit. It said: “{ $message }”
+# $time (String), $message (String)
+whimsy-ai-row-resting-until = Resting until { $time }. It said: “{ $message }”
+whimsy-ai-row-claude-missing = Claude Code isn’t on this Mac anymore
+whimsy-ai-row-signed-out-claude = Claude Code isn’t signed in
+whimsy-ai-row-signed-out-openai = ChatGPT signed you out
+whimsy-ai-row-install = Install Claude Code…
+whimsy-ai-row-sign-in-again = Sign in again
+whimsy-ai-row-check-again = Check again
+# $provider (String), $rank (Number), $count (Number)
+whimsy-ai-order-moved = Moved { $provider } to { $rank } of { $count }.
+whimsy-ai-detail-signed-in = Signed in as
+whimsy-ai-detail-signed-in-plan = Your plan
+whimsy-ai-detail-key = API key
+# $hint (String)
+whimsy-ai-detail-key-ending = Ending { $hint } · in your macOS Keychain
+whimsy-ai-detail-key-saved = In your macOS Keychain
+whimsy-ai-detail-runs = Runs
+whimsy-ai-detail-on-this-mac = On this Mac. Nothing leaves it.
+whimsy-ai-detail-claude-code = Claude Code
+whimsy-ai-detail-claude-code-whimsy = Installed by Whimsy · updates itself
+whimsy-ai-detail-claude-code-yours = Yours · on this Mac
+whimsy-ai-detail-model = Model
+whimsy-ai-detail-can-do = Can do
+whimsy-ai-detail-last-limit = Last limit
+# $provider (String)
+whimsy-ai-detail-skips = Tasks { $provider } can’t do go to the next provider.
+whimsy-ai-detail-disconnect = Disconnect
+whimsy-ai-detail-remove-claude-code = Remove Claude Code…
+whimsy-ai-remove-claude-code-title = Remove Claude Code?
+whimsy-ai-remove-claude-code-text = Whimsy disconnects Claude and deletes only what it installed. Your Claude account isn’t changed.
+whimsy-ai-remove-claude-code-ok = Remove
+whimsy-ai-confirm-disconnect-button = Disconnect
+# $provider (String), $rank (Number)
+whimsy-ai-confirm-moves-up = { $provider } moves up to { $rank }.
+whimsy-ai-confirm-last = AI features stop until you connect another provider.
+whimsy-ai-model-default-choice = Default
+whimsy-ai-model-claude-code = Default (Claude Code’s choice)
+whimsy-ai-cap-text = Text
+whimsy-ai-cap-images = Images
+whimsy-ai-cap-thinking = Thinking
+whimsy-ai-cap-tools = Tools
+
+whimsy-ai-sheet-close-button =
+    .aria-label = Close
+whimsy-ai-sheet-cancel = Cancel
+# $provider (String)
+whimsy-ai-sheet-connect-title = Connect { $provider }
+whimsy-ai-add-title = Add a provider
+whimsy-ai-add-text = It goes to the end of your list. Drag it higher to use it first.
+whimsy-ai-add-connected = Connected
+whimsy-ai-add-apple = On this Mac. Nothing leaves it.
+whimsy-ai-add-claude = Your Pro, Max, or Ultra plan through Claude Code, or an API key
+whimsy-ai-add-openai = Your ChatGPT plan (Plus or Pro), or an API key
+whimsy-ai-add-gemini = API key from Google AI Studio, with a free tier
+whimsy-ai-add-ollama = Models running on this Mac
+whimsy-ai-seg-plan-claude = Claude plan
+whimsy-ai-seg-key-claude = API key
+whimsy-ai-seg-plan-openai = ChatGPT plan
+whimsy-ai-seg-key-openai = API key
+whimsy-ai-use-key = Use an API key
+whimsy-ai-use-key-button = Use an API key
+whimsy-ai-try-again = Try again
+whimsy-ai-check-again = Check again
+whimsy-ai-key-label = API key
+whimsy-ai-key-field-placeholder =
+    .placeholder = Paste your API key
+whimsy-ai-key-connect = Connect
+# $provider (String)
+whimsy-ai-key-checking = Checking with { $provider }…
+# $site (String) - where keys are made
+whimsy-ai-key-hint-claude = Create a key at <a data-l10n-name="site">{ $site }</a>. It’s saved in your macOS Keychain. Page text you use AI on is sent to Anthropic, billed to your Console account.
+whimsy-ai-key-hint-openai = Create a key at <a data-l10n-name="site">{ $site }</a>. It’s saved in your macOS Keychain. Billed to your OpenAI Platform project.
+whimsy-ai-key-hint-gemini = Create a key at <a data-l10n-name="site">{ $site }</a>. It’s saved in your macOS Keychain. Page text you use AI on is sent to Google.
+whimsy-ai-key-gemini-free = On the free tier, Google may use what you send to improve its products. A paid key doesn’t.
+whimsy-ai-key-rejected-claude = Anthropic didn’t accept that key. Check it’s a Console key that’s still active.
+whimsy-ai-key-rejected-openai = OpenAI didn’t accept that key. Check it’s a project key that’s still active.
+whimsy-ai-key-rejected-gemini = Google didn’t accept that key. Check it’s an AI Studio key that’s still active.
+whimsy-ai-claude-checking = Looking for Claude Code…
+whimsy-ai-claude-plan-text = Whimsy runs your own Claude Code and you sign in with Anthropic. Whimsy never sees the sign-in. Every Whimsy feature may use the plan, routines included.
+whimsy-ai-claude-plan-can = Through Claude Code it can do
+whimsy-ai-claude-plan-next = Tasks it can’t do go to the next provider in your list.
+whimsy-ai-claude-connect = Connect
+whimsy-ai-claude-signed-out-text = Claude Code is on this Mac but isn’t signed in. Sign in with your Claude account; Whimsy never sees the sign-in.
+whimsy-ai-claude-sign-in = Sign in with Claude
+whimsy-ai-claude-waiting = Anthropic’s sign-in is open in your browser. This updates by itself.
+whimsy-ai-claude-sign-in-failed = Sign-in didn’t finish. Try again.
+whimsy-ai-claude-install-text = Claude Code isn’t on this Mac yet. Whimsy will install it for you, then open Anthropic’s sign-in.
+whimsy-ai-claude-install-fact-1 = From Anthropic’s own release, checked against Anthropic’s signature before it runs.
+whimsy-ai-claude-install-fact-2 = About 60 MB in your home folder. No password needed. It keeps itself up to date.
+whimsy-ai-claude-install-fact-3 = Remove it any time from Settings › AI › Providers › Claude.
+whimsy-ai-claude-install = Install and sign in
+# $version (String) - empty until it's known
+whimsy-ai-install-download-todo = Download Claude Code from Anthropic
+whimsy-ai-install-download-busy = Downloading Claude Code from Anthropic…
+whimsy-ai-install-download-done = Downloaded Claude Code { $version } from Anthropic
+whimsy-ai-install-check-todo = Check Anthropic’s signature
+whimsy-ai-install-check-busy = Checking Anthropic’s signature…
+whimsy-ai-install-check-done = Checked Anthropic’s signature
+whimsy-ai-install-setup-todo = Set it up
+whimsy-ai-install-setup-busy = Setting it up…
+whimsy-ai-install-setup-done = Set up
+whimsy-ai-install-sign-in-todo = Sign in with Anthropic
+whimsy-ai-install-sign-in-busy = Signing in with Anthropic…
+whimsy-ai-install-sign-in-done = Signed in
+whimsy-ai-install-background = You can close this; it keeps going and lets you know when it’s ready to sign in.
+whimsy-ai-install-failed = Whimsy couldn’t install Claude Code safely, so it kept nothing. Get it from Anthropic instead, or try again.
+whimsy-ai-install-get = Get Claude Code
+whimsy-ai-install-retry = Try again
+whimsy-ai-openai-plan-text = Signing in opens OpenAI’s page in a tab. Whimsy keeps the sign-in in your macOS Keychain. Page text you use AI on is sent to OpenAI.
+whimsy-ai-openai-plan-can = With the plan it can do
+whimsy-ai-openai-continue = Continue with ChatGPT
+whimsy-ai-openai-waiting = Finish signing in on the OpenAI tab. This updates by itself.
+whimsy-ai-openai-welcome-title = ChatGPT connected
+whimsy-ai-openai-welcome-signed-in = Signed in with your ChatGPT plan
+whimsy-ai-openai-done = Done
+whimsy-ai-openai-ineligible = This ChatGPT plan can’t be used here. Use an OpenAI API key instead.
+whimsy-ai-manage-usage = Manage usage
+whimsy-ai-ollama-address = Server address
+whimsy-ai-ollama-looking = Looking for Ollama…
+# $count (Number)
+whimsy-ai-ollama-found = { $count ->
+    [one] Connected. 1 model installed.
+   *[other] Connected. { $count } models installed.
+}
+whimsy-ai-ollama-model = Use this model
+# $size (String) - gigabytes, like 5.2
+whimsy-ai-ollama-model-text = { $size } GB · text
+whimsy-ai-ollama-model-text-thinking = { $size } GB · text, thinks
+whimsy-ai-ollama-model-images = { $size } GB · text and images
+whimsy-ai-ollama-model-images-thinking = { $size } GB · text and images, thinks
+whimsy-ai-ollama-model-unknown = { $size } GB
+whimsy-ai-ollama-local = Ollama runs models on this Mac. Nothing leaves it.
+whimsy-ai-ollama-offline = Ollama isn’t running at this address, or has no models yet.
+whimsy-ai-ollama-get = Get Ollama
+whimsy-ai-ollama-done = Done
+whimsy-ai-apple-sheet-title = Set up Apple Intelligence
+whimsy-ai-apple-first-time = The first time takes about a minute while Whimsy builds its small helper.
+whimsy-ai-apple-needs-tools = Apple Intelligence needs Apple’s command line tools.
+whimsy-ai-apple-needs-tools-hint = Run this in Terminal, follow the installer, then check again.
+whimsy-ai-copy = Copy
+whimsy-ai-copied = Copied
+whimsy-ai-show-details = Show details
+# $provider (String)
+whimsy-ai-toast-connected = { $provider } connected
+whimsy-ai-toast-ai-on = AI is on
+whimsy-ai-toast-at-end = Added at the end of your list
+whimsy-ai-toast-claude-code-ready = Claude Code is installed
+whimsy-ai-toast-claude-code-sign-in = Finish signing in on Anthropic’s page.
+whimsy-ai-toast-claude-code-failed = Claude Code couldn’t be installed. Open Settings › AI to try again.
+whimsy-ai-features-desc = Small helpers that use your providers. Each has one switch, here.
+whimsy-ai-features-tidy-tabs =
+    .label = Tidy Tabs
+    .description = With more than six Today tabs, a broom sorts them into sections.
+whimsy-ai-features-tidy-titles =
+    .label = Tidy tab titles
+    .description = Pinning a tab gives it a short name. Names you type are never changed.
+whimsy-ai-features-ask-on-page =
+    .label = Ask on Page
+    .description = ⌘F answers a question about the page when it finds nothing.
+whimsy-ai-features-link-previews =
+    .label = Link preview summaries
+    .description = Link previews show a one-line summary with the card.
+whimsy-ai-features-page-watch =
+    .label = Watch pages
+    .description = Checks a page you’re watching and tells you when it changes the way you asked.
+whimsy-ai-features-routines = Routines and page watches
+whimsy-ai-features-routines-detail = They live in Library › Routines, with their results.
+whimsy-ai-features-routines-open = Open Library
+whimsy-ai-connect-error-claude-code-outdated = This Claude Code is too old to sign in from Whimsy. Install the current one, then try again.
+whimsy-ai-error-claude-code-outdated = Claude Code needs an update. Connect Claude again in Settings › AI.
+whimsy-ai-error-install-failed = Claude Code couldn’t be installed safely. Get it from Anthropic instead.
+whimsy-setting-ai-quick-text = Quick Text on This Mac First
+    .keywords = apple intelligence, on-device, rewrite, translate, summarize, local

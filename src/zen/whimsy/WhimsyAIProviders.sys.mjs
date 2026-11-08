@@ -204,6 +204,8 @@ export const AI_ERROR_CODES = [
   "sign-in-cancelled",
   "claude-code-missing",
   "claude-code-signed-out",
+  "claude-code-outdated",
+  "install-failed",
   "bad-response",
   "timeout",
   "failed",
@@ -618,8 +620,9 @@ export const WhimsyAIProviders = {
     this.openSettings(win);
   },
 
-  // Settings → AI, optionally doing one thing there ("connect": the list
-  // of providers to connect; "use": the Use for AI picker).
+  // Settings → AI, optionally opening one sheet there ("add-provider", or a
+  // provider's own: "claude", "openai", "gemini", "ollama", "apple") or
+  // jumping to a section by its id.
   openSettings(win, action = null) {
     this.pendingSettingsAction = action;
     win?.openPreferences?.("paneWhimsyAI");
@@ -632,14 +635,6 @@ export const WhimsyAIProviders = {
     this._registerBuiltInPlans();
     if (!this._seeded) {
       this._seeded = true;
-      // Until Settings' "Use for AI" picker is gone: picking puts that
-      // provider first in the order.
-      Services.prefs.addObserver(PROVIDER_PREF, () => {
-        const picked = Services.prefs.getStringPref(PROVIDER_PREF, "");
-        if (Services.prefs.prefHasUserValue(PROVIDER_PREF) && PROVIDERS.includes(picked) && this.order[0] != picked) {
-          this.setOrder([picked, ...this.order.filter(id => id != picked)]);
-        }
-      });
       this.seedOrder()
         .then(() => Promise.all(["ollama", "claude"].filter(id => this.order.includes(id)).map(id => this.refreshCapabilities(id))))
         .catch(e => console.error("Whimsy AI: the provider order", e));
@@ -657,16 +652,8 @@ export const WhimsyAIProviders = {
     WhimsyCommands.register(win, {
       id: "cmd_whimsyAIConnect",
       l10nId: "whimsy-action-ai-connect",
-      run: w => this.openSettings(w, "connect"),
+      run: w => this.openSettings(w, "add-provider"),
       icon: "chrome://browser/skin/zen-icons/selectable/key.svg",
-      menu: "tools-menu",
-      isAvailable,
-    });
-    WhimsyCommands.register(win, {
-      id: "cmd_whimsyAIUse",
-      l10nId: "whimsy-action-ai-use",
-      run: w => this.openSettings(w, "use"),
-      icon: "chrome://browser/skin/zen-icons/sparkles.svg",
       menu: "tools-menu",
       isAvailable,
     });
@@ -1438,6 +1425,31 @@ export const WhimsyAIProviders = {
   },
 
   // The models the local Ollama server has, for the Settings picker.
+  // Settings' Ollama sheet: each installed model with its size and, when
+  // Ollama's model details say, whether it reads images or thinks.
+  async ollamaModelDetails(endpoint = this.ollamaEndpoint) {
+    const base = String(endpoint || "").replace(/\/+$/, "");
+    const response = await fetch(`${base}/api/tags`, { credentials: "omit" });
+    if (!response.ok) {
+      throw new WhimsyAIError("unavailable");
+    }
+    const data = await response.json();
+    const models = (data.models || []).filter(m => m?.name);
+    return Promise.all(
+      models.map(async m => {
+        let caps = null;
+        try {
+          const show = await fetch(`${base}/api/show`, { method: "POST", credentials: "omit", body: JSON.stringify({ model: m.name }) });
+          const list = show.ok ? (await show.json())?.capabilities : null;
+          if (Array.isArray(list)) {
+            caps = { images: list.includes("vision"), thinking: list.includes("thinking") };
+          }
+        } catch {}
+        return { name: m.name, size: Number(m.size) || 0, caps };
+      })
+    );
+  },
+
   async ollamaModels() {
     const response = await fetch(`${this.ollamaEndpoint}/api/tags`, { credentials: "omit" });
     if (!response.ok) {

@@ -1,0 +1,1215 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23: Settings › AI, one page (mockups 07-settings and fu-settings).
+   Tokens are WhimsySurface's (whimsy-surface.css) in Settings' colours. */
+
+#whimsyAIPage {
+  --ai-primary: var(--zen-primary-color, AccentColor);
+  --ai-accent: light-dark(oklch(from var(--ai-primary) clamp(0.35, l, 0.6) c h), oklch(from var(--ai-primary) clamp(0.7, l, 0.85) c h));
+  --ai-muted: color-mix(in srgb, currentColor 62%, transparent);
+  --ai-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
+  --ai-hover: color-mix(in srgb, currentColor 9%, transparent);
+  --ai-active: color-mix(in srgb, currentColor 14%, transparent);
+  --ai-selected: color-mix(in srgb, var(--ai-primary) 22%, transparent);
+  --ai-hairline: color-mix(in srgb, currentColor 13%, transparent);
+  --ai-success: light-dark(rgb(29, 138, 74), rgb(92, 207, 138));
+  --ai-error: light-dark(rgb(200, 55, 45), rgb(255, 122, 110));
+  --ai-warning: light-dark(rgb(217, 138, 0), rgb(240, 177, 60));
+  --ai-destructive: light-dark(rgb(215, 38, 76), rgb(255, 132, 139));
+  --ai-panel-bg: light-dark(rgb(244, 244, 244), rgb(31, 31, 31));
+  --ai-page-bg: var(--background-color-canvas, light-dark(#fff, #2b2b2b));
+  --ai-ease: cubic-bezier(0.075, 0.82, 0.165, 1);
+  --ai-ease-surface: cubic-bezier(0.2, 0, 0, 1);
+  --ai-expand: cubic-bezier(0.34, 1.2, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 700px;
+  padding-block-end: 40px;
+  font-size: 13.5px;
+  color-scheme: light dark;
+
+  &[hidden] {
+    display: none;
+  }
+
+  & [hidden] {
+    display: none !important;
+  }
+
+  & button {
+    margin: 0;
+  }
+}
+
+/* ---- header: title, the AI switch, the confirm, the jump strip ---- */
+.whimsy-ai-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 12px;
+  background: var(--ai-page-bg);
+  border-bottom: 1px solid transparent;
+  transition: border-color 150ms var(--ai-ease);
+
+  &[stuck] {
+    border-bottom-color: var(--ai-hairline);
+  }
+}
+
+.whimsy-ai-h1row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  & > h1 {
+    flex: 1;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+}
+
+.whimsy-ai-onlabel {
+  font-size: 12.5px;
+  color: var(--ai-muted);
+}
+
+.whimsy-ai-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  & > button {
+    appearance: none;
+    flex: none;
+    min-height: 24px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ai-muted);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color 150ms var(--ai-ease), color 150ms var(--ai-ease);
+
+    &:hover {
+      background: var(--ai-hover);
+    }
+
+    &[aria-current="true"] {
+      background: var(--ai-selected);
+      color: var(--ai-accent);
+    }
+  }
+}
+
+/* ---- sections ---- */
+.whimsy-ai-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scroll-margin-top: 96px;
+}
+
+.whimsy-ai-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 26px;
+
+  & > h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+}
+
+.whimsy-ai-desc {
+  margin: 0;
+  color: var(--ai-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.whimsy-ai-caption {
+  margin: 6px 2px 0;
+  color: var(--ai-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* ---- cards and rows ---- */
+.whimsy-ai-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ai-hairline);
+  border-radius: 10px;
+  overflow: clip;
+
+  & > * + * {
+    border-top: 1px solid var(--ai-hairline);
+  }
+}
+
+.whimsy-ai-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  background: var(--ai-page-bg);
+  transition: opacity 150ms var(--ai-ease), background-color 150ms var(--ai-ease);
+
+  &.is-compact {
+    min-height: 40px;
+    padding-block: 6px;
+  }
+
+  &[data-off] {
+    opacity: 0.55;
+  }
+
+  &[aria-expanded="true"] {
+    background: var(--ai-track);
+  }
+
+  &.is-button {
+    cursor: default;
+
+    &:hover {
+      background: var(--ai-hover);
+    }
+  }
+
+  & > moz-toggle {
+    flex: none;
+  }
+}
+
+.whimsy-ai-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.whimsy-ai-item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whimsy-ai-item-detail {
+  color: var(--ai-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-wrap: pretty;
+
+  &[data-tone="warn"] {
+    color: var(--ai-warning);
+  }
+
+  &[data-tone="fail"] {
+    color: var(--ai-error);
+  }
+}
+
+.whimsy-ai-item-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.whimsy-ai-grip {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 24px;
+  margin: 0 -2px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ai-muted);
+  cursor: grab;
+  touch-action: none;
+
+  &::before {
+    content: "";
+    width: 12px;
+    height: 16px;
+    background: currentColor;
+    mask: url("chrome://browser/skin/zen-icons/drag-indicator.svg") center / 16px no-repeat;
+    opacity: 0.7;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ai-accent);
+    outline-offset: 0;
+  }
+}
+
+.whimsy-ai-rank {
+  width: 14px;
+  flex: none;
+  color: var(--ai-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.whimsy-ai-tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--tile, var(--ai-primary)) 18%, transparent);
+  color: var(--tile, var(--ai-primary));
+
+  &.is-logo {
+    background: light-dark(#fff, #2b2a33);
+    border: 1px solid light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.14));
+    color: light-dark(#15141a, #fbfbfe);
+  }
+
+  &[data-tone="warning"] {
+    --tile: var(--ai-warning);
+  }
+
+  & > img {
+    width: 18px;
+    height: 18px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+
+  &:not(.is-logo) > img {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.whimsy-ai-chev {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ai-muted);
+
+  &::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    background: currentColor;
+    mask: url("chrome://browser/skin/zen-icons/chevron.svg") center / 12px no-repeat;
+    rotate: -90deg;
+    transition: rotate 150ms var(--ai-ease);
+  }
+
+  &[aria-expanded="true"]::before {
+    rotate: 0deg;
+  }
+
+  &:hover {
+    background: var(--ai-hover);
+  }
+}
+
+.whimsy-ai-link {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ai-accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &.is-external::after {
+    content: "";
+    width: 11px;
+    height: 11px;
+    background: currentColor;
+    mask: url("chrome://global/skin/icons/open-in-new.svg") center / 11px no-repeat;
+  }
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.whimsy-ai-pill {
+  --pill: currentColor;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ai-track);
+  color: var(--ai-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+
+  &[data-tone] {
+    background: color-mix(in srgb, var(--pill) 16%, transparent);
+    color: var(--pill);
+  }
+
+  &[data-tone="pass"] {
+    --pill: var(--ai-success);
+  }
+
+  &[data-tone="warn"] {
+    --pill: var(--ai-warning);
+  }
+
+  &[data-tone="fail"] {
+    --pill: var(--ai-error);
+  }
+}
+
+/* An opened row's details unfold under it (Zen's expand). */
+.whimsy-ai-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  background: var(--ai-track);
+
+  & > div {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  & .whimsy-ai-body-in {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 14px 14px 68px;
+  }
+}
+
+.whimsy-ai-kv {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0;
+  font-size: 12.5px;
+
+  & > dt {
+    color: var(--ai-muted);
+  }
+
+  & > dd {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+}
+
+.whimsy-ai-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  & > .whimsy-ai-spacer {
+    margin-inline-end: auto;
+  }
+}
+
+.whimsy-ai-hint {
+  font-size: 11.5px;
+  color: var(--ai-muted);
+  padding-inline: 2px;
+  line-height: 1.45;
+  text-wrap: pretty;
+
+  &[data-tone="fail"] {
+    color: var(--ai-error);
+  }
+}
+
+.whimsy-ai-caps {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.whimsy-ai-cap {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  background: var(--ai-track);
+
+  &.is-no {
+    color: var(--ai-muted);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, currentColor 60%, transparent);
+  }
+}
+
+/* ---- buttons (Zen's in-content buttons, at the mockup's sizes) ---- */
+.whimsy-ai-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 72px;
+  min-height: 28px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: scale 0.2s, background-color 100ms ease-out;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 15%, transparent);
+  }
+
+  &:active:not(:disabled) {
+    scale: 0.98;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+  }
+
+  &.is-primary {
+    background: color-mix(in srgb, var(--ai-primary) 40%, light-dark(#101010, #e2e2e2));
+    color: light-dark(#e2e2e2, #101010);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--ai-primary) 45%, light-dark(#101010, #e2e2e2));
+    }
+  }
+
+  &.is-destructive {
+    background: var(--ai-destructive);
+    color: #fff;
+  }
+
+  &.is-small {
+    min-width: 0;
+    min-height: 24px;
+    padding: 2px 8px;
+    font-size: 12px;
+  }
+
+  &.is-text {
+    min-width: 0;
+    min-height: 24px;
+    padding: 2px 8px;
+    background: transparent;
+    color: var(--ai-muted);
+    font-size: 12px;
+
+    &:hover:not(:disabled) {
+      background: var(--ai-hover);
+    }
+
+    &.is-danger {
+      color: var(--ai-destructive);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ai-accent);
+    outline-offset: 1px;
+  }
+}
+
+/* ---- the confirm strip (in the page, never a modal) ---- */
+.whimsy-ai-confirm {
+  display: grid;
+  grid-template-rows: 1fr;
+  background: color-mix(in srgb, var(--ai-destructive) 8%, transparent);
+  border-radius: 10px;
+
+  .whimsy-ai-list > & {
+    border-radius: 0;
+  }
+
+  & > div {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  & .whimsy-ai-confirm-in {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+}
+
+.whimsy-ai-confirm-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  line-height: 1.45;
+
+  & > b {
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  & > span {
+    color: var(--ai-muted);
+  }
+}
+
+/* ---- notes and statuses ---- */
+.whimsy-ai-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--ai-track);
+  font-size: 12.5px;
+  line-height: 1.45;
+
+  &::before {
+    content: "";
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin-top: 2px;
+    background: var(--note, var(--ai-muted));
+    mask: url("chrome://browser/skin/zen-icons/warning.svg") center / 14px no-repeat;
+  }
+
+  &[data-tone="warn"] {
+    --note: var(--ai-warning);
+    background: color-mix(in srgb, var(--ai-warning) 12%, transparent);
+  }
+
+  &[data-tone="fail"] {
+    --note: var(--ai-error);
+    background: color-mix(in srgb, var(--ai-error) 10%, transparent);
+  }
+
+  &[data-tone="info"] {
+    --note: var(--ai-accent);
+    background: color-mix(in srgb, var(--ai-primary) 9%, transparent);
+
+    &::before {
+      mask-image: url("chrome://browser/skin/zen-icons/info.svg");
+    }
+  }
+}
+
+.whimsy-ai-note-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.whimsy-ai-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 12.5px;
+  color: var(--ai-muted);
+
+  &[data-tone="pass"] {
+    color: var(--ai-success);
+  }
+
+  &[data-tone="pass"]::before {
+    content: "";
+    flex: none;
+    width: 14px;
+    height: 14px;
+    background: currentColor;
+    mask: url("chrome://browser/skin/zen-icons/check.svg") center / 14px no-repeat;
+  }
+
+  &:empty {
+    display: none;
+  }
+}
+
+.whimsy-ai-spinner {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  animation: whimsy-ai-spin 800ms linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes whimsy-ai-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+.whimsy-ai-skeleton {
+  display: block;
+  height: 10px;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+/* ---- off limits facts ---- */
+.whimsy-ai-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--ai-hairline);
+  border-radius: 10px;
+  overflow: clip;
+}
+
+.whimsy-ai-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--ai-hairline);
+
+  &:nth-child(-n + 2) {
+    border-top: 0;
+  }
+
+  &:nth-child(odd) {
+    border-inline-end: 1px solid var(--ai-hairline);
+  }
+
+  & > img {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    margin-top: 2px;
+    -moz-context-properties: fill;
+    fill: var(--ai-muted);
+  }
+}
+
+.whimsy-ai-fact-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+
+  & > b {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  & > span {
+    color: var(--ai-muted);
+  }
+}
+
+/* ---- the off card ---- */
+.whimsy-ai-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 26px 26px 24px;
+  border: 1px solid var(--ai-hairline);
+  border-radius: 12px;
+
+  & > h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  & > p {
+    margin: 0;
+    max-width: 54ch;
+    color: var(--ai-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  & .whimsy-ai-btn:not(.is-text) {
+    min-height: 32px;
+    padding-inline: 16px;
+  }
+}
+
+.whimsy-ai-logos {
+  display: flex;
+  gap: 6px;
+}
+
+/* ---- drag to reorder ---- */
+.whimsy-ai-item.is-lifted {
+  z-index: 3;
+  border-radius: 10px;
+  background: var(--ai-panel-bg);
+  scale: 1.015;
+  box-shadow: 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.14)), 0 12px 28px -8px light-dark(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.6));
+  cursor: grabbing;
+  transition: scale 150ms var(--ai-ease), box-shadow 150ms var(--ai-ease);
+
+  @media (prefers-reduced-motion: reduce) {
+    scale: 1;
+  }
+}
+
+.whimsy-ai-slot {
+  height: 44px;
+  margin: 4px 8px;
+  border-radius: 8px;
+  border: 1.5px dashed color-mix(in srgb, var(--ai-primary) 55%, transparent);
+  background: color-mix(in srgb, var(--ai-primary) 6%, transparent);
+
+  .whimsy-ai-list > & {
+    border-top: 1.5px dashed color-mix(in srgb, var(--ai-primary) 55%, transparent);
+  }
+}
+
+/* ---- How Whimsy picks ---- */
+.whimsy-ai-howto {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px 12px 32px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  background: var(--ai-track);
+
+  & span {
+    color: var(--ai-muted);
+  }
+
+  & b {
+    color: CanvasText;
+    font-weight: 600;
+  }
+}
+
+/* ---- sheets: a WhimsySurface over the page ---- */
+.whimsy-ai-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: start center;
+  padding-top: 92px;
+  background: light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.42));
+}
+
+.whimsy-ai-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 140px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--ai-panel-bg);
+  font-size: 13px;
+  box-shadow: 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.14)), 0 10px 30px -6px light-dark(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.55));
+
+  & > p,
+  & .whimsy-ai-text {
+    margin: 0;
+    padding: 0 4px;
+    color: var(--ai-muted);
+    font-size: 12px;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+}
+
+.whimsy-ai-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding: 2px 4px 0;
+
+  & > h1 {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+
+.whimsy-ai-x {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ai-muted);
+
+  &::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    background: currentColor;
+    mask: url("chrome://global/skin/icons/close.svg") center / 14px no-repeat;
+  }
+
+  &:hover {
+    background: var(--ai-hover);
+  }
+}
+
+.whimsy-ai-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+
+  & > .whimsy-ai-spacer {
+    margin-inline-end: auto;
+  }
+}
+
+.whimsy-ai-seg {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--ai-track);
+
+  & > .whimsy-ai-seg-thumb {
+    position: absolute;
+    inset-block: 2px;
+    inset-inline-start: 2px;
+    width: calc((100% - 4px) / var(--count, 2));
+    border-radius: 6px;
+    background: light-dark(white, rgba(255, 255, 255, 0.14));
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 0 0 0.5px color-mix(in srgb, currentColor 18%, transparent);
+    transform: translateX(calc(var(--index, 0) * 100%));
+    transition: transform 200ms var(--ai-ease-surface);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  & > button {
+    appearance: none;
+    position: relative;
+    min-height: 28px;
+    margin: 0;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    white-space: nowrap;
+
+    &[aria-checked="true"] {
+      font-weight: 600;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ai-accent);
+    }
+  }
+}
+
+.whimsy-ai-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.whimsy-ai-choice {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+
+  &:hover:not([aria-disabled="true"]) {
+    background: var(--ai-hover);
+  }
+
+  &[aria-checked="true"] {
+    background: var(--ai-selected);
+  }
+
+  &[aria-disabled="true"] {
+    opacity: 0.6;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ai-accent);
+  }
+
+  &.is-radio {
+    grid-template-columns: 14px 1fr;
+    padding-block: 6px;
+
+    &::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      margin-top: 2px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1.5px var(--ai-muted);
+    }
+
+    &[aria-checked="true"]::before {
+      box-shadow: inset 0 0 0 4px var(--ai-primary);
+    }
+  }
+}
+
+.whimsy-ai-choice-name {
+  display: block;
+  font-weight: 600;
+}
+
+.whimsy-ai-choice-detail {
+  display: block;
+  font-size: 12px;
+  color: var(--ai-muted);
+  text-wrap: pretty;
+}
+
+.whimsy-ai-mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+
+.whimsy-ai-label {
+  font-size: 12px;
+  font-weight: 600;
+  padding-inline: 2px;
+}
+
+.whimsy-ai-input {
+  min-height: 30px;
+  margin: 0;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 7px;
+  background: var(--ai-page-bg);
+  box-shadow: inset 0 0 0 1px var(--ai-hairline);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+
+  &[aria-invalid="true"] {
+    box-shadow: inset 0 0 0 1.5px var(--ai-error);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ai-accent);
+    outline-offset: 0;
+  }
+}
+
+.whimsy-ai-code {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: var(--ai-track);
+  font: 11.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* The Claude Code install: what happens, then each step. */
+.whimsy-ai-facts-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--ai-track);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.whimsy-ai-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0;
+  font-size: 12.5px;
+}
+
+.whimsy-ai-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &::before {
+    content: "";
+    flex: none;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    border-radius: 50%;
+  }
+
+  &[data-state="done"]::before {
+    background: var(--ai-success);
+    mask: url("chrome://browser/skin/zen-icons/check.svg") center / 14px no-repeat;
+  }
+
+  &[data-state="busy"]::before {
+    border: 2px solid currentColor;
+    border-inline-end-color: transparent;
+    animation: whimsy-ai-spin 800ms linear infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+
+  &[data-state="todo"] {
+    color: var(--ai-muted);
+
+    &::before {
+      box-shadow: inset 0 0 0 1.5px var(--ai-hairline);
+    }
+  }
+
+  &[data-state="failed"] {
+    color: var(--ai-error);
+
+    &::before {
+      background: currentColor;
+      mask: url("chrome://browser/skin/zen-icons/warning.svg") center / 14px no-repeat;
+    }
+  }
+}
+
+/* The model menu (styled listbox, never a native one) keeps
+   .whimsy-ai-popup from whimsy-preferences.css. */
+.whimsy-ai-dropdown {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  max-width: 100%;
+  margin: 0;
+  padding: 2px 6px 2px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--ai-page-bg);
+  box-shadow: inset 0 0 0 1px var(--ai-hairline);
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+
+  &::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    mask: url("chrome://browser/skin/zen-icons/chevron.svg") center / 10px no-repeat;
+    opacity: 0.6;
+  }
+}
+
+/* Narrow windows: rows keep their order; details wrap (set-N.1). */
+@media (max-width: 760px) {
+  .whimsy-ai-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .whimsy-ai-fact {
+    border-inline-end: 0 !important;
+
+    &:nth-child(2) {
+      border-top: 1px solid var(--ai-hairline);
+    }
+  }
+
+  .whimsy-ai-body .whimsy-ai-body-in {
+    padding-inline-start: 14px;
+  }
+}
