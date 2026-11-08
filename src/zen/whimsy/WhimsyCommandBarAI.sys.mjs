@@ -684,8 +684,10 @@ export const WhimsyCommandBarAI = {
     if (!card) {
       return;
     }
+    if (["waiting", "loading", "streaming"].includes(card.status)) {
+      card.controller.abort();
+    }
     cards.delete(win);
-    this.stop(win);
     this.leaveMode(win);
     win.cancelAnimationFrame(card.raf);
     if (card.threadId) {

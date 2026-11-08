@@ -77,6 +77,7 @@ async function typeInBar(text, win = window) {
   const done = UrlbarTestUtils.promiseSearchComplete(win);
   EventUtils.sendString(text, win);
   await done;
+  await TestUtils.waitForCondition(() => win.gURLBar.value == text, `typed "${text}"`);
 }
 
 /** ⌘L, then clear what's there: the bar before typing. */
@@ -92,6 +93,7 @@ async function openEmptyBar(win = window) {
     await TestUtils.waitForCondition(() => win.gURLBar.view.isOpen, "The bar opened");
     await win.gURLBar.lastQueryContextPromise;
   }
+  info(`diag bar: ${rows(win).map(r => `${r.getAttribute("dynamicType") || r.getAttribute("type")}:${r.textContent.trim().slice(0, 30)}`).join(" | ")} selected=${win.gURLBar.view.selectedRowIndex}`);
 }
 
 const headingRows = (win = window) => rows(win).filter(r => r.getAttribute("dynamicType") == "whimsy-update-heading");
