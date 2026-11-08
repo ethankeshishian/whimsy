@@ -300,9 +300,8 @@ add_task(async function test_tools_for_a_task() {
 
   // Enter in a field submits its form: a submit pause first.
   await ok_result(own(task, "type", { tabId, ref: search, text: "" }), "focus the field");
-  const actor = tab.linkedBrowser.browsingContext.currentWindowGlobal.getActor("WhimsyClaude");
-  info("DIAG describe: " + JSON.stringify(await actor.sendQuery("Claude:Describe", { keys: "Enter" })).slice(0, 600));
   const pending = own(task, "key", { tabId, keys: "Enter" });
+  pending.then(r => info("DIAG key result: " + textOf(r)));
   const pause = await waitForPause(task, "submit");
   ok(pause.allowForTask, "A submit pause may be allowed for this task");
   WhimsyAgentTasks.decide(task.id, "do");
@@ -400,6 +399,10 @@ add_task(async function sleep_pauses_nothing_resumes() {
   ok(task.pause.until >= task.pause.since, "It knows how long the Mac slept");
   WhimsyAgentTasks.resume(task.id);
   is(task.state, "running", "Continue resumes it");
+  // Sleep paused every task; the others carry on here too.
+  for (const other of WhimsyAgentTasks.list().filter(t => t.pause?.kind == "sleep")) {
+    WhimsyAgentTasks.resume(other.id);
+  }
   WhimsyAgentTasks.finish(task.id);
 });
 
@@ -424,8 +427,6 @@ add_task(async function hidden_space_only_when_named_in_task() {
   await turnOn();
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?taxes");
   const uuid = tab.getAttribute("zen-workspace-id");
-  const t = WhimsyAgentTasks.forSession("test-session");
-  info(`DIAG test-session task ${t.state} ${t.stopReason} ${t.clientName}`);
   const restore = stub(WhimsyHiddenSpaces, "hidden", () => [{ uuid, name: "Taxes" }]);
   try {
     const tabId = WhimsyClaude.tabId(tab);
