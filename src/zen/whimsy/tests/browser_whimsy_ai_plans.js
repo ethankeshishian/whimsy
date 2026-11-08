@@ -613,7 +613,7 @@ add_task(async function ai_off_until_first_connection() {
   const { ENDPOINTS } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
   const saved = ENDPOINTS.gemini;
   ENDPOINTS.gemini = `${base}/gemini`;
-  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  Services.prefs.clearUserPref("whimsy.ai.enabled");
   Services.prefs.clearUserPref("whimsy.ai.auto-enabled");
   ok(!WhimsyAI.enabled, "Fresh profile: AI is off");
   ok(!WhimsyAIProviders.enabled, "and no provider can be used");

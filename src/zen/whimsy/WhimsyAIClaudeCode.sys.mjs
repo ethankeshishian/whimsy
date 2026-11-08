@@ -149,7 +149,7 @@ export const WhimsyAIClaudeCode = {
         await writing;
         const { exitCode } = await proc.wait();
         if (killed) {
-          throw signal?.aborted ? signal.reason ?? error("aborted") : error(killed);
+          throw signal?.aborted && signal.reason instanceof lazy.WhimsyAIError ? signal.reason : error(killed);
         }
         return { exitCode };
       },
