@@ -83,10 +83,6 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   "browser.engagement.ctrlTab.has-used",
   // Zen's URL bar learner records every pick (ZenUBResultsLearner).
   "zen.urlbar.suggestions-learner",
-  // W23: the ⌘E hint shows after any page load once the browser is idle,
-  // so it can land in whichever test runs next.
-  "whimsy.ai.hints.seen",
-  "whimsy.ai.hints.today",
   // Opening about:preferences lazily caches a default device name (from the
   // FxAccounts device list) the first time anything reads it.
   "identity.fxaccounts.account.device.name",
@@ -157,6 +153,16 @@ add_setup(function whimsySnapshotLeakedPrefs() {
 
   registerCleanupFunction(() => registerCleanupFunction(function whimsyRestoreLeakedPrefs() {
     ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIHints.sys.mjs").WhimsyAIHints._settleForTesting();
+    // W23: the chat's ⌘E hint (watchForHint) runs off a timer on the shared
+    // window, not torn down per file, so it can fire between a file's true
+    // start and this snapshot's own add_setup (which runs after head.js's).
+    // A snapshot taken then bakes the already-bumped count in as the
+    // "original" value, so restoring to it never looks like a change here -
+    // while Firefox's own before/after check saw the pref change. Clearing
+    // unconditionally instead of restoring a snapshot sidesteps that: the
+    // end state doesn't depend on when the hint happened to fire.
+    Services.prefs.clearUserPref("whimsy.ai.hints.seen");
+    Services.prefs.clearUserPref("whimsy.ai.hints.today");
     const { WhimsySyncedMap } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSync.sys.mjs");
     for (const pref of snapshot) {
       // A synced map (whimsy.profiles.*) would merge its cache straight back.
