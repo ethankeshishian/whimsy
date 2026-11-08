@@ -14,6 +14,7 @@
 // streaming on; included usage never moves to paid billing.
 
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+import { sseEvents } from "resource:///modules/whimsy/WhimsyAIStream.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -24,6 +25,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIError: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
+  responsesEvents: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -65,57 +67,7 @@ const decodePart = part =>
 const escapeHTML = text =>
   String(text).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-/**
- * Server-sent events from a fetch body: { event, data } per block, across
- * chunk boundaries.
- */
-export async function* sseEvents(body) {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  const parse = block => {
-    let event = "";
-    const data = [];
-    for (const line of block.split("\n")) {
-      if (!line || line.startsWith(":")) {
-        continue;
-      }
-      const colon = line.indexOf(":");
-      const field = colon < 0 ? line : line.slice(0, colon);
-      const value = colon < 0 ? "" : line.slice(colon + 1).replace(/^ /, "");
-      if (field == "event") {
-        event = value;
-      } else if (field == "data") {
-        data.push(value);
-      }
-    }
-    return data.length || event ? { event, data: data.join("\n") } : null;
-  };
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
-      buffer = buffer.replace(/\r\n/g, "\n");
-      let index;
-      while ((index = buffer.indexOf("\n\n")) >= 0) {
-        const parsed = parse(buffer.slice(0, index));
-        buffer = buffer.slice(index + 2);
-        if (parsed) {
-          yield parsed;
-        }
-      }
-      if (done) {
-        const parsed = buffer.trim() && parse(buffer);
-        if (parsed) {
-          yield parsed;
-        }
-        return;
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
+export { sseEvents };
 
 // What an error code from OpenAI means for Whimsy (null: go by the status).
 function codeFor(code) {
@@ -139,7 +91,7 @@ function codeFor(code) {
 export const WhimsyAIOpenAIAuth = {
   // A spent plan's toast offers Manage usage; the plan may serve automatic
   // features too (the person sets this app's share in ChatGPT's settings).
-  userStartedOnly: false,
+  usageUrl: USAGE_URL,
   _test: null,
   _discovery: null,
   _secret: undefined,
@@ -263,22 +215,46 @@ export const WhimsyAIOpenAIAuth = {
       .map(model => model.slug);
   },
 
-  async complete({ prompt, system, signal }) {
-    let model = Services.prefs.getStringPref(MODEL_PREF, "");
+  async complete(request) {
+    let text = "";
+    for await (const event of this.stream(request)) {
+      if (event.type == "text") {
+        text += event.delta;
+      }
+    }
+    return text;
+  },
+
+  // The answer as AIEvents (text, the reasoning summary as thinking).
+  async *stream({ prompt, messages, system, signal, thinking, model: chosen }) {
+    let model = chosen || Services.prefs.getStringPref(MODEL_PREF, "");
     if (!model) {
       [model] = await this.models();
       if (!model) {
         throw error("no-model");
       }
     }
+    const turns = Array.isArray(messages) && messages.length ? messages : [{ role: "user", content: String(prompt ?? "") }];
     const body = {
       model,
-      input: [{ role: "user", content: [{ type: "input_text", text: String(prompt ?? "") }] }],
+      input: turns.map(m => ({
+        role: m.role == "assistant" ? "assistant" : "user",
+        content: (typeof m.content == "string" ? [{ type: "text", text: m.content }] : m.content || [])
+          .filter(part => part?.type == "text" || part?.type == "image")
+          .map(part =>
+            part.type == "image"
+              ? { type: "input_image", image_url: `data:${part.mediaType};base64,${part.data}` }
+              : { type: m.role == "assistant" ? "output_text" : "input_text", text: String(part.text ?? "") }
+          ),
+      })),
       store: false,
       stream: true,
     };
     if (system) {
       body.instructions = system;
+    }
+    if (thinking && lazy.WhimsyAIProviders.capabilities("openai", model).thinking) {
+      body.reasoning = { effort: { light: "low", normal: "medium", deep: "high" }[thinking] ?? "low", summary: "auto" };
     }
     const response = await this._authorized(token =>
       this._fetch(`${this._api}/responses`, {
@@ -291,55 +267,7 @@ export const WhimsyAIOpenAIAuth = {
     if (!response.ok) {
       throw error(await this._failure(response), `ChatGPT responses ${response.status}`);
     }
-    return this._read(response.body);
-  },
-
-  // ---- The stream ----
-
-  async _read(body) {
-    let text = "";
-    let refused = false;
-    for await (const { event, data } of sseEvents(body)) {
-      if (!data || data == "[DONE]") {
-        continue;
-      }
-      let message;
-      try {
-        message = JSON.parse(data);
-      } catch {
-        continue;
-      }
-      switch (message?.type || event) {
-        case "response.output_text.delta":
-          text += typeof message.delta == "string" ? message.delta : "";
-          break;
-        case "response.refusal.delta":
-        case "response.refusal.done":
-          refused = true;
-          break;
-        case "response.completed": {
-          if (refused) {
-            throw error("refused");
-          }
-          if (!text) {
-            const parts = (message.response?.output || []).flatMap(item => (item.type == "message" ? item.content || [] : []));
-            if (parts.some(part => part.type == "refusal")) {
-              throw error("refused");
-            }
-            text = parts.filter(part => part.type == "output_text").map(part => part.text).join("");
-          }
-          return text;
-        }
-        case "response.failed":
-          throw error(await this._mapped(codeFor(message.response?.error?.code), "failed"));
-        case "response.incomplete":
-          throw error("bad-response", "ChatGPT stopped before the answer was complete");
-        case "error":
-          throw error(await this._mapped(codeFor(message.code ?? message.error?.code), "failed"));
-      }
-    }
-    // Only response.completed means the answer is whole.
-    throw error("bad-response", "The ChatGPT stream ended early");
+    yield* lazy.responsesEvents(response.body, code => this._mapped(codeFor(code)));
   },
 
   async _mapped(code, fallback) {
