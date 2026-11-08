@@ -248,6 +248,9 @@ add_task(async function jump_strip_scrolls_to_section() {
     return Math.abs(at - top.getBoundingClientRect().bottom) < 60 || S._scroller().scrollTop + S._scroller().clientHeight >= S._scroller().scrollHeight - 2;
   }, "Features scrolls up under the strip");
   is(strip.querySelector('[data-section="features"]').getAttribute("aria-current"), "true", "and is marked");
+  await new Promise(r => setTimeout(r, 900));
+  S._spy();
+  is(strip.querySelector('[data-section="features"]').getAttribute("aria-current"), "true", "and stays marked once the page stops scrolling");
   ok(top.getBoundingClientRect().top >= -1, "The header stays put");
   await done(page);
 });

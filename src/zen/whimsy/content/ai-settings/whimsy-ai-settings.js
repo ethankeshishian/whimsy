@@ -406,7 +406,8 @@ var WhimsyAISettings = {
     }
     const line = top.getBoundingClientRect().bottom + 40;
     const scroller = this._scroller();
-    const atEnd = scroller.scrollTop > 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+    const last = document.getElementById(`whimsyAISection-${this.strip.lastElementChild?.dataset.section}`);
+    const atEnd = scroller.scrollTop > 0 && !!last && last.getBoundingClientRect().bottom <= window.innerHeight + 2;
     let current = null;
     for (const button of this.strip.children) {
       const section = document.getElementById(`whimsyAISection-${button.dataset.section}`);
