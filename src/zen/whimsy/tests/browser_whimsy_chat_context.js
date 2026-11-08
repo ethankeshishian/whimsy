@@ -135,10 +135,7 @@ add_task(async function what_ai_sees_rows_drill_in_and_leave_out() {
   ok(sheet, "one row per kind");
   EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-sees-row[data-kind='text']"), {});
   await TestUtils.waitForCondition(() => part(".whimsy-chat-sees-text")?.textContent.includes("Buffalo"), "Drilling in shows the text sent");
-  info(`Before Esc: focus ${document.activeElement?.localName}.${document.activeElement?.className}; views ${[...el().querySelectorAll(".whimsy-chat-sheet-view")].map(v => v.dataset.view)}`);
   EventUtils.synthesizeKey("KEY_Escape");
-  await new Promise(r => setTimeout(r, 400));
-  info(`After Esc: sheet ${!!part(".whimsy-chat-sheet")}; views ${[...el().querySelectorAll(".whimsy-chat-sheet-view")].map(v => v.dataset.view)}; text ${!!part(".whimsy-chat-sees-text")}`);
   await TestUtils.waitForCondition(() => part(".whimsy-chat-sheet-view[data-view='list']") && !part(".whimsy-chat-sees-text"), "Esc goes back to the list");
   const leave = [...part(".whimsy-chat-sheet-foot").querySelectorAll("button")].find(b => b.textContent == "Leave out");
   EventUtils.synthesizeMouseAtCenter(leave, {});
@@ -155,6 +152,8 @@ add_task(async function split_view_one_chat_chip_per_pane() {
   gZenViewSplitter.splitTabs([a, b], "vsep");
   await TestUtils.waitForCondition(() => gZenViewSplitter._data.find(g => g.tabs.includes(a))?.tabs.length == 2, "Split");
   EventUtils.synthesizeKey("e", { accelKey: true });
+  await new Promise(r => setTimeout(r, 1500));
+  info(`Split open: isOpen ${chat().isOpen}; ready ${chat().ready}; focus ${document.activeElement?.localName}; hidden ${el()?.hidden}`);
   await TestUtils.waitForCondition(() => chat().isOpen && chat().ready, "Chat open");
   await new Promise(r => setTimeout(r, 500));
   info(`Split: a.splitView ${a.splitView}; selected is ${gBrowser.selectedTab == a ? "a" : gBrowser.selectedTab == b ? "b" : "?"}; thread ${JSON.stringify({ kind: chat().thread?.kind, draft: chat().thread?.draft, tabKey: chat().thread?.tabKey })}; chips ${parts(".whimsy-chat-chip").map(c => c.dataset.kind + ":" + c.dataset.chip)}`);

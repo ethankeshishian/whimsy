@@ -622,23 +622,27 @@ export const WhimsyChatContextUI = {
       );
     };
     const show = async (view, back = false) => {
-      const old = sheet.firstElementChild;
+      // Every view already there leaves, including one still fading out.
+      const old = [...sheet.children];
       sheet.append(view);
       await doc.l10n.translateFragment(view);
-      if (old) {
+      if (old.length) {
         if (reducedMotion(win)) {
-          old.remove();
+          old.forEach(v => v.remove());
         } else {
           const dir = back ? -1 : 1;
           view.animate({ translate: [`${dir * 16}px 0`, "0 0"], opacity: [0, 1] }, { duration: 240, easing: EASE });
-          old.animate({ opacity: [1, 0] }, { duration: 150, fill: "forwards" }).finished.then(() => old.remove(), () => old.remove());
+          for (const v of old) {
+            v.setAttribute("leaving", "true");
+            v.animate({ opacity: [1, 0] }, { duration: 150, fill: "forwards" }).finished.then(() => v.remove(), () => v.remove());
+          }
         }
       }
       view.querySelector(back ? `.whimsy-chat-sees-row` : "button:not([disabled])")?.focus();
     };
     // Esc anywhere in chat steps back from a drill-in, then closes the sheet.
     sheetEscapes.set(sheet, () => {
-      if (sheet.querySelector(".whimsy-chat-sheet-view:not([data-view='list'])")) {
+      if (sheet.querySelector(".whimsy-chat-sheet-view:not([data-view='list'], [leaving])")) {
         show(list(), true);
       } else {
         close();

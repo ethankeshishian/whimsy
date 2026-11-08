@@ -100,6 +100,7 @@ async function shoot(id, prepare, url) {
     const tab = await begin(url);
     const cleanup = await prepare(tab, dark);
     await settle();
+    ok(chat().isOpen, `${id} (${dark ? "dark" : "light"}) is ready to shoot`);
     return async () => {
       await cleanup?.();
       await end();
