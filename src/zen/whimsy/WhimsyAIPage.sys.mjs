@@ -10,19 +10,19 @@
 // The answer shows under the find bar with the passage it comes from and a
 // "Find on Page" button that jumps to that passage.
 //
-// 5-second previews (Arc parity): hold Shift while pointing at a link (or
-// press Shift while on it) to see a card summarizing the page behind it,
-// without opening it. On Google, DuckDuckGo, Bing, X, Threads and Hacker
-// News, resting on a result link is enough. The page is read in the
-// background with the person's own session (the tab's container), never
-// in private windows. The card stays while the pointer is on the link or
-// the card; clicking it opens the link.
+// Link previews (W23, fu-page 7.1): whenever the link card opens (Shift on
+// any link, or resting on result links on search results, X, Threads, and
+// Hacker News), the AI summary card opens with it: loading, then three
+// bullets. Resting reads public pages only, without sign-ins; Shift reads
+// with the tab's session. AI off: the link card alone. Never in private
+// tabs. Clicking a card opens the link.
 
 import { AI_ERROR_CODES } from "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
   WhimsyLinkHover: "resource:///modules/whimsy/WhimsyLinkHover.sys.mjs",
@@ -312,32 +312,27 @@ export const WhimsyAIPage = {
 
   /**
    * Whether the hover host adds the AI card for this link, and how:
-   * "ready" (summarize), "not-ready" or "blocked" (say what's missing, only
-   * for a deliberate Shift), or null for no AI card.
+   * "ready" (summarize), "not-ready" (no provider answers yet; said only
+   * for a deliberate Shift), or null for no AI card (AI off included).
    */
   async previewMode(browser, url, how) {
     if (!this.previewsEnabled || !lazy.WhimsyAIReader.isReadableUrl(url)) {
       return null;
     }
-    // Private pages are never fetched behind the scenes.
-    if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
+    // Private is a wall, per tab: a private tab in a normal window too.
+    const tab = browser?.ownerGlobal?.gBrowser?.getTabForBrowser(browser);
+    if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) || (tab && lazy.WhimsyAIContext.isPrivate(tab))) {
       return null;
     }
-    // wave7/security M5: resting on a link (nobody asked) reads public
-    // pages only, without the person's cookies; Shift reads with the tab's
-    // session. A non-public page gets no automatic card at all.
+    // Resting on a link reads public pages only, without sign-ins; Shift
+    // reads any page with the tab's session.
     if (how != "shift" && !lazy.WhimsyAIReader.isPublicUrl(url)) {
       return null;
     }
-    // Resting on a link only works once a provider is set up; a deliberate
-    // Shift-hover says what's missing.
-    if (await lazy.WhimsyAIProviders.isReady({ userStarted: how == "shift" })) {
+    if (await lazy.WhimsyAIProviders.isReady()) {
       return "ready";
     }
-    if (how != "shift") {
-      return null;
-    }
-    return lazy.WhimsyAIProviders.enabled ? "not-ready" : "blocked";
+    return how == "shift" ? "not-ready" : null;
   },
 
   /**
@@ -397,22 +392,23 @@ export const WhimsyAIPage = {
       throw Object.assign(new Error("No text"), { code: "unreadable" });
     }
     const prompt =
-      "Summarize this page in 3 short bullet points (at most 15 words each) so someone can decide whether to open it. " +
+      "Summarize this page in exactly 3 short bullet points (at most 15 words each) so someone can decide whether to open it. " +
       "Also give the page a short title.\n" +
       'Reply as JSON: {"title": "...", "points": ["...", "...", "..."]}\n\n' +
       `Address: ${page.url}\nPage title: ${page.title}\n<page>\n${lazy.WhimsyAIProviders.clip(page.text, 0.9)}\n</page>`;
+    // Through the router in the person's provider order, the Claude plan included.
     const result = await lazy.WhimsyAIProviders.completeJSON({
+      task: "preview",
       system: PREVIEW_SYSTEM,
       prompt,
       maxTokens: 400,
       signal,
-      // Shift on a link asks; resting on one doesn't.
       userStarted: !anonymous,
     });
     const points = (Array.isArray(result?.points) ? result.points : [])
       .map(p => String(p ?? "").trim())
       .filter(Boolean)
-      .slice(0, 4);
+      .slice(0, 3);
     if (!points.length) {
       throw Object.assign(new Error("No points"), { code: "bad-response" });
     }

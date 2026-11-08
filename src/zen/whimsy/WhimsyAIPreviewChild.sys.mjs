@@ -24,7 +24,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
   get enabled() {
     return (
       Services.prefs.getBoolPref(LINK_CARDS_PREF, true) ||
-      (Services.prefs.getBoolPref(PREF, true) && Services.prefs.getBoolPref(AI_ENABLED_PREF, true))
+      (Services.prefs.getBoolPref(PREF, true) && Services.prefs.getBoolPref(AI_ENABLED_PREF, false))
     );
   }
 

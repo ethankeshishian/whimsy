@@ -472,17 +472,13 @@ findbar .whimsy-ask-button {
     gap: 6px;
   }
 
-  & .whimsy-preview-icon,
-  & .whimsy-preview-host {
+  & .whimsy-preview-head {
     display: none;
   }
 }
 
-#whimsy-link-hover:not([whimsy-two-cards]) .whimsy-link-hover-ai {
-  & .whimsy-preview-icon,
-  & .whimsy-preview-host {
-    display: revert;
-  }
+#whimsy-link-hover:not([whimsy-two-cards]) .whimsy-link-hover-ai .whimsy-preview-head {
+  display: flex;
 }
 
 /* The People card (fix7/tabs' design) as card 1: it fills the shared width
