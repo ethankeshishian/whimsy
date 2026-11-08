@@ -145,7 +145,7 @@ export const SETTINGS = [
     covers: "#whimsyAIProviderList, #whimsyAISheet",
     exempt: "the connected providers, each a row with its own switch, and the connect sheets" },
   { name: "ai-quick-text", setting: "whimsyAIQuickText", pref: "whimsy.ai.quick-text-apple", feature: ["ai-providers"],
-    when: aiAllowed },
+    when: aiAllowed, exempt: "only shown once Apple Intelligence is added as a provider" },
   { name: "tidy-tabs", setting: "whimsyAITidyTabs", pref: "whimsy.feature.tidy-tabs", feature: ["ai-providers"],
     when: aiAllowed },
   { name: "tidy-titles", setting: "whimsyAITidyTitles", pref: "whimsy.feature.tidy-titles", feature: ["ai-providers"],
