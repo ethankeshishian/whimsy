@@ -128,16 +128,18 @@ export const WhimsyAIOnboarding = {
       defaultDetail: detailL10n,
       set: ({ state, status = null, tone = null, detailL10n: d = null, detailArgs, note = null, noteTone = null, actions = [], progress = null, cancel = null, button = null }) => {
         const wasState = card.dataset.state;
-        card.dataset.state = state;
         doc.l10n.setAttributes(detail, d ?? ui.defaultDetail, detailArgs);
         // Rebuilding the trail here, synchronously, would detach a button
         // that's still mid-click (its own click handler is what called
         // set()) before the a11y check (which runs after the event
-        // dispatch) sees it released. That only matters when there's an
-        // existing button to detach; the very first build (idle, trail
-        // still empty) has nothing mid-click and tests click its button
-        // right after render, so it stays synchronous.
+        // dispatch) sees it released. The state attribute moves with the
+        // rebuild too, since flipping it alone can hide that same button
+        // via CSS before the a11y check sees it. That only matters when
+        // there's an existing button to detach; the very first build
+        // (idle, trail still empty) has nothing mid-click and tests click
+        // its button right after render, so it stays synchronous.
         const rebuild = () => {
+          card.dataset.state = state;
           trail.replaceChildren();
           if (status) {
             const s = this._el(doc, "span", "whimsy-onb-status", trail);
