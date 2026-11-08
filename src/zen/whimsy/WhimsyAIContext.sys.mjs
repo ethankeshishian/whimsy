@@ -272,8 +272,8 @@ export const WhimsyAIContext = {
     if (!browser || lazy.WhimsyPrivate.isPrivateBrowser(browser) || browser.browsingContext?.usePrivateBrowsing) {
       return result;
     }
-    const frames = frames(browser);
-    const answers = await Promise.all(frames.map(async wg => {
+    const wgs = frames(browser);
+    const answers = await Promise.all(wgs.map(async wg => {
       try {
         return { wg, data: await actorOf(wg)?.sendQuery(`${ACTOR}:Extract`, { redact }) };
       } catch {

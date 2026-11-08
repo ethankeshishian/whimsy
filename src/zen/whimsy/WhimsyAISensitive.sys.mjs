@@ -57,7 +57,7 @@ function words(el) {
   return parts.join(" ").replace(/[_-]+/g, " ");
 }
 
-function fieldValue(el) {
+export function fieldValue(el) {
   if (el.localName == "input" || el.localName == "textarea" || el.localName == "select") {
     return el.value ?? "";
   }
