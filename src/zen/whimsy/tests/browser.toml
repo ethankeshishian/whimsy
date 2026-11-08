@@ -306,6 +306,9 @@ support-files = ["whimsy_netprobe.sjs"]
 ["browser_whimsy_agent_core.js"]
 support-files = ["whimsy_claude.html", "whimsy_ai_sensitive.html", "whimsy_claude_injection.html"]
 
+["browser_whimsy_diag_mask.js"]
+support-files = ["whimsy_ai_sensitive.html"]
+
 # meeting: Next meeting in the sidebar.
 ["browser_whimsy_next_meeting.js"]
 support-files = ["whimsy_calendar.sjs"]
