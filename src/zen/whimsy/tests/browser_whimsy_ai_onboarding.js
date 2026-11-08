@@ -93,7 +93,7 @@ add_task(async function skip_for_now_becomes_continue() {
   const [providers] = WhimsyAIOnboarding.pages(window);
   const view = await render(providers);
   is(bottomId(), "whimsy-onb-skip", "Skip for now until something connects");
-  EventUtils.synthesizeMouseAtCenter(view.card("openai").querySelector('[data-action="connect"]'), {}, window);
+  view.card("openai").querySelector('[data-action="connect"]').click();
   held.get("openai").resolve();
   await TestUtils.waitForCondition(() => view.card("openai").dataset.state == "done", "ChatGPT connects");
   is(bottomId(), "whimsy-onb-continue", "then Continue");
