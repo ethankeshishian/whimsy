@@ -254,6 +254,8 @@ async function closeFind() {
     document.getElementById(id)?.hidePopup?.();
   }
   findbar?.close(true);
+  // The pointer leaves ⋯ so the next shot doesn't show it hovered.
+  EventUtils.synthesizeMouseAtPoint(600, 400, { type: "mousemove" }, window);
 }
 
 // fu-page 1.7: the floating card, found; its opening frame.

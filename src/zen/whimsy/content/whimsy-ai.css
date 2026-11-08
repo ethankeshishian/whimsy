@@ -491,3 +491,10 @@ findbar .whimsy-ask-button {
     width: auto;
   }
 }
+
+/* W23 page-read (page-1.1): under a summary, what was read, in the chat's muted small print. */
+.whimsy-summary-meta {
+  margin-block-start: 6px;
+  color: var(--whimsy-chat-muted, color-mix(in srgb, currentColor 62%, transparent));
+  font-size: 12px;
+}

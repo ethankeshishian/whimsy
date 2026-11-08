@@ -107,13 +107,18 @@ findbar[whimsy-find-card] {
     background-color: var(--whimsy-find-track);
     transition: box-shadow 150ms ease;
 
+    /* The mock's field is a plain track while typing: focus shows as a soft accent rim, not the heavy outline. */
     &:focus-within {
-      box-shadow: inset 0 0 0 2px var(--focus-outline-color, AccentColor);
+      box-shadow: inset 0 0 0 1.5px color-mix(in srgb, AccentColor 55%, transparent);
     }
 
-    &[notfound] {
-      box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--whimsy-find-error) 60%, transparent);
+    /* Firefox's wrapper is <hbox align="stretch">: centre each piece on the field's line. */
+    & > * {
+      align-self: center;
+    }
 
+    /* fu-page 1.7 f3: nothing found shows in the count alone; the field keeps its focus rim. */
+    &[notfound] {
       & .whimsy-find-count {
         color: var(--whimsy-find-error);
       }
@@ -195,6 +200,11 @@ findbar[whimsy-find-card] {
       opacity: 0.4;
     }
 
+    /* and with no match there is nothing to step through. */
+    &:is(.findbar-find-previous, .findbar-find-next):where(findbar:has(.whimsy-find-field[notfound]) *) {
+      opacity: 0.4;
+    }
+
     & .toolbarbutton-icon {
       width: 13px;
       height: 13px;
@@ -204,8 +214,14 @@ findbar[whimsy-find-card] {
   & .whimsy-find-more {
     list-style-image: url("chrome://browser/skin/zen-icons/menu.svg");
 
+    &:not(:focus-visible) {
+      outline: none;
+    }
+
+    /* Pressed while its menu is open (fu-page 1.7 f2): a filled square, not an outline ring. */
     &[open] {
-      background-color: var(--whimsy-find-track);
+      outline: none !important;
+      background-color: var(--whimsy-find-track) !important;
     }
 
     & .toolbarbutton-text {
