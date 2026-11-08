@@ -144,7 +144,14 @@ add_task(async function menu_checkable_rows_drive_findbar() {
     await TestUtils.waitForCondition(() => menu.state == "closed", "Esc closes the menu");
     await TestUtils.waitForCondition(() => document.activeElement == findbar._findField, "back in the field");
     ok(!findbar.hidden, "The find bar stays open");
+    // DIAG (remove): who reopens the bar after it closes.
+    const realOpen = findbar.open;
+    findbar.open = function (...args) {
+      info(`DIAG open(${args}) hidden=${this.hidden} ${new Error().stack.split("\n").slice(1, 8).join(" | ")}`);
+      return realOpen.apply(this, args);
+    };
     await closeFind(findbar);
+    findbar.open = realOpen;
   });
 });
 
