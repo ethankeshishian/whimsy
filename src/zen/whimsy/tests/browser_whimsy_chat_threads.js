@@ -62,6 +62,7 @@ async function send(text) {
 }
 
 add_setup(async function () {
+  registerCleanupFunction(() => Services.prefs.clearUserPref("whimsy.ai.hints.seen"));
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], ["whimsy.feature.ai-hints", false]] });
   WhimsyAIProviders.setTestProvider(async function* (provider, request) {
     calls.push({ provider, request });
@@ -168,6 +169,8 @@ add_task(async function thread_outlives_tab_and_reopen_restores() {
   ok(!WhimsyChatThreads.tabOf(await WhimsyAIStore.thread(thread.id)), "Its tab is gone");
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE_A);
   await WhimsyChat.open(window, { threadId: thread.id });
+  // The reopen link sits at the panel's far edge: wait for the opening motion, or it may still be past the window.
+  await settle();
   await TestUtils.waitForCondition(() => part(".whimsy-chat-note[data-kind='closed-tab']"), "A note says the tab closed");
   const before = calls.length;
   await send("again");
@@ -181,7 +184,7 @@ add_task(async function thread_outlives_tab_and_reopen_restores() {
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   const r = reopen.getBoundingClientRect();
   const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-  info(`Reopen at ${JSON.stringify(r)}; under the pointer: ${hit?.localName}.${hit?.className} ${hit?.id}`);
+  ok(hit == reopen || reopen.contains(hit), `The reopen button is under the pointer (found ${hit?.localName}.${hit?.className})`);
   EventUtils.synthesizeMouseAtCenter(reopen, {});
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == tabsBefore + 1, "A tab opens");
   const back = gBrowser.selectedTab;

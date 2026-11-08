@@ -5409,3 +5409,256 @@ whimsy-agent-change-off-on = Off → On
 whimsy-agent-new-site = new to you
 # $value (String) - what it would type; $field (String) - the field's label
 whimsy-agent-will-type = { $value } in “{ $field }”
+
+## W23 chat-answers: context chips, What AI sees, answers, the model menu,
+## the note line and error block, and pass-through (images, code, reports)
+
+whimsy-chat-cmd-what-ai-sees = What AI Sees in Chat
+whimsy-chat-cmd-add-context = Add to Chat’s Context…
+whimsy-chat-cmd-model = Choose Chat’s Model and Thinking…
+whimsy-chat-chip-this-tab = This tab
+whimsy-chat-chip-all-tabs = All my tabs
+# $kind is tab, pane, pdf, file, or tabs. Counts are 0 when absent.
+whimsy-chat-chip-words =
+    .title = { $kind ->
+        [tab] This tab
+        [tabs] All my tabs
+       *[other] { $label }
+    }{ $text ->
+        [0] {""}
+       *[other] {" · "}text
+    }{ $images ->
+        [0] {""}
+        [one] {" · "}1 image
+       *[other] {" · "}{ $images } images
+    }{ $videos ->
+        [0] {""}
+        [one] {" · "}1 video
+       *[other] {" · "}{ $videos } videos
+    }{ $pages ->
+        [0] {""}
+        [one] {" · "}1 page
+       *[other] {" · "}{ $pages } pages
+    }. Show what AI sees
+    .aria-label = { $kind ->
+        [tab] This tab
+        [tabs] All my tabs
+       *[other] { $label }
+    }{ $text ->
+        [0] {""}
+       *[other] {", "}text
+    }{ $images ->
+        [0] {""}
+        [one] {", "}1 image
+       *[other] {", "}{ $images } images
+    }{ $videos ->
+        [0] {""}
+        [one] {", "}1 video
+       *[other] {", "}{ $videos } videos
+    }{ $pages ->
+        [0] {""}
+        [one] {", "}1 page
+       *[other] {", "}{ $pages } pages
+    }. Show what AI sees
+whimsy-chat-chip-remove =
+    .title = Leave out of this chat
+    .aria-label = Leave { $label } out of this chat
+whimsy-chat-chip-add = Add
+whimsy-chat-add-all-tabs = All my tabs
+whimsy-chat-add-file = A file…
+whimsy-chat-undo = Undo
+# $kind is the chip's kind; $label its name (empty for this tab).
+whimsy-chat-note-chip-removed = { $kind ->
+        [tab] This tab is left out of this chat.
+        [tabs] All my tabs are left out of this chat.
+       *[other] { $label } is left out of this chat.
+    }
+whimsy-chat-note-left-out = Left out: { $private ->
+        [0] {""}
+        [one] 1 private tab
+       *[other] { $private } private tabs
+    }{ $private ->
+        [0] {""}
+       *[other] { $hidden ->
+            [0] {""}
+           *[other] {", "}
+        }
+    }{ $hidden ->
+        [0] {""}
+        [one] 1 tab in a hidden space
+       *[other] { $hidden } tabs in hidden spaces
+    }{ $locked ->
+        [0] {""}
+       *[other] { $private ->
+            [0] { $hidden ->
+                [0] {""}
+               *[other] {", "}
+            }
+           *[other] {", "}
+        }{ $locked ->
+            [one] 1 tab in a locked space
+           *[other] { $locked } tabs in locked spaces
+        }
+    }.
+# $kind is tabs or pdf.
+whimsy-chat-used = { $kind ->
+        [tabs] Used all my tabs · { $count }
+       *[other] Used { $label }
+    }
+whimsy-chat-status-reading-tabs = Reading your tabs…
+whimsy-chat-status-watching = Watching the video…
+whimsy-chat-status-searching = Searching the web…
+whimsy-chat-thinking = Thinking
+whimsy-chat-thought-for = { $seconds ->
+        [one] Thought for 1 second
+       *[other] Thought for { $seconds } seconds
+    }
+whimsy-chat-cite =
+    .aria-label = Source { $n }
+    .title = { $title }
+whimsy-chat-action-copy =
+    .title = Copy
+    .aria-label = Copy
+whimsy-chat-action-retry =
+    .title = Ask again
+    .aria-label = Ask again
+whimsy-chat-code-copy = Copy
+whimsy-chat-code-copied = Copied
+whimsy-chat-code-ran = { $language } · ran by { $provider }
+whimsy-chat-code-output = Output
+whimsy-chat-image-save = Save…
+whimsy-chat-image-copy = Copy
+whimsy-chat-image-caption = Made by { $provider } · { $width }×{ $height } { $type } · drag it anywhere
+whimsy-chat-research-stop = Stop
+whimsy-chat-research-meta = { $provider ->
+        [none] Deep research
+       *[other] { $provider } deep research
+    } · { $minutes } min so far · { $sources ->
+        [one] { $sources } source read
+       *[other] { $sources } sources read
+    }
+whimsy-chat-report-detail = { $sources ->
+        [0] Report · saved on this Mac · opened as a tab
+        [one] Report · 1 numbered source · opened as a tab
+       *[other] Report · { $sources } numbered sources · opened as a tab
+    }
+whimsy-chat-doc-detail = Saved on this Mac · opened as a tab
+whimsy-chat-report-open = Open tab
+whimsy-chat-report-export = Export
+whimsy-chat-report-export-pdf = PDF…
+whimsy-chat-report-export-markdown = Markdown file…
+whimsy-chat-note-fallback-images = { $to } answered. { $from } can’t read images.
+whimsy-chat-note-fallback-video = { $to } answered. { $from } can’t watch videos.
+whimsy-chat-note-fallback-research = { $to } answered. { $from } can’t do deep research.
+whimsy-chat-note-fallback-image-gen = { $to } answered. { $from } can’t make images.
+whimsy-chat-note-fallback-code = { $to } answered. { $from } can’t run code.
+whimsy-chat-note-fallback-long = { $to } answered. This is too long for { $from }.
+whimsy-chat-note-fallback-task = { $to } answered. { $from } can’t do this.
+whimsy-chat-note-language = The page is in { $page }. Answers are in { $answer }.
+whimsy-chat-note-language-switch = Answer in { $page }
+# The error block: red (failed), amber (limited), grey (not possible here).
+whimsy-chat-error-down = { $provider } isn’t answering right now. Your question is kept.
+whimsy-chat-error-all-failed = { $names } aren’t answering right now. Your question is kept.
+whimsy-chat-error-ask-instead = Ask { $provider } instead
+whimsy-chat-error-retry = Try again
+whimsy-chat-error-plan-out-until = Your { $provider } plan is out until { $time }. Nothing else you’ve connected can take this one.
+whimsy-chat-error-plan-out = Your { $provider } plan is out for now. Nothing else you’ve connected can take this one.
+whimsy-chat-error-connect = Connect another AI
+whimsy-chat-error-usage = Open usage page
+whimsy-chat-error-ask = Ask { $provider }
+whimsy-chat-error-use = Use { $provider } for this
+whimsy-chat-error-signed-out = { $provider } is signed out. Sign in again in Settings, then try again.
+whimsy-chat-error-sign-in = Sign in…
+whimsy-chat-error-offline = You’re offline. Keep the question and send it when you’re back online.
+whimsy-chat-error-offline-apple = You’re offline. Apple Intelligence still works on this Mac. Or keep the question and send it when you’re back online.
+whimsy-chat-error-ask-apple = Ask Apple Intelligence
+whimsy-chat-error-when-online = Send when online
+whimsy-chat-error-too-long = This page is too long for { $who }.
+whimsy-chat-error-connector = Your { $connector } sign-in expired. Chat can’t read “{ $item }” until you sign in again. The rest of the answer can go ahead without it.
+whimsy-chat-error-connector-sign-in = Sign in to { $connector }
+whimsy-chat-error-without-it = Answer without it
+whimsy-chat-error-without-research = Answer normally
+whimsy-chat-error-see-which = See which AIs can
+whimsy-chat-error-can = { $names } can.
+whimsy-chat-error-cannot-images = { $who } can’t look at images.
+whimsy-chat-error-cannot-video = { $who } can’t watch videos.
+whimsy-chat-error-cannot-research = { $who } can’t do deep research here.
+whimsy-chat-error-cannot-imageGen = { $who } can’t make images.
+whimsy-chat-error-cannot-code = { $who } can’t run code.
+whimsy-chat-error-cannot-chars = This is too long for { $who }.
+whimsy-chat-error-quota-mid = { $provider } ran out partway through. The part above is kept.
+whimsy-chat-error-finish-with = Finish with { $provider }
+whimsy-chat-error-stop-here = Stop here
+whimsy-chat-model-button =
+    .title = Model for this chat: { $who }
+    .aria-label = Model for this chat: { $who }
+whimsy-chat-model-title = For this chat only
+whimsy-chat-model-auto = Automatic
+whimsy-chat-model-auto-detail = your order in Settings
+whimsy-chat-model-method-plan = plan
+whimsy-chat-model-method-key = API key
+whimsy-chat-model-method-local = on this Mac
+whimsy-chat-model-cannot-images = can’t read images
+whimsy-chat-model-cannot-video = can’t watch video
+whimsy-chat-model-cannot-research = no deep research
+whimsy-chat-model-cannot-long = page too long
+whimsy-chat-model-thinking = Thinking
+whimsy-chat-model-thinking-light = Light thinking
+whimsy-chat-model-thinking-deep = Deep thinking
+whimsy-chat-thinking-light = Light
+whimsy-chat-thinking-normal = Normal
+whimsy-chat-thinking-deep = Deep
+whimsy-chat-model-settings = Provider settings…
+whimsy-chat-sees-title = What AI sees
+whimsy-chat-sees-title-text = Text
+whimsy-chat-sees-title-images = Images
+whimsy-chat-sees-title-videos = Video
+whimsy-chat-sees-title-pages = Tabs
+whimsy-chat-sheet-back =
+    .title = Back
+    .aria-label = Back
+whimsy-chat-sheet-close-back =
+    .title = Back to chat
+    .aria-label = Back to chat
+whimsy-chat-sheet-close =
+    .title = Close
+    .aria-label = Close
+whimsy-chat-sheet-done = Done
+whimsy-chat-sees-dest = Sent to { $who }
+whimsy-chat-sees-dest-local = { $who }
+whimsy-chat-sees-method-key = With your { $provider } API key. Leaves this Mac.
+whimsy-chat-sees-method-plan = Through your { $provider } plan. Leaves this Mac.
+whimsy-chat-sees-method-local = Leaves this Mac.
+whimsy-chat-sees-method-local-stays = Stays on this Mac. Nothing leaves it.
+whimsy-chat-sees-method-key-stays = With your { $provider } API key. Stays on this Mac.
+whimsy-chat-sees-method-plan-stays = Through your { $provider } plan. Stays on this Mac.
+whimsy-chat-sees-from-tab = From this tab
+whimsy-chat-sees-from = From this chat
+whimsy-chat-sees-kinds = { $count ->
+        [one] 1 kind
+       *[other] { $count } kinds
+    }
+whimsy-chat-sees-text = Text
+whimsy-chat-sees-page-text = Page text
+whimsy-chat-sees-copy = Copy text
+whimsy-chat-sees-chars = { $chars } characters
+whimsy-chat-sees-chars-whole = { $chars } characters · the whole page
+whimsy-chat-sees-chars-cut = { $sent } of { $chars } characters
+whimsy-chat-sees-pages = { $count ->
+        [one] 1 tab
+       *[other] { $count } tabs
+    }
+whimsy-chat-sees-images = Images
+whimsy-chat-sees-images-detail = { $count } sent · ads and icons skipped
+whimsy-chat-sees-videos = Video
+whimsy-chat-sees-videos-detail = { $count ->
+        [one] 1 video · audio not sent
+       *[other] { $count } videos · audio not sent
+    }
+whimsy-chat-sees-cut = { $who } reads about { $chars } characters. The rest isn’t sent.
+whimsy-chat-sees-never = Never sent: passwords, card numbers, one-time codes, and private tabs. Removed bits show as grey labels.
+whimsy-chat-sees-leave = Leave out
+whimsy-chat-sees-leave-text = Leave out
+whimsy-chat-sees-leave-images = Leave out
+whimsy-chat-sees-leave-videos = Leave out
+whimsy-chat-sees-leave-pages = Leave out

@@ -231,6 +231,13 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyChatThreads.sys.mjs",
 ]
 
+# W23 chat-answers
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAIReports.sys.mjs",
+    "WhimsyChatAnswer.sys.mjs",
+    "WhimsyChatContextUI.sys.mjs",
+]
+
 # W23 agent-core
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyAgentGuard.sys.mjs",

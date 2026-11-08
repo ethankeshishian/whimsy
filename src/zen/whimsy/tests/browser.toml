@@ -974,6 +974,18 @@ support-files = ["whimsy_ai_sensitive.html"]
 
 ["browser_whimsy_screens_w23_chat-shell.js"]
 support-files = ["whimsy_chat_article.html"]
+
+# W23 chat-answers: chips in the composer, What AI sees, answers (thinking,
+# citations, the model menu, notes, errors), and pass-through.
+["browser_whimsy_chat_answer.js"]
+support-files = ["whimsy_chat_article.html"]
+
+["browser_whimsy_chat_context.js"]
+support-files = ["whimsy_chat_article.html"]
+
+["browser_whimsy_screens_w23_chat-answers.js"]
+support-files = ["whimsy_chat_article.html", "whimsy_chat_media.html"]
+
 # W23 agent-core: guardrail pauses (classifier, previews, the MCP hold,
 # captchas) and this lane's screenshots.
 ["browser_whimsy_agent_guard.js"]
