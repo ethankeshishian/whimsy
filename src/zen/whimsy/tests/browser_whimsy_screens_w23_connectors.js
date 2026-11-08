@@ -206,7 +206,14 @@ add_task(async function onb_card_failure_unfold_mid() {
   WhimsyAIOnboarding.connectProvider = () => Promise.reject(Object.assign(new Error("x"), { code: "sign-in-failed" }));
   try {
     const content = await renderPage(WhimsyAIOnboarding.pages(window)[0]);
-    EventUtils.synthesizeMouseAtCenter(content.querySelector('[data-id="openai"] [data-action="connect"]'), {}, window);
+    const btn = content.querySelector('[data-id="openai"] [data-action="connect"]');
+    const r = btn.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    info(`DIAG rect=${JSON.stringify(r)} hit=${hit?.localName}#${hit?.id}.${hit?.className}`);
+    EventUtils.synthesizeMouseAtCenter(btn, {}, window);
+    info(`DIAG state=${content.querySelector('[data-id="openai"]').dataset.state}`);
+    await new Promise(res => setTimeout(res, 0));
+    info(`DIAG state2=${content.querySelector('[data-id="openai"]').dataset.state} note=${!!content.querySelector('[data-id="openai"] .whimsy-onb-note')} anims=${content.querySelector('[data-id="openai"] .whimsy-onb-note')?.getAnimations().length} instant=${WhimsyAIOnboarding.instant}`);
     await whimsyShotMid("w23-connectors-onb-card-fail", () => content.querySelector('[data-id="openai"] .whimsy-onb-note')?.getAnimations()[0], 150);
     ok(content.querySelector('[data-id="openai"]').dataset.state == "failed", "onb-card-fail: the card reached the failed state");
   } finally {
