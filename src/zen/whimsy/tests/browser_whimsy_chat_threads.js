@@ -173,10 +173,12 @@ add_task(async function thread_outlives_tab_and_reopen_restores() {
   await send("again");
   const last = calls.at(-1).request;
   is(calls.length, before + 1, "One request for the follow-up");
-  ok(last.system.includes("Example Domain"), "Follow-ups use what was already read: " + last.system.slice(0, 300));
+  ok(last.system.includes("Address: " + PAGE_B), "Follow-ups use the copy of the closed tab's page");
+  info("Reopening the tab");
   const reopened = BrowserTestUtils.waitForNewTab(gBrowser, PAGE_B, true);
   EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-note[data-kind='closed-tab'] button"), {});
   const back = await reopened;
+  info("The tab is back");
   is(gBrowser.selectedTab, back, "Reopen brings the tab back");
   await TestUtils.waitForCondition(async () => !(await WhimsyAIStore.thread(thread.id)).closedTab, "and the thread is tied to it again");
   await TestUtils.waitForCondition(() => parts(".whimsy-chat-msg[data-role='user']").length == 2, "showing the same chat");

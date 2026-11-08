@@ -394,6 +394,10 @@ class ChatPanel {
       return;
     }
     event.preventDefault();
+    if (event.detail >= 2) {
+      this.resetWidth();
+      return;
+    }
     const { win } = this;
     const startX = event.screenX;
     const startWidth = this.width();
