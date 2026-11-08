@@ -308,14 +308,10 @@ add_task(async function shots_answers() {
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-cite"), {});
     await TestUtils.waitForCondition(async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.getSelection().toString())).includes("Buffalo"), "Highlighted");
   });
+  // chat-4.4's "Used 2 memories" is L18's slot in the action row; this is the row it joins.
   await shoot("chat-4.4", async () => {
-    await ask("Sum up this article");
+    await ask("Would this matter for me?");
     await answered();
-    const thread = chat().thread;
-    const user = (await WhimsyAIStore.messages(thread.id)).find(m => m.role == "user");
-    await WhimsyAIStore.updateMessage(thread.id, user.id, { used: [{ kind: "memories", count: 2, label: "" }] });
-    await chat().showThread(thread.id);
-    await TestUtils.waitForCondition(() => part(".whimsy-chat-used"), "Used line");
   });
   // fu 4.6: a plan answer arrives whole and fades in; shot mid-fade too.
   const usesPlan = WhimsyAIProviders._usesPlan;
@@ -389,7 +385,7 @@ add_task(async function shots_pass_through() {
   await shoot("chat-6.2", async () => {
     g = gate();
     script = async function* () {
-      yield { type: "artifact", artifact: { kind: "progress", title: "Deep research", lines: ["Found 14 city studies", "Reading Buffalo's zoning report", "Comparing rents before and after"], sources: 9 } };
+      yield { type: "artifact", artifact: { kind: "progress", title: "Deep research · parking reform outcomes", lines: ["Found city studies from 2017 to 2025", "Compared rent data in 9 cities", "Checking street-parking surveys"], sources: 41, progress: 0.45 } };
       await g.promise;
     };
     await ask("Do deep research on parking reform and rents");

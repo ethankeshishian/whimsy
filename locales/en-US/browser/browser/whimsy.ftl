@@ -5530,6 +5530,13 @@ whimsy-chat-image-save = Save…
 whimsy-chat-image-copy = Copy
 whimsy-chat-image-caption = Made by { $provider } · { $width }×{ $height } { $type } · drag it anywhere
 whimsy-chat-research-stop = Stop
+whimsy-chat-research-meta = { $provider ->
+        [none] Deep research
+       *[other] { $provider } deep research
+    } · { $minutes } min so far · { $sources ->
+        [one] { $sources } source read
+       *[other] { $sources } sources read
+    }
 whimsy-chat-report-detail = { $sources ->
         [0] Report · saved on this Mac · opened as a tab
         [one] Report · 1 numbered source · opened as a tab

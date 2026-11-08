@@ -429,7 +429,8 @@ class Live {
     if (artifact.kind == "progress") {
       this.status.remove();
       const existing = this.cards.querySelector(".whimsy-chat-research[live]");
-      const card = researchProgress(this.doc, artifact, () => this.panel.onSendButton());
+      this.researchAt ??= Date.now();
+      const card = researchProgress(this.doc, artifact, () => this.panel.onSendButton(), { provider: this.provider, startedAt: this.researchAt });
       if (existing) {
         existing.replaceWith(card);
       } else {
@@ -513,14 +514,36 @@ function thinkingLine(doc, msg) {
   return h(doc, "div", { class: "whimsy-chat-thinking", folded: true }, button, fold);
 }
 
-function researchProgress(doc, artifact, stop) {
+function researchProgress(doc, artifact, stop, { provider = null, startedAt = Date.now() } = {}) {
+  const minutes = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
+  const progress = Number(artifact.progress);
+  const lines = artifact.lines ?? [];
   return h(
     doc,
     "div",
     { class: "whimsy-chat-research", live: true },
     h(doc, "div", { class: "whimsy-chat-research-title" }, artifact.title ?? ""),
-    h(doc, "div", { class: "whimsy-chat-research-detail" }, artifact.detail ?? ""),
-    h(doc, "ul", {}, (artifact.lines ?? []).map((line, i, all) => h(doc, "li", { done: i < all.length - 1 }, line))),
+    h(
+      doc,
+      "div",
+      { class: "whimsy-chat-research-detail" },
+      artifact.detail ?? h(doc, "span", { l10n: ["whimsy-chat-research-meta", { provider: provider ? providerName(provider) : "none", minutes, sources: Number(artifact.sources) || 0 }] })
+    ),
+    h(
+      doc,
+      "div",
+      { class: "whimsy-chat-research-bar", role: "progressbar", indeterminate: !(progress >= 0 && progress <= 1) || null, "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": progress >= 0 && progress <= 1 ? String(Math.round(progress * 100)) : null },
+      h(doc, "div", { style: progress >= 0 && progress <= 1 ? `width: ${Math.round(progress * 100)}%` : null })
+    ),
+    h(
+      doc,
+      "ul",
+      {},
+      lines.map((line, i) => {
+        const done = i < lines.length - 1;
+        return h(doc, "li", { done }, done ? icon(doc, "chrome://browser/skin/zen-icons/check.svg") : h(doc, "span", { class: "whimsy-chat-spinner" }), h(doc, "span", {}, line));
+      })
+    ),
     h(doc, "button", { class: "whimsy-chat-pill-btn", l10n: "whimsy-chat-research-stop", onclick: stop })
   );
 }
@@ -938,7 +961,7 @@ export const WhimsyChatAnswer = {
       return needs.chars > caps.maxInputChars ? "whimsy-chat-model-cannot-long" : null;
     };
     const rows = [
-      row("auto", "whimsy-chat-model-auto", "whimsy-chat-model-auto-detail", { selected: choice.provider == "auto" || !enabled.includes(choice.provider) }),
+      row("auto", ["whimsy-chat-model-auto"], "whimsy-chat-model-auto-detail", { selected: choice.provider == "auto" || !enabled.includes(choice.provider) }),
       h(doc, "hr", { class: "whimsy-chat-menu-rule" }),
       ...enabled.map(id => row(id, whoLabel(id), methodL10n(id), { dim: reason(id), selected: choice.provider == id })),
     ];

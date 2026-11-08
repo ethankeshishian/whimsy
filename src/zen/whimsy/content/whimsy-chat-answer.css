@@ -376,12 +376,58 @@
 }
 .whimsy-chat-research {
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
+  background: var(--whimsy-chat-bg);
+  box-shadow: inset 0 0 0 0.5px var(--whimsy-chat-hairline);
   & > ul {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
     margin: 4px 0;
-    padding-inline-start: 16px;
+    padding: 0;
+    list-style: none;
     color: var(--whimsy-chat-muted);
     font-size: 12px;
+  }
+  & li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    & > .whimsy-chat-icon,
+    & > .whimsy-chat-spinner {
+      width: 11px;
+      height: 11px;
+    }
+  }
+  & > .whimsy-chat-pill-btn {
+    align-self: flex-start;
+  }
+}
+.whimsy-chat-research-bar {
+  height: 3px;
+  margin: 4px 0 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--whimsy-chat-track);
+  & > div {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--whimsy-chat-accent-bg);
+  }
+  &[indeterminate] > div {
+    width: 35%;
+    animation: whimsy-chat-research-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+}
+@keyframes whimsy-chat-research-sweep {
+  from { translate: -100% 0; }
+  to { translate: 300% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-chat-research-bar[indeterminate] > div {
+    width: 100%;
+    animation: none;
+    opacity: 0.4;
   }
 }
 .whimsy-chat-research-title,
