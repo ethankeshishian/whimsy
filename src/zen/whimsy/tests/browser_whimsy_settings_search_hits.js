@@ -114,11 +114,6 @@ add_task(async function tidy_titles_is_found() {
   await withSettings(async (doc, win) => {
     await search(win, "tidy titles");
     const row = doc.getElementById("whimsyAITidyTitles");
-    info(`DEBUG whimsyAIPage classes: ${doc.getElementById("whimsyAIPage")?.className}`);
-    info(`DEBUG whimsyAIPage hidden: ${doc.getElementById("whimsyAIPage")?.hidden}`);
-    info(`DEBUG whimsyAIOn classes: ${doc.getElementById("whimsyAIOn")?.className}`);
-    info(`DEBUG searchkeywords on row: ${row?.getAttribute("searchkeywords")}`);
-    info(`DEBUG hits on page: ${[...doc.querySelectorAll(".whimsy-search-hit")].map(h => h.id || h.className).join(", ")}`);
     // W23: Settings → AI is one page now, not many small groups, so the
     // box is the page's "on" part, not the one row.
     ok(row?.closest(".whimsy-search-hit"), "Tidy Titles is found (W10-12), boxed with the rest of Settings → AI");
