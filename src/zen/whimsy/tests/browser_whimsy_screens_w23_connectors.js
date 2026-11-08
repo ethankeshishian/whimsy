@@ -121,7 +121,7 @@ function shell() {
     return node;
   };
   const root = el("div", "zen-welcome");
-  root.style.cssText = "position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:light-dark(#e8e8f0,#1c1c22)";
+  root.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:light-dark(#e8e8f0,#1c1c22)";
   const pages = el("div", "zen-welcome-pages", root);
   pages.style.cssText = "display:flex;opacity:1;width:86%;height:82%;border-radius:1.4rem;overflow:hidden;background:light-dark(#fff,#1c1c1e)";
   const side = el("div", "zen-welcome-page-sidebar", pages);
