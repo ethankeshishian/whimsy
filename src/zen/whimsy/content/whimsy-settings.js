@@ -3186,7 +3186,7 @@ Object.assign(gWhimsySettings, {
         el.dataset.category != "paneSearchResults" &&
         !el.hidden &&
         !el.classList.contains("visually-hidden") &&
-        (el.localName == "groupbox" || el.classList.contains("whimsy-setting-card"))
+        (el.localName == "groupbox" || el.classList.contains("whimsy-setting-card") || el.id == "whimsyAIPage")
     );
   },
 
@@ -3204,6 +3204,12 @@ Object.assign(gWhimsySettings, {
         main: row,
       }));
     }
+    // W23: Settings › AI is one page; each row, fact, and switch is a row.
+    if (group.id == "whimsyAIPage") {
+      return [...group.querySelectorAll(".whimsy-ai-item, .whimsy-ai-fact, #whimsyClaudeGroup :is(moz-checkbox, details)")]
+        .map(row => ({ nodes: [row], main: row }))
+        .filter(row => row.main.checkVisibility());
+    }
     const container = group.querySelector("moz-fieldset") ?? group;
     const rows = [];
     const walk = parent => {
@@ -3215,12 +3221,6 @@ Object.assign(gWhimsySettings, {
           continue;
         }
         if (child.localName == "details") {
-          walk(child);
-          continue;
-        }
-        // A card that lists several switches (Settings → AI's features):
-        // each switch is a row of its own, so the hit is the setting.
-        if (child.classList.contains("whimsy-ai-features")) {
           walk(child);
           continue;
         }
