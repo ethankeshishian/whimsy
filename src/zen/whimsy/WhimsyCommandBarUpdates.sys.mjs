@@ -143,6 +143,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     }
     list.whileClosed.forEach((u, i) => rows.push({ group: "whileClosed", update: u, first: i == 0 }));
     const isExpanded = expanded.has(win);
+    dump(`DIAG startQuery expanded=${isExpanded} updates=${list.updates.length} ctxMax=${context.maxResults}\n`);
     const shown = isExpanded ? list.updates : list.updates.slice(0, VISIBLE);
     shown.forEach((u, i) => rows.push({ group: "updates", update: u, first: i == 0, count: list.updates.length }));
     if (!isExpanded && list.updates.length > VISIBLE) {
@@ -295,6 +296,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
   }
 
   onEngagement(context, controller, details) {
+    dump(`DIAG onEngagement selType=${details.selType} target=${details.result?.payload.target} has=${targets.has(details.result?.payload.target)}\n`);
     const target = targets.get(details.result?.payload.target);
     const win = target?.window.deref();
     if (!target || !win || win.closed || !on()) {
@@ -344,7 +346,7 @@ export const WhimsyCommandBarUpdates = {
   initWindow(win) {
     this.init();
     win.gURLBar?.inputField?.addEventListener("keydown", event => this.onKey(win, event), true);
-    win.gURLBar?.controller?.addListener({ onViewClose: () => expanded.delete(win) });
+    win.gURLBar?.controller?.addListener({ onViewClose: () => { dump("DIAG onViewClose\n"); expanded.delete(win); } });
     lazy.WhimsyAIHints.register({
       id: "updates",
       isVisible: w => !!w.gURLBar?.view.isOpen && !!w.gURLBar.view.panel.querySelector(`.urlbarView-row[dynamicType="${TYPE}"]`),
@@ -382,7 +384,9 @@ export const WhimsyCommandBarUpdates = {
 
   // After the engagement that asked for it is done, or the query is cancelled.
   refresh(win) {
+    dump(`DIAG refresh\n`);
     win.setTimeout(() => {
+      dump(`DIAG refresh tick open=${win.gURLBar?.view.isOpen}\n`);
       if (win.gURLBar?.view.isOpen) {
         win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
       }
