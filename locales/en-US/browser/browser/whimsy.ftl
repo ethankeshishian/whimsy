@@ -5717,9 +5717,12 @@ whimsy-cmdbar-partial-until = { $provider } ran out partway. It’s back at { $t
 whimsy-cmdbar-thread-detail = From the command bar
 whimsy-cmdbar-thread-detail-sources = From the command bar · { $opened } of { $total } sources opened
 
-whimsy-cmdbar-section-recent = Recent answer
-whimsy-cmdbar-section-while-closed = While Whimsy was closed
-whimsy-cmdbar-section-updates = Updates
+whimsy-cmdbar-section-recent =
+    .label = Recent answer
+whimsy-cmdbar-section-while-closed =
+    .label = While Whimsy was closed
+whimsy-cmdbar-section-updates =
+    .label = Updates
 whimsy-cmdbar-dismiss-all = Dismiss all
     .title = Removes these from the command bar. Their threads keep them.
 whimsy-cmdbar-show-more = Show { $count } more

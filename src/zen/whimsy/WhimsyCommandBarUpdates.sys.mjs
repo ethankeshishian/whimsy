@@ -193,12 +193,12 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
           children: [
             { name: "needs", tag: "span", classList: ["whimsy-update-needs"] },
             { name: "time", tag: "span", classList: ["whimsy-update-time"] },
-            { name: "open", tag: "span", classList: ["whimsy-update-btn", "whimsy-update-open"], attributes: { selectable: true, role: "button" } },
-            { name: "remind", tag: "span", classList: ["whimsy-update-btn", "whimsy-update-remind"], attributes: { selectable: true, role: "button", "aria-haspopup": "menu" } },
-            { name: "dismiss", tag: "span", classList: ["whimsy-update-btn", "whimsy-update-dismiss"], attributes: { selectable: true, role: "button" } },
+            { name: "open", tag: "span", classList: ["whimsy-update-btn", "whimsy-update-open"], attributes: { selectable: true, role: "button", "data-command": "whimsy-open" } },
+            { name: "remind", tag: "span", classList: ["whimsy-update-btn", "whimsy-update-remind"], attributes: { selectable: true, role: "button", "aria-haspopup": "menu", "data-command": "whimsy-remind" } },
+            { name: "dismiss", tag: "span", classList: ["whimsy-update-btn", "whimsy-update-dismiss"], attributes: { selectable: true, role: "button", "data-command": "whimsy-dismiss" } },
           ],
         },
-        { name: "dismissAll", tag: "span", classList: ["whimsy-update-dismiss-all"], attributes: { selectable: true, role: "button" } },
+        { name: "dismissAll", tag: "span", classList: ["whimsy-update-dismiss-all"], attributes: { selectable: true, role: "button", "data-command": "whimsy-dismiss-all" } },
       ],
     };
   }
@@ -279,10 +279,10 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
       return;
     }
     const el = details.element;
-    const part = ["dismissAll", "dismiss", "remind", "open"].find(n => el?.classList.contains(n == "dismissAll" ? "whimsy-update-dismiss-all" : `whimsy-update-${n}`)) ?? "row";
+    const part = { "whimsy-open": "open", "whimsy-remind": "remind", "whimsy-dismiss": "dismiss", "whimsy-dismiss-all": "dismissAll" }[details.selType] ?? "row";
     if (target.more) {
       expanded.add(win);
-      WhimsyCommandBarUpdates.refresh(win);
+      WhimsyCommandBarUpdates.reopen(win);
       return;
     }
     if (part == "dismissAll") {
@@ -345,6 +345,15 @@ export const WhimsyCommandBarUpdates = {
     win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
   },
 
+  // Picking a whole row closes the view; these rows keep the bar going.
+  reopen(win) {
+    win.setTimeout(() => {
+      win.gURLBar.focus();
+      win.gURLBar.value = "";
+      win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
+    }, 0);
+  },
+
   refresh(win) {
     if (win.gURLBar?.view.isOpen) {
       win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
@@ -375,7 +384,7 @@ export const WhimsyCommandBarUpdates = {
 
   async open(win, target, { accel = false } = {}) {
     if (target.recent) {
-      lazy.WhimsyCommandBarAI.reopen(win, target.recent);
+      win.setTimeout(() => lazy.WhimsyCommandBarAI.reopen(win, target.recent), 0);
       return;
     }
     const u = target.update;

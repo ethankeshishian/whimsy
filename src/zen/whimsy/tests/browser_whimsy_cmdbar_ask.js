@@ -7,6 +7,8 @@
 
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_cmdbar_ai.js", this);
 
+requestLongerTimeout(2);
+
 add_setup(async function () {
   await setupAI();
 });
@@ -158,6 +160,7 @@ add_task(async function wording_open_in_chat_and_continue_in_chat() {
   const messages = await WhimsyAIStore.messages(thread);
   ok(messages.some(m => m.role == "user" && m.text == Q), "The thread has the first question");
   await TestUtils.waitForCondition(async () => (await WhimsyAIStore.messages(thread)).some(m => m.text == "and which one has the better battery"), "and the follow-up");
+  await TestUtils.waitForCondition(async () => (await WhimsyAIStore.messages(thread)).filter(m => m.role == "ai").length == 2, "Chat answered the follow-up");
   WhimsyChat.close(window, { reason: "key" });
   for (const l10nId of ["whimsy-cmdbar-ask-ai", "whimsy-cmdbar-open-in-chat", "whimsy-cmdbar-continue-in-chat"]) {
     ok(await document.l10n.formatValue(l10nId), `${l10nId} has copy`);

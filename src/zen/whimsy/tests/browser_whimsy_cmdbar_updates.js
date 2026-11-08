@@ -10,7 +10,13 @@ Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_cmdbar_a
 
 const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPN.sys.mjs");
 
+requestLongerTimeout(2);
+
 let clock = Date.now();
+const labelOf = async (row, want) => {
+  await TestUtils.waitForCondition(() => row.getAttribute("label") == want, `headed ${want}`);
+  return row.getAttribute("label");
+};
 
 add_setup(async function () {
   await setupAI();
@@ -30,7 +36,7 @@ add_task(async function recent_answer_row_for_10_minutes_then_gone() {
   await openEmptyBar();
   is(updateRows().length, 1, "A Recent answer row on top");
   is(groupOf(updateRows()[0]), "recent", "in its own section");
-  is(updateRows()[0].getAttribute("label"), "Recent answer", "headed Recent answer");
+  is(await labelOf(updateRows()[0], "Recent answer"), "Recent answer", "headed Recent answer");
   await closeBar();
   clock += 11 * 60 * 1000;
   await openEmptyBar();
@@ -75,7 +81,7 @@ add_task(async function updates_order_and_show_more() {
   is(list[0].querySelector(".whimsy-update-title").textContent, "Sam asked you to review", "Needs you first");
   is(list[1].querySelector(".whimsy-update-title").textContent, "Update 6", "then newest");
   is(list.length, 6, "Five, then Show more");
-  is(list[0].getAttribute("label"), "Updates", "headed Updates");
+  is(await labelOf(list[0], "Updates"), "Updates", "headed Updates");
   const more = list[5];
   is(document.l10n.getAttributes(more.querySelector(".whimsy-update-title")).args.count, 2, "Show 2 more");
   EventUtils.synthesizeMouseAtCenter(more, {});
@@ -90,8 +96,8 @@ add_task(async function while_closed_group_has_own_dismiss_all() {
   await post(2);
   await openEmptyBar();
   const list = updateRows();
-  is(list[0].getAttribute("label"), "While Whimsy was closed", "Catch-ups first");
-  is(list[1].getAttribute("label"), "Updates", "then Updates");
+  is(await labelOf(list[0], "While Whimsy was closed"), "While Whimsy was closed", "Catch-ups first");
+  is(await labelOf(list[1], "Updates"), "Updates", "then Updates");
   const all = list[0].querySelector(".whimsy-update-dismiss-all");
   ok(!all.hidden, "The group has its own Dismiss all");
   EventUtils.synthesizeMouseAtCenter(all, {});

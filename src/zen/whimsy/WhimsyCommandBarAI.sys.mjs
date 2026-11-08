@@ -295,7 +295,7 @@ export class WhimsyAskProvider extends UrlbarProvider {
     if (!lazy.WhimsyAI.enabled) {
       addCallback(this, new lazy.UrlbarResult({
         type: UrlbarShared.RESULT_TYPE.DYNAMIC,
-        source: UrlbarShared.RESULT_SOURCE.ACTIONS,
+        source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
         suggestedIndex: 1,
         payload: { dynamicType: ASK_TYPE, setup: true, query: text },
       }));
@@ -334,16 +334,9 @@ export class WhimsyAskProvider extends UrlbarProvider {
     };
   }
 
-  getViewUpdate(result, idsByName) {
+  getViewUpdate(result) {
     const { payload } = result;
     if (payload.dynamicType == CARD_TYPE) {
-      const win = topWindow();
-      Promise.resolve().then(() => {
-        const el = win?.document.getElementById(idsByName.get("card"));
-        if (el) {
-          WhimsyCommandBarAI.mountCard(win, el);
-        }
-      });
       return {};
     }
     if (payload.setup) {
@@ -379,7 +372,8 @@ export class WhimsyAskProvider extends UrlbarProvider {
       lazy.WhimsyAIProviders.openSettings(win, "add-provider");
       return;
     }
-    WhimsyCommandBarAI.ask(win, payload.query, { scope: payload.scope });
+    // Picking a row closes the view; the card opens it again.
+    win.setTimeout(() => WhimsyCommandBarAI.ask(win, payload.query, { scope: payload.scope }), 0);
   }
 }
 
@@ -415,6 +409,17 @@ export const WhimsyCommandBarAI = {
     urlbar?.controller?.addListener({
       onViewClose: () => this.onViewClose(win),
     });
+    // The card row is drawn by the view; fill it whenever a fresh one appears.
+    const panel = urlbar?.view?.panel;
+    if (panel) {
+      new win.MutationObserver(() => {
+        const card = cardOf(win);
+        const el = card && panel.querySelector(".whimsy-ask-card");
+        if (el && el != card.el) {
+          this.mountCard(win, el);
+        }
+      }).observe(panel, { childList: true, subtree: true });
+    }
     lazy.WhimsyAIHints.register({
       id: "ask",
       isVisible: w => !!w.gURLBar?.view.isOpen && !!w.gURLBar.view.panel.querySelector(`.urlbarView-row[dynamicType="${ASK_TYPE}"]`),
@@ -495,6 +500,9 @@ export const WhimsyCommandBarAI = {
     const urlbar = win.gURLBar;
     const doc = win.document;
     urlbar.setAttribute("whimsy-ask", "");
+    if (!urlbar.focused) {
+      urlbar.focus();
+    }
     const input = urlbar.inputField;
     if (!this._placeholder) {
       this._placeholder = new WeakMap();
