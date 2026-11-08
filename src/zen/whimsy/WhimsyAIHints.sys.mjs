@@ -188,7 +188,7 @@ export const WhimsyAIHints = {
       icon: hint.icon ?? undefined,
       timeout: timing.timeoutMs,
       closable: false,
-      buttons: [{ id: "whimsy-ai-hint-got-it", l10nId: "whimsy-ai-hint-got-it", command: () => {} }],
+      buttons: [{ id: "whimsy-ai-hint-got-it", l10nId: "whimsy-ai-hint-got-it", command: () => this._markSeen(hint.id) }],
       onClose: () => finish(),
     });
     toast.element.setAttribute("whimsy-ai-hint", hint.id);
@@ -218,7 +218,7 @@ export const WhimsyAIHints = {
     };
     current = state;
     toast.shown.then(() => {
-      if (current == state) {
+      if (current == state && !state.cut) {
         state.seenTimer = win.setTimeout(() => this._markSeen(hint.id), timing.seenMs);
       }
     });
@@ -229,6 +229,9 @@ export const WhimsyAIHints = {
         visible = !win.closed && hint.isVisible(win);
       } catch {}
       if (!visible) {
+        // Cut short: not seen, even if the close animation outlasts the timer.
+        win.clearTimeout(state.seenTimer);
+        state.cut = true;
         toast.close();
       }
     }, timing.pollMs);

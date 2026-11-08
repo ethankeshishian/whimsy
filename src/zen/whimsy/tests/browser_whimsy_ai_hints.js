@@ -115,10 +115,13 @@ add_task(async function hint_waits_for_real_toasts_and_surface() {
   await new Promise(r => setTimeout(r, FAST.gapMs * 2));
   ok(!WhimsyAIHints.current, "A real toast wins: the hint waits");
   real.close({ instant: true });
-  await waitForHint("ask");
+  const ask = await waitForHint("ask");
   ok(true, "Shows once the real toast is gone");
-  hintToast().close({ instant: true });
+  WhimsyAIHints._setTimingForTesting({ ...FAST, seenMs: 60_000 });
+  EventUtils.synthesizeMouseAtCenter(ask.element.querySelector(".whimsy-toast-button"), {}, window);
   await waitNoHint();
+  ok(WhimsyAIHints.seen("ask"), "Got it counts as seen, however soon");
+  WhimsyAIHints._setTimingForTesting(FAST);
 });
 
 add_task(async function hint_not_shown_ai_off_except_media() {

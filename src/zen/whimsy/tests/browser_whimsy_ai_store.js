@@ -27,7 +27,7 @@ add_setup(async function () {
 });
 
 async function modeOf(path) {
-  return (await IOUtils.getPermissions(path)) & 0o777;
+  return (await IOUtils.stat(path)).permissions & 0o777;
 }
 
 add_task(async function store_files_are_0600_and_bounded() {

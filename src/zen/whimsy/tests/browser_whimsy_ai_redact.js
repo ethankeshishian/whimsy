@@ -89,12 +89,23 @@ add_task(async function masks_cross_origin_payment_frame() {
   await TestUtils.waitForCondition(() =>
     browser.browsingContext.children[0]?.currentWindowGlobal?.documentURI?.spec.includes("payment_frame"),
   "The payment frame loaded");
+  const frameBC = browser.browsingContext.children[0];
+  await SpecialPowers.spawn(frameBC, [], async () => {
+    if (content.document.readyState != "complete") {
+      await new Promise(r => content.addEventListener("load", r, { once: true }));
+    }
+    await new Promise(r => content.requestAnimationFrame(() => content.requestAnimationFrame(r)));
+  });
+  info("frame: " + JSON.stringify(await SpecialPowers.spawn(frameBC, [], () => ({
+    bg: content.getComputedStyle(content.document.body).backgroundColor, w: content.innerWidth, h: content.innerHeight,
+  }))));
   const data = await WhimsyAIContext.extract(browser);
   ok(data.text.includes("Store page text"), "The store's own text is there");
   ok(!data.text.includes("Pay securely"), "Nothing from the payment frame is in the text");
   const r = await rectOf(browser, "#pay");
   const x = r.x + r.width - 10;
   const y = r.y + r.height - 10;
+  info("rect " + JSON.stringify(r) + " samples " + JSON.stringify(await Promise.all([[r.x + 5, r.y + 5], [r.x + 150, r.y + 60], [x, y], [5, 5]].map(([a, b]) => pixelAt(browser, a, b)))));
   near(await pixelAt(browser, x, y), YELLOW, "Unmasked, the frame shows");
   const masked = await WhimsyAIContext.withMask(browser, () => pixelAt(browser, x, y));
   near(masked, MASK, "Masked, the whole payment frame is the mask colour");
