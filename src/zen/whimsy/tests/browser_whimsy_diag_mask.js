@@ -74,3 +74,29 @@ add_task(async function diag() {
   BrowserTestUtils.removeTab(fg);
   ok(true, "diag");
 });
+
+add_task(async function diag_agent_tab() {
+  const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
+  const { WhimsyAgentTasks } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAgentTasks.sys.mjs");
+  Services.prefs.setBoolPref("whimsy.ai.outside-agents", true);
+  await WhimsyClaude.start();
+  for (let round = 0; round < 3; round++) {
+    const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background" });
+    const res = await WhimsyClaude.callTool("tabs_create", { url: SENSITIVE }, { taskId: task.id });
+    const { tabId } = JSON.parse(res.content.find(c => c.type == "text").text);
+    const tab = WhimsyClaude.tabById(tabId);
+    await SpecialPowers.spawn(tab.linkedBrowser, ["4242 4242 4242 4242"], card => {
+      content.document.getElementById("cc").value = card;
+    });
+    info(`DIAGA r${round} ${state(tab)} ws=${tab.getAttribute("zen-workspace-id") == gZenWorkspaces.activeWorkspace} folder=${!!tab.group} hidden=${tab.hidden} display=${getComputedStyle(tab.linkedBrowser).display} vis=${getComputedStyle(tab.linkedBrowser).visibility} plain=${await sample(tab)}`);
+    await WhimsyAIContext.withMask(tab.linkedBrowser, async () => {
+      info(`DIAGA r${round} masked=${await sample(tab)}`);
+      info(`DIAGA r${round} masked2=${await sample(tab)}`);
+    });
+    info(`DIAGA r${round} after=${await sample(tab)}`);
+    await WhimsyClaude.callTool("tabs_close", { tabId }, { taskId: task.id });
+    WhimsyAgentTasks.finish(task.id);
+  }
+  Services.prefs.clearUserPref("whimsy.ai.outside-agents");
+  ok(true, "diag");
+});
