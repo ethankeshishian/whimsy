@@ -813,6 +813,10 @@ export const WhimsyChatAnswer = {
   brands: BRANDS,
   who: whoLabel,
 
+  copyText(text) {
+    copyText(text);
+  },
+
   live(panel, thread) {
     return new Live(panel, thread);
   },

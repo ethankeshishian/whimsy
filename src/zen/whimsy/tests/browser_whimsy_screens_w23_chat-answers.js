@@ -188,6 +188,8 @@ add_task(async function shots_chips() {
     const path = PathUtils.join(PathUtils.tempDir, "Lease agreement.pdf");
     await IOUtils.writeUTF8(path, "%PDF-1.4");
     await WhimsyChatContextUI.addChip(window, { id: "file:lease", kind: "file", path, label: "Lease agreement.pdf" });
+    const mark = part(".whimsy-chat-chip[data-chip='file:lease'] .whimsy-chat-chip-mark");
+    info(`PDF mark: ${mark?.outerHTML}; bg ${mark && getComputedStyle(mark).backgroundImage}; ${mark?.getBoundingClientRect().width}x${mark?.getBoundingClientRect().height}`);
     return () => IOUtils.remove(path);
   });
   await shoot("chat-2.4", async () => {

@@ -218,7 +218,9 @@ export const WhimsyChatContextUI = {
       }
     }
     const removed = new Set(this.stateOf(thread).removed);
-    const isRemoved = chip => removed.has(chip.id) || (chip.kind == "tabs" && removed.has("tabs"));
+    // "All my tabs" already holds this tab (or each pane), so it stands in for their chips.
+    const widenedTabs = out.chips.some(c => c.kind == "tabs" && !removed.has(c.id) && !removed.has("tabs"));
+    const isRemoved = chip => removed.has(chip.id) || (chip.kind == "tabs" && removed.has("tabs")) || (widenedTabs && (chip.kind == "tab" || chip.kind == "pane"));
     return {
       ...out,
       chips: out.chips.filter(c => !isRemoved(c)),
@@ -522,11 +524,12 @@ export const WhimsyChatContextUI = {
         h(doc, "h3", { id: "whimsy-chat-sheet-title", l10n: titleL10n }),
         h(doc, "button", { class: "whimsy-chat-btn", l10n: "whimsy-chat-sheet-close", onclick: close }, icon(doc, "chrome://browser/skin/zen-icons/close.svg"))
       );
-    const footer = (leaveL10n, ids) =>
+    const footer = (leaveL10n, ids, copy = null) =>
       h(
         doc,
         "div",
         { class: "whimsy-chat-sheet-foot" },
+        copy ? h(doc, "button", { class: "whimsy-chat-pill-btn whimsy-chat-sees-copy", l10n: "whimsy-chat-sees-copy", onclick: copy }) : null,
         h(doc, "button", { class: "whimsy-chat-pill-btn", l10n: leaveL10n, onclick: () => leaveOut(ids) }),
         h(doc, "button", { class: "whimsy-chat-pill-btn primary", l10n: "whimsy-chat-sheet-done", onclick: close })
       );
@@ -549,6 +552,7 @@ export const WhimsyChatContextUI = {
     }
     const drill = kind => {
       const body = h(doc, "div", { class: "whimsy-chat-sheet-body" });
+      let copyAll = null;
       if (kind == "text") {
         const all = text.map(p => p.text ?? "").join("\n\n");
         const cut = Math.min(all.length, caps.maxInputChars);
@@ -565,7 +569,9 @@ export const WhimsyChatContextUI = {
         if (cut < all.length) {
           pre.append(h(doc, "div", { class: "whimsy-chat-cut", l10n: ["whimsy-chat-sees-cut", { who: lazy.WhimsyAIProviders.providerName(provider), chars: cut }] }));
         }
-        body.append(pre);
+        const row = kinds.find(k => k.id == "text");
+        body.append(h(doc, "div", { class: "whimsy-chat-sees-section" }, h(doc, "span", { l10n: "whimsy-chat-sees-page-text" }), row ? h(doc, "span", { l10n: row.detail }) : null), pre);
+        copyAll = () => lazy.WhimsyChatAnswer.copyText(all.slice(0, cut));
       } else if (kind == "pages") {
         body.append(h(doc, "ul", { class: "whimsy-chat-sees-list" }, pages.map(p => h(doc, "li", {}, h(doc, "span", { class: "whimsy-chat-sees-title" }, p.title ?? p.url ?? ""), h(doc, "span", { class: "whimsy-chat-sees-detail", l10n: ["whimsy-chat-sees-chars", { chars: p.size ?? 0 }] })))));
       } else if (kind == "images") {
@@ -573,7 +579,7 @@ export const WhimsyChatContextUI = {
       } else {
         body.append(h(doc, "ul", { class: "whimsy-chat-sees-list" }, videos.map(p => h(doc, "li", {}, h(doc, "span", { class: "whimsy-chat-sees-title" }, p.title || p.url || "")))));
       }
-      const view = h(doc, "div", { class: "whimsy-chat-sheet-view", "data-view": kind }, header(`whimsy-chat-sees-title-${kind}`, () => show(list(), true)), body, footer(`whimsy-chat-sees-leave-${kind}`, chips.map(c => c.id)));
+      const view = h(doc, "div", { class: "whimsy-chat-sheet-view", "data-view": kind }, header(`whimsy-chat-sees-title-${kind}`, () => show(list(), true)), body, footer(`whimsy-chat-sees-leave-${kind}`, chips.map(c => c.id), copyAll));
       return view;
     };
     const list = () => {

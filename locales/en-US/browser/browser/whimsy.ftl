@@ -5632,6 +5632,8 @@ whimsy-chat-sees-kinds = { $count ->
        *[other] { $count } kinds
     }
 whimsy-chat-sees-text = Text
+whimsy-chat-sees-page-text = Page text
+whimsy-chat-sees-copy = Copy text
 whimsy-chat-sees-chars = { $chars } characters
 whimsy-chat-sees-chars-whole = { $chars } characters · the whole page
 whimsy-chat-sees-chars-cut = { $sent } of { $chars } characters
