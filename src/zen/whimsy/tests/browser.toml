@@ -942,3 +942,19 @@ support-files = ["whimsy_meet.html"]
 ["browser_whimsy_zen_toasts.js"]
 
 ["browser_whimsy_favicon_home.js"]
+
+# W23 ai-base: the shared redactor (masked before capture), context with the
+# private wall and hidden/locked spaces, the AI store and Updates feed, the
+# hint queue, the chat facade, and this lane's screenshots.
+["browser_whimsy_ai_redact.js"]
+support-files = ["whimsy_ai_sensitive.html", "whimsy_ai_payment_frame.html", "whimsy_ai_payment_host.html"]
+
+["browser_whimsy_ai_context.js"]
+support-files = ["whimsy_ai_sensitive.html", "whimsy_ai_payment_frame.html", "whimsy_ai_payment_host.html"]
+
+["browser_whimsy_ai_store.js"]
+
+["browser_whimsy_ai_hints.js"]
+
+["browser_whimsy_screens_w23_ai-base.js"]
+support-files = ["whimsy_ai_sensitive.html"]

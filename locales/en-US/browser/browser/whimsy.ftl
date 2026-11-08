@@ -5285,3 +5285,23 @@ whimsy-favicon-home-sublabel-new-tab = Open site home in new tab
 whimsy-favicon-home-button =
     .aria-label = Go to Site Home
 whimsy-action-site-home = Go to Site Home
+
+## W23 ai-base: hints (one toast per surface, once ever)
+
+whimsy-ai-hint-got-it = Got it
+whimsy-ai-hint-ask-title = Ask AI from here
+whimsy-ai-hint-ask-body = Type a question, then press ⌘↩. The answer shows under the bar.
+whimsy-ai-hint-context-commands-title = ⌘K does AI too
+whimsy-ai-hint-context-commands-body = Summarize, translate, or ask about what’s on screen. Typing filters everything.
+whimsy-ai-hint-chat-title = Chat about your tabs
+whimsy-ai-hint-chat-body = Press ⌘E to open chat, and again to close it.
+whimsy-ai-hint-updates-title = Results show up here
+whimsy-ai-hint-updates-body = Your routines and watches leave results at the top of the command bar. Open them, get a reminder, or dismiss them.
+whimsy-ai-hint-video-summary-title = Summarize this video
+whimsy-ai-hint-video-summary-body = Get a summary, chapters, and a transcript in chat. Timestamps jump the video.
+whimsy-ai-hint-voice-title = Talk instead of typing
+whimsy-ai-hint-voice-body = Click the mic, or hold Fn anywhere to dictate.
+whimsy-ai-hint-image-text-title = Text in images is selectable
+whimsy-ai-hint-image-text-body = Drag to select it, press ⌘C to copy it, and find it with ⌘F.
+whimsy-ai-hint-agent-mode-title = I can work in your tabs
+whimsy-ai-hint-agent-mode-body = Drive shows every step here. Background works on the side.

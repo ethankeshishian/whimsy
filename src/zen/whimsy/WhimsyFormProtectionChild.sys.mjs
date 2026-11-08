@@ -81,7 +81,7 @@ function looksSecretByName(el) {
 
 // Never tracked, refilled or stored in a draft, whatever a snapshot says
 // (design §5).
-function isSecret(el) {
+export function isSecret(el) {
   if (el.localName == "input" && (el.type == "password" || el.type == "hidden" || el.type == "file")) {
     return true;
   }

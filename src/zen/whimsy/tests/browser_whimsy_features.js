@@ -55,11 +55,11 @@ add_task(async function test_w23_feature_switches() {
 
 // W23: the icon set later lanes use for commands and chips.
 const W23_ICONS = [
-  "agent", "apple", "background", "brain", "chat-hide", "claude", "clock", "compare", "drive",
+  "agent", "apple", "background", "brain", "chat", "chat-hide", "claude", "clock", "compare", "drive",
   "eye", "fire-settings", "gemini", "gmail", "google", "google-calendar", "google-drive",
   "granola", "hand", "ibeam", "image-chip", "image-text", "jira", "linear", "listen", "mask",
   "mcp", "memory", "mic", "microsoft", "onedrive", "openai", "outlook", "pause", "pdf", "pip",
-  "remind", "routines", "scam", "split-pane", "stop", "summarize", "tabs-all", "task-folder",
+  "remind", "routines", "scam", "split-pane", "stop", "summarize", "tabs-all", "updates", "task-folder",
   "text-chip", "thinking", "uturn-backward", "video-chip",
 ];
 

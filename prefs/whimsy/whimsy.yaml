@@ -762,3 +762,12 @@
 # this device). Call Options' "Buttons mute" choice.
 - name: whimsy.call.buttons-default
   value: "call"
+
+# W23 ai-base
+# Discovery hints already seen (comma list of ids); each shows once ever.
+- name: whimsy.ai.hints.seen
+  value: ""
+
+# How many hints showed today ("YYYY-MM-DD:n"); three a day at most.
+- name: whimsy.ai.hints.today
+  value: ""
