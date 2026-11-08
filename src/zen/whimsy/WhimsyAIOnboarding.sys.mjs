@@ -133,9 +133,7 @@ export const WhimsyAIOnboarding = {
         // One tick later: rebuilding the trail here, synchronously, would
         // detach a button that's still mid-click (its own click handler is
         // what called set()), which fails the a11y check on that node.
-        // queueMicrotask isn't a global in this module's scope; a resolved
-        // Promise's .then() is the same microtask queue.
-        Promise.resolve().then(() => {
+        queueMicrotask(() => {
           trail.replaceChildren();
           if (status) {
             const s = this._el(doc, "span", "whimsy-onb-status", trail);
@@ -588,9 +586,7 @@ export const WhimsyAIOnboarding = {
     // Deferred a tick: building this overlay (and fading the card behind
     // it) synchronously would mutate the page while the button that led
     // here is still mid-click, which fails the a11y check on that button.
-    // queueMicrotask isn't a global in this module's scope; a resolved
-    // Promise's .then() is the same microtask queue.
-    Promise.resolve().then(() => {
+    queueMicrotask(() => {
       const overlay = this._el(doc, "div", "", null);
       overlay.id = "whimsy-onb-done";
       overlay.setAttribute("role", "dialog");
