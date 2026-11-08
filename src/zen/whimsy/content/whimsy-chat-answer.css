@@ -439,9 +439,17 @@
   color: var(--whimsy-chat-muted);
   font-size: 11px;
 }
+.whimsy-chat-report-head {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 .whimsy-chat-report-icon {
-  width: 28px;
-  height: 28px;
+  flex: none;
+  width: 22px;
+  height: 22px;
   -moz-context-properties: fill;
   fill: var(--whimsy-chat-muted);
 }

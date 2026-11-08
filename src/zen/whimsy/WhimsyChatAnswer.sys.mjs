@@ -148,6 +148,7 @@ function inline(doc, text, ctx) {
 }
 
 function codeBlock(doc, { language, code, output, ranBy }) {
+  const shown = language ? language.charAt(0).toUpperCase() + language.slice(1) : "";
   const copy = h(doc, "button", {
     class: "whimsy-chat-code-copy",
     l10n: "whimsy-chat-code-copy",
@@ -162,7 +163,7 @@ function codeBlock(doc, { language, code, output, ranBy }) {
     doc,
     "div",
     { class: "whimsy-chat-code-head" },
-    h(doc, "span", ranBy ? { l10n: ["whimsy-chat-code-ran", { language: language || "Code", provider: providerName(ranBy) }] } : {}, ranBy ? null : language || ""),
+    h(doc, "span", ranBy ? { l10n: ["whimsy-chat-code-ran", { language: shown || "Code", provider: providerName(ranBy) }] } : {}, ranBy ? null : shown),
     copy
   );
   const block = h(doc, "div", { class: "whimsy-chat-code", "data-language": language || "" }, head, h(doc, "pre", {}, h(doc, "code", {}, code)));
@@ -589,18 +590,23 @@ function artifactCard(doc, win, msg, artifact) {
       doc,
       "div",
       { class: "whimsy-chat-report", "data-report": artifact.reportId ?? "" },
-      h(doc, "img", { class: "whimsy-chat-report-icon", src: `${ICONS}pdf.svg`, alt: "" }),
       h(
         doc,
         "div",
-        { class: "whimsy-chat-report-text" },
-        h(doc, "div", { class: "whimsy-chat-report-title" }, artifact.title ?? ""),
-        h(doc, "div", {
-          class: "whimsy-chat-report-detail",
-          l10n: [artifact.kind == "report" ? "whimsy-chat-report-detail" : "whimsy-chat-doc-detail", { sources: artifact.sources ?? 0 }],
-        })
+        { class: "whimsy-chat-report-head" },
+        h(doc, "img", { class: "whimsy-chat-report-icon", src: `${ICONS}pdf.svg`, alt: "" }),
+        h(
+          doc,
+          "div",
+          { class: "whimsy-chat-report-text" },
+          h(doc, "div", { class: "whimsy-chat-report-title" }, artifact.title ?? ""),
+          h(doc, "div", {
+            class: "whimsy-chat-report-detail",
+            l10n: [artifact.kind == "report" ? "whimsy-chat-report-detail" : "whimsy-chat-doc-detail", { sources: artifact.sources ?? 0 }],
+          })
+        )
       ),
-      h(doc, "button", { class: "whimsy-chat-pill-btn", l10n: "whimsy-chat-report-open", onclick: () => lazy.WhimsyAIReports.open(win, artifact.reportId) }),
+      h(doc, "button", { class: "whimsy-chat-pill-btn primary", l10n: "whimsy-chat-report-open", onclick: () => lazy.WhimsyAIReports.open(win, artifact.reportId) }),
       h(doc, "button", { class: "whimsy-chat-pill-btn", l10n: "whimsy-chat-report-export", onclick: e => WhimsyChatAnswer.exportMenu(win, e.currentTarget, artifact.reportId) })
     );
   }
