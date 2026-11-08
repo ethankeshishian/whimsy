@@ -163,9 +163,11 @@ add_task(async function remind_pick_a_time_comes_back_to_the_bar() {
   await TestUtils.waitForCondition(() => remind.getBoundingClientRect().width > 0, "Remind me shows on the selected row");
   EventUtils.synthesizeMouseAtCenter(remind, {});
   await TestUtils.waitForCondition(() => optionRows().length == 5, "A click opens the menu too");
-  await Promise.all(optionRows().flatMap(r => r.querySelector(".whimsy-remind-option").getAnimations().map(a => a.finished)));
+  await TestUtils.waitForCondition(() => selectedOption() == "hour", "with the first time selected");
   const shown = BrowserTestUtils.waitForEvent(document, "popupshown", false, e => e.target.id == "whimsy-cmdbar-remind-pick");
-  EventUtils.synthesizeMouseAtCenter(optionRows()[4].querySelector(".whimsy-remind-option"), {});
+  EventUtils.synthesizeKey("KEY_ArrowUp");
+  is(selectedOption(), "pick", "↑ reaches Pick a time…");
+  EventUtils.synthesizeKey("KEY_Enter");
   await shown;
   const panel = document.getElementById("whimsy-cmdbar-remind-pick");
   const input = panel.querySelector("input[type=datetime-local]");
