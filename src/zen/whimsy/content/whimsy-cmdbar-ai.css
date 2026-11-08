@@ -665,6 +665,10 @@
   cursor: pointer;
   animation: whimsy-remind-in 180ms var(--whimsy-ask-ease) both;
 
+  & > * {
+    pointer-events: none;
+  }
+
   .urlbarView-row:not([dynamicType="whimsy-update-remind-option"]) + .urlbarView-row & {
     margin-block-start: 2px;
     border-start-start-radius: 8px;
