@@ -299,6 +299,7 @@ add_task(async function test_tools_for_a_task() {
   await ok_result(own(task, "form_input", { tabId, ref: size, value: "Large" }), "select");
 
   // Enter in a field submits its form: a submit pause first.
+  await ok_result(own(task, "type", { tabId, ref: search, text: "" }), "focus the field");
   const pending = own(task, "key", { tabId, keys: "Enter" });
   const pause = await waitForPause(task, "submit");
   ok(pause.allowForTask, "A submit pause may be allowed for this task");

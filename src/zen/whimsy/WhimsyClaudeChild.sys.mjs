@@ -827,7 +827,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
         const button = form.querySelector("button:not([type=button]):not([type=reset]), input[type=submit], input[type=image]");
         text = button ? clip(this.name(button, "button"), 120) : "";
       } else if (enter && (role == "button" || role == "link")) {
-        submits = role == "button" && !!form;
+        submits = !!form && (control.localName == "button" ? (control.type || "submit") == "submit" : ["submit", "image"].includes(control.type));
       } else if (accel && (control.localName == "textarea" || control.isContentEditable)) {
         submits = true;
         const box = this.containerFor(control);

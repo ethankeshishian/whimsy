@@ -439,9 +439,19 @@ export const WhimsyClaude = {
     });
     // ⌘. stops the agent task while one runs; otherwise it stays Firefox's
     // Stop (loading), so nothing is shadowed when no agent is working.
+    // A key in a page reaches the window twice (before the page, and again
+    // as the page's reply); one press stops one task.
+    let handled = 0;
     win.addEventListener("keydown", event => {
-      if (event.key == "." && event.getModifierState("Accel") && !event.shiftKey && !event.altKey &&
-          lazy.WhimsyAgentTasks.list().length && this.stopCurrentTask(win)) {
+      if (event.key != "." || !event.getModifierState("Accel") || event.shiftKey || event.altKey) {
+        return;
+      }
+      if (Date.now() - handled < 300 || event.defaultPrevented) {
+        event.preventDefault();
+        return;
+      }
+      if (lazy.WhimsyAgentTasks.list().length && this.stopCurrentTask(win)) {
+        handled = Date.now();
         event.preventDefault();
         event.stopPropagation();
       }
