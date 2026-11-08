@@ -86,7 +86,6 @@ add_task(async function esc_stops_and_keeps_in_chat_list() {
   await TestUtils.waitForCondition(() => cardEl().querySelector(".whimsy-ask-body"), "Streaming");
   EventUtils.synthesizeKey("KEY_Escape");
   await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "Esc closed the bar");
-  info(`diag after esc: card=${!!WhimsyCommandBarAI.card(window)}`);
   ok(signal?.aborted, "and stopped the stream");
   g.open();
   await TestUtils.waitForCondition(async () => (await WhimsyAIStore.threads({ kind: "cmdbar" })).length == 1, "The exchange is in chat's list");

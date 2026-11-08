@@ -38,7 +38,8 @@ async function load() {
   loading ??= (async () => {
     const saved = await lazy.WhimsyAIStore.readDoc(DOC, null);
     updates = Array.isArray(saved?.updates) ? saved.updates : [];
-    recent = saved?.recent ?? null;
+    // A Recent answer set before the first load is newer than the saved one.
+    recent ??= saved?.recent ?? null;
     loading = null;
     return updates;
   })();

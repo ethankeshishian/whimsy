@@ -389,6 +389,20 @@ export const WhimsyCommandBarUpdates = {
   },
 
   onKey(win, event) {
+    // ↓ and ↑ step over section headings (Tab still reaches Dismiss all).
+    const view = win.gURLBar?.view;
+    if ((event.key == "ArrowDown" || event.key == "ArrowUp") && !event.metaKey && !event.altKey && !event.shiftKey &&
+      view?.isOpen && view.panel.querySelector(`.urlbarView-row[dynamicType="${HEADING_TYPE}"]`)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const reverse = event.key == "ArrowUp";
+      const isHeading = () => view.selectedElement?.closest(".urlbarView-row")?.getAttribute("dynamicType") == HEADING_TYPE;
+      view.selectBy(1, { reverse });
+      for (let i = 0; i < 2 && isHeading(); i++) {
+        view.selectBy(1, { reverse });
+      }
+      return;
+    }
     if (event.key != "Backspace" || event.metaKey || event.altKey || event.ctrlKey) {
       return;
     }

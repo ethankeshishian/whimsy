@@ -93,7 +93,6 @@ async function openEmptyBar(win = window) {
     await TestUtils.waitForCondition(() => win.gURLBar.view.isOpen, "The bar opened");
     await win.gURLBar.lastQueryContextPromise;
   }
-  info(`diag bar: ${rows(win).map(r => `${r.getAttribute("dynamicType") || r.getAttribute("type")}:${r.textContent.trim().slice(0, 30)}`).join(" | ")} selected=${win.gURLBar.view.selectedRowIndex}`);
 }
 
 const headingRows = (win = window) => rows(win).filter(r => r.getAttribute("dynamicType") == "whimsy-update-heading");
@@ -125,7 +124,6 @@ const updateRows = (win = window) => rows(win).filter(r => r.getAttribute("dynam
 
 async function askWithKeys(text = Q) {
   await typeInBar(text);
-  info(`diag before ask: rows=${rows().map(r => r.getAttribute("dynamicType") || r.getAttribute("type")).join(",")} card=${!!WhimsyCommandBarAI.card(window)} value=${gURLBar.value} open=${gURLBar.view.isOpen} focused=${gURLBar.focused}`);
   EventUtils.synthesizeKey("KEY_Enter", { accelKey: true });
   await TestUtils.waitForCondition(() => cardEl()?.querySelector(".whimsy-ask-q"), "The answer card is up");
 }
