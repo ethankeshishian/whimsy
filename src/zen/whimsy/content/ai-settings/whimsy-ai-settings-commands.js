@@ -22,8 +22,10 @@
   });
   const C = () => lazy.WhimsyAICommands;
   const ZEN = "chrome://browser/skin/zen-icons/";
+  const PENCIL = "chrome://browser/content/whimsy/icons/pencil.svg";
   const TOKENS = ["selection", "page", "link"];
-  const view = { list: null };
+  const TOKEN_RE = /\{(selection|page|link)\}/g;
+  const view = { list: null, shape: "" };
 
   function modelLabel(node, cmd) {
     const P = S.providers;
@@ -74,6 +76,7 @@
     } else {
       const edit = S.el("button", "whimsy-commands-iconbtn", end, "whimsy-commands-edit", { name: cmd.name });
       edit.type = "button";
+      S.el("img", "", edit).src = PENCIL;
       edit.addEventListener("click", () => S.openSheet("command", { id: cmd.id, restoreFocus: edit }));
     }
     return item;
@@ -86,6 +89,24 @@
     await C().init();
     const all = C().list();
     const list = view.list;
+    if (!list) {
+      return;
+    }
+    // A switch flipped: update its row in place, so the pressed control stays.
+    const P = S.providers;
+    const shape = JSON.stringify([P.order, P.quickTextOnApple, P.isOn("apple"), all.map(c => [c.id, c.name, c.result, c.model, c.url, c.prompt])]);
+    if (shape == view.shape && list.dataset.ready) {
+      for (const cmd of all.filter(c => c.builtIn)) {
+        const item = list.querySelector(`.whimsy-commands-row[data-command="${CSS.escape(cmd.id)}"]`);
+        item?.toggleAttribute("data-off", cmd.hidden);
+        const toggle = item?.querySelector("moz-toggle");
+        if (toggle && toggle.pressed == cmd.hidden) {
+          toggle.pressed = !cmd.hidden;
+        }
+      }
+      return;
+    }
+    view.shape = shape;
     const focused = document.activeElement?.closest?.(".whimsy-commands-row")?.dataset.command;
     list.replaceChildren();
     S.el("div", "whimsy-ai-caption", list, "whimsy-commands-built-in");
@@ -195,6 +216,214 @@
     return { el, close };
   }
 
+  // ---- the prompt: text with {token} chips ----
+
+  function chip(token) {
+    const node = S.el("span", "whimsy-commands-token");
+    node.contentEditable = "false";
+    node.dataset.token = token;
+    node.textContent = token;
+    return node;
+  }
+
+  function fillPrompt(box, text) {
+    box.replaceChildren();
+    let last = 0;
+    for (const match of String(text ?? "").matchAll(TOKEN_RE)) {
+      if (match.index > last) {
+        box.append(text.slice(last, match.index));
+      }
+      box.append(chip(match[1]));
+      last = match.index + match[0].length;
+    }
+    if (last < String(text ?? "").length) {
+      box.append(text.slice(last));
+    }
+  }
+
+  /** The prompt as stored: chips back to {token}. */
+  function promptText(box) {
+    let out = "";
+    const walk = node => {
+      for (const child of node.childNodes) {
+        if (child.nodeType == Node.TEXT_NODE) {
+          out += child.data;
+        } else if (child.dataset?.token) {
+          out += `{${child.dataset.token}}`;
+        } else if (child.localName == "br") {
+          if (child != box.lastChild) {
+            out += "\n";
+          }
+        } else {
+          if (child.localName == "div" && out && !out.endsWith("\n")) {
+            out += "\n";
+          }
+          walk(child);
+        }
+      }
+    };
+    walk(box);
+    return out;
+  }
+
+  // The node right before (or after) a collapsed caret, if it's a chip.
+  function chipBeside(box, forward) {
+    const sel = window.getSelection();
+    if (!sel?.rangeCount || !sel.isCollapsed || !box.contains(sel.anchorNode)) {
+      return null;
+    }
+    const { anchorNode: node, anchorOffset: at } = sel;
+    let next = null;
+    if (node.nodeType == Node.TEXT_NODE) {
+      if (forward ? at < node.length : at > 0) {
+        return null;
+      }
+      next = forward ? node.nextSibling : node.previousSibling;
+    } else {
+      next = node.childNodes[forward ? at : at - 1] ?? null;
+    }
+    return next?.dataset?.token ? next : null;
+  }
+
+  function caretAt(node, offset) {
+    const range = document.createRange();
+    range.setStart(node, offset);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  function promptEditor(text) {
+    const box = S.el("div", "whimsy-ai-input whimsy-commands-prompt");
+    box.contentEditable = "plaintext-only";
+    box.setAttribute("role", "textbox");
+    box.setAttribute("aria-multiline", "true");
+    box.tabIndex = 0;
+    fillPrompt(box, text);
+    const changed = () => box.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // A chip deletes as one unit.
+    box.addEventListener("keydown", event => {
+      if (picker && pickerKeys(event)) {
+        return;
+      }
+      if (event.key != "Backspace" && event.key != "Delete") {
+        return;
+      }
+      const node = chipBeside(box, event.key == "Delete");
+      if (!node) {
+        return;
+      }
+      event.preventDefault();
+      const parent = node.parentNode;
+      const index = [...parent.childNodes].indexOf(node);
+      node.remove();
+      caretAt(parent, Math.min(index, parent.childNodes.length));
+      changed();
+    });
+
+    // "{" offers the tokens; focus stays in the prompt.
+    let picker = null;
+    const closePicker = () => {
+      picker?.el.remove();
+      picker = null;
+      box.removeAttribute("aria-activedescendant");
+      box.removeAttribute("aria-controls");
+      box.setAttribute("aria-expanded", "false");
+      document.removeEventListener("mousedown", outside, true);
+    };
+    const outside = event => {
+      if (picker && !picker.el.contains(event.target)) {
+        closePicker();
+      }
+    };
+    const activate = index => {
+      const items = [...picker.el.children];
+      picker.index = (index + items.length) % items.length;
+      items.forEach((item, i) => item.classList.toggle("is-active", i == picker.index));
+      box.setAttribute("aria-activedescendant", items[picker.index].id);
+    };
+    const pick = token => {
+      const { node, offset } = picker;
+      closePicker();
+      box.focus();
+      let at = null;
+      if (node.isConnected && node.nodeType == Node.TEXT_NODE && node.data[offset - 1] == "{") {
+        const after = node.splitText(offset);
+        node.deleteData(offset - 1, 1);
+        at = after;
+      }
+      const made = chip(token);
+      if (at) {
+        at.before(made);
+      } else {
+        box.append(made);
+      }
+      const parent = made.parentNode;
+      caretAt(parent, [...parent.childNodes].indexOf(made) + 1);
+      changed();
+    };
+    const pickerKeys = event => {
+      const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+      if (step) {
+        event.preventDefault();
+        activate(picker.index + step);
+        return true;
+      }
+      if (event.key == "Enter" || event.key == "Tab") {
+        event.preventDefault();
+        pick(TOKENS[picker.index]);
+        return true;
+      }
+      if (event.key == "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closePicker();
+        return true;
+      }
+      return false;
+    };
+    box.addEventListener("input", event => {
+      if (!event.isTrusted) {
+        return;
+      }
+      closePicker();
+      if (event.data != "{") {
+        return;
+      }
+      const sel = window.getSelection();
+      if (!sel?.rangeCount) {
+        return;
+      }
+      const el = S.el("div", "whimsy-ai-popup whimsy-commands-tokens", document.body ?? document.documentElement);
+      el.id = "whimsyCommandsTokens";
+      el.setAttribute("role", "listbox");
+      for (const token of TOKENS) {
+        const item = S.el("div", "whimsy-ai-popup-item whimsy-commands-token-option", el);
+        item.id = `whimsyCommandsToken-${token}`;
+        item.setAttribute("role", "option");
+        item.dataset.value = token;
+        item.append(chip(token));
+        S.el("span", "whimsy-commands-token-detail", item, `whimsy-commands-token-${token}`);
+        item.addEventListener("mousedown", e => e.preventDefault());
+        item.addEventListener("click", () => pick(token));
+      }
+      const range = sel.getRangeAt(0);
+      const rect = range.getClientRects()[0] ?? box.getBoundingClientRect();
+      el.style.left = `${Math.max(8, rect.left - 6)}px`;
+      el.style.top = `${rect.bottom + 6}px`;
+      picker = { el, index: 0, node: range.startContainer, offset: range.startOffset };
+      box.setAttribute("aria-controls", el.id);
+      box.setAttribute("aria-expanded", "true");
+      activate(0);
+      document.addEventListener("mousedown", outside, true);
+    });
+    box.addEventListener("blur", () => setTimeout(() => document.activeElement != box && closePicker(), 0));
+    box.whimsyClosePicker = closePicker;
+    return box;
+  }
+
   function field(state, id, labelL10nId, input) {
     const label = S.el("label", "whimsy-ai-label", state.body, labelL10nId);
     label.setAttribute("for", id);
@@ -250,11 +479,19 @@
     const promptBox = S.el("div", "whimsy-commands-group", state.body);
     const linkBox = S.el("div", "whimsy-commands-group", state.body);
     const promptState = { body: promptBox };
-    const prompt = S.el("textarea", "whimsy-ai-input whimsy-commands-prompt");
-    prompt.rows = 4;
-    prompt.value = cmd.prompt;
+    const prompt = promptEditor(cmd.prompt);
     const promptError = field(promptState, "whimsyCommandPrompt", "whimsy-commands-prompt", prompt);
-    S.el("span", "whimsy-ai-hint", promptBox, "whimsy-commands-prompt-hint");
+    const promptLabel = prompt.previousElementSibling;
+    promptLabel.id = "whimsyCommandPromptLabel";
+    promptLabel.removeAttribute("for");
+    promptLabel.addEventListener("click", () => prompt.focus());
+    prompt.setAttribute("aria-labelledby", promptLabel.id);
+    const hint = S.el("span", "whimsy-ai-hint", promptBox, "whimsy-commands-prompt-hint");
+    for (const t of TOKENS) {
+      const sample = S.el("span", "whimsy-commands-token whimsy-commands-hint-token", hint);
+      sample.dataset.l10nName = t;
+    }
+    state.cleanups.push(() => prompt.whimsyClosePicker?.());
     const modelRow = S.el("div", "whimsy-commands-model", promptBox);
     S.el("span", "whimsy-ai-label", modelRow, "whimsy-commands-model").id = "whimsyCommandModelLabel";
     const model = S.el("button", "whimsy-ai-dropdown", modelRow);
@@ -286,23 +523,6 @@
     address.placeholder = "https://";
     const addressError = field(linkState, "whimsyCommandAddress", "whimsy-commands-address", address);
     S.el("span", "whimsy-ai-hint", linkBox, "whimsy-commands-address-hint");
-
-    // "{" offers the tokens.
-    let tokens = null;
-    prompt.addEventListener("input", event => {
-      tokens?.close({ restore: false });
-      tokens = null;
-      if (event.data != "{") {
-        return;
-      }
-      const at = prompt.selectionStart;
-      tokens = listbox(prompt, TOKENS.map(t => ({ value: t, l10nId: `whimsy-commands-token-${t}` })), null, value => {
-        const before = prompt.value.slice(0, at - 1);
-        prompt.value = `${before}{${value}}${prompt.value.slice(at)}`;
-        prompt.setSelectionRange(before.length + value.length + 2, before.length + value.length + 2);
-        tokens = null;
-      });
-    });
 
     function setResult(r, { focus = true } = {}) {
       cmd.result = r;
@@ -353,14 +573,18 @@
       kind: "primary",
       id: "whimsyCommandSave",
       onClick: async () => {
-        const next = { ...cmd, name: name.value, prompt: prompt.value, url: address.value.trim() };
+        const next = { ...cmd, name: name.value, prompt: promptText(prompt), url: address.value.trim() };
         const issues = lazy.problems(next);
         const shown = [[issues?.name, name, nameError], [issues?.prompt, prompt, promptError], [issues?.url, address, addressError]];
         let first = null;
         for (const [l10nId, input, error] of shown) {
           const bad = !!l10nId && !input.closest("[hidden]");
           error.hidden = !bad;
-          input.toggleAttribute("aria-invalid", bad);
+          if (bad) {
+            input.setAttribute("aria-invalid", "true");
+          } else {
+            input.removeAttribute("aria-invalid");
+          }
           if (bad) {
             document.l10n.setAttributes(error, l10nId);
             first ??= input;

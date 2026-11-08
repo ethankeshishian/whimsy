@@ -6188,3 +6188,57 @@ whimsy-cmdbar-vpn-on = VPN on
 whimsy-cmdbar-vpn-on-space = VPN on in this space
 whimsy-cmdbar-vpn-paused = VPN paused for this call
 whimsy-cmdbar-vpn-connecting = VPN connecting…
+
+## W23 commands: Settings › AI › Commands, the command sheet, and the
+## built-in commands. Tokens like {selection} are syntax and stay as is.
+
+whimsy-command-improve = Improve writing
+whimsy-command-fix = Fix spelling and grammar
+whimsy-command-translate = Translate
+whimsy-command-summarize = Summarize
+whimsy-commands-detail-selection = Right-click and ⌘K on selected text
+whimsy-commands-detail-page = ⌘K on a page, video, or PDF
+whimsy-ai-jump-commands = Commands
+whimsy-commands-heading = Commands
+whimsy-commands-desc = Commands show up in ⌘K and in chat, and routines can use them. Right-click keeps its own short list of text commands.
+whimsy-commands-built-in = Built in
+whimsy-commands-yours = Yours
+whimsy-commands-empty-title = No commands of your own yet
+whimsy-commands-empty-detail = Save a prompt you use often, or a link like a search page. It shows up in ⌘K and chat next to the built-ins.
+whimsy-commands-new = New command
+whimsy-commands-show =
+    .aria-label = Show { $name }
+whimsy-commands-edit =
+    .title = Edit { $name }
+    .aria-label = Edit { $name }
+whimsy-commands-result-replace = Replace
+whimsy-commands-result-insert-after = Insert after
+whimsy-commands-result-copy = Copy
+whimsy-commands-result-link = Link
+whimsy-commands-result = Result
+whimsy-commands-result-hint = Replace swaps the selection. Insert after puts it under the selection. Copy puts it on the clipboard. Link opens a page.
+whimsy-commands-name = Name
+whimsy-commands-prompt = Prompt
+whimsy-commands-prompt-hint = Type {"{"} to add <span data-l10n-name="selection">selection</span>, <span data-l10n-name="page">page</span>, or <span data-l10n-name="link">link</span>.
+whimsy-commands-model = Model
+whimsy-commands-model-auto = Auto
+whimsy-commands-model-auto-choice = Auto (your provider order)
+whimsy-commands-model-none = No model
+whimsy-commands-address = Address
+whimsy-commands-address-hint = %s is replaced by the selected text. No model is used; nothing is sent to AI.
+whimsy-commands-token-selection = The selected text
+whimsy-commands-token-page = The page’s text
+whimsy-commands-token-link = The page’s address
+whimsy-commands-error-name = Give the command a name.
+whimsy-commands-error-prompt = Write what the command should do.
+whimsy-commands-error-address = Enter an address that starts with https://.
+whimsy-commands-error-missing-s = Add %s where the selected text goes.
+whimsy-commands-delete = Delete
+whimsy-commands-save = Save
+whimsy-commands-sheet-edit = Edit command
+whimsy-commands-sheet-new = New command
+whimsy-commands-deleted-toast = Deleted “{ $name }”
+whimsy-action-edit-commands = Edit commands…
+whimsy-chat-action-save-command =
+    .title = Save as a command
+    .aria-label = Save as a command

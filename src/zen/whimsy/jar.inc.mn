@@ -224,3 +224,7 @@
         content/browser/whimsy/whimsy-ai-onboarding.css (../../zen/whimsy/content/whimsy-ai-onboarding.css)
 # W23 cmdbar-ai
         content/browser/whimsy/whimsy-cmdbar-ai.css (../../zen/whimsy/content/whimsy-cmdbar-ai.css)
+# W23 commands: Settings › AI › Commands
+        content/browser/whimsy/ai-settings/whimsy-ai-settings-commands.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-commands.js)
+        content/browser/whimsy/ai-settings/whimsy-ai-settings-commands.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-commands.css)
+        content/browser/whimsy/icons/pencil.svg (../../zen/whimsy/content/icons/pencil.svg)

@@ -1,0 +1,132 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 commands: Settings › AI › Commands and the command sheet (07 set-6.x, fu-settings 6.2). */
+
+.whimsy-ai-sheet.is-wide {
+  width: 480px;
+}
+
+.whimsy-commands-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.whimsy-commands-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-commands-iconbtn {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ai-muted);
+
+  & > img {
+    width: 15px;
+    height: 15px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+
+  &:hover {
+    background: var(--ai-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ai-accent);
+    outline-offset: 0;
+  }
+}
+
+.whimsy-commands-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-commands-model {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 12.5px;
+
+  & > .whimsy-ai-label {
+    padding: 0;
+    color: var(--ai-muted);
+    font-size: 12.5px;
+    font-weight: 400;
+  }
+
+  & > .whimsy-ai-dropdown {
+    justify-self: start;
+  }
+}
+
+/* The prompt: text with tokens as chips that delete as one. */
+.whimsy-commands-prompt {
+  display: block;
+  min-height: 96px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+
+  &:focus {
+    outline: 2px solid var(--ai-accent);
+    outline-offset: 0;
+  }
+}
+
+.whimsy-commands-token {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ai-primary) 14%, transparent);
+  color: var(--ai-accent);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  vertical-align: baseline;
+  white-space: nowrap;
+  user-select: all;
+}
+
+.whimsy-commands-hint-token {
+  margin-inline: 1px;
+}
+
+.whimsy-ai-popup-item.whimsy-commands-token-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline-start: 8px;
+
+  &.is-active {
+    background: var(--ai-hover);
+  }
+
+  & > .whimsy-commands-token-detail {
+    color: var(--ai-muted);
+  }
+}
