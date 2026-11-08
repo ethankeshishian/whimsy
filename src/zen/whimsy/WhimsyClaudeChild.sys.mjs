@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The page half of the Claude space (WhimsyClaude.sys.mjs): reads a page as
+// The page half of the agent tools (WhimsyClaude.sys.mjs): reads a page as
 // an accessibility-style outline with element refs, finds elements, and
 // clicks, types and fills forms in it. It's only registered while the user
 // has turned Claude on, only runs in http(s) top-level pages, and only
@@ -923,8 +923,8 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       throw new Error(`Nothing at (${Math.round(x)}, ${Math.round(y)})`);
     }
     // A visible page gets real (trusted) mouse events at the point, like a
-    // person's click. A background tab (the Claude space while you're in
-    // another space) can't take pointer input, so the element is clicked
+    // person's click. A background tab (an agent working while you're in
+    // another tab) can't take pointer input, so the element is clicked
     // directly: links, buttons, checkboxes and submits all still work.
     let synthesized = false;
     if (!this.hidden && typeof win.synthesizeMouseEvent == "function") {

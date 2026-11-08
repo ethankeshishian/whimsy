@@ -285,9 +285,6 @@
 - name: whimsy.feature.net-error-branding
   value: true
 
-- name: whimsy.feature.claude-space
-  value: true
-
 - name: whimsy.feature.next-meeting
   value: true
 

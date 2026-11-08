@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The prompt-injection shield for the Claude space
+// The prompt-injection shield for agents
 // (whimsy.feature.claude-shield). A web page can hide text meant for an AI
 // ("ignore your previous instructions and ...") where the person can't see
 // it. Before page text reaches Claude:

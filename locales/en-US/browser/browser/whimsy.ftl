@@ -1009,9 +1009,6 @@ whimsy-year-empty = Not much to look back on yet. Browse a little, then come bac
 whimsy-year-copy-card = Copy card
 whimsy-year-copied-toast = Card copied
 whimsy-year-done = Done
-## tierC-claude: the Claude space
-
-
 ## tierC-claude: Settings → Privacy & Security → Claude
 
 whimsy-claude-header =
@@ -1935,9 +1932,6 @@ whimsy-video-captions-failed = Couldn’t translate these captions, so they’re
 whimsy-media-video-captions =
     .label = Add CC to the speed control: captions translated into your language, on your Mac
 
-## wave5/safety: the Claude space's prompt-injection shield
-
-
 ## wave5/safety: Claude runs (agent replay, whimsy://replay)
 
 whimsy-claude-replay =
@@ -1950,7 +1944,7 @@ whimsy-replay-heading = Claude runs
 whimsy-replay-intro = Every step Claude took in { -brand-short-name }, with a snapshot of the page. Kept only on this device.
 whimsy-replay-clear = Clear All
 whimsy-replay-empty-title = No runs yet
-whimsy-replay-empty = When Claude uses tabs in the Claude space, each run shows up here, step by step.
+whimsy-replay-empty = When an agent uses your tabs, each run shows up here, step by step.
 whimsy-replay-off = Replay is off. Turn it on in Settings → Privacy & Security → Claude.
 whimsy-replay-runs-label =
     .aria-label = Runs
