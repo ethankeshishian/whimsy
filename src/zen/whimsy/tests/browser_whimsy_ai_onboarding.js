@@ -48,6 +48,7 @@ function shell() {
   stage = el("div", "zen-welcome");
   stage.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex";
   const pages = el("div", "zen-welcome-pages", stage);
+  pages.style.cssText = "display:flex;opacity:1";
   const side = el("div", "zen-welcome-page-sidebar", pages);
   const buttons = el("div", "zen-welcome-page-sidebar-buttons", side);
   el("button", null, buttons).className = "zen-big-accent-button";
@@ -71,7 +72,17 @@ async function render(page) {
   return { content, button, pages, card: id => content.querySelector(`.whimsy-onb-card[data-id="${id}"]`) };
 }
 
-const press = node => EventUtils.synthesizeMouseAtCenter(node, {}, window);
+const press = node => {
+  const r = node.getBoundingClientRect();
+  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  const chain = [];
+  for (let n = node; n && n.nodeType == 1; n = n.parentNode) {
+    const cs = getComputedStyle(n);
+    chain.push(`${n.localName}#${n.id}.${n.className}[d=${cs.display} o=${cs.opacity} pe=${cs.pointerEvents} v=${cs.visibility}]`);
+  }
+  info(`DIAG rect=${JSON.stringify(r)} hit=${hit?.localName}#${hit?.id}.${hit?.className} chain=${chain.join(" < ")}`);
+  EventUtils.synthesizeMouseAtCenter(node, {}, window);
+};
 
 const bottomId = () => document.querySelector("#zen-welcome-page-sidebar-buttons > button").getAttribute("data-l10n-id");
 
