@@ -130,12 +130,12 @@ export const WhimsyAIOnboarding = {
         const wasState = card.dataset.state;
         card.dataset.state = state;
         doc.l10n.setAttributes(detail, d ?? ui.defaultDetail, detailArgs);
-        // Next frame, not just a tick later: rebuilding the trail here
-        // synchronously, or even a microtask later, would detach a button
-        // that's still mid-click (its own click handler is what called
-        // set()) before the a11y check (which runs after the event
-        // dispatch) sees it released.
-        doc.defaultView.requestAnimationFrame(() => {
+        // One tick later: rebuilding the trail here, synchronously, would
+        // detach a button that's still mid-click (its own click handler is
+        // what called set()), which fails the a11y check on that node.
+        // queueMicrotask isn't a global in this module's scope; a resolved
+        // Promise's .then() is the same microtask queue.
+        Promise.resolve().then(() => {
           trail.replaceChildren();
           if (status) {
             const s = this._el(doc, "span", "whimsy-onb-status", trail);
@@ -585,12 +585,12 @@ export const WhimsyAIOnboarding = {
       ...["apple", "claude", "openai"].filter(id => s.providers.has(id)).map(id => PROVIDER_NAMES[id]),
       ...Object.keys(CONNECTORS).filter(id => s.services.has(id)).map(id => CONNECTOR_NAMES[id]),
     ];
-    // Next frame, not just a tick later: building this overlay (and fading
-    // the card behind it) synchronously, or even a microtask later, would
-    // mutate the page while the button that led here is still mid-click,
-    // before the a11y check (which runs after the event dispatch) sees it
-    // released.
-    win.requestAnimationFrame(() => {
+    // Deferred a tick: building this overlay (and fading the card behind
+    // it) synchronously would mutate the page while the button that led
+    // here is still mid-click, which fails the a11y check on that button.
+    // queueMicrotask isn't a global in this module's scope; a resolved
+    // Promise's .then() is the same microtask queue.
+    Promise.resolve().then(() => {
       const overlay = this._el(doc, "div", "", null);
       overlay.id = "whimsy-onb-done";
       overlay.setAttribute("role", "dialog");
