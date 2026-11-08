@@ -179,6 +179,9 @@ add_task(async function thread_outlives_tab_and_reopen_restores() {
   const reopen = part(".whimsy-chat-note[data-kind='closed-tab'] button");
   reopen.scrollIntoView({ block: "center" });
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const r = reopen.getBoundingClientRect();
+  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  info(`Reopen at ${JSON.stringify(r)}; under the pointer: ${hit?.localName}.${hit?.className} ${hit?.id}`);
   EventUtils.synthesizeMouseAtCenter(reopen, {});
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == tabsBefore + 1, "A tab opens");
   const back = gBrowser.selectedTab;

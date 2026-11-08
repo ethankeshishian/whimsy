@@ -562,8 +562,6 @@
 .whimsy-chat-composer {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 44px;
   padding: 8px 8px 8px 12px;
   border-radius: 12px;
   background: light-dark(#fff, rgba(255, 255, 255, 0.06));
@@ -583,8 +581,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  &:empty {
-    display: none;
+  &:not(:empty) {
+    margin-bottom: 8px;
   }
 }
 .whimsy-chat-composer-row {
