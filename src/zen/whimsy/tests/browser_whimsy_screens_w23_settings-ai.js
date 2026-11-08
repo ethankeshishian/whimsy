@@ -376,6 +376,7 @@ add_task(async function shots_list() {
     await listReady(page);
     click(page, page.$("whimsyAIHowButton"));
     await TestUtils.waitForCondition(() => visible(page.$("whimsyAIHowPicks")), "How Whimsy picks unfolds");
+    ok(visible(page.$("whimsyAIHowPicks").querySelector(".whimsy-ai-how-excerpt")), "with what it looks like in chat");
   });
   await shoot("set-4.2", listReady, { opts: { off: "gemini" } });
 });

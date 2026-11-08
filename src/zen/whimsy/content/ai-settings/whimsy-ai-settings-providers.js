@@ -625,6 +625,11 @@
       li.append(" ");
       S.el("span", "", li, `whimsy-ai-how-${n}`);
     }
+    const example = S.el("div", "whimsy-ai-how-example", card);
+    S.el("div", "whimsy-ai-how-caption", example, "whimsy-ai-how-example-caption");
+    const excerpt = S.el("div", "whimsy-ai-how-excerpt", example);
+    S.el("span", "whimsy-ai-how-handoff", excerpt, "whimsy-ai-how-example-handoff");
+    S.el("span", "", excerpt, "whimsy-ai-how-example-answer");
     return card;
   }
 
