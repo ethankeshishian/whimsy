@@ -84,6 +84,7 @@ add_task(async function settings_states() {
       const page = await openConnectors();
       await prepare(page);
       await whimsySettled(page.doc);
+      ok(page.doc.getElementById("whimsyConnectorsList")?.dataset.ready == "true", `${state}: the connectors list is ready`);
       return () => {
         page.S.closeSheet({ restore: false });
         BrowserTestUtils.removeTab(page.tab);
@@ -99,6 +100,7 @@ add_task(async function settings_scopes_sheet_mid() {
   try {
     page.S.openSheet("connector-scopes", { connector: "microsoft" });
     await whimsyShotMid("w23-connectors-set-5.4-opening", () => page.S._sheet?.animation, 50);
+    ok(true, "set-5.4-opening: shot captured");
   } finally {
     page.S.closeSheet({ restore: false });
     BrowserTestUtils.removeTab(page.tab);
@@ -176,6 +178,7 @@ add_task(async function onboarding_states() {
   ]) {
     await whimsyBothSchemes(`w23-connectors-${state}`, async () => {
       await prepare();
+      ok(document.getElementById("browser")?.contains(document.getElementById("zen-welcome")), `${state}: the welcome shell is inside #browser, not blank`);
       return () => {
         WhimsyAIOnboarding.cancelBusy();
         WhimsyAIOnboarding.celebration?.overlay.remove();
@@ -190,6 +193,7 @@ add_task(async function onboarding_states() {
   shell();
   WhimsyAIOnboarding.celebrate(window, () => {});
   await whimsyShotMid("w23-connectors-onb-5.2", () => WhimsyAIOnboarding.celebration?.animations[2], 400);
+  ok(true, "onb-5.2: shot captured");
   WhimsyAIOnboarding.celebration?.overlay.remove();
   document.getElementById("zen-welcome")?.remove();
 });
@@ -204,6 +208,7 @@ add_task(async function onb_card_failure_unfold_mid() {
     const content = await renderPage(WhimsyAIOnboarding.pages(window)[0]);
     content.querySelector('[data-id="openai"] [data-action="connect"]').click();
     await whimsyShotMid("w23-connectors-onb-card-fail", () => content.querySelector('[data-id="openai"] .whimsy-onb-note')?.getAnimations()[0], 150);
+    ok(content.querySelector('[data-id="openai"]').dataset.state == "failed", "onb-card-fail: the card reached the failed state");
   } finally {
     WhimsyAIOnboarding.connectProvider = prevConnect;
     WhimsyAIOnboarding.cancelBusy();
