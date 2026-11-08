@@ -30,6 +30,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const FEATURE = "whimsy.feature.ai-updates";
 const TYPE = "whimsy-update";
+const HEADING_TYPE = "whimsy-update-heading";
 const VISIBLE = 5;
 const ICONS = "chrome://browser/content/whimsy/icons/";
 const SPARKLE = "chrome://browser/skin/zen-icons/sparkles.svg";
@@ -149,6 +150,16 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     // Expanded lists scroll inside the bar instead of being cut short.
     context.maxResults = Math.max(context.maxResults ?? 0, rows.length + 4);
     win?.gURLBar?.toggleAttribute("whimsy-updates-expanded", isExpanded);
+    // Zen turns Firefox's group labels off, so each section draws its own heading row.
+    const withHeadings = [];
+    for (const row of rows) {
+      if (withHeadings.at(-1)?.group != row.group) {
+        withHeadings.push({ group: row.group, heading: true });
+      }
+      withHeadings.push(row);
+    }
+    rows.splice(0, rows.length, ...withHeadings);
+    context.maxResults = Math.max(context.maxResults ?? 0, rows.length + 4);
     for (const [index, row] of rows.entries()) {
       const target = ++nextTarget;
       targets.set(target, { ...row, window: new WeakRef(win) });
@@ -156,8 +167,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
         type: UrlbarShared.RESULT_TYPE.DYNAMIC,
         source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
         suggestedIndex: index,
-        rowLabel: { id: row.group == "recent" ? "whimsy-cmdbar-section-recent" : row.group == "whileClosed" ? "whimsy-cmdbar-section-while-closed" : "whimsy-cmdbar-section-updates" },
-        payload: { dynamicType: TYPE, target, group: row.group, more: row.more ?? 0, first: !!row.first },
+        payload: { dynamicType: row.heading ? HEADING_TYPE : TYPE, target, group: row.group, more: row.more ?? 0 },
       }));
     }
     if (list.whileClosed.length) {
@@ -172,7 +182,16 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     this._query = null;
   }
 
-  getViewTemplate() {
+  getViewTemplate(result) {
+    if (result.payload.dynamicType == HEADING_TYPE) {
+      return {
+        attributes: { role: "presentation" },
+        children: [
+          { name: "label", tag: "span", classList: ["whimsy-update-heading-label"] },
+          { name: "dismissAll", tag: "span", classList: ["whimsy-update-dismiss-all"], attributes: { selectable: true, role: "button", "data-command": "whimsy-dismiss-all" } },
+        ],
+      };
+    }
     return {
       attributes: { selectable: true },
       children: [
@@ -198,7 +217,6 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
             { name: "dismiss", tag: "span", classList: ["whimsy-update-btn", "whimsy-update-dismiss"], attributes: { selectable: true, role: "button", "data-command": "whimsy-dismiss" } },
           ],
         },
-        { name: "dismissAll", tag: "span", classList: ["whimsy-update-dismiss-all"], attributes: { selectable: true, role: "button", "data-command": "whimsy-dismiss-all" } },
       ],
     };
   }
@@ -208,11 +226,15 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     const win = topWindow();
     const hide = { attributes: { hidden: true } };
     const show = attrs => ({ attributes: { hidden: null, ...attrs } });
-    const dismissAll = result.payload.first && result.payload.group != "recent"
-      ? { ...show({ group: result.payload.group }), l10n: { id: "whimsy-cmdbar-dismiss-all" } }
-      : hide;
     if (!target) {
       return {};
+    }
+    if (target.heading) {
+      const id = { recent: "whimsy-cmdbar-section-recent", whileClosed: "whimsy-cmdbar-section-while-closed" }[target.group] ?? "whimsy-cmdbar-section-updates";
+      return {
+        label: { l10n: { id } },
+        dismissAll: target.group == "recent" ? hide : { ...show({}), l10n: { id: "whimsy-cmdbar-dismiss-all" } },
+      };
     }
     if (target.more) {
       return {
@@ -225,7 +247,6 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
         open: hide,
         remind: hide,
         dismiss: hide,
-        dismissAll: hide,
       };
     }
     if (target.recent) {
@@ -240,7 +261,6 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
         open: { ...show({}), l10n: { id: "whimsy-cmdbar-open" } },
         remind: hide,
         dismiss: { ...show({ title: "" }), l10n: { id: "whimsy-cmdbar-remove" } },
-        dismissAll: hide,
         ...this.detailOfRecent(r),
       };
     }
@@ -257,7 +277,6 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
       open: lead ? { ...show({}), l10n: { id: u.nextStep.l10nId } } : { ...show({}), l10n: { id: u.dimmed ? "whimsy-cmdbar-prep-anyway" : "whimsy-cmdbar-open" } },
       remind: { ...show({}), l10n: { id: "whimsy-cmdbar-remind-me" } },
       dismiss: { ...show({}), l10n: { id: "whimsy-cmdbar-dismiss" } },
-      dismissAll,
     };
   }
 

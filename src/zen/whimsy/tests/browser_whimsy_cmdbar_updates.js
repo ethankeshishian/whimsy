@@ -13,10 +13,7 @@ const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/Whi
 requestLongerTimeout(2);
 
 let clock = Date.now();
-const labelOf = async (row, want) => {
-  await TestUtils.waitForCondition(() => row.getAttribute("label") == want, `headed ${want}`);
-  return row.getAttribute("label");
-};
+
 
 add_setup(async function () {
   await setupAI();
@@ -98,7 +95,7 @@ add_task(async function while_closed_group_has_own_dismiss_all() {
   const list = updateRows();
   is(await labelOf(list[0], "While Whimsy was closed"), "While Whimsy was closed", "Catch-ups first");
   is(await labelOf(list[1], "Updates"), "Updates", "then Updates");
-  const all = list[0].querySelector(".whimsy-update-dismiss-all");
+  const all = headingRows()[0].querySelector(".whimsy-update-dismiss-all");
   ok(!all.hidden, "The group has its own Dismiss all");
   EventUtils.synthesizeMouseAtCenter(all, {});
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).whileClosed.length == 0, "Dismissed the catch-ups");

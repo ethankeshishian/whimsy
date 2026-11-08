@@ -851,7 +851,7 @@ export const WhimsyCommandBarAI = {
       return [];
     }
     return [...view.panel.querySelectorAll(".urlbarView-row")]
-      .filter(row => !row.hidden && row.getAttribute("dynamicType") != CARD_TYPE && row.querySelector(".urlbarView-row-inner, [selectable]") && row.getBoundingClientRect().height > 0)
+      .filter(row => !row.hidden && ![CARD_TYPE, "whimsy-update-heading"].includes(row.getAttribute("dynamicType")) && row.getBoundingClientRect().height > 0)
       .slice(0, 9);
   },
 
@@ -995,6 +995,7 @@ export const WhimsyCommandBarAI = {
     body.push(this.footer(win, doc, card, busy));
     el.setAttribute("dir", dir);
     el.toggleAttribute("busy", busy);
+    el.setAttribute("aria-busy", busy ? "true" : "false");
     el.replaceChildren(...body);
     if (focused) {
       el.querySelector(`[data-action="${focused}"]`)?.focus();

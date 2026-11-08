@@ -86,6 +86,7 @@ add_task(async function esc_stops_and_keeps_in_chat_list() {
   await TestUtils.waitForCondition(() => cardEl().querySelector(".whimsy-ask-body"), "Streaming");
   EventUtils.synthesizeKey("KEY_Escape");
   await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "Esc closed the bar");
+  info(`diag after esc: card=${!!WhimsyCommandBarAI.card(window)}`);
   ok(signal?.aborted, "and stopped the stream");
   g.open();
   await TestUtils.waitForCondition(async () => (await WhimsyAIStore.threads({ kind: "cmdbar" })).length == 1, "The exchange is in chat's list");
@@ -118,7 +119,7 @@ add_task(async function open_source_beside_and_close() {
   const loaded = BrowserTestUtils.waitForNewTab(gBrowser, url);
   EventUtils.synthesizeMouseAtCenter(chip, {});
   const tab = await loaded;
-  is(tab._tPos, asking._tPos + 1, "The source opens beside the asking tab");
+  is(gBrowser.tabs.indexOf(tab), gBrowser.tabs.indexOf(asking) + 1, "The source opens beside the asking tab");
   is(gBrowser.selectedTab, tab, "and is selected");
   await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "The bar closed");
   ok(WhimsyAIUpdates.recentAnswer(), "The answer is the Recent answer");
@@ -172,8 +173,12 @@ add_task(async function wording_open_in_chat_and_continue_in_chat() {
 
 add_task(async function handoff_line_in_card() {
   await freshStore();
-  script = async function* () {
-    yield { type: "handoff", from: "claude", to: "openai", reason: "quota" };
+  script = async function* (provider) {
+    if (provider == "claude") {
+      const e = new Error("quota");
+      e.code = "plan-limit";
+      throw e;
+    }
     yield { type: "text", delta: "ChatGPT here." };
   };
   await askWithKeys();

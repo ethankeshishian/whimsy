@@ -627,24 +627,41 @@
   mask: url("chrome://browser/skin/zen-icons/chevron.svg") center / contain no-repeat;
 }
 
-.whimsy-update-dismiss-all:not([hidden]) {
-  display: inline-flex;
-  position: absolute;
-  inset-inline-end: 12px;
-  top: 4px;
-  padding: 0 4px;
-  color: var(--whimsy-ask-accent) !important;
+/* Section headings are their own rows (Zen turns Firefox's group labels off). */
+.urlbarView-row[dynamicType="whimsy-update-heading"] {
+  pointer-events: none;
+  background: none !important;
+
+  & > .urlbarView-row-inner {
+    display: flex;
+    align-items: center;
+    min-height: 0 !important;
+    padding-block: 8px 2px !important;
+    background: none !important;
+  }
+}
+
+.whimsy-update-heading-label {
+  flex: 1;
   font-size: 12px;
   font-weight: 600;
+  color: var(--whimsy-ask-muted) !important;
+}
+
+.whimsy-update-dismiss-all:not([hidden]) {
+  display: inline-flex;
+  padding: 0 4px;
+  pointer-events: auto;
+  color: var(--whimsy-ask-accent) !important;
+
+  &:hover {
+    text-decoration: underline;
+  }
 
   &[selected] {
     outline: 2px solid var(--whimsy-ask-accent);
     outline-offset: 1px;
   }
-}
-
-.urlbarView-row[dynamicType="whimsy-update"]:not([label]) .whimsy-update-dismiss-all {
-  display: none !important;
 }
 
 /* Expanded: the list scrolls inside the bar, about eight rows. */

@@ -26,6 +26,8 @@ function gate() {
 }
 
 async function freshStore() {
+  WhimsyCommandBarAI.end(window, { keep: false });
+  await closeBar();
   await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-cmdbar-ai-" + Math.random().toString(16).slice(2)));
   WhimsyAIUpdates._resetForTesting();
   calls = [];
@@ -77,12 +79,34 @@ async function typeInBar(text, win = window) {
   await done;
 }
 
-/** Opens the bar empty (⌘L on a page, then clears it), as before typing. */
+/** ⌘L, then clear what's there: the bar before typing. */
 async function openEmptyBar(win = window) {
-  await typeInBar("x", win);
-  const done = UrlbarTestUtils.promiseSearchComplete(win);
-  EventUtils.synthesizeKey("KEY_Backspace", {}, win);
-  await done;
+  win.gBrowser.selectedBrowser.focus();
+  EventUtils.synthesizeKey("l", { accelKey: true }, win);
+  await TestUtils.waitForCondition(() => win.gURLBar.focused, "⌘L focused the bar");
+  if (win.gURLBar.value) {
+    const done = UrlbarTestUtils.promiseSearchComplete(win);
+    EventUtils.synthesizeKey("KEY_Backspace", {}, win);
+    await done;
+  } else {
+    await TestUtils.waitForCondition(() => win.gURLBar.view.isOpen, "The bar opened");
+    await win.gURLBar.lastQueryContextPromise;
+  }
+}
+
+const headingRows = (win = window) => rows(win).filter(r => r.getAttribute("dynamicType") == "whimsy-update-heading");
+
+/** The heading text above `row`. */
+async function labelOf(row, want) {
+  const heading = () => {
+    let r = row.previousElementSibling;
+    while (r && r.getAttribute("dynamicType") != "whimsy-update-heading") {
+      r = r.previousElementSibling;
+    }
+    return r?.querySelector(".whimsy-update-heading-label")?.textContent ?? null;
+  };
+  await TestUtils.waitForCondition(() => heading() == want, `headed ${want}`);
+  return heading();
 }
 
 function rows(win = window) {
@@ -99,6 +123,7 @@ const updateRows = (win = window) => rows(win).filter(r => r.getAttribute("dynam
 
 async function askWithKeys(text = Q) {
   await typeInBar(text);
+  info(`diag before ask: rows=${rows().map(r => r.getAttribute("dynamicType") || r.getAttribute("type")).join(",")} card=${!!WhimsyCommandBarAI.card(window)} value=${gURLBar.value} open=${gURLBar.view.isOpen} focused=${gURLBar.focused}`);
   EventUtils.synthesizeKey("KEY_Enter", { accelKey: true });
   await TestUtils.waitForCondition(() => cardEl()?.querySelector(".whimsy-ask-q"), "The answer card is up");
 }
