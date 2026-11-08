@@ -238,7 +238,9 @@ async function whimsyBothSchemes(name, prepare) {
 // `<name>-mid-<ms>`, then lets it finish. A Web Animation or Motion's
 // controls (whimsyCaptureMotion).
 async function whimsyShotMid(name, getAnimation, ms) {
-  const animation = await TestUtils.waitForCondition(getAnimation, `${name}: the animation started`);
+  // Motion's controls are thenable: waitForCondition would await them.
+  await TestUtils.waitForCondition(() => !!getAnimation(), `${name}: the animation started`);
+  const animation = getAnimation();
   animation.pause();
   if ("currentTime" in animation) {
     animation.currentTime = ms;
