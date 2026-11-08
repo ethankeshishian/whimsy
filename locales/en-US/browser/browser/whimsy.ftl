@@ -5662,3 +5662,105 @@ whimsy-chat-sees-leave-text = Leave out
 whimsy-chat-sees-leave-images = Leave out
 whimsy-chat-sees-leave-videos = Leave out
 whimsy-chat-sees-leave-pages = Leave out
+
+## W23 cmdbar-ai: Ask AI, the answer card, Updates, and the VPN strip
+
+whimsy-cmdbar-command-ask = Ask AI
+    .keywords = ai, ask, question, claude, chatgpt, gemini
+whimsy-cmdbar-command-updates = Show Updates
+    .keywords = updates, routines, watches, results
+whimsy-cmdbar-ask-ai = Ask AI
+whimsy-cmdbar-ask-tab = Ask about this tab
+whimsy-cmdbar-ask-video = Ask about this video
+whimsy-cmdbar-ask-mode = Ask AI
+whimsy-cmdbar-ask-followup =
+    .placeholder = Ask a follow-up…
+whimsy-cmdbar-setup-ai = Set up AI…
+whimsy-cmdbar-setup-ai-tag = Settings
+whimsy-cmdbar-meta-tab-web = { $who } · Read this tab and the web
+whimsy-cmdbar-meta-web = { $who } · Read the web
+whimsy-cmdbar-meta-reading = { $who } · Reading this tab…
+whimsy-cmdbar-meta-thinking = { $who } · Thinking…
+whimsy-cmdbar-handoff = { $from } is out, so { $to } took this.
+whimsy-cmdbar-handoff-until = { $from } is out until { $time }, so { $to } took this.
+whimsy-cmdbar-handoff-capability = { $from } can’t do this, so { $to } took it.
+whimsy-cmdbar-stop = Stop
+whimsy-cmdbar-esc-closes = Esc closes
+whimsy-cmdbar-copy = Copy
+whimsy-cmdbar-followup-hint = Type a follow-up to keep going in chat
+whimsy-cmdbar-open-in-chat = Open in chat
+whimsy-cmdbar-continue-in-chat = Continue in chat
+whimsy-cmdbar-source-opened = Opened
+whimsy-cmdbar-source-open-tab = { $host } · open tab
+whimsy-cmdbar-try-again = Try again
+whimsy-cmdbar-ask-apple = Ask on this Mac
+whimsy-cmdbar-ask-other = Ask { $provider }
+whimsy-cmdbar-finish-with = Finish with { $provider }
+whimsy-cmdbar-manage-usage = Manage usage
+whimsy-cmdbar-see-providers = See providers
+whimsy-cmdbar-search-instead = Search { $engine } instead
+whimsy-cmdbar-error-offline = You’re offline, so { $provider } can’t answer.
+whimsy-cmdbar-error-down = { $provider } isn’t answering right now.
+whimsy-cmdbar-error-none-capable = None of your models can do this. Tried { $names }.
+whimsy-cmdbar-error-all-out =
+    { $count ->
+        [one] { $names } is out for now.
+       *[other] { $names } are all out for now.
+    }
+whimsy-cmdbar-error-all-out-until =
+    { $count ->
+        [one] { $names } is out until { $time }.
+       *[other] { $names } are all out until { $time }.
+    }
+whimsy-cmdbar-partial = { $provider } ran out partway.
+whimsy-cmdbar-partial-until = { $provider } ran out partway. It’s back at { $time }.
+whimsy-cmdbar-thread-detail = From the command bar
+whimsy-cmdbar-thread-detail-sources = From the command bar · { $opened } of { $total } sources opened
+
+whimsy-cmdbar-section-recent = Recent answer
+whimsy-cmdbar-section-while-closed = While Whimsy was closed
+whimsy-cmdbar-section-updates = Updates
+whimsy-cmdbar-dismiss-all = Dismiss all
+    .title = Removes these from the command bar. Their threads keep them.
+whimsy-cmdbar-show-more = Show { $count } more
+whimsy-cmdbar-recent-detail = Asked on { $title }
+whimsy-cmdbar-recent-detail-sources = Asked on { $title } · { $opened } of { $total } sources opened
+whimsy-cmdbar-minutes-ago =
+    { $minutes ->
+        [one] 1 min ago
+       *[other] { $minutes } min ago
+    }
+whimsy-cmdbar-in-minutes =
+    { $minutes ->
+        [one] In 1 min
+       *[other] In { $minutes } min
+    }
+whimsy-cmdbar-yesterday = Yesterday
+whimsy-cmdbar-needs-you = Needs you
+whimsy-cmdbar-open = Open
+whimsy-cmdbar-prep-anyway = Prep anyway
+whimsy-cmdbar-remind-me = Remind me
+whimsy-cmdbar-dismiss = Dismiss
+    .title = Removes it from the command bar. Its thread keeps it.
+whimsy-cmdbar-remove = Remove
+    .title = Removes it from the command bar. Chat’s list keeps it.
+whimsy-cmdbar-remind-hour = In 1 hour
+whimsy-cmdbar-remind-evening = This evening
+whimsy-cmdbar-remind-morning = Tomorrow morning
+whimsy-cmdbar-remind-week = Next week
+whimsy-cmdbar-remind-pick = Pick a time…
+whimsy-cmdbar-remind-detail = { $time }
+whimsy-cmdbar-remind-detail-week = Mon { $time }
+whimsy-cmdbar-remind-set = Remind me
+whimsy-cmdbar-dismissed-toast = Dismissed from the command bar
+whimsy-cmdbar-dismissed-all-toast =
+    { $count ->
+        [one] Dismissed 1 update
+       *[other] Dismissed { $count } updates
+    }
+whimsy-cmdbar-reminded-toast = Back in Updates at { $time }
+
+whimsy-cmdbar-vpn-on = VPN on
+whimsy-cmdbar-vpn-on-space = VPN on in this space
+whimsy-cmdbar-vpn-paused = VPN paused for this call
+whimsy-cmdbar-vpn-connecting = VPN connecting…

@@ -992,3 +992,11 @@ support-files = ["whimsy_chat_article.html", "whimsy_chat_media.html"]
 support-files = ["whimsy_agent_checkout.html", "whimsy_agent_send.html", "whimsy_agent_settings.html", "whimsy_agent_captcha.html"]
 
 ["browser_whimsy_screens_w23_agent-core.js"]
+
+# W23 cmdbar-ai: Ask AI and the answer card, Recent answer and Updates,
+# ⌘1–⌘9 rows, the VPN status strip, and this lane's screenshots.
+["browser_whimsy_cmdbar_ask.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
+
+["browser_whimsy_cmdbar_updates.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]

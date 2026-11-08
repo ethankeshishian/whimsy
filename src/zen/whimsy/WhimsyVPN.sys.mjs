@@ -56,6 +56,8 @@ const ICON = "chrome://browser/skin/zen-icons/selectable/lock-closed.svg";
 const WIDGET_ID = "ipprotection-button";
 // W13 F02: Whimsy's two VPN controls (the user asked for both, A and B).
 const URLBAR_ID = "whimsy-vpn-urlbar";
+const STRIP_ID = "whimsy-cmdbar-vpn";
+const STRIP_FEATURE = "whimsy.feature.command-bar-vpn-strip";
 const TOGGLE_ID = "whimsy-vpn-urlbar-toggle";
 const CHEVRON_ID = "whimsy-vpn-urlbar-chevron";
 const PANEL_ICON = "chrome://browser/skin/zen-icons/selectable/location.svg";
@@ -565,10 +567,57 @@ export const WhimsyVPN = {
     return section;
   },
 
+  // W23 cmdbar-ai: the floating command bar has no VPN control. While the
+  // VPN isn't off, a status strip along the bottom of the results says so
+  // (dot and words, bottom left, Raycast style). An indicator, not a button.
+  statusStrip(win) {
+    const doc = win.document;
+    let strip = doc.getElementById(STRIP_ID);
+    if (strip) {
+      return strip;
+    }
+    const view = win.gURLBar?.view?.panel?.querySelector(".urlbarView-body-outer");
+    if (!view) {
+      return null;
+    }
+    strip = doc.createElementNS(HTML_NS, "div");
+    strip.id = STRIP_ID;
+    strip.className = "whimsy-cmdbar-vpn";
+    strip.setAttribute("role", "status");
+    strip.hidden = true;
+    const dot = doc.createElementNS(HTML_NS, "span");
+    dot.className = "whimsy-cmdbar-vpn-dot";
+    dot.setAttribute("aria-hidden", "true");
+    const label = doc.createElementNS(HTML_NS, "span");
+    label.className = "whimsy-cmdbar-vpn-label";
+    strip.append(dot, label);
+    view.after(strip);
+    return strip;
+  },
+
+  updateStrip(win, state, scope) {
+    const shown = Services.prefs.getBoolPref(STRIP_FEATURE, true) && ["on", "paused", "connecting"].includes(state);
+    const strip = shown ? this.statusStrip(win) : win.document.getElementById(STRIP_ID);
+    if (!strip) {
+      return;
+    }
+    strip.hidden = !shown;
+    if (!shown) {
+      return;
+    }
+    strip.setAttribute("state", state);
+    const id = state == "on" ? (scope == "space" ? "whimsy-cmdbar-vpn-on-space" : "whimsy-cmdbar-vpn-on") : `whimsy-cmdbar-vpn-${state}`;
+    const label = strip.querySelector(".whimsy-cmdbar-vpn-label");
+    if (win.document.l10n.getAttributes(label).id != id) {
+      win.document.l10n.setAttributes(label, id);
+    }
+  },
+
   // Both controls, for this window.
   updateUi(win) {
     const doc = win.document;
     const { state, scope } = this.uiState(win);
+    this.updateStrip(win, state, scope);
     const control = state == "hidden" ? doc.getElementById(URLBAR_ID) : this.urlbarControl(win);
     if (control) {
       control.hidden = state == "hidden";

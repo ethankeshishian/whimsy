@@ -213,3 +213,5 @@
         content/browser/whimsy/icons/chat-list.svg (../../zen/whimsy/content/icons/chat-list.svg)
 # W23 chat-answers
         content/browser/whimsy/whimsy-chat-answer.css (../../zen/whimsy/content/whimsy-chat-answer.css)
+# W23 cmdbar-ai
+        content/browser/whimsy/whimsy-cmdbar-ai.css (../../zen/whimsy/content/whimsy-cmdbar-ai.css)

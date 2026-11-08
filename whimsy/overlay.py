@@ -1830,6 +1830,11 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?media[-_.]?settings|paneMedia")]},
     {"id": "routines", "title": "Routines: AI runs on a schedule or a trigger and leaves results in Updates and a thread",
      "detect": [("src/zen", r"(?i)zen[-_.]?routines?")]},
+    # W23 cmdbar-ai
+    {"id": "command-bar-numbers", "title": "⌘1–⌘9 pick a row while the command bar is open; hold ⌘ to see the numbers",
+     "detect": [("src/zen/urlbar", r"(?i)(accel|cmd)[-_]?digit[-_]?row|row[-_]?numbers")]},
+    {"id": "command-bar-vpn-strip", "title": "VPN status strip along the bottom of the command bar's results while the VPN is on",
+     "detect": [("src/zen", r"(?i)zen[-_.]?vpn[-_.]?(status|strip)")]},
 ]
 
 
