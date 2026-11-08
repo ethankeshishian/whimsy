@@ -65,6 +65,10 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   "browser.engagement.ctrlTab.has-used",
   // Zen's URL bar learner records every pick (ZenUBResultsLearner).
   "zen.urlbar.suggestions-learner",
+  // W23: the ⌘E hint shows after any page load once the browser is idle,
+  // so it can land in whichever test runs next.
+  "whimsy.ai.hints.seen",
+  "whimsy.ai.hints.today",
   // Opening about:preferences lazily caches a default device name (from the
   // FxAccounts device list) the first time anything reads it.
   "identity.fxaccounts.account.device.name",
