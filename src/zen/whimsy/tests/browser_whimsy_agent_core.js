@@ -785,7 +785,7 @@ add_task(async function connect_writes_backup_first() {
     is(backupPath, cursor + ".whimsy-backup", "A backup beside the file");
     is(await IOUtils.readUTF8(backupPath), original, "holding the file as it was");
     const written = JSON.parse(await IOUtils.readUTF8(cursor));
-    Assert.deepEqual(written.mcpServers.whimsy, { command: bridge, args: [] }, "Whimsy's connector is added");
+    Assert.deepEqual(written.mcpServers.whimsy, { type: "stdio", command: bridge, args: [] }, "Whimsy's connector is added, in Cursor's format");
     ok(written.mcpServers.other, "and the app's other servers stay");
 
     // Codex: TOML, an old Whimsy table replaced, not doubled.

@@ -46,7 +46,8 @@ function home(...parts) {
 }
 
 // Where each app keeps its MCP servers (checked against each app's docs,
-// 2026-11): Claude Code's user scope is ~/.claude.json, written by its CLI.
+// 2026-11-08): Claude Code's user scope is ~/.claude.json, written by its
+// CLI; Cursor and VS Code require "type": "stdio".
 const TARGETS = {
   "claude-code": {
     name: "Claude Code",
@@ -64,6 +65,7 @@ const TARGETS = {
     name: "Cursor",
     format: "json",
     key: "mcpServers",
+    entry: { type: "stdio" },
     config: () => home(".cursor/mcp.json"),
     detect: () => [home(".cursor"), "/Applications/Cursor.app"],
   },
