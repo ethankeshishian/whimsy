@@ -173,3 +173,42 @@ add_task(async function no_room_below_flips_both_above() {
     restore();
   }
 });
+
+// B3: wheel scrolling reaches the page both beside and over an open card.
+add_task(async function page_still_scrolls_under_an_open_card() {
+  const restore = stubAI(false);
+  try {
+    await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
+      await SpecialPowers.spawn(browser, [], () => {
+        content.document.body.style.height = "4000px";
+      });
+
+      enterAt({ x: window.mozInnerScreenX + 20, y: window.mozInnerScreenY + 20, url: "https://example.org/page" });
+      const p = await openCards();
+      Assert.deepEqual(cards(), ["link"], "The link card is open");
+
+      const scrollY = () => SpecialPowers.spawn(browser, [], () => content.scrollY);
+      is(await scrollY(), 0, "Starts unscrolled");
+
+      await new Promise(resolve =>
+        EventUtils.synthesizeWheel(browser, 400, 500, { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY: 10 }, window, resolve)
+      );
+      await TestUtils.waitForCondition(async () => (await scrollY()) > 0, "The page scrolled away from the card");
+
+      const before = await scrollY();
+      const card = p.querySelector(".whimsy-link-hover-card");
+      await new Promise(resolve =>
+        EventUtils.synthesizeWheel(card, 10, 10, { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY: 10 }, window, resolve)
+      );
+      await TestUtils.waitForCondition(
+        async () => (await scrollY()) > before,
+        "The page scrolled further while the wheel was over the card itself"
+      );
+      ok(p.state == "open", "...and the card was still open while it happened");
+    });
+  } finally {
+    host.hide({ animate: false });
+    await closed();
+    restore();
+  }
+});

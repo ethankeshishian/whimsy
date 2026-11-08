@@ -49,6 +49,26 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     }
   }
 
+  receiveMessage({ name, data }) {
+    if (name == "WhimsyAIPreview:Scroll") {
+      this.scrollBy(data);
+    }
+  }
+
+  // The preview card owns wheel input over its rect; replay it on the page underneath.
+  scrollBy({ screenX, screenY, deltaX, deltaY, deltaZ, deltaMode }) {
+    const win = this.contentWindow;
+    const utils = win?.windowUtils;
+    if (!utils) {
+      return;
+    }
+    const x = screenX - win.mozInnerScreenX;
+    const y = screenY - win.mozInnerScreenY;
+    const lineOrPageDeltaX = deltaX > 0 ? Math.floor(deltaX) : Math.ceil(deltaX);
+    const lineOrPageDeltaY = deltaY > 0 ? Math.floor(deltaY) : Math.ceil(deltaY);
+    utils.sendWheelEvent(x, y, deltaX, deltaY, deltaZ, deltaMode, 0, lineOrPageDeltaX, lineOrPageDeltaY, 0);
+  }
+
   onOver(event) {
     const link = event.target?.closest?.("a[href]");
     if (link == this.link) {
