@@ -33,7 +33,7 @@ const AI_PREF = "whimsy.ai.enabled";
 const SIDE_PREF = "whimsy.chat.side";
 const WIDTH_PREF = "whimsy.chat.width";
 const OFF_TOAST_PREF = "whimsy.chat.ai-off-toast-seen";
-const SETUP_URL = "about:preferences#whimsyAI?sheet=add-provider";
+const SETUP_URL = "about:preferences?sheet=add-provider#whimsyAI";
 
 const DEFAULT_WIDTH = 380;
 const MIN_WIDTH = 320;
@@ -1378,10 +1378,7 @@ export const WhimsyChatPanel = {
   /** Settings › AI, straight into the Add a provider sheet. */
   openSetup(win) {
     lazy.WhimsyAIProviders.pendingSettingsAction = "add-provider";
-    win.switchToTabHavingURI(SETUP_URL, true, {
-      ignoreFragment: "whenComparingAndReplace",
-      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-    });
+    win.openPreferences("paneWhimsyAI", { urlParams: { sheet: "add-provider" } });
     Services.obs.notifyObservers(null, "whimsy-ai-settings-action", "add-provider");
   },
 

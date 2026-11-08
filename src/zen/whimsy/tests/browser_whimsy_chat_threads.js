@@ -170,7 +170,8 @@ add_task(async function thread_outlives_tab_and_reopen_restores() {
   const before = calls.length;
   await send("again");
   const last = calls.at(-1).request;
-  ok(calls.length == before + 1 && last.system.includes("Example Domain"), "Follow-ups use what was already read");
+  is(calls.length, before + 1, "One request for the follow-up");
+  ok(last.system.includes("Example Domain"), "Follow-ups use what was already read: " + last.system.slice(0, 300));
   const reopened = BrowserTestUtils.waitForNewTab(gBrowser, PAGE_B, true);
   EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-note[data-kind='closed-tab'] button"), {});
   const back = await reopened;

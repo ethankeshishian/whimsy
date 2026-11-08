@@ -9,7 +9,6 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
 });
@@ -143,15 +142,6 @@ export const WhimsyChatThreads = {
       return null;
     }
     let tab = null;
-    try {
-      const closed = lazy.SessionStore.getClosedTabDataForWindow(win);
-      const index = closed.findIndex(c => c.state?.entries?.at(-1)?.url == url || c.state?.attributes?.["whimsy-ai-key"] == thread.tabKey);
-      if (index >= 0) {
-        tab = lazy.SessionStore.undoCloseTab(win, index);
-      }
-    } catch (e) {
-      console.error("Whimsy chat: reopen from recently closed", e);
-    }
     tab ??= win.gBrowser.addTrustedTab(url);
     win.gBrowser.selectedTab = tab;
     const tabKey = lazy.WhimsyAIContext.tabKey(tab);

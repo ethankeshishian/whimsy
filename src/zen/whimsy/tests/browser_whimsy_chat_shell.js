@@ -31,13 +31,22 @@ function stubProvider() {
 
 async function settle() {
   await TestUtils.waitForCondition(
-    () => el().getAnimations({ subtree: true }).every(a => a.playState != "running"),
+    () => !el() || el().getAnimations({ subtree: true }).every(a => a.playState != "running"),
     "The panel's motion has finished"
   );
 }
 
-async function pressCmdE() {
+// A key pressed while the page has focus reaches the window after the
+// content process has seen it, so wait for chat to answer.
+async function pressCmdE({ expect = "toggle" } = {}) {
+  const was = chat().isOpen;
   EventUtils.synthesizeKey("e", { accelKey: true });
+  if (expect == "toggle") {
+    await TestUtils.waitForCondition(() => chat().isOpen != was, "⌘E reached chat");
+  } else {
+    await TestUtils.waitForTick();
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
   await settle();
 }
 
@@ -144,16 +153,16 @@ add_task(async function hide_button_tooltip_and_icon() {
 add_task(async function ai_off_first_cmd_e_toasts_then_opens_setup() {
   Services.prefs.setBoolPref("whimsy.ai.enabled", false);
   Services.prefs.clearUserPref("whimsy.chat.ai-off-toast-seen");
-  await pressCmdE();
+  await pressCmdE({ expect: "nothing" });
   ok(!chat().isOpen, "With AI off, ⌘E doesn't open chat");
   await TestUtils.waitForCondition(
     () => gZenUIManager.toasts.getToasts().some(t => t.element.getAttribute("whimsy-chat-ai-off")),
     "The first ⌘E shows the Set up AI toast"
   );
   const opened = BrowserTestUtils.waitForNewTab(gBrowser, url => url.startsWith("about:preferences"), true);
-  await pressCmdE();
+  await pressCmdE({ expect: "nothing" });
   const tab = await opened;
-  is(tab.linkedBrowser.currentURI.spec, "about:preferences#whimsyAI?sheet=add-provider", "The next ⌘E opens Settings › AI on Add a provider");
+  is(tab.linkedBrowser.currentURI.spec, "about:preferences?sheet=add-provider#whimsyAI", "The next ⌘E opens Settings › AI on Add a provider");
   ok(!chat().isOpen, "Chat still doesn't open");
   BrowserTestUtils.removeTab(tab);
   for (const toast of gZenUIManager.toasts.getToasts()) {
