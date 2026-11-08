@@ -684,32 +684,23 @@ export const WhimsyAIPage = {
       doc.l10n.setAttributes(box, "whimsy-summary-read-all", { words: read.words ?? 0 });
       return box;
     }
-    box.className = "whimsy-chat-note";
-    box.dataset.kind = "long-page";
-    const words = doc.createElementNS(HTML, "span");
-    words.className = "whimsy-chat-note-text";
-    const line = doc.createElementNS(HTML, "span");
-    doc.l10n.setAttributes(line, read.skipped ? "whimsy-summary-long" : "whimsy-summary-long-done", {
-      total: read.total ?? 0,
-      read: read.sections ?? 0,
-      skipped: read.skipped ?? 0,
-    });
-    words.append(line);
-    if (read.skipped) {
-      const rest = doc.createElementNS(HTML, "button");
-      rest.className = "whimsy-chat-link";
-      doc.l10n.setAttributes(rest, "whimsy-summary-read-rest");
-      rest.addEventListener("click", () => {
+    // page-1.6 (fu-page 1.6 f1): the chat's info note, with Read the rest as a button under the words.
+    const buttons = read.skipped ? [{
+      l10n: "whimsy-summary-read-rest",
+      run: event => {
         const tab = thread ? lazy.WhimsyChatThreads.tabOf(thread) : null;
         if (tab) {
-          rest.disabled = true;
+          event.currentTarget.disabled = true;
           this.readRest(win, tab, msg);
         }
-      });
-      words.append(" ", rest);
-    }
-    box.append(words);
-    return box;
+      },
+    }] : [];
+    const counts = { total: read.total ?? 0, read: read.sections ?? 0, skipped: read.skipped ?? 0 };
+    return lazy.noteLine(doc, {
+      kind: "long-page",
+      l10n: [read.skipped ? "whimsy-summary-long" : "whimsy-summary-long-done", counts],
+      buttons,
+    });
   },
 
   // A chip whose passage has left the page (a live blog, an edited post).

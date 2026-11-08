@@ -498,3 +498,19 @@ findbar .whimsy-ask-button {
   color: var(--whimsy-chat-muted, color-mix(in srgb, currentColor 62%, transparent));
   font-size: 12px;
 }
+
+/* fu-page 1.6 f1: a long page's note offers Read the rest as a quiet button on its own line. */
+.whimsy-chat-note[data-kind="long-page"] .whimsy-chat-link {
+  display: block;
+  margin-block-start: 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background-color: color-mix(in srgb, currentColor 9%, transparent);
+  color: inherit;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover:not(:disabled) {
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
+  }
+}
