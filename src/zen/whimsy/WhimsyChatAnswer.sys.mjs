@@ -1131,6 +1131,10 @@ export const WhimsyChatAnswer = {
     if (await lazy.WhimsyAIPage.showPassage(win, tab, quote, source)) {
       return true;
     }
+    // The tab may have closed while the page looked for the passage.
+    if (!tab.linkedBrowser) {
+      return false;
+    }
     const finder = tab.linkedBrowser.finder;
     finder.fastFind(quote, false, false);
     finder.highlight(true, quote, false, true);

@@ -44,12 +44,15 @@ const PLANNING = {
   ],
 };
 
+// Content-side: the tint is a CSS custom highlight named for its level.
 function passageTint(browser) {
   return SpecialPowers.spawn(browser, [], () => {
-    for (const [name, highlight] of content.CSS.highlights) {
-      if (name.startsWith("whimsy-passage-")) {
-        const range = [...highlight][0];
-        return { level: Number(name.slice(15)), text: range.toString(), top: range.getBoundingClientRect().top, height: content.innerHeight };
+    const highlights = content.CSS.highlights;
+    for (let level = 18; level <= 32; level += 2) {
+      const name = `whimsy-passage-${level}`;
+      if (highlights.has(name)) {
+        const range = [...content.wrappedJSObject.CSS.highlights.get(name)][0];
+        return { level, text: range.toString(), top: range.getBoundingClientRect().top, height: content.innerHeight };
       }
     }
     return null;
@@ -148,6 +151,7 @@ add_task(async function pdf_chip_turns_page() {
       () => SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.PDFViewerApplication?.pdfDocument),
       "The viewer has the document"
     );
+    is(browser.contentPrincipal.spec, "resource://pdf.js/web/viewer.html", `Firefox's viewer shows it (document type ${browser.documentContentType})`);
     const msg = await WhimsyAIPage.summarizeInChat(window, gBrowser.selectedTab);
     ok(/Page 3/.test(prompts.at(-1)), "Read page by page");
     is(msg.citations[0].source.page, 3, "The chip knows its page");

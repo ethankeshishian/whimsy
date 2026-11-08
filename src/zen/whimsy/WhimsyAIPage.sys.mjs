@@ -47,6 +47,7 @@ const SUMMARY_ICON = "chrome://browser/content/whimsy/icons/summarize.svg";
 // A section's opening, as read on the first pass over a long page.
 const OPENING_CHARS = 240;
 const PREVIEW_CACHE_MAX = 40;
+const PDF_VIEWER = "resource://pdf.js/web/viewer.html";
 const PREVIEW_CACHE_MS = 30 * 60 * 1000;
 
 const ASK_SYSTEM =
@@ -492,9 +493,14 @@ export const WhimsyAIPage = {
     }
     await lazy.WhimsyChat.open(win, { threadId: thread.id, focus: "card" });
     const live = await this._liveAnswer(win, thread);
+    // The thread outlives the tab, but a summary of a closed tab stops.
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const onClose = () => controller.abort();
+    tab.addEventListener("TabClose", onClose, { once: true });
     let saved;
     try {
-      const read = await this.readForSummary(win, tab, { question, skip });
+      const read = await this.readForSummary(win, tab, { question, skip, signal });
       if (read.read.recognized) {
         const note = await lazy.WhimsyAIStore.append(thread.id, { role: "note", kind: "ocr" });
         live?.node.before(lazy.WhimsyChatPanel.forWindow(win).renderNote(note));
@@ -502,12 +508,20 @@ export const WhimsyAIPage = {
           await win.document.l10n.translateFragment(live.node.previousElementSibling);
         }
       }
-      const summary = await this.summarizePage(win, tab, { question, read, onEvent: event => live?.event(event) });
+      signal.throwIfAborted();
+      const summary = await this.summarizePage(win, tab, { question, read, signal, onEvent: event => live?.event(event) });
+      signal.throwIfAborted();
       const { text, citations } = this.summaryMessage(summary, tab);
       saved = await lazy.WhimsyAIStore.append(thread.id, { role: "ai", text, citations, provider: summary.provider ?? lazy.WhimsyAIProviders.provider });
       await lazy.WhimsyAIStore.append(thread.id, { role: "card", kind: "summary", read: summary.read, question });
     } catch (error) {
+      if (signal.aborted) {
+        live?.node.remove();
+        return null;
+      }
       saved = await lazy.WhimsyAIStore.append(thread.id, { role: "error", code: error?.code || "failed" });
+    } finally {
+      tab.removeEventListener("TabClose", onClose);
     }
     await lazy.WhimsyChat.open(win, { threadId: thread.id, focus: "card" });
     return saved;
@@ -535,7 +549,7 @@ export const WhimsyAIPage = {
   /** A PDF in Firefox's viewer: each page's text (recognized when scanned), else null. */
   async pdfPages(tab) {
     const browser = tab.linkedBrowser;
-    if (browser.documentContentType != "application/pdf") {
+    if (!isPdfViewer(browser)) {
       return null;
     }
     const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyAIPreview");
@@ -558,7 +572,7 @@ export const WhimsyAIPage = {
       return false;
     }
     try {
-      if (browser.documentContentType == "application/pdf") {
+      if (isPdfViewer(browser)) {
         if (source?.page) {
           await actor.sendQuery("WhimsyAIPreview:PdfTurn", { page: source.page });
         }
@@ -641,6 +655,10 @@ export const WhimsyAIPage = {
 
   /** Whether `quote` is still on the page in `tab` (whitespace and quote marks aside). */
   async quoteOnPage(tab, quote) {
+    // A PDF doesn't change under its summary, and its viewer only lays out the pages in view.
+    if (isPdfViewer(tab.linkedBrowser)) {
+      return true;
+    }
     const page = await lazy.WhimsyAIContext.extract(tab.linkedBrowser);
     return !!findQuote(String(page.text ?? ""), String(quote ?? ""));
   },
@@ -1048,6 +1066,11 @@ function pageOf(pages, quote) {
   }
   const start = normText(quote).split(" ").slice(0, 8).join(" ");
   return pages.find(p => normText(p.text).includes(start))?.n ?? 0;
+}
+
+// Firefox's viewer serves a PDF as its own HTML page, so the document's type is text/html.
+function isPdfViewer(browser) {
+  return browser?.contentPrincipal?.spec == PDF_VIEWER;
 }
 
 // Firefox's viewer loads the document after the page itself.

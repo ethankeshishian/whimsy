@@ -188,7 +188,17 @@ add_task(async function citation_click_scrolls_and_tints() {
   is(pill.getAttribute("aria-label"), "Source 1", "and is a labelled button");
   EventUtils.synthesizeMouseAtCenter(pill, {});
   ok(pill.hasAttribute("active"), "The pill is active");
-  await TestUtils.waitForCondition(async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.getSelection().toString())).includes("Buffalo was first"), "The page shows the passage");
+  // W23 page-read: the passage is tinted (a CSS custom highlight) until the next scroll, not selected.
+  const tinted = () => SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+    for (let level = 18; level <= 32; level += 2) {
+      const name = `whimsy-passage-${level}`;
+      if (content.CSS.highlights.has(name)) {
+        return [...content.wrappedJSObject.CSS.highlights.get(name)][0].toString();
+      }
+    }
+    return "";
+  });
+  await TestUtils.waitForCondition(async () => (await tinted()).includes("Buffalo was first"), "The page shows the passage");
   await closeAll(tab);
 });
 
