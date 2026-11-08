@@ -122,6 +122,15 @@ function groupsOf(rows) {
   return out;
 }
 
+add_task(async function pages_load() {
+  for (const kind of ["field", "empty", "video", "one-image", "article"]) {
+    info(`BISECT opening ${kind}`);
+    await BrowserTestUtils.withNewTab(PAGE(kind), async () => {});
+    info(`BISECT closed ${kind}`);
+  }
+  ok(true, "pages load");
+});
+
 add_task(async function selection_order() {
   await BrowserTestUtils.withNewTab(PAGE("article"), async browser => {
     await select(browser, "sel");
