@@ -116,17 +116,29 @@ export const WhimsyWelcome = {
       return pages.map(page => ({ ...page, skip: () => true }));
     }
     try {
-      if (!this.featureOn || !Array.isArray(pages) || pages.some(page => page?.id?.startsWith("whimsy-"))) {
+      if (!Array.isArray(pages) || pages.some(page => page?.id?.startsWith("whimsy-"))) {
         return pages;
       }
-      const added = [this.transparencyPage(helpers), this.fontPage(win, helpers)];
       const result = [...pages];
-      let at = result.findIndex(page => page?.id == "colors");
-      if (at < 0) {
-        at = result.findIndex(page => page?.id == "finish") - 1;
+      if (this.featureOn) {
+        const added = [this.transparencyPage(helpers), this.fontPage(win, helpers)];
+        let at = result.findIndex(page => page?.id == "colors");
+        if (at < 0) {
+          at = result.findIndex(page => page?.id == "finish") - 1;
+        }
+        result.splice(at < 0 ? result.length : at + 1, 0, ...added);
       }
-      result.splice(at < 0 ? result.length : at + 1, 0, ...added);
-      return result;
+      // W23 connectors: the AI steps come right after "Block ads and trackers?".
+      const { WhimsyAIOnboarding } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIOnboarding.sys.mjs");
+      if (WhimsyAIOnboarding.enabled) {
+        let at = result.findIndex(page => page?.id == "block-ads");
+        if (at < 0) {
+          const before = result.findIndex(page => page?.id == "essentials" || page?.id == "finish");
+          at = (before < 0 ? result.length : before) - 1;
+        }
+        result.splice(at + 1, 0, ...WhimsyAIOnboarding.pages(win, helpers));
+      }
+      return result.length == pages.length ? pages : result;
     } catch (e) {
       console.error("Whimsy: onboarding", e);
       return pages;

@@ -804,3 +804,26 @@
 # Activity is kept this many days: 7, 30, or 90, or 0 for forever.
 - name: whimsy.ai.activity.days
   value: 30
+
+# W23 connectors
+# OAuth client IDs the owner registers (Google Cloud "Desktop app", Microsoft
+# Entra "Mobile and desktop" with http://127.0.0.1 redirects). Empty: the
+# card says "Needs a client ID" and Settings shows the setup steps.
+- name: whimsy.connectors.google.client-id
+  value: ""
+
+# Google's desktop clients come with a client secret Google doesn't treat as
+# secret (installed apps); token exchange needs it.
+- name: whimsy.connectors.google.client-secret
+  value: ""
+
+- name: whimsy.connectors.microsoft.client-id
+  value: ""
+
+# Granola's hosted MCP server.
+- name: whimsy.connectors.granola.url
+  value: "https://mcp.granola.ai/mcp"
+
+# Onboarding's "You're all set" has played (it plays once).
+- name: whimsy.ai.onboarding.celebrated
+  value: false

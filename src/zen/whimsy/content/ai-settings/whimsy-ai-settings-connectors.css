@@ -1,0 +1,139 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 connectors: Settings › AI › Connectors (07 set-5.x, fu-settings 5.6). */
+
+.whimsy-connectors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  & > .whimsy-ai-caption:not(:first-child) {
+    margin-top: 12px;
+  }
+}
+
+.whimsy-connectors-rowbtn {
+  all: unset;
+  font-weight: 500;
+
+  &:focus-visible {
+    outline: 2px solid var(--ai-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.whimsy-connectors-scopes {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--ai-track);
+}
+
+.whimsy-connectors-scope {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+
+  & > moz-toggle {
+    flex: none;
+  }
+}
+
+.whimsy-connectors-checks {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--ai-track);
+}
+
+.whimsy-connectors-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 6px;
+
+  &:hover {
+    background: var(--ai-hover);
+  }
+
+  & > input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--ai-primary);
+  }
+
+  & > img {
+    flex: none;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.whimsy-connectors-steps {
+  margin: 0;
+  padding-inline-start: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.whimsy-connectors-spacer {
+  margin-inline-end: auto;
+}
+
+.whimsy-connectors-hint {
+  margin: 0;
+  color: var(--ai-muted);
+  font-size: 12px;
+  line-height: 1.45;
+
+  &[data-tone="fail"] {
+    color: var(--ai-error);
+  }
+}
+
+#whimsyConnectorsMcpUrl[aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1px var(--ai-error);
+}
+
+.whimsy-connectors-mcp-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 18px;
+}
+
+.whimsy-connectors-found {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--ai-selected);
+
+  & > .whimsy-ai-pill {
+    flex: none;
+  }
+}
+
+.whimsy-connectors-direction a,
+.whimsy-connectors-direction .whimsy-ai-link {
+  display: inline;
+  margin-inline-start: 0.25em;
+}
+
+.whimsy-ai-sheet-head > .whimsy-ai-tile.is-small {
+  width: 24px;
+  height: 24px;
+}

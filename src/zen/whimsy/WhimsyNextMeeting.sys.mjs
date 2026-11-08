@@ -645,7 +645,19 @@ export const WhimsyNextMeeting = {
     return readGoogleCalendars();
   },
   get hasSources() {
-    return this.appleEnabled || this.googleCalendars.length > 0;
+    return this.appleEnabled || this.googleCalendars.length > 0 || [...this._sources.keys()].some(id => id.startsWith("connector:"));
+  },
+
+  // W23 connectors: a signed-in calendar (Google, Microsoft) hands its
+  // events here, so Next meeting needs no rows of its own. null removes it.
+  setConnectorEvents(id, events) {
+    if (events) {
+      this._sources.set(`connector:${id}`, { events, fetchedAt: Date.now(), error: null });
+    } else {
+      this._sources.delete(`connector:${id}`);
+    }
+    this._notify();
+    this._updateTimer?.();
   },
 
   /** "off", "unavailable", "notDetermined", "denied", "restricted", "fullAccess", ... */

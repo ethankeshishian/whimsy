@@ -246,6 +246,14 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyOutsideAgents.sys.mjs",
 ]
 
+# W23 connectors
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAIOnboarding.sys.mjs",
+    "WhimsyConnectorOAuth.sys.mjs",
+    "WhimsyConnectors.sys.mjs",
+    "WhimsyMCPClient.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

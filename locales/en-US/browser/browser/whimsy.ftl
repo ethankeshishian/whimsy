@@ -5894,3 +5894,190 @@ whimsy-ai-error-claude-code-outdated = Claude Code needs an update. Connect Clau
 whimsy-ai-error-install-failed = Claude Code couldn’t be installed safely. Get it from Anthropic instead.
 whimsy-setting-ai-quick-text = Quick Text on This Mac First
     .keywords = apple intelligence, on-device, rewrite, translate, summarize, local
+
+## W23 connectors: Settings › AI › Connectors, the add-a-server sheet,
+## sign-in pages, and the command
+
+whimsy-action-connectors = Connectors
+whimsy-ai-jump-connectors = Connectors
+whimsy-connectors-heading = Connectors
+whimsy-connectors-desc = What AI can read when you ask. Each one shows what it can use; nothing is read until a chat, command, or routine needs it.
+whimsy-connectors-group-schedule = Schedule and inbox
+whimsy-connectors-group-work = Work tools
+whimsy-connectors-group-mcp = Other MCP servers
+whimsy-connectors-add-mcp = Add an MCP server…
+whimsy-connectors-add-mcp-detail = Any server that speaks MCP, by its address
+whimsy-connectors-name-google = Google
+whimsy-connectors-name-microsoft = Microsoft
+whimsy-connectors-name-apple-calendar = Apple Calendar
+whimsy-connectors-name-granola = Granola
+whimsy-connectors-name-linear = Linear
+whimsy-connectors-name-jira = Jira
+whimsy-connectors-detail-google = Gmail · Calendar · Drive
+whimsy-connectors-detail-microsoft = Outlook · Calendar · OneDrive
+whimsy-connectors-detail-apple-calendar = The calendars on this Mac
+whimsy-connectors-detail-granola = Joins chat during meetings and meeting prep
+whimsy-connectors-detail-linear = Uses your Linear sign-in in Whimsy
+whimsy-connectors-detail-jira = Uses your Jira sign-in in Whimsy
+whimsy-connectors-detail-mcp = An MCP server
+whimsy-connectors-detail-apple-calendar-on = Calendars on this Mac
+whimsy-connectors-detail-granola-on = Joins chat during meetings and meeting prep
+whimsy-connectors-detail-linear-on = Signed in
+whimsy-connectors-detail-jira-on = Signed in
+whimsy-connectors-detail-server =
+    { $count ->
+        [one] { $host } · 1 tool
+       *[other] { $host } · { $count } tools
+    }
+whimsy-connectors-detail-account-scopes = { $account } · { $scopes }
+whimsy-connectors-detail-scopes = { $scopes }
+whimsy-connectors-detail-account = { $account }
+whimsy-connectors-needs-client-id = Needs a client ID
+whimsy-connectors-apple-unavailable = This build of Whimsy can’t read macOS calendars
+whimsy-connectors-apple-denied = macOS isn’t letting Whimsy see your calendars
+whimsy-connectors-expired = Sign-in expired
+whimsy-connectors-unreachable = Couldn’t reach { $host }
+whimsy-connectors-set-up = Set Up…
+whimsy-connectors-open-system-settings = Open System Settings
+whimsy-connectors-sign-in-again = Sign In Again
+whimsy-connectors-try-again = Try Again
+whimsy-connectors-connect = Connect
+whimsy-connectors-row-details =
+    .aria-label = Details for { $name }
+whimsy-connectors-account = Account
+whimsy-connectors-address = Address
+whimsy-connectors-last-used = Last used
+whimsy-connectors-scope-google-gmail = Read and search your mail. Never sends.
+whimsy-connectors-scope-google-calendar = See your events, times, and who’s coming.
+whimsy-connectors-scope-google-drive = Find and read the files you ask about.
+whimsy-connectors-scope-microsoft-outlook = Read and search your Outlook mail. Never sends.
+whimsy-connectors-scope-microsoft-calendar = See your events, times, and who’s coming.
+whimsy-connectors-scope-microsoft-onedrive = Find and read the OneDrive files you ask about.
+whimsy-connectors-scope-switch =
+    .aria-label = { $scope }
+whimsy-connectors-tools =
+    { $count ->
+        [one] 1 tool: { $names }
+       *[other] { $count } tools: { $names }
+    }
+whimsy-connectors-disconnect = Disconnect
+whimsy-connectors-disconnect-title = Disconnect { $name }?
+whimsy-connectors-disconnect-text = AI stops reading { $what } until you connect again.
+whimsy-connectors-disconnect-text-users = AI stops reading { $what }. { $users } pause until you connect again.
+whimsy-connectors-signing-in = Signing in…
+whimsy-connectors-cancel = Cancel
+whimsy-connectors-connected-toast = { $name } is connected
+whimsy-connectors-sheet-title-google = Connect Google
+whimsy-connectors-sheet-title-microsoft = Connect Microsoft
+whimsy-connectors-sheet-title-jira = Connect Jira
+whimsy-connectors-sheet-text-google = Pick what AI may read. Google’s sign-in opens next and lists the same things.
+whimsy-connectors-sheet-text-microsoft = Pick what AI may read. Microsoft’s sign-in opens next and lists the same things.
+whimsy-connectors-sheet-jira-text = Your Jira site’s address. Whimsy uses the sign-in you already have there; if you’re signed out, the site opens so you can sign in.
+whimsy-connectors-sheet-keychain = The sign-in is kept in your macOS Keychain. Nothing is read until you ask.
+whimsy-connectors-sheet-continue-google = Continue to Google
+whimsy-connectors-sheet-continue-microsoft = Continue to Microsoft
+whimsy-connectors-sheet-continue-jira = Continue
+whimsy-connectors-client-title-google = Set up Google
+whimsy-connectors-client-title-microsoft = Set up Microsoft
+whimsy-connectors-client-text-google = Google sign-ins need a client ID that you register once, in your own Google Cloud project.
+whimsy-connectors-client-text-microsoft = Microsoft sign-ins need an app ID that you register once, in Microsoft Entra.
+whimsy-connectors-client-step1-google = Create an OAuth client of type “Desktop app”, and turn on the Gmail, Calendar, and Drive APIs.
+whimsy-connectors-client-step2-google = Add yourself as a test user on the consent screen.
+whimsy-connectors-client-step3-google = Paste the client ID here. Its client secret goes in whimsy.connectors.google.client-secret.
+whimsy-connectors-client-step1-microsoft = Register an app for personal and work accounts.
+whimsy-connectors-client-step2-microsoft = Add the “Mobile and desktop” platform with the redirect http://127.0.0.1, and the Mail.Read, Calendars.Read, and Files.Read permissions.
+whimsy-connectors-client-step3-microsoft = Paste its Application (client) ID here.
+whimsy-connectors-client-open-google = Open Google Cloud credentials
+whimsy-connectors-client-open-microsoft = Open Microsoft Entra app registrations
+whimsy-connectors-client-save = Save
+whimsy-connectors-mcp-title = Add an MCP server
+whimsy-connectors-mcp-address = Server address
+whimsy-connectors-mcp-hint = The address from the server’s docs, like https://mcp.notion.com/mcp.
+whimsy-connectors-mcp-rules = Whimsy’s own chat, agent, and routines can then use its tools, with any of your providers. Its tools follow the same rules as everything else: the agent pauses before sending, paying, or deleting, and private tabs stay off limits.
+whimsy-connectors-mcp-direction = This adds a server for Whimsy to use. To let Claude Code or another app use Whimsy, see
+whimsy-connectors-mcp-outside = Outside agents.
+whimsy-connectors-mcp-continue = Continue
+whimsy-connectors-mcp-checking = Asking the server what it offers…
+whimsy-connectors-mcp-found =
+    { $count ->
+        [0] No tools yet
+        [one] 1 tool: { $names }
+       *[other] { $count } tools: { $names }…
+    }
+whimsy-connectors-mcp-found-signin = Lists its tools once you sign in
+whimsy-connectors-mcp-signs-in = Signs in
+whimsy-connectors-mcp-signin-next = { $name }’s sign-in opens in a tab and lists what it shares.
+whimsy-connectors-mcp-continue-to = Continue to { $name }
+whimsy-connectors-mcp-add = Add { $name }
+whimsy-connectors-mcp-unreachable = Couldn’t reach that address. Check it, and try again.
+whimsy-connectors-mcp-not-mcp = That address didn’t answer like an MCP server. Check the server’s docs for its MCP address.
+whimsy-connectors-callback-done = You’re signed in. You can close this window and go back to Whimsy.
+whimsy-connectors-callback-failed = The sign-in didn’t finish. Close this window, and try again in Whimsy.
+whimsy-meeting-calendars-moved = Calendars come from Settings › AI › Connectors.
+whimsy-meeting-calendars-open = Open Connectors
+
+## W23 connectors: onboarding (Want a little AI help?, Connect your stuff?,
+## and You’re all set)
+
+whimsy-onb-ai-title = Want a little AI help?
+whimsy-onb-ai-text = Use AI you already have to sum up pages, fix your writing, and get things done in your tabs. Connect as many as you like; each one signs in on its own.
+whimsy-onb-ai-private = Private windows never reach AI. You can change this any time in Settings › AI.
+whimsy-onb-name-apple = Apple Intelligence
+whimsy-onb-name-claude = Claude
+whimsy-onb-name-openai = ChatGPT
+whimsy-onb-detail-apple = Runs on this Mac, so nothing leaves it. Free, private, and quick.
+whimsy-onb-detail-claude = Use your Pro, Max, or Ultra plan. Whimsy sets up Claude Code if it’s missing.
+whimsy-onb-detail-openai = Use your ChatGPT Plus or Pro plan.
+whimsy-onb-detail-claude-installing = Setting up Claude Code, Anthropic’s app for your Claude plan.
+whimsy-onb-detail-claude-signing = Claude Code is installed. Finish signing in on the Claude window.
+whimsy-onb-detail-claude-done = Through Claude Code. Remove it any time in Settings › AI.
+whimsy-onb-detail-openai-signing = Finish signing in on the OpenAI window. This updates by itself.
+whimsy-onb-detail-signing = Finish signing in on the { $name } window.
+whimsy-onb-detail-apple-checking = Checking this Mac…
+whimsy-onb-turn-on = Turn On
+whimsy-onb-connect = Connect
+whimsy-onb-allow = Allow
+whimsy-onb-cancel = Cancel
+whimsy-onb-on = On
+whimsy-onb-connected = Connected
+whimsy-onb-not-connected = Not connected
+whimsy-onb-signing-in = Signing in…
+whimsy-onb-installing = Installing…
+whimsy-onb-choosing = Choosing access…
+whimsy-onb-waiting = Waiting…
+whimsy-onb-needs-client-id = Needs a client ID
+whimsy-onb-install-progress = Downloading Claude Code from Anthropic…
+whimsy-onb-install-failed = Claude Code couldn’t be installed. Check your connection, and try again.
+whimsy-onb-install-yourself = Install it yourself ↗
+whimsy-onb-sign-in-failed = Sign-in didn’t finish.
+whimsy-onb-apple-failed = Apple Intelligence isn’t ready on this Mac yet.
+whimsy-onb-apple-denied = macOS said no. Allow it in System Settings › Privacy & Security › Calendars.
+whimsy-onb-try-again = Try again
+whimsy-onb-api-key = Use an API key or Ollama instead…
+whimsy-onb-skip = Skip for now
+whimsy-onb-continue = Continue
+whimsy-onb-ready-one = { $name } is ready.
+whimsy-onb-ready-count = { $count } ready.
+whimsy-onb-ready-all = All three are ready.
+whimsy-onb-cs-title = Connect your stuff?
+whimsy-onb-cs-text = Let AI use your schedule, inbox, and work tools when you ask. Each one shows what it can read, then signs in on its own.
+whimsy-onb-cs-later = Nothing is read until you ask. You can add more later in Settings › AI.
+whimsy-onb-cs-schedule = Schedule and inbox
+whimsy-onb-cs-work = Work tools
+whimsy-onb-cs-detail-google = Prep for meetings, find mail, and read the Docs you ask about.
+whimsy-onb-cs-detail-microsoft = Prep for meetings, find Outlook mail, and open OneDrive files you ask about.
+whimsy-onb-cs-detail-apple-calendar = Plan around your day, and get ready for what’s next.
+whimsy-onb-cs-detail-granola = Bring your meeting notes into answers, recaps, and follow-ups.
+whimsy-onb-cs-detail-linear = Find issues, sum up projects, and see what’s assigned to you.
+whimsy-onb-cs-detail-jira = Find tickets, sum up boards, and see what’s on your plate.
+whimsy-onb-cs-detail-apple-calendar-busy = Allow access in the macOS prompt.
+whimsy-onb-cs-mcp = Add another connector (MCP)…
+whimsy-onb-cs-connected-one = { $name } is connected.
+whimsy-onb-cs-connected-count = { $count } connected.
+whimsy-onb-cs-connected-all = Everything is connected.
+whimsy-onb-done-title = You’re all set.
+whimsy-onb-done-text-list = { $names } are ready. Press ⌘E to chat about any tab, or type a question in the command bar.
+whimsy-onb-done-text-one = { $names } is ready. Press ⌘E to chat about any tab, or type a question in the command bar.
+whimsy-onb-done-text-all = Your AI, schedule, inbox, and work tools are ready. Press ⌘E to chat about any tab, or type a question in the command bar.
+whimsy-onb-done-continue = Continue
+whimsy-onb-done-hint = Press Return to continue

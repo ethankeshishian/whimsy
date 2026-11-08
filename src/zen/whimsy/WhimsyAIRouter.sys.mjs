@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   REQUEST_TIMEOUT_MS: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIError: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
+  WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
 });
 
 export const TASKS = ["chat", "ask", "quick-text", "summary", "preview", "routine", "agent", "translate", "memory", "index"];
@@ -24,6 +25,8 @@ export const TASKS = ["chat", "ask", "quick-text", "summary", "preview", "routin
 const QUICK_TASKS = new Set(["quick-text", "translate"]);
 // Tasks a person reads as they're written: thinking defaults to Normal.
 const DEEP_TASKS = new Set(["chat", "ask", "agent"]);
+// Tasks that get the connectors' tools unless the caller passes its own.
+const TOOL_TASKS = new Set(["chat", "ask", "agent", "routine"]);
 // Out of room: the provider rests until its reset time.
 const QUOTA_CODES = new Set(["plan-limit", "rate-limited"]);
 // Never handed to another provider.
@@ -142,6 +145,9 @@ export const WhimsyAIRouter = {
     }
     P._observe();
     const request = this._normalize(req);
+    if (req.tools === undefined && TOOL_TASKS.has(request.task)) {
+      request.tools = await lazy.WhimsyConnectors.tools().catch(() => []);
+    }
     const needs = { ...(req.needs ?? {}) };
     needs.images ||= hasImages(request.messages);
     const emit = event => {
