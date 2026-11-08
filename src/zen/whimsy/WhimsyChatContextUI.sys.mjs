@@ -37,6 +37,8 @@ const KIND_ICON = {
 const drafts = new Map();
 // Granola's live chip per window (L08 sets it).
 const liveChips = new WeakMap();
+// What Esc does in each open What AI sees sheet.
+const sheetEscapes = new WeakMap();
 
 function h(doc, tag, attrs = {}, ...children) {
   const el = doc.createElementNS(HTML_NS, tag);
@@ -634,16 +636,12 @@ export const WhimsyChatContextUI = {
       }
       view.querySelector(back ? `.whimsy-chat-sees-row` : "button:not([disabled])")?.focus();
     };
-    sheet.addEventListener("keydown", e => {
-      if (e.key == "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        const back = sheet.querySelector(".whimsy-chat-sheet-view:not([data-view='list'])");
-        if (back) {
-          show(list(), true);
-        } else {
-          close();
-        }
+    // Esc anywhere in chat steps back from a drill-in, then closes the sheet.
+    sheetEscapes.set(sheet, () => {
+      if (sheet.querySelector(".whimsy-chat-sheet-view:not([data-view='list'])")) {
+        show(list(), true);
+      } else {
+        close();
       }
     });
     panel.panel.append(sheet);
@@ -652,6 +650,13 @@ export const WhimsyChatContextUI = {
       sheet.animate({ translate: ["16px 0", "0 0"], opacity: [0, 1] }, { duration: 240, easing: EASE });
     }
     return sheet;
+  },
+
+  /** Esc in chat while `sheet` is open; false if it isn't a What AI sees sheet. */
+  escapeSheet(sheet) {
+    const run = sheetEscapes.get(sheet);
+    run?.();
+    return !!run;
   },
 
   _panel(win) {

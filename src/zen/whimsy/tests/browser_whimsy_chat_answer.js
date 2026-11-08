@@ -310,10 +310,9 @@ add_task(async function research_report_saved_and_opens_as_tab_and_posts_update(
   is(gBrowser.selectedTab, tab, "beside the chat's tab, which stays in front");
   const card = await TestUtils.waitForCondition(() => part(".whimsy-chat-report"), "The chat keeps a card for it");
   const report = await WhimsyAIReports.get(card.dataset.report);
-  const reportTab = gBrowser.tabs.find(t => t.linkedBrowser.currentURI.spec == PathUtils.toFileURI(report.path));
+  const reportTab = await TestUtils.waitForCondition(() => gBrowser.tabs.find(t => t.linkedBrowser.currentURI.spec == PathUtils.toFileURI(report.path)), "The new tab is that file");
   ok(await IOUtils.exists(report.path), "saved as a local file");
   is((await IOUtils.stat(report.path)).permissions & 0o777, 0o600, "readable only by you");
-  ok(reportTab, "The tab is that file");
   const updates = await WhimsyAIUpdates.list();
   ok(updates.updates.concat(updates.recent ? [updates.recent] : []).some(u => u.source == "research"), "Research posts to Updates");
   BrowserTestUtils.removeTab(reportTab);
@@ -354,7 +353,7 @@ add_task(async function research_keeps_going_with_panel_closed() {
   EventUtils.synthesizeKey("e", { accelKey: true });
   await TestUtils.waitForCondition(() => chat().isOpen && chat().ready && part(".whimsy-chat-report"), "Reopening chat shows the report card");
   ok(!part(".whimsy-chat-research[live]"), "in place of the progress card");
-  const reportTab = gBrowser.tabs.find(t => t.linkedBrowser.currentURI.spec.endsWith(".md"));
+  const reportTab = await TestUtils.waitForCondition(() => gBrowser.tabs.find(t => t.linkedBrowser.currentURI.spec.endsWith(".md")), "The report's tab");
   BrowserTestUtils.removeTab(reportTab);
   await WhimsyAIStore.clear({ kinds: ["reports"] });
   await closeAll(tab);

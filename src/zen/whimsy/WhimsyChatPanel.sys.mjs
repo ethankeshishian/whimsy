@@ -656,8 +656,10 @@ class ChatPanel {
     event.stopPropagation();
     const menu = this.panel.querySelector(".whimsy-chat-menu, .whimsy-chat-sheet");
     if (menu) {
-      menu.remove();
-      this.composer.focus();
+      if (!lazy.WhimsyChatContextUI.escapeSheet(menu)) {
+        menu.remove();
+        this.composer.focus();
+      }
     } else if (this.listOpen) {
       this.closeList();
     }
