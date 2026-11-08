@@ -346,7 +346,7 @@ export const WhimsyCommandBarUpdates = {
   initWindow(win) {
     this.init();
     win.gURLBar?.inputField?.addEventListener("keydown", event => this.onKey(win, event), true);
-    win.gURLBar?.controller?.addListener({ onViewClose: () => { dump("DIAG onViewClose\n"); expanded.delete(win); } });
+    win.gURLBar?.controller?.addListener({ onViewClose: () => { dump("DIAG onViewClose " + new Error().stack + "\n"); expanded.delete(win); } });
     lazy.WhimsyAIHints.register({
       id: "updates",
       isVisible: w => !!w.gURLBar?.view.isOpen && !!w.gURLBar.view.panel.querySelector(`.urlbarView-row[dynamicType="${TYPE}"]`),
