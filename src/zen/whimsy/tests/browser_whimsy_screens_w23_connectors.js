@@ -20,6 +20,7 @@ add_setup(async function () {
       ["whimsy.feature.ai-hints", false],
       ["whimsy.ai.enabled", true],
       ["whimsy.connectors.google.client-id", "shots.apps"],
+      ["whimsy.connectors.microsoft.client-id", "shots-app-id"],
       ["whimsy.ai.onboarding.celebrated", false],
     ],
   });
@@ -145,7 +146,7 @@ add_task(async function onboarding_states() {
       const [, connect] = WhimsyAIOnboarding.pages(window);
       WhimsyAIOnboarding.session.providers.add("claude");
       const content = await renderPage(connect);
-      content.querySelector('[data-id="google"] [data-action="connect"]').click();
+      content.querySelector('[data-id="microsoft"] [data-action="connect"]').click();
     }],
     ["onb-5.1", async () => {
       WhimsyAIOnboarding.pages(window);

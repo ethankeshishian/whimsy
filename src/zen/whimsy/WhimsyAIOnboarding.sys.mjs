@@ -22,6 +22,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
 });
 
+const styled = new WeakSet();
 const SHEET = "chrome://browser/content/whimsy/whimsy-ai-onboarding.css";
 const ICONS = "chrome://browser/content/whimsy/icons/";
 const CHECK = "chrome://global/skin/icons/check-filled.svg";
@@ -89,8 +90,8 @@ export const WhimsyAIOnboarding = {
   },
 
   _sheet(win) {
-    if (!win._whimsyOnbSheet) {
-      win._whimsyOnbSheet = true;
+    if (!styled.has(win)) {
+      styled.add(win);
       win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
     }
   },
@@ -334,9 +335,7 @@ export const WhimsyAIOnboarding = {
               ui.set({ state: "busy", status: "whimsy-onb-signing-in", tone: "busy", detailL10n: id == "claude" ? "whimsy-onb-detail-claude-signing" : id == "openai" ? "whimsy-onb-detail-openai-signing" : "whimsy-onb-detail-apple-checking", cancel: id == "apple" ? null : () => self.cancelBusy() });
             }
           };
-          if (id == "apple") {
-            ui.set({ state: "busy", status: "whimsy-onb-signing-in", tone: "busy", detailL10n: "whimsy-onb-detail-apple-checking" });
-          }
+          onProgress(id == "apple" ? "check" : "sign-in");
           try {
             await self.connectProvider(win, id, pending, onProgress);
             s.providers.add(id);
