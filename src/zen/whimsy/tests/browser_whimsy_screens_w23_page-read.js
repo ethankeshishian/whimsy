@@ -127,9 +127,28 @@ add_task(async function passage_tint() {
     const chip = await TestUtils.waitForCondition(() => panel.querySelector('.whimsy-chat-cite[data-n="2"]'), "The chip shows");
     EventUtils.synthesizeMouseAtCenter(chip, {});
     // The tint fades from 32% to 18% over 600ms: shoot its first frames once.
+    // The page's own frames are held on the tint's first one (the refresh
+    // driver in test mode), so the shot can't miss it.
     if (!dark) {
-      await TestUtils.waitForCondition(async () => (await tint(tab.linkedBrowser)) >= 28, "The tint starts strong", 10, 400);
-      await whimsyShot(NAME("passage-mid-start"));
+      const level = await SpecialPowers.spawn(tab.linkedBrowser, [], () => new Promise(resolve => {
+        const look = () => {
+          for (let l = 32; l >= 18; l -= 2) {
+            if (content.CSS.highlights.has(`whimsy-passage-${l}`)) {
+              content.windowUtils.advanceTimeAndRefresh(0);
+              resolve(l);
+              return;
+            }
+          }
+          content.requestAnimationFrame(look);
+        };
+        look();
+      }));
+      try {
+        Assert.greaterOrEqual(level, 28, "The tint starts strong");
+        await whimsyShot(NAME("passage-mid-start"));
+      } finally {
+        await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.windowUtils.restoreNormalRefresh());
+      }
     }
     await TestUtils.waitForCondition(async () => (await tint(tab.linkedBrowser)) == 18, "The tint settles");
     return closer(tab);
