@@ -363,6 +363,7 @@ add_task(async function granola_chip_removable() {
   await WhimsyConnectors.poll();
   const chip = await TestUtils.waitForCondition(() => panel.chips?.querySelector('[data-chip="granola:live"]'), "Granola joins chat silently");
   ok(chip.hasAttribute("live"), "with a live dot");
+  await whimsySettled();
   EventUtils.synthesizeMouseAtCenter(chip.querySelector(".whimsy-chat-chip-x"), {});
   await TestUtils.waitForCondition(() => !panel.chips.querySelector('[data-chip="granola:live"]'), "The chip can be removed");
   const ctx = await WhimsyChatContextUI.contextFor(panel, panel.thread);
