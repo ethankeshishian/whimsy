@@ -316,7 +316,6 @@ add_task(async function research_report_saved_and_opens_as_tab_and_posts_update(
   const updates = await WhimsyAIUpdates.list();
   ok(updates.updates.concat(updates.recent ? [updates.recent] : []).some(u => u.source == "research"), "Research posts to Updates");
   BrowserTestUtils.removeTab(reportTab);
-  await BrowserTestUtils.switchTab(gBrowser, tab);
   EventUtils.synthesizeMouseAtCenter(card.querySelector(".whimsy-chat-pill-btn"), {});
   await TestUtils.waitForCondition(() => gBrowser.selectedTab.linkedBrowser.currentURI.spec == PathUtils.toFileURI(report.path), "Open tab reopens the file after its tab closed");
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
