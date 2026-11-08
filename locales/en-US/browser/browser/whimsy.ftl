@@ -6284,3 +6284,33 @@ whimsy-cmdk-search-with = Search with { $engine }
 whimsy-cmdk-unavailable-no-text = There’s no text here to summarize.
 whimsy-cmdk-replaced-toast = Replaced with { $name }
 whimsy-cmdk-failed-toast = Couldn’t run { $name }. Try again, or check Settings › AI.
+
+## W23 commands: AI rows on selected text (right-click) and their result
+## card. { $language } is a language's name; { $provider } a model's.
+
+whimsy-ai-menu-improve =
+    .label = Improve Writing
+whimsy-ai-menu-fix =
+    .label = Fix Spelling and Grammar
+whimsy-ai-menu-translate =
+    .label = Translate
+whimsy-ai-menu-translate-to =
+    .label = { $language }
+whimsy-ai-menu-translate-other =
+    .label = Other…
+whimsy-ai-menu-more =
+    .label = More Commands…
+whimsy-ai-command-improve = Improve Writing
+whimsy-ai-command-fix = Fix Spelling and Grammar
+whimsy-ai-card-replace = Replace
+whimsy-ai-card-insert-after = Insert after
+whimsy-ai-card-copy = Copy
+whimsy-ai-card-try-again = Try again
+whimsy-ai-card-working = Writing…
+whimsy-ai-card-language = Translate to
+whimsy-ai-card-translate = Translate
+whimsy-ai-card-error = { $provider } didn’t answer. Try again, or pick another model in Settings › AI.
+whimsy-ai-card-error-offline = You’re offline. Connect to the internet, then try again.
+whimsy-ai-card-replaced-toast = Replaced the selected text
+whimsy-ai-card-inserted-toast = Inserted after the selected text
+whimsy-ai-card-copied-toast = Copied

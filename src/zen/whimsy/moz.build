@@ -265,6 +265,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAICommands.sys.mjs",
     "WhimsyAIViewShare.sys.mjs",
     "WhimsyAIViewShareChild.sys.mjs",
+    "WhimsyAISelectionCard.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

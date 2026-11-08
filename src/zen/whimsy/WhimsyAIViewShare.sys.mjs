@@ -17,7 +17,23 @@ function imageTextModule() {
   return imageText;
 }
 
-export class WhimsyAIViewShareParent extends JSWindowActorParent {}
+// Right-click targets' secret-field check, per tab: {sensitive, at}.
+const contextTargets = new WeakMap();
+
+export class WhimsyAIViewShareParent extends JSWindowActorParent {
+  receiveMessage(message) {
+    if (message.name == "Whimsy:CardUndone") {
+      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAISelectionCard.sys.mjs").WhimsyAISelectionCard.onUndone(this.browsingContext);
+      return;
+    }
+    if (message.name == "Whimsy:ContextTarget") {
+      const browser = this.browsingContext.top.embedderElement;
+      if (browser) {
+        contextTargets.set(browser, { sensitive: message.data?.sensitive ?? null, at: Date.now() });
+      }
+    }
+  }
+}
 
 export const WhimsyAIViewShare = {
   // Tests stand in for WhimsyImageText: {hasText(src) -> boolean|Promise}.
@@ -48,6 +64,12 @@ export const WhimsyAIViewShare = {
       }
     }
     return view;
+  },
+
+  /** The last right-click's target in a tab: {sensitive, at}, or null. */
+  contextTarget(browser) {
+    const found = browser ? contextTargets.get(browser) : null;
+    return found && Date.now() - found.at < 5000 ? found : null;
   },
 
   /** {editable, sensitive} for the selection in a frame. */

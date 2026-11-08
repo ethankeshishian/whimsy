@@ -66,8 +66,156 @@ export class WhimsyAIViewShareChild extends JSWindowActorChild {
         return this.document.execCommand("insertText", false, String(message.data?.text ?? ""));
       case "Whimsy:UndoReplace":
         return this.document.execCommand("undo");
+      // The right-click result card (WhimsyAISelectionCard).
+      case "Whimsy:CardMark":
+        return this.mark();
+      case "Whimsy:CardReplace":
+        return this.cardReplace(String(message.data?.text ?? ""));
+      case "Whimsy:CardInsertAfter":
+        return this.cardInsertAfter(String(message.data?.text ?? ""));
+      case "Whimsy:CardUndo":
+        return this.cardUndo();
     }
     return null;
+  }
+
+  // Right-click: whether the menu's target holds a secret, sent before the
+  // menu's own message so the AI rows know (no rows on password, card, or
+  // one-time-code fields).
+  handleEvent(event) {
+    if (event.type != "contextmenu") {
+      return;
+    }
+    const target = event.composedTarget ?? event.target;
+    const el = target?.nodeType == 1 ? target : target?.parentElement;
+    const host = el?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
+    const editingHost = host?.isContentEditable ? host.closest("[contenteditable]:not([contenteditable='false'])") : host;
+    this.sendAsyncMessage("Whimsy:ContextTarget", { sensitive: editingHost ? lazy.classifyField(editingHost) : null });
+  }
+
+  #field(el) {
+    return el && (el.localName == "textarea" || (el.localName == "input" && /^(text|search|email|url|tel|)$/.test(el.type ?? ""))) ? el : null;
+  }
+
+  // Remembers the selection the card acts on: its text, where it is on
+  // screen, and whether it can be edited.
+  mark() {
+    const doc = this.document;
+    const win = this.contentWindow;
+    const field = this.#field(doc.activeElement);
+    let rect = null;
+    if (field && field.selectionStart != field.selectionEnd) {
+      const { selectionStart: start, selectionEnd: end } = field;
+      this._mark = { field, start, end, text: field.value.slice(start, end) };
+      rect = field.getBoundingClientRect();
+    } else {
+      const selection = win.getSelection();
+      if (!selection?.rangeCount || selection.isCollapsed) {
+        return null;
+      }
+      const range = selection.getRangeAt(0).cloneRange();
+      const node = range.commonAncestorContainer;
+      const el = node.nodeType == 1 ? node : node.parentElement;
+      const host = el?.isContentEditable ? el.closest("[contenteditable]:not([contenteditable='false'])") ?? el : null;
+      this._mark = { range, host, text: selection.toString() };
+      rect = range.getBoundingClientRect();
+    }
+    const m = this._mark;
+    const editor = m.field ?? m.host;
+    return {
+      text: m.text,
+      editable: !!editor && !editor.readOnly && !editor.disabled,
+      sensitive: editor ? lazy.classifyField(editor) : null,
+      rect: { left: win.mozInnerScreenX + rect.left, top: win.mozInnerScreenY + rect.top, width: rect.width, height: rect.height },
+    };
+  }
+
+  #restore() {
+    const m = this._mark;
+    if (!m) {
+      return false;
+    }
+    if (m.field) {
+      m.field.focus();
+      m.field.setSelectionRange(m.start, m.end);
+      return true;
+    }
+    m.host?.focus();
+    const selection = this.contentWindow.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(m.range);
+    return true;
+  }
+
+  cardReplace(text) {
+    const m = this._mark;
+    if (!this.#restore() || !(m.field || m.host)) {
+      return false;
+    }
+    const done = this.document.execCommand("insertText", false, text);
+    // ⌘Z in the field, or the toast's Undo: the original comes back
+    // selected, and the card reopens.
+    const target = m.field ?? m.host;
+    const onInput = event => {
+      if (event.inputType != "historyUndo") {
+        return;
+      }
+      target.removeEventListener("input", onInput);
+      if (m.field) {
+        m.field.setSelectionRange(m.start, m.start + m.text.length);
+      }
+      this.sendAsyncMessage("Whimsy:CardUndone");
+    };
+    target.addEventListener("input", onInput);
+    return done;
+  }
+
+  // Undo puts the original back and selects it again.
+  cardUndo() {
+    const m = this._mark;
+    if (!m) {
+      return false;
+    }
+    if (m.block) {
+      m.block.remove();
+      m.block = null;
+      return true;
+    }
+    (m.field ?? m.host)?.focus();
+    return this.document.execCommand("undo");
+  }
+
+  cardInsertAfter(text) {
+    const m = this._mark;
+    const doc = this.document;
+    if (!m) {
+      return false;
+    }
+    if (m.field || m.host) {
+      this.#restore();
+      if (m.field) {
+        m.field.setSelectionRange(m.end, m.end);
+      } else {
+        this.contentWindow.getSelection().collapseToEnd();
+      }
+      return doc.execCommand("insertText", false, `\n\n${text}`);
+    }
+    // Read-only text: a marked block under its paragraph, gone on reload.
+    const node = m.range.endContainer;
+    const el = node.nodeType == 1 ? node : node.parentElement;
+    const block = el?.closest("p, li, blockquote, pre, h1, h2, h3, h4, h5, h6, td, dd, figcaption") ?? el;
+    if (!block) {
+      return false;
+    }
+    const box = doc.createElement("div");
+    box.setAttribute("data-whimsy-ai-inserted", "");
+    box.style.cssText =
+      "margin: 0.6em 0; padding: 0.5em 0.8em; border-inline-start: 3px solid #8b5cf6; border-radius: 4px; " +
+      "background: color-mix(in srgb, #8b5cf6 9%, transparent); white-space: pre-wrap; font: inherit; color: inherit;";
+    box.textContent = text;
+    block.after(box);
+    m.block = box;
+    return true;
   }
 
   measure() {

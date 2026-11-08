@@ -15,6 +15,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
+  WhimsyAISelectionCard: "resource:///modules/whimsy/WhimsyAISelectionCard.sys.mjs",
   WhimsyCommandBarUpdates: "resource:///modules/whimsy/WhimsyCommandBarUpdates.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
@@ -485,7 +486,10 @@ export const Whimsy = {
     // W23 ⌘K: the view's make-up when ⌘K opens, and what the selection sits in.
     ChromeUtils.registerWindowActor("WhimsyAIViewShare", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIViewShare.sys.mjs" },
-      child: { esModuleURI: "resource:///modules/whimsy/WhimsyAIViewShareChild.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyAIViewShareChild.sys.mjs",
+        events: { contextmenu: { capture: true } },
+      },
       matches: ["https://*/*", "http://*/*", "file:///*"],
       allFrames: true,
       messageManagerGroups: ["browsers"],
@@ -655,6 +659,8 @@ export const Whimsy = {
     run("ai-updates", () => lazy.WhimsyCommandBarUpdates.initWindow(win));
     // W23 commands: the store loads (and old skills move over) on the first window.
     run("ai-commands", () => lazy.WhimsyAICommands.initWindow(win));
+    // W23 commands: AI rows on selected text and their result card; each checks its switch and AI on use.
+    run("ai-selection-commands", () => lazy.WhimsyAISelectionCard.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

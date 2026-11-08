@@ -690,6 +690,7 @@ export const WhimsyContextCommands = {
         icon: cmd.icon,
         label: cmd.name,
         tag: lazy.l10n.formatValueSync(`whimsy-commands-result-${cmd.result}`),
+        link: cmd.result == "link",
         run: (w, s) => (cmd.result == "link" ? lazy.WhimsyAICommands.run(w, cmd.id, s) : this.runText(w, s, cmd)),
       });
     }
@@ -1017,7 +1018,7 @@ export const WhimsyVerbs = {
    * Firefox's Cmd+K, the web search. With AI on in a normal tab, the
    * context-aware menu (WhimsyContextCommands), selection or not.
    */
-  async openFromKey(win) {
+  async openFromKey(win, { textOnly = false } = {}) {
     const subject = this.enabled ? await this.subjectFor(win) : null;
     const aware = !!subject && contextOn(win);
     if (subject?.kind != "selection" && !aware) {
@@ -1027,6 +1028,10 @@ export const WhimsyVerbs = {
     if (aware) {
       await WhimsyContextCommands.prepare(win, subject);
       subject.groups = WhimsyContextCommands.rank(win, subject);
+      if (textOnly) {
+        // Right-click's More Commands…: the selection's text commands only.
+        subject.groups = subject.groups.filter(g => g.kind != "verbs").map(g => (g.kind == "yours" ? { ...g, rows: g.rows.filter(r => !r.link), all: g.all.filter(r => !r.link) } : g));
+      }
     }
     await this.start(win, subject);
     if (aware) {
