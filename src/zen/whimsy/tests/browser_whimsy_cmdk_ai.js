@@ -64,6 +64,17 @@ async function closeBar() {
   WhimsyVerbs.sessions.delete(window);
 }
 
+// A tab on a test page; the bar is closed afterwards even when a check fails.
+async function withPage(url, fn) {
+  await BrowserTestUtils.withNewTab(url, async browser => {
+    try {
+      await fn(browser);
+    } finally {
+      await closeBar();
+    }
+  });
+}
+
 async function select(browser, id) {
   await SpecialPowers.spawn(browser, [id], elementId => {
     const el = content.document.getElementById(elementId);
@@ -123,7 +134,7 @@ function groupsOf(rows) {
 }
 
 add_task(async function selection_order() {
-  await BrowserTestUtils.withNewTab(PAGE("article"), async browser => {
+  await withPage(PAGE("article"), async browser => {
     await select(browser, "sel");
     await cmdK();
     const groups = groupsOf(await shown());
@@ -145,7 +156,7 @@ add_task(async function text_field_writing_first_replaces_in_place() {
     calls.push(request);
     yield { type: "text", delta: "I think the 14th works better for us." };
   });
-  await BrowserTestUtils.withNewTab(PAGE("field"), async browser => {
+  await withPage(PAGE("field"), async browser => {
     await select(browser, "field");
     await cmdK();
     const rows = await shown();
@@ -171,7 +182,7 @@ add_task(async function text_field_writing_first_replaces_in_place() {
 });
 
 add_task(async function no_ai_rows_in_sensitive_field() {
-  await BrowserTestUtils.withNewTab(PAGE("otp"), async browser => {
+  await withPage(PAGE("otp"), async browser => {
     await select(browser, "otp");
     await cmdK();
     const rows = await shown();
@@ -182,14 +193,14 @@ add_task(async function no_ai_rows_in_sensitive_field() {
 });
 
 add_task(async function view_share_groups_and_ties() {
-  await BrowserTestUtils.withNewTab(PAGE("video"), async () => {
+  await withPage(PAGE("video"), async () => {
     await cmdK();
     const groups = groupsOf(await shown());
     is(groups[0].group, "whimsy-cmdk-group-video-top", "A page the video fills leads with video");
     is(groups[0].args.title, "Weeknight miso salmon", "The heading names the page");
     await closeBar();
   });
-  await BrowserTestUtils.withNewTab(PAGE("article"), async () => {
+  await withPage(PAGE("article"), async () => {
     await cmdK();
     const groups = groupsOf(await shown());
     is(groups[0].group, "whimsy-cmdk-group-article-top", "Text fills the view: article first");
@@ -207,7 +218,7 @@ add_task(async function product_page_compare_and_watch_first() {
   const fake = id => ({ id, group: "product", label: id, icon: "chrome://browser/skin/zen-icons/search-glass.svg", run() {} });
   WhimsyVerbs.registerVerb(fake("watch-price"));
   WhimsyVerbs.registerVerb(fake("compare"));
-  await BrowserTestUtils.withNewTab(PAGE("product"), async () => {
+  await withPage(PAGE("product"), async () => {
     await cmdK();
     const groups = groupsOf(await shown());
     is(groups[0].group, "whimsy-cmdk-group-product-top", "A product page leads with its commands");
@@ -219,7 +230,7 @@ add_task(async function product_page_compare_and_watch_first() {
 });
 
 add_task(async function foreign_selection_translate_first() {
-  await BrowserTestUtils.withNewTab(PAGE("foreign"), async browser => {
+  await withPage(PAGE("foreign"), async browser => {
     await select(browser, "sel");
     await cmdK();
     const rows = await shown();
@@ -230,7 +241,7 @@ add_task(async function foreign_selection_translate_first() {
 });
 
 add_task(async function order_frozen_while_open() {
-  await BrowserTestUtils.withNewTab(PAGE("article"), async browser => {
+  await withPage(PAGE("article"), async browser => {
     await cmdK();
     const before = groupsOf(await shown()).map(g => g.group);
     await SpecialPowers.spawn(browser, [], () => content.document.getElementById("late").scrollIntoView());
@@ -244,7 +255,7 @@ add_task(async function order_frozen_while_open() {
 });
 
 add_task(async function typing_flattens_then_ask_scoped() {
-  await BrowserTestUtils.withNewTab(PAGE("video"), async () => {
+  await withPage(PAGE("video"), async () => {
     await cmdK();
     await type("ask");
     const rows = await shown();
@@ -262,7 +273,7 @@ add_task(async function typing_flattens_then_ask_scoped() {
 
 add_task(async function these_n_images_heading() {
   WhimsyAIViewShare.imageText = { hasText: () => false };
-  await BrowserTestUtils.withNewTab(PAGE("images"), async () => {
+  await withPage(PAGE("images"), async () => {
     await cmdK();
     const groups = groupsOf(await shown());
     const images = groups.find(g => g.group == "whimsy-cmdk-group-image");
@@ -270,12 +281,12 @@ add_task(async function these_n_images_heading() {
     is((await shown()).find(r => r.id == "ai:ask-image")?.title, "Ask about these images", "Ask covers all of them");
     await closeBar();
   });
-  await BrowserTestUtils.withNewTab(PAGE("one-image"), async () => {
+  await withPage(PAGE("one-image"), async () => {
     await cmdK();
     is(groupsOf(await shown()).find(g => g.group == "whimsy-cmdk-group-image")?.args.count, 1, "One image twice the next one's area: This image");
     await closeBar();
   });
-  await BrowserTestUtils.withNewTab(PAGE("images"), async browser => {
+  await withPage(PAGE("images"), async browser => {
     await BrowserTestUtils.synthesizeMouseAtCenter("#b", { type: "mousemove" }, browser);
     await cmdK();
     is(groupsOf(await shown()).find(g => g.group == "whimsy-cmdk-group-image")?.args.count, 1, "The image under the pointer: This image");
@@ -285,7 +296,7 @@ add_task(async function these_n_images_heading() {
 });
 
 add_task(async function unavailable_greyed_with_reason() {
-  await BrowserTestUtils.withNewTab(PAGE("empty"), async () => {
+  await withPage(PAGE("empty"), async () => {
     await cmdK();
     await type("summ");
     const rows = await shown();
@@ -300,7 +311,7 @@ add_task(async function unavailable_greyed_with_reason() {
 
 add_task(async function ai_off_and_private_unchanged() {
   Services.prefs.setBoolPref("whimsy.ai.enabled", false);
-  await BrowserTestUtils.withNewTab(PAGE("article"), async browser => {
+  await withPage(PAGE("article"), async browser => {
     await select(browser, "sel");
     const subject = await cmdK();
     ok(!subject.groups, "AI off: today's verbs");

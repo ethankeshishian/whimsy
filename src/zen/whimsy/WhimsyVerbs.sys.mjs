@@ -748,6 +748,10 @@ export const WhimsyContextCommands = {
       }
       make(kind, this.groupLabel(kind, i == 0, title, view), rows, { top: kind == "product" ? 4 : TOP_ROWS });
     }
+    if (!kinds.includes("article")) {
+      // Not in view, but typing still finds the page's commands (greyed when they can't run).
+      make("article", { id: "whimsy-cmdk-group-article" }, AI_ROWS.article.map(def => this.aiRow(def, subject, view)), { top: 0 });
+    }
     const page = [...registered("page"), ...verbs].sort((a, b) => {
       const at = id => (PAGE_ORDER.includes(id) ? PAGE_ORDER.indexOf(id) : PAGE_ORDER.length);
       return at(a.id) - at(b.id);
@@ -1445,9 +1449,11 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
   // and with nothing to pick, Ask about what's on screen, then search.
   #contextRows(subject, query, addCallback) {
     if (!query.trim()) {
+      let first = true;
       for (const group of subject.groups) {
         for (const row of group.rows) {
-          addCallback(this, this.#result(subject, row, group.label));
+          addCallback(this, this.#result(subject, row, group.label, first));
+          first = false;
         }
       }
       return;
