@@ -92,6 +92,19 @@ add_task(async function settings_states() {
   }
 });
 
+// set-5.4, about a third into its open animation (openSheet()'s 160ms
+// opacity/scale spring).
+add_task(async function settings_scopes_sheet_mid() {
+  const page = await openConnectors();
+  try {
+    page.S.openSheet("connector-scopes", { connector: "microsoft" });
+    await whimsyShotMid("w23-connectors-set-5.4-opening", () => page.S._sheet?.animation, 50);
+  } finally {
+    page.S.closeSheet({ restore: false });
+    BrowserTestUtils.removeTab(page.tab);
+  }
+});
+
 function shell() {
   document.getElementById("zen-welcome")?.remove();
   const el = (tag, id, parent, cls) => {
@@ -114,7 +127,10 @@ function shell() {
   el("button", null, el("div", "zen-welcome-page-sidebar-buttons", side), "zen-big-accent-button");
   const content = el("div", "zen-welcome-page-content", pages);
   content.style.cssText = "flex:1;display:flex;background:light-dark(#f4f4f6,#232327)";
-  document.documentElement.append(root);
+  // Zen's own #zen-welcome is a child of #browser (ZenWelcome.mjs); a copy
+  // appended straight to <window> falls outside that box's layout and never
+  // paints, leaving the shot blank.
+  document.getElementById("browser").append(root);
   return content;
 }
 
@@ -176,4 +192,21 @@ add_task(async function onboarding_states() {
   await whimsyShotMid("w23-connectors-onb-5.2", () => WhimsyAIOnboarding.celebration?.animations[2], 400);
   WhimsyAIOnboarding.celebration?.overlay.remove();
   document.getElementById("zen-welcome")?.remove();
+});
+
+// A card's failure note, about halfway through its 300ms unfold
+// (`ui.unfold` in WhimsyAIOnboarding._card.set()).
+add_task(async function onb_card_failure_unfold_mid() {
+  WhimsyAIOnboarding.appleAvailable = async () => true;
+  const prevConnect = WhimsyAIOnboarding.connectProvider;
+  WhimsyAIOnboarding.connectProvider = () => Promise.reject(Object.assign(new Error("x"), { code: "sign-in-failed" }));
+  try {
+    const content = await renderPage(WhimsyAIOnboarding.pages(window)[0]);
+    content.querySelector('[data-id="openai"] [data-action="connect"]').click();
+    await whimsyShotMid("w23-connectors-onb-card-fail", () => content.querySelector('[data-id="openai"] .whimsy-onb-note')?.getAnimations()[0], 150);
+  } finally {
+    WhimsyAIOnboarding.connectProvider = prevConnect;
+    WhimsyAIOnboarding.cancelBusy();
+    document.getElementById("zen-welcome")?.remove();
+  }
 });
