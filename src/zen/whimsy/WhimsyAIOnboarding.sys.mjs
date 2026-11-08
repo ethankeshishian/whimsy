@@ -58,13 +58,6 @@ function reduced(win) {
   return win.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-// One rAF callback fires before the paint it's requesting; the a11y check
-// on the node a click just left can land in that same callback's slot, so
-// wait for the one after to be sure the paint (and the check) happened.
-function nextPaint(win, fn) {
-  win.requestAnimationFrame(() => win.requestAnimationFrame(fn));
-}
-
 export const WhimsyAIOnboarding = {
   session: null,
   // Tests set this to make every animation finish at once.
@@ -198,7 +191,7 @@ export const WhimsyAIOnboarding = {
           }
         };
         if (trail.firstChild) {
-          nextPaint(doc.defaultView, rebuild);
+          doc.defaultView.requestAnimationFrame(rebuild);
         } else {
           rebuild();
         }
@@ -601,12 +594,12 @@ export const WhimsyAIOnboarding = {
       ...["apple", "claude", "openai"].filter(id => s.providers.has(id)).map(id => PROVIDER_NAMES[id]),
       ...Object.keys(CONNECTORS).filter(id => s.services.has(id)).map(id => CONNECTOR_NAMES[id]),
     ];
-    // The frame after next, not just a tick later: building this overlay
-    // (and fading the card behind it) synchronously, or even a microtask
-    // or a single frame later, would mutate the page while the button that
-    // led here is still mid-click, before the a11y check (which can land
-    // in that same next-frame slot) sees it released.
-    nextPaint(win, () => {
+    // Next frame, not just a tick later: building this overlay (and fading
+    // the card behind it) synchronously, or even a microtask later, would
+    // mutate the page while the button that led here is still mid-click,
+    // before the a11y check (which runs after the event dispatch) sees it
+    // released.
+    win.requestAnimationFrame(() => {
       const overlay = this._el(doc, "div", "", null);
       overlay.id = "whimsy-onb-done";
       overlay.setAttribute("role", "dialog");
