@@ -303,7 +303,7 @@ add_task(async function unavailable_greyed_with_reason() {
     const row = rows.find(r => r.id == "ai:summarize-page");
     ok(row?.off, "Summarize page shows greyed");
     is(row.detail, "There’s no text here to summarize.", "with the reason");
-    ok(!row.element.querySelector("[selectable]") && !row.element.hasAttribute("row-selectable"), "and can't be selected");
+    ok(!row.element.row.querySelector("[selectable]") && !row.element.row.hasAttribute("row-selectable"), "and can't be selected");
     ok(rows.some(r => r.id == "web-search"), "Search is still there");
     await closeBar();
   });
