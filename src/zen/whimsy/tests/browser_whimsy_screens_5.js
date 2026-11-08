@@ -573,8 +573,8 @@ add_task(async function liquid_glass() {
 add_task(async function ai_provider_and_tidy_tabs() {
   await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
-    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProviderGroup"));
-    await TestUtils.waitForCondition(() => group.checkVisibility(), "AI provider card visible");
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIProviderList"));
+    await TestUtils.waitForCondition(() => group.checkVisibility(), "AI provider list visible");
     group.scrollIntoView({ block: "center" });
     await new Promise(resolve => browser.contentWindow.requestAnimationFrame(resolve));
     await shot("wave3-ai-provider", browser.browsingContext.currentWindowGlobal);

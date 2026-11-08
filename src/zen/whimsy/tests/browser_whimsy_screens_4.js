@@ -582,26 +582,26 @@ add_task(async function w10_settings_search() {
   }
 });
 
-// W10-28: Settings → AI, light and dark: Enable AI, the provider cards with
-// Claude's key field (left-aligned in its grid), the features; then AI off.
+// W10-28/W23: Settings → AI, light and dark: Enable AI, the provider list
+// with Claude's row, the features; then AI off.
 add_task(async function w10_settings_ai() {
   for (const dark of [0, 1]) {
     await setScheme(dark);
     await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.order", "claude"]] });
     await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
       const doc = browser.contentDocument;
-      const header = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAICategory"));
+      const header = await TestUtils.waitForCondition(() => doc.getElementById("category-whimsy-ai"));
       await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIEnable")?.checkVisibility(), "The AI pane shows");
-      await TestUtils.waitForCondition(() => doc.querySelector("#whimsyAIAccounts [data-provider=claude] .whimsy-ai-detail")?.textContent, "Claude's row");
+      await TestUtils.waitForCondition(() => doc.querySelector('#whimsyAIProviderList .whimsy-ai-item[data-provider="claude"] .whimsy-ai-item-detail')?.textContent, "Claude's row");
       await doc.l10n.translateFragment(doc.getElementById("mainPrefPane"));
       header.scrollIntoView({ block: "start" });
       await settled(doc);
       await shot(`w10-settings-ai-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
-      doc.getElementById("whimsyAIFeaturesGroup").scrollIntoView({ block: "start" });
+      doc.getElementById("whimsyAISection-features").scrollIntoView({ block: "start" });
       await settled(doc);
       await shot(`w10-settings-ai-features-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
       Services.prefs.setBoolPref("whimsy.ai.enabled", false);
-      await TestUtils.waitForCondition(() => !doc.getElementById("whimsyAIOffNote").hidden, "AI off");
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIOffCard")?.checkVisibility(), "AI off");
       header.scrollIntoView({ block: "start" });
       await settled(doc);
       await shot(`w10-settings-ai-off-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
