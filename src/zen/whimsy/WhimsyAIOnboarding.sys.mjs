@@ -130,14 +130,12 @@ export const WhimsyAIOnboarding = {
         const wasState = card.dataset.state;
         card.dataset.state = state;
         doc.l10n.setAttributes(detail, d ?? ui.defaultDetail, detailArgs);
-        // Rebuilding the trail here, synchronously, would detach a button
+        // Next frame, not just a tick later: rebuilding the trail here
+        // synchronously, or even a microtask later, would detach a button
         // that's still mid-click (its own click handler is what called
         // set()) before the a11y check (which runs after the event
-        // dispatch) sees it released. That only matters when there's an
-        // existing button to detach; the very first build (idle, trail
-        // still empty) has nothing mid-click and tests click its button
-        // right after render, so it stays synchronous.
-        const rebuild = () => {
+        // dispatch) sees it released.
+        doc.defaultView.requestAnimationFrame(() => {
           trail.replaceChildren();
           if (status) {
             const s = this._el(doc, "span", "whimsy-onb-status", trail);
@@ -187,12 +185,7 @@ export const WhimsyAIOnboarding = {
               ui.unfold = outer.animate({ gridTemplateRows: ["0fr", "1fr"], opacity: [0, 1] }, { duration: 300, easing: "cubic-bezier(0.34, 1.2, 0.64, 1)" });
             }
           }
-        };
-        if (trail.firstChild) {
-          doc.defaultView.requestAnimationFrame(rebuild);
-        } else {
-          rebuild();
-        }
+        });
       },
     };
     ui.set({ state: "idle", button: action });
