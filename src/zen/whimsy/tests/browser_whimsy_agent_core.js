@@ -477,21 +477,14 @@ add_task(async function step_screenshot_masks_before_capture() {
   await WhimsyClaudeReplay.clear();
   const task = newTask();
   const { tabId, tab } = await openTabFor(task, SENSITIVE);
+  ok(!tab.selected, "The agent's tab is in the background, as it usually is");
   const rect = await SpecialPowers.spawn(tab.linkedBrowser, ["4242 " + "4242 4242 4242"], card => {
     const cc = content.document.getElementById("cc");
     cc.value = card;
     const r = cc.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: content.innerWidth };
+    // Right of the digits, so the field's own colour shows without a mask.
+    return { x: r.right - 12, y: r.top + r.height / 2, w: content.innerWidth };
   });
-  for (const sel of [false, true]) {
-    if (sel) {
-      gBrowser.selectedTab = tab;
-    }
-    const diag = await own(task, "screenshot", { tabId });
-    const im = await decode("data:image/jpeg;base64," + diag.content.find(c => c.type == "image").data);
-    const sc = im.width / rect.w;
-    info(`DIAG selected=${sel} img=${im.width}x${im.height} rect=${JSON.stringify(rect)} px=${pixel(im.data, im.width, rect.x * sc, rect.y * sc)} left=${pixel(im.data, im.width, (rect.x - 100) * sc, rect.y * sc)}`);
-  }
   const shot = await ok_result(own(task, "screenshot", { tabId }), "screenshot");
   const image = await decode("data:image/jpeg;base64," + shot.content.find(c => c.type == "image").data);
   const scale = image.width / rect.w;

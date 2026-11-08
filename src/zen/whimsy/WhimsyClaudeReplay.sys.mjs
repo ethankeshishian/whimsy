@@ -253,20 +253,15 @@ export const WhimsyClaudeReplay = {
       return null;
     }
     const width = browser.clientWidth || browser.getBoundingClientRect().width || 1280;
-    const bitmap = await lazy.WhimsyAIContext.withMask(browser, () =>
-      wg.drawSnapshot(null, Math.min(1, THUMB_WIDTH / width), "rgb(255,255,255)"));
-    try {
-      if (!bitmap.width || !bitmap.height) {
-        return null;
-      }
-      const canvas = tab.ownerDocument.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
-      canvas.width = Math.min(THUMB_WIDTH, bitmap.width);
-      canvas.height = Math.max(1, Math.round((bitmap.height * canvas.width) / bitmap.width));
-      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL("image/jpeg", 0.6);
-    } finally {
-      bitmap.close();
+    const shot = await lazy.WhimsyClaude.capture(tab, Math.min(1, THUMB_WIDTH / width));
+    if (!shot) {
+      return null;
     }
+    const canvas = tab.ownerDocument.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+    canvas.width = Math.min(THUMB_WIDTH, shot.width);
+    canvas.height = Math.max(1, Math.round((shot.height * canvas.width) / shot.width));
+    canvas.getContext("2d").drawImage(shot, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.6);
   },
 
   // --- Storage ---

@@ -39,6 +39,8 @@
 // packaged HTTP server, a JSWindowActor for the page side, and
 // WindowGlobalParent.drawSnapshot for screenshots.
 
+import { MASK_COLOR } from "resource:///modules/whimsy/WhimsyAISensitive.sys.mjs";
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
@@ -1345,29 +1347,66 @@ export const WhimsyClaude = {
     }
   },
 
-  // Card, password, and code fields are covered before the capture.
-  async screenshot(tab) {
+  /**
+   * The tab's viewport as a canvas, with card, password, and code fields
+   * (and payment frames) covered before anything leaves this function: the
+   * page's own masks (WhimsyAIContext.withMask), and solid boxes painted
+   * over the same fields here, since a background tab may not paint the
+   * page's masks into a snapshot. Null for a private tab or no page.
+   */
+  async capture(tab, scale = 1) {
     const browser = tab.linkedBrowser;
-    const wg = browser.browsingContext?.currentWindowGlobal;
-    if (!wg) {
-      throw new ToolError("The page isn't ready yet.");
+    const wg = browser?.browsingContext?.currentWindowGlobal;
+    if (!wg || lazy.WhimsyAIContext.isPrivate(tab)) {
+      return null;
     }
-    const bitmap = await lazy.WhimsyAIContext.withMask(browser, () => wg.drawSnapshot(null, 1, "rgb(255,255,255)"));
+    this.registerActor();
+    const actor = wg.getActor(ACTOR);
+    const secrets = async () => (await actor.sendQuery("Claude:SecretRects").catch(() => null))?.rects;
+    let rects = await secrets();
+    if (!Array.isArray(rects)) {
+      // Without the field list nothing is captured.
+      return null;
+    }
+    const bitmap = await lazy.WhimsyAIContext.withMask(browser, async () => {
+      const snapshot = await wg.drawSnapshot(null, scale, "rgb(255,255,255)");
+      // Fields that appeared while the snapshot was taken are covered too.
+      rects = rects.concat((await secrets()) ?? []);
+      return snapshot;
+    });
     try {
       if (!bitmap.width || !bitmap.height) {
-        throw new ToolError("The page has nothing to show yet.");
+        return null;
       }
-      const scale = Math.min(1, MAX_SHOT_WIDTH / bitmap.width);
       const canvas = tab.ownerDocument.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
-      canvas.width = Math.round(bitmap.width * scale);
-      canvas.height = Math.round(bitmap.height * scale);
-      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      state.shotScale.set(tab, scale);
-      const data = canvas.toDataURL("image/jpeg", 0.8).replace(/^data:image\/jpeg;base64,/, "");
-      return { data, width: canvas.width, height: canvas.height };
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0);
+      ctx.fillStyle = MASK_COLOR;
+      for (const r of rects) {
+        ctx.fillRect(Math.floor(r.x * scale) - 1, Math.floor(r.y * scale) - 1, Math.ceil(r.width * scale) + 2, Math.ceil(r.height * scale) + 2);
+      }
+      return canvas;
     } finally {
       bitmap.close();
     }
+  },
+
+  // Card, password, and code fields are covered before the capture.
+  async screenshot(tab) {
+    const shot = await this.capture(tab, 1);
+    if (!shot) {
+      throw new ToolError("The page isn't ready yet.");
+    }
+    const scale = Math.min(1, MAX_SHOT_WIDTH / shot.width);
+    const canvas = tab.ownerDocument.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+    canvas.width = Math.round(shot.width * scale);
+    canvas.height = Math.round(shot.height * scale);
+    canvas.getContext("2d").drawImage(shot, 0, 0, canvas.width, canvas.height);
+    state.shotScale.set(tab, scale);
+    const data = canvas.toDataURL("image/jpeg", 0.8).replace(/^data:image\/jpeg;base64,/, "");
+    return { data, width: canvas.width, height: canvas.height };
   },
 
   // --- The prompt-injection shield ---
