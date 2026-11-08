@@ -260,6 +260,8 @@ add_task(async function shots_tasks_strip() {
   const off = WhimsyChat.registerTaskSource({ id: "shots", list: () => tasks, show() {}, stop() {} });
   await whimsyBothSchemes(NAME("fu-agent-chat-dec-13"), async () => {
     await openChat();
+    chat().newChat();
+    await TestUtils.waitForCondition(() => chat().ready, "A new chat");
     await TestUtils.waitForCondition(() => part(".whimsy-chat-tasks[collapsed]"), "Two tasks fold to one line");
     await document.l10n.translateFragment(el());
     return closeChat;

@@ -610,10 +610,15 @@ class ChatPanel {
 
   autosize() {
     const c = this.composer;
-    c.style.height = "auto";
-    c.style.height = `${Math.min(c.scrollHeight, 160)}px`;
+    c.style.height = "";
+    const full = c.scrollHeight;
+    if (c.value && full > c.clientHeight) {
+      c.style.height = `${Math.min(full, 160)}px`;
+    }
+    c.style.overflowY = full > 160 ? "auto" : "hidden";
     this.sendButton.toggleAttribute("off", !c.value.trim() && !this.streams.has(this.thread?.id));
   }
+
 
   // ---- Tabs and threads ----
 
@@ -869,7 +874,7 @@ class ChatPanel {
     const row = h(doc, "div", { class: "whimsy-chat-actions" });
     for (const action of lazy.WhimsyChat.answerActions(msg)) {
       const button = h(doc, "button", { class: "whimsy-chat-btn", l10n: action.l10nId, onclick: () => action.run(win, msg) });
-      button.append(h(doc, "span", { class: "whimsy-chat-icon", style: `mask-image: url("${action.icon}")`, "aria-hidden": "true" }));
+      button.append(h(doc, "span", { class: "whimsy-chat-icon", style: `--whimsy-chat-icon: url("${action.icon}")`, "aria-hidden": "true" }));
       row.append(button);
     }
     return row;

@@ -130,10 +130,11 @@
   flex: none;
   width: 16px;
   height: 16px;
-  background-color: currentColor;
-  mask: var(--whimsy-chat-icon) center / contain no-repeat;
+  background: var(--whimsy-chat-icon) center / contain no-repeat;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
 }
-.whimsy-chat-icon[data-icon="menu"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/menu.svg"); }
+.whimsy-chat-icon[data-icon="menu"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/chat-list.svg"); }
 .whimsy-chat-icon[data-icon="plus"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/plus.svg"); }
 .whimsy-chat-icon[data-icon="chat-hide"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/chat-hide.svg"); }
 .whimsy-chat-icon[data-icon="back"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/back.svg"); }
@@ -592,7 +593,9 @@
 }
 .whimsy-chat-input {
   flex: 1;
-  min-height: 20px;
+  box-sizing: border-box;
+  height: 28px;
+  overflow: hidden;
   max-height: 160px;
   margin: 0;
   padding: 4px 0;

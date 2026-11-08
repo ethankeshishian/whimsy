@@ -143,7 +143,7 @@ add_task(async function hide_button_tooltip_and_icon() {
   const hide = part("#whimsy-chat-hide-button");
   await document.l10n.translateFragment(hide);
   is(hide.getAttribute("title"), "Hide chat ⌘E", "The tooltip names the key");
-  ok(getComputedStyle(hide.querySelector(".whimsy-chat-icon")).maskImage.includes("chat-hide.svg"), "Its icon is Zen's sidebar icon, flipped");
+  ok(getComputedStyle(hide.querySelector(".whimsy-chat-icon")).backgroundImage.includes("chat-hide.svg"), "Its icon is Zen's sidebar icon, flipped");
   is(hide.getAttribute("aria-keyshortcuts"), "Meta+E", "VoiceOver hears the key");
   EventUtils.synthesizeMouseAtCenter(hide, {});
   await settle();

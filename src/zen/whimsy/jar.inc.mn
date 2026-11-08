@@ -210,3 +210,4 @@
         content/browser/whimsy/icons/updates.svg (../../zen/whimsy/content/icons/updates.svg)
 # W23 chat-shell: the chat panel
         content/browser/whimsy/whimsy-chat.css (../../zen/whimsy/content/whimsy-chat.css)
+        content/browser/whimsy/icons/chat-list.svg (../../zen/whimsy/content/icons/chat-list.svg)
