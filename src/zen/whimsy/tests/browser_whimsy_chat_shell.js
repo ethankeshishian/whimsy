@@ -227,10 +227,35 @@ add_task(async function resize_bounds_and_double_click_reset() {
   await drag(400);
   ok(chat().isOpen, "A drag that isn't nearly shut keeps chat open");
   is(Math.round(panel.getBoundingClientRect().width) >= 320, true, "No narrower than 320px");
+  const diag = [];
+  const t0 = performance.now();
+  const snap = label =>
+    diag.push(
+      `${label} t=${(performance.now() - t0).toFixed(2)} w=${Math.round(panel.getBoundingClientRect().width)} ` +
+        `resizing=${splitter().hasAttribute("resizing")} anim=${el()
+          .getAnimations({ subtree: true })
+          .map(a => `${a.playState}`)
+          .join(",")}`
+    );
+  const log = e => diag.push(`${e.type} detail=${e.detail} t=${(performance.now() - t0).toFixed(2)}`);
+  for (const t of ["mousedown", "mouseup", "click", "dblclick", "mousemove"]) {
+    window.addEventListener(t, log, true);
+  }
+  snap("before-click1");
   EventUtils.synthesizeMouse(splitter(), 4, 100, { clickCount: 1 });
+  snap("after-click1");
   EventUtils.synthesizeMouse(splitter(), 4, 100, { clickCount: 2 });
+  snap("after-click2-sync");
   await settle();
-  is(Math.round(panel.getBoundingClientRect().width), 380, "Double-click resets the width");
+  snap("after-settle");
+  for (const t of ["mousedown", "mouseup", "click", "dblclick", "mousemove"]) {
+    window.removeEventListener(t, log, true);
+  }
+  const widthNow = Math.round(panel.getBoundingClientRect().width);
+  if (widthNow != 380) {
+    info(`DBLCLICK DIAG FAIL: ${diag.join(" | ")}`);
+  }
+  is(widthNow, 380, "Double-click resets the width");
   ok(!Services.prefs.prefHasUserValue("whimsy.chat.width"), "and forgets it");
   await closeChat();
 });
