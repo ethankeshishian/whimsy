@@ -5475,7 +5475,6 @@ whimsy-ai-openai-welcome-title = ChatGPT connected
 whimsy-ai-openai-welcome-signed-in = Signed in with your ChatGPT plan
 whimsy-ai-openai-done = Done
 whimsy-ai-openai-ineligible = This ChatGPT plan can’t be used here. Use an OpenAI API key instead.
-whimsy-ai-manage-usage = Manage usage
 whimsy-ai-ollama-address = Server address
 whimsy-ai-ollama-looking = Looking for Ollama…
 # $count (Number)

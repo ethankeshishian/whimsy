@@ -47,6 +47,7 @@
 # fixB: the Archive as a Library section
 # W11-15: the Hidden Spaces panel's empty-state glyph
         content/browser/whimsy/icons/eye-slash.svg (../../zen/whimsy/content/icons/eye-slash.svg)
+        content/browser/whimsy/icons/card.svg (../../zen/whimsy/content/icons/card.svg)
         content/browser/whimsy/icons/reader-on.svg (../../zen/whimsy/content/icons/reader-on.svg)
         content/browser/whimsy/icons/redact.svg (../../zen/whimsy/content/icons/redact.svg)
 # W21: the "⋯" Call Options button (Zen's own icon set has no overflow glyph)

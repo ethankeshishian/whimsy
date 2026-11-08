@@ -313,8 +313,8 @@ var WhimsyAISettings = {
     const facts = this.el("div", "whimsy-ai-facts", sec);
     for (const [icon, id] of [
       ["chrome://browser/content/whimsy/icons/eye-slash.svg", "private"],
-      ["chrome://browser/skin/zen-icons/lock-closed.svg", "hidden"],
-      ["chrome://browser/skin/zen-icons/card.svg", "cards"],
+      ["chrome://browser/skin/zen-icons/security.svg", "hidden"],
+      ["chrome://browser/content/whimsy/icons/card.svg", "cards"],
     ]) {
       const fact = this.el("div", "whimsy-ai-fact", facts);
       const img = this.el("img", "", fact);

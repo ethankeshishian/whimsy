@@ -626,7 +626,7 @@
     height: 14px;
     margin-top: 2px;
     background: var(--note, var(--ai-muted));
-    mask: url("chrome://browser/skin/zen-icons/warning.svg") center / 14px no-repeat;
+    mask: url("chrome://global/skin/icons/warning.svg") center / 14px no-repeat;
   }
 
   &[data-tone="warn"] {
@@ -1161,7 +1161,7 @@
 
     &::before {
       background: currentColor;
-      mask: url("chrome://browser/skin/zen-icons/warning.svg") center / 14px no-repeat;
+      mask: url("chrome://global/skin/icons/warning.svg") center / 14px no-repeat;
     }
   }
 }
