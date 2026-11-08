@@ -195,7 +195,11 @@ add_task(async function shots_updates() {
     EventUtils.synthesizeKey("KEY_Enter");
     await TestUtils.waitForCondition(() => gURLBar.view.selectedElement?.classList.contains("whimsy-remind-option"), "The menu is open");
     await new Promise(r => setTimeout(r, 250));
-    return () => closeBar();
+    return async () => {
+      EventUtils.synthesizeKey("KEY_Escape");
+      await TestUtils.waitForCondition(() => !gURLBar.view.panel.querySelector(".whimsy-remind-option"), "Esc closed the menu");
+      await closeBar();
+    };
   });
   await whimsyBothSchemes(NAME("cmd-2.7"), async () => {
     await seed();
