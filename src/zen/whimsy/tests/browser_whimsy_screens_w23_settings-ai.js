@@ -284,6 +284,20 @@ add_task(async function shots_header_and_features() {
     await TestUtils.waitForCondition(() => page.$("whimsyAIConfirmSlot").querySelector(".whimsy-ai-confirm"), "Turn off AI? asks");
   }, { opts: { top: true } });
   await shoot("dec-15", listReady, { opts: { top: true, order: "apple,openai" } });
+  // dec-9: Firefox's chatbot, link previews, and Suggest tab groups are gone;
+  // Features holds Whimsy's own link previews and Tidy Tabs.
+  await shoot("dec-9", async page => {
+    await listReady(page);
+    page.S.jumpTo("features");
+    await TestUtils.waitForCondition(() => page.$("whimsyAIJump").querySelector('[aria-current="true"]')?.dataset.section == "features", "Features is marked");
+    await new Promise(r => setTimeout(r, 800));
+    const doc = page.$("whimsyAIPage").ownerDocument;
+    const firefox = [...doc.querySelectorAll('[data-category="paneWhimsyAI"] [preference], #whimsyAIPage [preference]')]
+      .map(node => node.getAttribute("preference"))
+      .filter(pref => /^browser\.(ml\.|tabs\.groups\.smart)/.test(pref));
+    Assert.deepEqual(firefox, [], "No Firefox chatbot, link preview, or tab group suggestion controls");
+    ok(visible(page.$("whimsyAILinkPreviews")) && visible(page.$("whimsyAITidyTabs")), "Whimsy's own versions show");
+  });
 });
 
 add_task(async function shots_list() {
