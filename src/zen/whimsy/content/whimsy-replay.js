@@ -158,7 +158,7 @@
     }
     $("whimsy-replay-run-title").textContent = runName(run);
     $("whimsy-replay-run-meta").textContent =
-      `${when.format(run.start)} – ${clock.format(run.end)}` + (run.client ? ` · ${run.client}` : "");
+      `${when.format(run.start)} – ${clock.format(run.end)}` + (run.clientName ? ` · ${run.clientName}` : "");
     $("whimsy-replay-trimmed").hidden = !run.trimmed;
     renderStrip();
     show(0);

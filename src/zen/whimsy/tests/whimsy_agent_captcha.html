@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>One more step</title></head>
+<body>
+<h1>One more step</h1>
+<div class="g-recaptcha" data-sitekey="test">
+  <label><input id="robot" type="checkbox"> I'm not a robot</label>
+</div>
+<p id="result"></p>
+<script>
+  document.getElementById("robot").addEventListener("click", () => {
+    document.getElementById("result").textContent = "clicked";
+  });
+</script>
+</body>
+</html>

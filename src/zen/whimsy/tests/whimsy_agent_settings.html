@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Account settings</title>
+<style>body { font: 14px sans-serif; margin: 20px; } section { margin: 16px 0; }</style>
+</head>
+<body>
+<h1>Account settings</h1>
+<section>
+  <h2>Privacy</h2>
+  <label><input id="private" type="checkbox"> Private account</label>
+  <button id="save" type="button">Save changes</button>
+</section>
+<section>
+  <h2>Two-factor authentication</h2>
+  <button id="twofa" type="button">Turn off two-factor authentication</button>
+  <button id="password" type="button">Change password</button>
+</section>
+<form id="signin">
+  <label>Email <input id="user" name="email" value="ethan@example.org"></label>
+  <label>Password <input id="pw" type="password" name="password"></label>
+  <button id="go" type="submit">Sign in</button>
+</form>
+<p id="result"></p>
+<script>
+  for (const id of ["save", "twofa", "password"]) {
+    document.getElementById(id).addEventListener("click", () => {
+      document.getElementById("result").textContent += id + " ";
+    });
+  }
+  document.getElementById("signin").addEventListener("submit", e => {
+    e.preventDefault();
+    document.getElementById("result").textContent += "signed-in ";
+  });
+</script>
+</body>
+</html>

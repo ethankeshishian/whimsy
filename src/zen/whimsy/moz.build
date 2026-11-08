@@ -231,6 +231,13 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyChatThreads.sys.mjs",
 ]
 
+# W23 agent-core
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAgentGuard.sys.mjs",
+    "WhimsyAgentTasks.sys.mjs",
+    "WhimsyOutsideAgents.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

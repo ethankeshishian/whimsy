@@ -3,14 +3,16 @@
 
 "use strict";
 
-// Agent replay: each Claude run is kept as a timeline of steps (tool,
-// target, URL, thumbnail) in the profile, bounded and pruned; Stop starts a
-// new run; private tabs are never captured; Clear history clears it; and
-// whimsy://replay lists runs, scrubs steps, opens a step's page and copies
-// the log.
+// Activity (agent replay): each agent task is kept as a run, a timeline of
+// steps (tool, target, URL, masked thumbnail) in the AI store, bounded and
+// pruned; a stopped task's app starts a new run; private tabs are never
+// captured; Clear history clears it; and whimsy://replay lists runs, scrubs
+// steps, opens a step's page and copies the log.
 
 const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
 const { WhimsyClaudeReplay } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs");
+const { WhimsyAgentTasks } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAgentTasks.sys.mjs");
+const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
 const { WhimsyProtocol } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProtocol.sys.mjs");
 const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Preferences.sys.mjs");
 
@@ -19,14 +21,17 @@ const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Prefe
 // update-seen check; none of that is this file's to leave behind.
 const LEAKED_PREFS = ["whimsy.claude.port", "whimsy.stats.tabs-opened", "whimsy.updates.seen-install"];
 
-const ENABLED = "whimsy.claude.enabled";
+const ENABLED = "whimsy.ai.outside-agents";
+const AI_ENABLED = "whimsy.ai.enabled";
 const KEEP = "whimsy.claude.replay";
-const SPACE = "whimsy.claude.space-id";
 const PAGE =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_claude.html";
-const FILE = PathUtils.join(PathUtils.profileDir, "whimsy-claude", "runs.json");
+const FILE = PathUtils.join(WhimsyAIStore.dir, "agent-runs.json");
+const aiHadUserValue = Services.prefs.prefHasUserValue(AI_ENABLED);
+const aiValue = Services.prefs.getBoolPref(AI_ENABLED, false);
 
-const realConfirm = WhimsyClaude.confirmSite;
+// The outside app's connection (one task per session).
+let session = null;
 
 function textOf(result) {
   return result.content
@@ -36,12 +41,13 @@ function textOf(result) {
 }
 
 async function okCall(name, args) {
-  const result = await WhimsyClaude.callTool(name, args);
+  const result = await WhimsyClaude.callTool(name, args, { session, clientName: "claude-code" });
   ok(!result.isError, `${name} succeeds: ${textOf(result).slice(0, 120)}`);
   return result;
 }
 
 async function turnOn() {
+  Services.prefs.setBoolPref(AI_ENABLED, true);
   Services.prefs.setBoolPref(ENABLED, true);
   await WhimsyClaude.start();
   ok(WhimsyClaude.running, "Claude is on");
@@ -50,12 +56,14 @@ async function turnOn() {
 // A short run: open the test page, read it, find and click Go.
 async function aRun() {
   await turnOn();
+  const ctx = {};
   await WhimsyClaude.handleRpc({
     jsonrpc: "2.0",
     id: 1,
     method: "initialize",
     params: { protocolVersion: "2025-06-18", clientInfo: { name: "claude-code" } },
-  });
+  }, ctx);
+  session = ctx.newSession;
   const { tabId } = JSON.parse(textOf(await okCall("tabs_create", { url: PAGE })));
   const tree = textOf(await okCall("read_page", { tabId }));
   await okCall("find", { tabId, query: "go button" });
@@ -70,22 +78,22 @@ async function aRun() {
 
 add_setup(async function () {
   await gZenWorkspaces.promiseInitialized;
-  WhimsyClaude.confirmSite = async () => "once";
   await WhimsyClaudeReplay.clear();
   const original = new Map(
     LEAKED_PREFS.filter(name => Services.prefs.prefHasUserValue(name)).map(name => [name, Preferences.get(name)])
   );
   registerCleanupFunction(async () => {
-    WhimsyClaude.confirmSite = realConfirm;
-    WhimsyClaude.forgetSitePermissions();
-    const spaceId = Services.prefs.getStringPref(SPACE, "");
-    for (const pref of [ENABLED, KEEP, SPACE]) {
+    WhimsyAgentTasks._setTimerForTesting(null);
+    WhimsyAgentTasks._resetForTesting();
+    for (const pref of [ENABLED, KEEP]) {
       Services.prefs.clearUserPref(pref);
     }
     WhimsyClaude.shutdown();
     await WhimsyClaudeReplay.clear();
-    if (spaceId && gZenWorkspaces.getWorkspaces().some(w => w.uuid == spaceId)) {
-      await gZenWorkspaces.removeWorkspace(spaceId);
+    if (aiHadUserValue) {
+      Services.prefs.setBoolPref(AI_ENABLED, aiValue);
+    } else {
+      Services.prefs.clearUserPref(AI_ENABLED);
     }
     for (const name of LEAKED_PREFS) {
       if (original.has(name)) {
@@ -102,7 +110,8 @@ add_task(async function test_records_a_run() {
   const runs = await WhimsyClaudeReplay.runs();
   is(runs.length, 1, "One run");
   const [run] = runs;
-  is(run.client, "claude-code", "named after the client that connected");
+  is(run.clientName, "claude-code", "named after the client that connected");
+  is(run.client, "outside", "as an outside app's run");
   Assert.deepEqual(
     run.steps.map(s => s.tool),
     ["tabs_create", "read_page", "find", "click"],
@@ -117,14 +126,14 @@ add_task(async function test_records_a_run() {
   const saved = await IOUtils.readJSON(FILE);
   is(saved.runs[0].steps.length, 4, "with every step");
 
-  WhimsyClaude.stop(window);
-  await turnOn();
+  WhimsyClaude.stopTask(WhimsyAgentTasks.forSession(session).id);
+  ok((await WhimsyClaude.callTool("tabs_list", {}, { session })).isError, "The app is told its task stopped");
   await okCall("tabs_list");
-  const failed = await WhimsyClaude.callTool("read_page", { tabId: 99999 });
+  const failed = await WhimsyClaude.callTool("read_page", { tabId: 99999 }, { session });
   ok(failed.isError, "A failing call");
   await WhimsyClaudeReplay.flush();
   const after = await WhimsyClaudeReplay.runs();
-  is(after.length, 2, "Stop starts a new run");
+  is(after.length, 2, "A stopped task's next call starts a new run");
   Assert.deepEqual(after[0].steps.map(s => s.tool), ["tabs_list", "read_page"], "The newest run comes first");
   ok(!after[0].steps[1].ok && after[0].steps[1].error, "Failures are recorded with why");
   ok(WhimsyClaudeReplay.logText(after[1]).includes(`click ref_`), "The log reads as text");
@@ -140,8 +149,8 @@ add_task(async function test_private_never_captured() {
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
   ok(!WhimsyClaudeReplay.capturable(tab), "A private window's tab is never capturable");
   const tabId = WhimsyClaude.tabId(tab);
-  ok((await WhimsyClaude.callTool("read_page", { tabId })).isError, "Claude can't use it");
-  await WhimsyClaudeReplay.record({ tool: "read_page", args: {}, generation: 0 }, tab);
+  ok((await WhimsyClaude.callTool("read_page", { tabId }, { session: "private-test" })).isError, "The agent can't use it");
+  await WhimsyClaudeReplay.record({ tool: "read_page", args: {} }, tab);
   await WhimsyClaudeReplay.flush();
   is((await WhimsyClaudeReplay.runs()).length, 0, "and nothing about it is recorded");
   await BrowserTestUtils.closeWindow(win);
@@ -183,7 +192,7 @@ add_task(async function test_bounded() {
   });
 
   let runs = Array.from({ length: LIMITS.runs + 10 }, (_, i) => make(i, now - i * 1000));
-  runs.push(make("old", now - LIMITS.ageMs - 1000));
+  runs.push(make("old", now - 31 * 24 * 60 * 60 * 1000));
   runs = WhimsyClaudeReplay.prune(runs, now);
   is(runs.length, LIMITS.runs, "Only the newest runs are kept");
   ok(!runs.some(r => r.id == "rold"), "and old runs are dropped");
@@ -242,7 +251,7 @@ add_task(async function test_replay_page() {
     ok(true, "Open Page opens the step's page");
 
     await SimpleTest.promiseClipboardChange(
-      text => text.startsWith("Claude run") && text.includes("tabs_create") && text.includes(PAGE),
+      text => text.startsWith("claude-code run") && text.includes("tabs_create") && text.includes(PAGE),
       () => $("whimsy-replay-copy").click()
     );
     ok(true, "Copy Log copies the run");
@@ -254,8 +263,8 @@ add_task(async function test_replay_page() {
   BrowserTestUtils.removeTab(tab);
 });
 
-// wave7/security L5: replay keeps no magic-link tokens (query strings) and
-// no one-time codes Claude typed or filled.
+// wave7/security L5: Activity keeps no magic-link tokens (query strings).
+// W23: the agent never types one-time codes at all; the person does.
 add_task(async function test_no_tokens_or_codes_on_disk() {
   await turnOn();
   const url = PAGE + "?token=SECRET-TOKEN-123#frag";
@@ -270,15 +279,22 @@ add_task(async function test_no_tokens_or_codes_on_disk() {
     .find(l => l.includes("Type a sandwich"))
     ?.match(/\[(ref_\d+)\]/)?.[1];
   ok(ref, "The code field has a ref");
-  await okCall("type", { tabId, ref, text: "482913" });
-  await okCall("form_input", { tabId, ref, value: "771204" });
+  // Hold timers fire at once: the held calls come straight back.
+  WhimsyAgentTasks._setTimerForTesting((ms, fn) => (Promise.resolve().then(fn), () => {}));
+  const typed = await WhimsyClaude.callTool("type", { tabId, ref, text: "482913" }, { session });
+  ok(textOf(typed).startsWith("Waiting for the person"), "A code field waits for the person");
+  is(WhimsyAgentTasks.forSession(session).pause?.kind, "sign-in", "who types the code themselves");
+  WhimsyAgentTasks._setTimerForTesting(null);
+  WhimsyAgentTasks.decide(WhimsyAgentTasks.forSession(session).id, "skip");
+  ok(textOf(await WhimsyClaude.callTool("type", { tabId, ref, text: "482913" }, { session })).includes("chose not to"), "Skipped");
+  is(await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("q").value), "", "Nothing typed");
   await okCall("navigate", { tabId, url: PAGE + "?magic=SECRET-MAGIC-456" });
   await WhimsyClaudeReplay.flush();
   const saved = await IOUtils.readUTF8(FILE);
   ok(!saved.includes("SECRET-TOKEN-123") && !saved.includes("SECRET-MAGIC-456"), "No query strings on disk");
   ok(!saved.includes("482913") && !saved.includes("771204"), "No one-time codes on disk");
   const [run] = await WhimsyClaudeReplay.runs();
-  ok(run.steps.some(s => s.tool == "type") && run.steps.some(s => s.tool == "form_input"), "The steps themselves are kept");
+  ok(run.steps.some(s => s.tool == "type"), "The step itself is kept");
   ok(run.steps.some(s => s.url == PAGE), "with the page's address");
   BrowserTestUtils.removeTab(tab);
 });

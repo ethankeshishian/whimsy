@@ -2,20 +2,30 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// The page half of the Claude space (WhimsyClaude.sys.mjs): reads a page as
+// The page half of the agent tools (WhimsyClaude.sys.mjs): reads a page as
 // an accessibility-style outline with element refs, finds elements, and
 // clicks, types and fills forms in it. It's only registered while the user
 // has turned Claude on, only runs in http(s) top-level pages, and only
 // answers the parent; it never sends anything on its own.
 //
-// It never reveals or fills password fields (Whimsy keeps Claude away from
-// passwords and the password manager entirely).
+// It never reveals or fills password, card, or one-time-code fields (W23:
+// WhimsyAISensitive.classifyField, the one redactor); their values are left
+// out of everything it reads, and text it returns has card runs, keys, and
+// any secret field's value taken out. Claude:Describe tells the parent's
+// guardrails what a control would do before it's pressed.
 //
 // With the prompt-injection shield on (data.shield, see
 // WhimsyClaudeShield.sys.mjs), reading skips text the person can't see:
 // aria-hidden, zero opacity, zero size, off-screen, clipped, tiny or
 // background-colored text. What it skipped comes back as `concealed`, so
 // the parent can check it for hidden instructions; it never reaches Claude.
+
+import {
+  classifyField,
+  fieldValue,
+  redactText,
+  withoutValues,
+} from "resource:///modules/whimsy/WhimsyAISensitive.sys.mjs";
 
 const MAX_LINES = 1500;
 const MAX_TEXT = 60000;
@@ -114,17 +124,26 @@ function isPassword(el) {
   return el?.localName == "input" && (el.type == "password" || /password/i.test(el.autocomplete || ""));
 }
 
-// A one-time code or card field: Claude may fill it, but agent replay
-// doesn't keep what went in (security L5).
-function isSecret(el) {
-  if (el?.localName != "input") {
-    return false;
+// "password", "card", "otp", or null: fields the agent never reads or fills.
+function sensitiveKind(el) {
+  if (!el || el.nodeType != 1) {
+    return null;
   }
-  // The attribute's own tokens: the autocomplete getter returns "" for a
-  // token Gecko doesn't map to an autofill field.
-  const tokens = `${el.getAttribute("autocomplete") || ""} ${el.autocomplete || ""}`.toLowerCase().split(/\s+/);
-  return tokens.some(t => t == "one-time-code" || t == "cc-number" || t == "cc-csc");
+  try {
+    return isPassword(el) ? "password" : classifyField(el);
+  } catch (e) {
+    return null;
+  }
 }
+
+const REFUSED = {
+  password: "Whimsy doesn't let the agent type into password fields. The person signs in; saved logins are filled by the browser.",
+  card: "Whimsy doesn't let the agent see or fill card fields. The person fills them (saved cards are filled by the browser).",
+  otp: "Whimsy doesn't let the agent type one-time codes. The person types the code themselves.",
+};
+
+const CAPTCHA = /\b(re)?captcha\b|hcaptcha|turnstile|cf-challenge|challenge-platform|arkose|funcaptcha/i;
+const CAPTCHA_TEXT = /\b(i'?m not a robot|verify (that )?you(?:'| a)re (a )?human|are you (a )?(human|robot)|prove you'?re human|security check)\b/i;
 
 export class WhimsyClaudeChild extends JSWindowActorChild {
   #refs = new Map();
@@ -155,6 +174,10 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
           return this.formInput(data);
         case "Claude:Scroll":
           return this.scroll(data);
+        case "Claude:Describe":
+          return this.describeTarget(data);
+        case "Claude:Captcha":
+          return { captcha: this.pageCaptcha() };
       }
     } catch (e) {
       return { error: String(e?.message || e) };
@@ -270,7 +293,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       return clip(direct);
     }
     if (el.labels?.length) {
-      const text = [...el.labels].map(l => l.textContent).join(" ");
+      const text = [...el.labels].map(l => this.labelText(l)).join(" ");
       if (text.trim()) {
         return clip(text);
       }
@@ -287,6 +310,19 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     return clip(el.getAttribute("title") || el.getAttribute("placeholder") || "");
   }
 
+  // A label's own words, never the text of a field inside it (a
+  // textarea's draft, a select's options).
+  labelText(label) {
+    const walker = this.doc.createTreeWalker(label, this.contentWindow.NodeFilter.SHOW_TEXT);
+    let text = "";
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.parentElement?.closest("textarea, select, [contenteditable]")) {
+        text += node.data;
+      }
+    }
+    return text;
+  }
+
   details(el, role) {
     const parts = [];
     if (role == "heading") {
@@ -298,8 +334,8 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     if (el.localName == "input" || el.localName == "textarea") {
       if (el.type == "checkbox" || el.type == "radio") {
         parts.push(el.checked ? "checked" : "unchecked");
-      } else if (isPassword(el)) {
-        parts.push("password (hidden)");
+      } else if (sensitiveKind(el)) {
+        parts.push(`${sensitiveKind(el)} (hidden)`);
       } else if (el.value) {
         parts.push(`value="${clip(el.value, 200)}"`);
       }
@@ -307,7 +343,9 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
         parts.push(`placeholder="${clip(el.placeholder)}"`);
       }
     }
-    if (el.localName == "select") {
+    if (el.localName == "select" && sensitiveKind(el)) {
+      parts.push(`${sensitiveKind(el)} (hidden)`);
+    } else if (el.localName == "select") {
       const selected = [...el.selectedOptions].map(o => clip(o.label)).join(", ");
       parts.push(`value="${selected}"`);
       parts.push(`options=[${[...el.options].slice(0, 30).map(o => `"${clip(o.label, 40)}"`).join(", ")}]`);
@@ -524,6 +562,10 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       if (["select", "iframe", "textarea", "input"].includes(el.localName)) {
         return;
       }
+      if (el.isContentEditable && sensitiveKind(el)) {
+        lines.push(`${"  ".repeat(childDepth)}- ${sensitiveKind(el)} (hidden)`);
+        return;
+      }
       for (const child of el.childNodes) {
         walk(child, childDepth, named);
       }
@@ -537,13 +579,13 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     return {
       title: this.doc.title,
       url: this.doc.URL,
-      tree: lines.join("\n"),
+      tree: this.scrub(lines.join("\n")),
       truncated,
     };
   }
 
   pageText() {
-    const text = this.#shield ? this.shownText() : this.doc.body?.innerText || "";
+    const text = this.scrub(this.#shield ? this.shownText() : this.plainText());
     return {
       title: this.doc.title,
       url: this.doc.URL,
@@ -580,6 +622,9 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
         return;
       }
       if (!this.shown(el)) {
+        return;
+      }
+      if (el.isContentEditable && sensitiveKind(el)) {
         return;
       }
       const block = !this.contentWindow.getComputedStyle(el).display.startsWith("inline");
@@ -644,7 +689,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
           continue;
         }
         const name = this.name(el, role);
-        const extra = isPassword(el) ? "" : el.value || "";
+        const extra = sensitiveKind(el) ? "" : el.value || "";
         consider(el, role, `${role} ${name} ${el.getAttribute("placeholder") || ""} ${extra}`);
       } else if (
         [...el.childNodes].some(n => n.nodeType == n.TEXT_NODE && n.data.trim()) &&
@@ -662,10 +707,10 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     }
     matches.sort((a, b) => b.score - a.score);
     return {
-      matches: matches.slice(0, MAX_FIND).map(({ el, role }) =>
-        role == "text"
+      matches: matches.slice(0, MAX_FIND).filter(({ el }) => !this.insideSensitive(el)).map(({ el, role }) =>
+        this.scrub(role == "text"
           ? `- text "${clip(el.textContent).replace(/"/g, "'")}" [${this.refFor(el)}]`
-          : this.line(el, role, 0)
+          : this.line(el, role, 0))
       ),
     };
   }
@@ -674,6 +719,172 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     const role = this.role(el) || el.localName;
     const name = this.name(el, role) || clip(el.textContent, 60);
     return name ? `${role} "${name}"` : role;
+  }
+
+  // --- Secrets and guardrails ---
+
+  // Values of every secret field on the page (a password a page mirrors
+  // into its own text is taken out too).
+  secretValues() {
+    const values = [];
+    for (const el of this.doc.querySelectorAll("input, textarea, select, [contenteditable]")) {
+      if (sensitiveKind(el)) {
+        values.push(fieldValue(el));
+      }
+    }
+    return values;
+  }
+
+  scrub(text) {
+    return redactText(withoutValues(text, this.secretValues())).text;
+  }
+
+  plainText() {
+    return this.doc.body?.innerText || "";
+  }
+
+  insideSensitive(el) {
+    for (let node = el; node; node = node.parentElement) {
+      if (sensitiveKind(node)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  captchaish(el) {
+    for (let node = el, i = 0; node && i < 8; node = node.parentElement, i++) {
+      const id = `${node.id || ""} ${node.getAttribute?.("class") || ""} ${node.getAttribute?.("data-sitekey") ? "captcha" : ""}`;
+      if (CAPTCHA.test(id) || (node.localName == "iframe" && CAPTCHA.test(node.src || node.title || ""))) {
+        return true;
+      }
+    }
+    return CAPTCHA_TEXT.test(clip(el?.textContent, 200)) || CAPTCHA_TEXT.test(this.name(el, this.role(el) || "") || "");
+  }
+
+  // A challenge covering the page ("are you human"), so acting waits.
+  pageCaptcha() {
+    for (const frame of this.doc.querySelectorAll("iframe")) {
+      if (CAPTCHA.test(`${frame.src} ${frame.title}`) && this.visible(frame)) {
+        return true;
+      }
+    }
+    if (this.doc.querySelector(".g-recaptcha, .h-captcha, .cf-turnstile, #challenge-form, [data-sitekey]")) {
+      return true;
+    }
+    return CAPTCHA_TEXT.test((this.doc.body?.innerText || "").slice(0, 5000));
+  }
+
+  headingFor(el) {
+    for (let node = el?.parentElement, i = 0; node && i < 6; node = node.parentElement, i++) {
+      for (const h of node.querySelectorAll("h1, h2, h3, h4, legend, [role=heading]")) {
+        if (h.compareDocumentPosition(el) & h.DOCUMENT_POSITION_FOLLOWING) {
+          const text = clip(h.textContent, 80);
+          if (text) {
+            return text;
+          }
+        }
+      }
+    }
+    return "";
+  }
+
+  containerFor(el) {
+    return el?.closest?.("form, dialog, [role=dialog], section, article, aside, main") ||
+      el?.parentElement?.parentElement?.parentElement || this.doc.body;
+  }
+
+  fieldsOf(form) {
+    const out = [];
+    for (const f of [...(form?.elements ?? [])].slice(0, 40)) {
+      const role = this.role(f) || f.localName;
+      const kind = sensitiveKind(f);
+      out.push({
+        label: clip(this.name(f, role), 60),
+        name: clip(f.name || f.id || "", 40),
+        type: f.type || f.localName,
+        role,
+        kind,
+        value: kind || f.type == "hidden" ? "" : clip(f.localName == "select" ? [...f.selectedOptions].map(o => o.label).join(", ") : f.type == "checkbox" || f.type == "radio" ? (f.checked ? "on" : "") : f.value, 200),
+      });
+    }
+    return out;
+  }
+
+  // What the agent is about to press, type into, or send keys to.
+  describeTarget({ ref, coordinate, keys, value } = {}) {
+    let el = null;
+    if (ref) {
+      el = this.element(ref);
+    } else if (Array.isArray(coordinate) && coordinate.length == 2) {
+      el = this.doc.elementFromPoint(Number(coordinate[0]), Number(coordinate[1]));
+    } else {
+      el = this.doc.activeElement;
+    }
+    if (!el) {
+      return { role: "none", text: "" };
+    }
+    const control = el.closest?.(
+      "button, a[href], input, select, textarea, summary, [role=button], [role=link], [role=switch], [role=checkbox], [role=menuitem], [role=tab], [contenteditable]"
+    ) ?? el;
+    const role = this.role(control) || control.localName;
+    const form = control.form ?? control.closest?.("form") ?? null;
+    let text = clip(this.name(control, role) || control.textContent, 120);
+    let submits = false;
+    const press = String(keys || "").split(/\s+/).filter(Boolean);
+    const enter = press.find(p => /(^|\+)enter$/i.test(p));
+    if (keys) {
+      const accel = enter && /(cmd|meta|ctrl|control)\+/i.test(enter);
+      if (enter && form && control.localName == "input" && this.editable(control)) {
+        submits = true;
+        const button = form.querySelector("button:not([type=button]):not([type=reset]), input[type=submit], input[type=image]");
+        text = button ? clip(this.name(button, "button"), 120) : "";
+      } else if (enter && (role == "button" || role == "link")) {
+        submits = !!form && (control.localName == "button" ? (control.type || "submit") == "submit" : ["submit", "image"].includes(control.type));
+      } else if (accel && (control.localName == "textarea" || control.isContentEditable)) {
+        submits = true;
+        const box = this.containerFor(control);
+        const button = [...box.querySelectorAll("button, [role=button], input[type=submit]")]
+          .find(b => /\b(send|post|reply|submit|publish|comment)\b/i.test(this.name(b, "button") || b.textContent));
+        text = button ? clip(this.name(button, "button") || button.textContent, 120) : "";
+      } else {
+        return { role, text: "", none: true };
+      }
+    } else if (form && (control.localName == "button" ? (control.type || "submit") == "submit" : ["submit", "image"].includes(control.type))) {
+      submits = true;
+    }
+    const container = this.containerFor(control);
+    const checked = control.type == "checkbox" || control.type == "radio" ? control.checked :
+      control.getAttribute("aria-checked") == "true" ? true : control.getAttribute("aria-checked") == "false" ? false : null;
+    const title = `${this.doc.title} ${clip(this.doc.querySelector("h1")?.textContent, 80)}`;
+    const payFrame = [...this.doc.querySelectorAll("iframe")].some(f => /stripe|braintree|adyen|checkout|payment|paypal|card/i.test(`${f.src} ${f.name} ${f.title}`));
+    return {
+      role,
+      tag: control.localName,
+      text,
+      label: clip(this.name(control, role), 80),
+      name: clip(control.getAttribute("name") || "", 40),
+      type: control.type || "",
+      autocomplete: (control.getAttribute("autocomplete") || "").toLowerCase(),
+      href: control.href || control.closest?.("a[href]")?.href || "",
+      download: control.closest?.("a[download]")?.getAttribute("download") ?? null,
+      submits,
+      sensitive: sensitiveKind(control),
+      captcha: this.captchaish(el),
+      checked,
+      value: value == null ? "" : clip(String(value), 200),
+      heading: this.headingFor(control),
+      context: this.scrub((container?.innerText || "").slice(0, 2000)).slice(0, 800),
+      settingsPage: /\b(settings|privacy|security|account|preferences)\b/i.test(title),
+      cardOnPage: payFrame || [...this.doc.querySelectorAll("input")].some(f => sensitiveKind(f) == "card"),
+      form: form ? {
+        role: form.getAttribute("role") || (form.closest("[role=search]") ? "search" : ""),
+        action: form.action || "",
+        method: form.method || "",
+        submitText: clip(this.name(form.querySelector("button:not([type=button]), input[type=submit]") || form, "button"), 80),
+        fields: this.fieldsOf(form),
+      } : null,
+    };
   }
 
   // --- Acting ---
@@ -701,8 +912,8 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       throw new Error(`Nothing at (${Math.round(x)}, ${Math.round(y)})`);
     }
     // A visible page gets real (trusted) mouse events at the point, like a
-    // person's click. A background tab (the Claude space while you're in
-    // another space) can't take pointer input, so the element is clicked
+    // person's click. A background tab (an agent working while you're in
+    // another tab) can't take pointer input, so the element is clicked
     // directly: links, buttons, checkboxes and submits all still work.
     let synthesized = false;
     if (!this.hidden && typeof win.synthesizeMouseEvent == "function") {
@@ -750,8 +961,8 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       this.element(ref).focus();
     }
     const el = this.doc.activeElement;
-    if (isPassword(el)) {
-      throw new Error("Whimsy doesn't let Claude type into password fields.");
+    if (sensitiveKind(el)) {
+      throw new Error(REFUSED[sensitiveKind(el)]);
     }
     if (!this.editable(el)) {
       throw new Error("No text field is focused. Click one first, or pass its ref.");
@@ -772,7 +983,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     } else {
       this.doc.execCommand("insertText", false, text);
     }
-    return { typed: text.length, into: this.describe(el), secret: isSecret(el) };
+    return { typed: text.length, into: this.describe(el) };
   }
 
   // One or more key presses, space-separated: "Enter", "Tab", "cmd+a",
@@ -786,8 +997,9 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     if (!presses.length) {
       throw new Error("Pass keys, e.g. \"Enter\" or \"cmd+a\"");
     }
-    if (isPassword(this.doc.activeElement)) {
-      throw new Error("Whimsy doesn't let Claude type into password fields.");
+    const focused = sensitiveKind(this.doc.activeElement);
+    if (focused && presses.some(p => !/^(shift\+)?tab$/i.test(p))) {
+      throw new Error(REFUSED[focused]);
     }
     const win = this.contentWindow;
     let tip = null;
@@ -870,8 +1082,8 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
   formInput({ ref, value }) {
     const el = this.element(ref);
     const win = this.contentWindow;
-    if (isPassword(el)) {
-      throw new Error("Whimsy doesn't let Claude fill password fields.");
+    if (sensitiveKind(el)) {
+      throw new Error(REFUSED[sensitiveKind(el)]);
     }
     if (el.disabled) {
       throw new Error("That field is disabled.");
@@ -905,7 +1117,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     if (el.localName == "input" || el.localName == "textarea") {
       el.focus();
       el.setUserInput(String(value ?? ""));
-      return { set: this.describe(el), value: el.value, ...(isSecret(el) ? { secret: true } : {}) };
+      return { set: this.describe(el), value: el.value };
     }
     if (el.isContentEditable) {
       el.focus();

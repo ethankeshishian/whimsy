@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Mail · Compose</title>
+<style>body { font: 14px sans-serif; margin: 20px; } form { margin: 12px 0; }</style>
+</head>
+<body>
+<h1>New message</h1>
+<form id="compose">
+  <label>To <input id="to" name="to" value="Maya Chen &lt;maya@example.org&gt;"></label>
+  <label>Subject <input id="subject" name="subject" value="Re: Lisbon dates"></label>
+  <label>Message <textarea id="body" name="body">Dec 12 to 15 works for me.</textarea></label>
+  <button id="send" type="submit">Send</button>
+</form>
+<button id="delete" type="button">Delete draft</button>
+<a id="dl" href="https://example.com/files/Figma-Desktop.dmg">Download for macOS</a>
+<h2>Book a spot</h2>
+<form id="booking">
+  <label>Name <input id="name" name="name" autocomplete="name" value="Ethan K"></label>
+  <label>Email <input id="email" name="email" type="email" autocomplete="email" value=""></label>
+  <label>People <input id="people" name="people" value="2"></label>
+  <button id="book" type="submit">Request booking</button>
+</form>
+<form id="search" role="search"><input id="q" type="search" name="q"><button type="submit">Search</button></form>
+<p id="result"></p>
+<script>
+  for (const id of ["compose", "booking", "search"]) {
+    document.getElementById(id).addEventListener("submit", e => {
+      e.preventDefault();
+      document.getElementById("result").textContent += id + " ";
+    });
+  }
+  document.getElementById("delete").addEventListener("click", () => {
+    document.getElementById("result").textContent += "deleted ";
+  });
+  document.getElementById("dl").addEventListener("click", e => {
+    e.preventDefault();
+    document.getElementById("result").textContent += "downloaded ";
+  });
+</script>
+</body>
+</html>

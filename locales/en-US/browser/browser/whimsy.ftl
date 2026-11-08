@@ -1009,47 +1009,13 @@ whimsy-year-empty = Not much to look back on yet. Browse a little, then come bac
 whimsy-year-copy-card = Copy card
 whimsy-year-copied-toast = Card copied
 whimsy-year-done = Done
-## tierC-claude: the Claude space
-
-whimsy-claude-space-name = Claude
-whimsy-claude-bar = Claude is using this tab.
-whimsy-claude-stop =
-    .label = Stop Claude
-    .accesskey = S
-whimsy-claude-stopped-toast = Claude stopped. Turn it back on in Settings.
-whimsy-claude-confirm-title = Allow Claude on this site?
-# $host (String) - the site, e.g. example.com
-# $action (String) - the tool Claude wants to use
-whimsy-claude-confirm-text =
-    { $action ->
-        [click] Claude wants to click on { $host }.
-        [type] Claude wants to type on { $host }.
-        [key] Claude wants to press keys on { $host }.
-        [form_input] Claude wants to fill in a form on { $host }.
-        [read_page] Claude wants to read { $host }, which is outside the Claude space.
-        [get_page_text] Claude wants to read { $host }, which is outside the Claude space.
-        [find] Claude wants to read { $host }, which is outside the Claude space.
-        [screenshot] Claude wants to take a screenshot of { $host }, which is outside the Claude space.
-        [navigate] Claude wants to load a new page in your { $host } tab, which is outside the Claude space.
-        [tabs_close] Claude wants to close your { $host } tab, which is outside the Claude space.
-       *[other] Claude wants to use { $host }.
-    }
-whimsy-claude-confirm-once = Allow once
-whimsy-claude-confirm-always = Always allow on this site
-whimsy-claude-confirm-deny = Don’t allow
-
 ## tierC-claude: Settings → Privacy & Security → Claude
 
 whimsy-claude-header =
     .label = Claude
 whimsy-claude-enable =
-    .label = Let Claude use { -brand-short-name }
-    .description = Claude Code can open, read and use tabs in the Claude space. Tabs it uses glow and show a Stop button. Only apps on this Mac with the token below can connect.
-whimsy-claude-whole-browser =
-    .label = Let Claude use any tab, not just the Claude space
-    .description = Private tabs and the Private Space are always off-limits, and so are passwords.
-whimsy-claude-ask =
-    .label = Ask before Claude clicks, types or fills in forms on a new site
+    .label = Let outside agents use { -brand-short-name }
+    .description = Claude Code and other apps can read and use your tabs under the same rules as { -brand-short-name }’s agent: never private tabs, and a pause before anything risky. Only apps on this Mac with the token below can connect.
 whimsy-claude-ai-blocked = Claude is unavailable while AI is off.
 whimsy-claude-connect-heading = Connect Claude Code
 whimsy-claude-connect-intro = Run this in Terminal once:
@@ -1060,8 +1026,6 @@ whimsy-claude-copy-json =
     .label = Copy JSON
 whimsy-claude-new-token =
     .label = New Token
-whimsy-claude-forget-sites =
-    .label = Forget Allowed Sites
 whimsy-claude-copied = Copied
 whimsy-claude-new-token-note = Token changed. Your connection is ready.
 whimsy-claude-token-error = Couldn’t change the token. Try again.
@@ -1968,19 +1932,6 @@ whimsy-video-captions-failed = Couldn’t translate these captions, so they’re
 whimsy-media-video-captions =
     .label = Add CC to the speed control: captions translated into your language, on your Mac
 
-## wave5/safety: the Claude space's prompt-injection shield
-
-# $host (String) - the site, e.g. example.com
-whimsy-claude-shield-bar = This page tried to give Claude instructions. Claude is paused on { $host }.
-whimsy-claude-shield-continue =
-    .label = Continue
-    .accesskey = C
-whimsy-claude-shield-stop =
-    .label = Stop Claude
-    .accesskey = S
-# $host (String) - the site, e.g. example.com
-whimsy-claude-shield-toast = Claude is paused: { $host } tried to give it instructions
-
 ## wave5/safety: Claude runs (agent replay, whimsy://replay)
 
 whimsy-claude-replay =
@@ -1993,7 +1944,7 @@ whimsy-replay-heading = Claude runs
 whimsy-replay-intro = Every step Claude took in { -brand-short-name }, with a snapshot of the page. Kept only on this device.
 whimsy-replay-clear = Clear All
 whimsy-replay-empty-title = No runs yet
-whimsy-replay-empty = When Claude uses tabs in the Claude space, each run shows up here, step by step.
+whimsy-replay-empty = When an agent uses your tabs, each run shows up here, step by step.
 whimsy-replay-off = Replay is off. Turn it on in Settings → Privacy & Security → Claude.
 whimsy-replay-runs-label =
     .aria-label = Runs
@@ -3131,7 +3082,6 @@ whimsy-action-new-folder = New Folder…
 whimsy-action-manage-spaces = Manage Spaces…
 whimsy-action-air-traffic-control = Air Traffic Control…
 whimsy-action-add-finder-folder = Add Finder Folder…
-whimsy-action-open-claude-space = Open Claude Space
 whimsy-action-whats-new = What’s New
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)
@@ -5411,3 +5361,51 @@ whimsy-chat-cmd-move-right = Move Chat to the Right
 whimsy-chat-ai-off-title = Chat needs an AI
 whimsy-chat-ai-off-body = Press ⌘E again to set one up.
 whimsy-chat-ai-off-setup = Set up AI
+## W23 agent-core: tasks, guardrail pauses, outside agents, and Activity
+
+whimsy-agent-stop-command = Stop the Agent Task
+# $task (String) - the task's title or the app that ran it
+whimsy-agent-quit-update = { $task } stopped when { -brand-short-name } quit. Nothing resumes by itself.
+# The space outside apps get with "Keep apps in their own space".
+whimsy-outside-agents-space-name = AI
+
+# Pause titles. $host (String) - the site; $amount (String) - e.g. $38.40;
+# $file (String) - a file name; $button (String) - a button's label.
+whimsy-agent-pause-pay = Pay { $amount } on { $host }?
+whimsy-agent-pause-pay-plain = Pay on { $host }?
+whimsy-agent-pause-send = Send this on { $host }?
+whimsy-agent-pause-delete = Delete this on { $host }?
+whimsy-agent-pause-account = Change a setting on { $host }?
+whimsy-agent-pause-security = Security settings are yours to change
+whimsy-agent-pause-submit = Submit this form on { $host }?
+whimsy-agent-pause-new-site-data = Type your details on a site you haven’t used?
+whimsy-agent-pause-download = Download { $file }?
+whimsy-agent-pause-sign-in = Sign in to { $host }?
+whimsy-agent-pause-unsure = I’m not sure what “{ $button }” does here
+whimsy-agent-pause-captcha = { $host } wants to check you’re a person
+
+whimsy-agent-field-pay = Pay
+whimsy-agent-field-total = Total
+whimsy-agent-field-card = Card
+whimsy-agent-field-message = Message
+whimsy-agent-field-site = Site
+whimsy-agent-field-button = Button
+whimsy-agent-field-from = From
+whimsy-agent-field-to = To
+whimsy-agent-field-setting = Setting
+whimsy-agent-field-change = Change
+whimsy-agent-field-account = Account
+whimsy-agent-field-password = Password
+whimsy-agent-field-file = File
+whimsy-agent-field-then = Then
+whimsy-agent-field-will-type = It will type
+whimsy-agent-field-could-be = Could be
+whimsy-agent-hidden-card = Filled for you by { -brand-short-name }. I never see it.
+whimsy-agent-hidden-password = Saved login, filled by { -brand-short-name } or your password manager
+whimsy-agent-then-code = If it asks for a code, you type it. I won’t read your texts or email for codes.
+whimsy-agent-then-download = Saved to Downloads. You open it; I don’t install apps.
+whimsy-agent-change-on-off = On → Off
+whimsy-agent-change-off-on = Off → On
+whimsy-agent-new-site = new to you
+# $value (String) - what it would type; $field (String) - the field's label
+whimsy-agent-will-type = { $value } in “{ $field }”
