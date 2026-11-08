@@ -293,7 +293,7 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       return clip(direct);
     }
     if (el.labels?.length) {
-      const text = [...el.labels].map(l => l.textContent).join(" ");
+      const text = [...el.labels].map(l => this.labelText(l)).join(" ");
       if (text.trim()) {
         return clip(text);
       }
@@ -308,6 +308,19 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       }
     }
     return clip(el.getAttribute("title") || el.getAttribute("placeholder") || "");
+  }
+
+  // A label's own words, never the text of a field inside it (a
+  // textarea's draft, a select's options).
+  labelText(label) {
+    const walker = this.doc.createTreeWalker(label, this.contentWindow.NodeFilter.SHOW_TEXT);
+    let text = "";
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.parentElement?.closest("textarea, select, [contenteditable]")) {
+        text += node.data;
+      }
+    }
+    return text;
   }
 
   details(el, role) {
