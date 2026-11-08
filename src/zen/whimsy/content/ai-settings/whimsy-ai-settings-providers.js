@@ -24,6 +24,7 @@
   const CLOUD = ["claude", "openai", "gemini"];
   const KEY_SITES = { claude: "platform.claude.com", openai: "platform.openai.com", gemini: "aistudio.google.com" };
   const KEY_URLS = { claude: "https://platform.claude.com/settings/keys", openai: "https://platform.openai.com/api-keys", gemini: "https://aistudio.google.com/apikey" };
+  const BILLED_BY = { claude: "Anthropic", openai: "OpenAI", gemini: "Google" };
   const CLAUDE_CODE_URL = "https://code.claude.com/docs/en/setup";
   const OLLAMA_URL = "https://ollama.com/download";
   const nameOf = id => P().providerName(id);
@@ -106,7 +107,7 @@
       return set(`whimsy-ai-row-plan-${id}`, { label: c.label || "" });
     }
     if (c?.method == "key") {
-      return set(data.hint ? "whimsy-ai-row-key" : "whimsy-ai-row-key-nohint", { hint: data.hint || "", provider: nameOf(id) });
+      return set(data.hint ? "whimsy-ai-row-key" : "whimsy-ai-row-key-nohint", { hint: data.hint || "", provider: BILLED_BY[id] ?? nameOf(id) });
     }
     return set("whimsy-ai-row-connected");
   }
@@ -618,6 +619,7 @@
       view.quickToggle = S.el("moz-toggle", "", quick, "whimsy-ai-quick-text");
       view.quickToggle.id = "whimsyAIQuickText";
       view.quickToggle.setAttribute("data-l10n-attrs", "label, description");
+      view.quickToggle.setAttribute("inputlayout", "inline-end");
       view.quickToggle.style.flex = "1";
       view.quickToggle.addEventListener("toggle", () => (P().quickTextOnApple = view.quickToggle.pressed));
       view.status = S.el("div", "whimsy-ai-status", container);

@@ -3,6 +3,8 @@
 
 "use strict";
 
+requestLongerTimeout(5);
+
 // W23 settings-ai: shots of Settings › AI for side-by-side checks against
 // the mockups (07-settings set-x.y, followup/fu-settings). WHIMSY_SHOTS=<dir>
 // writes w23-settings-ai-*.png.
@@ -184,6 +186,12 @@ async function settled(page) {
   }
 }
 
+async function atProviders(page) {
+  const section = await TestUtils.waitForCondition(() => visible(page.$("whimsyAISection-providers")) && page.$("whimsyAISection-providers"), "Providers shows");
+  section.scrollIntoView({ block: "start", behavior: "instant" });
+  await new Promise(r => page.win.requestAnimationFrame(() => page.win.requestAnimationFrame(r)));
+}
+
 async function listReady(page) {
   await TestUtils.waitForCondition(() => page.$("whimsyAIProviderList")?.dataset.ready == "true", "The providers list has its details");
 }
@@ -210,6 +218,9 @@ function shoot(state, prepare, { opts = {} } = {}) {
     const page = await openAI();
     let extra = null;
     try {
+      if (opts.on !== false && !opts.top) {
+        await atProviders(page);
+      }
       extra = await prepare(page, dark);
       await settled(page);
     } catch (e) {
@@ -230,6 +241,7 @@ function shoot(state, prepare, { opts = {} } = {}) {
 async function mid(state, ms, start, getAnimation) {
   setup();
   const page = await openAI();
+  await atProviders(page);
   await listReady(page);
   await settled(page);
   page.unfolds = [];
@@ -247,7 +259,7 @@ add_task(async function shots_off() {
     await listReady(page);
     page.S.toast("whimsy-ai-toast-connected", { args: { provider: "Gemini" }, descriptionId: "whimsy-ai-toast-ai-on" });
     await toastShown("whimsy-ai-toast-connected");
-  }, { opts: { order: "gemini" } });
+  }, { opts: { order: "gemini", top: true } });
   await shoot("set-1.4", async page => {
     await TestUtils.waitForCondition(() => page.$("whimsyAIOffCard").dataset.kind == "kept" && visible(page.$("whimsyAIOffCard")), "The kept card");
   }, { opts: { on: false, order: "claude,gemini" } });
@@ -264,11 +276,8 @@ add_task(async function shots_header_and_features() {
     await listReady(page);
     click(page, page.$("whimsyAIEnable").buttonEl);
     await TestUtils.waitForCondition(() => page.$("whimsyAIConfirmSlot").querySelector(".whimsy-ai-confirm"), "Turn off AI? asks");
-  });
-  await shoot("dec-15", async page => {
-    await listReady(page);
-    page.$("whimsyAIOffLimits").scrollIntoView({ block: "center" });
-  });
+  }, { opts: { top: true } });
+  await shoot("dec-15", listReady, { opts: { top: true, order: "apple,openai" } });
 });
 
 add_task(async function shots_list() {
@@ -300,7 +309,7 @@ add_task(async function shots_list() {
     await TestUtils.waitForCondition(() => page.doc.activeElement?.dataset.action == "grip", "Its grip keeps focus");
   });
   await shoot("set-2.4", async page => {
-    WhimsyAIProviders.setResting("claude", { until: new Date().setHours(16, 0, 0, 0) + 86400e3, message: "You've reached your Claude Max usage limit. Your limit resets at 4pm." });
+    WhimsyAIProviders.setResting("claude", { until: new Date().setHours(16, 0, 0, 0) + 86400e3, message: "Your limit will reset at 4 PM" });
     await listReady(page);
     await TestUtils.waitForCondition(() => row(page, "claude").querySelector(".whimsy-ai-pill"), "Resting");
     return () => WhimsyAIProviders.clearResting("claude");
@@ -310,11 +319,23 @@ add_task(async function shots_list() {
     click(page, row(page, "claude").querySelector("[data-action=details]"));
     await TestUtils.waitForCondition(() => row(page, "claude").nextElementSibling?.classList.contains("whimsy-ai-body"), "Details open");
   });
+  const realModels = WhimsyAIProviders.models;
+  await shoot("set-2.6", async page => {
+    WhimsyAIProviders.models = async () => ["claude-opus-4-1", "claude-sonnet-4-5", "claude-haiku-4-5"];
+    await listReady(page);
+    click(page, row(page, "claude").querySelector("[data-action=details]"));
+    const body = await TestUtils.waitForCondition(() => row(page, "claude").nextElementSibling?.classList.contains("whimsy-ai-body") && row(page, "claude").nextElementSibling, "Details open");
+    await settled(page);
+    click(page, body.querySelector("[data-action=model]"));
+    await TestUtils.waitForCondition(() => page.$("whimsyAIModelMenu"), "The model menu opens");
+    return () => (WhimsyAIProviders.models = realModels);
+  });
   await shoot("set-2.7", async page => {
     await listReady(page);
     click(page, row(page, "openai").querySelector("[data-action=details]"));
     const body = await TestUtils.waitForCondition(() => row(page, "openai").nextElementSibling?.classList.contains("whimsy-ai-body") && row(page, "openai").nextElementSibling, "Details open");
     await settled(page);
+    body.querySelector("[data-action=disconnect]").scrollIntoView({ block: "nearest", behavior: "instant" });
     click(page, body.querySelector("[data-action=disconnect]"));
     await TestUtils.waitForCondition(() => page.doc.querySelector("#whimsyAIProviderList .whimsy-ai-confirm"), "Disconnect asks");
   });
@@ -343,7 +364,10 @@ add_task(async function shots_sheets() {
     page.S.openSheet(id, opts);
     return sheet(page, id);
   };
-  await shoot("set-3.1", open("add-provider"));
+  await shoot("set-3.1", async page => {
+    await open("add-provider")(page);
+    await TestUtils.waitForCondition(() => page.doc.querySelectorAll("#whimsyAISheet .whimsy-ai-choice").length >= 4, "The choices show");
+  });
   await shoot("set-3.2", async page => {
     await open("claude")(page);
     await TestUtils.waitForCondition(() => page.$("whimsyAIClaudeSignIn"), "Connect shows");

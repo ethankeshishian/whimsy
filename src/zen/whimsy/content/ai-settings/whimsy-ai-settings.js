@@ -133,10 +133,10 @@ var WhimsyAISettings = {
     this.toggle.addEventListener("toggle", () => this._onToggle());
     this.lockedNote = this.el("p", "whimsy-ai-desc", top, "whimsy-ai-locked-note");
     this.lockedNote.hidden = true;
-    this.confirmSlot = this.el("div", "", top);
-    this.confirmSlot.id = "whimsyAIConfirmSlot";
     this.strip = this.el("nav", "whimsy-ai-strip", top, "whimsy-ai-jump-label");
     this.strip.id = "whimsyAIJump";
+    this.confirmSlot = this.el("div", "", top);
+    this.confirmSlot.id = "whimsyAIConfirmSlot";
     this.offCard = this.el("div", "whimsy-ai-hero", root);
     this.offCard.id = "whimsyAIOffCard";
     this.offCard.hidden = true;
@@ -398,7 +398,9 @@ var WhimsyAISettings = {
       return;
     }
     const top = document.getElementById("whimsyAITop");
-    top.toggleAttribute("stuck", top.getBoundingClientRect().top <= 1 && this._scroller().scrollTop > 0);
+    const under = document.getElementById("search-container")?.getBoundingClientRect().height ?? 0;
+    top.style.top = `${under}px`;
+    top.toggleAttribute("stuck", top.getBoundingClientRect().top <= under + 1 && this._scroller().scrollTop > 0);
     if (this._jumping) {
       return;
     }
@@ -671,6 +673,7 @@ WhimsyAISettings.register({
       toggle.id = id;
       toggle.dataset.featurePref = pref;
       toggle.setAttribute("data-l10n-attrs", "label, description");
+      toggle.setAttribute("inputlayout", "inline-end");
       toggle.style.flex = "1";
       const update = () => {
         toggle.pressed = Services.prefs.getBoolPref(pref, true);

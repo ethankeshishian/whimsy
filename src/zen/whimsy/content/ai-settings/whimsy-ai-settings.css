@@ -5,7 +5,9 @@
 /* W23: Settings › AI, one page (mockups 07-settings and fu-settings).
    Tokens are WhimsySurface's (whimsy-surface.css) in Settings' colours. */
 
-#whimsyAIPage {
+#whimsyAIPage,
+.whimsy-ai-scrim,
+.whimsy-ai-popup {
   --ai-primary: var(--zen-primary-color, AccentColor);
   --ai-accent: light-dark(oklch(from var(--ai-primary) clamp(0.35, l, 0.6) c h), oklch(from var(--ai-primary) clamp(0.7, l, 0.85) c h));
   --ai-muted: color-mix(in srgb, currentColor 62%, transparent);
@@ -23,13 +25,16 @@
   --ai-ease: cubic-bezier(0.075, 0.82, 0.165, 1);
   --ai-ease-surface: cubic-bezier(0.2, 0, 0, 1);
   --ai-expand: cubic-bezier(0.34, 1.2, 0.64, 1);
+  color-scheme: light dark;
+}
+
+#whimsyAIPage {
   display: flex;
   flex-direction: column;
   gap: 22px;
   max-width: 700px;
   padding-block-end: 40px;
   font-size: 13.5px;
-  color-scheme: light dark;
 
   &[hidden] {
     display: none;
@@ -41,7 +46,13 @@
 
   & button {
     margin: 0;
+    min-width: 0;
   }
+}
+
+.whimsy-ai-scrim button {
+  margin: 0;
+  min-width: 0;
 }
 
 /* ---- header: title, the AI switch, the confirm, the jump strip ---- */
@@ -331,13 +342,12 @@
     width: 12px;
     height: 12px;
     background: currentColor;
-    mask: url("chrome://browser/skin/zen-icons/chevron.svg") center / 12px no-repeat;
-    rotate: -90deg;
+    mask: url("chrome://global/skin/icons/arrow-right-12.svg") center / 12px no-repeat;
     transition: rotate 150ms var(--ai-ease);
   }
 
   &[aria-expanded="true"]::before {
-    rotate: 0deg;
+    rotate: 90deg;
   }
 
   &:hover {
@@ -446,6 +456,7 @@
 }
 
 .whimsy-ai-actions {
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -567,6 +578,11 @@
 
 /* ---- the confirm strip (in the page, never a modal) ---- */
 .whimsy-ai-confirm {
+  width: auto;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  color: inherit;
   display: grid;
   grid-template-rows: 1fr;
   background: color-mix(in srgb, var(--ai-destructive) 8%, transparent);
@@ -616,6 +632,7 @@
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--ai-track);
+  color: inherit;
   font-size: 12.5px;
   line-height: 1.45;
 
@@ -868,12 +885,14 @@
   overflow: auto;
   box-sizing: border-box;
   padding: 10px;
+  border: 0;
   border-radius: 12px;
   background: var(--ai-panel-bg);
+  color: light-dark(#15141a, #fbfbfe);
   font-size: 13px;
   box-shadow: 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.14)), 0 10px 30px -6px light-dark(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.55));
 
-  & > p,
+  & p,
   & .whimsy-ai-text {
     margin: 0;
     padding: 0 4px;
@@ -889,6 +908,7 @@
   align-items: center;
   gap: 8px;
   min-height: 24px;
+  margin: 0;
   padding: 2px 4px 0;
 
   & > h1 {
@@ -1190,7 +1210,7 @@
     width: 10px;
     height: 10px;
     background: currentColor;
-    mask: url("chrome://browser/skin/zen-icons/chevron.svg") center / 10px no-repeat;
+    mask: url("chrome://global/skin/icons/arrow-down-12.svg") center / 10px no-repeat;
     opacity: 0.6;
   }
 }
@@ -1211,5 +1231,23 @@
 
   .whimsy-ai-body .whimsy-ai-body-in {
     padding-inline-start: 14px;
+  }
+}
+
+.whimsy-ai-popup-item {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: default;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--ai-hover);
+    outline: none;
+  }
+
+  &[aria-selected="true"] {
+    font-weight: 600;
   }
 }
