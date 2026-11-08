@@ -458,7 +458,7 @@
 }
 
 /* ---- Updates rows ---- */
-.urlbarView-row[dynamicType="whimsy-update"] {
+.urlbarView-row:is([dynamicType="whimsy-update"], [dynamicType="whimsy-update-more"]) {
   position: relative;
 
   & > .urlbarView-row-inner {
@@ -541,7 +541,7 @@
   }
 }
 
-.urlbarView-row[dynamicType="whimsy-update"]:has(.whimsy-update-icon[data-type="more"]) .whimsy-update-title {
+.whimsy-update-more {
   color: var(--whimsy-ask-accent);
   font-size: 13px;
 }

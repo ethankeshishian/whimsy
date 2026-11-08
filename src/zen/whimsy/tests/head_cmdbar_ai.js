@@ -74,9 +74,13 @@ async function typeInBar(text, win = window) {
     EventUtils.synthesizeKey("KEY_Backspace", {}, win);
     await cleared;
   }
-  const done = UrlbarTestUtils.promiseSearchComplete(win);
-  EventUtils.sendString(text, win);
-  await done;
+  // The floating bar can drop keys typed in the frame it opens; type again.
+  for (let i = 0; i < 3 && win.gURLBar.value != text; i++) {
+    win.gURLBar.select();
+    const done = UrlbarTestUtils.promiseSearchComplete(win);
+    EventUtils.sendString(text, win);
+    await done;
+  }
   await TestUtils.waitForCondition(() => win.gURLBar.value == text, `typed "${text}" (have "${win.gURLBar.value}", ask=${win.gURLBar.hasAttribute("whimsy-ask")})`);
 }
 
@@ -120,7 +124,7 @@ function rowOf(type, win = window) {
 
 const askRow = (win = window) => rowOf("whimsy-ask", win);
 const cardEl = (win = window) => win.gURLBar.view.panel.querySelector(".whimsy-ask-card");
-const updateRows = (win = window) => rows(win).filter(r => r.getAttribute("dynamicType") == "whimsy-update");
+const updateRows = (win = window) => rows(win).filter(r => ["whimsy-update", "whimsy-update-more"].includes(r.getAttribute("dynamicType")));
 
 async function askWithKeys(text = Q) {
   await typeInBar(text);

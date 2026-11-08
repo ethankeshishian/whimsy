@@ -31,6 +31,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const FEATURE = "whimsy.feature.ai-updates";
 const TYPE = "whimsy-update";
 const HEADING_TYPE = "whimsy-update-heading";
+const MORE_TYPE = "whimsy-update-more";
 const VISIBLE = 5;
 const ICONS = "chrome://browser/content/whimsy/icons/";
 const SPARKLE = "chrome://browser/skin/zen-icons/sparkles.svg";
@@ -167,7 +168,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
         type: UrlbarShared.RESULT_TYPE.DYNAMIC,
         source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
         suggestedIndex: index,
-        payload: { dynamicType: row.heading ? HEADING_TYPE : TYPE, target, group: row.group, more: row.more ?? 0 },
+        payload: { dynamicType: row.heading ? HEADING_TYPE : row.more ? MORE_TYPE : TYPE, target, group: row.group, more: row.more ?? 0 },
       }));
     }
     if (list.whileClosed.length) {
@@ -183,6 +184,15 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
   }
 
   getViewTemplate(result) {
+    if (result.payload.dynamicType == MORE_TYPE) {
+      // A command, so picking it keeps the bar open and expands in place.
+      return {
+        children: [
+          { name: "icon", tag: "span", classList: ["whimsy-update-icon"], attributes: { "data-type": "more" }, children: [{ name: "iconImg", tag: "img" }] },
+          { name: "title", tag: "span", classList: ["urlbarView-title", "whimsy-update-more"], attributes: { selectable: true, role: "button", "data-command": "whimsy-more" } },
+        ],
+      };
+    }
     if (result.payload.dynamicType == HEADING_TYPE) {
       return {
         attributes: { role: "presentation" },
@@ -238,15 +248,8 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     }
     if (target.more) {
       return {
-        icon: show({ "data-type": "more" }),
         iconImg: { attributes: { src: "chrome://browser/skin/zen-icons/chevron.svg" } },
         title: { l10n: { id: "whimsy-cmdbar-show-more", args: { count: target.more } } },
-        detail: hide,
-        needs: hide,
-        time: hide,
-        open: hide,
-        remind: hide,
-        dismiss: hide,
       };
     }
     if (target.recent) {
@@ -300,7 +303,8 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     const el = details.element;
     const part = { "whimsy-open": "open", "whimsy-remind": "remind", "whimsy-dismiss": "dismiss", "whimsy-dismiss-all": "dismissAll" }[details.selType] ?? "row";
     if (target.more) {
-      WhimsyCommandBarUpdates.reopen(win, { expand: true });
+      expanded.add(win);
+      WhimsyCommandBarUpdates.refresh(win);
       return;
     }
     if (part == "dismissAll") {
@@ -383,7 +387,7 @@ export const WhimsyCommandBarUpdates = {
 
   selectedTarget(win) {
     const row = win.gURLBar?.view.selectedElement?.closest(".urlbarView-row");
-    if (!row || row.getAttribute("dynamicType") != TYPE) {
+    if (!row || ![TYPE, MORE_TYPE].includes(row.getAttribute("dynamicType"))) {
       return null;
     }
     const result = win.gURLBar.view.getResultFromElement(row);

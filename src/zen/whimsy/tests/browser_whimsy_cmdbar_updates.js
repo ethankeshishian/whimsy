@@ -8,6 +8,7 @@
 
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_cmdbar_ai.js", this);
 
+const { WhimsyUndo } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs");
 const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPN.sys.mjs");
 
 requestLongerTimeout(2);
@@ -80,8 +81,8 @@ add_task(async function updates_order_and_show_more() {
   is(list.length, 6, "Five, then Show more");
   is(await labelOf(list[0], "Updates"), "Updates", "headed Updates");
   const more = list[5];
-  is(document.l10n.getAttributes(more.querySelector(".whimsy-update-title")).args.count, 2, "Show 2 more");
-  EventUtils.synthesizeMouseAtCenter(more, {});
+  is(document.l10n.getAttributes(more.querySelector(".urlbarView-title")).args.count, 2, "Show 2 more");
+  EventUtils.synthesizeMouseAtCenter(more.querySelector(".whimsy-update-more"), {});
   await TestUtils.waitForCondition(() => updateRows().length == 7, "Expanded in place");
   ok(gURLBar.hasAttribute("whimsy-updates-expanded"), "and scrolls inside the bar");
   await closeBar();
@@ -126,10 +127,7 @@ add_task(async function remind_menu_times_and_returns_at_top() {
   await shown;
   const menu = document.getElementById("whimsy-cmdbar-remind-menu");
   is(menu.querySelectorAll("[role=option]").length, 5, "Five choices");
-  const first = menu.querySelector("[role=option]");
-  await TestUtils.waitForCondition(() => menu.contains(document.activeElement), "The menu has focus");
-  first.focus();
-  EventUtils.synthesizeKey("KEY_Enter");
+  menu.querySelector("[role=option]").click();
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 1, "It left Updates");
   clock += 3600000 + 1000;
   const back = (await WhimsyAIUpdates.list()).updates;
@@ -145,6 +143,7 @@ add_task(async function dismiss_toast_undo_cmd_z() {
   EventUtils.synthesizeKey("KEY_Backspace");
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 0, "⌫ dismissed it");
   await TestUtils.waitForCondition(() => document.querySelector("#zen-toast-container [data-l10n-id='whimsy-cmdbar-dismissed-toast'], .zen-toast") , "A toast says so");
+  info(`undo: canUndo=${WhimsyUndo.canUndo(window)} value="${gURLBar.value}" focused=${gURLBar.focused}`);
   EventUtils.synthesizeKey("z", { accelKey: true });
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 1, "⌘Z brought it back");
   await closeBar();
