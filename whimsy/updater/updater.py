@@ -445,7 +445,7 @@ def build_and_test(repo):
     sh("npx surfer set brand release && npx surfer build", cwd=repo, timeout=4 * 3600)
     record_build(repo, built)
     update_state(message="Testing (full verify)")
-    sh(["sh", "whimsy/verify.sh", "gate"], cwd=repo, timeout=3600)
+    sh(["sh", "whimsy/verify.sh", "gate"], cwd=repo, timeout=3 * 3600)
 
 
 def built_app(repo):
