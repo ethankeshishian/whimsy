@@ -19,7 +19,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
+  WhimsyAIReports: "resource:///modules/whimsy/WhimsyAIReports.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyChatAnswer: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
+  WhimsyChatContextUI: "resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs",
   WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
@@ -155,6 +158,29 @@ function messageText(msg) {
   return typeof msg?.text == "string" ? msg.text : typeof msg?.content == "string" ? msg.content : "";
 }
 
+const SCRIPT_OF = { ja: "kana", zh: "han", ko: "hangul", ru: "cyrillic", uk: "cyrillic", bg: "cyrillic", ar: "arabic", fa: "arabic", he: "hebrew", th: "thai", el: "greek", hi: "devanagari" };
+
+// The language a message is typed in, by its script; Latin is the app's language.
+function scriptLanguage(text) {
+  const tests = [
+    [/[\u3040-\u30ff]/, "kana", "ja"],
+    [/[\uac00-\ud7af]/, "hangul", "ko"],
+    [/[\u4e00-\u9fff]/, "han", "zh"],
+    [/[\u0400-\u04ff]/, "cyrillic", "ru"],
+    [/[\u0600-\u06ff]/, "arabic", "ar"],
+    [/[\u0590-\u05ff]/, "hebrew", "he"],
+    [/[\u0e00-\u0e7f]/, "thai", "th"],
+    [/[\u0370-\u03ff]/, "greek", "el"],
+    [/[\u0900-\u097f]/, "devanagari", "hi"],
+  ];
+  for (const [re, script, lang] of tests) {
+    if (re.test(text)) {
+      return { script, lang };
+    }
+  }
+  return { script: "latin", lang: Services.locale.appLocaleAsBCP47.split("-")[0] };
+}
+
 function isWebTab(tab) {
   const spec = tab?.linkedBrowser?.currentURI?.spec ?? "";
   return /^(https?|file):/.test(spec);
@@ -183,6 +209,11 @@ class ChatPanel {
     return this._open;
   }
 
+  // The tab whose chat shows: a split view has one chat, its first pane's.
+  get currentTab() {
+    return lazy.WhimsyChatContextUI.threadTab(this.win.gBrowser.selectedTab);
+  }
+
   get private() {
     return lazy.WhimsyAIContext.isPrivate(this.win.gBrowser.selectedTab);
   }
@@ -204,6 +235,8 @@ class ChatPanel {
     }
     const { doc, win } = this;
     win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+    win.windowUtils.loadSheetUsingURIString(lazy.WhimsyChatAnswer.sheetURL, win.windowUtils.AUTHOR_SHEET);
+    lazy.WhimsyChatAnswer.init();
 
     this.header = h(
       doc,
@@ -277,7 +310,32 @@ class ChatPanel {
       ondblclick: () => this.resetWidth(),
       onclick: e => e.detail >= 2 && this.resetWidth(),
     });
-    this.panel = h(doc, "div", { class: "whimsy-chat-panel" }, this.header, this.tasksStrip, this.body, this.foot, this.list);
+    this.panel = h(
+      doc,
+      "div",
+      {
+        class: "whimsy-chat-panel",
+        ondragover: e => {
+          const dt = e.dataTransfer;
+          if (!this.private && (dt.types.includes("application/x-moz-tabbrowser-tab") || dt.types.includes("Files"))) {
+            e.preventDefault();
+            this.panel.setAttribute("dropping", "true");
+          }
+        },
+        ondragleave: e => !this.panel.contains(e.relatedTarget) && this.panel.removeAttribute("dropping"),
+        ondrop: e => {
+          this.panel.removeAttribute("dropping");
+          if (!this.private) {
+            lazy.WhimsyChatContextUI.onDrop(this, e);
+          }
+        },
+      },
+      this.header,
+      this.tasksStrip,
+      this.body,
+      this.foot,
+      this.list
+    );
     this.el = h(
       doc,
       "aside",
@@ -473,7 +531,7 @@ class ChatPanel {
     if (opts.threadId) {
       await this.showThread(opts.threadId);
     } else if (!wasOpen) {
-      await this.showTab(this.win.gBrowser.selectedTab);
+      await this.showTab(this.currentTab);
     }
     if (opts.prompt != null) {
       this.composer.value = opts.prompt;
@@ -596,7 +654,11 @@ class ChatPanel {
     // Esc closes what's open inside chat, and never chat itself.
     event.preventDefault();
     event.stopPropagation();
-    if (this.listOpen) {
+    const menu = this.panel.querySelector(".whimsy-chat-menu, .whimsy-chat-sheet");
+    if (menu) {
+      menu.remove();
+      this.composer.focus();
+    } else if (this.listOpen) {
       this.closeList();
     }
   }
@@ -652,7 +714,7 @@ class ChatPanel {
     if (!thread) {
       return;
     }
-    const tab = this.win.gBrowser.selectedTab;
+    const tab = this.currentTab;
     if (lazy.WhimsyAIContext.isPrivate(tab)) {
       return;
     }
@@ -662,7 +724,7 @@ class ChatPanel {
   }
 
   newChat() {
-    const tab = this.win.gBrowser.selectedTab;
+    const tab = this.currentTab;
     if (lazy.WhimsyAIContext.isPrivate(tab)) {
       return;
     }
@@ -709,7 +771,8 @@ class ChatPanel {
 
   async renderThread(thread, token) {
     const { doc, win } = this;
-    const tab = win.gBrowser.selectedTab;
+    const tab = this.currentTab;
+    this.panel.querySelector(".whimsy-chat-menu, .whimsy-chat-sheet")?.remove();
     this.ready = false;
     this.setPrivate(false);
     this.thread = thread;
@@ -724,8 +787,11 @@ class ChatPanel {
     this.sendButton.toggleAttribute("streaming", streaming);
     doc.l10n.setAttributes(this.sendButton, streaming ? "whimsy-chat-stop" : "whimsy-chat-send");
     this.title.textContent = thread?.title || tab.label;
-    this.modelRow.querySelector(".whimsy-chat-model-name").textContent =
-      PROVIDER_NAMES[lazy.WhimsyAIProviders.provider] ?? lazy.WhimsyAIProviders.provider;
+    await lazy.WhimsyChatContextUI.render(this);
+    if (token != this.renderToken) {
+      return;
+    }
+    lazy.WhimsyChatAnswer.renderModelLine(this);
 
     const messages = thread?.id ? (await lazy.WhimsyAIStore.messages(thread.id)).filter(m => m.role != "page") : [];
     if (token != this.renderToken) {
@@ -851,12 +917,18 @@ class ChatPanel {
       return node;
     }
     if (msg.role == "user") {
-      return h(doc, "div", { class: "whimsy-chat-msg", "data-role": "user", "data-msg-id": msg.id }, messageText(msg));
+      const bubble = h(doc, "div", { class: "whimsy-chat-msg", "data-role": "user", "data-msg-id": msg.id }, messageText(msg));
+      const used = lazy.WhimsyChatContextUI.usedLine(doc, msg);
+      return used ? h(doc, "div", { class: "whimsy-chat-user-group" }, bubble, used) : bubble;
     }
     if (msg.role == "note") {
       return this.renderNote(msg);
     }
     if (msg.role == "error") {
+      const custom = lazy.WhimsyChat.cardRenderer("error");
+      if (custom) {
+        return custom(doc, msg, ctx);
+      }
       const { id, args } = lazy.WhimsyAIProviders.errorL10n(msg.code, msg.provider);
       return h(
         doc,
@@ -882,6 +954,10 @@ class ChatPanel {
 
   renderNote(msg) {
     const { doc } = this;
+    const own = lazy.WhimsyChat.cardRenderer(`note:${msg.kind}`);
+    if (own) {
+      return own(doc, msg, { win: this.win, thread: this.thread, panel: this });
+    }
     const l10n = {
       handoff: ["whimsy-chat-note-handoff", { from: PROVIDER_NAMES[msg.from] ?? msg.from, to: PROVIDER_NAMES[msg.to] ?? msg.to }],
       stopped: ["whimsy-chat-note-stopped"],
@@ -934,10 +1010,10 @@ class ChatPanel {
 
   async send() {
     const { win } = this;
-    const tab = win.gBrowser.selectedTab;
+    const tab = this.currentTab;
     const text = this.composer.value.trim();
     // Private is a wall: nothing is read, sent, or stored.
-    if (!text || lazy.WhimsyAIContext.isPrivate(tab) || !lazy.WhimsyAI.enabled || !this.thread) {
+    if (!text || lazy.WhimsyAIContext.isPrivate(win.gBrowser.selectedTab) || !lazy.WhimsyAI.enabled || !this.thread) {
       return;
     }
     if (this.thread.id && this.streams.has(this.thread.id)) {
@@ -947,17 +1023,30 @@ class ChatPanel {
     this.autosize();
     let thread = this.thread;
     if (thread.draft) {
+      const draft = thread;
       thread = await lazy.WhimsyChatThreads.persist(thread, tab);
+      await lazy.WhimsyChatContextUI.adopt(draft, thread);
+      lazy.WhimsyChatAnswer.adopt(draft, thread);
       this.shown.set(tab, { threadId: thread.id });
     }
     if (!thread.firstAsk) {
       thread = (await lazy.WhimsyAIStore.updateThread(thread.id, { firstAsk: text.slice(0, 200) })) ?? thread;
     }
     this.thread = thread;
-    const userMsg = await lazy.WhimsyAIStore.append(thread.id, { role: "user", text });
+    // What this message reads, widened by what it asks for.
+    const context = await lazy.WhimsyChatContextUI.contextFor(this, thread, text);
+    const used = (context.widened ?? []).map(w => ({ kind: w.kind, count: w.count ?? 0, label: w.label ?? "" }));
+    const userMsg = await lazy.WhimsyAIStore.append(thread.id, { role: "user", text, used: used.length ? used : undefined });
     this.body.querySelector(".whimsy-chat-empty")?.remove();
     this.body.append(this.renderMessage(userMsg));
-    await this.answer(thread);
+    const left = context.leftOut ?? {};
+    if (used.length && (left.private || left.hidden || left.locked)) {
+      const note = await lazy.WhimsyAIStore.append(thread.id, { role: "note", kind: "left-out", leftOut: { ...left } });
+      this.body.append(this.renderNote(note));
+    }
+    await this.doc.l10n.translateFragment(this.body);
+    lazy.WhimsyChatContextUI.render(this);
+    await this.answer(thread, { context });
   }
 
   async pageFor(thread) {
@@ -968,7 +1057,7 @@ class ChatPanel {
     if (tab && !lazy.WhimsyAIContext.isOffLimits(tab) && isWebTab(tab)) {
       const context = await lazy.WhimsyAIContext.forTab(tab);
       const text = context.parts.filter(p => typeof p.text == "string").map(p => p.text).join("\n\n");
-      const page = { url: tab.linkedBrowser.currentURI.spec, title: context.title || tab.label, text };
+      const page = { url: tab.linkedBrowser.currentURI.spec, title: context.title || tab.label, text, lang: context.lang };
       await lazy.WhimsyChatThreads.savePage(thread.id, page);
       return page;
     }
@@ -978,7 +1067,7 @@ class ChatPanel {
     return null;
   }
 
-  systemPrompt(page) {
+  systemPrompt(page, extra = []) {
     const lines = [
       "You are the chat in Whimsy, a web browser. Answer plainly and briefly, in the language the person writes in.",
     ];
@@ -991,55 +1080,115 @@ class ChatPanel {
         String(page.text ?? "").slice(0, PAGE_CHARS)
       );
     }
+    let room = PAGE_CHARS;
+    for (const part of extra) {
+      if (room <= 0) {
+        break;
+      }
+      const body = String(part.text ?? "").slice(0, Math.min(room, 20000));
+      room -= body.length;
+      lines.push("", `Also in this chat: ${part.title || part.url || "a source"}${part.url ? ` (${part.url})` : ""}`, body);
+    }
+    if (page || extra.length) {
+      lines.push("", "When the person's question needs one of these sources and doesn't say which, work it out from the question.");
+    }
     return lines.join("\n");
   }
 
-  async answer(thread) {
+  // The page and the other sources a context holds, as prompt sections.
+  async sourcesFor(thread, context) {
+    let page = null;
+    const extra = [];
+    const tab = lazy.WhimsyChatThreads.tabOf(thread);
+    const ownKey = tab ? lazy.WhimsyAIContext.tabKey(tab) : null;
+    if (context) {
+      for (const chip of context.chips) {
+        const text = context.parts.filter(p => p.chipId == chip.id && typeof p.text == "string");
+        if (!text.length) {
+          continue;
+        }
+        if (!page && chip.sourceId == ownKey && chip.kind != "tabs") {
+          page = { url: chip.url, title: context.title || chip.label, text: text.map(p => p.text).join("\n\n"), lang: context.lang };
+          await lazy.WhimsyChatThreads.savePage(thread.id, page);
+          continue;
+        }
+        for (const p of text) {
+          extra.push({ title: p.title ?? chip.label, url: p.url ?? chip.url, text: p.text });
+        }
+      }
+      if (!page && !context.chips.some(c => c.sourceId == ownKey)) {
+        page = !tab && thread.closedTab ? await lazy.WhimsyChatThreads.savedPage(thread.id) : null;
+      }
+    } else {
+      page = await this.pageFor(thread);
+    }
+    return { page, extra };
+  }
+
+  /**
+   * Answers the thread's last message. opts: {context, provider, textOnly,
+   * continueFrom (a partial answer to finish), instruction}.
+   */
+  async answer(thread, opts = {}) {
     const { doc } = this;
-    const node = h(
-      doc,
-      "div",
-      { class: "whimsy-chat-msg", "data-role": "ai", busy: true },
-      h(doc, "div", { class: "whimsy-chat-status" }, h(doc, "span", { class: "whimsy-chat-spinner" }), h(doc, "span", { l10n: "whimsy-chat-status-reading" })),
-      h(doc, "div", { class: "whimsy-chat-text" })
-    );
-    const stream = { node, text: "", controller: new AbortController() };
+    const live = lazy.WhimsyChatAnswer.live(this, thread);
+    const node = live.node;
+    const stream = { node, text: "", controller: new AbortController(), live };
     this.streams.set(thread.id, stream);
     this.body.append(node);
+    await doc.l10n.translateFragment(node);
     this.body.scrollTop = this.body.scrollHeight;
     this.sendButton.setAttribute("streaming", "true");
     doc.l10n.setAttributes(this.sendButton, "whimsy-chat-stop");
     this.autosize();
-    const textNode = node.querySelector(".whimsy-chat-text");
     const notes = [];
     let result = null;
     let failure = null;
+    let needs = {};
+    let context = opts.context ?? null;
     try {
-      const page = await this.pageFor(thread);
-      if (!page) {
-        doc.l10n.setAttributes(node.querySelector(".whimsy-chat-status > span:last-child"), "whimsy-chat-status-thinking");
+      if (!context && thread.kind == "tab") {
+        const last = (await lazy.WhimsyAIStore.messages(thread.id)).findLast(m => m.role == "user");
+        context = await lazy.WhimsyChatContextUI.contextFor(this, thread, last?.text ?? "");
       }
-      const history = (await lazy.WhimsyAIStore.messages(thread.id))
-        .filter(m => m.role == "user" || m.role == "ai")
+      if (opts.withoutChip && context) {
+        context = { ...context, chips: context.chips.filter(c => c.id != opts.withoutChip), parts: context.parts.filter(p => p.chipId != opts.withoutChip) };
+      }
+      const { page, extra } = await this.sourcesFor(thread, context);
+      if (!page && !extra.length) {
+        live.setStatus("whimsy-chat-status-thinking");
+      } else if (extra.length > 1) {
+        live.setStatus("whimsy-chat-status-reading-tabs");
+      }
+      let history = (await lazy.WhimsyAIStore.messages(thread.id))
+        .filter(m => m.role == "user" || (m.role == "ai" && m.id != opts.continueFrom?.id))
         .map(m => ({ role: m.role == "ai" ? "assistant" : "user", content: messageText(m) }));
-      const system = this.systemPrompt(page);
+      if (opts.continueFrom) {
+        history.push({ role: "assistant", content: messageText(opts.continueFrom) }, { role: "user", content: lazy.WhimsyAIRouter.CONTINUE_PROMPT });
+      } else if (opts.instruction) {
+        history.push({ role: "user", content: opts.instruction });
+      }
+      const system = this.systemPrompt(page, extra);
+      needs = opts.textOnly ? { chars: system.length } : { ...lazy.WhimsyChatContextUI.needsOf(context ?? {}, system), ...(opts.needs ?? {}) };
+      const choice = lazy.WhimsyChatAnswer.choiceFor(thread);
+      const provider = opts.provider ?? (choice.provider != "auto" ? choice.provider : undefined);
       result = await lazy.WhimsyAIRouter.run({
         task: "chat",
         messages: history,
         system,
-        needs: { chars: system.length },
+        needs,
+        provider,
+        model: provider && provider == choice.provider ? choice.model : "",
+        thinking: choice.thinking ?? "normal",
         userStarted: true,
         signal: stream.controller.signal,
         onEvent: event => {
+          live.event(event);
           if (event.type == "text") {
             stream.text += event.delta;
-            node.querySelector(".whimsy-chat-status")?.remove();
-            stream.node.querySelector(".whimsy-chat-text").textContent = stream.text;
-            if (this.body.contains(stream.node)) {
-              this.body.scrollTop = this.body.scrollHeight;
-            }
           } else if (event.type == "handoff") {
-            notes.push({ role: "note", kind: "handoff", from: event.from, to: event.to, reason: event.reason });
+            const need = event.reason == "capability" ? ["images", "video", "research", "imageGen", "code"].find(n => needs[n]) ?? "chars" : undefined;
+            notes.push({ role: "note", kind: "handoff", from: event.from, to: event.to, reason: event.reason, need, fromModel: lazy.WhimsyAIProviders.modelOf(event.from) });
           }
         },
       });
@@ -1047,42 +1196,155 @@ class ChatPanel {
       failure = e;
     }
     this.streams.delete(thread.id);
-    for (const note of notes) {
-      await lazy.WhimsyAIStore.append(thread.id, note);
+    for (const [i, note] of notes.entries()) {
+      notes[i] = await lazy.WhimsyAIStore.append(thread.id, note);
     }
     const aborted = stream.controller.signal.aborted;
     let saved = null;
     if (result || (aborted && stream.text)) {
-      saved = await lazy.WhimsyAIStore.append(thread.id, {
-        role: "ai",
-        text: result?.text ?? stream.text,
-        provider: result?.provider ?? null,
-        model: result?.model ?? null,
-        partial: !!result?.partial || aborted,
-      });
+      const fields = live.fields();
+      if (fields.artifacts) {
+        await lazy.WhimsyChatAnswer.saveArtifacts(this.win, thread, fields.artifacts);
+      }
+      if (opts.continueFrom) {
+        saved = await lazy.WhimsyAIStore.updateMessage(thread.id, opts.continueFrom.id, {
+          text: messageText(opts.continueFrom) + (result?.text ?? stream.text),
+          partial: !!result?.partial || aborted,
+          next: result?.next ?? null,
+          continuedFrom: opts.continueFrom.provider,
+          provider: result?.provider ?? opts.continueFrom.provider,
+        });
+      } else {
+        saved = await lazy.WhimsyAIStore.append(thread.id, {
+          role: "ai",
+          text: result?.text ?? stream.text,
+          provider: result?.provider ?? live.provider ?? null,
+          model: result?.model ?? null,
+          partial: !!result?.partial || aborted,
+          stopped: result?.stopped ?? undefined,
+          next: result?.partial ? result?.next ?? null : undefined,
+          ...fields,
+        });
+      }
     } else if (failure && !aborted) {
-      saved = await lazy.WhimsyAIStore.append(thread.id, { role: "error", code: failure.code ?? "failed", provider: failure.provider ?? null, tried: failure.tried ?? [] });
+      saved = await lazy.WhimsyAIStore.append(thread.id, {
+        role: "error",
+        code: failure.code ?? "failed",
+        provider: failure.provider ?? null,
+        tried: failure.tried ?? [],
+        until: failure.until ?? null,
+        needs,
+      });
     }
     if (aborted) {
       await lazy.WhimsyAIStore.append(thread.id, { role: "note", kind: "stopped" });
     }
+    let language = null;
+    if (saved?.role == "ai" && !opts.continueFrom && !opts.instruction) {
+      language = await this.languageOffer(thread, context);
+    }
     if (this.thread?.id == thread.id) {
       this.sendButton.removeAttribute("streaming");
       doc.l10n.setAttributes(this.sendButton, "whimsy-chat-send");
-      const live = stream.node;
       const replacement = saved ? this.renderMessage(saved) : null;
       const extra = [...notes.map(n => this.renderNote(n)), aborted ? this.renderNote({ kind: "stopped" }) : null].filter(Boolean);
-      if (live.isConnected) {
-        live.before(...extra);
-        if (replacement) {
-          live.replaceWith(replacement);
+      if (node.isConnected) {
+        node.before(...extra);
+        if (opts.continueFrom) {
+          node.remove();
+          this.body.querySelector(`[data-msg-id="${CSS.escape(opts.continueFrom.id)}"]`)?.replaceWith(replacement);
+        } else if (replacement) {
+          node.replaceWith(replacement);
         } else {
-          live.remove();
+          node.remove();
+        }
+        if (language) {
+          this.body.append(this.renderNote(language));
         }
         await doc.l10n.translateFragment(this.body);
+        live.settled(replacement);
       }
       this.autosize();
     }
+    return saved;
+  }
+
+  // Answers follow the typed language; when the page's script differs, one quiet line offers the page's.
+  async languageOffer(thread, context) {
+    const pageLang = String(context?.lang ?? (await lazy.WhimsyChatThreads.savedPage(thread.id))?.lang ?? "").split("-")[0].toLowerCase();
+    if (!pageLang || thread.languageOffered) {
+      return null;
+    }
+    const last = (await lazy.WhimsyAIStore.messages(thread.id)).findLast(m => m.role == "user");
+    const typed = scriptLanguage(last?.text ?? "");
+    const pageScript = SCRIPT_OF[pageLang] ?? "latin";
+    if (pageScript == "latin" || typed.script == pageScript) {
+      return null;
+    }
+    const names = new Intl.DisplayNames([Services.locale.appLocaleAsBCP47], { type: "language" });
+    const answer = typed.lang;
+    await lazy.WhimsyAIStore.updateThread(thread.id, { languageOffered: true, updated: thread.updated });
+    return lazy.WhimsyAIStore.append(thread.id, { role: "note", kind: "language", page: pageLang, answer, pageName: names.of(pageLang), answerName: names.of(answer) });
+  }
+
+  async answerInLanguage(note) {
+    const thread = this.thread;
+    if (!thread?.id) {
+      return;
+    }
+    await lazy.WhimsyAIStore.updateMessage(thread.id, note.id, { done: true });
+    this.body.querySelector(`.whimsy-chat-note[data-kind="language"] .whimsy-chat-link`)?.remove();
+    await this.answer(thread, { instruction: `Answer my last question again, in ${note.pageName}. From now on, answer in ${note.pageName}.` });
+  }
+
+  // ---- Next steps from the error block ----
+
+  async retry(msg, opts = {}) {
+    const thread = this.thread;
+    if (!thread?.id || this.streams.has(thread.id)) {
+      return null;
+    }
+    if (msg?.role == "error") {
+      await lazy.WhimsyAIStore.updateMessage(thread.id, msg.id, { resolved: true });
+      this.body.querySelector(`[data-msg-id="${CSS.escape(msg.id)}"]`)?.remove();
+    }
+    return this.answer(thread, opts);
+  }
+
+  async finishWith(msg) {
+    const thread = this.thread;
+    if (!thread?.id || !msg?.next) {
+      return null;
+    }
+    return this.answer(thread, { continueFrom: msg, provider: msg.next });
+  }
+
+  async stopHere(msg) {
+    const thread = this.thread;
+    if (!thread?.id) {
+      return;
+    }
+    const saved = await lazy.WhimsyAIStore.updateMessage(thread.id, msg.id, { stoppedHere: true });
+    const node = this.body.querySelector(`[data-msg-id="${CSS.escape(msg.id)}"]`);
+    if (node && saved) {
+      const fresh = this.renderMessage(saved);
+      node.replaceWith(fresh);
+      await this.doc.l10n.translateFragment(fresh);
+    }
+  }
+
+  retryWhenOnline(msg) {
+    const node = this.body.querySelector(`[data-msg-id="${CSS.escape(msg.id)}"]`);
+    node?.setAttribute("waiting", "true");
+    const observer = {
+      observe: () => {
+        if (!Services.io.offline) {
+          Services.obs.removeObserver(observer, "network:offline-status-changed");
+          this.retry(msg);
+        }
+      },
+    };
+    Services.obs.addObserver(observer, "network:offline-status-changed");
   }
 
   // ---- Conversation list ----
@@ -1312,9 +1574,12 @@ class ChatPanel {
     const { win } = this;
     const gBrowser = win.gBrowser;
     const onSelect = () => {
-      if (this._open) {
-        this.showTab(gBrowser.selectedTab);
+      const tab = this.currentTab;
+      // Focusing the other pane of a split keeps its one chat.
+      if (this._open && (tab != this.lastTab || tab == gBrowser.selectedTab)) {
+        this.showTab(tab);
       }
+      this.lastTab = tab;
     };
     const onClose = event => {
       if (!event.detail?.adoptedBy) {
@@ -1414,6 +1679,28 @@ export const WhimsyChatPanel = {
         { l10nId: "whimsy-chat-cmd-open", isAvailable: () => ai() && !panel.isOpen },
         { l10nId: "whimsy-chat-cmd-hide", isAvailable: () => ai() && panel.isOpen },
       ],
+    });
+    const open = async () => (panel.isOpen || (await panel.open({ focus: "card" }))) && panel.thread && !panel.private;
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyChatWhatAISees",
+      l10nId: "whimsy-chat-cmd-what-ai-sees",
+      run: async () => (await open()) && lazy.WhimsyChatContextUI.openSheet(panel),
+      icon: `${ICONS}eye.svg`,
+      isAvailable: ai,
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyChatAddContext",
+      l10nId: "whimsy-chat-cmd-add-context",
+      run: async () => (await open()) && lazy.WhimsyChatContextUI.openAddMenu(panel, panel.chips.querySelector(".whimsy-chat-chip-add") ?? panel.composer),
+      icon: `${ICONS}tabs-all.svg`,
+      isAvailable: ai,
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyChatModel",
+      l10nId: "whimsy-chat-cmd-model",
+      run: async () => (await open()) && lazy.WhimsyChatAnswer.openModelMenu(panel, panel.modelRow.querySelector(".whimsy-chat-model-button") ?? panel.composer),
+      icon: `${ICONS}thinking.svg`,
+      isAvailable: ai,
     });
     for (const [id, side] of [
       ["cmd_whimsyChatMoveLeft", "left"],

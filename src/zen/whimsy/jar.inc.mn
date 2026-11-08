@@ -211,3 +211,5 @@
 # W23 chat-shell: the chat panel
         content/browser/whimsy/whimsy-chat.css (../../zen/whimsy/content/whimsy-chat.css)
         content/browser/whimsy/icons/chat-list.svg (../../zen/whimsy/content/icons/chat-list.svg)
+# W23 chat-answers
+        content/browser/whimsy/whimsy-chat-answer.css (../../zen/whimsy/content/whimsy-chat-answer.css)
