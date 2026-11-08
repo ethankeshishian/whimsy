@@ -37,9 +37,10 @@ add_setup(async () => {
   registerCleanupFunction(() => {
     WhimsyAIProviders.setTestProvider(null);
     WhimsyAIReader.setTestReader(null);
-    for (const pref of ["whimsy.ai.enabled", "whimsy.ai.provider", "whimsy.feature.ask-on-page", "whimsy.feature.link-previews", "whimsy.feature.link-cards"]) {
+    for (const pref of ["whimsy.ai.order", "whimsy.feature.ask-on-page", "whimsy.feature.link-previews", "whimsy.feature.link-cards"]) {
       Services.prefs.clearUserPref(pref);
     }
+    Services.prefs.setBoolPref("whimsy.ai.enabled", true);
   });
 });
 
@@ -105,7 +106,7 @@ add_task(async function test_ask_on_page() {
     EventUtils.synthesizeKey("KEY_Enter");
     await new Promise(r => setTimeout(r, 300));
     is(requests.length, 0, "Enter just finds again");
-    Services.prefs.clearUserPref("whimsy.ai.enabled");
+    Services.prefs.setBoolPref("whimsy.ai.enabled", true);
     findbar.close();
   });
 });
@@ -185,11 +186,11 @@ add_task(async function test_preview() {
 
     // A provider that isn't set up: the card says so instead of guessing.
     WhimsyAIProviders.setTestProvider(null);
-    Services.prefs.setStringPref("whimsy.ai.provider", "claude");
+    Services.prefs.setStringPref("whimsy.ai.order", "claude");
     await hoverLink(browser, true);
     await TestUtils.waitForCondition(() => card.state == "open" && card.querySelector('[data-card="ai"] .whimsy-preview-error'), "Not set up: a message");
     WhimsyAIPage.hidePreview(window);
-    Services.prefs.clearUserPref("whimsy.ai.provider");
+    Services.prefs.clearUserPref("whimsy.ai.order");
     WhimsyAIProviders.setTestProvider(fakeProvider);
   });
 });
@@ -326,7 +327,7 @@ add_task(async function test_private_return_doesnt_ask_the_cloud() {
   // The other tasks use the stand-in provider; this one needs the cloud one.
   const testProvider = WhimsyAIProviders._testProvider;
   WhimsyAIProviders._testProvider = null;
-  Services.prefs.setStringPref("whimsy.ai.provider", "claude");
+  Services.prefs.setStringPref("whimsy.ai.order", "claude");
   ok(WhimsyAIProviders.isCloud, "A cloud provider");
   const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE);
@@ -349,7 +350,7 @@ add_task(async function test_private_return_doesnt_ask_the_cloud() {
   } finally {
     WhimsyAIPage.askOnPage = realAsk;
     WhimsyAIProviders._testProvider = testProvider;
-    Services.prefs.clearUserPref("whimsy.ai.provider");
+    Services.prefs.clearUserPref("whimsy.ai.order");
     BrowserTestUtils.removeTab(tab);
   }
 });

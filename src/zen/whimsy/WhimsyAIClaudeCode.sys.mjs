@@ -8,14 +8,18 @@
 // credential use"); Whimsy accepts Anthropic's Commercial Terms for that.
 // So Whimsy runs the installed `claude` with a fixed argument list (no
 // shell), never reads Claude Code's credentials, never calls Anthropic's
-// sign-in itself and never restricts how Claude Code signs in. Plan limits
-// assume ordinary, individual use: only things the person starts use it.
+// sign-in itself and never restricts how Claude Code signs in. W23: every
+// Whimsy feature may use the plan (routines, previews, the index too), and
+// connectors reach it as a temporary --mcp-config for that one run.
 
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
+  parseResetTime: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
+  pipeChunks: "resource:///modules/whimsy/WhimsyAIStream.sys.mjs",
+  textLines: "resource:///modules/whimsy/WhimsyAIStream.sys.mjs",
   WhimsyAIError: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
 });
@@ -29,13 +33,16 @@ const STATUS_TIMEOUT_MS = 20 * 1000;
 const SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
 const SIGN_IN_POLL_MS = 2000;
 const MAX_OUTPUT = 4 * 1024 * 1024;
+// Whether this Claude Code version streams on the plan: { version, streams }.
+export const STREAM_PROBE_PREF = "whimsy.ai.claude-code.stream-probe";
+const PROBE_TIMEOUT_MS = 60 * 1000;
 const SIGNED_OUT = /not logged in|please run \/login|run \/login|invalid api key|oauth token (?:has )?expired|authentication_error|not authenticated/i;
 const LIMIT = /usage limit|limit reached|limit will reset|out of (?:extra )?usage|rate_limit_error|credit balance is too low/i;
 
 const error = (code, message) => new lazy.WhimsyAIError(code, message);
 
 export const WhimsyAIClaudeCode = {
-  userStartedOnly: true,
+  usageUrl: USAGE_URL,
   _testDirs: null,
   _status: null,
   _pending: null,
@@ -84,20 +91,7 @@ export const WhimsyAIClaudeCode = {
    * @returns {Promise<{ exitCode: number, stdout: string, stderr: string }>}
    */
   async _run(command, args, { input = null, signal = null, timeoutMs = 0 } = {}) {
-    const environment = Object.assign(lazy.Subprocess.getEnvironment(), {
-      PATH: [...new Set([PathUtils.parent(command), ...this._searchDirs, "/usr/bin", "/bin", "/usr/sbin", "/sbin"])].join(":"),
-    });
-    const workdir = PathUtils.join(PathUtils.tempDir, "whimsy-claude-code");
-    await IOUtils.makeDirectory(workdir, { permissions: 0o700 });
-    const proc = await lazy.Subprocess.call({ command, arguments: args, environment, workdir, stderr: "pipe" });
-    let killed = null;
-    const kill = reason => {
-      killed ??= reason;
-      proc.kill();
-    };
-    const onAbort = () => kill("aborted");
-    signal?.addEventListener("abort", onAbort, { once: true });
-    const timer = timeoutMs ? setTimeout(() => kill("timeout"), timeoutMs) : null;
+    const run = await this._spawn(command, args, { input, signal, timeoutMs });
     const readAll = async pipe => {
       let text = "";
       for (let chunk; (chunk = await pipe.readString()); ) {
@@ -108,23 +102,71 @@ export const WhimsyAIClaudeCode = {
       return text;
     };
     try {
-      const writing = (async () => {
-        if (input != null) {
-          await proc.stdin.write(input);
-        }
-        await proc.stdin.close();
-      })().catch(() => {});
-      const [stdout, stderr] = await Promise.all([readAll(proc.stdout), readAll(proc.stderr)]);
-      await writing;
-      const { exitCode } = await proc.wait();
-      if (killed) {
-        throw signal?.aborted ? signal.reason ?? error("aborted") : error(killed);
-      }
+      const [stdout, stderr] = await Promise.all([readAll(run.proc.stdout), readAll(run.proc.stderr)]);
+      const { exitCode } = await run.finish();
       return { exitCode, stdout, stderr };
     } finally {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
+      run.cleanup();
     }
+  },
+
+  // Starts `claude`: { proc, finish() -> { exitCode } (throws when killed),
+  // cleanup() }.
+  async _spawn(command, args, { input = null, signal = null, timeoutMs = 0 } = {}) {
+    const environment = Object.assign(lazy.Subprocess.getEnvironment(), {
+      PATH: [...new Set([PathUtils.parent(command), ...this._searchDirs, "/usr/bin", "/bin", "/usr/sbin", "/sbin"])].join(":"),
+    });
+    const workdir = await this._workdir();
+    const proc = await lazy.Subprocess.call({ command, arguments: args, environment, workdir, stderr: "pipe" });
+    let killed = null;
+    const kill = reason => {
+      killed ??= reason;
+      proc.kill();
+    };
+    const onAbort = () => kill("aborted");
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) {
+      kill("aborted");
+    }
+    let timer = timeoutMs ? setTimeout(() => kill("timeout"), timeoutMs) : null;
+    const writing = (async () => {
+      if (input != null) {
+        await proc.stdin.write(input);
+      }
+      await proc.stdin.close();
+    })().catch(() => {});
+    return {
+      proc,
+      kill,
+      // Streams push the deadline back with each line.
+      extend() {
+        if (timer) {
+          clearTimeout(timer);
+          timer = setTimeout(() => kill("timeout"), timeoutMs);
+        }
+      },
+      async finish() {
+        await writing;
+        const { exitCode } = await proc.wait();
+        if (killed) {
+          throw signal?.aborted ? signal.reason ?? error("aborted") : error(killed);
+        }
+        return { exitCode };
+      },
+      cleanup() {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+      },
+    };
+  },
+
+  // Claude Code runs in a private folder of its own (0700), where the
+  // per-run connector files live too.
+  async _workdir() {
+    const workdir = PathUtils.join(PathUtils.tempDir, "whimsy-claude-code");
+    await IOUtils.makeDirectory(workdir, { permissions: 0o700, ignoreExisting: true });
+    await IOUtils.setPermissions(workdir, 0o700);
+    return workdir;
   },
 
   // Claude Code's own account status (`claude auth status`), for a short
@@ -252,44 +294,236 @@ export const WhimsyAIClaudeCode = {
     this._status = null;
   },
 
-  async complete({ prompt, system, signal, userStarted }) {
-    if (!userStarted) {
-      throw error("plan-user-only");
+  // Connectors as Claude Code's --mcp-config: { mcpServers: { name: … } }.
+  _mcpConfig(servers) {
+    const config = { mcpServers: {} };
+    const names = [];
+    for (const server of servers) {
+      let name = String(server?.name ?? "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64) || "connector";
+      while (config.mcpServers[name]) {
+        name += "_";
+      }
+      if (server.url) {
+        config.mcpServers[name] = { type: "http", url: String(server.url), ...(server.headers ? { headers: { ...server.headers } } : {}) };
+      } else if (server.command) {
+        config.mcpServers[name] = {
+          type: "stdio",
+          command: String(server.command),
+          args: (server.args ?? []).map(String),
+          ...(server.env ? { env: { ...server.env } } : {}),
+        };
+      } else {
+        continue;
+      }
+      names.push(name);
     }
-    const command = await this._find();
-    if (!command) {
-      throw error("claude-code-missing");
+    return { config, names };
+  },
+
+  /**
+   * The fixed argument list. Claude Code's own tools stay off; connectors
+   * are the only MCP servers it sees (from a 0600 file that's deleted after
+   * the run), and their tools may run without asking.
+   */
+  _args({ system, mcpFile = null, mcpNames = [], stream = false }) {
+    const args = ["-p", "--output-format", stream ? "stream-json" : "json"];
+    if (stream) {
+      args.push("--verbose", "--include-partial-messages");
     }
-    const args = ["-p", "--output-format", "json", "--tools", "", "--strict-mcp-config", "--no-session-persistence"];
+    args.push("--tools", "");
+    if (mcpFile) {
+      args.push("--mcp-config", mcpFile, "--strict-mcp-config", "--allowedTools", mcpNames.map(name => `mcp__${name}`).join(","));
+    } else {
+      args.push("--strict-mcp-config");
+    }
+    args.push("--no-session-persistence");
     if (system) {
       args.push("--system-prompt", system);
     }
     if (Services.prefs.prefHasUserValue(MODEL_PREF)) {
       args.push("--model", Services.prefs.getStringPref(MODEL_PREF));
     }
-    const { exitCode, stdout, stderr } = await this._run(command, args, { input: String(prompt ?? ""), signal });
-    let result = null;
-    for (const line of stdout.trim().split("\n").reverse()) {
-      try {
-        const parsed = JSON.parse(line);
-        if (parsed?.type == "result") {
-          result = parsed;
-          break;
-        }
-      } catch {}
+    return args;
+  },
+
+  // Writes the run's connector file (0600 in the 0700 folder), or null.
+  async _writeMcpConfig(servers) {
+    const { config, names } = this._mcpConfig(servers ?? []);
+    if (!names.length) {
+      return { file: null, names };
     }
-    if (result && !result.is_error && result.subtype == "success" && typeof result.result == "string") {
-      return result.result;
-    }
-    const said = `${typeof result?.result == "string" ? result.result : ""}\n${stderr}`;
+    const file = PathUtils.join(await this._workdir(), `mcp-${Services.uuid.generateUUID().toString().slice(1, -1)}.json`);
+    await IOUtils.writeUTF8(file, "", { mode: "create" });
+    await IOUtils.setPermissions(file, 0o600);
+    await IOUtils.writeUTF8(file, JSON.stringify(config), { mode: "overwrite" });
+    return { file, names };
+  },
+
+  // What went wrong, from what Claude Code said.
+  _failure(said, exitCode) {
     if (SIGNED_OUT.test(said)) {
       this._status = null;
       Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", "claude");
-      throw error("claude-code-signed-out");
+      return error("claude-code-signed-out");
     }
     if (LIMIT.test(said)) {
-      throw error("plan-limit");
+      const failure = error("plan-limit");
+      const words = said.trim().split("\n")[0].replace(/\|\d{10}\b/, "").trim();
+      failure.detail = words.slice(0, 300);
+      const until = lazy.parseResetTime(said);
+      if (until) {
+        failure.until = until;
+      }
+      return failure;
     }
-    throw error("failed", `Claude Code exited with ${exitCode}`);
+    return error("failed", `Claude Code exited with ${exitCode}`);
+  },
+
+  async complete({ prompt, system, signal, mcpServers, tools }) {
+    const command = await this._find();
+    if (!command) {
+      throw error("claude-code-missing");
+    }
+    const { file, names } = await this._writeMcpConfig(mcpServers ?? tools);
+    try {
+      const args = this._args({ system, mcpFile: file, mcpNames: names });
+      const { exitCode, stdout, stderr } = await this._run(command, args, { input: String(prompt ?? ""), signal });
+      let result = null;
+      for (const line of stdout.trim().split("\n").reverse()) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed?.type == "result") {
+            result = parsed;
+            break;
+          }
+        } catch {}
+      }
+      if (result && !result.is_error && result.subtype == "success" && typeof result.result == "string") {
+        return result.result;
+      }
+      throw this._failure(`${typeof result?.result == "string" ? result.result : ""}\n${stderr}`, exitCode);
+    } finally {
+      if (file) {
+        await IOUtils.remove(file, { ignoreAbsent: true });
+      }
+    }
+  },
+
+  /**
+   * The answer as AIEvents through `--output-format stream-json
+   * --include-partial-messages` (text and thinking deltas). Used only when
+   * supportsStreamJson() said this version streams.
+   */
+  async *stream({ prompt, system, signal, mcpServers, tools }) {
+    const command = await this._find();
+    if (!command) {
+      throw error("claude-code-missing");
+    }
+    const { file, names } = await this._writeMcpConfig(mcpServers ?? tools);
+    let run = null;
+    try {
+      run = await this._spawn(command, this._args({ system, mcpFile: file, mcpNames: names, stream: true }), {
+        input: String(prompt ?? ""),
+        signal,
+      });
+      const errors = (async () => {
+        let text = "";
+        for await (const chunk of lazy.pipeChunks(run.proc.stderr)) {
+          if (text.length < MAX_OUTPUT) {
+            text += chunk;
+          }
+        }
+        return text;
+      })();
+      let streamed = false;
+      let result = null;
+      for await (const line of lazy.textLines(lazy.pipeChunks(run.proc.stdout))) {
+        let parsed;
+        try {
+          parsed = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (parsed?.type == "stream_event" && parsed.event?.type == "content_block_delta") {
+          const delta = parsed.event.delta ?? {};
+          if (delta.type == "text_delta" && delta.text) {
+            streamed = true;
+            yield { type: "text", delta: delta.text };
+          } else if (delta.type == "thinking_delta" && delta.thinking) {
+            yield { type: "thinking", text: delta.thinking };
+          }
+        } else if (parsed?.type == "result") {
+          result = parsed;
+        }
+      }
+      const stderr = await errors;
+      const { exitCode } = await run.finish();
+      if (result && !result.is_error && result.subtype == "success") {
+        if (!streamed && typeof result.result == "string" && result.result) {
+          yield { type: "text", delta: result.result };
+        }
+        return;
+      }
+      throw this._failure(`${typeof result?.result == "string" ? result.result : ""}\n${stderr}`, exitCode);
+    } finally {
+      try {
+        run?.proc.kill();
+      } catch {}
+      run?.cleanup();
+      if (file) {
+        await IOUtils.remove(file, { ignoreAbsent: true });
+      }
+    }
+  },
+
+  /**
+   * Whether Claude Code streams on the plan: one tiny stream-json run per
+   * Claude Code version (cached by `claude --version`); partial text
+   * deltas mean yes.
+   */
+  async supportsStreamJson() {
+    const command = await this._find();
+    if (!command) {
+      return false;
+    }
+    let version = "";
+    try {
+      version = (await this._run(command, ["--version"], { timeoutMs: STATUS_TIMEOUT_MS })).stdout.trim();
+    } catch {
+      return false;
+    }
+    try {
+      const cached = JSON.parse(Services.prefs.getStringPref(STREAM_PROBE_PREF, "{}"));
+      if (cached?.version == version && typeof cached.streams == "boolean") {
+        return cached.streams;
+      }
+    } catch {}
+    let streams = false;
+    let answered = false;
+    try {
+      const { stdout } = await this._run(command, this._args({ stream: true }), {
+        input: "Reply with the word OK.",
+        timeoutMs: PROBE_TIMEOUT_MS,
+      });
+      for (const line of stdout.split("\n")) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed?.type == "stream_event" && parsed.event?.delta?.type == "text_delta") {
+            streams = true;
+          }
+          if (parsed?.type == "result" && !parsed.is_error) {
+            answered = true;
+          }
+        } catch {}
+      }
+    } catch {
+      return false;
+    }
+    // A probe that didn't get an answer (signed out, out of room) says
+    // nothing about streaming, so it's tried again next time.
+    if (answered) {
+      Services.prefs.setStringPref(STREAM_PROBE_PREF, JSON.stringify({ version, streams }));
+    }
+    return streams;
   },
 };

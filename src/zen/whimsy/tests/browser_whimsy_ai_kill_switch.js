@@ -23,9 +23,15 @@ async function setBlocked(value) {
 add_task(async function test_defaults() {
   ok(Services.prefs.getBoolPref("whimsy.feature.ai-kill-switch"), "The feature switch is on");
   is(WhimsyAI.PREF, "whimsy.ai.enabled", "Enable AI is the switch");
-  ok(Services.prefs.getBoolPref(WhimsyAI.PREF), "AI is enabled by default");
-  ok(!Services.prefs.prefHasUserValue(WhimsyAI.PREF), "…with no user value");
-  ok(!WhimsyAI.blocked, "WhimsyAI.blocked is false");
+  // W23: off until a provider connects (browser.toml turns it on for tests).
+  ok(!Services.prefs.getDefaultBranch("").getBoolPref(WhimsyAI.PREF), "AI is off by default");
+  Services.prefs.clearUserPref(WhimsyAI.PREF);
+  await WhimsyAI.pending;
+  ok(!WhimsyAI.enabled && WhimsyAI.blocked, "A fresh profile starts with AI off");
+  is(Services.prefs.getStringPref("browser.ai.control.default"), "blocked", "and Firefox's AI blocked too");
+  Services.prefs.setBoolPref(WhimsyAI.PREF, true);
+  await WhimsyAI.pending;
+  ok(!WhimsyAI.blocked, "On: WhimsyAI.blocked is false");
   is(Services.prefs.getStringPref("browser.ai.control.default"), "available", "Firefox's AI controls say available");
 });
 
@@ -78,7 +84,7 @@ add_task(async function test_feature_switch_off() {
   await WhimsyAI.pending;
   ok(WhimsyAI.blocked, "Switching the feature back on re-applies the user's choice");
   await setBlocked(false);
-  Services.prefs.clearUserPref(WhimsyAI.PREF);
+  Services.prefs.setBoolPref(WhimsyAI.PREF, true);
 });
 
 // The old switch: a profile that had AI turned off keeps it off, the
@@ -101,7 +107,7 @@ add_task(async function test_migration_and_mirror() {
   await WhimsyAI.pending;
   ok(Services.prefs.getBoolPref(WhimsyAI.LEGACY_PREF), "Disabled: the old pref says blocked");
   await setBlocked(false);
-  Services.prefs.clearUserPref(WhimsyAI.PREF);
+  Services.prefs.setBoolPref(WhimsyAI.PREF, true);
   Services.prefs.clearUserPref("browser.ai.control.default");
   await WhimsyAI.pending;
 });
@@ -140,7 +146,7 @@ add_task(async function test_settings_pane() {
     ok(rest.every(section => !section.inert), "Everything is usable again");
     ok(!doc.getElementById("whimsyAITidyTabs").disabled, "A feature switch works again");
   });
-  Services.prefs.clearUserPref(WhimsyAI.PREF);
+  Services.prefs.setBoolPref(WhimsyAI.PREF, true);
 });
 
 // The old links to AI in Privacy & Security land on the AI pane.

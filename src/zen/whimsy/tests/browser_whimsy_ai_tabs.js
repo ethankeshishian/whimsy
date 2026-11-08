@@ -41,7 +41,7 @@ add_setup(async () => {
   WhimsyAIProviders.setTestProvider(fakeProvider);
   registerCleanupFunction(async () => {
     WhimsyAIProviders.setTestProvider(null);
-    Services.prefs.clearUserPref("whimsy.ai.enabled");
+    Services.prefs.setBoolPref("whimsy.ai.enabled", true);
     await WhimsyAI.pending;
     Services.prefs.clearUserPref("whimsy.feature.tidy-tabs");
     Services.prefs.clearUserPref("whimsy.feature.tidy-titles");
@@ -212,7 +212,7 @@ add_task(async function test_switches_hide_the_broom() {
   requests = [];
   is(await WhimsyAITabs.tidy(window), null, "and tidying does nothing");
   is(requests.length, 0, "without asking the AI");
-  Services.prefs.clearUserPref("whimsy.ai.enabled");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
   await WhimsyAI.pending;
   await TestUtils.waitForCondition(() => !broom().hidden, "Back on");
   Services.prefs.setBoolPref("whimsy.feature.tidy-tabs", false);
@@ -261,7 +261,7 @@ add_task(async function test_tidy_titles() {
 
 add_task(async function tidy_excludes_private_tabs() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.provider", "claude"]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.order", "claude"]] });
   const tab = WhimsyPrivate.openPrivateTab(window);
   try {
     await TestUtils.waitForCondition(() => tab.linkedBrowser.browsingContext.usePrivateBrowsing);
