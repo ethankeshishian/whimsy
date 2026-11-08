@@ -35,6 +35,9 @@ const TOUCHED = [
   "whimsy.feature.ask-on-page",
   "whimsy.feature.link-previews",
   "whimsy.feature.page-watch",
+  "whimsy.ai.hints.seen",
+  "whimsy.ai.hints.today",
+  "whimsy.ai.claude-code.stream-probe",
 ];
 const saved = new Map(
   TOUCHED.map(name => {
@@ -57,6 +60,7 @@ function restorePrefs() {
 }
 
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", false]] });
   OSKeyStoreTestUtils.setup();
   server = new HttpServer();
   server.start(-1);
@@ -451,6 +455,8 @@ add_task(async function install_continues_when_sheet_closes_and_toasts() {
   const realInstall = WhimsyClaudeCodeInstall.install;
   const realStatus = WhimsyAIClaudeCode._authStatus;
   const realPlan = WhimsyAIProviders._plans.claude;
+  const realRefresh = WhimsyAIProviders.refreshCapabilities;
+  WhimsyAIProviders.refreshCapabilities = async () => {};
   let finish;
   const paused = new Promise(r => (finish = r));
   let installed = false;
@@ -467,6 +473,7 @@ add_task(async function install_continues_when_sheet_closes_and_toasts() {
   };
   WhimsyAIProviders.registerPlan("claude", { ...realPlan, connect: async () => ({}), status: async () => ({ connected: true, label: "" }) });
   registerCleanupFunction(() => {
+    WhimsyAIProviders.refreshCapabilities = realRefresh;
     WhimsyClaudeCodeInstall.install = realInstall;
     WhimsyAIClaudeCode._authStatus = realStatus;
     WhimsyAIProviders.registerPlan("claude", realPlan);
@@ -491,6 +498,7 @@ add_task(async function install_continues_when_sheet_closes_and_toasts() {
   WhimsyAIClaudeCode._authStatus = realStatus;
   WhimsyAIClaudeCode._status = null;
   WhimsyAIProviders.registerPlan("claude", realPlan);
+  WhimsyAIProviders.refreshCapabilities = realRefresh;
   await done(page);
 });
 
