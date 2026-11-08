@@ -1537,6 +1537,17 @@ class ChatPanel {
     }
   }
 
+  // A page that finishes loading in the chat's tab (or a pane of its split) refreshes its chips.
+  pageLoaded(browser) {
+    if (!this._open || !this.thread) {
+      return;
+    }
+    const tab = this.win.gBrowser.getTabForBrowser(browser);
+    if (tab && lazy.WhimsyChatContextUI.threadTab(tab) == this.currentTab) {
+      lazy.WhimsyChatContextUI.render(this);
+    }
+  }
+
   // ---- Discovery: the ⌘E hint, once, after a page loads while idle ----
 
   watchForHint() {
@@ -1554,6 +1565,9 @@ class ChatPanel {
     this.progress = {
       onStateChange: (browser, webProgress, request, flags) => {
         const STOP = Ci.nsIWebProgressListener.STATE_STOP | Ci.nsIWebProgressListener.STATE_IS_WINDOW;
+        if ((flags & STOP) == STOP && webProgress?.isTopLevel) {
+          this.pageLoaded(browser);
+        }
         if ((flags & STOP) == STOP && webProgress?.isTopLevel && browser == win.gBrowser.selectedBrowser) {
           if (lazy.WhimsyAI.enabled && !lazy.WhimsyAIHints.seen("chat")) {
             wait();

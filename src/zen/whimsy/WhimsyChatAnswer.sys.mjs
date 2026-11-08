@@ -68,7 +68,7 @@ function h(doc, tag, attrs = {}, ...children) {
       el.setAttribute(k, v);
     }
   }
-  el.append(...children.flat().filter(c => c != null && c !== false));
+  el.append(...children.flat(Infinity).filter(c => c != null && c !== false));
   return el;
 }
 
@@ -155,7 +155,7 @@ function codeBlock(doc, { language, code, output, ranBy }) {
       copyText(code);
       const b = e.currentTarget;
       doc.l10n.setAttributes(b, "whimsy-chat-code-copied");
-      b.ownerGlobal.setTimeout(() => doc.l10n.setAttributes(b, "whimsy-chat-code-copy"), 1500);
+      b.documentGlobal.setTimeout(() => doc.l10n.setAttributes(b, "whimsy-chat-code-copy"), 1500);
     },
   });
   const head = h(
@@ -392,9 +392,10 @@ class Live {
       return;
     }
     this.fold();
-    this.status.remove();
     this.text += delta;
+    // A plan answer arrives whole, so its status row stays until then.
     if (this.streams) {
+      this.status.remove();
       this.renderText();
     }
   }
@@ -1104,7 +1105,8 @@ export const WhimsyChatAnswer = {
         const saved = await lazy.WhimsyAIReports.save(thread.id, { title: a.title ?? "", markdown: a.markdown, kind: a.kind });
         a.reportId = saved.id;
         delete a.markdown;
-        await lazy.WhimsyAIReports.open(win, saved.id);
+        // Opens beside the chat's tab without taking you away from the answer.
+        await lazy.WhimsyAIReports.open(win, saved.id, { select: false });
         if (a.kind == "report") {
           await lazy.WhimsyAIUpdates.post({
             id: `research:${saved.id}`,

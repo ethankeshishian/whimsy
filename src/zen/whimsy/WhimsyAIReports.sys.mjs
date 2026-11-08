@@ -60,16 +60,18 @@ export const WhimsyAIReports = {
     return (await index()).find(r => r.id == id) ?? null;
   },
 
-  /** The report's tab: the open one, or the file opened again. */
-  async open(win, id) {
+  /** The report's tab: the open one, or the file opened again; `select: false` leaves you where you are. */
+  async open(win, id, { select = true } = {}) {
     const report = await this.get(id);
     if (!report || !(await IOUtils.exists(report.path))) {
       return null;
     }
     const spec = PathUtils.toFileURI(report.path);
     const existing = win.gBrowser.tabs.find(t => !t.closing && t.linkedBrowser.currentURI.spec == spec);
-    const tab = existing ?? win.gBrowser.addTrustedTab(spec, { inBackground: false });
-    win.gBrowser.selectedTab = tab;
+    const tab = existing ?? win.gBrowser.addTrustedTab(spec, { inBackground: !select, relatedToCurrent: true });
+    if (select) {
+      win.gBrowser.selectedTab = tab;
+    }
     return tab;
   },
 

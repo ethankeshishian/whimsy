@@ -55,7 +55,7 @@ function h(doc, tag, attrs = {}, ...children) {
       el.setAttribute(k, v);
     }
   }
-  el.append(...children.flat().filter(c => c != null && c !== false));
+  el.append(...children.flat(Infinity).filter(c => c != null && c !== false));
   return el;
 }
 

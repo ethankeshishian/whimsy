@@ -82,6 +82,12 @@ add_setup(async function () {
     yield { type: "text", delta: "Answer to " + request.lastUserText };
   });
   registerCleanupFunction(() => {
+    if (chat().isOpen) {
+      chat().close({ reason: "key" });
+    }
+    while (gBrowser.tabs.length > 1) {
+      BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+    }
     WhimsyAIProviders.setTestProvider(null);
     Services.prefs.clearUserPref("whimsy.ai.hints.seen");
   });
@@ -301,13 +307,13 @@ add_task(async function research_report_saved_and_opens_as_tab_and_posts_update(
   type("Do deep research on parking reform");
   await answered();
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == tabs + 1, "The report opens as a tab");
-  const reportTab = gBrowser.selectedTab;
-  const card = part(".whimsy-chat-report");
-  ok(card, "The chat keeps a card for it");
+  is(gBrowser.selectedTab, tab, "beside the chat's tab, which stays in front");
+  const card = await TestUtils.waitForCondition(() => part(".whimsy-chat-report"), "The chat keeps a card for it");
   const report = await WhimsyAIReports.get(card.dataset.report);
+  const reportTab = gBrowser.tabs.find(t => t.linkedBrowser.currentURI.spec == PathUtils.toFileURI(report.path));
   ok(await IOUtils.exists(report.path), "saved as a local file");
   is((await IOUtils.stat(report.path)).permissions & 0o777, 0o600, "readable only by you");
-  is(reportTab.linkedBrowser.currentURI.spec, PathUtils.toFileURI(report.path), "The tab is that file");
+  ok(reportTab, "The tab is that file");
   const updates = await WhimsyAIUpdates.list();
   ok(updates.updates.concat(updates.recent ? [updates.recent] : []).some(u => u.source == "research"), "Research posts to Updates");
   BrowserTestUtils.removeTab(reportTab);

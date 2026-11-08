@@ -58,6 +58,12 @@ add_setup(async function () {
     yield { type: "text", delta: "Answer to " + request.lastUserText };
   });
   registerCleanupFunction(() => {
+    if (chat().isOpen) {
+      chat().close({ reason: "key" });
+    }
+    while (gBrowser.tabs.length > 1) {
+      BrowserTestUtils.removeTab(gBrowser.tabs.at(-1));
+    }
     WhimsyAIProviders.setTestProvider(null);
     Services.prefs.clearUserPref("whimsy.ai.hints.seen");
   });
