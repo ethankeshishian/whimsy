@@ -12,6 +12,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReports: "resource:///modules/whimsy/WhimsyAIReports.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
@@ -1120,6 +1121,11 @@ export const WhimsyChatAnswer = {
     }
     if (win.gBrowser.selectedTab != tab && !tab.splitView) {
       win.gBrowser.selectedTab = tab;
+    }
+    // A summary's passage that has left the page: the thread says so.
+    if (source?.summary && !(await lazy.WhimsyAIPage.quoteOnPage(tab, quote))) {
+      await lazy.WhimsyAIPage.passageGone(win, thread);
+      return false;
     }
     const finder = tab.linkedBrowser.finder;
     finder.fastFind(quote, false, false);

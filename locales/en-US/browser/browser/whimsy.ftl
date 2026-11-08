@@ -1779,7 +1779,7 @@ whimsy-ai-feature-ask-on-page =
     .description = When Find on Page (⌘F) finds nothing, ask a question about the page instead.
 whimsy-ai-feature-link-previews =
     .label = 5-second previews
-    .description = Hold Shift on a link to see a summary of the page behind it. On search results, X, Threads and Hacker News, just rest on a link. Pages are read with your own sign-ins, never in private windows.
+    .description = Whenever a link card opens, a three-point summary of the page opens with it. Resting on a link reads public pages only, without your sign-ins; Shift reads any page with them. Never in private tabs.
 whimsy-ask-button =
     .label = Ask
     .tooltiptext = Ask about this page
@@ -6081,3 +6081,14 @@ whimsy-onb-done-text-one = { $names } is ready. Press ⌘E to chat about any tab
 whimsy-onb-done-text-all = Your AI, schedule, inbox, and work tools are ready. Press ⌘E to chat about any tab, or type a question in the command bar.
 whimsy-onb-done-continue = Continue
 whimsy-onb-done-hint = Press Return to continue
+
+## W23 page-read: page summaries in chat (⌘K Summarize), long pages, and
+## passages that changed. $words, $total, $read, and $skipped are counts.
+whimsy-summary-command = Summarize This Page
+whimsy-summary-ask = Sum up this page
+whimsy-summary-read-all = Read the whole page · { $words } words
+whimsy-summary-long = This page is too long to read in full at once. I skimmed all { $total } sections, then read the { $read } that answer it in full and skipped { $skipped }.
+whimsy-summary-long-done = I’ve read the rest of this page, all { $total } sections.
+whimsy-summary-read-rest = Read the rest
+whimsy-summary-passage-gone = That passage isn’t on the page anymore. It may have changed since I read it.
+whimsy-summary-again = Sum up again
