@@ -12,18 +12,6 @@ const { WhimsyAIContext } = ChromeUtils.importESModule("resource:///modules/whim
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 
-// Typing here is fixture data: whatever drafts it leaves use the test key
-// store and are gone before the next file.
-add_setup(async function () {
-  const { OSKeyStoreTestUtils } = ChromeUtils.importESModule("resource://testing-common/OSKeyStoreTestUtils.sys.mjs");
-  const { WhimsyFormDrafts } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs");
-  OSKeyStoreTestUtils.setup();
-  registerCleanupFunction(async () => {
-    await WhimsyFormDrafts.forgetAll();
-    await OSKeyStoreTestUtils.cleanup();
-  });
-});
-
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [
     ["whimsy.ai.enabled", true],
@@ -92,16 +80,13 @@ add_task(async function shots_hint_toast_mid_animation() {
 
 add_task(async function shots_masked_fields() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ROOT + "whimsy_ai_sensitive.html");
-  const browser = tab.linkedBrowser;
-  browser.focus();
-  for (const [sel, text] of [["#pw", "hunter" + "2"], ["#cc", "4111" + "111111111111"], ["#otp", "48" + "2913"]]) {
-    await BrowserTestUtils.synthesizeMouseAtCenter(sel, {}, browser);
-    await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [sel], s =>
-      content.document.activeElement == content.document.querySelector(s)), `${sel} has focus`);
-    EventUtils.sendString(text);
-    await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [sel, text], (s, t) =>
-      content.document.querySelector(s).value == t), `${sel} is filled`);
-  }
+  // Filled without typing: the shot is of the masks, and typed fixtures
+  // would leave form drafts behind.
+  await SpecialPowers.spawn(tab.linkedBrowser, [["hunter" + "2", "4111" + "111111111111", "48" + "2913"]], values => {
+    const doc = content.document;
+    ["#pw", "#cc", "#otp"].forEach((sel, i) => (doc.querySelector(sel).value = values[i]));
+    doc.getElementById("mirror").textContent = values[0];
+  });
   await WhimsyAIContext.withMask(tab.linkedBrowser, () =>
     whimsyShot("w23-ai-base-mask-fields", tab.linkedBrowser.browsingContext.currentWindowGlobal));
   BrowserTestUtils.removeTab(tab);
