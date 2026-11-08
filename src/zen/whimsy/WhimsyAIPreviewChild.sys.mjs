@@ -138,6 +138,11 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       const fixed = Math.max(0, Math.min(win.scrollMaxY, win.scrollY + landed));
       if (Math.abs(fixed - win.scrollY) > 8) {
         win.scrollTo({ top: fixed, behavior: "instant" });
+        // Its scroll event fires on the next frame; the tint must not take it as the reader's.
+        await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+        if (token != this.passageToken || !this.contentWindow) {
+          return false;
+        }
       }
     }
     this.paintPassage(win, range, String(color || "AccentColor"), reduced);

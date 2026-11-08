@@ -74,13 +74,14 @@ add_task(async function floating_card_top_right() {
     await TestUtils.waitForCondition(() => findbar.getAnimations().every(a => a.playState != "running"), "It has opened");
     const card = findbar.getBoundingClientRect();
     const page = browser.getBoundingClientRect();
+    const style = getComputedStyle(findbar);
+    info(`card ${JSON.stringify(card)} page ${JSON.stringify(page)} position ${style.position} top ${style.top} parent ${findbar.parentNode.className} ${getComputedStyle(findbar.parentNode).position}`);
     Assert.lessOrEqual(Math.abs(page.right - card.right - 14), 2, `It sits 14px from the page's right edge (${page.right - card.right})`);
     Assert.lessOrEqual(Math.abs(card.top - page.top - 10), 2, `and 10px below its top (${card.top - page.top})`);
     is(Math.round(card.width), 400, "400px wide");
     is(Math.round(page.height), Math.round(browser.closest(".browserContainer").getBoundingClientRect().height), "The page keeps its full height under it");
     for (const [selector, name] of [
       [".whimsy-find-field .findbar-textbox", "the field"],
-      [".whimsy-find-field .whimsy-find-count", "with the count inside"],
       [".findbar-find-previous", "previous"],
       [".findbar-find-next", "next"],
       [".whimsy-find-more", "⋯"],
@@ -92,6 +93,7 @@ add_task(async function floating_card_top_right() {
     ok(!findbar.getElement("highlight").getBoundingClientRect().width, "Firefox's checkboxes moved into the menu");
     await typeIn(findbar, "Lisbon");
     await TestUtils.waitForCondition(() => /^\d+\/\d+$/.test(count(findbar) ?? ""), "The count shows current of total");
+    ok(findbar.querySelector(".whimsy-find-field .whimsy-find-count").getBoundingClientRect().width > 0, "inside the field");
     await closeFind(findbar);
   });
 });
