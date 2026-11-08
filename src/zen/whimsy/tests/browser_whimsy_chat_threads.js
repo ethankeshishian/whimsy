@@ -181,7 +181,7 @@ add_task(async function thread_outlives_tab_and_reopen_restores() {
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   const r = reopen.getBoundingClientRect();
   const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-  info(`Reopen at ${JSON.stringify(r)}; under the pointer: ${hit?.localName}.${hit?.className} ${hit?.id}`);
+  ok(hit == reopen || reopen.contains(hit), `The reopen button is under the pointer at ${JSON.stringify(r)} (found ${hit?.localName}.${hit?.className} ${hit?.id}; chat motion running: ${el().getAnimations({ subtree: true }).filter(a => a.playState == "running").length})`);
   EventUtils.synthesizeMouseAtCenter(reopen, {});
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == tabsBefore + 1, "A tab opens");
   const back = gBrowser.selectedTab;
