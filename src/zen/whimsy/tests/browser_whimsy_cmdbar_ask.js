@@ -190,6 +190,7 @@ add_task(async function handoff_line_in_card() {
 
 add_task(async function errors_are_one_line_with_a_next_step() {
   await freshStore();
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.order", "claude"]] });
   script = async function* () {
     const e = new Error("down");
     e.code = "provider-down";
@@ -202,6 +203,7 @@ add_task(async function errors_are_one_line_with_a_next_step() {
   const line = cardEl().querySelector(".whimsy-ask-line[role='alert']");
   ok(line.querySelector("[data-action='retry']"), "with Try again");
   await closeBar();
+  await SpecialPowers.popPrefEnv();
 });
 
 add_task(async function private_bar_has_no_ask() {

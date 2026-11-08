@@ -316,7 +316,8 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
       return;
     }
     if (part == "remind") {
-      WhimsyCommandBarUpdates.openRemind(win, target.update, el);
+      // Opened after the key or click that asked for it, which would close it.
+      win.setTimeout(() => WhimsyCommandBarUpdates.openRemind(win, target.update, el?.isConnected ? el : null), 0);
       return;
     }
     WhimsyCommandBarUpdates.open(win, target, { accel: !!(details.event?.metaKey || details.event?.ctrlKey) });
@@ -379,10 +380,13 @@ export const WhimsyCommandBarUpdates = {
     }, 0);
   },
 
+  // After the engagement that asked for it is done, or the query is cancelled.
   refresh(win) {
-    if (win.gURLBar?.view.isOpen) {
-      win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
-    }
+    win.setTimeout(() => {
+      if (win.gURLBar?.view.isOpen) {
+        win.gURLBar.startQuery({ searchString: "", allowAutofill: false });
+      }
+    }, 0);
   },
 
   selectedTarget(win) {

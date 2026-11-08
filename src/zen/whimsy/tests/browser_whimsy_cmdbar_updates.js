@@ -126,6 +126,8 @@ add_task(async function remind_menu_times_and_returns_at_top() {
   EventUtils.synthesizeKey("KEY_Enter");
   await shown;
   const menu = document.getElementById("whimsy-cmdbar-remind-menu");
+  await TestUtils.waitForTick();
+  is(menu.state, "open", "The menu stays open");
   is(menu.querySelectorAll("[role=option]").length, 5, "Five choices");
   menu.querySelector("[role=option]").click();
   await TestUtils.waitForCondition(async () => (await WhimsyAIUpdates.list()).updates.length == 1, "It left Updates");
