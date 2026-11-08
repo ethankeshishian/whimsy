@@ -146,15 +146,28 @@ function hostOf(url) {
 }
 
 const SENTENCE_END = /[.!?。！？](["”’)\]]*)(\s|$)/;
+const ENDED = /[.!?。！？]["”’)\]]*\s*$/;
 
-// Citation marks go after the sentence each citation arrived in.
+/**
+ * Where a citation that arrived at `at` goes in `text`: just before the stop of the sentence it
+ * arrived in. A citation that arrives right after a stop belongs to the
+ * sentence that stop ended; otherwise to the one still being written.
+ */
+export function citeAt(text, at, done) {
+  const before = text.slice(0, at);
+  const ended = before.match(ENDED);
+  if (ended) {
+    return ended.index;
+  }
+  const end = text.slice(at).match(SENTENCE_END);
+  return end ? at + end.index : done ? text.length : -1;
+}
+
+// Citation marks go at the end of the sentence each citation arrived in.
 function marked(text, citations, done) {
   const shown = citations
-    .map(c => {
-      const end = text.slice(c.at).match(SENTENCE_END);
-      return end ? { ...c, pos: c.at + end.index + 1 + end[1].length } : done ? { ...c, pos: text.length } : null;
-    })
-    .filter(Boolean)
+    .map(c => ({ ...c, pos: citeAt(text, c.at, done) }))
+    .filter(c => c.pos >= 0)
     .sort((a, b) => a.pos - b.pos);
   let out = "";
   let at = 0;

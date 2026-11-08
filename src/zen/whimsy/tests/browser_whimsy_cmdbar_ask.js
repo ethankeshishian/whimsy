@@ -242,3 +242,25 @@ add_task(async function rtl_and_live_region() {
   is(document.activeElement, gURLBar.inputField, "Focus stays in the input");
   await closeBar();
 });
+
+add_task(function citation_goes_before_the_stop_of_its_sentence() {
+  const { citeAt } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs");
+  const t = "The **13-inch** is lightest at **2.7 lb**. The 15-inch is 3.3 lb.";
+  is(citeAt(t, t.indexOf(" The 15"), true), t.indexOf(". The 15"), "Arrived right after a stop: before that stop");
+  is(citeAt(t, 10, true), t.indexOf(". The 15"), "Arrived mid-sentence: before its stop");
+  is(citeAt("No stop yet", 5, false), -1, "Waits while the sentence is still open");
+  is(citeAt("No stop", 5, true), 7, "At the end once the answer is done");
+});
+
+add_task(async function answer_wraps_inside_the_card() {
+  await freshStore();
+  script = async function* () {
+    yield { type: "text", delta: "The 13-inch MacBook Air is the lightest at 2.7 lb. The 15-inch is 3.3 lb. Both have the M5 chip, so the 13-inch is the pick if weight matters most, and either one lasts a full day on battery." };
+  };
+  await askWithKeys();
+  await answered();
+  const body = cardEl().querySelector(".whimsy-ask-body");
+  Assert.lessOrEqual(body.scrollWidth, cardEl().clientWidth, "The answer wraps instead of running past the card");
+  Assert.greater(body.getBoundingClientRect().height, 30, "onto more than one line");
+  await closeBar();
+});
