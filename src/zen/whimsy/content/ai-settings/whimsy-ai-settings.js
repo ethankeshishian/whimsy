@@ -602,9 +602,9 @@ var WhimsyAISettings = {
     if (!action) {
       return;
     }
-    const sheet = { connect: "add-provider" }[action] ?? action;
+    const [sheet, method] = { connect: ["add-provider"], "plan-openai": ["openai", "plan"], "plan-claude": ["claude", "plan"] }[action] ?? [action];
     if (this._sheets.has(sheet)) {
-      this.openSheet(sheet, { restoreFocus: this.toggle });
+      this.openSheet(sheet, { restoreFocus: this.toggle, method });
     } else if (this._sections.has(sheet)) {
       this.jumpTo(sheet);
     }
