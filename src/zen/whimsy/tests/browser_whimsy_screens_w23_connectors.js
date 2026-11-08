@@ -123,12 +123,14 @@ function shell() {
   const root = el("div", "zen-welcome");
   root.style.cssText = "position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:light-dark(#e8e8f0,#1c1c22)";
   const pages = el("div", "zen-welcome-pages", root);
-  pages.style.cssText = "display:flex;width:86%;height:82%;border-radius:1.4rem;overflow:hidden;background:light-dark(#fff,#1c1c1e)";
+  pages.style.cssText = "display:flex;opacity:1;width:86%;height:82%;border-radius:1.4rem;overflow:hidden;background:light-dark(#fff,#1c1c1e)";
   const side = el("div", "zen-welcome-page-sidebar", pages);
   side.style.cssText = "width:38%;padding:4rem;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end";
   el("button", null, el("div", "zen-welcome-page-sidebar-buttons", side), "zen-big-accent-button");
   const content = el("div", "zen-welcome-page-content", pages);
   content.style.cssText = "flex:1;display:flex;background:light-dark(#f4f4f6,#232327)";
+  // Zen's intro animation is what reveals the pages and each page; without
+  // it they stay at opacity 0, which paints nothing and takes no clicks.
   // Zen's own #zen-welcome is a child of #browser (ZenWelcome.mjs); a copy
   // appended straight to <window> falls outside that box's layout and never
   // paints, leaving the shot blank.
@@ -141,6 +143,7 @@ async function renderPage(page) {
   const content = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
   content.className = "zen-welcome-page";
   content.setAttribute("page", page.id);
+  content.style.opacity = "1";
   host.append(content);
   await page.render(content, { next() {} });
   return content;
@@ -206,14 +209,7 @@ add_task(async function onb_card_failure_unfold_mid() {
   WhimsyAIOnboarding.connectProvider = () => Promise.reject(Object.assign(new Error("x"), { code: "sign-in-failed" }));
   try {
     const content = await renderPage(WhimsyAIOnboarding.pages(window)[0]);
-    const btn = content.querySelector('[data-id="openai"] [data-action="connect"]');
-    const r = btn.getBoundingClientRect();
-    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    info(`DIAG rect=${JSON.stringify(r)} hit=${hit?.localName}#${hit?.id}.${hit?.className}`);
-    EventUtils.synthesizeMouseAtCenter(btn, {}, window);
-    info(`DIAG state=${content.querySelector('[data-id="openai"]').dataset.state}`);
-    await new Promise(res => setTimeout(res, 0));
-    info(`DIAG state2=${content.querySelector('[data-id="openai"]').dataset.state} note=${!!content.querySelector('[data-id="openai"] .whimsy-onb-note')} anims=${content.querySelector('[data-id="openai"] .whimsy-onb-note')?.getAnimations().length} instant=${WhimsyAIOnboarding.instant}`);
+    EventUtils.synthesizeMouseAtCenter(content.querySelector('[data-id="openai"] [data-action="connect"]'), {}, window);
     await whimsyShotMid("w23-connectors-onb-card-fail", () => content.querySelector('[data-id="openai"] .whimsy-onb-note')?.getAnimations()[0], 150);
     ok(content.querySelector('[data-id="openai"]').dataset.state == "failed", "onb-card-fail: the card reached the failed state");
   } finally {

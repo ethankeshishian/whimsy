@@ -48,7 +48,7 @@ function shell() {
   stage = el("div", "zen-welcome");
   stage.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex";
   const pages = el("div", "zen-welcome-pages", stage);
-  // Zen keeps the pages hidden until its intro animation reveals them.
+  // Zen's intro animation reveals the pages; until then they take no clicks.
   pages.style.cssText = "display:flex;opacity:1";
   const side = el("div", "zen-welcome-page-sidebar", pages);
   const buttons = el("div", "zen-welcome-page-sidebar-buttons", side);
@@ -65,6 +65,7 @@ async function render(page) {
   const content = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
   content.className = "zen-welcome-page";
   content.setAttribute("page", page.id);
+  content.style.opacity = "1";
   document.getElementById("zen-welcome-page-content").append(content);
   const button = document.querySelector("#zen-welcome-page-sidebar-buttons > button");
   const pages = { nexts: 0, next() { this.nexts++; } };
