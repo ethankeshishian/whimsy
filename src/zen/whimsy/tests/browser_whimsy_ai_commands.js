@@ -297,9 +297,9 @@ add_task(async function save_as_command_on_a_reused_prompt() {
   ok(WhimsyChat.answerActions(msg).some(a => a.id == "save-command"), "An answer to a prompt sent before offers Save as a command");
   ok(!WhimsyChat.answerActions({ id: "m-other", role: "ai", text: "x" }).some(a => a.id == "save-command"), "A one-off doesn't");
   Services.prefs.setBoolPref("whimsy.ai.enabled", true);
-  const opened = BrowserTestUtils.waitForNewTab(gBrowser, url => url.startsWith("about:preferences"), true);
   WhimsyChat.answerActions(msg).find(a => a.id == "save-command").run(window, msg);
-  const tab = await opened.catch(() => gBrowser.selectedTab);
+  const tab = await TestUtils.waitForCondition(() => gBrowser.selectedBrowser.currentURI.spec.startsWith("about:preferences") && gBrowser.selectedTab, "Settings opens");
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.contentWindow?.WhimsyAISettings?.root, "Settings › AI is up");
   const win = tab.linkedBrowser.contentWindow;
   const sheet = await TestUtils.waitForCondition(() => win.document.getElementById("whimsyAISheet")?.dataset.sheet == "command" && win.document.getElementById("whimsyAISheet"), "The command sheet opens");
   is(win.document.getElementById("whimsyCommandPrompt").textContent, "Summarize this in three bullets", "with the prompt filled in");

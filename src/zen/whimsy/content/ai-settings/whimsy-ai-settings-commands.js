@@ -57,7 +57,7 @@
     item.dataset.command = cmd.id;
     item.setAttribute("role", "listitem");
     item.toggleAttribute("data-off", cmd.builtIn && cmd.hidden);
-    S.tile(item, cmd.builtIn ? cmd.icon : `${ZEN}${cmd.result == "link" ? "link" : "sparkles"}.svg`);
+    S.tile(item, `${ZEN}${cmd.result == "link" ? "link" : "sparkles"}.svg`);
     const text = S.el("span", "whimsy-ai-item-text", item);
     const name = S.el("span", "whimsy-ai-item-name", text);
     name.textContent = cmd.name;
@@ -563,9 +563,12 @@
       const del = S.button(state.footer, "whimsy-commands-delete", { kind: "text", id: "whimsyCommandDelete" });
       del.classList.add("is-danger", "whimsy-ai-spacer");
       del.addEventListener("click", () => {
-        S.closeSheet({ restore: false });
+        // The pressed button goes with the sheet: close it on the next frame.
+        window.requestAnimationFrame(() => {
+          S.closeSheet({ restore: false });
+          document.getElementById("whimsyCommandsNew")?.focus();
+        });
         C().remove(existing.id, S.browserWindow()).catch(console.error);
-        view.list?.querySelector("#whimsyCommandsNew")?.focus();
       });
     }
     S.button(state.footer, "whimsy-ai-confirm-cancel-button", { onClick: () => S.closeSheet() });

@@ -339,7 +339,7 @@ export const WhimsyAICommands = {
 
   /** The prompt with its tokens filled in, redacted. */
   promptFor(cmd, subject = {}, { language } = {}) {
-    const redact = text => lazy.WhimsyAISensitive.redactText(String(text ?? ""));
+    const redact = text => lazy.WhimsyAISensitive.redactText(String(text ?? "")).text;
     const selection = redact(subject.text ?? "");
     const page = subject.pageText ? `${subject.title ?? ""}\n${subject.url ?? ""}\n\n${redact(subject.pageText).slice(0, PAGE_CHARS)}` : `${subject.title ?? ""} (${subject.url ?? ""})`;
     return String(cmd.prompt ?? "")
