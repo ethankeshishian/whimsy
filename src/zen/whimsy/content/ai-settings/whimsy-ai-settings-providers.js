@@ -65,7 +65,47 @@
     return result;
   }
 
+  // The nearest switched-on provider above is resting, so this one covers.
+  function coveringFor(id) {
+    const providers = P();
+    if (id == "apple" || !providers.isOn(id) || providers.resting(id)) {
+      return null;
+    }
+    const order = providers.order;
+    for (let i = order.indexOf(id) - 1; i >= 0; i--) {
+      const other = order[i];
+      if (other != "apple" && providers.isOn(other)) {
+        return providers.resting(other) ? { id: other, until: providers.resting(other).until } : null;
+      }
+    }
+    return null;
+  }
+
+  function timeOf(when) {
+    return new Date(when).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
   function detail(row, data) {
+    const shown = baseDetail(row, data);
+    const cover = !data.problem && coveringFor(data.id);
+    if (!shown || !cover) {
+      return;
+    }
+    const node = row.querySelector(".whimsy-ai-item-detail");
+    document.l10n.formatValue(shown.l10nId, shown.args).then(text => {
+      if (node.getAttribute("data-l10n-id") != shown.l10nId || !node.isConnected) {
+        return;
+      }
+      const args = { detail: text, provider: nameOf(cover.id) };
+      if (cover.until) {
+        document.l10n.setAttributes(node, "whimsy-ai-row-covering-until", { ...args, time: timeOf(cover.until) });
+      } else {
+        document.l10n.setAttributes(node, "whimsy-ai-row-covering", args);
+      }
+    });
+  }
+
+  function baseDetail(row, data) {
     const providers = P();
     const id = data.id;
     const resting = providers.resting(id);
@@ -77,6 +117,7 @@
       if (tone) {
         node.dataset.tone = tone;
       }
+      return { l10nId, args };
     };
     const c = data.connection;
     const name = row.querySelector(".whimsy-ai-item-name");
@@ -91,7 +132,7 @@
       const pill = S.el("span", "whimsy-ai-pill", name, "whimsy-ai-row-resting-pill");
       pill.dataset.tone = "warn";
       return resting.until
-        ? set("whimsy-ai-row-resting-until", { time: new Date(resting.until).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }), message: resting.message || "" }, "warn")
+        ? set("whimsy-ai-row-resting-until", { time: timeOf(resting.until), message: resting.message || "" }, "warn")
         : set("whimsy-ai-row-resting", { message: resting.message || "" }, "warn");
     }
     if (!providers.isOn(id)) {

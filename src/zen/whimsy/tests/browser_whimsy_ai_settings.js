@@ -372,6 +372,14 @@ add_task(async function resting_pill_and_reset_time() {
   is(args.message, "You've hit your usage limit.", "in the provider's own words");
   is(args.time, new Date(until).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }), "at the reset time");
   ok(!row(page, "gemini").querySelector(".whimsy-ai-pill"), "Gemini isn't resting");
+  const cover = await TestUtils.waitForCondition(() => {
+    const g = row(page, "gemini").querySelector(".whimsy-ai-item-detail");
+    return g.getAttribute("data-l10n-id") == "whimsy-ai-row-covering-until" && g;
+  }, "Gemini says it's covering");
+  const coverArgs = JSON.parse(cover.getAttribute("data-l10n-args"));
+  is(coverArgs.provider, "ChatGPT", "for ChatGPT");
+  is(coverArgs.time, args.time, "until ChatGPT is back");
+  ok(coverArgs.detail.length, "after its usual line");
   click(page, r.querySelector("[data-action=details]"));
   const body = await TestUtils.waitForCondition(() => r.nextElementSibling?.classList.contains("whimsy-ai-body") && r.nextElementSibling, "Details open");
   ok(body.textContent.includes("You've hit your usage limit."), "with the last limit message");

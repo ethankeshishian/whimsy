@@ -5465,6 +5465,10 @@ whimsy-ai-row-resting-pill = Resting
 whimsy-ai-row-resting = Hit its limit. It said: “{ $message }”
 # $time (String), $message (String)
 whimsy-ai-row-resting-until = Resting until { $time }. It said: “{ $message }”
+# $detail (String) - the row's usual line, $provider (String) - the resting provider, $time (String)
+whimsy-ai-row-covering-until = { $detail } · covering for { $provider } until { $time }
+# $detail (String), $provider (String)
+whimsy-ai-row-covering = { $detail } · covering for { $provider }
 whimsy-ai-row-claude-missing = Claude Code isn’t on this Mac anymore
 whimsy-ai-row-signed-out-claude = Claude Code isn’t signed in
 whimsy-ai-row-signed-out-openai = ChatGPT signed you out
