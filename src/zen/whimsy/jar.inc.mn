@@ -208,3 +208,5 @@
         content/browser/whimsy/icons/video-chip.svg (../../zen/whimsy/content/icons/video-chip.svg)
         content/browser/whimsy/icons/chat.svg (../../zen/whimsy/content/icons/chat.svg)
         content/browser/whimsy/icons/updates.svg (../../zen/whimsy/content/icons/updates.svg)
+# W23 chat-shell: the chat panel
+        content/browser/whimsy/whimsy-chat.css (../../zen/whimsy/content/whimsy-chat.css)

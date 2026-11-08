@@ -225,6 +225,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyChat.sys.mjs",
 ]
 
+# W23 chat-shell
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyChatPanel.sys.mjs",
+    "WhimsyChatThreads.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

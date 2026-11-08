@@ -791,3 +791,16 @@
 # How many hints showed today ("YYYY-MM-DD:n"); three a day at most.
 - name: whimsy.ai.hints.today
   value: ""
+
+# W23 chat-shell
+# Which side chat sits on ("right" or "left"), for every window.
+- name: whimsy.chat.side
+  value: "right"
+
+# Chat's width in pixels, shared across windows (320 to half the window).
+- name: whimsy.chat.width
+  value: 380
+
+# The AI-off ⌘E toast has shown; the next ⌘E opens setup. Reset when AI turns on.
+- name: whimsy.chat.ai-off-toast-seen
+  value: false

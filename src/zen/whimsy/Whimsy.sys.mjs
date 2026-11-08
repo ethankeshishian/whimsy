@@ -11,6 +11,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
+  WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
@@ -631,6 +632,9 @@ export const Whimsy = {
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).
     run("command-bar", () => lazy.WhimsyCommandBar.initWindow(win));
+    // W23 chat-shell: the chat panel (⌘E). Installed only with its switch
+    // on; the panel itself is built the first time it opens.
+    run("ai-chat", () => lazy.WhimsyChatPanel.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

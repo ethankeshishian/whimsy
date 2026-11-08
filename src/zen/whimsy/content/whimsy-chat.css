@@ -1,0 +1,814 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 chat-shell: the chat panel (WhimsyChatPanel.sys.mjs). A column in
+   #zen-tabbox-wrapper beside the page, the page's own radius and gap; the
+   gap on its page side is the resize grip, drawn like Zen's sidebar
+   splitter (zen-browser-ui.css). Colours are the surface tokens. */
+
+#whimsy-chat {
+  --whimsy-chat-gap: var(--zen-element-separation, 8px);
+  --whimsy-chat-bg: light-dark(#fafbff, #1c1c1c);
+  --whimsy-chat-text: light-dark(#111111, #ffffff);
+  --whimsy-chat-muted: color-mix(in srgb, currentColor 62%, transparent);
+  --whimsy-chat-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
+  --whimsy-chat-hover: color-mix(in srgb, currentColor 9%, transparent);
+  --whimsy-chat-active: color-mix(in srgb, currentColor 14%, transparent);
+  --whimsy-chat-selected: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  --whimsy-chat-hairline: color-mix(in srgb, currentColor 13%, transparent);
+  --whimsy-chat-accent: light-dark(
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.35, l, 0.6) c h),
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.7, l, 0.85) c h)
+  );
+  --whimsy-chat-accent-bg: light-dark(
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.35, l, 0.6) c h),
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.55, l, 0.7) c h)
+  );
+  --whimsy-chat-agent: rgb(217, 119, 87);
+  --whimsy-chat-warning: light-dark(rgb(217, 138, 0), rgb(240, 177, 60));
+  --whimsy-chat-error: light-dark(rgb(200, 55, 45), rgb(255, 122, 110));
+  --whimsy-chat-private: #8a3ffc;
+  --whimsy-chat-radius: var(--zen-native-inner-radius, 10px);
+  --whimsy-chat-focus: 2px solid var(--focus-outline-color, AccentColor);
+
+  position: relative;
+  display: flex;
+  flex: none;
+  width: calc(var(--whimsy-chat-width, 380px) + var(--whimsy-chat-gap));
+  min-width: calc(var(--whimsy-chat-width, 380px) + var(--whimsy-chat-gap));
+  overflow: clip;
+  color: var(--whimsy-chat-text);
+  font: menu;
+  font-size: 13px;
+  -moz-window-dragging: no-drag;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &[side="right"] {
+    padding-inline-start: var(--whimsy-chat-gap);
+    justify-content: flex-start;
+  }
+
+  &[side="left"] {
+    padding-inline-end: var(--whimsy-chat-gap);
+    justify-content: flex-end;
+  }
+}
+
+#zen-tabbox-wrapper:has(> #whimsy-chat[overlay]:not([hidden])) {
+  position: relative;
+}
+
+/* A page that would get narrower than 480px: chat floats over it. */
+#whimsy-chat[overlay] {
+  position: absolute;
+  z-index: 10;
+  inset-block: 0;
+  &[side="right"] {
+    inset-inline-end: 0;
+  }
+  &[side="left"] {
+    inset-inline-start: 0;
+  }
+  & .whimsy-chat-panel {
+    box-shadow:
+      0 0 0 0.5px var(--whimsy-chat-hairline),
+      -16px 0 40px -12px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.whimsy-chat-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: var(--whimsy-chat-width, 380px);
+  min-height: 0;
+  border-radius: var(--whimsy-chat-radius);
+  background: var(--whimsy-chat-bg);
+  box-shadow: 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.06));
+  overflow: hidden;
+}
+
+/* ---- The grip: the whole gap; Zen's accent bar fades in after 0.2s ---- */
+.whimsy-chat-splitter {
+  position: absolute;
+  z-index: 3;
+  inset-block: 0;
+  width: var(--whimsy-chat-gap);
+  cursor: ew-resize;
+  #whimsy-chat[side="right"] > & {
+    inset-inline-start: 0;
+  }
+  #whimsy-chat[side="left"] > & {
+    inset-inline-end: 0;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: var(--whimsy-chat-gap);
+    inset-inline: 1px;
+    border-radius: 4px;
+    background: var(--zen-accent-button-background, var(--whimsy-chat-accent-bg));
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  &:is(:hover, [resizing])::before {
+    transition-delay: 0.2s;
+    opacity: 0.8;
+  }
+}
+
+/* ---- Buttons and icons ---- */
+.whimsy-chat-icon {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  mask: var(--whimsy-chat-icon) center / contain no-repeat;
+}
+.whimsy-chat-icon[data-icon="menu"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/menu.svg"); }
+.whimsy-chat-icon[data-icon="plus"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/plus.svg"); }
+.whimsy-chat-icon[data-icon="chat-hide"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/chat-hide.svg"); }
+.whimsy-chat-icon[data-icon="back"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/back.svg"); }
+.whimsy-chat-icon[data-icon="search"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/search-glass.svg"); }
+.whimsy-chat-icon[data-icon="send"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/arrow-up.svg"); }
+.whimsy-chat-icon[data-icon="lock"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/security.svg"); }
+.whimsy-chat-icon[data-icon="sparkle"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/sparkles.svg"); }
+.whimsy-chat-icon[data-icon="video"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/video-chip.svg"); }
+.whimsy-chat-icon[data-icon="chevron"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/chevron.svg"); }
+.whimsy-chat-icon[data-icon="clock"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/clock.svg"); }
+.whimsy-chat-icon[data-icon="chat"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/chat.svg"); }
+.whimsy-chat-icon[data-icon="agent"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/agent.svg"); }
+.whimsy-chat-icon[data-icon="hand"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/hand.svg"); }
+.whimsy-chat-icon[data-icon="stop"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/stop.svg"); }
+.whimsy-chat-icon[data-icon="alert"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/security-warning.svg"); }
+.whimsy-chat-icon[data-icon="info"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/info.svg"); }
+.whimsy-chat-icon[data-icon="tab"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/window.svg"); }
+
+/* As Zen's toolbar buttons (the sidebar toggle the hide button mirrors):
+   a quiet square, hover and press tints, a small press. */
+.whimsy-chat-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  transition:
+    background-color 100ms ease-out,
+    scale 100ms ease-out;
+  & > .whimsy-chat-icon {
+    width: 15px;
+    height: 15px;
+    opacity: 0.85;
+  }
+  &:hover:not(:disabled) {
+    background: var(--whimsy-chat-hover);
+  }
+  &:active:not(:disabled) {
+    background: var(--whimsy-chat-active);
+    scale: 0.95;
+  }
+  &:disabled {
+    opacity: 0.4;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: -2px;
+  }
+}
+
+/* ---- Header: Chats, title, New chat, Hide ---- */
+.whimsy-chat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 8px;
+  flex: none;
+  #whimsy-chat[lead] & {
+    padding-inline-start: 72px;
+  }
+  & h2 {
+    flex: 1;
+    min-width: 0;
+    margin: 0 0 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ---- Tasks strip (fu-agent chat-dec-13 option A) ---- */
+.whimsy-chat-tasks {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 10px 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--whimsy-chat-agent) 12%, transparent);
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-chat-tasks-head {
+  display: flex;
+  align-items: center;
+  min-height: 16px;
+  padding: 2px 6px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--whimsy-chat-muted);
+  & .whimsy-chat-tasks-label {
+    flex: 1;
+  }
+  & .whimsy-chat-btn {
+    width: 18px;
+    height: 18px;
+    rotate: 180deg;
+    & > .whimsy-chat-icon {
+      width: 11px;
+      height: 11px;
+    }
+  }
+}
+.whimsy-chat-task,
+.whimsy-chat-task-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 3px 4px 3px 6px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  &[hidden] {
+    display: none;
+  }
+  &[waiting] {
+    background: color-mix(in srgb, var(--whimsy-chat-warning) 16%, transparent);
+  }
+}
+.whimsy-chat-task-icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 6px;
+  color: var(--whimsy-chat-agent);
+  background: var(--whimsy-chat-bg);
+  & > .whimsy-chat-icon {
+    width: 12px;
+    height: 12px;
+  }
+  [waiting] > & {
+    color: color-mix(in srgb, var(--whimsy-chat-warning) 80%, var(--whimsy-chat-text));
+  }
+}
+.whimsy-chat-task-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+  & > * {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  & > b {
+    font-weight: 600;
+  }
+  & > span {
+    font-size: 11.5px;
+    color: var(--whimsy-chat-muted);
+  }
+}
+.whimsy-chat-task-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 24px;
+  margin: 0;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  &:hover {
+    background: color-mix(in srgb, currentColor 15%, transparent);
+  }
+  &:active {
+    scale: 0.96;
+  }
+  &.is-icon {
+    width: 24px;
+    padding: 0;
+    & > .whimsy-chat-icon {
+      width: 11px;
+      height: 11px;
+    }
+  }
+  &[data-action="expand"] > .whimsy-chat-icon {
+    width: 10px;
+    height: 10px;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: 1px;
+  }
+}
+
+/* ---- Thread ---- */
+.whimsy-chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.whimsy-chat-msg[data-role="user"] {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 7px 11px;
+  border-radius: 14px;
+  background: var(--whimsy-chat-track);
+  white-space: pre-wrap;
+}
+.whimsy-chat-msg[data-role="ai"] {
+  text-wrap: pretty;
+  & > .whimsy-chat-text {
+    white-space: pre-wrap;
+  }
+}
+.whimsy-chat-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--whimsy-chat-muted);
+  font-size: 12px;
+}
+.whimsy-chat-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--whimsy-chat-hairline);
+  border-top-color: currentColor;
+  animation: whimsy-chat-spin 800ms linear infinite;
+}
+@keyframes whimsy-chat-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+.whimsy-chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 8px;
+  color: var(--whimsy-chat-muted);
+  &:empty {
+    display: none;
+  }
+  & .whimsy-chat-btn {
+    width: 24px;
+    height: 24px;
+    & > .whimsy-chat-icon {
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
+/* The one note line, and the one error block. */
+.whimsy-chat-note,
+.whimsy-chat-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--whimsy-chat-track);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--whimsy-chat-muted);
+  & > .whimsy-chat-icon {
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+  }
+}
+.whimsy-chat-error > .whimsy-chat-icon {
+  color: var(--whimsy-chat-error);
+}
+.whimsy-chat-error {
+  color: var(--whimsy-chat-text);
+}
+.whimsy-chat-link {
+  margin: 0;
+  padding: 0 2px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--whimsy-chat-accent);
+  font: inherit;
+  font-weight: 600;
+  &:hover {
+    text-decoration: underline;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+  }
+}
+
+/* Empty chat: what dominates the page fills three suggestions. */
+.whimsy-chat-empty {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  & h3 {
+    margin: 0 4px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  & p {
+    margin: -4px 4px 0;
+    color: var(--whimsy-chat-muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+}
+.whimsy-chat-suggest {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--whimsy-chat-track);
+}
+.whimsy-chat-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  margin: 0;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  & > .whimsy-chat-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--whimsy-chat-muted);
+  }
+  &:hover {
+    background: var(--whimsy-chat-hover);
+  }
+  &:active {
+    background: var(--whimsy-chat-active);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: -2px;
+  }
+}
+
+/* Private tab: a wall (chat-11.1). */
+.whimsy-chat-wall {
+  margin: auto 0;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 0 28px;
+  text-align: center;
+  & h3 {
+    margin: 4px 0 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  & p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--whimsy-chat-muted);
+    text-wrap: pretty;
+  }
+}
+.whimsy-chat-wall-tile {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--whimsy-chat-private) 22%, transparent);
+  color: light-dark(var(--whimsy-chat-private), color-mix(in srgb, var(--whimsy-chat-private) 50%, white));
+  & > .whimsy-chat-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* ---- Footer: model line, composer ---- */
+.whimsy-chat-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 10px 10px;
+}
+.whimsy-chat-model {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--whimsy-chat-muted);
+  & > .whimsy-chat-model-end {
+    margin-inline-start: auto;
+  }
+  #whimsy-chat[private] & {
+    visibility: hidden;
+  }
+}
+.whimsy-chat-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 12px;
+  background: light-dark(#fff, rgba(255, 255, 255, 0.06));
+  box-shadow:
+    inset 0 0 0 0.5px var(--whimsy-chat-hairline),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+  &:focus-within {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--whimsy-chat-accent-bg) 60%, transparent),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  #whimsy-chat[private] & {
+    opacity: 0.55;
+  }
+}
+.whimsy-chat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  &:empty {
+    display: none;
+  }
+}
+.whimsy-chat-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.whimsy-chat-input {
+  flex: 1;
+  min-height: 20px;
+  max-height: 160px;
+  margin: 0;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 20px;
+  resize: none;
+  outline: none;
+  &::placeholder {
+    color: var(--whimsy-chat-muted);
+    opacity: 1;
+  }
+}
+.whimsy-chat-send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--whimsy-chat-accent-bg);
+  color: #fff;
+  transition: background-color 100ms ease-out, scale 100ms ease-out;
+  & > .whimsy-chat-icon {
+    width: 14px;
+    height: 14px;
+  }
+  &[off],
+  &:disabled {
+    background: var(--whimsy-chat-active);
+    color: var(--whimsy-chat-muted);
+  }
+  &:active:not(:disabled) {
+    scale: 0.94;
+  }
+  &[streaming] {
+    background: var(--whimsy-chat-text);
+    color: var(--whimsy-chat-bg);
+    & > .whimsy-chat-icon {
+      --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/stop.svg");
+      width: 10px;
+      height: 10px;
+    }
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* ---- Conversation list: a sheet over the thread (chat-8.1, 8.2) ---- */
+.whimsy-chat-list {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  background: var(--whimsy-chat-bg);
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-chat-list-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 8px;
+  flex: none;
+  #whimsy-chat[lead] & {
+    padding-inline-start: 72px;
+  }
+  & h2 {
+    flex: 1;
+    margin: 0 0 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+.whimsy-chat-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 12px 8px;
+  flex: none;
+  & > .whimsy-chat-icon {
+    position: absolute;
+    inset-inline-start: 10px;
+    width: 13px;
+    height: 13px;
+    color: var(--whimsy-chat-muted);
+    pointer-events: none;
+  }
+}
+.whimsy-chat-search {
+  flex: 1;
+  height: 30px;
+  margin: 0;
+  padding: 0 10px 0 30px;
+  border: none;
+  border-radius: 8px;
+  background: var(--whimsy-chat-track);
+  color: inherit;
+  font: inherit;
+  outline: none;
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: -1px;
+  }
+  &::placeholder {
+    color: var(--whimsy-chat-muted);
+    opacity: 1;
+  }
+}
+.whimsy-chat-list-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
+}
+.whimsy-chat-group-label {
+  padding: 8px 8px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--whimsy-chat-muted);
+}
+.whimsy-chat-conv {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 2px 10px;
+  min-height: 40px;
+  margin: 0;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  &:hover {
+    background: var(--whimsy-chat-hover);
+  }
+  &[current] {
+    background: var(--whimsy-chat-selected);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: -2px;
+  }
+  & mark {
+    background: color-mix(in srgb, var(--whimsy-chat-warning) 30%, transparent);
+    color: inherit;
+    border-radius: 2px;
+  }
+}
+.whimsy-chat-conv-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--whimsy-chat-muted);
+  & > img {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+  }
+  & > .whimsy-chat-icon {
+    width: 15px;
+    height: 15px;
+  }
+}
+.whimsy-chat-conv-title,
+.whimsy-chat-conv-sub {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-chat-conv-sub {
+  grid-column: 2;
+  font-size: 11px;
+  color: var(--whimsy-chat-muted);
+}
+.whimsy-chat-conv-time {
+  grid-row: 1;
+  grid-column: 3;
+  font-size: 11px;
+  color: var(--whimsy-chat-muted);
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-chat-list-none {
+  margin: 16px 8px;
+  font-size: 12px;
+  color: var(--whimsy-chat-muted);
+}
+.whimsy-chat-list-foot {
+  flex: none;
+  margin: 0;
+  padding: 10px 16px 12px;
+  font-size: 11px;
+  color: var(--whimsy-chat-muted);
+}
+
+@media (prefers-contrast: more) {
+  .whimsy-chat-panel {
+    box-shadow: 0 0 0 1px currentColor;
+  }
+  .whimsy-chat-conv[current] {
+    outline: 1px solid currentColor;
+  }
+}
