@@ -192,13 +192,10 @@ add_task(async function shots_updates() {
     EventUtils.synthesizeKey("KEY_ArrowDown");
     EventUtils.synthesizeKey("KEY_Tab");
     EventUtils.synthesizeKey("KEY_Tab");
-    const shown = BrowserTestUtils.waitForEvent(document, "popupshown", false, e => e.target.id == "whimsy-cmdbar-remind-menu");
     EventUtils.synthesizeKey("KEY_Enter");
-    await shown;
-    return async () => {
-      document.getElementById("whimsy-cmdbar-remind-menu")?.hidePopup();
-      await closeBar();
-    };
+    await TestUtils.waitForCondition(() => gURLBar.view.selectedElement?.classList.contains("whimsy-remind-option"), "The menu is open");
+    await new Promise(r => setTimeout(r, 250));
+    return () => closeBar();
   });
   await whimsyBothSchemes(NAME("cmd-2.7"), async () => {
     await seed();
