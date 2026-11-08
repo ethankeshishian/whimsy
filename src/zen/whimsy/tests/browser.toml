@@ -1000,3 +1000,6 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 
 ["browser_whimsy_cmdbar_updates.js"]
 support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
+
+["browser_whimsy_screens_w23_cmdbar-ai.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]

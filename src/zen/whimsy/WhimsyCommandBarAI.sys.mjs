@@ -370,7 +370,7 @@ export class WhimsyAskProvider extends UrlbarProvider {
 
   onEngagement(context, _controller, details) {
     const payload = details.result?.payload;
-    const win = details.element?.ownerGlobal ?? topWindow();
+    const win = details.element?.documentGlobal ?? topWindow();
     if (!payload || payload.dynamicType != ASK_TYPE || !win) {
       return;
     }
