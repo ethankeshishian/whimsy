@@ -457,56 +457,13 @@ add_task(async function test_calendar_settings() {
       "Meetings use Zen's groupbox style, like the groups around it");
     is(get("whimsyMeetingStatus").getAttribute("data-l10n-id"), "whimsy-meeting-connect-empty", "Empty state invites connection");
     is(apple.requests, 0, "Opening Settings never requests access");
-    if (Services.appinfo.OS == "Darwin") {
-      get("whimsyMeetingAppleConnect").click();
-      await TestUtils.waitForCondition(() => apple.requests == 1, "Connect requests access once");
-      await TestUtils.waitForCondition(() =>
-        get("whimsyMeetingAppleStatus").getAttribute("data-l10n-id") == "whimsy-meeting-connected",
-        "Connected Apple state");
-      is(get("whimsyMeetingStatus").getAttribute("data-l10n-id"), "whimsy-meeting-empty", "Connected calendars with no events have a clear empty state");
-      await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(get("whimsyMeetingAppleRemove")), "Disconnect is visible");
-      await new Promise(resolve =>
-        browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(resolve))
-      );
-      get("whimsyMeetingAppleRemove").click();
-      ok(!WhimsyNextMeeting.appleEnabled, "Disconnect disables Apple Calendar");
-      const denied = makeAppleMock({ status: "denied" });
-      WhimsyNextMeeting.testing.setAppleCalendar(denied);
-      Services.prefs.setBoolPref(APPLE, true);
-      await WhimsyNextMeeting.refresh({ apple: true });
-      await TestUtils.waitForCondition(() =>
-        get("whimsyMeetingAppleStatus").getAttribute("data-l10n-id") == "whimsy-meeting-apple-denied",
-        "Denied access explains how to recover");
-      is(get("whimsyMeetingAppleConnect").getAttribute("data-l10n-id"),
-        "whimsy-meeting-apple-open-settings", "Denied state offers System Settings");
-      await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(get("whimsyMeetingAppleRemove")), "Disconnect is visible");
-      await new Promise(resolve =>
-        browser.contentWindow.requestAnimationFrame(() => browser.contentWindow.requestAnimationFrame(resolve))
-      );
-      get("whimsyMeetingAppleRemove").click();
+    // W23 connectors: calendars are connectors now; no rows of their own here.
+    for (const id of ["whimsyMeetingApple", "whimsyMeetingGoogleForm", "whimsyMeetingGoogleAccounts"]) {
+      ok(!get(id), `${id} is gone`);
     }
-    const form = get("whimsyMeetingGoogleForm");
-    const input = get("whimsyMeetingGoogleURL");
-    const submit = () => form.dispatchEvent(new browser.contentWindow.Event("submit", { bubbles: true, cancelable: true }));
-    input.value = "http://example.com/private.ics";
-    submit();
-    ok(!get("whimsyMeetingGoogleError").hidden, "Bad addresses show an error");
-    is(input.getAttribute("aria-invalid"), "true", "The error is accessible");
-    for (const account of ["work", "home"]) {
-      input.value = FIXTURE + "?account=" + account;
-      submit();
-      is(input.value, "", "Adding clears the secret");
-    }
-    await TestUtils.waitForCondition(() => get("whimsyMeetingGoogleAccounts").children.length == 2, "Multiple accounts appear");
-    ok(get("whimsyMeetingGoogleError").hidden, "Valid input clears the error");
-    ok(!get("whimsyMeetingGoogleAccounts").textContent.includes("?account="), "Accounts do not expose secret addresses");
-    get("whimsyMeetingGoogleAccounts").querySelector("button").click();
-    is(WhimsyNextMeeting.googleCalendars.length, 1, "Disconnect removes just that account");
-    const remaining = WhimsyNextMeeting.googleCalendars[0];
-    WhimsyNextMeeting._sources.set("google:" + remaining.id, { events: [], error: "unavailable" });
-    WhimsyNextMeeting._notify();
-    is(get("whimsyMeetingGoogleAccounts").querySelector(".description-deemphasized").getAttribute("data-l10n-id"),
-      "whimsy-meeting-google-error", "A failed account shows a recovery message");
+    ok(!group.querySelector(".whimsy-calendar-row"), "No calendar rows in General");
+    ok(get("whimsyMeetingOpenConnectors").checkVisibility(), "General points to Connectors");
+    const input = get("whimsyMeetingOpenConnectors");
     const enabled = get("whimsyNextMeetingEnabled");
     await enabled.updateComplete;
     enabled.shadowRoot.querySelector("input").click();

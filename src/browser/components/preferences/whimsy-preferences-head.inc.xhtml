@@ -14,6 +14,9 @@
 <link rel="stylesheet" href="chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings.css"/>
 <script src="chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings.js"/>
 <script src="chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings-providers.js"/>
+# W23 connectors
+<link rel="stylesheet" href="chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings-connectors.css"/>
+<script src="chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings-connectors.js"/>
 
 # The head defaults to HTML; the groups are XUL, like the page body.
 <html:template id="template-whimsyLooks" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
@@ -482,25 +485,11 @@
     <html:moz-checkbox id="whimsyNextMeetingEnabled" data-l10n-id="whimsy-meeting-enable"/>
     <html:moz-checkbox id="whimsyNextMeetingCard" data-l10n-id="whimsy-meeting-card-enable"/>
     <html:p id="whimsyMeetingStatus" role="status"/>
-    <html:div id="whimsyMeetingApple">
-      <html:div class="whimsy-calendar-row">
-        <html:span data-l10n-id="whimsy-meeting-apple-title"/>
-        <html:button id="whimsyMeetingAppleConnect"/>
-        <html:button id="whimsyMeetingAppleRemove" data-l10n-id="whimsy-meeting-disconnect"/>
-      </html:div>
-      <html:p id="whimsyMeetingAppleStatus" class="description-deemphasized" role="status"/>
+# W23 connectors: calendars come from Settings › AI › Connectors (set dec-11).
+    <html:div class="whimsy-calendar-moved">
+      <html:span class="description-deemphasized" data-l10n-id="whimsy-meeting-calendars-moved"/>
+      <html:button id="whimsyMeetingOpenConnectors" data-l10n-id="whimsy-meeting-calendars-open"/>
     </html:div>
-    <html:h4 data-l10n-id="whimsy-meeting-google-title"/>
-    <html:div id="whimsyMeetingGoogleAccounts"/>
-    <html:form id="whimsyMeetingGoogleForm">
-      <html:label for="whimsyMeetingGoogleURL" data-l10n-id="whimsy-meeting-google-address"/>
-      <html:div class="whimsy-calendar-row">
-        <html:input id="whimsyMeetingGoogleURL" type="password" autocomplete="off" data-l10n-id="whimsy-meeting-google-placeholder" aria-describedby="whimsyMeetingGoogleError"/>
-        <html:button type="submit" data-l10n-id="whimsy-meeting-google-add-confirm"/>
-      </html:div>
-      <html:p id="whimsyMeetingGoogleError" role="alert" hidden="hidden" data-l10n-id="whimsy-meeting-google-invalid"/>
-    </html:form>
-    <html:a href="https://calendar.google.com/calendar/r/settings" target="_blank" data-l10n-id="whimsy-meeting-google-help"/>
   </groupbox>
 </html:template>
 

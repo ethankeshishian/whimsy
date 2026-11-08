@@ -61,6 +61,11 @@ function pick(content, id) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+// W23 connectors: the AI steps have their own test (browser_whimsy_ai_onboarding.js).
+add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-onboarding", false]] });
+});
+
 add_task(async function test_hook_and_order() {
   const source = await (await fetch("chrome://browser/content/zen-components/ZenWelcome.mjs")).text();
   ok(source.includes("WhimsyWelcome.extendPages"), "Zen's onboarding hands its pages to Whimsy");

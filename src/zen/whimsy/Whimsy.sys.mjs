@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
+  WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
@@ -816,6 +817,8 @@ export const Whimsy = {
     // checks its switch on each refresh, and never asks for calendar
     // access here (only when the person turns Apple Calendar on).
     later("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
+    // W23 connectors: the Granola chip and connected calendars, polled once a minute.
+    later("ai-connectors", () => lazy.WhimsyConnectors.initWindow(win));
     // tierC-vpn: VPN (Firefox's built-in IP Protection). The toolbar button
     // and panel are Firefox's own (placed automatically once
     // browser.ipProtection.enabled is true); this only adds the command bar
