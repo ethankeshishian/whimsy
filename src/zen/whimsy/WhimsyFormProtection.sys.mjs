@@ -1050,7 +1050,7 @@ export const WhimsyFormProtection = {
           this.toggleTabProtection(tab);
         }
       },
-      icon: "chrome://browser/skin/zen-icons/shield.svg",
+      icon: "chrome://browser/skin/zen-icons/tracking-protection.svg",
       isAvailable: w => this.canProtect(w),
       // Review design-full-4 L5: say what running it will do.
       variants: [
@@ -1077,7 +1077,7 @@ export const WhimsyFormProtection = {
           });
         } catch (e) {}
       },
-      icon: "chrome://browser/skin/zen-icons/shield.svg",
+      icon: "chrome://browser/skin/zen-icons/tracking-protection.svg",
       variants: [
         { l10nId: "whimsy-action-save-drafts-on", isAvailable: () => !WhimsyFormDrafts.saving },
         { l10nId: "whimsy-action-save-drafts-off", isAvailable: () => WhimsyFormDrafts.saving },

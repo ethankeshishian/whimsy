@@ -157,3 +157,4 @@
         content/browser/whimsy/whimsy-inspector.css                              (../../zen/whimsy/content/whimsy-inspector.css)
 # wave9/pagedev: Fonts on This Page, Page Colors, Built With
         content/browser/whimsy/whimsy-pagedev.css                                (../../zen/whimsy/content/whimsy-pagedev.css)
+        content/browser/whimsy/icons/site-home.svg (../../zen/whimsy/content/icons/site-home.svg)

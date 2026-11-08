@@ -217,7 +217,7 @@ export const WhimsyPageDev = {
       id: "cmd_whimsyBuiltWith",
       l10nId: "whimsy-action-built-with",
       run: w => this.open(w, "built-with"),
-      icon: ICON("layers"),
+      icon: "chrome://browser/skin/zen-icons/selectable/layers.svg",
       isAvailable: available,
     });
     this.installMenu(win);

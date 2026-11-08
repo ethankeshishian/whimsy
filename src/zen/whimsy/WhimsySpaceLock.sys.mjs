@@ -48,7 +48,7 @@ const LOCKED_ATTR = "whimsy-locked-space";
 // away that long or the Mac sleeps. (Private tabs and the Private Space
 // follow WhimsyPrivateLock.lockOnLeave, unchanged.)
 function lockOnLeave() {
-  return Services.prefs.getBoolPref("whimsy.privateLock.onLeave", false) || afterMs() == 0;
+  return Services.prefs.getBoolPref("whimsy.privateLock.onLeave", true) || afterMs() == 0;
 }
 
 // When Whimsy stopped being in front (another app, the Mac locked), or null.

@@ -45,11 +45,16 @@ add_task(async function test_every_command_is_in_the_command_bar() {
   // Commands registered with commandBar: false are keys/menus only.
   const entries = listed().filter(entry => entry.inCommandBar !== false);
   Assert.greater(entries.length, 30, "Whimsy's commands are registered");
+  const icons = new Set();
   for (const entry of entries) {
     const actions = globalActions.filter(a => a.command == entry.id || a.whimsyCommand == entry.id);
     Assert.greater(actions.length, 0, `${entry.id} is in the command bar`);
     for (const action of actions) {
       ok(action.label, `${entry.id}: "${action.label}" has a name`);
+      // With no icon, Zen's row falls back to chrome://browser/skin/trending.svg,
+      // which isn't packaged: loading it crashes the browser under automation.
+      ok(action.icon, `${entry.id}: "${action.label}" has an icon`);
+      icons.add(action.icon);
     }
     if (entry.variants.length) {
       Assert.deepEqual(
@@ -58,6 +63,10 @@ add_task(async function test_every_command_is_in_the_command_bar() {
         `${entry.id} has one command-bar name per state`
       );
     }
+  }
+  for (const icon of [...icons].filter(Boolean)) {
+    const response = await fetch(icon).catch(() => null);
+    ok(response?.ok, `Command icon ${icon} exists`);
   }
   const focus = globalActions.find(a => a.command == "whimsy-focus-sidebar");
   is(focus?.label, "Focus Sidebar", "Focus Sidebar can be reached from the command bar");

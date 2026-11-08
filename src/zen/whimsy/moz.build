@@ -62,6 +62,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyEmailAliasesChild.sys.mjs",
     "WhimsyEmailAliasesParent.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
+    "WhimsyFaviconHome.sys.mjs",
     "WhimsyFilesSection.sys.mjs",
     "WhimsyFinderFoldersSection.sys.mjs",
     "WhimsyFireButton.sys.mjs",

@@ -1326,6 +1326,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen-?tab-?undo|ZenTabUndoManager")]},
     {"id": "snooze-tab", "title": "Snooze a tab: closes it now, reopens at a chosen time (SigmaOS, Edge)",
      "detect": [("src/zen", r"(?i)snooze-?tab|ZenSnoozeManager")]},
+    {"id": "favicon-home", "title": "Favicon Goes Home",
+     "detect": [("src/zen", r"(?i)favicon-?home|tab-icon.*(home|origin)")]},
     {"id": "tree-tabs", "title": "Tree-style tabs with an Islands mode: nest a tab under whichever tab opened it",
      "default": False,  # Build-plan answer: off by default.
      "detect": [("src/zen", r"(?i)zen-?tree-?tabs|ZenTreeTabs|zen-?tab-?islands")]},

@@ -147,6 +147,9 @@
 - name: whimsy.feature.snooze-tab
   value: true
 
+- name: whimsy.feature.favicon-home
+  value: true
+
 - name: whimsy.feature.tree-tabs
   value: false
 

@@ -6,12 +6,13 @@
 // ("daydream"); any other choice replaces the Dock icon while the app runs.
 // "day-and-night" follows the system's light or dark appearance.
 //
-// The choice is also written into an installed bundle (Contents/Resources/
-// firefox.icns, then an ad-hoc re-sign and a LaunchServices refresh), so
-// Finder, Spotlight and launchers show it too. Day & Night writes its light
-// face there. The original icon is kept as firefox-default.icns, and a
-// whimsy-app-icon file records what the bundle shows, so a bundle replaced
-// by an update gets the choice again at startup. With the local updater, its
+// The choice is also written onto an installed bundle (a Finder custom icon
+// for a signed bundle, which is never re-signed; Contents/Resources/
+// firefox.icns for an unsigned local build), then a LaunchServices refresh,
+// so Finder, Spotlight and launchers show it too. Day & Night writes its
+// light face there. A whimsy-app-icon marker (an xattr on a signed bundle, a
+// file in Resources otherwise) records what the bundle shows, so a bundle
+// replaced by an update gets the choice again at startup. With the local updater, its
 // installs re-apply the saved icon (whimsy/updater/updater.py).
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
@@ -28,31 +29,65 @@ const AUTO_ICON = "day-and-night";
 const ICON_URL = id => `chrome://browser/content/whimsy/app-icons/${id}.png`;
 const MARKER = "whimsy-app-icon";
 
+// Sets or (no icon file) clears a Finder custom icon: argv = app, icns.
+const SET_ICON_JXA = `function run(a) {
+  ObjC.import("AppKit");
+  const img = a[1] ? $.NSImage.alloc.initWithContentsOfFile(a[1]) : $();
+  if (a[1] && img.isNil()) throw new Error("unreadable icon " + a[1]);
+  if (!$.NSWorkspace.sharedWorkspace.setIconForFileOptions(img, a[0], 0)) throw new Error("setIcon failed");
+}`;
+
 // Writes an icon into a bundle: $1 app, $2 PNG (empty: the default icon),
 // $3 icon id, $4 where to keep a copy for the local updater (optional).
-// Never NSWorkspace setIcon: its Icon\r file breaks the code seal.
+//
+// A signed bundle (publish.py's, with Whimsy's stable certificate) is never
+// modified inside or re-signed: an ad-hoc re-sign can't satisfy the
+// certificate's designated requirement, so keychain items and TCC grants
+// (Local Network, ...) would stop matching and prompt again -- and this
+// Mac may not have the signing key. It gets a Finder custom icon instead
+// (an Icon\r file plus FinderInfo at the bundle root): sealed contents stay
+// intact, so `codesign --verify` and the requirement still pass (only
+// --strict flags the Finder metadata). Its marker is an xattr on the bundle.
+// An unsigned local build gets the icns swapped inside, as before.
 const BUNDLE_SCRIPT = `set -e
 app="$1"; res="$app/Contents/Resources"
-[ -f "$res/firefox-default.icns" ] || cp "$res/firefox.icns" "$res/firefox-default.icns"
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+icns=""
 if [ -n "$2" ]; then
-  tmp=$(mktemp -d); set="$tmp/icon.iconset"; mkdir "$set"
+  set="$tmp/icon.iconset"; mkdir "$set"
   for s in 16 32 128 256 512; do
     /usr/bin/sips -z $s $s "$2" --out "$set/icon_\${s}x\${s}.png" >/dev/null
     /usr/bin/sips -z $((s*2)) $((s*2)) "$2" --out "$set/icon_\${s}x\${s}@2x.png" >/dev/null
   done
   /usr/bin/iconutil -c icns "$set" -o "$tmp/icon.icns"
-  cp "$tmp/icon.icns" "$res/firefox.icns"
-  [ -z "$4" ] || cp "$tmp/icon.icns" "$4"
-  rm -rf "$tmp"
+  icns="$tmp/icon.icns"
+  [ -z "$4" ] || cp "$icns" "$4"
 else
-  cp "$res/firefox-default.icns" "$res/firefox.icns"
   [ -z "$4" ] || rm -f "$4"
 fi
-printf %s "$3" > "$res/${MARKER}"
-# Re-seal a signed bundle, as publish.py signs it (a local build only has
-# the linker's signature on its executables: nothing to re-seal).
 if [ -f "$app/Contents/_CodeSignature/CodeResources" ]; then
-  /usr/bin/codesign --force --sign - --preserve-metadata=entitlements,requirements,flags "$app"
+  # Undo an icns swap an older Whimsy made inside this bundle.
+  if [ -f "$res/firefox-default.icns" ]; then
+    if /usr/bin/codesign -d -r- "$app" 2>&1 | grep -q "designated => cdhash"; then
+      # Ad-hoc bundle it re-signed: its DR is the cdhash anyway.
+      mv -f "$res/firefox-default.icns" "$res/firefox.icns"
+      rm -f "$res/${MARKER}"
+      /usr/bin/codesign --force --sign - --preserve-metadata=entitlements,requirements,flags "$app"
+    else
+      # Left behind by an in-place update, which restored firefox.icns.
+      rm -f "$res/firefox-default.icns" "$res/${MARKER}"
+    fi
+  fi
+  /usr/bin/osascript -l JavaScript -e '${SET_ICON_JXA}' "$app" "$icns" >/dev/null
+  /usr/bin/xattr -w ${MARKER} "$3" "$app"
+else
+  [ -f "$res/firefox-default.icns" ] || cp "$res/firefox.icns" "$res/firefox-default.icns"
+  if [ -n "$icns" ]; then
+    cp "$icns" "$res/firefox.icns"
+  else
+    cp "$res/firefox-default.icns" "$res/firefox.icns"
+  fi
+  printf %s "$3" > "$res/${MARKER}"
 fi
 /usr/bin/touch "$app"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
@@ -119,7 +154,17 @@ export const WhimsyAppIcon = {
     return id == AUTO_ICON ? `${AUTO_ICON}-light` : id;
   },
 
+  // A signed bundle keeps it as an xattr on the bundle (a file inside would
+  // break the seal); with none yet, null makes writeBundleIcon apply once.
   async readMarker(app) {
+    try {
+      if (await IOUtils.hasMacXAttr(app, MARKER)) {
+        return new TextDecoder().decode(await IOUtils.getMacXAttr(app, MARKER)).trim();
+      }
+    } catch {}
+    if (await IOUtils.exists(PathUtils.join(app, "Contents", "_CodeSignature", "CodeResources"))) {
+      return null;
+    }
     try {
       return (await IOUtils.readUTF8(PathUtils.join(app, "Contents", "Resources", MARKER))).trim();
     } catch {

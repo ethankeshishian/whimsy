@@ -732,7 +732,7 @@ export const WhimsyLiveFolders = {
       WhimsyCommands.register(win, {
         id: "cmd_whimsyResyncLiveFolder",
         l10nId: "whimsy-action-resync-live-folder",
-        icon: "chrome://browser/skin/zen-icons/selectable/refresh.svg",
+        icon: "chrome://browser/skin/zen-icons/reload.svg",
         isAvailable: w => this.canResyncLiveFolder(w),
         run: w => this.resyncFromCommand(w),
       });

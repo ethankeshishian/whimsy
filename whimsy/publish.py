@@ -131,8 +131,18 @@ def check_updater_trusts_whimsy():
                          "Run npm run import and rebuild.")
 
 
+SIGN_SH = os.path.join(ROOT, "whimsy", "signing", "sign.sh")
+
+
 def sign_app(app):
-    run(["codesign", "--force", "--deep", "--sign", "-", app])
+    """Sign with Whimsy's stable self-signed identity ("Whimsy Self-Signed"),
+    not ad-hoc: an ad-hoc signature's designated requirement is the cdhash,
+    which is different for every build, so macOS treats every update as a
+    new app (repeated keychain prompts, reset TCC grants). sign.sh stamps an
+    explicit designated requirement anchored to the certificate instead, and
+    fails loudly if the identity isn't set up on this Mac -- publishing with
+    a silently ad-hoc fallback would quietly reintroduce the same bug."""
+    run(["sh", SIGN_SH, app])
     run(["codesign", "--verify", "--deep", "--strict", app])
 
 
@@ -298,13 +308,32 @@ DEV_KEPT = 5
 
 
 def prune_dev_releases(repo):
-    """Keep only the newest few dev pre-releases (each is ~100 MB)."""
-    listing = json.loads(gh("release", "list", "--repo", repo, "--limit", "100",
-                            "--json", "tagName,isPrerelease,createdAt"))
+    """Keep only the newest few dev pre-releases (each is ~100 MB). Best
+    effort: an old release or tag that's already gone (deleted by hand, or
+    by a prune that partly ran before) is logged and skipped, not fatal --
+    housekeeping must never fail an otherwise successful publish. Any other
+    error is also logged and skipped, for the same reason."""
+    try:
+        listing = json.loads(gh("release", "list", "--repo", repo, "--limit", "100",
+                                "--json", "tagName,isPrerelease,createdAt"))
+    except subprocess.CalledProcessError as e:
+        print(f"publish: WARNING: couldn't list releases to prune ({e}); skipping prune", file=sys.stderr, flush=True)
+        return
     dev = sorted((r for r in listing if r["isPrerelease"] and "-dev." in r["tagName"]),
                  key=lambda r: r["createdAt"], reverse=True)
     for old in dev[DEV_KEPT:]:
-        gh("release", "delete", old["tagName"], "--repo", repo, "--yes", "--cleanup-tag")
+        cmd = ["gh", "release", "delete", old["tagName"], "--repo", repo, "--yes", "--cleanup-tag"]
+        print("$", redact(cmd), flush=True)
+        proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True,
+                              env=dict(os.environ, PATH=PATH, _ZO_DOCTOR="0"))
+        if proc.returncode == 0:
+            continue
+        detail = (proc.stderr or proc.stdout or "").strip()
+        last_line = detail.splitlines()[-1] if detail else f"exit {proc.returncode}"
+        if "not found" in detail.lower() or "404" in detail:
+            print(f"publish: {old['tagName']} is already gone; skipping prune of it", flush=True)
+        else:
+            print(f"publish: WARNING: couldn't prune {old['tagName']} ({last_line}); skipping it", file=sys.stderr, flush=True)
 
 
 def main():

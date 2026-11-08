@@ -940,3 +940,5 @@ support-files = ["whimsy_meet.html"]
 
 # wave13/toast: one toast, Zen's, extended (WhimsyZenToasts.sys.mjs): icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" buttons, persistence and handles, buttons with words, close and Esc, stacking, "+k more", Reduce Motion, keyed replace, 480px.
 ["browser_whimsy_zen_toasts.js"]
+
+["browser_whimsy_favicon_home.js"]

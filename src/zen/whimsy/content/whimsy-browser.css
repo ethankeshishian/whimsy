@@ -7244,3 +7244,44 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   }
 }
 
+
+/* Favicon home: Zen's pinned-reset hover motion (vertical-tabs.css).
+   Keep the stack in flow so tree disclosure, unread ::after and badges stay put. */
+@media -moz-pref("whimsy.feature.favicon-home") {
+  :root[zen-sidebar-expanded="true"] .tabbrowser-tab[whimsy-home-ready] {
+    .tab-icon-stack {
+      position: relative;
+    }
+    .whimsy-home-button {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -moz-context-properties: fill;
+      fill: currentColor;
+      color: inherit;
+    }
+    .whimsy-home-button > image {
+      width: var(--size-item-small);
+      height: var(--size-item-small);
+      list-style-image: url("chrome://browser/content/whimsy/icons/site-home.svg");
+      pointer-events: none;
+      opacity: 0;
+    }
+    /* Audio and sharing controls retain their own hit targets. */
+    .tab-icon-overlay, .tab-sharing-icon-overlay, .tab-audio-button {
+      z-index: 1;
+    }
+  }
+  /* These are Zen's exact transform/opacity values. The existing .tab-label
+     and .zen-tab-sublabel rules supply its 0.1s ease-in-out transitions. */
+  :root[zen-sidebar-expanded="true"] #tabbrowser-tabs:not([movingtab]):not([whimsy-home-dragging])
+    .tabbrowser-tab[whimsy-home-ready]:has(.whimsy-home-button:hover) {
+    .tab-label { transform: translateY(-6px); }
+    .zen-tab-sublabel:not(.whimsy-home-sublabel) { opacity: 0; }
+    .whimsy-home-sublabel { opacity: 0.6; transform: translateY(-6px); }
+    .tab-icon-image { opacity: 0; }
+    .whimsy-home-button > image { opacity: 1; }
+  }
+}

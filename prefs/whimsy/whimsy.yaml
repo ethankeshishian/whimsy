@@ -725,11 +725,11 @@
   value: false
 
 # W13-C2 (the user): leaving a private tab, the Private Space or a locked
-# space locks it at once only when this is on ("Lock as Soon as I Leave").
+# space locks it at once only when this is on ("Lock when navigating away from private").
 # Off, the lock comes when Whimsy isn't in front for "Lock after", or the
 # Mac sleeps, locks or shares its screen.
 - name: whimsy.privateLock.onLeave
-  value: false
+  value: true
 
 # R1 v2: unsaved typing in a closed tab is kept (encrypted, 7 days) and
 # offered back on reopen. Settings → Forms: Save Unsaved Typing When Closing.

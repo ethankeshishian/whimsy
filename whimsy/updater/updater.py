@@ -1038,25 +1038,43 @@ def swap_in(source, keep_previous):
 APP_ICON = os.path.join(DATA, "app-icon.icns")
 
 
+# Sets a Finder custom icon (argv: app, icns), as WhimsyAppIcon.sys.mjs does.
+SET_ICON_JXA = """function run(a) {
+  ObjC.import("AppKit");
+  const img = $.NSImage.alloc.initWithContentsOfFile(a[1]);
+  if (img.isNil()) throw new Error("unreadable icon " + a[1]);
+  if (!$.NSWorkspace.sharedWorkspace.setIconForFileOptions(img, a[0], 0)) throw new Error("setIcon failed");
+}"""
+
+
 def apply_app_icon():
     """Re-apply the icon chosen in Whimsy's settings (saved by the browser as
     app-icon.icns) to a freshly installed app, so Finder and launchers keep it.
-    Same steps as WhimsyAppIcon.sys.mjs: keep the original, swap the icns,
-    ad-hoc re-sign, refresh LaunchServices."""
+    Same steps as WhimsyAppIcon.sys.mjs, then a LaunchServices refresh.
+
+    A signed bundle (publish.py's, with Whimsy's stable certificate) is never
+    modified inside or re-signed: this Mac may not have the signing key, and
+    an ad-hoc re-sign can't satisfy the certificate's designated requirement,
+    so keychain items and TCC grants would stop matching and prompt again
+    after every update. It gets a Finder custom icon instead (Icon\\r and
+    FinderInfo at the bundle root), which leaves the sealed contents and so
+    the signature valid, and an xattr marker. An unsigned local build gets
+    the icns swapped inside, as before."""
     icon = read_json("control.json", {}).get("app_icon")
     if not icon or not os.path.exists(APP_ICON) or not os.path.isdir(APP):
         return
     res = os.path.join(APP, "Contents", "Resources")
     try:
-        default = os.path.join(res, "firefox-default.icns")
-        if not os.path.exists(default):
-            shutil.copy2(os.path.join(res, "firefox.icns"), default)
-        shutil.copy2(APP_ICON, os.path.join(res, "firefox.icns"))
-        with open(os.path.join(res, "whimsy-app-icon"), "w") as f:
-            f.write(icon)
         if os.path.exists(os.path.join(APP, "Contents", "_CodeSignature", "CodeResources")):
-            sh(["/usr/bin/codesign", "--force", "--sign", "-",
-                "--preserve-metadata=entitlements,requirements,flags", APP], quiet=True)
+            sh(["/usr/bin/osascript", "-l", "JavaScript", "-e", SET_ICON_JXA, APP, APP_ICON], quiet=True)
+            sh(["/usr/bin/xattr", "-w", "whimsy-app-icon", icon, APP], quiet=True)
+        else:
+            default = os.path.join(res, "firefox-default.icns")
+            if not os.path.exists(default):
+                shutil.copy2(os.path.join(res, "firefox.icns"), default)
+            shutil.copy2(APP_ICON, os.path.join(res, "firefox.icns"))
+            with open(os.path.join(res, "whimsy-app-icon"), "w") as f:
+                f.write(icon)
         os.utime(APP)
         subprocess.run([LSREGISTER, "-f", APP], capture_output=True)
         log(f"Applied the {icon} app icon")

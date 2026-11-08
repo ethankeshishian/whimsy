@@ -16,7 +16,7 @@ let answer = false;
 const asked = [];
 
 add_setup(async function () {
-  // Most tasks check "Lock as Soon as I Leave" (W13-C2, the user's
+  // Most tasks check "Lock when navigating away from private" (W13-C2, the user's
   // setting); test_leaving_doesnt_lock_by_default checks the default (off).
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.privateLock.onLeave", true]] });
   WhimsyAuth._reauthenticator = {
@@ -235,8 +235,8 @@ add_task(async function test_commands_and_turning_off() {
   ok(WhimsyPrivateLock.isLocked("tabs"), "Lock Now locks");
   ok(action("whimsy-action-unlock-private")?.isAvailable(window), "Unlock is offered while locked");
 
-  // W13-C2: Lock as Soon as I Leave is a command with an assignable shortcut.
-  ok(action("whimsy-action-private-lock-on-leave-off")?.isAvailable(window), "Turn Lock as Soon as I Leave Off is offered");
+  // W13-C2: Lock when navigating away from private is a command with an assignable shortcut.
+  ok(action("whimsy-action-private-lock-on-leave-off")?.isAvailable(window), "Turn Lock when navigating away from private Off is offered");
   ok(document.getElementById("key_cmd_whimsyTogglePrivateLockOnLeave"), "...and can take a shortcut");
   document.getElementById("cmd_whimsyTogglePrivateLockOnLeave").doCommand();
   ok(!Services.prefs.getBoolPref("whimsy.privateLock.onLeave"), "The command turns it off");
@@ -295,9 +295,9 @@ add_task(async function test_settings_card() {
     ok(doc.getElementById("whimsyPrivateLockAfter"), "Lock after");
     ok(doc.getElementById("whimsyPrivateLockSharing"), "Stay unlocked while sharing");
     const onLeave = doc.getElementById("whimsyPrivateLockOnLeave");
-    ok(onLeave, "Lock as Soon as I Leave");
+    ok(onLeave, "Lock when navigating away from private");
     await doc.l10n.translateFragment(onLeave);
-    is(onLeave.label, "Lock as Soon as I Leave", "...named as the user asked");
+    is(onLeave.label, "Lock when navigating away from private", "...named as the user asked");
     is(onLeave.checked, true, "...shows the setting");
     onLeave.click();
     await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref("whimsy.privateLock.onLeave"), "Unchecking turns it off");

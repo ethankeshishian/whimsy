@@ -208,7 +208,7 @@ export const SETTINGS = [
       { value: 900, l10nId: "whimsy-private-lock-after-15m" },
       { value: 3600, l10nId: "whimsy-private-lock-after-1h" },
     ] },
-  // C2: Lock as Soon as I Leave has its own command (Lock as Soon as I
+  // C2: Lock when navigating away from private has its own command (Lock as Soon as I
   // Leave On/Off), so the generic toggle stays out of the bar.
   { name: "private-lock-on-leave", setting: "whimsyPrivateLockOnLeave", pref: "whimsy.privateLock.onLeave",
     feature: ["private-lock"], command: ["cmd_whimsyTogglePrivateLockOnLeave"] },
@@ -241,6 +241,8 @@ export const SETTINGS = [
     feature: ["new-tab-position"] },
   { name: "new-tab-in-folder", setting: "whimsyNewTabInFolder", pref: "zen.folders.owned-tabs-in-folder",
     feature: ["new-tab-position"] },
+  { name: "favicon-home", setting: "whimsyFaviconHome", pref: "whimsy.feature.favicon-home",
+    feature: ["favicon-home"] },
   { name: "dim-sleeping", setting: "whimsyDimSleepingTabs", pref: "whimsy.tabs.dim-sleeping", feature: ["dim-sleeping"] },
   { name: "newtab-bottom", setting: "whimsyNewTabBottom", pref: "whimsy.tabs.newtab-button-bottom",
     feature: ["newtab-bottom"] },

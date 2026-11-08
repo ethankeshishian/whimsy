@@ -151,7 +151,7 @@ export const WhimsyPrivateLock = {
   },
 
   get lockOnLeave() {
-    return Services.prefs.getBoolPref(ON_LEAVE_PREF, false);
+    return Services.prefs.getBoolPref(ON_LEAVE_PREF, true);
   },
 
   isLocked(kind) {
@@ -493,7 +493,7 @@ export const WhimsyPrivateLock = {
     if (emptied) {
       this.renderAll();
     }
-    // Whimsy in front: only leaving with "Lock as Soon as I Leave" on
+    // Whimsy in front: only leaving with "Lock when navigating away from private" on
     // locks, at once. Whimsy not in front (another app, the Mac locked):
     // "Lock after" counts from then.
     const appActive = !!Services.focus.activeWindow;

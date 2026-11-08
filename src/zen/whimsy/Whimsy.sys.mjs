@@ -36,6 +36,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   WhimsySnooze: "resource:///modules/whimsy/WhimsySnooze.sys.mjs",
+  WhimsyFaviconHome: "resource:///modules/whimsy/WhimsyFaviconHome.sys.mjs",
   WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
   WhimsyFireButton: "resource:///modules/whimsy/WhimsyFireButton.sys.mjs",
   WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
@@ -641,6 +642,11 @@ export const Whimsy = {
     run("archive", () => lazy.WhimsyArchive.initWindow(win));
     run("snooze", () => lazy.WhimsySnooze.initWindow(win));
     run("fire-button", () => lazy.WhimsyFireButton.initWindow(win));
+    run("favicon-home", () =>
+      Promise.resolve(win.gZenWorkspaces?.promiseInitialized)
+        .then(() => lazy.WhimsyFaviconHome.initWindow(win))
+        .catch(e => console.error("Whimsy: favicon-home", e))
+    );
     run("heavy-tabs", () => lazy.WhimsyHeavyTabs.initWindow(win));
     run("tree-tabs", () =>
       win.gZenWorkspaces?.promiseInitialized

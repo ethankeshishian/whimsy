@@ -351,3 +351,24 @@ authorized targeted run; isolated old passes are not validation of these edits.
   serialization, not Gecko's full race: browser integration remains unrun as
   requested. No mach, mochitest, build, verify, commit, control.json, or Updater
   changes.
+
+## 2026-11-07 — Favicon home (source and tests only)
+
+- Added WhimsyFaviconHome and window/build registration. Ordinary HTTP(S)
+  favicons navigate only the clicked tab to prePath + '/', selecting it and
+  preserving history; Accel opens an adjacent home tab in the same container.
+- Reused Zen's native sublabel class/transitions and exact pinned-reset hover
+  transforms/opacity, with a house glyph (Zen's reset image is its stored site
+  favicon). Kept icon stack, unread pseudo-element, audio controls and tree
+  disclosure intact. Added drag and double-click guards, lifecycle/location
+  refresh, pref-off cleanup and private/Essential/Glance/pinned exclusions.
+- Added default-on FEATURES/pref, Tabs setting/search words, Fluent strings,
+  Go to Site Home command, silent WhimsyUndo pushes, packaged house SVG, and
+  browser_whimsy_favicon_home.js in browser.toml. No context-menu item/toast.
+- Browser test source covers background click and Back, root/about:blank,
+  exclusions, native pinned reset, Accel/container/adjacency, native favicon
+  drag, double-click, pref off, localization and multi-selection isolation.
+- Validation: python3 whimsy/precheck.py passes after correcting generated
+  feature-pref order. Browser tests/builds remain unrun at the user's request;
+  animation, native dragging, and split-view interactions need runtime review.
+  No mach/mochitest, commit, control.json or whimsy/updater changes.

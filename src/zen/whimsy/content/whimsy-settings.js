@@ -440,7 +440,7 @@ var gWhimsySettings = {
         sharing.checked = Services.prefs.getBoolPref("whimsy.privateLock.stayUnlockedWhileSharing", false);
       }
       if (onLeave) {
-        onLeave.checked = Services.prefs.getBoolPref("whimsy.privateLock.onLeave", false);
+        onLeave.checked = Services.prefs.getBoolPref("whimsy.privateLock.onLeave", true);
       }
     };
     for (const box of boxes) {

@@ -28,8 +28,8 @@ let answer = true;
 const asked = [];
 
 add_setup(async function () {
-  // These tasks check "Lock as Soon as I Leave" (W13-C2); the default (off)
-  // is checked in test_leaving_keeps_it_open_by_default.
+  // These tasks check "Lock when navigating away from private" (W13-C2); it is on by default
+  // (on by default); test_leaving_keeps_it_open_when_the_setting_is_off turns it off.
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.privateLock.onLeave", true]] });
   WhimsyAuth._reauthenticator = {
     async asyncReauthenticateUser(prompt, caption, parentWindow) {
@@ -156,8 +156,8 @@ add_task(async function test_unlock_button_opens_it_and_leaving_closes_it_again(
   await changeSpace(firstSpace.uuid);
 });
 
-add_task(async function test_leaving_keeps_it_open_by_default() {
-  // "Lock as Soon as I Leave" off (the default). W16-13 (D2): with "Lock
+add_task(async function test_leaving_keeps_it_open_when_the_setting_is_off() {
+  // "Lock when navigating away from private" off. W16-13 (D2): with "Lock
   // after" Right away, leaving locks it anyway; with a longer "Lock after",
   // leaving inside Whimsy keeps it open, and only Whimsy being away that
   // long, or the Mac sleeping, locks it.
@@ -194,7 +194,7 @@ add_task(async function test_leaving_keeps_it_open_by_default() {
   ok(!space(secondSpace.uuid).whimsyLocked, "Unlocked for the next tasks");
 });
 
-// W16-13 (D2): "Lock as Soon as I Leave" off and "Lock after" Right away
+// W16-13 (D2): "Lock when navigating away from private" off and "Lock after" Right away
 // (both defaults): Lock This Space keeps the space you're in open, and
 // switching away locks it. Its folders and their tabs hide with the rest.
 add_task(async function test_right_away_locks_on_leaving() {
