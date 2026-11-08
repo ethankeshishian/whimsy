@@ -617,7 +617,7 @@ var WhimsyAISettings = {
   readLink() {
     const match = /[?&]sheet=([\w-]+)/.exec(decodeURIComponent(location.hash || "")) ?? /[?&]sheet=([\w-]+)/.exec(location.search || "");
     if (match) {
-      history.replaceState(null, "", `${location.pathname}#whimsyAI`);
+      history.replaceState(null, "", `${location.href.split(/[?#]/)[0]}#whimsyAI`);
     }
     return match?.[1] ?? null;
   },
