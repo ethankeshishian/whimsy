@@ -213,6 +213,18 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAIStream.sys.mjs",
 ]
 
+# W23 ai-base
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAIContext.sys.mjs",
+    "WhimsyAIContextChild.sys.mjs",
+    "WhimsyAIContextParent.sys.mjs",
+    "WhimsyAIHints.sys.mjs",
+    "WhimsyAISensitive.sys.mjs",
+    "WhimsyAIStore.sys.mjs",
+    "WhimsyAIUpdates.sys.mjs",
+    "WhimsyChat.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

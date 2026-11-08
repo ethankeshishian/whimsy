@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Checkout</title>
+<style>
+  body { font: 14px sans-serif; margin: 20px; background: white; }
+  input, textarea, [contenteditable] { display: block; width: 260px; height: 28px; margin: 8px 0; font: 14px monospace; background: rgb(255, 230, 0); color: black; border: 0; }
+  textarea { height: 60px; }
+</style>
+</head>
+<body>
+<h1>Checkout</h1>
+<p>Plain words about the order.</p>
+<label>Password <input id="pw" type="password"></label>
+<label>Card <input id="cc" autocomplete="cc-number"></label>
+<label>Code <input id="otp" autocomplete="one-time-code" inputmode="numeric"></label>
+<label>Notes <textarea id="notes"></textarea></label>
+<div id="otpedit" contenteditable="true" aria-label="Verification code"></div>
+<label>Name <input id="name" value="Ada Lovelace"></label>
+<label>Postal code <input id="zip" inputmode="numeric" value="94110"></label>
+<p>Your password is <span id="mirror"></span>.</p>
+<script>
+  const pw = document.getElementById("pw");
+  pw.addEventListener("input", () => { document.getElementById("mirror").textContent = pw.value; });
+</script>
+</body>
+</html>

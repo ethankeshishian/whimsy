@@ -36,11 +36,12 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ForgetAboutSite: "moz-src:///toolkit/components/forgetaboutsite/ForgetAboutSite.sys.mjs",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   Sanitizer: "resource:///modules/Sanitizer.sys.mjs",
   SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
-  PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
+  WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
   WhimsyFormDrafts: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
@@ -348,6 +349,9 @@ export const WhimsyFireButton = {
     // R1 v2 §3, §9: Fire Everywhere erases every draft, including the
     // in-memory (private) ones.
     await lazy.WhimsyFormDrafts.forgetAll();
+    // W23: chats, research reports, Activity, the index, memory, and routine
+    // results, with the Updates feed.
+    await lazy.WhimsyAIStore.clear();
     return count;
   },
 

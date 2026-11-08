@@ -570,6 +570,102 @@
 - name: whimsy.feature.call-controls
   value: true
 
+- name: whimsy.feature.ai-chat
+  value: true
+
+- name: whimsy.feature.ai-ask
+  value: true
+
+- name: whimsy.feature.ai-updates
+  value: true
+
+- name: whimsy.feature.ai-context-commands
+  value: true
+
+- name: whimsy.feature.ai-selection-commands
+  value: true
+
+- name: whimsy.feature.ai-commands
+  value: true
+
+- name: whimsy.feature.ai-related
+  value: true
+
+- name: whimsy.feature.ai-memory
+  value: true
+
+- name: whimsy.feature.ai-agent
+  value: true
+
+- name: whimsy.feature.ai-task-folder
+  value: true
+
+- name: whimsy.feature.ai-outside-agents
+  value: true
+
+- name: whimsy.feature.ai-activity
+  value: true
+
+- name: whimsy.feature.ai-connectors
+  value: true
+
+- name: whimsy.feature.ai-onboarding
+  value: true
+
+- name: whimsy.feature.ai-hints
+  value: true
+
+- name: whimsy.feature.ai-summary
+  value: true
+
+- name: whimsy.feature.ai-draft-reply
+  value: true
+
+- name: whimsy.feature.ai-form-fill
+  value: true
+
+- name: whimsy.feature.ai-translate
+  value: true
+
+- name: whimsy.feature.ai-page-edits
+  value: true
+
+- name: whimsy.feature.ai-scam-warning
+  value: true
+
+- name: whimsy.feature.ai-compare
+  value: true
+
+- name: whimsy.feature.ai-tab-requests
+  value: true
+
+- name: whimsy.feature.find-card
+  value: true
+
+- name: whimsy.feature.ai-video-summary
+  value: true
+
+- name: whimsy.feature.video-speed-range
+  value: true
+
+- name: whimsy.feature.video-default-speed
+  value: true
+
+- name: whimsy.feature.image-text
+  value: true
+
+- name: whimsy.feature.read-aloud
+  value: true
+
+- name: whimsy.feature.dictation
+  value: true
+
+- name: whimsy.feature.media-settings
+  value: true
+
+- name: whimsy.feature.routines
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

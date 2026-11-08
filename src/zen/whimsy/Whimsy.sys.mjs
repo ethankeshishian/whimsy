@@ -466,6 +466,17 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
+    // W23: what a frame gives an AI surface (redacted), and the solid masks
+    // over secret fields before any capture. Messages only, no events.
+    ChromeUtils.registerWindowActor("WhimsyAIContext", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIContextParent.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyAIContextChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
     // wave5/quick: link lasso. The child only acts on an Option-drag the
     // page didn't handle; the parent makes the folder.
     ChromeUtils.registerWindowActor("WhimsyLasso", {
