@@ -191,12 +191,13 @@ export const WhimsyOutsideAgents = {
       return;
     }
     observing = true;
-    Services.prefs.addObserver(OWN_SPACE_PREF, () => {
+    // Not inside the pref notification: the space is made on the next turn.
+    Services.prefs.addObserver(OWN_SPACE_PREF, () => Services.tm.dispatchToMainThread(() => {
       const win = this.window();
       if (this.ownSpace && win) {
         this.ensureOwnSpace(win).catch(e => console.error("Whimsy: outside agents space", e));
       }
-    });
+    }));
   },
 
   window() {
