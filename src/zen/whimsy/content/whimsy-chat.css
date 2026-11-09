@@ -388,6 +388,18 @@
     rotate: 1turn;
   }
 }
+/* W23 memory-fire: a labelled answer action ("Used 2 memories", chat-4.4):
+   the icon and its words, quiet, at the end of the action row. */
+.whimsy-chat-btn.whimsy-chat-btn-labelled {
+  display: inline-flex;
+  width: auto;
+  gap: 5px;
+  padding-inline: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--whimsy-chat-muted);
+}
+
 .whimsy-chat-actions {
   display: flex;
   align-items: center;

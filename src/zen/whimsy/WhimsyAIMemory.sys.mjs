@@ -113,6 +113,7 @@ export const WhimsyAIMemory = {
     lazy.WhimsyChat.registerCard("note:memory-saved", renderMemorySaved);
     lazy.WhimsyChat.registerAnswerAction({
       id: "used-memories",
+      labelled: true,
       l10nId: "whimsy-chat-action-used-memories",
       icon: `${ICONS}memory.svg`,
       isAvailable: msg => msg.role == "ai" && Array.isArray(msg.usedMemories) && !!msg.usedMemories.length,
