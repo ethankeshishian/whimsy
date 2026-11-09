@@ -64,3 +64,18 @@ add_task(async function reloads_never_make_a_site_familiar() {
   }
   is(shownHost, "example.com", "The site is the tab's own, not what the page reports");
 });
+
+// W23 secfix L3: a provider's citation opens only as a web page.
+add_task(async function provider_links_are_web_pages_only() {
+  const { openProviderLink } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs");
+  const before = gBrowser.tabs.length;
+  for (const url of ["javascript:alert(1)", "file:///etc/passwd", "chrome://browser/content/browser.xhtml", "about:config", "data:text/html,hi", "not a url"]) {
+    is(openProviderLink(gBrowser, url), null, `${url}: never opened`);
+  }
+  is(gBrowser.tabs.length, before, "No tab for any of them");
+  const tab = openProviderLink(gBrowser, ROOT + "whimsy_secfix_inject.html");
+  ok(tab, "A web link opens");
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+  ok(!tab.linkedBrowser.contentPrincipal.isSystemPrincipal, "as an ordinary web page");
+  BrowserTestUtils.removeTab(tab);
+});

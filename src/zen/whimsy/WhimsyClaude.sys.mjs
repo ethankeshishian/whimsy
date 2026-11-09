@@ -1573,7 +1573,8 @@ export const WhimsyClaude = {
       if (uri) {
         await this.loadWithRetries(tab, ctx, () =>
           tab.linkedBrowser.fixupAndLoadURIString(uri.spec, {
-            triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+            // L3: a web load, never with the system's rights.
+            triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId: tab.userContextId }),
           }), uri);
       }
       this.noteSite(ctx.task, tab);
@@ -1609,7 +1610,7 @@ export const WhimsyClaude = {
             browser.reload();
           } else {
             browser.fixupAndLoadURIString(uri.spec, {
-              triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+              triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId: tab.userContextId }),
             });
           }
         }, uri);

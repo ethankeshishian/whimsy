@@ -872,7 +872,7 @@ export const WhimsyCommandBarAI = {
     if (background) {
       if (!open) {
         const index = card.tab?.isConnected ? card.tab._tPos + 1 : undefined;
-        gBrowser.addTab(source.url, { index, inBackground: true, triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+        lazy.answerModule.openProviderLink(gBrowser, source.url, { index, inBackground: true });
       }
       this.render(win, card);
       return;
@@ -885,7 +885,10 @@ export const WhimsyCommandBarAI = {
       return;
     }
     const index = card.tab?.isConnected ? card.tab._tPos + 1 : undefined;
-    const tab = gBrowser.addTab(source.url, { index, triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+    const tab = lazy.answerModule.openProviderLink(gBrowser, source.url, { index });
+    if (!tab) {
+      return;
+    }
     gBrowser.selectedTab = tab;
     this.answerSavedHint(win);
   },

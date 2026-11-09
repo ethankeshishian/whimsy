@@ -178,6 +178,30 @@ function codeBlock(doc, { language, code, output, ranBy }) {
 }
 
 /** Renders `text` (with \u0001n\u0002 citation marks) into block elements. */
+/**
+ * W23 secfix L3: a link a provider returned (a citation or source) opens
+ * only when it's http(s), and never with the system's rights: the tab
+ * gets a plain web principal in the person's container. Returns the tab,
+ * or null when the link isn't a web page.
+ */
+export function openProviderLink(gBrowser, url, options = {}) {
+  let uri;
+  try {
+    uri = Services.io.newURI(String(url ?? ""));
+  } catch {
+    return null;
+  }
+  if (!uri.schemeIs("https") && !uri.schemeIs("http")) {
+    return null;
+  }
+  const userContextId = options.userContextId ?? gBrowser.selectedTab?.userContextId ?? 0;
+  return gBrowser.addTab(uri.spec, {
+    ...options,
+    userContextId,
+    triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
+  });
+}
+
 export function renderMarkdown(doc, text, ctx) {
   const blocks = [];
   const lines = String(text ?? "").split("\n");
@@ -1152,7 +1176,7 @@ export const WhimsyChatAnswer = {
     const quote = quoteOf(source);
     let tab = tabFor(win, thread, source);
     if (!tab && source?.url) {
-      tab = win.gBrowser.addTrustedTab(source.url);
+      tab = openProviderLink(win.gBrowser, source.url);
     }
     if (!tab || !quote) {
       return false;
