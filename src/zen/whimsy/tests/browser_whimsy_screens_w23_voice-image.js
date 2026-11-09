@@ -99,15 +99,13 @@ function useSpeech(options) {
   return speech;
 }
 
-// Fluent in the bar, skipping an element with no message id (logged).
+// Fluent in the bar. Commands mode once left the address field with
+// data-l10n-id="undefined" (Firefox's search-mode placeholder had no entry
+// for Zen's actions source), which threw and left the bar half translated.
 async function translateBar() {
-  for (const el of gURLBar.querySelectorAll("[data-l10n-id]")) {
-    const id = el.getAttribute("data-l10n-id");
-    if (!id || id == "undefined") {
-      info(`An element in the bar has no message: ${el.outerHTML.slice(0, 200)}`);
-    }
-  }
-  await document.l10n.translateElements([...gURLBar.querySelectorAll("[data-l10n-id]")].filter(el => !["", "undefined"].includes(el.getAttribute("data-l10n-id"))));
+  const missing = [...gURLBar.querySelectorAll("[data-l10n-id]")].filter(el => ["", "undefined"].includes(el.getAttribute("data-l10n-id")));
+  is(missing.map(el => el.id || el.className).join(), "", "Every element in the bar has a real message id");
+  await document.l10n.translateElements([...gURLBar.querySelectorAll("[data-l10n-id]")]);
 }
 
 async function frames(n = 2) {
