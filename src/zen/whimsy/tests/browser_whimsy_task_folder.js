@@ -10,7 +10,7 @@
 const { WhimsyTaskFolder } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs");
 const { WhimsyAgentTasks } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAgentTasks.sys.mjs");
 const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
-const { TabStateFlusher } = ChromeUtils.importESModule("resource:///modules/sessionstore/TabStateFlusher.sys.mjs");
+const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
 const { WhimsyCtrlTab } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCtrlTab.sys.mjs");
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");

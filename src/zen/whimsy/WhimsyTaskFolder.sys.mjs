@@ -432,8 +432,10 @@ export const WhimsyTaskFolder = {
       fx = new ZapDissolve(win.document);
       await fx.initialize();
       // Asking the canvas again returns the context Zap made, or null if
-      // it couldn't make one.
-      const gl = fx.getElementById("zen-zap-dissolve-canvas")?.getContext("webgl");
+      // it couldn't make one. (In anonymous content gl.canvas is null, so
+      // keep the element.)
+      const canvas = fx.getElementById("zen-zap-dissolve-canvas");
+      const gl = canvas?.getContext("webgl");
       const rect = folder.getBoundingClientRect();
       if (!gl || gl.isContextLost() || !folder.isConnected || !rect.width || !rect.height) {
         return false;
@@ -445,10 +447,10 @@ export const WhimsyTaskFolder = {
           win.clearTimeout(safety);
           reject(new Error("WebGL context lost"));
         };
-        gl.canvas.addEventListener("webglcontextlost", lost, { once: true });
+        canvas.addEventListener("webglcontextlost", lost, { once: true });
         fx.dissolve(folder, () => {
           win.clearTimeout(safety);
-          gl.canvas.removeEventListener("webglcontextlost", lost);
+          canvas.removeEventListener("webglcontextlost", lost);
           resolve();
         });
         if (dissolveClock) {

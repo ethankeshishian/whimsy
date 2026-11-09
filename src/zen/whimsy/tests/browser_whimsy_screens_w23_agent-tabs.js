@@ -81,6 +81,8 @@ add_task(async function shots_drive_look() {
   // The pointer gliding to its target (240ms), held at 150ms.
   const browser = tab.linkedBrowser;
   await WhimsyAgentPointer.moveTo(browser, { x: 40, y: 40 });
+  // Let the scheme switch finish fading the sidebar back first.
+  await whimsySettled();
   const pointer = WhimsyAgentPointer.layer(browser).querySelector(".whimsy-agent-pointer");
   const travel = WhimsyAgentPointer.moveTo(browser, { x: total.x + total.width / 2, y: total.y + total.height / 2 });
   await whimsyShotMid("w23-agent-tabs-pointer", () => pointer.getAnimations()[0], 150);
