@@ -230,8 +230,9 @@ add_task(async function shots_settings() {
       await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='1.5']") ?? window.document.querySelector("[role=option][data-value='1.5']"), "The menu opens");
       // MUST 6: the menu is a panel of its own; copy it in for the shot.
       await whimsySettled();
-      const undo = whimsyStandInPopups();
-      ok(document.querySelector("div.whimsy-surface-tokens [role=option][data-value='1.5']") || doc.querySelector("[role=option][data-value='1.5']"), "media-2.9: the speed menu is in the shot");
+      // Settings opens it in its own document, not the window's.
+      const undo = whimsyStandInPopups(doc);
+      ok(doc.querySelector("div.whimsy-surface-tokens [role=option][data-value='1.5']"), "media-2.9: the speed menu is in the shot");
       return () => {
         undo();
         EventUtils.synthesizeKey("KEY_Escape", {}, browser.contentWindow);

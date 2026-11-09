@@ -283,6 +283,12 @@ function whimsyStandInPopups(doc = document) {
     const stand = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
     stand.id = panel.id;
     stand.className = `${panel.className} whimsy-surface-tokens`;
+    // The panel's state attributes ([whimsy-open], [side], data-*) drive its look.
+    for (const { name, value } of panel.attributes) {
+      if (!["id", "class", "style", "hidden"].includes(name)) {
+        stand.setAttribute(name, value);
+      }
+    }
     const look = win.getComputedStyle(panel);
     for (let i = 0; i < look.length; i++) {
       const name = look.item(i);
@@ -294,11 +300,13 @@ function whimsyStandInPopups(doc = document) {
     for (const name of ["background-color", "background-image", "border-top", "border-right", "border-bottom", "border-left", "border-radius", "box-shadow", "padding", "color", "font-family", "font-size", "font-weight", "line-height"]) {
       stand.style.setProperty(name, boxLook.getPropertyValue(name));
     }
+    // A panel with no surface of its own (the link preview's cards) gets none.
+    const bare = look.getPropertyValue("--panel-background").trim() == "transparent";
     // The OS draws a real panel's shadow; the stand-in draws its own.
-    if (boxLook.boxShadow == "none") {
+    if (boxLook.boxShadow == "none" && !bare) {
       stand.style.boxShadow = "0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.16)";
     }
-    if (/rgba\(.*, 0\)|transparent/.test(boxLook.backgroundColor)) {
+    if (/rgba\(.*, 0\)|transparent/.test(boxLook.backgroundColor) && !bare) {
       stand.style.backgroundColor = "var(--zen-dialog-background, var(--arrowpanel-background, Canvas))";
     }
     Object.assign(stand.style, {
