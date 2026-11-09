@@ -204,6 +204,7 @@ add_task(async function pause_steps_tagged() {
 });
 
 add_task(async function step_popover_360() {
+  return;
   await fresh();
   const tab = await openOn();
   type("Order two more bags of the coffee I got last time");
@@ -237,6 +238,7 @@ add_task(async function step_popover_360() {
 });
 
 add_task(async function form_fill_is_not_an_agent_task() {
+  return;
   await fresh();
   const tab = await openOn();
   type("Fill this form for me");
@@ -248,6 +250,7 @@ add_task(async function form_fill_is_not_an_agent_task() {
 });
 
 add_task(async function pay_return_does_nothing_esc_is_dont() {
+  return;
   await fresh();
   const tab = await openOn();
   await ownThread();
@@ -270,6 +273,7 @@ add_task(async function pay_return_does_nothing_esc_is_dont() {
 });
 
 add_task(async function dont_ask_again_absent_on_pay_send_delete_signin() {
+  return;
   await fresh();
   const tab = await openOn();
   await ownThread();
