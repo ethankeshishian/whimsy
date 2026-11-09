@@ -183,6 +183,13 @@ export const WhimsyAIIndex = {
     return (await load()).entries.length;
   },
 
+  // Tests: the raw entries (url/title/date, vector left out), for when a
+  // stub embedder's scoring can't be trusted to rank a real capture.
+  async _entriesForTesting() {
+    const s = await load();
+    return s.entries.map(({ url, title, date }) => ({ url, title, date }));
+  },
+
   _setTestEmbedder(fn) {
     testEmbedder = fn;
   },
