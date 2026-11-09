@@ -912,7 +912,7 @@ export const WhimsyCommandBarAI = {
       key: "whimsy-cmdbar-answer-saved",
       descriptionId: "whimsy-cmdbar-answer-saved-body",
       descriptionArgs: { keys },
-      icon: SPARKLE,
+      icon: "chrome://browser/skin/zen-icons/check.svg",
       buttons: [{ id: "whimsy-cmdbar-show-answer", l10nId: "whimsy-cmdbar-show-answer", keys, command: () => this.showRecent(win) }],
     });
   },

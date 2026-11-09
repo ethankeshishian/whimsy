@@ -242,7 +242,7 @@ export const WhimsyAIFill = {
     }
     lazy.WhimsyUndo.showToast(win, "whimsy-draft-written-toast", {
       undo: () => actor.sendQuery("WhimsyAIFill:UndoReply").catch(() => {}),
-    });
+    }, undefined, { icon: "chrome://browser/skin/zen-icons/check.svg" });
     return { placed: "box", draft, box: box.label };
   },
 
