@@ -186,6 +186,10 @@ async function pauseShot(name, kind, preview, extra = {}) {
     const card = await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-pause'][data-focus]"), "Paused");
     // Once it has unfolded to full height, not while it grows.
     await whimsySettled();
+    const b = part(".whimsy-chat-body");
+    const dbg = () => `DEBUG-PAUSE actions ${card.querySelector(".whimsy-agent-actions")?.getBoundingClientRect().bottom} body ${b.getBoundingClientRect().bottom} run ${part(".whimsy-agent-run")?.getBoundingClientRect().top} st ${b.scrollTop} sh ${b.scrollHeight} ch ${b.clientHeight} conn ${card.isConnected} same ${card == part(".whimsy-agent-card[data-card='agent-pause'][data-focus]")}`;
+    info(dbg());
+    setTimeout(() => info(dbg()), 2000);
     await TestUtils.waitForCondition(() => card.querySelector(".whimsy-agent-actions").getBoundingClientRect().bottom <=
       Math.min(part(".whimsy-chat-body").getBoundingClientRect().bottom, part(".whimsy-agent-run")?.getBoundingClientRect().top ?? Infinity) + 1, "Its choices are in view");
   });
@@ -264,6 +268,8 @@ add_task(async function shot_end() {
       { done: "Done. Casa Amora is the best fit: €164 a night, quiet, 4 min to the tram.", keep: [] },
     ];
     await planned();
+    // Click Start once the plan has unfolded, not while it moves.
+    await whimsySettled();
     EventUtils.synthesizeMouseAtCenter(part("[data-choice='start']"), {});
     try {
       await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done");
