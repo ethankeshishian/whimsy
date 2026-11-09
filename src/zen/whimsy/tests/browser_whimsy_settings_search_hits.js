@@ -118,8 +118,11 @@ add_task(async function tidy_titles_is_found() {
     // box is the page's "on" part, not the one row.
     ok(row?.closest(".whimsy-search-hit"), "Tidy Titles is found (W10-12), boxed with the rest of Settings → AI");
     is(row.closest("[data-category]").dataset.category, "paneWhimsyAI", "…in Settings → AI (W10-28)");
-    await search(win, "claude in whimsy");
-    ok(doc.getElementById("whimsyClaudeGroup").checkVisibility(), "Claude in Whimsy is found, in Settings → AI");
+    await search(win, "claude code");
+    const outside = doc.getElementById("whimsyAIOutsideEnable")?.closest(".whimsy-ai-item");
+    await TestUtils.waitForCondition(() => outside?.checkVisibility(), "Outside agents (Claude Code) are found, in Settings → AI");
+    ok(outside.closest("#whimsyAISection-outside-agents"), "…in the Outside agents section");
+    ok(outside.matches(".whimsy-search-hit") || outside.querySelector("mark.whimsy-search-mark") || outside.closest(".whimsy-search-hit"), "The row is marked");
   });
 });
 

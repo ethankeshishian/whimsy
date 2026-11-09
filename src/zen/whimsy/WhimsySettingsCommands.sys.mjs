@@ -142,6 +142,10 @@ export const SETTINGS = [
   { name: "ai", setting: "whimsyAIEnable", pref: "whimsy.ai.enabled", feature: ["ai-kill-switch"] },
   // W23: the connected providers (order, switches, details) and the
   // connect sheets are many small controls, set in the page.
+  { name: "ai-commands", setting: "whimsyCommandsBuiltIn", covers: "#whimsyCommandsBuiltIn", when: aiAllowed,
+    exempt: "one switch per built-in command; each command is in ⌘K itself" },
+  { name: "activity-filter", setting: "whimsyAIActivityFilter", when: aiAllowed,
+    exempt: "which runs the list shows, not a setting" },
   { name: "ai-provider", setting: "whimsyAIProviderList", feature: ["ai-providers"],
     covers: "#whimsyAIProviderList, #whimsyAISheet",
     exempt: "the connected providers, each a row with its own switch, and the connect sheets" },
@@ -203,9 +207,26 @@ export const SETTINGS = [
   { name: "email-aliases", setting: "whimsyEmailAliasesButton", pref: "whimsy.email-aliases.button",
     feature: ["email-aliases"] },
   { name: "handoff", setting: "whimsyHandoffSend", pref: "whimsy.handoff.send", feature: ["handoff"], when: mac },
-  { name: "claude", setting: "whimsyClaudeEnable", pref: "whimsy.ai.outside-agents", feature: ["ai-outside-agents"],
+  // W23 agent-chat: Settings › AI › Agent, Outside agents, and Activity.
+  { name: "agent-mode", setting: "whimsyAIAgentMode", pref: "whimsy.ai.agent.mode", when: aiAllowed,
+    choices: [
+      { value: "drive", l10nId: "whimsy-ai-agent-mode-drive" },
+      { value: "background", l10nId: "whimsy-ai-agent-mode-background" },
+    ] },
+  { name: "claude", setting: "whimsyAIOutsideEnable", pref: "whimsy.ai.outside-agents", feature: ["ai-outside-agents"],
     when: aiAllowed },
-  { name: "claude-replay", setting: "whimsyClaudeReplay", pref: "whimsy.claude.replay", feature: ["ai-activity"] },
+  { name: "outside-own-space", setting: "whimsyAIOutsideOwnSpace", pref: "whimsy.ai.outside-agents.own-space",
+    feature: ["ai-outside-agents"], when: aiAllowed, exempt: "only shown once outside agents are on" },
+  { name: "claude-replay", setting: "whimsyAIActivityKeep", pref: "whimsy.claude.replay", feature: ["ai-activity"],
+    when: aiAllowed },
+  { name: "activity-days", setting: "whimsyAIActivityDays", pref: "whimsy.ai.activity.days", feature: ["ai-activity"],
+    when: aiAllowed,
+    choices: [
+      { value: 7, l10nId: "whimsy-ai-activity-days-7" },
+      { value: 30, l10nId: "whimsy-ai-activity-days-30" },
+      { value: 90, l10nId: "whimsy-ai-activity-days-90" },
+      { value: 0, l10nId: "whimsy-ai-activity-days-forever" },
+    ] },
 
   // About
   { name: "update-channel", setting: "whimsyUpdatesChannel", pref: "whimsy.update-channel",

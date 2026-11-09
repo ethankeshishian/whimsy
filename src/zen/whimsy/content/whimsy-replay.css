@@ -160,6 +160,12 @@ h1 {
   #whimsy-replay-layout {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  /* Stacked, the runs scroll with the page (sticky, they covered the run). */
+  #whimsy-replay-runs {
+    position: static;
+    max-height: 40vh;
+  }
 }
 
 /* Empty and off states */
@@ -282,6 +288,8 @@ h1 {
 #whimsy-replay-shot {
   display: grid;
   place-items: center;
+  /* Full width: with only aspect-ratio, max-height narrowed the box too. */
+  width: 100%;
   aspect-ratio: 16 / 10;
   max-height: 60vh;
   background: var(--replay-sunken);

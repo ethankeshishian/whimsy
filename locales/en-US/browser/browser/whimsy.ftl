@@ -215,7 +215,6 @@ whimsy-ai-enable =
 whimsy-ai-off-note = AI is off. Turn on Enable AI to use anything below.
 whimsy-ai-locked-note = Your organization manages this setting.
 whimsy-ai-features-heading = Features
-whimsy-ai-claude-heading = Claude in Whimsy
 whimsy-ai-apple-open-settings =
     .label = Open System Settings
 whimsy-ai-firefox-chatbot =
@@ -226,8 +225,6 @@ whimsy-ai-firefox-link-previews =
     .label = Firefox link previews
 whimsy-ai-firefox-tab-groups =
     .label = Suggest tab groups
-whimsy-claude-fieldset =
-    .aria-label = Claude in Whimsy
 
 ## Settings → Privacy & Security → Tracking in links
 
@@ -1013,20 +1010,6 @@ whimsy-year-done = Done
 
 whimsy-claude-header =
     .label = Claude
-whimsy-claude-enable =
-    .label = Let outside agents use { -brand-short-name }
-    .description = Claude Code and other apps can read and use your tabs under the same rules as { -brand-short-name }’s agent: never private tabs, and a pause before anything risky. Only apps on this Mac with the token below can connect.
-whimsy-claude-ai-blocked = Claude is unavailable while AI is off.
-whimsy-claude-connect-heading = Connect Claude Code
-whimsy-claude-connect-intro = Run this in Terminal once:
-whimsy-claude-connect-json-intro = Or add this to an MCP config file (.mcp.json):
-whimsy-claude-copy-command =
-    .label = Copy Command
-whimsy-claude-copy-json =
-    .label = Copy JSON
-whimsy-claude-new-token =
-    .label = New Token
-whimsy-claude-copied = Copied
 whimsy-claude-new-token-note = Token changed. Your connection is ready.
 whimsy-claude-token-error = Couldn’t change the token. Try again.
 ## meeting: Next meeting in the sidebar
@@ -1923,18 +1906,13 @@ whimsy-media-video-captions =
 
 ## wave5/safety: Claude runs (agent replay, whimsy://replay)
 
-whimsy-claude-replay =
-    .label = Keep a replay of what Claude does
-    .description = Each run’s steps and small page snapshots stay on this device. Private tabs and the Private Space are never recorded; clearing history clears it.
-whimsy-claude-show-runs =
-    .label = Show Claude’s Runs
-whimsy-replay-title = Claude runs
-whimsy-replay-heading = Claude runs
-whimsy-replay-intro = Every step Claude took in { -brand-short-name }, with a snapshot of the page. Kept only on this device.
+whimsy-replay-title = Agent runs
+whimsy-replay-heading = Agent runs
+whimsy-replay-intro = Every step Whimsy’s agent and outside apps took in your tabs, with a snapshot of the page. Kept only on this Mac.
 whimsy-replay-clear = Clear All
 whimsy-replay-empty-title = No runs yet
 whimsy-replay-empty = When an agent uses your tabs, each run shows up here, step by step.
-whimsy-replay-off = Replay is off. Turn it on in Settings → Privacy & Security → Claude.
+whimsy-replay-off = Step screenshots are off. Turn them on in Settings › AI › Activity.
 whimsy-replay-runs-label =
     .aria-label = Runs
 # $count (Number) - steps in a run
@@ -4502,14 +4480,24 @@ whimsy-setting-email-aliases = Private Email Button
     .keywords = hide my email, firefox relay, email alias, email mask, icloud
 whimsy-setting-handoff = Handoff
     .keywords = continuity, iphone, ipad, continue on another device
-whimsy-setting-claude = Claude Access
-    .keywords = claude code, claude in chrome, mcp, agent, browser use, automation
+whimsy-setting-claude = Outside Agents
+    .keywords = claude code, codex, cursor, mcp, agent, browser use, automation, apps on this mac
 whimsy-setting-claude-whole-browser = Claude Access to Every Tab
     .keywords = claude, whole browser, all tabs, agent scope
 whimsy-setting-claude-ask = Ask Before Claude Acts
     .keywords = claude, permission, confirm, ask per site
-whimsy-setting-claude-replay = Claude Replays
-    .keywords = claude, replay, recording, runs, agent history
+whimsy-setting-claude-replay = Keep Agent Runs
+    .keywords = activity, agent runs, replay, recording, step screenshots, agent history, claude
+whimsy-setting-outside-own-space = Outside Apps in Their Own Space
+    .keywords = claude code, codex, agent space, outside agents, tabs
+whimsy-setting-agent-mode = New Agent Chats Start In
+    .keywords = drive, background, agent mode, ai agent
+whimsy-setting-activity-days = Keep Agent Runs For
+    .keywords = activity, retention, 7 days, 30 days, 90 days, forever, agent history
+whimsy-setting-activity-filter = Activity Filter
+    .keywords = agent runs, whimsy agent, outside apps
+whimsy-setting-ai-commands = Built-in Commands
+    .keywords = improve writing, fix spelling, summarize, ai commands
 whimsy-setting-update-channel = Update Channel
     .keywords = updates, dev builds, beta, release channel
 whimsy-setting-new-tab-below = New Tabs Below Current Tab
@@ -6451,3 +6439,304 @@ whimsy-ai-card-error-offline = You’re offline. Connect to the internet, then t
 whimsy-ai-card-replaced-toast = Replaced the selected text
 whimsy-ai-card-inserted-toast = Inserted after the selected text
 whimsy-ai-card-copied-toast = Copied
+## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
+
+whimsy-agent-chat-mode =
+    .aria-label = Agent mode
+whimsy-agent-chat-mode-drive = Drive
+whimsy-agent-chat-mode-background = Background
+whimsy-agent-chat-cmd-drive = Agent: Drive in Your Tab
+whimsy-agent-chat-cmd-background = Agent: Work in the Background
+whimsy-agent-chat-composer-background =
+    .placeholder = Give me something to do on the side…
+# $client is the app driving, like Claude Code.
+whimsy-agent-chat-outside-composer =
+    .placeholder = { $client } is driving. Take over to use this tab.
+whimsy-agent-chat-outside-from = Started by { $client }. You can watch, take over, or stop; you can’t type to it here.
+
+whimsy-agent-chat-plan = Plan
+whimsy-agent-chat-planning = Planning… reading the page
+whimsy-agent-chat-steps = { $count ->
+    [one] 1 step
+   *[other] { $count } steps
+}
+whimsy-agent-chat-start = Start
+whimsy-agent-chat-edit-plan = Edit plan
+whimsy-agent-chat-return-to-start = <kbd>Return</kbd> to start
+whimsy-agent-chat-tag-drive = Drive · this tab
+whimsy-agent-chat-tag-background = { $tabs ->
+    [0] Background
+    [one] Background · 1 tab
+   *[other] Background · { $tabs } tabs
+}
+whimsy-agent-chat-tag-reads-only = Reads only
+whimsy-agent-chat-tag-paused = Paused
+whimsy-agent-chat-tag-whimsy = From { -brand-short-name }
+whimsy-agent-chat-tag-approved = You approved
+whimsy-agent-chat-tag-pay = Pauses: pay
+whimsy-agent-chat-tag-send = Pauses: send
+whimsy-agent-chat-tag-delete = Pauses: delete
+whimsy-agent-chat-tag-account = Pauses: setting
+whimsy-agent-chat-tag-security = Pauses: yours to do
+whimsy-agent-chat-tag-submit = Pauses: submit
+whimsy-agent-chat-tag-new-site-data = Pauses: new site
+whimsy-agent-chat-tag-download = Pauses: download
+whimsy-agent-chat-tag-sign-in = Pauses: sign in
+whimsy-agent-chat-tag-unsure = Pauses: check
+
+whimsy-agent-chat-take-over = Take over
+whimsy-agent-chat-stop = Stop
+whimsy-agent-chat-show = Show
+whimsy-agent-chat-continue = Continue
+whimsy-agent-chat-end-task = End task
+whimsy-agent-chat-run-waiting = Waiting for you
+whimsy-agent-chat-run-nothing = Nothing happens until you choose
+# $client is the app driving, like Claude Code.
+whimsy-agent-chat-run-on-hold = { $client }’s request is on hold
+whimsy-agent-chat-run-took-over = Step { $step } of { $total } · you took over
+whimsy-agent-chat-run-step-drive = Step { $step } of { $total } · Drive
+whimsy-agent-chat-run-step-background = Step { $step } of { $total } · Background
+whimsy-agent-chat-run-step-outside = Step { $step } · { $client }
+whimsy-agent-chat-run-retry = The page is slow · trying again ({ $n } of 3)
+whimsy-agent-chat-strip-drive = Step { $step } of { $total } · Drive
+whimsy-agent-chat-strip-background = Step { $step } of { $total } · Background
+whimsy-agent-chat-strip-outside = { $client } is working
+whimsy-agent-chat-strip-waiting = Waiting for you
+
+whimsy-agent-chat-you-have-tab = You have the tab
+whimsy-agent-chat-you-have-tab-body = I’ll wait. Change anything you like; I’ll re-read the page before I carry on.
+whimsy-agent-chat-stopped-title = { $step ->
+    [0] Stopped before the first step
+    [one] Stopped after step 1
+   *[other] Stopped after step { $step }
+}
+whimsy-agent-chat-stopped-toast = Stopped
+whimsy-agent-chat-pick-up = Pick up again
+whimsy-agent-chat-replay = Replay
+
+whimsy-agent-chat-paused = Paused
+whimsy-agent-chat-will-press = It will press
+# $verb is the button that skips, like Don’t submit.
+whimsy-agent-chat-dont-skips = { $verb } skips this step; I’ll tell you what’s left.
+whimsy-agent-chat-verb-pay = Pay { $amount }
+whimsy-agent-chat-verb-pay-plain = Pay
+whimsy-agent-chat-verb-dont-pay = Don’t pay
+whimsy-agent-chat-verb-dont-pay-esc = <kbd>Esc</kbd> don’t pay
+whimsy-agent-chat-verb-send = Send
+whimsy-agent-chat-verb-dont-send = Don’t send
+whimsy-agent-chat-verb-dont-send-esc = <kbd>Esc</kbd> don’t send
+whimsy-agent-chat-verb-submit = Submit
+whimsy-agent-chat-verb-dont-submit = Don’t submit
+whimsy-agent-chat-verb-dont-submit-esc = <kbd>Esc</kbd> don’t submit
+whimsy-agent-chat-verb-delete = Delete
+whimsy-agent-chat-verb-keep = Keep it
+whimsy-agent-chat-verb-keep-esc = <kbd>Esc</kbd> keep it
+whimsy-agent-chat-verb-change = Change it
+whimsy-agent-chat-verb-dont-change = Don’t change
+whimsy-agent-chat-verb-dont-change-esc = <kbd>Esc</kbd> don’t change
+whimsy-agent-chat-verb-type = Type it
+whimsy-agent-chat-verb-download = Download
+whimsy-agent-chat-verb-dont-download = Don’t download
+whimsy-agent-chat-verb-dont-download-esc = <kbd>Esc</kbd> don’t download
+whimsy-agent-chat-verb-sign-in = Sign in
+whimsy-agent-chat-verb-sign-in-self = I’ll sign in
+whimsy-agent-chat-verb-dont-sign-in = Don’t sign in
+whimsy-agent-chat-verb-dont-sign-in-esc = <kbd>Esc</kbd> don’t sign in
+whimsy-agent-chat-verb-press = Press it
+whimsy-agent-chat-verb-check = I’ll check
+whimsy-agent-chat-verb-skip = Skip
+whimsy-agent-chat-verb-skip-esc = <kbd>Esc</kbd> skip
+whimsy-agent-chat-verb-skip-site = Skip this site
+whimsy-agent-chat-verb-skip-site-esc = <kbd>Esc</kbd> skip this site
+whimsy-agent-chat-verb-do-it = I’ll do it
+whimsy-agent-chat-verb-edit-it = I’ll edit it
+whimsy-agent-chat-verb-show-tab = Show the tab
+whimsy-agent-chat-verb-try-again = Try again
+whimsy-agent-chat-verb-continue = Continue
+whimsy-agent-chat-verb-reopen = Reopen and continue
+whimsy-agent-chat-verb-keep-tab = Keep this tab
+whimsy-agent-chat-allow-submit = Don’t ask again for forms on { $host } during this task
+whimsy-agent-chat-allow-new-site-data = Don’t ask again on { $host } during this task
+whimsy-agent-chat-allow-download = Don’t ask again for downloads on { $host } during this task
+whimsy-agent-chat-hand-over-card = Card details are always yours to fill. I’ve filled the rest; finish it and press Continue.
+whimsy-agent-chat-hand-over-password = Passwords are filled by { -brand-short-name } or your password manager, never by me.
+whimsy-agent-chat-hand-over-otp = Codes are always yours to type. I won’t read your texts or email for them.
+whimsy-agent-chat-hand-over-security = I never change passwords, two-factor, or recovery settings. Make this change yourself, then press Continue.
+whimsy-agent-chat-pause-yours = You have the tab: { $title }
+whimsy-agent-chat-pause-yours-body = Finish it in the tab, then press Continue. I’ll re-read the page first.
+# $time is when you approved, like 10:42 AM.
+whimsy-agent-chat-approved = You approved: { $title } · { $time }
+whimsy-agent-chat-approved-pay = You approved paying { $amount } · { $time }
+whimsy-agent-chat-pause-skipped = Skipped: { $title }
+whimsy-agent-chat-pause-stopped = Stopped at: { $title }
+whimsy-agent-chat-pause-yours-done = You did it: { $title }
+# $task is the task's name, like Coffee reorder.
+whimsy-agent-chat-needs-you = { $task } needs you
+whimsy-agent-chat-review = Review
+
+whimsy-agent-chat-injection-title = This page tried to give me instructions. I ignored them.
+# $host is the site, like alfamapatio.pt.
+whimsy-agent-chat-injection-body = { $count ->
+    [one] Hidden text on { $host }. I’ll judge it on what it shows, not on what it told me.
+   *[other] Hidden text on { $host }, { $count } times. I’ll judge it on what it shows, not on what it told me.
+}
+whimsy-agent-chat-show-where = Show where
+whimsy-agent-chat-unlock-title = { $space } is locked
+whimsy-agent-chat-unlock-body = Only you can unlock it, with Touch ID or your password. I’ll wait here and start once it’s open.
+whimsy-agent-chat-unlock-button = Unlock { $space }…
+whimsy-agent-chat-never-mind = Never mind
+whimsy-agent-chat-unlock-unlocked = { $space } is unlocked
+whimsy-agent-chat-unlock-never = Left { $space } locked
+whimsy-agent-chat-private-title = I can’t see or use private tabs
+whimsy-agent-chat-private-body = That’s a rule I can’t switch off, even when you ask. If you want, paste what you need here and I’ll use it.
+whimsy-agent-chat-skipped-title = Skipped { $host }
+whimsy-agent-chat-skipped-body = It didn’t load after 3 tries. I carried on with the other sites.
+whimsy-agent-chat-quit-title = { -brand-short-name } quit while I was on step { $step }
+whimsy-agent-chat-quit-body = Nothing resumes by itself. Look over the tab, then ask again if you still want it.
+
+whimsy-agent-chat-end-meta = { $steps ->
+    [one] 1 step
+   *[other] { $steps } steps
+} · { $notices ->
+    [0] no notices
+    [one] 1 notice
+   *[other] { $notices } notices
+} · { $minutes } min
+whimsy-agent-chat-kept = { $count ->
+    [one] 1 tab kept
+   *[other] { $count } tabs kept
+}
+whimsy-agent-chat-keep-question = { $count ->
+    [one] Keep this tab?
+   *[other] Keep these { $count } tabs?
+}
+whimsy-agent-chat-keep-question-body = I opened them, but I’m not sure you want them.
+whimsy-agent-chat-keep-all = { $count ->
+    [one] Keep it
+    [2] Keep both
+   *[other] Keep all
+}
+whimsy-agent-chat-archive-all = { $count ->
+    [one] Archive it
+    [2] Archive both
+   *[other] Archive all
+}
+# $sites is a list, like booking.com and expedia.com.
+whimsy-agent-chat-skipped-list = Skipped: { $sites }.
+whimsy-agent-chat-looked-at = { $count ->
+    [one] Looked at 1 page
+   *[other] Looked at { $count } pages
+}
+whimsy-agent-chat-reopen-all = Reopen all
+whimsy-agent-chat-reopen = Reopen
+
+## W23 agent-chat: Settings › AI › Agent, Outside agents, and Activity
+
+whimsy-ai-jump-agent = Agent
+whimsy-ai-jump-activity = Activity
+whimsy-ai-agent-heading = Agent
+whimsy-ai-agent-desc = How the agent works in your tabs. The pauses below can’t be turned off.
+whimsy-ai-agent-mode = New chats start in
+whimsy-ai-agent-mode-detail = You can flip it beside the composer, even mid-task. Whimsy remembers your last choice.
+whimsy-ai-agent-mode-drive = Drive
+whimsy-ai-agent-mode-background = Background
+whimsy-ai-agent-pauses-label = Pauses
+whimsy-ai-agent-pauses-title = The agent stops and shows you first
+whimsy-ai-agent-pauses-detail = It works on its own, and pauses with an exact preview before it:
+whimsy-ai-agent-always-on = Always on
+whimsy-ai-agent-pause-money = Moves money
+whimsy-ai-agent-pause-send = Sends or posts to people
+whimsy-ai-agent-pause-delete = Deletes something
+whimsy-ai-agent-pause-settings = Changes account, security, or privacy settings
+whimsy-ai-agent-pause-submit = Submits a form
+whimsy-ai-agent-pause-new-site = Enters your data on a new site
+whimsy-ai-agent-pause-download = Downloads or installs
+whimsy-ai-agent-pause-sign-in = Signs in
+whimsy-ai-agent-unsure = When it can’t tell, it pauses
+whimsy-ai-agent-unsure-detail = There’s no always-allow for paying or sending, and no way to skip the pause.
+whimsy-ai-outside-heading = Outside agents
+whimsy-ai-outside-desc = Other apps that use your tabs. Connect writes the app’s own MCP setting for you; Remove takes it out again.
+whimsy-ai-outside-enable = Let apps on this Mac use Whimsy
+whimsy-ai-outside-enable-detail = Agents like Claude Code and Codex can read and use your tabs through Whimsy’s MCP server. They follow the same rules as Whimsy’s agent, and their runs show in Activity.
+whimsy-ai-outside-last-used = Connected · last used { $when }
+whimsy-ai-outside-connected = Connected
+whimsy-ai-outside-found = On this Mac · not connected
+whimsy-ai-outside-connect = Connect
+whimsy-ai-outside-remove = Remove
+whimsy-ai-outside-connected-toast = { $app } is connected
+whimsy-ai-outside-connect-failed = Couldn’t connect { $app }
+whimsy-ai-outside-another = Another app…
+whimsy-ai-outside-another-detail = Cursor, VS Code, Claude Desktop, or anything that speaks MCP
+whimsy-ai-outside-another-intro = Run this in Terminal. It adds Whimsy’s small connector, which reads the key from your profile, so no key is ever copied.
+whimsy-ai-outside-json-intro = Or add this to the app’s MCP settings:
+whimsy-ai-outside-copy-command = Copy command
+whimsy-ai-outside-copy-json = Copy JSON
+whimsy-ai-outside-copied = Copied
+whimsy-ai-outside-new-key = New key
+whimsy-ai-outside-new-key-confirm = Make a new key?
+whimsy-ai-outside-new-key-note = A new key disconnects every app until it reconnects on its own.
+whimsy-ai-outside-own-space = Keep apps in their own space
+whimsy-ai-outside-own-space-detail = Tabs that outside apps open go to a space of their own, out of your way.
+whimsy-ai-activity-heading = Activity
+whimsy-ai-activity-desc = Every agent run, Whimsy’s own and outside apps’, with its steps. Kept on this Mac; the Fire button clears it.
+whimsy-ai-activity-all = All
+whimsy-ai-activity-whimsy = Whimsy
+whimsy-ai-activity-outside = Outside apps
+whimsy-ai-activity-empty = No runs yet
+whimsy-ai-activity-empty-detail = When the agent or an outside app works in your tabs, each run shows here with its steps.
+whimsy-ai-activity-run-whimsy =
+    { $mode ->
+        [background]
+            { $count ->
+                [one] Whimsy agent · Background · 1 step
+               *[other] Whimsy agent · Background · { $count } steps
+            }
+       *[drive]
+            { $count ->
+                [one] Whimsy agent · Drive · 1 step
+               *[other] Whimsy agent · Drive · { $count } steps
+            }
+    }
+whimsy-ai-activity-run-outside =
+    { $count ->
+        [one] { $app } (outside app) · 1 step
+       *[other] { $app } (outside app) · { $count } steps
+    }
+whimsy-ai-activity-delete =
+    .aria-label = Delete run
+    .title = Delete run
+whimsy-ai-activity-delete-title = Delete this run?
+whimsy-ai-activity-delete-text = Its steps and screenshots are removed from this Mac. Anything it did on sites stays done.
+whimsy-ai-activity-delete-ok = Delete
+whimsy-ai-activity-delete-all = Delete all…
+whimsy-ai-activity-delete-all-title = Delete every run?
+whimsy-ai-activity-delete-all-text = All steps and screenshots are removed from this Mac. Anything the agents did on sites stays done.
+whimsy-ai-activity-delete-all-ok = Delete All
+whimsy-ai-activity-keep = Keep runs and step screenshots
+whimsy-ai-activity-keep-detail = Each run’s steps and small snapshots, kept on this Mac; off, nothing new is kept. Private tabs are never captured, and card numbers, passwords, and one-time codes are covered before a snapshot is taken, so AI never sees them.
+whimsy-ai-activity-days = Keep runs for
+whimsy-ai-activity-days-7 = 7 days
+whimsy-ai-activity-days-30 = 30 days
+whimsy-ai-activity-days-90 = 90 days
+whimsy-ai-activity-days-forever = Forever
+whimsy-agent-chat-save-as = Save as…
+whimsy-agent-chat-save-menu =
+    .aria-label = Save as
+whimsy-agent-chat-save-command = Save as command
+whimsy-agent-chat-save-command-detail = In ⌘K, chat, and routines
+whimsy-agent-chat-save-routine = Make it a routine…
+whimsy-agent-chat-save-routine-detail = Runs on a schedule or trigger
+
+whimsy-agent-chat-tool-tabs-list = Looked at your tabs
+whimsy-agent-chat-tool-tabs-create = Opened a tab
+whimsy-agent-chat-tool-tabs-close = Closed a tab
+whimsy-agent-chat-tool-navigate = Went to a page
+whimsy-agent-chat-tool-read-page = Read the page
+whimsy-agent-chat-tool-get-page-text = Read the page’s text
+whimsy-agent-chat-tool-find = Looked for something on the page
+whimsy-agent-chat-tool-click = Pressed a button or link
+whimsy-agent-chat-tool-type = Typed into a field
+whimsy-agent-chat-tool-key = Pressed a key
+whimsy-agent-chat-tool-form-input = Filled a field
+whimsy-agent-chat-tool-scroll = Scrolled
+whimsy-agent-chat-tool-screenshot = Took a snapshot

@@ -1041,3 +1041,10 @@ support-files = ["whimsy_cmdk.html", "whimsy_test_image.png"]
 
 ["browser_whimsy_ai_selection.js"]
 support-files = ["whimsy_ai_selection.html"]
+# W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses,
+# notices, end of task, outside apps' threads) and this lane's screenshots.
+["browser_whimsy_chat_agent.js"]
+support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
+
+["browser_whimsy_screens_w23_agent-chat.js"]
+support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
