@@ -142,6 +142,7 @@
 /* Activity with runs: a day label over each day's own list, not a list of lists. */
 #whimsyAIActivityRuns.is-grouped {
   gap: 6px;
+  margin-top: 10px;
   border: none;
   border-radius: 0;
   overflow: visible;
@@ -153,5 +154,18 @@
   }
   & > .whimsy-ai-agent-sublabel:first-child {
     margin-top: 0;
+  }
+}
+
+/* Found and connected apps sit in the list like its other rows. */
+#whimsyAIOutsideApps {
+  display: flex;
+  flex-direction: column;
+  &:empty,
+  &[hidden] {
+    display: none;
+  }
+  & > * + * {
+    border-top: 1px solid var(--ai-hairline);
   }
 }

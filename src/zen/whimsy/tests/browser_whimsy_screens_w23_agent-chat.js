@@ -364,7 +364,12 @@ add_task(async function shot_settings() {
   await whimsyBothSchemes(`${P}fu-settings-8.2-outside`, async () => {
     const page = await openSection("outside-agents");
     await TestUtils.waitForCondition(() => page.doc.querySelector("#whimsyAIOutsideApps [data-app]"), "Found apps are listed");
-    ok(page.doc.querySelector("#whimsyAIOutsideApps [data-app=codex] [data-action=connect]"), "Outside agents: found apps with Connect");
+    const another = page.$("whimsyAIOutsideAnother");
+    EventUtils.synthesizeMouseAtCenter(another, {}, page.win);
+    await TestUtils.waitForCondition(() => page.$("whimsyAIOutsideJSON").textContent, "Another app… shows the setting to add");
+    await whimsySettled(page.doc);
+    page.$("whimsyAIOutsideAnotherBody").scrollIntoView({ block: "end", behavior: "instant" });
+    ok(page.doc.querySelector("#whimsyAIOutsideApps [data-app=codex] [data-action=connect]"), "Outside agents: found apps with Connect, and Another app… open");
     return page.close;
   });
   await whimsyBothSchemes(`${P}fu-settings-9.5-empty`, async () => {

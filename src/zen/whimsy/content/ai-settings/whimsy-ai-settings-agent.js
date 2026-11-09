@@ -28,10 +28,10 @@
     WhimsyOutsideAgents: "resource:///modules/whimsy/WhimsyOutsideAgents.sys.mjs",
   });
 
-  const item = (parent, { icon, name, nameArgs, detail, detailArgs, tone } = {}) => {
+  const item = (parent, { icon, name, nameArgs, detail, detailArgs, tone, logo = false } = {}) => {
     const row = S.el("div", "whimsy-ai-item", parent);
     if (icon) {
-      S.tile(row, icon, { tone });
+      S.tile(row, icon, { tone, logo });
     }
     const text = S.el("span", "whimsy-ai-item-text", row);
     if (name) {
@@ -140,6 +140,10 @@
     }
     return rtf.format(-Math.round(minutes / 1440), "day");
   };
+
+  // Codex is OpenAI's; Claude Code and Claude are Anthropic's.
+  const APP_LOGOS = { "claude-code": "claude", "claude-desktop": "claude", codex: "openai" };
+  const appIcon = id => (APP_LOGOS[id] ? { icon: S.logo(APP_LOGOS[id]), logo: true } : { icon: `${ICONS}agent.svg` });
 
   S.register({
     id: "outside-agents",
@@ -261,7 +265,8 @@
         for (const app of rows) {
           const isConnected = app.listed || connected.has(app.id);
           const row = item(apps, {
-            icon: S.logo(app.id == "claude-code" || app.id == "claude-desktop" ? "claude" : app.id),
+            // An app's own mark on a white tile; apps with none get the plain one.
+            ...appIcon(app.id),
             detail: app.lastUsed ? "whimsy-ai-outside-last-used" : isConnected ? "whimsy-ai-outside-connected" : "whimsy-ai-outside-found",
             detailArgs: app.lastUsed ? { when: ago(app.lastUsed) } : undefined,
           });
@@ -393,7 +398,7 @@
           }
           const outside = (run.client ?? "outside") != "whimsy";
           const row = item(group, {
-            icon: outside ? S.logo("claude") : `${ZEN}sparkles.svg`,
+            ...(outside ? appIcon(/claude/i.test(run.clientName ?? "") ? "claude-code" : /codex/i.test(run.clientName ?? "") ? "codex" : "") : { icon: `${ZEN}sparkles.svg` }),
             detail: outside ? "whimsy-ai-activity-run-outside" : "whimsy-ai-activity-run-whimsy",
             detailArgs: { app: run.clientName || "", count: run.steps.length, mode: run.mode == "background" ? "background" : "drive" },
           });
