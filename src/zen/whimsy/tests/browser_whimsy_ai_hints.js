@@ -124,6 +124,31 @@ add_task(async function hint_waits_for_real_toasts_and_surface() {
   WhimsyAIHints._setTimingForTesting(FAST);
 });
 
+// A hint asked for in a window that then closes (waiting behind a real
+// toast, or on screen) never holds up the hints of the windows still open.
+add_task(async function hint_in_closed_window_frees_the_line() {
+  await resetHints();
+  for (const id of ["chat", "updates", "ask"]) {
+    WhimsyAIHints.register({ id, isVisible: () => true });
+  }
+
+  let win = await BrowserTestUtils.openNewBrowserWindow();
+  win.gZenUIManager.toasts.open("whimsy-ai-hint-got-it", { timeout: 0, key: "whimsy-test-real" });
+  ok(WhimsyAIHints.request(win, "chat"), "Chat waits behind the other window's real toast");
+  await BrowserTestUtils.closeWindow(win);
+  await TestUtils.waitForCondition(() => !WhimsyAIHints.waiting, "Its window closed: it stops waiting");
+
+  win = await BrowserTestUtils.openNewBrowserWindow();
+  ok(WhimsyAIHints.request(win, "updates"), "Updates is taken in a second window");
+  await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "updates", "and shows there");
+  await BrowserTestUtils.closeWindow(win);
+  await TestUtils.waitForCondition(() => !WhimsyAIHints.current, "Its window closed: it's gone");
+
+  ok(WhimsyAIHints.request(window, "ask"), "Ask is taken here");
+  await waitForHint("ask");
+  ok(true, "and shows: nothing is stuck");
+});
+
 add_task(async function hint_not_shown_ai_off_except_media() {
   await resetHints();
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", false]] });

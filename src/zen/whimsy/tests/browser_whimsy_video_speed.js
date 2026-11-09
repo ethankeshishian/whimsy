@@ -51,11 +51,12 @@ async function clickAt(browser, point) {
   await BrowserTestUtils.synthesizeMouseAtPoint(point.x, point.y, {}, browser);
 }
 
-async function typeSpeed(browser, text) {
+async function typeSpeed(browser, text, { beforeTyping } = {}) {
   // Point at the video again: the control fades when the pointer rests.
   await hover(browser);
   await clickAt(browser, (await waitShown(browser)).value);
   await TestUtils.waitForCondition(async () => (await control(browser)).editing, "The number turns into a field");
+  await beforeTyping?.();
   // Select-all on start: typing replaces the old speed.
   for (const key of text) {
     EventUtils.synthesizeKey(key, {});
@@ -63,6 +64,29 @@ async function typeSpeed(browser, text) {
   EventUtils.synthesizeKey("KEY_Enter", {});
   await TestUtils.waitForCondition(async () => !(await control(browser)).editing, "Enter applies");
 }
+
+// Resolves with the speed note's text the moment it unhides.
+const watchNote = browser =>
+  SpecialPowers.spawn(browser, [], () => {
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+    const { speednote } = actor.els;
+    actor.testNoteShown = new Promise(resolve => {
+      const observer = new content.MutationObserver(() => {
+        if (!speednote.hidden) {
+          observer.disconnect();
+          resolve(speednote.textContent);
+        }
+      });
+      observer.observe(speednote, { attributes: true, attributeFilter: ["hidden"] });
+    });
+  });
+const noteShown = browser =>
+  SpecialPowers.spawn(browser, [], async () => {
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+    const text = await actor.testNoteShown;
+    delete actor.testNoteShown;
+    return text;
+  });
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
@@ -253,9 +277,11 @@ add_task(async function typed_speed_up_to_16_note_above() {
   await typeSpeed(browser, "16");
   is(await rate(browser), 16, "16× is fine");
   is((await control(browser)).note, null, "with no note");
-  await typeSpeed(browser, "25");
+  // The note shows for 2s; on a loaded machine typeSpeed's own polling can
+  // outlast it, so watch for it from before the keys go in.
+  await typeSpeed(browser, "25", { beforeTyping: () => watchNote(browser) });
   is(await rate(browser), 16, "25 is set to 16×");
-  await TestUtils.waitForCondition(async () => (await control(browser)).note?.includes("as fast as videos go"), "One line says why");
+  ok((await noteShown(browser)).includes("as fast as videos go"), "One line says why");
   await typeSpeed(browser, "1");
   BrowserTestUtils.removeTab(tab);
 });
