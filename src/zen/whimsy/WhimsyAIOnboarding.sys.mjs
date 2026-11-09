@@ -471,8 +471,10 @@ export const WhimsyAIOnboarding = {
     ui.set({ state: "busy", status: "whimsy-onb-choosing", tone: "busy" });
     const sheet = this._el(doc, "div", "whimsy-onb-sheet", null);
     sheet.setAttribute("role", "dialog");
-    const top = ui.card.offsetTop + ui.card.offsetHeight + 6;
-    sheet.style.top = `${top}px`;
+    if (win.getComputedStyle(content).position == "static") {
+      content.style.position = "relative";
+    }
+    sheet.style.top = `${ui.card.getBoundingClientRect().bottom - content.getBoundingClientRect().top + content.scrollTop + 6}px`;
     const head = this._el(doc, "div", "whimsy-onb-sheet-head", sheet);
     const logo = this._el(doc, "img", "", head);
     logo.src = `${ICONS}${lazy.CATALOG[id].logo}.svg`;
@@ -540,7 +542,6 @@ export const WhimsyAIOnboarding = {
       close();
       onGo(opts);
     });
-    content.style.position = "relative";
     content.append(sheet);
     if (!reduced(win) && !this.instant) {
       this.sheetAnimation = sheet.animate({ opacity: [0, 1], scale: [0.97, 1] }, { duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" });
