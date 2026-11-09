@@ -854,3 +854,17 @@
 # Hold Fn (300ms) to dictate into the focused field (Settings › Media).
 - name: whimsy.dictation.hold-fn
   value: true
+# W23 page-act
+# Language pairs ("fr>en") where "Translate better with <provider>" is
+# ticked, as a JSON list. Empty: Firefox's translation for every pair.
+- name: whimsy.ai.translate.pairs
+  value: ""
+
+# Sites where "I trust this" turned the scam warning off, comma-separated.
+- name: whimsy.ai.scam.trusted
+  value: ""
+
+# Page edits kept per site, as JSON: the sentence behind each zap and each
+# CSS-only Boost block.
+- name: whimsy.ai.page-edits
+  value: ""

@@ -254,3 +254,5 @@
         content/browser/whimsy/library/library-routines-sprite.svg (../../zen/whimsy/content/library/library-routines-sprite.svg)
 # W23 voice-image: dictation
         content/browser/whimsy/whimsy-dictation.css (../../zen/whimsy/content/whimsy-dictation.css)
+# W23 page-act: the chat card, the page bar, the translation choice, and the scam warning
+        content/browser/whimsy/whimsy-page-act.css (../../zen/whimsy/content/whimsy-page-act.css)

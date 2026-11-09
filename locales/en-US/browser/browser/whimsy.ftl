@@ -7350,3 +7350,251 @@ whimsy-read-aloud-settings-voice = Voice
 whimsy-read-aloud-settings-voice-detail = Voices on this Mac. Add more in System Settings › Accessibility › Spoken Content.
 whimsy-read-aloud-settings-speed = Reading speed
 whimsy-read-aloud-settings-speed-detail = Read aloud uses this speed and voice on every site.
+## W23 page-act: Draft reply, Form fill, better translation, page edits by
+## description, the scam warning, Compare, and tab requests (05-page 3–10,
+## fu-page 2.4, 4.3, 9.4, 10.4, dec-13). Not agent tasks.
+
+whimsy-draft-cmd = Draft a Reply
+whimsy-draft-prompt = Draft a reply
+whimsy-draft-writing = Writing in the reply box…
+whimsy-draft-written = I wrote it in the reply box and left it selected so you can edit it. I didn’t post it.
+whimsy-draft-written-toast = Draft written, not sent
+whimsy-draft-has-text = The reply box already has your text. What should I do with the draft?
+whimsy-draft-your-text = Your text:
+whimsy-draft-insert-after = Insert after
+whimsy-draft-replace = Replace
+whimsy-draft-copy = Copy
+whimsy-draft-copied-toast = Draft copied
+whimsy-draft-no-box = I couldn’t find a reply box on this page, so here’s the draft.
+whimsy-draft-failed = I couldn’t write a draft. Try again in a moment.
+
+whimsy-fill-cmd = Fill In This Form
+whimsy-fill-prompt = Fill this in for me
+whimsy-fill-status = Filling from what you’ve saved…
+whimsy-fill-tag-address = From your saved address
+whimsy-fill-tag-several = { $count } saved. Check this one.
+whimsy-fill-tag-memory = Guessed from a memory
+whimsy-fill-tag-message = From your message
+whimsy-fill-tag-left = Your password manager fills this
+whimsy-fill-done-filled =
+    { $count ->
+        [one] Filled 1 field.
+       *[other] Filled { $count } fields.
+    }
+whimsy-fill-done-unsure =
+    { $count ->
+        [one] One needs a look; it’s in amber.
+       *[other] { $count } need a look; they’re in amber.
+    }
+whimsy-fill-done-left = Card, password, and code fields are left to your password manager.
+whimsy-fill-done-never = I didn’t send the form.
+whimsy-fill-none = I don’t have an address for you yet. Tell me where to ship it, and I’ll fill it in.
+whimsy-fill-none-notice = Saved addresses live in Settings › Autofill.
+whimsy-fill-open-autofill = Open Autofill settings
+whimsy-fill-nothing = I couldn’t find a form to fill on this page.
+
+whimsy-translate-cmd = Translate Page with AI
+whimsy-translate-better = Translate better with { $provider }
+whimsy-translate-better-detail = Keeps tone and idioms. Slower, and the page goes to { $provider }.
+whimsy-translate-with =
+    .label = Translate with { $provider }
+whimsy-translate-busy = Translating with { $provider }…
+whimsy-translate-progress =
+    { $total ->
+        [one] { $done } of 1 section · { $from } to { $to }
+       *[other] { $done } of { $total } sections · { $from } to { $to }
+    }
+whimsy-translate-handoff = { $from } is out, so { $to } took over.
+whimsy-translate-stop = Stop
+whimsy-translate-by = Translated by { $provider }
+whimsy-translate-stopped =
+    { $total ->
+        [one] Stopped after { $done } of 1 section
+       *[other] Stopped after { $done } of { $total } sections
+    }
+whimsy-translate-from = From { $language }. { $provider } read this page to translate it.
+whimsy-translate-firefox = Firefox’s translation finished the page
+whimsy-translate-firefox-why = No AI provider could go on, so the rest was translated on this Mac.
+whimsy-translate-use-firefox = Use Firefox’s translation
+whimsy-translate-original = Show original
+whimsy-translate-done = Done
+
+whimsy-edit-cmd = Change This Page…
+whimsy-edit-cmdk-row = Change this page…
+whimsy-edit-cmdk-typed = Change this page: { $text }
+whimsy-edit-placeholder =
+    .placeholder = Describe a change, like “hide the comments”
+    .aria-label = Describe a change
+whimsy-edit-go = Change
+whimsy-edit-cancel = Cancel
+whimsy-edit-busy = Changing this page…
+whimsy-edit-done = Changed this page
+whimsy-edit-undo = Undo
+whimsy-edit-once = Just this time
+whimsy-edit-keep = Keep on this site
+whimsy-edit-update = Update on this site
+whimsy-edit-done-button = Done
+whimsy-edit-script-why = Can’t keep this one: it needs the page’s code to run.
+whimsy-edit-missing = Couldn’t find that on this page.
+whimsy-edit-dismiss = Dismiss
+whimsy-edit-retry = Try other words
+whimsy-edit-saved-toast = Saved for { $host }
+whimsy-edit-saved-boost = In Boosts, as “{ $name }”
+whimsy-edit-saved-zap = In Zapped Elements, as “{ $name }”
+whimsy-edit-site-boost =
+    .label = Boost: { $name }
+whimsy-edit-site-edit =
+    .label = Edit…
+whimsy-edit-site-off =
+    .label = Turn Off
+whimsy-edit-site-on =
+    .label = Turn On
+whimsy-edit-site-delete =
+    .label = Delete
+whimsy-edit-hint-title = Changes you keep apply only to this site
+whimsy-edit-hint-body = Just this time leaves it until the page reloads.
+whimsy-edit-chat = I changed the page. Keep it on this site from the bar at the bottom.
+whimsy-edit-chat-script = I changed the page for now. This one needs the page’s code, so it can’t be kept.
+whimsy-edit-chat-missing = I couldn’t find that on this page, so nothing changed.
+
+whimsy-scam-title = This page might be a scam.
+whimsy-scam-sub = Here’s what looks off:
+whimsy-scam-sub-weak = It could be fine. Here’s why it was flagged:
+whimsy-scam-trust =
+    .label = I trust this
+whimsy-scam-leave =
+    .label = Leave
+whimsy-scam-reason-account-elsewhere = It asks for an account password, but this isn’t that account’s own site.
+whimsy-scam-reason-threat = It threatens to lock or delete something to rush you.
+whimsy-scam-reason-rush = It uses rushing words (“{ $quote }”).
+whimsy-scam-reason-card-new-site = It asks for card details on a site you haven’t used before.
+whimsy-scam-reason-new-site = You’ve never visited this site before.
+whimsy-scam-reason-from-email = You came here from an email link.
+whimsy-scam-reason-new-from-email = You’ve never visited this site, and you came from an email link.
+whimsy-scam-trusted-toast = Won’t warn on { $host } again
+whimsy-scam-reset =
+    .label = Warn About Scams on This Site Again
+whimsy-scam-reset-cmd = Warn About Scams on This Site Again
+
+whimsy-compare-cmd = Compare Prices
+whimsy-compare-cmdk-row = Compare prices
+whimsy-compare-prompt = Compare prices
+whimsy-compare-pill = Compare
+whimsy-compare-pill-tooltip =
+    .tooltiptext = Compare prices at other stores, with your sign-ins
+    .aria-label = Compare prices at other stores
+whimsy-compare-looking = Looking for the { $name } at other stores…
+whimsy-compare-step-here = this page
+whimsy-compare-step-waiting = waiting
+whimsy-compare-step-found = found
+whimsy-compare-step-sign-in = needs sign-in
+whimsy-compare-step-missing = doesn’t sell it
+whimsy-compare-col-store = Store
+whimsy-compare-col-true = True price
+whimsy-compare-col-delivery = Delivery
+whimsy-compare-col-returns = Returns
+whimsy-compare-shipping = shipping
+whimsy-compare-shipping-free = free shipping
+whimsy-compare-shipping-unknown = shipping not shown
+whimsy-compare-returns-free =
+    { $days ->
+        [0] Free
+       *[other] Free, { $days } days
+    }
+whimsy-compare-returns-label =
+    { $days ->
+        [0] { $fee } label
+       *[other] { $fee } label, { $days } days
+    }
+whimsy-compare-returns-restocking =
+    { $days ->
+        [0] { $fee } restocking fee
+       *[other] { $fee } restocking fee, { $days } days
+    }
+whimsy-compare-returns-unknown = Not shown
+whimsy-compare-sign-in = Sign in to see the price
+whimsy-compare-best = { $store } is cheapest once everything applies: { $saving } less than here.
+whimsy-compare-best-here = { $store } is already the cheapest I found.
+whimsy-compare-none = I couldn’t find it at other stores.
+whimsy-compare-sign-in-notice = { $store } hides its price until you sign in.
+whimsy-compare-open-store = Open { $store }
+whimsy-compare-meta =
+    { $hasMissing ->
+        [yes] Checked { $count } stores with your sign-ins · tax not included · { $missing } doesn’t sell it
+       *[no] Checked { $count } stores with your sign-ins · tax not included
+    }
+
+whimsy-tabs-cmd = Ask Chat to Arrange Tabs
+whimsy-tabs-row-close = Close { $count } “{ $what }” tabs
+whimsy-tabs-row-pin = Pin { $count } “{ $what }” tabs
+whimsy-tabs-row-unpin = Unpin { $count } “{ $what }” tabs
+whimsy-tabs-row-mute = Mute { $count } “{ $what }” tabs
+whimsy-tabs-row-unmute = Unmute { $count } “{ $what }” tabs
+whimsy-tabs-detail = { $first } and { $more } more
+whimsy-tabs-folder-default = New folder
+whimsy-tabs-closed-toast =
+    { $count ->
+        [one] Closed 1 tab
+       *[other] Closed { $count } tabs
+    }
+whimsy-tabs-grouped-toast =
+    { $count ->
+        [one] Moved 1 tab into “{ $name }”
+       *[other] Moved { $count } tabs into “{ $name }”
+    }
+whimsy-tabs-pinned-toast =
+    { $count ->
+        [one] Pinned 1 tab
+       *[other] Pinned { $count } tabs
+    }
+whimsy-tabs-unpinned-toast =
+    { $count ->
+        [one] Unpinned 1 tab
+       *[other] Unpinned { $count } tabs
+    }
+whimsy-tabs-muted-toast =
+    { $count ->
+        [one] Muted 1 tab
+       *[other] Muted { $count } tabs
+    }
+whimsy-tabs-unmuted-toast =
+    { $count ->
+        [one] Unmuted 1 tab
+       *[other] Unmuted { $count } tabs
+    }
+whimsy-tabs-which = Which tabs do you mean? Pick one, or type it.
+whimsy-tabs-choice = { $label }
+whimsy-tabs-choice-both = Both
+whimsy-tabs-choice-all = All of them
+whimsy-tabs-none = I couldn’t tell which tabs you mean. Try naming a site or a title.
+whimsy-tabs-done-close =
+    { $count ->
+        [one] Done: closed 1 tab. Undo is in the toast.
+       *[other] Done: closed { $count } tabs. Undo is in the toast.
+    }
+whimsy-tabs-done-group =
+    { $count ->
+        [one] Done: 1 tab is in a new “{ $name }” folder.
+       *[other] Done: { $count } tabs are in a new “{ $name }” folder.
+    }
+whimsy-tabs-done-pin =
+    { $count ->
+        [one] Done: pinned 1 tab.
+       *[other] Done: pinned { $count } tabs.
+    }
+whimsy-tabs-done-unpin =
+    { $count ->
+        [one] Done: unpinned 1 tab.
+       *[other] Done: unpinned { $count } tabs.
+    }
+whimsy-tabs-done-mute =
+    { $count ->
+        [one] Done: muted 1 tab.
+       *[other] Done: muted { $count } tabs.
+    }
+whimsy-tabs-done-unmute =
+    { $count ->
+        [one] Done: unmuted 1 tab.
+       *[other] Done: unmuted { $count } tabs.
+    }
+whimsy-tabs-done-meta = { $titles }
