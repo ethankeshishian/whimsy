@@ -214,6 +214,35 @@ ENGINE_TEXT_FIXES += [
 ]
 
 
+
+# W23 verifyfix: clearing site data by time (Clear Recent History, and the
+# Fire button's cookies item over a range) asks the storage activity service
+# for the origins used in the range and makes each back into a principal.
+# An origin string that can't be made back into one (left by earlier
+# storage use) comes back as a null entry, queryElementAt throws, and the
+# whole clear fails ("Error sanitizing offlineApps"). Such entries are
+# skipped; every other origin still clears.
+ENGINE_TEXT_FIXES += [
+    ("clear-by-range-skip-unmade-origins", "toolkit/components/cleardata/ClearDataService.sys.mjs",
+     "    for (let i = 0; i < principals.length; ++i) {\n"
+     "      let principal = principals.queryElementAt(i, Ci.nsIPrincipal);\n\n"
+     "      if (\n"
+     "        !principal.schemeIs(\"http\") &&",
+     "    for (let i = 0; i < principals.length; ++i) {\n"
+     "      let principal;\n"
+     "      try {\n"
+     "        principal = principals.queryElementAt(i, Ci.nsIPrincipal);\n"
+     "      } catch (e) {\n"
+     "        // Whimsy: an origin that couldn't be made into a principal.\n"
+     "        continue;\n"
+     "      }\n\n"
+     "      if (\n"
+     "        !principal.schemeIs(\"http\") &&",
+     "One stored origin that can't be made back into a principal made every "
+     "clear-by-time of site data fail; it is skipped instead."),
+]
+
+
 def apply_engine_text_fixes():
     changed = 0
     for fix_id, rel, old, new, _why in ENGINE_TEXT_FIXES:
