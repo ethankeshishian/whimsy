@@ -183,6 +183,10 @@ export const WhimsyAIRouter = {
     const run = new AbortController();
     const onAbort = () => run.abort(req.signal.reason);
     req.signal?.addEventListener("abort", onAbort, { once: true });
+    // A caller that stopped while the connectors were being gathered.
+    if (req.signal?.aborted) {
+      run.abort(req.signal.reason);
+    }
     P._inflight.add(run);
 
     const ids = this._route(request);
@@ -272,6 +276,9 @@ export const WhimsyAIRouter = {
     const attempt = new AbortController();
     const onRunAbort = () => attempt.abort(run.signal.reason);
     run.signal.addEventListener("abort", onRunAbort, { once: true });
+    if (run.signal.aborted) {
+      attempt.abort(run.signal.reason);
+    }
     let timer = null;
     const arm = () => {
       clearTimeout(timer);
