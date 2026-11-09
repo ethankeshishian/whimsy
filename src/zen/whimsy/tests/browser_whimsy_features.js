@@ -35,7 +35,9 @@ add_task(async function test_startup_hook_ran() {
   }
 });
 
-// W23: every AI-wave feature has its switch, on (Zen ships none of them).
+// W23: every AI-wave feature has its switch, on by default (Zen ships none
+// of them). browser.toml turns some off for tests (ai-related), so this reads
+// the shipped default rather than the test run's value.
 const W23_FEATURES = [
   "ai-chat", "ai-ask", "ai-updates", "ai-context-commands", "ai-selection-commands", "ai-commands",
   "ai-related", "ai-memory", "ai-agent", "ai-task-folder", "ai-outside-agents", "ai-activity",
@@ -49,7 +51,7 @@ const W23_FEATURES = [
 add_task(async function test_w23_feature_switches() {
   for (const id of W23_FEATURES) {
     ok(Services.prefs.getPrefType(`whimsy.feature.${id}`) == Services.prefs.PREF_BOOL, `whimsy.feature.${id} exists`);
-    ok(Whimsy.featureEnabled(id), `whimsy.feature.${id} is on`);
+    ok(Services.prefs.getDefaultBranch("").getBoolPref(`whimsy.feature.${id}`), `whimsy.feature.${id} is on`);
   }
 });
 
