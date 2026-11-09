@@ -696,6 +696,7 @@ whimsy-library-routines-section[needs-opt-in] {
   }
   /* The sentence's tokens, at the mockup's 28px. */
   & :is(.whimsy-surface-dropdown, .whimsy-routine-token.is-fixed) {
+    box-sizing: border-box;
     min-height: 28px;
     padding: 4px 8px 4px 9px;
     border-radius: 7px;
@@ -928,4 +929,11 @@ whimsy-library-routines-section[needs-opt-in] {
 }
 .whimsy-routine-site-field {
   min-width: 0;
+}
+
+/* The tokens' icons in the accent, lifted in dark so they read on a dark
+   token. */
+.whimsy-routine-sheet .whimsy-surface-dropdown-icon {
+  fill: light-dark(var(--zen-primary-color, AccentColor), color-mix(in srgb, var(--zen-primary-color, AccentColor) 45%, white));
+  stroke: light-dark(var(--zen-primary-color, AccentColor), color-mix(in srgb, var(--zen-primary-color, AccentColor) 45%, white));
 }

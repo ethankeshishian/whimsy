@@ -31,9 +31,9 @@ export const TRIGGERS = [
   { kind: "schedule", icon: `${OWN}clock.svg` },
   { kind: "page", icon: `${ZEN}page-portrait.svg` },
   { kind: "return", icon: `${OWN}uturn-backward.svg` },
-  { kind: "meeting", icon: `${ZEN}selectable/people.svg` },
-  { kind: "email", icon: `${ZEN}selectable/mail.svg` },
-  { kind: "open-site", icon: `${ZEN}selectable/globe.svg` },
+  { kind: "meeting", icon: `${OWN}calendar-line.svg` },
+  { kind: "email", icon: `${ZEN}mail.svg` },
+  { kind: "open-site", icon: `${OWN}globe-line.svg` },
   { kind: "download", icon: `${ZEN}downloads.svg` },
 ];
 
@@ -597,7 +597,7 @@ export function buildRoutineForm(win, o) {
     }
     const host = draft.trigger.host;
     if (host && !hosts.some(h => h.value == host)) {
-      hosts.unshift({ value: host, text: host, icon: `page-icon:https://${host}/` });
+      hosts.unshift({ value: host, text: host, icon: `${OWN}globe-line.svg` });
     }
     const options = [...hosts, { value: "", l10nId: "whimsy-routine-form-site-other", rule: hosts.length > 0, expand: ({ done }) => siteEditor(done) }];
     return dropdown("site", {

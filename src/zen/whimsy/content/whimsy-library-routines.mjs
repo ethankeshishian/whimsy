@@ -48,8 +48,8 @@ const TRIGGER_TILES = {
   page: `${ZEN}page-portrait.svg`,
   return: `${OWN}uturn-backward.svg`,
   meeting: `${ZEN}selectable/people.svg`,
-  email: `${ZEN}selectable/mail.svg`,
-  "open-site": `${ZEN}selectable/globe.svg`,
+  email: `${ZEN}mail.svg`,
+  "open-site": "chrome://browser/content/whimsy/icons/globe-line.svg",
   download: `${ZEN}downloads.svg`,
 };
 
