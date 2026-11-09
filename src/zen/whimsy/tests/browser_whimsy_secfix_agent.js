@@ -97,3 +97,34 @@ add_task(async function background_never_reads_the_persons_tabs() {
   WhimsyAgentTasks.finish(drive.id);
   BrowserTestUtils.removeTab(mine);
 });
+
+// W23 secfix M3: a click into an embedded frame always pauses; another
+// site's frame (One Tap, PayPal, a post widget) is handed to the person.
+add_task(async function frame_clicks_pause() {
+  const unit = WhimsyAgentGuard.classify("click", { role: "iframe", tag: "iframe", text: "", frame: { crossOrigin: true, host: "accounts.google.com" }, url: "https://shop.example/" });
+  is(unit?.kind, "unsure", "A cross-origin frame is never a free click");
+  ok(unit.handOver, "and is the person's to press");
+  is(unit.preview.reason, "frame", "saying why");
+
+  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"] });
+  const created = await own(task, "tabs_create", { url: ROOT + "whimsy_secfix_frame.html" });
+  const { tabId } = JSON.parse(textOf(created));
+  const tab = WhimsyClaude.tabById(tabId);
+  await TestUtils.waitForCondition(
+    () => SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("onetap")?.getBoundingClientRect().width > 0).catch(() => false),
+    "The frames are laid out"
+  );
+  for (const [id, handOver] of [["onetap", true], ["same", false]]) {
+    const [x, y] = await SpecialPowers.spawn(tab.linkedBrowser, [id], frameId => {
+      const r = content.document.getElementById(frameId).getBoundingClientRect();
+      return [r.x + r.width / 2, r.y + r.height / 2];
+    });
+    const pending = own(task, "click", { tabId, coordinate: [x, y] });
+    const pause = await waitForPause(task, "unsure");
+    is(!!pause.handOver, handOver, `${id}: ${handOver ? "another site's frame is handed over" : "a same-site frame asks first"}`);
+    WhimsyAgentTasks.decide(task.id, "skip");
+    ok(textOf(await pending).includes("chose not to"), `${id}: skipping doesn't click`);
+  }
+  WhimsyAgentTasks.finish(task.id);
+  BrowserTestUtils.removeTab(tab);
+});

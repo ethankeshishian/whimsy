@@ -318,7 +318,12 @@ export const WhimsyAgentGuard = {
     const host = target.host || hostOf(target.url) || "";
     let kind = null;
     let handOver = false;
-    if (action == "click" || (action == "key" && target.submits)) {
+    if (action == "click" && target.frame) {
+      // M3: a click into an embedded frame always pauses. Another site's
+      // frame (a sign-in, payment, or post button) is the person's to press.
+      kind = "unsure";
+      handOver = !!target.frame.crossOrigin;
+    } else if (action == "click" || (action == "key" && target.submits)) {
       kind = pressKind(target);
     } else if (action == "type" || action == "form_input") {
       if (target.captcha) {
@@ -345,7 +350,10 @@ export const WhimsyAgentGuard = {
     const result = { kind, host, preview: preview(kind, target, host, { amount, file }) };
     if (handOver) {
       result.handOver = true;
-      result.preview.reason = target.sensitive ?? "security";
+      result.preview.reason = target.frame?.crossOrigin ? "frame" : target.sensitive ?? "security";
+      if (target.frame?.host) {
+        result.preview.fields.push(field("whimsy-agent-field-frame", target.frame.host));
+      }
     }
     return result;
   },

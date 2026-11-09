@@ -7518,3 +7518,9 @@ whimsy-agent-carries-data =
        *[other] { $count } characters of data in the address
     }
 whimsy-agent-chat-verb-go = Go there
+
+## W23 secfix: the agent's click on another site's box inside a page
+## (a sign-in, payment, or post button) is always the person's.
+
+whimsy-agent-chat-hand-over-frame = This is another site’s box inside the page, like a sign-in, payment, or post button. If you want it, press it yourself, then press Continue.
+whimsy-agent-field-frame = Inside
