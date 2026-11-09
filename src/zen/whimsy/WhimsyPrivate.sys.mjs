@@ -988,17 +988,12 @@ export const WhimsyPrivate = {
     const spaces = win.gZenWorkspaces;
     let scratch = this.getScratch(win);
     if (scratch) {
-      this.homeStrayTabs(win);
       if (spaces.activeWorkspace != scratch.uuid) {
         await spaces.changeWorkspaceWithID(scratch.uuid);
       }
     } else {
       const [name] = await win.document.l10n.formatValues([{ id: "whimsy-scratch-name" }]);
       const last = spaces.getWorkspaces().at(-1);
-      // Zen sweeps every tab with no space into the space it creates. Give
-      // stray normal tabs to the space you're in first, so the Private
-      // Space only ever holds private tabs.
-      this.homeStrayTabs(win);
       scratch = await spaces.createAndSaveWorkspace(name || "Private Space", SCRATCH_ICON, false, 0, {
         insertAfterId: last?.uuid ?? null,
         beforeChangeCallback: space => {
@@ -1022,35 +1017,6 @@ export const WhimsyPrivate = {
       this.openPrivateTab(win);
     }
     return scratch;
-  },
-
-  // Normal tabs with no space (Zen's own sweep would take them into a new
-  // space), or already in the Private Space, go to the active space, or the
-  // first other one.
-  homeStrayTabs(win) {
-    const spaces = win.gZenWorkspaces;
-    const scratchId = this.getScratch(win)?.uuid;
-    const strays = Array.from(spaces.allStoredTabs ?? win.gBrowser.tabs).filter(
-      t =>
-        !t.closing &&
-        (!t.hasAttribute("zen-workspace-id") || (!!scratchId && t.getAttribute("zen-workspace-id") == scratchId)) &&
-        !t.hasAttribute("zen-empty-tab") &&
-        !t.hasAttribute("zen-essential") &&
-        !this.isPrivateTab(t)
-    );
-    const home = this.isScratchId(win, spaces.activeWorkspace)
-      ? spaces.getWorkspaces().find(space => !space.whimsyScratch)?.uuid
-      : spaces.activeWorkspace;
-    if (!strays.length || !home) {
-      return;
-    }
-    const move = spaces.moveTabsToWorkspace._whimsyOriginal ?? spaces.moveTabsToWorkspace;
-    move.call(spaces, strays, home);
-    for (const tab of strays) {
-      if (!tab.hasAttribute("zen-workspace-id")) {
-        tab.setAttribute("zen-workspace-id", home);
-      }
-    }
   },
 
   // Removes Scratch and everything in it.
