@@ -201,6 +201,15 @@ add_task(async function shots_memory_note_and_used_line() {
       await document.l10n.translateFragment(chat.body);
       return null;
     });
+    await whimsyBothSchemes("w23-memory-fire-chat-4.4", async () => {
+      used.click();
+      const list = await TestUtils.waitForCondition(() => used.closest(".whimsy-chat-actions").nextElementSibling?.matches(".whimsy-chat-used-memories") && used.closest(".whimsy-chat-actions").nextElementSibling, "The list opens in place");
+      is(used.getAttribute("aria-expanded"), "true", "chat-4.4: Used 1 memory opens its list in place");
+      ok(list.querySelector("li") && list.querySelector(".whimsy-chat-link"), "with the memory and Manage memory…");
+      await document.l10n.translateFragment(chat.body);
+      return () => used.click();
+    });
+    ok(!used.closest(".whimsy-chat-actions").nextElementSibling?.matches(".whimsy-chat-used-memories"), "Pressing it again folds the list");
   } finally {
     if (chat.isOpen) {
       chat.close({ reason: "key" });

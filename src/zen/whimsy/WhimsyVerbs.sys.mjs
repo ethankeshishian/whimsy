@@ -559,6 +559,7 @@ const TOP_ROWS = 3;
 const MIN_SHARE = 0.04;
 // "This page": optional rows other lanes register keep this order, with
 // "Change this page…" right above Zap Elements.
+const IMAGE_ORDER = ["ai:ask-image", "image-text:translate", "image-text:copy", "image:copy", "image:save"];
 const PAGE_ORDER = ["pip", "change-page", "zap", "translate", "copy-markdown", "note", "email", "linear-new"];
 
 function contextOn(win) {
@@ -749,14 +750,15 @@ export const WhimsyContextCommands = {
     for (const [i, kind] of kinds.entries()) {
       const rows = [...registered(kind).map(v => this.verbRow(win, v, subject, view)), ...AI_ROWS[kind].map(def => this.aiRow(def, subject, view))];
       if (kind == "image") {
-        // Ask about this image leads (media 3.5); Firefox's own rows follow.
-        rows.sort((a, b) => (b?.id == "ai:ask-image" ? 1 : 0) - (a?.id == "ai:ask-image" ? 1 : 0));
+        // media 3.5: Ask, the image's text, then Firefox's own rows.
+        const at = row => (IMAGE_ORDER.includes(row?.id) ? IMAGE_ORDER.indexOf(row.id) : IMAGE_ORDER.length);
+        rows.sort((a, b) => at(a) - at(b));
       }
       if (kind == "product") {
         // Compare and Watch price (the page's chips) lead.
         rows.sort((a, b) => (/compare|watch-price/.test(b.id) ? 1 : 0) - (/compare|watch-price/.test(a.id) ? 1 : 0));
       }
-      make(kind, this.groupLabel(kind, i == 0, title, view), rows, { top: kind == "product" ? 4 : TOP_ROWS });
+      make(kind, this.groupLabel(kind, i == 0, title, view), rows, { top: kind == "product" ? 4 : kind == "image" ? IMAGE_ORDER.length : TOP_ROWS });
     }
     if (!kinds.includes("article")) {
       // Not in view, but typing still finds the page's commands (greyed when they can't run).

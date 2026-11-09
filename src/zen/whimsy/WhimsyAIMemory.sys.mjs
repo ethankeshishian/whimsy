@@ -19,7 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
-  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
+  WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
 });
 
 const FOLDER_KIND = "memory";
@@ -304,19 +304,40 @@ export const WhimsyAIMemory = {
     node?.querySelector(".whimsy-chat-link")?.remove();
   },
 
+  // chat-4.4: "Used 1 memory" opens the list in place, under the answer's
+  // actions, with Manage memory… at its end; pressing it again folds it.
   _openUsedList(win, msg) {
     const doc = win.document;
     const node = doc.querySelector(`[data-msg-id="${CSS.escape(msg.id)}"] [data-action="used-memories"]`);
-    if (!node || !msg.usedMemories?.length) {
+    const row = node?.closest(".whimsy-chat-actions");
+    if (!node || !row || !msg.usedMemories?.length) {
       return;
     }
-    lazy.WhimsySurface.openListbox(win, {
-      id: "whimsyMemoryUsedList",
-      anchor: node,
-      options: msg.usedMemories.map(m => ({ value: m.id, text: m.text })),
-      value: null,
-      onPick: () => {},
-    });
+    const open = row.nextElementSibling?.matches(".whimsy-chat-used-memories") ? row.nextElementSibling : null;
+    if (open) {
+      open.remove();
+      node.setAttribute("aria-expanded", "false");
+      return;
+    }
+    const ns = "http://www.w3.org/1999/xhtml";
+    const box = doc.createElementNS(ns, "div");
+    box.className = "whimsy-chat-used-memories";
+    box.id = `whimsy-used-${msg.id}`;
+    const list = doc.createElementNS(ns, "ul");
+    for (const memory of msg.usedMemories) {
+      const li = doc.createElementNS(ns, "li");
+      li.textContent = memory.text;
+      list.append(li);
+    }
+    const manage = doc.createElementNS(ns, "button");
+    manage.className = "whimsy-chat-link";
+    manage.type = "button";
+    doc.l10n.setAttributes(manage, "whimsy-chat-used-memories-manage");
+    manage.addEventListener("click", () => lazy.WhimsyAIProviders.openSettings(win, "memory"));
+    box.append(list, manage);
+    row.after(box);
+    node.setAttribute("aria-controls", box.id);
+    node.setAttribute("aria-expanded", "true");
   },
 
   // Tests: a scratch folder (through WhimsyAIStore._resetForTesting).

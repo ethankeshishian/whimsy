@@ -6570,6 +6570,7 @@ whimsy-chat-action-used-memories = { $count ->
     [one] Used 1 memory
    *[other] Used { $count } memories
 }
+whimsy-chat-used-memories-manage = Manage memory…
 whimsy-memory-switch =
     .label = Use and save memories
     .description = Off: saved ones are kept but not used, and nothing new is saved.
