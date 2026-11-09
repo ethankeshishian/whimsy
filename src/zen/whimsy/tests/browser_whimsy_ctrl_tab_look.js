@@ -456,24 +456,11 @@ add_task(async function test_private_space_selection_shows() {
 
     {
       const ae = document.activeElement;
-      const list = ctrlTab.tabList;
       console.error("DEBUG before holdCtrlTab: activeElement=" + (ae ? `${ae.tagName}#${ae.id}.${ae.className}` : "null")
         + " windowFocused=" + Services.focus.activeWindow?.document?.title
         + " openPopups=" + JSON.stringify([...document.querySelectorAll("panel,menupopup")].filter(p => p.state == "open" || p.hasAttribute("open")).map(p => p.id || p.tagName))
         + " ctrlTabEnabled=" + Services.prefs.getBoolPref("whimsy.feature.ctrl-tab", true)
-        + " whimsyCtrlTabEnabled=" + WhimsyCtrlTab.enabled
-        + " isChangingWorkspace=" + gZenWorkspaces.isChangingWorkspace
-        + " totalTabs=" + gBrowser.tabs.length
-        + " tabListLength=" + list.length
-        + " tabListUrls=" + JSON.stringify(list.map(t => t.linkedBrowser?.currentURI?.spec))
-        + " allTabsDetail=" + JSON.stringify([...gBrowser.tabs].map(t => ({
-            url: t.linkedBrowser?.currentURI?.spec,
-            ws: t.getAttribute("zen-workspace-id"),
-            selected: t.selected,
-            closing: t.closing,
-            hidden: t.hidden,
-            taskTab: t.hasAttribute("whimsy-task-tab"),
-          }))));
+        + " isChangingWorkspace=" + gZenWorkspaces.isChangingWorkspace);
     }
     await holdCtrlTab();
     await pressTab();
