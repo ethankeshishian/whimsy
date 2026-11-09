@@ -164,21 +164,27 @@ add_task(async function related_capture_starts_and_stops_live_without_restart() 
   const tabs = [];
   try {
     Services.prefs.setBoolPref("whimsy.feature.ai-related", false);
-    let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-off");
+    // waitForStateStop: the passive listener decides whether to capture
+    // inside the same STATE_STOP notification this waits for (synchronous,
+    // before any awaited readTab/add work); waitForLoad alone (the default)
+    // only waits for the content "load" event, which can resolve before
+    // that notification fires, letting it land after the *next* pref flip
+    // below and leak this page in under the wrong setting.
+    let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-off", true, true);
     tabs.push(tab);
     await WhimsyAIIndex._captureVisit(window, tab.linkedBrowser);
     is(await WhimsyAIIndex.count(), 0, "Off when the page finishes: nothing captured");
 
     // No restart, no re-init: turning it on mid-session captures the very next visit.
     Services.prefs.setBoolPref("whimsy.feature.ai-related", true);
-    tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-on");
+    tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-on", true, true);
     tabs.push(tab);
     await WhimsyAIIndex._captureVisit(window, tab.linkedBrowser);
     is(await WhimsyAIIndex.count(), 1, "Turned on live: captured right away, no restart");
 
     // And turning it off again stops it just as fast.
     Services.prefs.setBoolPref("whimsy.feature.ai-related", false);
-    tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-off-again");
+    tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-off-again", true, true);
     tabs.push(tab);
     await WhimsyAIIndex._captureVisit(window, tab.linkedBrowser);
     is(await WhimsyAIIndex.count(), 1, "Turned off live: the next visit after that isn't captured either");
