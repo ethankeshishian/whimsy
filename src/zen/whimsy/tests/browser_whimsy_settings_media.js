@@ -26,12 +26,12 @@ add_task(async function settings_media_page_has_moved_checkboxes() {
     button.scrollIntoView();
     EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
     const option = await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='1.5']") ?? window.document.querySelector("[role=option][data-value='1.5']"), "The menu opens");
-    EventUtils.synthesizeMouseAtCenter(option, {}, option.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(option, {}, option.documentGlobal);
     await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.video.default-speed") == "1.5", "Picking 1.5× sets the default");
 
     EventUtils.synthesizeMouseAtCenter(doc.getElementById("whimsyMediaDefaultSpeedMenu"), {}, browser.contentWindow);
     const other = await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='other']") ?? window.document.querySelector("[role=option][data-value='other']"), "The menu opens again");
-    EventUtils.synthesizeMouseAtCenter(other, {}, other.ownerGlobal);
+    EventUtils.synthesizeMouseAtCenter(other, {}, other.documentGlobal);
     const input = await TestUtils.waitForCondition(() => doc.getElementById("whimsyMediaDefaultSpeedInput"), "Other… is a field");
     input.focus();
     input.select();

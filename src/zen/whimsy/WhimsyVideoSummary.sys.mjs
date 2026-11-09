@@ -205,7 +205,7 @@ export const WhimsyVideoSummary = {
 
   tabOfActor(actor) {
     const browser = actor.browsingContext?.top?.embedderElement;
-    const win = browser?.ownerGlobal;
+    const win = browser?.documentGlobal;
     return { win, tab: win?.gBrowser?.getTabForBrowser(browser) ?? null };
   },
 
@@ -450,7 +450,7 @@ export const WhimsyVideoSummary = {
   },
 
   refreshHeard(record, msg) {
-    const win = record.tab?.ownerGlobal;
+    const win = record.tab?.documentGlobal;
     const panel = win && lazy.WhimsyChatPanel.forWindow(win);
     const old = panel?.body?.querySelector(`[data-msg-id="${CSS.escape(msg.id)}"]`);
     if (old) {
@@ -477,7 +477,7 @@ export const WhimsyVideoSummary = {
   /** Playback moved: the chapter that's playing gets the tint. */
   playing(actor, { videoId, time }) {
     const entry = [...threads.entries()].find(([, r]) => r.videoId == videoId);
-    const win = entry?.[1].tab?.ownerGlobal;
+    const win = entry?.[1].tab?.documentGlobal;
     const panel = win && lazy.WhimsyChatPanel.forWindow(win);
     if (!panel?.isOpen || panel.thread?.id != entry[0]) {
       return;
@@ -612,8 +612,8 @@ export const WhimsyVideoSummary = {
     if (!tab) {
       return false;
     }
-    if (tab.ownerGlobal.gBrowser.selectedTab != tab) {
-      tab.ownerGlobal.gBrowser.selectedTab = tab;
+    if (tab.documentGlobal.gBrowser.selectedTab != tab) {
+      tab.documentGlobal.gBrowser.selectedTab = tab;
     }
     if (record?.actor && !Cu.isDeadWrapper(record.actor)) {
       return record.actor.sendQuery("WhimsyVideoSpeed:Seek", { videoId: record.videoId, time: seconds }).catch(() => false);
