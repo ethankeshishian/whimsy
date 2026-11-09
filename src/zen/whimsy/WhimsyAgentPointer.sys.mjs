@@ -241,9 +241,17 @@ export const WhimsyAgentPointer = {
   observe(subject, topic, data) {
     const [, id] = String(data).split(":");
     const task = lazy.WhimsyAgentTasks.get(id);
-    if (task) {
-      this.refreshTask(task);
+    if (!task) {
+      return;
     }
+    if (!lazy.WhimsyAgentTasks.isActive(task)) {
+      // Ended: the look goes with it.
+      for (const tab of task.tabs) {
+        this.deactivate(tab);
+      }
+      return;
+    }
+    this.refreshTask(task);
   },
 
   init() {
