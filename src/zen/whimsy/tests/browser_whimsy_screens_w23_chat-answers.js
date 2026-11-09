@@ -304,7 +304,17 @@ add_task(async function shots_answers() {
     await ask("When did it start?");
     await answered();
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-cite"), {});
-    await TestUtils.waitForCondition(async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.getSelection().toString())).includes("Buffalo"), "Highlighted");
+    // The passage is tinted (a whimsy-passage-* highlight, page-1.3); the
+    // finder's selection is the fallback when the page can't tint it.
+    await TestUtils.waitForCondition(async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      const parts = [content.getSelection().toString()];
+      for (const [name, highlight] of content.CSS.highlights) {
+        if (name.startsWith("whimsy-passage")) {
+          highlight.forEach(range => parts.push(range.toString()));
+        }
+      }
+      return parts.join(" ");
+    })).includes("Buffalo"), "Highlighted");
   });
   // chat-4.4's "Used 2 memories" is L18's slot in the action row; this is the row it joins.
   await shoot("chat-4.4", async () => {
