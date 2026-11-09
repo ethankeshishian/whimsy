@@ -769,7 +769,9 @@ add_task(async function own_space_limits_outside_apps() {
     const tab = WhimsyClaude.tabById(created.tabId);
     is(tab.getAttribute("zen-workspace-id"), spaceId, "Their tabs open in the AI space");
     is(tab.userContextId, space.containerTabId, "in its container");
-    const task = newTask();
+    // H2: Whimsy's own tasks use only their tabs, plus the ones the person attached.
+    const task = newTask({ mode: "drive" });
+    task.attached.add(mine);
     const ownList = textOf(await ok_result(own(task, "tabs_list"), "own list"));
     ok(ownList.includes("?mine"), "Whimsy's own agent isn't limited by it");
     WhimsyAgentTasks.finish(task.id);

@@ -29,11 +29,11 @@ const FEATURE = "ai-memory";
 const MAX_MEMORIES = 500;
 const ICONS = "chrome://browser/content/whimsy/icons/";
 const SYSTEM_PROMPT =
-  "From this one exchange, pull stable facts worth remembering about the person for future conversations: " +
+  "From this one message the person wrote, pull stable facts worth remembering about them for future conversations: " +
   "their name, role, preferences, ongoing projects, people, and places they mention. Skip anything one-off, " +
   "sensitive (health, finances, political or religious views), or already obvious from the question itself. " +
   "Answer with nothing but a JSON array of short strings, one per fact, in the person's own words where " +
-  'possible. Answer [] when nothing in this exchange is worth saving.';
+  "possible. Only what the person says about themselves counts. Answer [] when nothing in this message is worth saving.";
 
 let inited = false;
 
@@ -236,9 +236,10 @@ export const WhimsyAIMemory = {
       return [];
     }
     this.init();
+    // L1: only the person's own words. The answer can echo a page's text
+    // (or an injection in it), so it's never a source of facts.
     const userText = String(exchange?.userText ?? "").trim();
-    const aiText = String(exchange?.aiText ?? "").trim();
-    if (!userText && !aiText) {
+    if (!userText) {
       return [];
     }
     let facts;
@@ -246,7 +247,7 @@ export const WhimsyAIMemory = {
       const result = await lazy.WhimsyAIRouter.run({
         task: "memory",
         system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: `User: ${userText}\n\nAssistant: ${aiText}` }],
+        messages: [{ role: "user", content: `The person wrote: ${userText}` }],
         signal: signal ?? undefined,
       });
       facts = parseFacts(result.text);

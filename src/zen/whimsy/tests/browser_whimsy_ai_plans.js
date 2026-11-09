@@ -454,7 +454,7 @@ async function fakeClaude() {
       'if [ "$1" = auth ] && [ "$2" = login ]; then cp "$d/after-login.json" "$d/status.json"; exit 0; fi',
       'if [ "$1" = --version ]; then echo "9.9.9 (Claude Code)"; exit 0; fi',
       'printf "%s\\n" "$@" > "$d/args.txt"',
-      'prev=""; for a in "$@"; do if [ "$prev" = --mcp-config ]; then stat -f %Lp "$a" > "$d/mode.txt"; cp "$a" "$d/mcp.json"; printf "%s" "$a" > "$d/mcp-path.txt"; fi; prev="$a"; done',
+      'prev=""; for a in "$@"; do if [ "$prev" = --mcp-config ]; then stat -f %Lp "$a" > "$d/mode.txt"; cp "$a" "$d/mcp.json"; printf "%s" "$a" > "$d/mcp-path.txt"; fi; if [ "$prev" = --system-prompt-file ]; then stat -f %Lp "$a" > "$d/sys-mode.txt"; cp "$a" "$d/sys.txt"; printf "%s" "$a" > "$d/sys-path.txt"; fi; prev="$a"; done',
       'cat > "$d/stdin.txt"',
       'if [ -f "$d/hang" ]; then exec sleep 30; fi',
       'case "$*" in *stream-json*) if [ -f "$d/stream.jsonl" ]; then cat "$d/stream.jsonl"; else cat "$d/result.json"; fi;; *) cat "$d/result.json";; esac',
@@ -490,11 +490,16 @@ add_task(async function test_claude_plan_through_claude_code() {
   await fake.write("result.json", { type: "result", subtype: "success", is_error: false, result: "Answer" });
   is(await WhimsyAIProviders.complete({ prompt: "Page text; rm -rf ~", system: "Be brief", userStarted: true }), "Answer", "Claude Code answers");
   const args = (await fake.read("args.txt")).split("\n").slice(0, -1);
+  const sysPath = await fake.read("sys-path.txt");
   Assert.deepEqual(
     args,
-    ["-p", "--output-format", "json", "--tools", "", "--strict-mcp-config", "--no-session-persistence", "--system-prompt", "Be brief"],
+    ["-p", "--output-format", "json", "--tools", "", "--strict-mcp-config", "--no-session-persistence", "--system-prompt-file", sysPath],
     "with fixed arguments, no tools"
   );
+  ok(!args.includes("Be brief"), "The system prompt is never on the command line (L2)");
+  is(await fake.read("sys.txt"), "Be brief", "It's in a file");
+  is((await fake.read("sys-mode.txt")).trim(), "600", "only this user can read");
+  ok(!(await IOUtils.exists(sysPath)), "and it's gone after the run");
   is(await fake.read("stdin.txt"), "Page text; rm -rf ~", "the page text on stdin, never on a command line");
 
   await fake.write("result.json", { type: "result", subtype: "success", is_error: true, result: "Claude usage limit reached. Resets 10pm" });
@@ -542,8 +547,8 @@ async function plan_gets_temp_mcp_config_and_deletes_it(fake) {
   const file = await fake.read("mcp-path.txt");
   Assert.deepEqual(
     args,
-    ["-p", "--output-format", "json", "--tools", "", "--mcp-config", file, "--strict-mcp-config", "--allowedTools", "mcp__granola,mcp__my_files", "--no-session-persistence"],
-    "Claude Code's own tools stay off; only the connectors' tools may run"
+    ["-p", "--output-format", "json", "--tools", "", "--mcp-config", file, "--strict-mcp-config", "--no-session-persistence"],
+    "Claude Code's own tools stay off; connector tools that aren't marked read-only are never pre-approved (H1)"
   );
   ok(file.startsWith(PathUtils.join(PathUtils.tempDir, "whimsy-claude-code")) && /mcp-[0-9a-f-]+\.json$/.test(file), "The file is in Whimsy's Claude Code folder");
   is((await fake.read("mode.txt")).trim(), "600", "and only this user can read it");

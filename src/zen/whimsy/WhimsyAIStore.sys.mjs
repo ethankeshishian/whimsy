@@ -32,7 +32,9 @@ const THREAD_KINDS = {
   routineResults: ["routine", "watch"],
 };
 // Folders other lanes own, cleared by kind.
-const KIND_DIRS = { reports: "reports", activity: "activity", index: "index", memory: "memory" };
+// Folders Fire empties by date. The index isn't here: one file holds every
+// entry, so its own clearer drops just the range (N1).
+const KIND_DIRS = { reports: "reports", activity: "activity", memory: "memory" };
 
 let state = null;
 let loading = null;
@@ -385,6 +387,8 @@ export const WhimsyAIStore = {
     await lazy.WhimsyAIUpdates._clearKinds(kinds, since);
     await saveThreads();
     await writes;
+    // In-memory AI text (link preview summaries) goes too (L5).
+    Services.obs.notifyObservers(null, "whimsy-ai-store-cleared", JSON.stringify({ kinds, since }));
   },
 
   /** Resolves once every write so far is on disk. */

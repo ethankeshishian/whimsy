@@ -210,10 +210,8 @@ add_task(async function translate_and_edit_shots() {
     await TestUtils.waitForCondition(() => document.querySelector("[data-l10n-id=whimsy-edit-saved-toast]"), "page-6.6: saved toast");
     await whimsyBothSchemes(NAME("page-6.6"), async () => {});
     closeToasts();
-    await WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "expand every comment");
-    const script = await bar();
-    ok(script.querySelector("[data-button=keep]").disabled, "page-6.10: Keep unavailable");
-    await whimsyBothSchemes(NAME("page-6.10"), async () => {});
+    // W23 secfix M5: page edits never press page controls, so page-6.10
+    // (done once by clicking, never kept) is gone.
     await WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "hide the weather widget");
     await bar();
     await whimsyBothSchemes(NAME("page-6.11"), async () => {});
@@ -224,7 +222,11 @@ add_task(async function translate_and_edit_shots() {
 add_task(async function scam_shots() {
   for (const [state, page] of [["fu-page-dec-13", "whimsy_ai_scam.html"], ["page-8.3", "whimsy_ai_bakery.html"]]) {
     await BrowserTestUtils.withNewTab(url(page), async browser => {
-      const notification = await TestUtils.waitForCondition(() => gBrowser.getNotificationBox(browser).getNotificationWithValue("whimsy-scam-warning"), "The warning shows");
+      // Drawn: the shield goes in after the bar is localized and its message added.
+      const notification = await TestUtils.waitForCondition(() => {
+        const bar = gBrowser.getNotificationBox(browser).getNotificationWithValue("whimsy-scam-warning");
+        return bar?.messageImage?.getAttribute("src") ? bar : null;
+      }, "The warning shows");
       await document.l10n.translateFragment(notification);
       ok(notification, `${state}: the scam warning`);
       ok(notification.messageImage?.getAttribute("src")?.endsWith("tracking-protection.svg"), `${state}: a shield, not the warning triangle`);

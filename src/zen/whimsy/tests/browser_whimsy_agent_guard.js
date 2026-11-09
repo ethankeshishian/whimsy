@@ -213,12 +213,18 @@ add_task(async function dont_ask_again_only_for_submit_newsite_download() {
   await send;
   ok(!task.allowed.has("send|example.com"), "and nothing is remembered for it");
 
+  // A new task uses its own tab (H2: a task never acts in another task's tab).
   const other = WhimsyAgentTasks.start({ mode: "drive" });
-  const again = own(other, "click", { tabId, ref: book });
+  const refused = await own(other, "click", { tabId, ref: book });
+  ok(refused.isError && /not this task's/.test(textOf(refused)), "The first task's tab is refused to it");
+  const second = await open(other, SEND);
+  const again = own(other, "click", { tabId: second.tabId, ref: refIn(second.tree, /button "Request booking"/) });
   await waitForPause(other, "submit");
   ok(true, "A new task asks again: nothing outlives the task");
   WhimsyAgentTasks.decide(other.id, "skip");
   await again;
+  is(await resultOf(second.tab), "", "and nothing was submitted there");
+  await own(other, "tabs_close", { tabId: second.tabId });
   await own(task, "tabs_close", { tabId });
   WhimsyAgentTasks.finish(task.id);
   WhimsyAgentTasks.finish(other.id);

@@ -28,6 +28,8 @@ const QUICK_TASKS = new Set(["quick-text", "translate", "memory"]);
 const DEEP_TASKS = new Set(["chat", "ask", "agent"]);
 // Tasks that get the connectors' tools unless the caller passes its own.
 const TOOL_TASKS = new Set(["chat", "ask", "agent", "routine"]);
+// Nobody is there to press Allow: only read-only tools, ever.
+const UNATTENDED_TASKS = new Set(["routine"]);
 // Out of room: the provider rests until its reset time.
 const QUOTA_CODES = new Set(["plan-limit", "rate-limited"]);
 // Never handed to another provider.
@@ -148,6 +150,30 @@ export const WhimsyAIRouter = {
     const request = this._normalize(req);
     if (req.tools === undefined && TOOL_TASKS.has(request.task)) {
       request.tools = await lazy.WhimsyConnectors.tools().catch(() => []);
+      // The kill switch went on while the connectors were gathered (the run
+      // wasn't in flight yet, so nothing aborted it).
+      if (!P.enabled) {
+        throw error("blocked");
+      }
+    }
+    // H1: a tool that may change something (any tool its server doesn't
+    // mark read-only) runs only after the person presses Allow once. Runs
+    // with nobody to ask (routines, callers with no confirm) never get one.
+    let guard = null;
+    const hold = { count: 0 };
+    if (request.tools.length && typeof req.confirmTool == "function" && !UNATTENDED_TASKS.has(request.task)) {
+      guard = lazy.WhimsyConnectors.guard(async ask => {
+        if (req.signal?.aborted) {
+          return false;
+        }
+        hold.count++;
+        try {
+          return (await req.confirmTool({ ...ask, signal: req.signal ?? null })) === true;
+        } finally {
+          hold.count--;
+        }
+      });
+      request.tools = [...request.tools, guard.server];
     }
     const needs = { ...(req.needs ?? {}) };
     needs.images ||= hasImages(request.messages);
@@ -162,6 +188,10 @@ export const WhimsyAIRouter = {
     const run = new AbortController();
     const onAbort = () => run.abort(req.signal.reason);
     req.signal?.addEventListener("abort", onAbort, { once: true });
+    // A caller that stopped while the connectors were being gathered.
+    if (req.signal?.aborted) {
+      run.abort(req.signal.reason);
+    }
     P._inflight.add(run);
 
     const ids = this._route(request);
@@ -196,7 +226,7 @@ export const WhimsyAIRouter = {
         offlineOnly = false;
         tried.push(id);
         attempted++;
-        const outcome = await this._attempt(id, { ...request, model }, run, passed, emit);
+        const outcome = await this._attempt(id, { ...request, model }, run, passed, emit, hold);
         if (outcome.result) {
           if (outcome.handoff) {
             handoffs.push(outcome.handoff);
@@ -225,6 +255,7 @@ export const WhimsyAIRouter = {
     } finally {
       req.signal?.removeEventListener("abort", onAbort);
       P._inflight.delete(run);
+      guard?.dispose();
     }
     if (!tried.length) {
       throw error("none-capable", { tried: ids.slice() });
@@ -245,15 +276,19 @@ export const WhimsyAIRouter = {
 
   // One provider: { result, handoff } on an answer (partial included), or
   // { error } when it failed before any text. Aborts of the whole run throw.
-  async _attempt(id, request, run, passed, emit) {
+  async _attempt(id, request, run, passed, emit, hold = { count: 0 }) {
     const P = lazy.WhimsyAIProviders;
     const attempt = new AbortController();
     const onRunAbort = () => attempt.abort(run.signal.reason);
     run.signal.addEventListener("abort", onRunAbort, { once: true });
+    if (run.signal.aborted) {
+      attempt.abort(run.signal.reason);
+    }
     let timer = null;
     const arm = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => attempt.abort(error("timeout")), lazy.REQUEST_TIMEOUT_MS);
+      // While the person decides on a tool, the run waits for them.
+      timer = setTimeout(() => (hold.count ? arm() : attempt.abort(error("timeout"))), lazy.REQUEST_TIMEOUT_MS);
     };
     arm();
     emit({ type: "status", key: "waiting", provider: id });

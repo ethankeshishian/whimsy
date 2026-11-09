@@ -39,6 +39,7 @@ const CHOICES = {
   timeout: ["do", "skip", "stop"],
   sleep: ["do", "stop"],
   quit: ["do", "stop"],
+  navigate: ["do", "skip"],
   collision: ["do", "self"],
   "tab-closed": ["do", "stop"],
 };
@@ -140,7 +141,7 @@ export const WhimsyAgentTasks = {
    *   title?: string, session?: string}} opts
    */
   start({ client = "whimsy", clientName = "", mode = "drive", threadId = null, spaceId = null, plan = null,
-    namedSpaceIds = [], title = "", session = null } = {}) {
+    namedSpaceIds = [], title = "", session = null, sites = [] } = {}) {
     this.init();
     const task = {
       id: uuid(),
@@ -155,6 +156,11 @@ export const WhimsyAgentTasks = {
       namedSpaceIds: [...namedSpaceIds],
       session,
       tabs: new Set(),
+      // H2: the sites (registrable domains) this task has been on, or the
+      // person named; going anywhere else pauses. And the person's own tabs
+      // they attached to a Drive task.
+      sites: new Set(sites),
+      attached: new Set(),
       steps: [],
       pause: null,
       generation: 0,

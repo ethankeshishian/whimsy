@@ -216,6 +216,20 @@ export const AI_ERROR_CODES = [
   "offline",
 ];
 
+// W23 secfix L7: an owner-only file, written whole: the temporary file is
+// made 0600 before anything goes in it, then moved into place.
+async function writeOwnerOnlyJSON(path, value) {
+  const tmp = await IOUtils.createUniqueFile(PathUtils.parent(path), `${PathUtils.filename(path)}.tmp`, 0o600);
+  try {
+    await IOUtils.setPermissions(tmp, 0o600, false);
+    await IOUtils.writeJSON(tmp, value);
+    await IOUtils.move(tmp, path);
+  } finally {
+    await IOUtils.remove(tmp, { ignoreAbsent: true });
+  }
+  await IOUtils.setPermissions(path, 0o600, false);
+}
+
 export const WhimsyAIProviders = {
   // Tests only: a fake provider, (request) => text or Promise<text>.
   _testProvider: null,
@@ -1157,7 +1171,7 @@ export const WhimsyAIProviders = {
       await IOUtils.remove(this._keyPath, { ignoreAbsent: true });
       return;
     }
-    await IOUtils.writeJSON(this._keyPath, saved, { tmpPath: this._keyPath + ".tmp" });
+    await writeOwnerOnlyJSON(this._keyPath, saved);
   },
 
   hasClaudeKey() {

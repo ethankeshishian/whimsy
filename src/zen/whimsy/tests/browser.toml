@@ -1128,3 +1128,13 @@ support-files = ["whimsy_ai_product.html", "whimsy_ai_store.html"]
 support-files = ["whimsy_ai_store.html", "whimsy_ai_article_edit.html"]
 ["browser_whimsy_screens_w23_page-act.js"]
 support-files = ["whimsy_ai_reply.html", "whimsy_ai_form.html", "whimsy_ai_payment_frame.html", "whimsy_ai_article_edit.html", "whimsy_ai_scam.html", "whimsy_ai_bakery.html", "whimsy_ai_product.html", "whimsy_ai_store.html"]
+
+# W23 secfix: the security review's fixes (REVIEW-W23-SECURITY.md).
+["browser_whimsy_secfix_tools.js"]
+support-files = ["whimsy_secfix_inject.html"]
+["browser_whimsy_secfix_agent.js"]
+support-files = ["whimsy_secfix_inject.html", "whimsy_secfix_frame.html"]
+["browser_whimsy_secfix_privacy.js"]
+support-files = ["whimsy_secfix_inject.html", "whimsy_secfix_account.html", "whimsy_secfix_form.html"]
+["browser_whimsy_secfix_page.js"]
+support-files = ["whimsy_secfix_late_scam.html", "whimsy_secfix_scam_frame.html", "whimsy_ai_scam.html", "whimsy_secfix_inject.html"]

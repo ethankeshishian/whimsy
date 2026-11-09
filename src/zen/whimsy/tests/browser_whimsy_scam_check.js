@@ -28,9 +28,12 @@ add_setup(async function () {
 
 const box = browser => gBrowser.getNotificationBox(browser);
 const warning = browser => box(browser).getNotificationWithValue("whimsy-scam-warning");
+// The bar is in the box (buttons and all) while it's still being localized;
+// its message goes in after that, so wait for the message.
+const drawn = browser => warning(browser)?.querySelector(".whimsy-scam-body") ? warning(browser) : null;
 
 async function shown(browser) {
-  const notification = await TestUtils.waitForCondition(() => warning(browser), "The scam warning shows");
+  const notification = await TestUtils.waitForCondition(() => drawn(browser), "The scam warning shows");
   await TestUtils.waitForCondition(() => notification.querySelector("button.notification-button")?.getBoundingClientRect().width > 0, "Its buttons are laid out");
   return notification;
 }

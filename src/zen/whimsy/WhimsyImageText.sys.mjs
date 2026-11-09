@@ -37,6 +37,12 @@ const TRANSLATE_SYSTEM =
 
 // src -> {count, text, lang}; newest last, bounded.
 const known = new Map();
+// W23 secfix L5: recognized image text goes with Fire (any AI data
+// cleared), Clear History, and the last private window closing.
+const forget = () => known.clear();
+Services.obs.addObserver(forget, "browser:purge-session-history");
+Services.obs.addObserver(forget, "whimsy-ai-store-cleared");
+Services.obs.addObserver(forget, "last-pb-context-exited");
 // browser -> Set of srcs with text on its page.
 const pages = new WeakMap();
 

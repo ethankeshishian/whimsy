@@ -26,6 +26,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
 });
 
+// W23 secfix M4: what a signed-in page shows or carries.
+const SIGNED_IN_TEXT = /\b(?:sign|log)\s?out\b|\bswitch accounts?\b/i;
+const ACCOUNT_TITLE = /\b(?:inbox|my account|your account|account settings|dashboard|statements?|billing)\b|[^\s@]+@[^\s@]+\.[a-z]{2,}/i;
+const AUTH_COOKIE = /sess|^sid$|auth|token|login|logged|jwt|remember|user_?id|account|^__Host-|^__Secure-/i;
 const RELATED_ICON = "chrome://browser/skin/zen-icons/search-page.svg";
 const MAX_RESULTS = 3;
 // Below this cosine similarity a page isn't "about" the query. Apple's
@@ -133,14 +137,16 @@ export const WhimsyAIIndex = {
   },
 
   init() {
-    lazy.WhimsyAIStore.registerClearer("index", async () => {
-      state = { entries: [] };
+    // N1: Fire's range applies here too ("Last hour" clears the last hour).
+    lazy.WhimsyAIStore.registerClearer("index", async ({ since = null } = {}) => {
+      const s = since == null ? (state = { entries: [] }) : await load();
+      s.entries = since == null ? [] : s.entries.filter(e => (e.date ?? 0) < since);
       await save().catch(() => {});
     });
   },
 
   /** @param {{url, title, text}} page. Never for a private tab (callers check). */
-  async add({ url, title = "", text = "" } = {}) {
+  async add({ url, title = "", text = "", date = Date.now() } = {}) {
     if (!this.on || !url) {
       return false;
     }
@@ -151,7 +157,7 @@ export const WhimsyAIIndex = {
     this.init();
     const s = await load();
     s.entries = s.entries.filter(e => e.url != url);
-    s.entries.push({ url, title, vector, date: Date.now() });
+    s.entries.push({ url, title, vector, date });
     if (s.entries.length > MAX_ENTRIES) {
       s.entries.splice(0, s.entries.length - MAX_ENTRIES);
     }
@@ -279,7 +285,32 @@ export const WhimsyAIIndex = {
     } catch {
       return;
     }
-    await this.add({ url, title, text });
+    // M4 (night-log rule): never a signed-in page. And never a query or
+    // fragment (reset tokens, search terms, message ids): the page's address
+    // is kept as origin and path only.
+    const uri = browser.currentURI;
+    if (this._signedIn(browser, uri, title, text)) {
+      return;
+    }
+    await this.add({ url: uri.prePath + uri.filePath, title, text });
+  },
+
+  /**
+   * Whether a page looks like it's shown to a signed-in person: an account
+   * hint in the page (Sign out, an email address or Inbox in the title), or
+   * a sign-in cookie for the site in the tab's container. When unsure, it
+   * counts as signed in: the index skips it.
+   */
+  _signedIn(browser, uri, title = "", text = "") {
+    if (SIGNED_IN_TEXT.test(String(text).slice(0, 200000)) || ACCOUNT_TITLE.test(title)) {
+      return true;
+    }
+    try {
+      const attrs = browser.contentPrincipal?.originAttributes ?? {};
+      return Services.cookies.getCookiesFromHost(uri.host, attrs).some(c => AUTH_COOKIE.test(c.name));
+    } catch {
+      return true;
+    }
   },
 };
 

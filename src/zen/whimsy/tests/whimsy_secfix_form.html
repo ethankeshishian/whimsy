@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Sign up</title>
+<style>
+  body { font: 15px system-ui; margin: 20px; }
+  label { display: block; margin: 8px 0; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .cover { position: relative; }
+  .cover::after { content: ""; }
+  #shade { position: absolute; inset: 0; background: white; }
+  .zero { width: 0; height: 0; overflow: hidden; }
+</style>
+</head>
+<body>
+<form id="f" onsubmit="return false">
+  <label>Full name <input id="name" autocomplete="name"></label>
+  <label class="sr">Email <input id="clip" type="email" autocomplete="email"></label>
+  <label>Phone <input id="clippath" type="tel" autocomplete="tel" style="clip-path: inset(50%)"></label>
+  <label>Street address <input id="tabneg" autocomplete="street-address" tabindex="-1"></label>
+  <div aria-hidden="true"><label>City <input id="ariahidden" autocomplete="address-level2"></label></div>
+  <div style="opacity: 0.06"><label>Postal code <input id="faint" autocomplete="postal-code"></label></div>
+  <div class="zero"><label>Organization <input id="zero" autocomplete="organization"></label></div>
+  <label>Email again <input id="offright" type="email" autocomplete="email" style="position: absolute; left: 100000px; top: 30px"></label>
+  <div class="cover"><label>Mobile <input id="covered" type="tel" autocomplete="tel"></label><div id="shade"></div></div>
+  <label>Ink <input id="ink" autocomplete="name" style="color: transparent"></label>
+</form>
+</body>
+</html>

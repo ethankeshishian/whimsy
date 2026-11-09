@@ -53,6 +53,7 @@ export class WhimsyScamCheckParent extends JSWindowActorParent {
 export const WhimsyScamCheck = {
   // Tests: host -> visits, in place of history.
   _visitCount: null,
+  _shownFor: new WeakMap(),
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true) && lazy.WhimsyAI.enabled;
@@ -70,6 +71,10 @@ export const WhimsyScamCheck = {
     Services.prefs.setStringPref(TRUST_PREF, list.join(","));
   },
 
+  /**
+   * Visits to `host` before today (M7): reloading, or a page that reloads
+   * itself, never makes a site look known.
+   */
   async visits(host) {
     if (this._visitCount) {
       return this._visitCount(host);
@@ -77,7 +82,13 @@ export const WhimsyScamCheck = {
     try {
       const db = await lazy.PlacesUtils.promiseDBConnection();
       const rev = `${[...host].reverse().join("")}.`;
-      const rows = await db.execute("SELECT SUM(visit_count) AS n FROM moz_places WHERE rev_host = :rev", { rev });
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const rows = await db.execute(
+        `SELECT COUNT(*) AS n FROM moz_historyvisits v JOIN moz_places h ON h.id = v.place_id
+         WHERE h.rev_host = :rev AND v.visit_date < :before`,
+        { rev, before: today.getTime() * 1000 }
+      );
       return Number(rows[0]?.getResultByName("n") ?? 0);
     } catch {
       return 0;
@@ -87,7 +98,7 @@ export const WhimsyScamCheck = {
   /** Signals → {show, weak, reasons: [l10n, args][]}. */
   judge(data, visits) {
     const signals = [...data.signals];
-    const fresh = visits <= 1;
+    const fresh = visits < 1;
     if (fresh && data.card) {
       signals.push({ id: "card-new-site" });
     } else if (fresh) {
@@ -115,14 +126,20 @@ export const WhimsyScamCheck = {
   async onSignals(browser, data) {
     const win = browser.documentGlobal;
     const tab = win?.gBrowser?.getTabForBrowser(browser);
-    if (!this.enabled || !tab || lazy.WhimsyAIContext.isPrivate(tab) || this.isTrusted(data.host)) {
+    if (!this.enabled || !tab || lazy.WhimsyAIContext.isPrivate(tab)) {
       return null;
     }
-    const verdict = this.judge(data, await this.visits(data.host));
-    if (!verdict.show) {
+    // The site is the tab's, never what the page says it is (M7).
+    const host = browser.currentURI?.host?.toLowerCase() ?? "";
+    if (!host || this.isTrusted(host)) {
       return null;
     }
-    return this.show(browser, data.host, verdict);
+    const verdict = this.judge(data, await this.visits(host));
+    if (!verdict.show || (this.notificationFor(browser) && this._shownFor.get(browser) == host)) {
+      return null;
+    }
+    this._shownFor.set(browser, host);
+    return this.show(browser, host, verdict);
   },
 
   notificationFor(browser) {

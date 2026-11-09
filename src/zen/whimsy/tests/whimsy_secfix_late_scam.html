@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Your account has been locked</title></head>
+<body>
+<main id="main">
+<h1>Your account has been locked</h1>
+<p>We noticed unusual sign-in activity on your Fruitbank account. Verify within 24 hours or your account and data will be deleted.</p>
+</main>
+<script>
+  // The kit draws its form late, after the page has shown.
+  setTimeout(() => {
+    document.getElementById("main").insertAdjacentHTML("beforeend",
+      '<form onsubmit="return false"><label>Account email<input type="email"></label><label>Password<input type="password"></label><button>Verify now</button></form>');
+  }, 500);
+</script>
+</body>
+</html>

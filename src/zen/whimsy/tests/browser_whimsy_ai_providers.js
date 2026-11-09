@@ -133,6 +133,13 @@ add_task(async function test_kill_switch_aborts_inflight() {
   await rejectsWith(pending, "blocked", "Turning AI off ends a request in flight");
   Services.prefs.setBoolPref("whimsy.ai.enabled", true);
 
+  // Turned off before the request is in flight (the connectors are still
+  // being gathered), it ends too.
+  const gathering = WhimsyAIProviders.complete({ prompt: "slow" });
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+  await rejectsWith(gathering, "blocked", "Turning AI off while the connectors are gathered ends the request");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+
   const controller = new AbortController();
   const cancelled = WhimsyAIProviders.complete({ prompt: "slow", signal: controller.signal });
   controller.abort();
@@ -689,7 +696,8 @@ add_task(async function test_plan_label_in_composer() {
   registerCleanupFunction(() => findbar.close());
   const panel = () => document.getElementById("whimsy-ask-panel");
   WhimsyAIPage.showAnswer(window, findbar, { question: "q", answer: "a" });
-  ok(!panel().querySelector(".whimsy-ask-plan"), "On a key or locally: no plan label");
+  // The find card always names the provider ("Using …"); only a plan adds its label.
+  ok(!panel().querySelector('.whimsy-ask-plan [data-l10n-id="whimsy-ai-plan-using"], .whimsy-ask-manage'), "On a key or locally: no plan label");
   let managed = 0;
   WhimsyAIProviders.registerPlan("openai", {
     connect: async () => ({}),

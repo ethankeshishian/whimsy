@@ -860,7 +860,22 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     const payFrame = [...this.doc.querySelectorAll("iframe")].some(f => /stripe|braintree|adyen|checkout|payment|paypal|card/i.test(`${f.src} ${f.name} ${f.title}`));
     // Where it is (viewport CSS pixels), for the Drive look's pointer.
     const box = control.getBoundingClientRect?.();
+    // W23 secfix M3: a click that lands on an embedded frame reaches whatever
+    // is inside it, which this page can't describe when it's another site's.
+    let frame = null;
+    if (["iframe", "frame", "embed", "object"].includes(control.localName)) {
+      let crossOrigin = true;
+      try {
+        crossOrigin = !control.contentDocument || !control.contentDocument.nodePrincipal.equals(this.doc.nodePrincipal);
+      } catch {}
+      let host = "";
+      try {
+        host = new URL(control.src || control.data || "", this.doc.baseURI).host;
+      } catch {}
+      frame = { crossOrigin, host };
+    }
     return {
+      frame,
       rect: box && this.doc.defaultView.top == this.doc.defaultView ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
       role,
       tag: control.localName,

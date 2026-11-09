@@ -35,7 +35,10 @@ export const WAITING_TEXT = "Waiting for the person to approve; call again to ke
 // The stdio bridge gives up at 120s; answer well before.
 const HOLD_MS = 100 * 1000;
 
-const KINDS = ["pay", "send", "delete", "account", "security", "submit", "new-site-data", "download", "sign-in", "unsure", "captcha"];
+const KINDS = ["pay", "send", "delete", "account", "security", "submit", "new-site-data", "download", "sign-in", "unsure", "captcha", "navigate"];
+// H2: query and fragment data longer than this, to a new site, is a way to
+// carry what the agent read out in an address.
+const URL_DATA_CHARS = 100;
 
 const SECURITY = /\b(passwords?|pass ?codes?|2fa|two[- ]factor|2[- ]step|two[- ]step|multi[- ]factor|mfa|authenticator( app)?|recovery (e-?mail|phone|codes?|keys?|options?)|security (keys?|questions?|codes?)|passkeys?|backup codes?|app passwords?)\b/i;
 const PAY = /\b(pay( now)?|place (my |your )?order|buy( it)?( now)?|purchase|complete (my |your )?(purchase|order|payment|checkout)|confirm (and|&) pay|subscribe|donate|start (my |your )?(free )?trial|upgrade( now)?|book (now|and pay)|reserve (and|&) pay|add (funds|money)|send money|transfer( money)?|tip)\b/i;
@@ -57,6 +60,7 @@ const AMOUNT = /(?:[$€£¥₹]|\b(?:USD|EUR|GBP|CAD|AUD)\s?)\d[\d,]*(?:\.\d{2}
 const AMOUNT_ALL = new RegExp(AMOUNT.source, "g");
 
 let siteKnown = null;
+let trustedForTesting = null;
 
 function clip(text, max = 160) {
   const value = String(text ?? "").replace(/\s+/g, " ").trim();
@@ -314,7 +318,12 @@ export const WhimsyAgentGuard = {
     const host = target.host || hostOf(target.url) || "";
     let kind = null;
     let handOver = false;
-    if (action == "click" || (action == "key" && target.submits)) {
+    if (action == "click" && target.frame) {
+      // M3: a click into an embedded frame always pauses. Another site's
+      // frame (a sign-in, payment, or post button) is the person's to press.
+      kind = "unsure";
+      handOver = !!target.frame.crossOrigin;
+    } else if (action == "click" || (action == "key" && target.submits)) {
       kind = pressKind(target);
     } else if (action == "type" || action == "form_input") {
       if (target.captcha) {
@@ -341,9 +350,48 @@ export const WhimsyAgentGuard = {
     const result = { kind, host, preview: preview(kind, target, host, { amount, file }) };
     if (handOver) {
       result.handOver = true;
-      result.preview.reason = target.sensitive ?? "security";
+      result.preview.reason = target.frame?.crossOrigin ? "frame" : target.sensitive ?? "security";
+      if (target.frame?.host) {
+        result.preview.fields.push(field("whimsy-agent-field-frame", target.frame.host));
+      }
     }
     return result;
+  },
+
+  /** A URL's site: its registrable domain ("mail.google.com" → "google.com"). */
+  siteOf(uri) {
+    try {
+      return Services.eTLD.getBaseDomain(uri);
+    } catch {
+      return uri?.host ?? "";
+    }
+  },
+
+  /**
+   * H2: whether going to `uri` pauses ("Go to <site>?"): any site the task
+   * hasn't been on and the person didn't name. Returns the pause reason, or
+   * null. `data` says the address carries a lot of query or fragment text.
+   */
+  navigation(uri, sites) {
+    const site = this.siteOf(uri);
+    if (!site || sites?.has(site) || trustedForTesting?.includes(site)) {
+      return null;
+    }
+    const data = (uri.query?.length ?? 0) + (uri.ref?.length ?? 0) > URL_DATA_CHARS;
+    const bundle = l10n();
+    const address = uri.prePath + uri.filePath;
+    const fields = [field("whimsy-agent-field-site", site, { note: bundle.formatValueSync("whimsy-agent-new-site") })];
+    fields.push(field("whimsy-agent-field-address", data ? `${clip(address, 120)}?…` : clip(uri.spec, 200)));
+    if (data) {
+      fields.push(field("whimsy-agent-field-carries", bundle.formatValueSync("whimsy-agent-carries-data", { count: (uri.query?.length ?? 0) + (uri.ref?.length ?? 0) }), { strong: true }));
+    }
+    const args = { host: site };
+    return {
+      kind: "navigate",
+      host: site,
+      data,
+      preview: { title: bundle.formatValueSync("whimsy-agent-pause-navigate", args), titleL10n: { id: "whimsy-agent-pause-navigate", args }, fields, press: "" },
+    };
   },
 
   /** Whether the person has used `host` before today (Places history). */
@@ -373,6 +421,11 @@ export const WhimsyAgentGuard = {
    */
   awaitDecision(task, pause, { holdMs = 0 } = {}) {
     return lazy.WhimsyAgentTasks.wait(task, pause, { holdMs });
+  },
+
+  // Tests: sites the agent may go to without the "Go to <site>?" pause.
+  _setTrustedSitesForTesting(sites) {
+    trustedForTesting = sites ? [...sites] : null;
   },
 
   // Tests: whether a site counts as known.

@@ -1,0 +1,102 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 secfix H1: the pause before a connector tool that may change
+   something, in chat and in Ask. Amber, like the agent's pauses. */
+
+.whimsy-tool-confirm {
+  --whimsy-tool-amber: light-dark(rgb(176, 112, 0), rgb(240, 180, 70));
+  display: grid;
+  gap: 8px;
+  margin-block: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--whimsy-tool-amber) 10%, light-dark(#ffffff, #2a2a2c));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-tool-amber) 45%, transparent);
+  color: light-dark(rgb(29, 29, 31), rgb(242, 242, 245));
+  font-size: 13px;
+  line-height: 1.45;
+  &:focus-visible {
+    outline: 2px solid AccentColor;
+    outline-offset: 2px;
+  }
+  &[data-decided] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    background: none;
+    box-shadow: none;
+    color: light-dark(rgb(110, 110, 115), rgb(160, 160, 166));
+    font-size: 12px;
+  }
+}
+
+.whimsy-tool-confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.whimsy-tool-confirm-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background: center / contain no-repeat;
+  -moz-context-properties: fill, stroke;
+  fill: currentColor;
+  stroke: currentColor;
+  &[data-ic="alert"] {
+    background-image: url("chrome://browser/skin/zen-icons/security-warning.svg");
+    color: var(--whimsy-tool-amber);
+  }
+  &[data-ic="check"] {
+    background-image: url("chrome://global/skin/icons/check.svg");
+  }
+  &[data-ic="close"] {
+    background-image: url("chrome://global/skin/icons/close.svg");
+  }
+}
+
+.whimsy-tool-confirm-note {
+  margin: 0;
+}
+
+.whimsy-tool-confirm-args {
+  margin: 0;
+  max-height: 160px;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.07));
+  font: 12px/1.4 ui-monospace, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.whimsy-tool-confirm-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.whimsy-tool-confirm-btn {
+  appearance: none;
+  min-height: 26px;
+  padding: 3px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.1));
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  &:hover {
+    background: light-dark(rgba(0, 0, 0, 0.11), rgba(255, 255, 255, 0.15));
+  }
+  &:focus-visible {
+    outline: 2px solid AccentColor;
+    outline-offset: 1px;
+  }
+}

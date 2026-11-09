@@ -11,6 +11,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyToolConfirm: "resource:///modules/whimsy/WhimsyToolConfirm.sys.mjs",
   WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
@@ -177,6 +178,30 @@ function codeBlock(doc, { language, code, output, ranBy }) {
 }
 
 /** Renders `text` (with \u0001n\u0002 citation marks) into block elements. */
+/**
+ * W23 secfix L3: a link a provider returned (a citation or source) opens
+ * only when it's http(s), and never with the system's rights: the tab
+ * gets a plain web principal in the person's container. Returns the tab,
+ * or null when the link isn't a web page.
+ */
+export function openProviderLink(gBrowser, url, options = {}) {
+  let uri;
+  try {
+    uri = Services.io.newURI(String(url ?? ""));
+  } catch {
+    return null;
+  }
+  if (!uri.schemeIs("https") && !uri.schemeIs("http")) {
+    return null;
+  }
+  const userContextId = options.userContextId ?? gBrowser.selectedTab?.userContextId ?? 0;
+  return gBrowser.addTab(uri.spec, {
+    ...options,
+    userContextId,
+    triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
+  });
+}
+
 export function renderMarkdown(doc, text, ctx) {
   const blocks = [];
   const lines = String(text ?? "").split("\n");
@@ -363,6 +388,14 @@ class Live {
     this.textEl = h(doc, "div", { class: "whimsy-chat-text whimsy-chat-md" });
     this.cards = h(doc, "div", { class: "whimsy-chat-cards" });
     this.node = h(doc, "div", { class: "whimsy-chat-msg", "data-role": "ai", busy: true }, this.status, this.textEl, this.cards);
+  }
+
+  /**
+   * H1: a connector tool that may change something waits for the person.
+   * The card sits with the answer's cards; resolves true on Allow once.
+   */
+  confirmTool(ask) {
+    return lazy.WhimsyToolConfirm.ask(this.cards, ask, { signal: ask.signal });
   }
 
   setStatus(id) {
@@ -1143,7 +1176,7 @@ export const WhimsyChatAnswer = {
     const quote = quoteOf(source);
     let tab = tabFor(win, thread, source);
     if (!tab && source?.url) {
-      tab = win.gBrowser.addTrustedTab(source.url);
+      tab = openProviderLink(win.gBrowser, source.url);
     }
     if (!tab || !quote) {
       return false;

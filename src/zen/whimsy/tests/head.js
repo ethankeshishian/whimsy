@@ -18,6 +18,15 @@ registerCleanupFunction(function whimsyCloseToasts() {
   }
 });
 
+// W23 secfix H2: the agent pauses before going to a site its task hasn't
+// been on. Agent tests load their own pages on the test hosts, so those go
+// ahead; browser_whimsy_secfix_agent.js turns the pause back on.
+{
+  const { WhimsyAgentGuard } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAgentGuard.sys.mjs");
+  WhimsyAgentGuard._setTrustedSitesForTesting(["example.com", "example.org", "example.net", "mochi.test", "127.0.0.1", "localhost"]);
+  registerCleanupFunction(() => WhimsyAgentGuard._setTrustedSitesForTesting(null));
+}
+
 // Form drafts and AI keys are encrypted with OSKeyStore. The real Keychain
 // item only answers the build that made it: a rebuilt (ad-hoc signed) binary
 // gets an "allow access" prompt nobody answers, and OSKeyStore's one serial
