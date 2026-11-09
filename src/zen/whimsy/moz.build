@@ -300,6 +300,8 @@ EXTRA_JS_MODULES.whimsy += [
 # W23 agent-chat
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyChatAgent.sys.mjs",
+    # W23 secfix: the pause before a connector tool that may change something
+    "WhimsyToolConfirm.sys.mjs",
 ]
 
 # W23 agent-tabs

@@ -11,6 +11,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyToolConfirm: "resource:///modules/whimsy/WhimsyToolConfirm.sys.mjs",
   WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
@@ -363,6 +364,14 @@ class Live {
     this.textEl = h(doc, "div", { class: "whimsy-chat-text whimsy-chat-md" });
     this.cards = h(doc, "div", { class: "whimsy-chat-cards" });
     this.node = h(doc, "div", { class: "whimsy-chat-msg", "data-role": "ai", busy: true }, this.status, this.textEl, this.cards);
+  }
+
+  /**
+   * H1: a connector tool that may change something waits for the person.
+   * The card sits with the answer's cards; resolves true on Allow once.
+   */
+  confirmTool(ask) {
+    return lazy.WhimsyToolConfirm.ask(this.cards, ask, { signal: ask.signal });
   }
 
   setStatus(id) {

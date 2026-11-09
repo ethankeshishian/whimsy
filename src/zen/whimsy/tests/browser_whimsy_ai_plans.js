@@ -542,8 +542,8 @@ async function plan_gets_temp_mcp_config_and_deletes_it(fake) {
   const file = await fake.read("mcp-path.txt");
   Assert.deepEqual(
     args,
-    ["-p", "--output-format", "json", "--tools", "", "--mcp-config", file, "--strict-mcp-config", "--allowedTools", "mcp__granola,mcp__my_files", "--no-session-persistence"],
-    "Claude Code's own tools stay off; only the connectors' tools may run"
+    ["-p", "--output-format", "json", "--tools", "", "--mcp-config", file, "--strict-mcp-config", "--no-session-persistence"],
+    "Claude Code's own tools stay off; connector tools that aren't marked read-only are never pre-approved (H1)"
   );
   ok(file.startsWith(PathUtils.join(PathUtils.tempDir, "whimsy-claude-code")) && /mcp-[0-9a-f-]+\.json$/.test(file), "The file is in Whimsy's Claude Code folder");
   is((await fake.read("mode.txt")).trim(), "600", "and only this user can read it");

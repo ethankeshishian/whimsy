@@ -54,7 +54,7 @@ function body(request) {
 }
 
 // A tiny MCP server: `tools` by name, each answering with its text.
-function mcp(path, { name, tools, auth = false }) {
+function mcp(path, { name, tools, auth = false, readOnly = [] }) {
   server.registerPathHandler(path, (request, response) => {
     if (auth && !(request.hasHeader("Authorization") && request.getHeader("Authorization").startsWith(`Bearer ${TOKEN}`))) {
       response.setStatusLine("1.1", 401, "Unauthorized");
@@ -68,7 +68,7 @@ function mcp(path, { name, tools, auth = false }) {
     }
     const result = {
       initialize: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name } },
-      "tools/list": { tools: Object.keys(tools).map(t => ({ name: t, description: t, inputSchema: { type: "object" } })) },
+      "tools/list": { tools: Object.keys(tools).map(t => ({ name: t, description: t, inputSchema: { type: "object" }, ...(readOnly.includes(t) ? { annotations: { readOnlyHint: true } } : {}) })) },
       "tools/call": { content: [{ type: "text", text: tools[message.params?.name] ?? "" }] },
     }[message.method];
     json(response, { jsonrpc: "2.0", id: message.id, result });
@@ -101,7 +101,7 @@ add_setup(async function () {
     response.setHeader("Content-Type", "text/html");
     response.write("<p>workspace</p>");
   });
-  mcp("/notes-mcp", { name: "Notes", tools: { search_pages: "found", read_page: "page" } });
+  mcp("/notes-mcp", { name: "Notes", tools: { search_pages: "found", read_page: "page", delete_page: "gone" }, readOnly: ["search_pages", "read_page"] });
   mcp("/granola", { name: "Granola", tools: { search_meetings: "Last week: shipped the beta; Ana owns the launch post." }, auth: true });
   WhimsyConnectorOAuth.setTestEndpoints({
     google: { authorize: `${base}/authorize`, token: `${base}/token`, userinfo: `${base}/userinfo`, revoke: `${base}/revoke`, api: `${base}/api` },
@@ -224,11 +224,13 @@ add_task(async function mcp_add_lists_tools() {
   EventUtils.sendString(`${base}/notes-mcp`, page.win);
   click(page, page.$("whimsyConnectorsMcpGo"));
   const found = await TestUtils.waitForCondition(() => page.$("whimsyConnectorsMcpFound"), "The server answers (set-5.8)");
-  await TestUtils.waitForCondition(() => found.textContent.includes("Notes") && found.textContent.includes("2 tools"), "Its name and tool count show");
+  await TestUtils.waitForCondition(() => found.textContent.includes("Notes") && found.textContent.includes("3 tools"), "Its name and tool count show");
   click(page, page.$("whimsyConnectorsMcpGo"));
   const id = `mcp:127.0.0.1:${server.identity.primaryPort}`;
   await TestUtils.waitForCondition(() => page.row(id)?.dataset.status == "ok", "The server is listed");
-  Assert.deepEqual((await WhimsyConnectors.list()).find(c => c.id == id).toolNames, ["search_pages", "read_page"], "Its tools are kept");
+  Assert.deepEqual((await WhimsyConnectors.list()).find(c => c.id == id).toolNames, ["search_pages", "read_page", "delete_page"], "Its tools are kept");
+  const notes = (await WhimsyConnectors.tools()).find(t => t.url == `${base}/notes-mcp`);
+  Assert.deepEqual(notes.readOnlyTools, ["search_pages", "read_page"], "Only the tools the server marks read-only may run without a press (H1)");
   is(await WhimsyConnectors.call(id, "search_pages", { query: "x" }), "found", "Whimsy calls its tools");
   BrowserTestUtils.removeTab(page.tab);
 });

@@ -36,6 +36,12 @@ const ICONS = "chrome://browser/content/whimsy/icons/";
 const MINUTE = 60 * 1000;
 const NOTES_CHARS = 12000;
 const BRIDGE_PATH = "/mcp";
+// W23 secfix H1: Claude Code's --permission-prompt-tool, one token per run.
+const GUARD_PATH = "/guard";
+export const GUARD_SERVER = "whimsy_guard";
+export const GUARD_TOOL = "confirm";
+// A tool may run without a press only when its server says it only reads.
+const readOnlyOf = tools => tools.filter(t => t?.annotations?.readOnlyHint === true).map(t => t.name);
 
 export const CONNECTOR_GROUPS = [
   { id: "schedule", l10nId: "whimsy-connectors-group-schedule", ids: ["google", "microsoft", "apple-calendar"] },
@@ -91,6 +97,7 @@ export const WhimsyConnectors = {
   _busy: null,
   _users: new Set(),
   _bridge: null,
+  _guards: new Map(),
   _windows: new Set(),
   _timer: null,
   // Tests replace these: the Linear and Jira sign-in checks, and the poll.
@@ -357,7 +364,7 @@ export const WhimsyConnectors = {
     }
     try {
       const { name, tools } = await WhimsyMCPClient.connect(parsed.href, { signal });
-      return { url: parsed.href, name, tools: tools.map(t => t.name), signIn: false };
+      return { url: parsed.href, name, tools: tools.map(t => t.name), readOnly: readOnlyOf(tools), signIn: false };
     } catch (e) {
       if (e.code == "auth") {
         return { url: parsed.href, name: parsed.hostname.replace(/^(mcp|api)\./, ""), tools: [], signIn: true, resourceMetadata: e.resourceMetadata };
@@ -374,10 +381,10 @@ export const WhimsyConnectors = {
     if (found.signIn) {
       tokens = await WhimsyConnectorOAuth.signInMcp(win, found.url, { resourceMetadata: found.resourceMetadata, pending });
       const listed = await WhimsyMCPClient.connect(found.url, { headers: { Authorization: `Bearer ${tokens.access}` } });
-      result = { ...found, name: listed.name, tools: listed.tools.map(t => t.name) };
+      result = { ...found, name: listed.name, tools: listed.tools.map(t => t.name), readOnly: readOnlyOf(listed.tools) };
     }
     await this._update(async file => {
-      file.connectors[id] = { url: found.url, name: fixedId ? "" : result.name, tools: result.tools, status: "ok", account: "", at: Date.now() };
+      file.connectors[id] = { url: found.url, name: fixedId ? "" : result.name, tools: result.tools, readOnly: result.readOnly ?? [], status: "ok", account: "", at: Date.now() };
       if (tokens) {
         await this._saveTokens(file, id, tokens);
       }
@@ -521,7 +528,12 @@ export const WhimsyConnectors = {
 
   // ---- feeding AI ----
 
-  /** The connectors' tools for one run, as MCP servers (router `tools`). */
+  /**
+   * The connectors' tools for one run, as MCP servers (router `tools`).
+   * Each server says which of its tools only read (`readOnlyTools`, from
+   * the server's own annotations when it was added; the built-in tools all
+   * read). Every other tool needs the person's press (H1).
+   */
   async tools() {
     if (!this.enabled) {
       return [];
@@ -535,14 +547,76 @@ export const WhimsyConnectors = {
         if (tokens) {
           headers = { Authorization: `Bearer ${await this.accessToken(id).catch(() => "")}` };
         }
-        servers.push({ name: id == "granola" ? "granola" : entry.name || hostOf(entry.url), url: entry.url, ...(headers ? { headers } : {}) });
+        servers.push({
+          name: id == "granola" ? "granola" : entry.name || hostOf(entry.url),
+          url: entry.url,
+          readOnlyTools: Array.isArray(entry.readOnly) ? entry.readOnly.filter(n => typeof n == "string") : [],
+          ...(headers ? { headers } : {}),
+        });
       }
     }
     if (this._builtinTools(file).length) {
       const bridge = this._startBridge();
-      servers.push({ name: "whimsy_connectors", url: bridge.url, headers: { Authorization: `Bearer ${bridge.token}` } });
+      servers.push({ name: "whimsy_connectors", url: bridge.url, readOnly: true, headers: { Authorization: `Bearer ${bridge.token}` } });
     }
     return servers;
+  },
+
+  /**
+   * One run's permission endpoint for Claude Code's --permission-prompt-tool
+   * (H1). Claude Code calls it before any tool that isn't pre-approved and
+   * waits: `confirm({ server, tool, args })` resolves true for "Allow once".
+   * `names` maps the run's MCP server names (as Claude Code sees them) to
+   * what the person calls them; null marks the guard's own name.
+   * Returns { server, dispose }; dispose answers anything pending with "no".
+   */
+  guard(confirm, names = {}) {
+    const bridge = this._startBridge();
+    const token = ChromeUtils.base64URLEncode(crypto.getRandomValues(new Uint8Array(32)), { pad: false });
+    const run = { confirm, names, pending: new Set() };
+    this._guards.set(token, run);
+    return {
+      server: {
+        name: GUARD_SERVER,
+        url: bridge.url.replace(BRIDGE_PATH, GUARD_PATH),
+        guard: true,
+        headers: { Authorization: `Bearer ${token}` },
+        // Claude Code's names for this run's servers, once they're known.
+        bindNames: map => (run.names = { ...map }),
+      },
+      dispose: () => {
+        this._guards.delete(token);
+        for (const settle of run.pending) {
+          settle(false);
+        }
+        run.pending.clear();
+      },
+    };
+  },
+
+  // What the guard answers Claude Code for one tool call.
+  async _guardAnswer(run, params) {
+    const deny = message => ({ behavior: "deny", message });
+    const args = params?.arguments ?? {};
+    const name = String(args.tool_name ?? "");
+    const input = args.input && typeof args.input == "object" ? args.input : {};
+    const key = Object.keys(run.names)
+      .filter(k => name.startsWith(`mcp__${k}__`))
+      .sort((a, b) => b.length - a.length)[0];
+    if (!key || run.names[key] === null) {
+      return deny("Only connector tools can be allowed here.");
+    }
+    const match = [name, key, name.slice(`mcp__${key}__`.length)];
+    const server = run.names[key];
+    let settle;
+    const answered = new Promise(resolve => (settle = resolve));
+    run.pending.add(settle);
+    Promise.resolve()
+      .then(() => run.confirm({ server, tool: match[2], args: input }))
+      .then(ok => settle(ok === true), () => settle(false));
+    const ok = await answered;
+    run.pending.delete(settle);
+    return ok ? { behavior: "allow", updatedInput: input } : deny("The person didn't allow this. Don't try it another way; say what you would have done.");
   },
 
   /** Calls one tool of a connector; resolves to its text. */
@@ -654,11 +728,78 @@ export const WhimsyConnectors = {
           response.finish();
         });
     });
+    server.registerPathHandler(GUARD_PATH, (request, response) => {
+      response.processAsync();
+      this._guardReply(request)
+        .catch(() => ({ status: 500, body: { jsonrpc: "2.0", id: null, error: { code: -32603, message: "Internal error" } } }))
+        .then(({ status, body }) => {
+          response.setStatusLine(request.httpVersion, status, status == 200 ? "OK" : "Error");
+          response.setHeader("Cache-Control", "no-store", false);
+          if (body !== undefined) {
+            response.setHeader("Content-Type", "application/json; charset=utf-8", false);
+            response.write(utf8(JSON.stringify(body)));
+          }
+          response.finish();
+        });
+    });
     server._start(-1, "127.0.0.1");
     const port = server.identity.primaryPort;
     server.identity.add("http", "127.0.0.1", port);
     this._bridge = { server, token, url: `http://127.0.0.1:${port}${BRIDGE_PATH}` };
     return this._bridge;
+  },
+
+  // The per-run guard: same checks as the bridge, keyed by the run's token.
+  async _guardReply(request) {
+    const header = name => (request.hasHeader(name) ? request.getHeader(name) : "");
+    if (header("Origin")) {
+      return { status: 403, body: undefined };
+    }
+    const given = header("Authorization").replace(/^Bearer\s+/i, "");
+    const token = [...this._guards.keys()].find(t => sameSecret(given, t));
+    if (!token) {
+      return { status: 401, body: undefined };
+    }
+    if (request.method != "POST") {
+      return { status: 405, body: undefined };
+    }
+    const stream = request.bodyInputStream;
+    let message;
+    try {
+      message = JSON.parse(lazy.NetUtil.readInputStreamToString(stream, stream.available(), { charset: "UTF-8" }));
+    } catch {
+      return { status: 400, body: { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } } };
+    }
+    const { id, method, params = {} } = message ?? {};
+    if (id === undefined || id === null) {
+      return { status: 202, body: undefined };
+    }
+    const reply = result => ({ status: 200, body: { jsonrpc: "2.0", id, result } });
+    switch (method) {
+      case "initialize":
+        return reply({ protocolVersion: params.protocolVersion ?? "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "whimsy-guard", version: "1" } });
+      case "ping":
+        return reply({});
+      case "tools/list":
+        return reply({
+          tools: [
+            {
+              name: GUARD_TOOL,
+              description: "Asks the person before a connector tool runs",
+              inputSchema: { type: "object", properties: { tool_name: { type: "string" }, input: { type: "object" }, tool_use_id: { type: "string" } }, required: ["tool_name"] },
+            },
+          ],
+        });
+      case "tools/call": {
+        const run = this._guards.get(token);
+        if (params.name != GUARD_TOOL || !run) {
+          return reply({ content: [{ type: "text", text: JSON.stringify({ behavior: "deny", message: "Unknown tool" }) }] });
+        }
+        return reply({ content: [{ type: "text", text: JSON.stringify(await this._guardAnswer(run, params)) }] });
+      }
+      default:
+        return { status: 200, body: { jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } } };
+    }
   },
 
   async _bridgeReply(request, token) {

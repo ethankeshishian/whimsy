@@ -299,11 +299,19 @@ export const WhimsyAIClaudeCode = {
   },
 
   // Connectors as Claude Code's --mcp-config: { mcpServers: { name: … } }.
+  // W23 secfix H1: only read-only tools are pre-approved (`allowed`); a
+  // server marked `guard` is the run's --permission-prompt-tool, which
+  // Claude Code asks before every other tool. No guard: every other tool
+  // is refused, since nobody is asked in -p mode.
   _mcpConfig(servers) {
     const config = { mcpServers: {} };
     const names = [];
+    const allowed = [];
+    const shown = {};
+    let guard = null;
+    const clean = value => String(value ?? "").replace(/[^A-Za-z0-9_-]/g, "_");
     for (const server of servers) {
-      let name = String(server?.name ?? "").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64) || "connector";
+      let name = clean(server?.name).slice(0, 64) || "connector";
       while (config.mcpServers[name]) {
         name += "_";
       }
@@ -320,23 +328,44 @@ export const WhimsyAIClaudeCode = {
         continue;
       }
       names.push(name);
+      if (server.guard) {
+        guard = { name, server };
+        shown[name] = null;
+        continue;
+      }
+      shown[name] = String(server.name ?? name);
+      if (server.readOnly === true) {
+        allowed.push(`mcp__${name}`);
+      } else {
+        for (const tool of Array.isArray(server.readOnlyTools) ? server.readOnlyTools : []) {
+          allowed.push(`mcp__${name}__${clean(tool)}`);
+        }
+      }
     }
-    return { config, names };
+    guard?.server.bindNames?.(shown);
+    return { config, names, allowed, permissionTool: guard ? `mcp__${guard.name}__confirm` : null };
   },
 
   /**
    * The fixed argument list. Claude Code's own tools stay off; connectors
    * are the only MCP servers it sees (from a 0600 file that's deleted after
-   * the run), and their tools may run without asking.
+   * the run). Only their read-only tools run without asking; any other
+   * tool goes to the run's permission tool, or is refused without one.
    */
-  _args({ system, mcpFile = null, mcpNames = [], stream = false }) {
+  _args({ system, mcpFile = null, allowed = [], permissionTool = null, stream = false }) {
     const args = ["-p", "--output-format", stream ? "stream-json" : "json"];
     if (stream) {
       args.push("--verbose", "--include-partial-messages");
     }
     args.push("--tools", "");
     if (mcpFile) {
-      args.push("--mcp-config", mcpFile, "--strict-mcp-config", "--allowedTools", mcpNames.map(name => `mcp__${name}`).join(","));
+      args.push("--mcp-config", mcpFile, "--strict-mcp-config");
+      if (allowed.length) {
+        args.push("--allowedTools", allowed.join(","));
+      }
+      if (permissionTool) {
+        args.push("--permission-prompt-tool", permissionTool);
+      }
     } else {
       args.push("--strict-mcp-config");
     }
@@ -352,15 +381,15 @@ export const WhimsyAIClaudeCode = {
 
   // Writes the run's connector file (0600 in the 0700 folder), or null.
   async _writeMcpConfig(servers) {
-    const { config, names } = this._mcpConfig(servers ?? []);
+    const { config, names, allowed, permissionTool } = this._mcpConfig(servers ?? []);
     if (!names.length) {
-      return { file: null, names };
+      return { file: null, names, allowed: [], permissionTool: null };
     }
     const file = PathUtils.join(await this._workdir(), `mcp-${Services.uuid.generateUUID().toString().slice(1, -1)}.json`);
     await IOUtils.writeUTF8(file, "", { mode: "create" });
     await IOUtils.setPermissions(file, 0o600);
     await IOUtils.writeUTF8(file, JSON.stringify(config), { mode: "overwrite" });
-    return { file, names };
+    return { file, names, allowed, permissionTool };
   },
 
   // What went wrong, from what Claude Code said.
@@ -388,9 +417,9 @@ export const WhimsyAIClaudeCode = {
     if (!command) {
       throw error("claude-code-missing");
     }
-    const { file, names } = await this._writeMcpConfig(mcpServers ?? tools);
+    const { file, allowed, permissionTool } = await this._writeMcpConfig(mcpServers ?? tools);
     try {
-      const args = this._args({ system, mcpFile: file, mcpNames: names });
+      const args = this._args({ system, mcpFile: file, allowed, permissionTool });
       const { exitCode, stdout, stderr } = await this._run(command, args, { input: String(prompt ?? ""), signal });
       let result = null;
       for (const line of stdout.trim().split("\n").reverse()) {
@@ -423,10 +452,10 @@ export const WhimsyAIClaudeCode = {
     if (!command) {
       throw error("claude-code-missing");
     }
-    const { file, names } = await this._writeMcpConfig(mcpServers ?? tools);
+    const { file, allowed, permissionTool } = await this._writeMcpConfig(mcpServers ?? tools);
     let run = null;
     try {
-      run = await this._spawn(command, this._args({ system, mcpFile: file, mcpNames: names, stream: true }), {
+      run = await this._spawn(command, this._args({ system, mcpFile: file, allowed, permissionTool, stream: true }), {
         input: String(prompt ?? ""),
         signal,
       });
