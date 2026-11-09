@@ -132,11 +132,6 @@ add_setup(async function () {
     WhimsyAIProviders.setTestProvider(null);
     Services.prefs.clearUserPref(MODE);
     Services.prefs.clearUserPref("whimsy.ai.hints.seen");
-    const ae = document.activeElement;
-    console.error("DEBUG chat_agent cleanup: activeElement=" + (ae ? `${ae.tagName}#${ae.id}.${ae.className}` : "null")
-      + " isOpen=" + chat().isOpen + " elHidden=" + el()?.hidden
-      + " openPopups=" + JSON.stringify([...document.querySelectorAll("panel,menupopup")].filter(p => p.state == "open" || p.hasAttribute("open")).map(p => p.id || p.tagName))
-      + " mode=" + Services.prefs.getStringPref(MODE, "<unset>"));
   });
 });
 
