@@ -79,6 +79,7 @@ async function rowOf(s, id) {
 // Laid out, shown, and still: the Library slides in and the form's panel
 // grows, so a node is clicked only once it stops moving.
 async function visible(node, what) {
+  node.scrollIntoView?.({ block: "nearest" });
   let last = "";
   await TestUtils.waitForCondition(() => {
     const r = node.getBoundingClientRect();

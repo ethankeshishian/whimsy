@@ -37,6 +37,12 @@ export const TRIGGERS = [
   { kind: "download", icon: `${ZEN}downloads.svg` },
 ];
 
+// What a trigger needs connected, said in the trigger menu.
+const TRIGGER_NEEDS = {
+  meeting: "whimsy-routine-form-trigger-needs-calendar",
+  email: "whimsy-routine-form-trigger-needs-mail",
+};
+
 const DEFAULTS = {
   schedule: { days: [1, 2, 3, 4, 5], hour: 8, minute: 0 },
   page: { interval: 60 },
@@ -198,9 +204,15 @@ export function buildRoutineForm(win, o) {
   if (layout == "sheet") {
     const dd = lazy.WhimsySurface.dropdown(doc, {
       id: `${o.idPrefix ?? "whimsy-routine-form"}-trigger`,
-      options: TRIGGERS.map(t => ({ value: t.kind, l10nId: `whimsy-routine-form-trigger-${t.kind}` })),
+      options: TRIGGERS.map(t => ({
+        value: t.kind,
+        icon: t.icon,
+        l10nId: `whimsy-routine-form-trigger-${t.kind}`,
+        detailL10nId: TRIGGER_NEEDS[t.kind],
+      })),
       value: draft.trigger.kind,
-      width: 220,
+      width: 280,
+      position: "after_start",
       onPick: kind => {
         touched(dd.button);
         setKind(kind);
@@ -361,6 +373,7 @@ export function buildRoutineForm(win, o) {
     const dd = lazy.WhimsySurface.dropdown(doc, {
       id: `${o.idPrefix ?? "whimsy-routine-form"}-${field}`,
       width: 220,
+      position: "after_start",
       ...opts,
       onPick: v => {
         touched(dd.button);

@@ -1030,7 +1030,7 @@ export const WhimsySurface = {
    * detailL10nId, rule}] (rule: a hairline before this option).
    * Returns { button, setValue(value, l10nId, l10nArgs) }.
    */
-  dropdown(doc, { id, label = null, options, value, onPick, width = 240 }) {
+  dropdown(doc, { id, label = null, options, value, onPick, width = 240, position = "after_end" }) {
     const button = html(doc, "button", "whimsy-surface-dropdown");
     button.type = "button";
     button.id = id;
@@ -1044,11 +1044,18 @@ export const WhimsySurface = {
     const chevron = doc.createXULElement("image");
     chevron.className = "whimsy-surface-dropdown-chevron";
     chevron.setAttribute("src", "chrome://global/skin/icons/arrow-down.svg");
+    // W23 routines-ui: options with an icon show the picked one's icon too.
+    const icon = options.some(o => o.icon) ? doc.createXULElement("image") : null;
+    if (icon) {
+      icon.className = "whimsy-surface-dropdown-icon";
+      button.append(icon);
+    }
     button.append(text, chevron);
     let current = value;
     const setValue = v => {
       current = v;
       const option = options.find(o => o.value == v) ?? options[0];
+      icon?.setAttribute("src", option.icon ?? "");
       if (option.shortL10nId ?? option.l10nId) {
         setL10n(doc, text, option.shortL10nId ?? option.l10nId, option.l10nArgs);
       } else {
@@ -1065,6 +1072,7 @@ export const WhimsySurface = {
         options,
         value: current,
         width,
+        position,
         onPick: v => {
           setValue(v);
           onPick(v);
@@ -1085,7 +1093,7 @@ export const WhimsySurface = {
   },
 
   /** A small listbox surface anchored to `anchor` (after_end). */
-  openListbox(win, { id, anchor, options, value, width = 240, onPick, onHidden }) {
+  openListbox(win, { id, anchor, options, value, width = 240, position = "after_end", onPick, onHidden }) {
     const doc = win.document;
     const parts = this.create(win, {
       id,
@@ -1106,9 +1114,11 @@ export const WhimsySurface = {
       const on = option.value == value;
       row.setAttribute("aria-selected", on ? "true" : "false");
       row.tabIndex = on ? 0 : -1;
+      // An option with its own icon shows it where the check goes; the
+      // picked one reads bold instead.
       const check = doc.createXULElement("image");
-      check.className = "whimsy-surface-option-check";
-      check.setAttribute("src", "chrome://global/skin/icons/check.svg");
+      check.className = option.icon ? "whimsy-surface-option-icon" : "whimsy-surface-option-check";
+      check.setAttribute("src", option.icon ?? "chrome://global/skin/icons/check.svg");
       const label = html(doc, "span", "whimsy-surface-option-label");
       if (option.l10nId) {
         setL10n(doc, label, option.l10nId, option.l10nArgs);
@@ -1145,7 +1155,7 @@ export const WhimsySurface = {
       list.querySelector("[role=option]")?.setAttribute("tabindex", "0");
     }
     parts.view.append(list);
-    this.open(win, parts.panel, { anchor, position: "after_end", y: 4 });
+    this.open(win, parts.panel, { anchor, position, y: 4 });
     return parts;
   },
 };

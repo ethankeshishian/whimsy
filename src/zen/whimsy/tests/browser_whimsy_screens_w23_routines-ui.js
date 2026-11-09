@@ -14,6 +14,8 @@ const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy
 const { WhimsyAIUpdates } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIUpdates.sys.mjs");
 const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
 
+const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_ai_page.html";
+
 const ROUTINES = [
   { builtIn: "daily-brief", title: "Daily brief", prompt: "Summarize today’s meetings.", trigger: { kind: "schedule", days: [1, 2, 3, 4, 5], hour: 8, minute: 0 } },
   { builtIn: "meeting-prep", title: "Meeting prep", prompt: "Pull my last notes.", trigger: { kind: "meeting", leadMinutes: 10 } },
@@ -159,6 +161,10 @@ function standInPopups() {
     const boxLook = getComputedStyle(box);
     for (const name of ["background-color", "background-image", "border-top", "border-right", "border-bottom", "border-left", "border-radius", "box-shadow", "padding", "color", "font-family", "font-size", "font-weight", "line-height"]) {
       stand.style.setProperty(name, boxLook.getPropertyValue(name));
+    }
+    // The OS draws a real panel's shadow; the stand-in draws its own.
+    if (boxLook.boxShadow == "none") {
+      stand.style.boxShadow = "0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.16)";
     }
     if (/rgba\(.*, 0\)|transparent/.test(boxLook.backgroundColor)) {
       stand.style.backgroundColor = "var(--zen-dialog-background, var(--arrowpanel-background, Canvas))";
@@ -352,7 +358,7 @@ add_task(async function shots_sheet_and_menus() {
   const realConnect = WhimsyConnectors.connect;
   let connected = new Set();
   WhimsyConnectors.list = async () => ["google", "microsoft", "apple-calendar"].map(id => ({ id, connected: connected.has(id), status: connected.has(id) ? "ok" : "off" }));
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?macbook-air");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   try {
     const schedule = { kind: "schedule", days: [1, 2, 3, 4, 5], hour: 8, minute: 0 };
     await popupShots("w23-routines-ui-rout-3.1", () => openSheetWith({ trigger: { kind: "schedule" }, prompt: "" }), Object.assign(() => !!sheet()?.querySelector("[data-field='trigger']"), { what: "the sentence's tokens" }));
@@ -418,7 +424,7 @@ add_task(async function shots_sheet_and_menus() {
 
 add_task(async function shots_watch_panel() {
   const { WhimsyPageWatch, MAX_WATCHES } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?macbook-air");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   const watchPanel = () => document.getElementById("whimsy-watch-panel");
   const openWatch = opts => openPopup("whimsy-watch-panel", () => WhimsyPageWatch.openDialog(window, tab, opts));
   try {
