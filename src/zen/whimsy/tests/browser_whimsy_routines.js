@@ -211,6 +211,12 @@ add_task(async function stop_a_running_routine_from_its_thread() {
   ok(!panel.el.querySelector('.whimsy-routine-bar button[data-action="run"]'), "with no Run now beside it");
   await TestUtils.waitForCondition(() => stop.textContent == "Stop", "labelled Stop");
   info(`Stop is connected: ${stop.isConnected}`);
+  {
+    const rect = stop.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    info(`DIAG rect ${JSON.stringify(rect)} hit ${hit?.localName}.${hit?.className} same=${hit == stop}`);
+    stop.addEventListener("click", () => info("DIAG click reached Stop"));
+  }
   EventUtils.synthesizeMouseAtCenter(stop, {}, window);
   info(`Clicked; status ${(await WhimsyRoutines.get(r.id)).status}`);
   await TestUtils.waitForCondition(async () => (await WhimsyRoutines.get(r.id)).status == null, "stopped by click").catch(() => {
