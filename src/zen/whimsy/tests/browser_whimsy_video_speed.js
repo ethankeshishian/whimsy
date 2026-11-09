@@ -292,6 +292,10 @@ add_task(async function back_to_default_only_when_off_default_and_forgets_site()
   ok(state.reset.shown, "Off your default: the button shows");
   is(state.reset.title, "Back to 1.5×", "It says where it goes");
   ok(state.reset.x < state.value.x, "left of the number");
+  // The button grows in over 150ms, on its own timer apart from the bar's
+  // (animateReset); click where it lands, not where it started.
+  await TestUtils.waitForCondition(async () => !(await control(browser)).reset.animating, "The reset button settles");
+  state = await control(browser);
   await clickAt(browser, state.reset);
   await TestUtils.waitForCondition(async () => (await rate(browser)) == 1.5, "A click plays at your default");
   await TestUtils.waitForCondition(async () => !(await control(browser)).reset.shown, "and the button goes");

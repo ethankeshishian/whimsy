@@ -636,6 +636,13 @@ export const WhimsyCommandBarAI = {
       }
     }
     if (cardOf(win) == card) {
+      // The last streamed chunk's onEvent may have scheduled a render that
+      // hasn't fired yet (rAF). This render is now the authoritative one
+      // (card.text/status are final); let it stand, or the stale rAF fires
+      // right after with nothing left to mark fresh (card.drawn already
+      // covers everything) and wipes the last chunk's fade-in.
+      win.cancelAnimationFrame(card.raf);
+      card.raf = 0;
       this.render(win, card);
       this.announce(win, card);
     }

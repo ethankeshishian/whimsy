@@ -1266,7 +1266,15 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       itemOrder: [...menu.children].map(item => Number(item.dataset.rate)),
       cc: { shown: !this.els.cc.hidden, pressed: this.els.cc.getAttribute("aria-pressed") == "true", ...rect(this.els.cc) },
       captions: this._captions?.testState() ?? null,
-      reset: { shown: !this.els.reset.hidden, title: this.els.reset.title, ...rect(this.els.reset) },
+      // W23: the button grows in over 150ms (animateReset) independently of
+      // the bar's own show/hide transition, so its rect moves for a beat
+      // after `shown` flips; tests wait for `animating` to settle first.
+      reset: {
+        shown: !this.els.reset.hidden,
+        animating: this.els.reset.getAnimations().some(a => a.playState == "running"),
+        title: this.els.reset.title,
+        ...rect(this.els.reset),
+      },
       note: this.els.speednote.hidden ? null : this.els.speednote.textContent,
       right: {
         shown: this.els.right.hasAttribute("data-shown") && !this.els.right.hidden,
