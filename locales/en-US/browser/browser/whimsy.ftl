@@ -6628,23 +6628,34 @@ whimsy-fire-cant-undo = This can’t be undone.
 whimsy-fire-summary-both = { $tabs ->
     [one] Closes <b>1 tab</b>
    *[other] Closes <b>{ $tabs } tabs</b>
-} and erases { $list } from <b>{ -whimsy-fire-when(range: $range) }</b>, { -whimsy-fire-where(scope: $scope, profile: $profile) }. Can’t be undone.
+} and erases { $list } from <b>{ $range ->
+        [today] today
+        [week] the last 7 days
+        [all] all time
+       *[hour] the last hour
+    }</b>, { $scope ->
+        [all] in every space and profile
+        [named] in <b>{ $profile }</b>
+       *[this] in this profile
+    }. Can’t be undone.
 whimsy-fire-summary-close = { $tabs ->
     [one] Closes <b>1 tab</b>
    *[other] Closes <b>{ $tabs } tabs</b>
-}, { -whimsy-fire-where(scope: $scope, profile: $profile) }. Can’t be undone.
-whimsy-fire-summary-erase = Erases { $list } from <b>{ -whimsy-fire-when(range: $range) }</b>, { -whimsy-fire-where(scope: $scope, profile: $profile) }. Can’t be undone.
--whimsy-fire-when = { $range ->
-    [today] today
-    [week] the last 7 days
-    [all] all time
-   *[hour] the last hour
-}
--whimsy-fire-where = { $scope ->
-    [all] in every space and profile
-    [named] in <b>{ $profile }</b>
-   *[this] in this profile
-}
+}, { $scope ->
+        [all] in every space and profile
+        [named] in <b>{ $profile }</b>
+       *[this] in this profile
+    }. Can’t be undone.
+whimsy-fire-summary-erase = Erases { $list } from <b>{ $range ->
+        [today] today
+        [week] the last 7 days
+        [all] all time
+       *[hour] the last hour
+    }</b>, { $scope ->
+        [all] in every space and profile
+        [named] in <b>{ $profile }</b>
+       *[this] in this profile
+    }. Can’t be undone.
 whimsy-fire-run =
     .label = Fire
 # The ellipsis: pressing it asks once more (All time, All spaces, or Memory).
