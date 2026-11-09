@@ -25,7 +25,6 @@ const LINKS = ROOT + "whimsy_ai_links.html";
 const PDF = ROOT + "whimsy_ai_lease.pdf";
 const SCANNED = ROOT + "whimsy_ai_scanned.pdf";
 const NAME = state => `w23-page-read-${state}`;
-const AT = { x: 10, y: 10, width: 10, height: 10 };
 
 function lines({ lead, points }) {
   return [lead, ...points.map(([text, quote]) => `- ${text} || ${quote ?? ""}`)].join("\n");
@@ -258,7 +257,12 @@ add_task(async function link_preview() {
     await whimsyBothSchemes(NAME("preview"), async dark => {
       const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINKS);
       release = null;
-      await WhimsyAIPage.showPreview(window, tab.linkedBrowser, { url: PAGE + `?shot-${dark}`, how: "hover", ...AT });
+      // Under the page's link, where a hover would put the cards (fu-page 7.1).
+      const link = await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+        const r = content.document.querySelector("a").getBoundingClientRect();
+        return { x: r.left, y: r.top, width: r.width, height: r.height };
+      });
+      await WhimsyAIPage.showPreview(window, tab.linkedBrowser, { url: PAGE + `?shot-${dark}`, how: "hover", ...link });
       const panel = await TestUtils.waitForCondition(() => {
         const p = document.getElementById("whimsy-link-hover");
         return p?.state == "open" && p;
