@@ -184,7 +184,12 @@ add_task(async function test_tab_icon_picker_stays_open() {
     info(`DIAG tab: ws ${t.getAttribute("zen-workspace-id")} active ${gZenWorkspaces.activeWorkspace} essential ${t.hasAttribute("zen-essential")} pinned ${t.pinned} glance ${t.hasAttribute("zen-glance-tab")} url ${t.linkedBrowser.currentURI.spec} tabs ${gBrowser.tabs.length} compact ${document.documentElement.getAttribute("zen-compact-mode")} sidebar ${document.getElementById("navigator-toolbox")?.getBoundingClientRect().width} winw ${window.innerWidth}`);
   }
   info(`DIAG before open: panel ${panel().state} svg ${gZenEmojiPicker.svgList.children.length} open-attr ${document.querySelectorAll("[zen-emoji-open]").length}`);
-  const picked = gZenEmojiPicker.open(gBrowser.selectedTab, { closeOnSelect: false, onSelect: () => {} });
+  // A tab's own picker opens from a tab on screen. An empty space shows
+  // only Zen's hidden empty tab (an earlier file can leave the space so),
+  // and a popup anchored to a hidden node closes as it opens.
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await TestUtils.waitForCondition(() => tab.checkVisibility(), "The tab is on screen");
+  const picked = gZenEmojiPicker.open(tab, { closeOnSelect: false, onSelect: () => {} });
   info(`DIAG open returned ${picked}`);
   const DIAGev = await BrowserTestUtils.waitForEvent(panel(), "popupshown");
   info(`DIAG shown: target ${DIAGev.target.localName}#${DIAGev.target.id} panel ${panel().state} svg ${gZenEmojiPicker.svgList.children.length} emoji ${gZenEmojiPicker.emojiList.children.length} only-svg ${panel().hasAttribute("only-svg-icons")}`);
@@ -195,6 +200,7 @@ add_task(async function test_tab_icon_picker_stays_open() {
   panel().hidePopup();
   await hidden;
   await picked.catch(() => {});
+  BrowserTestUtils.removeTab(tab);
 });
 
 add_task(async function test_switch_off() {
