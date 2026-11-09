@@ -12,6 +12,16 @@ const { WhimsyAICommands, parseSkills, linkFor } = ChromeUtils.importESModule("r
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
 
+// TEMP diagnostic (reverted once the leak is found): L07 bisect for
+// test_cmd_k_without_selection_is_web_search. Never removed (deliberately,
+// for this diagnostic run only) so it also catches writes in the files run
+// after this one.
+Services.prefs.addObserver("whimsy.ai.enabled", function whimsyTempLeakWatch() {
+  dump(
+    `TEMP LEAK WATCH whimsy.ai.enabled=${Services.prefs.getBoolPref("whimsy.ai.enabled", false)} at ${new Date().toISOString()}\n${new Error().stack}\n`
+  );
+});
+
 const TOUCHED = ["whimsy.ai.enabled", "whimsy.ai.order", "whimsy.ai.off", "whimsy.ai.quick-text-apple", "whimsy.verbs.skills", "whimsy.feature.ai-commands"];
 const saved = new Map(
   TOUCHED.map(name => {
