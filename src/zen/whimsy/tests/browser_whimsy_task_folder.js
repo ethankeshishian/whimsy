@@ -68,7 +68,8 @@ add_task(async function folder_at_end_of_today_nothing_moves() {
   Assert.deepEqual(today().filter(t => !t.hasAttribute(MEMBER)), before, "None of your tabs moved");
   ok(!gBrowser.tabs.includes(folder), "The row isn't a tab");
 
-  await frames();
+  // It slides in (height 0 to 44px); measure once it's in.
+  await Promise.all(folder.getAnimations().map(a => a.finished));
   is(Math.round(folder.getBoundingClientRect().height), 44, "The row is 44px, title over the working line");
   ok(folder.hasAttribute("collapsed") && folder.getAttribute("aria-expanded") == "false", "It starts folded");
   ok(tabs.every(t => t.getBoundingClientRect().height == 0), "so its tabs don't show");
@@ -184,7 +185,9 @@ add_task(async function restart_restores_tabs_as_ordinary() {
     "Session restore never saves the folder, its tabs' marks, or the task");
   const tabState = SessionStore.getTabState(tabs[0]);
   const restored = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true });
-  const done = BrowserTestUtils.waitForEvent(restored, "SSTabRestored");
+  // A background tab restores on demand, so SSTabRestored waits for a
+  // select; its attributes are back by SSTabRestoring.
+  const done = BrowserTestUtils.waitForEvent(restored, "SSTabRestoring");
   SessionStore.setTabState(restored, tabState);
   await done;
   ok(!restored.hasAttribute(MEMBER) && !restored.hasAttribute("whimsy-task-folder-id"), "A restored tab comes back ordinary");

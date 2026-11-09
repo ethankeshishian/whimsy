@@ -259,7 +259,11 @@ add_task(async function opened_tab_badge_until_touched() {
   gBrowser.selectedTab = tabs[0];
   ok(!tabs[0].hasAttribute("whimsy-agent-opened"), "Using one takes its mark off");
   ok(tabs[1].hasAttribute("whimsy-agent-opened"), "the other keeps it");
-  toast.element.querySelector("#whimsy-agent-tabs-undo, [id^='whimsy-agent-tabs-undo']")?.click();
+  // Click Undo once the toast is in (a click on it mid-entrance hits a hidden button).
+  await toast.shown;
+  const undo = toast.element.querySelector("#whimsy-agent-tabs-undo, [id^='whimsy-agent-tabs-undo']");
+  ok(undo && BrowserTestUtils.isVisible(undo), "Undo shows");
+  EventUtils.synthesizeMouseAtCenter(undo, {});
   await TestUtils.waitForCondition(() => tabs.every(t => !t.isConnected), "Undo archives them");
   await closeAll(tabs);
 });

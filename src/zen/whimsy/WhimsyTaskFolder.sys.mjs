@@ -402,6 +402,11 @@ export const WhimsyTaskFolder = {
       if (folder.hidden) {
         return;
       }
+      // A task can end while its row is still sliding in: finish that first,
+      // so there's a whole row to turn to dust.
+      for (const animation of folder.getAnimations()) {
+        animation.finish();
+      }
       const rect = folder.getBoundingClientRect();
       if (!rect.width || !rect.height) {
         return;
