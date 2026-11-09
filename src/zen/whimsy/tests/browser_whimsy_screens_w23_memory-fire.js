@@ -127,6 +127,10 @@ add_task(async function shots_related_row() {
       const tagged = await TestUtils.waitForCondition(() => [...gURLBar.view.panel.querySelectorAll(".urlbarView-row")]
         .filter(r => r.querySelector(".urlbarView-tag")?.textContent == "Related"), "Related rows in the bar");
       Assert.equal(tagged.length, 2, "cmd-4.1: both pages show, each tagged Related, in the real command bar");
+      const all = [...gURLBar.view.panel.querySelectorAll(".urlbarView-row")].filter(r => !r.hidden);
+      ok(!tagged.includes(all[0]) && all.slice(-2).every(r => tagged.includes(r)),
+        "cmd-4.2: the first (heuristic) row stays first; Related rows come last");
+      is(gURLBar.view.selectedRowIndex, 0, "...and the first row stays selected");
       return () => UrlbarTestUtils.promisePopupClose(window);
     });
   } finally {

@@ -320,13 +320,15 @@ class WhimsyRelatedProvider extends UrlbarProvider {
     }
     // The urlbar's own tag chip, after the title (and read after it).
     const relatedTag = await new Localization(["browser/whimsy.ftl"]).formatValue("whimsy-command-related-tag");
-    for (const [i, match] of matches.entries()) {
+    // All at -1: the very end, after the first (heuristic) row, word
+    // matches, and the Ask row. The muxer puts each later -1 row before the
+    // one already placed, so add the weakest first to read best-first.
+    // (Distinct negatives would count back past a short list's heuristic.)
+    for (const match of matches.toReversed()) {
       addCallback(this, new lazy.UrlbarResult({
         type: UrlbarShared.RESULT_TYPE.URL,
         source: UrlbarShared.RESULT_SOURCE.HISTORY,
-        // Negative: relative to the end, so word matches and the Ask row
-        // (positive suggestedIndex) stay ahead of these.
-        suggestedIndex: -(MAX_RESULTS - i),
+        suggestedIndex: -1,
         // One (empty) highlight list per tag: the view reads them by index.
         highlights: { tags: [[]] },
         payload: {
