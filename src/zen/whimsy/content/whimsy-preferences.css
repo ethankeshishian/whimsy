@@ -792,7 +792,9 @@ mark.whimsy-search-mark {
   flex-wrap: wrap;
 }
 
-/* W23 video: the "New" badge beside a just-added Media row. */
+/* W23 video: the "New" badge beside a just-added Media row. A quiet
+   neutral pill (the mockup's), not accent-tinted: it marks what's new, not
+   what's active. */
 .whimsy-media-new-badge {
   display: inline-flex;
   align-items: center;
@@ -804,6 +806,6 @@ mark.whimsy-search-mark {
   font-weight: 500;
   line-height: 16px;
   white-space: nowrap;
-  color: var(--zen-primary-color, AccentColor);
-  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 16%, transparent);
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 68%, transparent));
+  background: color-mix(in srgb, currentColor 6%, transparent);
 }

@@ -51,17 +51,23 @@ function holdContent(browser, which, ms) {
     const video = content.document.getElementById("video");
     const frame = () => new Promise(r => content.requestAnimationFrame(() => content.requestAnimationFrame(r)));
     if (part == "plates") {
+      dump(`WHIMSY-DEBUG before hide: bar data-shown=${actor.els.bar.hasAttribute("data-shown")} opacity=${content.getComputedStyle(actor.els.bar).opacity}\n`);
       actor.hide();
       // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
       await new Promise(r => content.setTimeout(r, 400));
+      dump(`WHIMSY-DEBUG after hide+wait: bar data-shown=${actor.els.bar.hasAttribute("data-shown")} opacity=${content.getComputedStyle(actor.els.bar).opacity} anims=${actor.els.bar.getAnimations().length}\n`);
       actor.show(video);
+      dump(`WHIMSY-DEBUG after show (sync): bar data-shown=${actor.els.bar.hasAttribute("data-shown")} opacity=${content.getComputedStyle(actor.els.bar).opacity} anims=${actor.els.bar.getAnimations().length} right-anims=${actor.els.right.getAnimations().length}\n`);
       // Flush styles so the fade-in transitions exist to hold.
       actor.els.bar.getBoundingClientRect();
       actor.els.right.getBoundingClientRect();
+      dump(`WHIMSY-DEBUG after flush: bar anims=${actor.els.bar.getAnimations().length} right anims=${actor.els.right.getAnimations().length} bar opacity=${content.getComputedStyle(actor.els.bar).opacity}\n`);
       for (const a of [...actor.els.bar.getAnimations(), ...actor.els.right.getAnimations()]) {
+        dump(`WHIMSY-DEBUG anim: playState=${a.playState} currentTime=${a.currentTime} effect=${a.effect?.getTiming ? JSON.stringify(a.effect.getTiming()) : "?"}\n`);
         a.pause();
         a.currentTime = at;
       }
+      dump(`WHIMSY-DEBUG after pause: bar opacity=${content.getComputedStyle(actor.els.bar).opacity} right opacity=${content.getComputedStyle(actor.els.right).opacity}\n`);
     } else {
       video.playbackRate = 1;
       actor.show(video);
