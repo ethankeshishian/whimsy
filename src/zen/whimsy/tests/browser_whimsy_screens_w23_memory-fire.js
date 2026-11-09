@@ -46,6 +46,10 @@ add_task(async function shots_fire_panel_defaults() {
   await whimsyBothSchemes("w23-memory-fire-fire-2.1", async () => {
     const panel = await openFire();
     ok(panel.state == "open" && panel.querySelector("#whimsy-fire-forget"), "fire-2.1: the Fire surface is open on its defaults");
+    const note = panel.querySelector(".whimsy-fire-undone-note");
+    await TestUtils.waitForCondition(() => /^whimsy-fire-summary-/.test(note.getAttribute("data-l10n-id") ?? ""), "fire-2.1: the red note says what goes");
+    await document.l10n.translateElements([note]);
+    ok(/the last hour/.test(note.textContent) && /Can’t be undone/.test(note.textContent), `fire-2.1: the summary names the range and can't be undone (${note.textContent})`);
     // MUST 6: a panel is its own widget; copy it into the window for the shot.
     await whimsySettled();
     const undo = whimsyStandInPopups();

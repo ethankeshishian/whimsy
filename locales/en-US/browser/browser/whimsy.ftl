@@ -6622,6 +6622,29 @@ whimsy-fire-item-memory = Memory
 whimsy-fire-item-routineResults = Routine and watch results
 whimsy-fire-item-downloads = The download list
 whimsy-fire-cant-undo = This can’t be undone.
+# fire-2.1's red note: what Fire is about to do. $tabs (number) - tabs it closes;
+# $list (string) - a locale-formatted list of what it erases (the whimsy-fire-done-* words);
+# $range, $scope, and $profile as in whimsy-action-fire-button.
+whimsy-fire-summary-both = { $tabs ->
+    [one] Closes <b>1 tab</b>
+   *[other] Closes <b>{ $tabs } tabs</b>
+} and erases { $list } from <b>{ -whimsy-fire-when(range: $range) }</b>, { -whimsy-fire-where(scope: $scope, profile: $profile) }. Can’t be undone.
+whimsy-fire-summary-close = { $tabs ->
+    [one] Closes <b>1 tab</b>
+   *[other] Closes <b>{ $tabs } tabs</b>
+}, { -whimsy-fire-where(scope: $scope, profile: $profile) }. Can’t be undone.
+whimsy-fire-summary-erase = Erases { $list } from <b>{ -whimsy-fire-when(range: $range) }</b>, { -whimsy-fire-where(scope: $scope, profile: $profile) }. Can’t be undone.
+-whimsy-fire-when = { $range ->
+    [today] today
+    [week] the last 7 days
+    [all] all time
+   *[hour] the last hour
+}
+-whimsy-fire-where = { $scope ->
+    [all] in every space and profile
+    [named] in <b>{ $profile }</b>
+   *[this] in this profile
+}
 whimsy-fire-run =
     .label = Fire
 # The ellipsis: pressing it asks once more (All time, All spaces, or Memory).

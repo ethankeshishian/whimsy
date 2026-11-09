@@ -359,6 +359,24 @@ export const WhimsyFireButton = {
     return result;
   },
 
+  // fire-2.1: the red note says, before the press, exactly what goes: "Closes
+  // 7 tabs and erases history, AI chats, and agent activity from the last
+  // hour, in Work. Can't be undone." Words from Fluent; only the list's
+  // conjunction is built here, with Intl.ListFormat.
+  async summarize(win, settings, note) {
+    const token = (note._whimsyToken = (note._whimsyToken ?? 0) + 1);
+    const { tabs } = await this.counts(win, settings);
+    const ids = ITEM_IDS.filter(id => id != "tabs" && settings.items[id]);
+    const words = ids.length ? await win.document.l10n.formatValues(ids.map(id => ({ id: id == "history" ? "whimsy-fire-done-history" : `whimsy-fire-done-item-${id}` }))) : [];
+    if (token != note._whimsyToken) {
+      return;
+    }
+    const list = words.length ? new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format(words) : "";
+    const args = { ...this.summaryArgs(win, settings), tabs, list };
+    const id = tabs && list ? "whimsy-fire-summary-both" : tabs ? "whimsy-fire-summary-close" : list ? "whimsy-fire-summary-erase" : "whimsy-fire-cant-undo";
+    win.document.l10n.setAttributes(note, id, args);
+  },
+
   // What settings would close, for the summary and the disabled state.
   async counts(win, settings) {
     const sum = groups => groups.reduce((n, [w, tabs]) => n + this.closableTabs(w, tabs).length, 0);
@@ -765,6 +783,7 @@ export const WhimsyFireButton = {
       for (const { count, ids } of counts) {
         doc.l10n.setAttributes(count, "whimsy-fire-group-count", { on: ids.filter(id => current.items[id]).length, total: ids.length });
       }
+      this.summarize(win, current, undoneNote).catch(e => console.error("Whimsy: Fire summary", e));
     };
     refresh();
     return panel;
