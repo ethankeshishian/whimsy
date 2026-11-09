@@ -82,7 +82,9 @@ add_task(async function draft_written_selected_never_sent() {
 
     // The toast's Undo puts the box back.
     const undo = await TestUtils.waitForCondition(() => document.getElementById("whimsy-undo-toast-button"), "The toast offers Undo");
-    undo.click();
+    await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(undo) && undo.getBoundingClientRect().width > 0, "Undo is laid out");
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    EventUtils.synthesizeMouseAtCenter(undo, {});
     await SpecialPowers.spawn(browser, [], async () => {
       await ContentTaskUtils.waitForCondition(() => content.document.getElementById("box").value == "", "Undone");
     });

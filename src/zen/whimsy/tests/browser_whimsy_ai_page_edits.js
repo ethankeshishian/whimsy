@@ -75,7 +75,9 @@ add_task(async function hide_saves_named_zap() {
 
     // The saved toast's Undo takes it back off the site and the page.
     const undo = await TestUtils.waitForCondition(() => document.getElementById("whimsy-undo-toast-button"), "The saved toast offers Undo");
-    undo.click();
+    await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(undo) && undo.getBoundingClientRect().width > 0, "Undo is laid out");
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    EventUtils.synthesizeMouseAtCenter(undo, {});
     await TestUtils.waitForCondition(() => !WhimsyZap.getZapSelectors(DOMAIN).includes("#sidebar"), "Undo unsaves the zap");
     ok(!WhimsyAIPageEdits.zapName(DOMAIN, "#sidebar"), "And its name");
     await TestUtils.waitForCondition(async () => (await display(browser, "#sidebar")) != "none", "The sidebar is back");
