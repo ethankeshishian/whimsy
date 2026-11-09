@@ -179,22 +179,31 @@ add_task(async function translate_and_edit_shots() {
     WhimsyPageBar.hide(window);
     await TestUtils.waitForCondition(() => !WhimsyPageBar.current(window), "Bar gone");
 
-    await WhimsyAIPageEdits.prompt(window);
-    await UrlbarTestUtils.promiseSearchComplete(window);
-    const suggested = [];
-    for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
-      suggested.push((await UrlbarTestUtils.getDetailsOfResultAt(window, i)).result.payload.whimsyVerb);
-    }
-    Assert.deepEqual(suggested, ["change-page:whimsy-edit-suggest-comments", "change-page:whimsy-edit-suggest-bigger", "change-page:whimsy-edit-suggest-article"], "page-6.2: ⌘K in Change this page, with three suggestions");
-    is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-edit-cmdk-placeholder", "page-6.2: Describe a change");
-    ok(!WhimsyPageBar.current(window), "page-6.2: no bottom bar");
-    await whimsyBothSchemes(NAME("page-6.2"), async () => {});
-    EventUtils.sendString("hide the sidebar", window);
-    await UrlbarTestUtils.promiseSearchComplete(window);
-    is((await UrlbarTestUtils.getDetailsOfResultAt(window, 0)).result.payload.whimsyVerb, "typed:change-page", "page-6.2: typing makes Change this page: …");
-    await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.view.close());
-    gURLBar.blur();
-    WhimsyVerbs.sessions.delete(window);
+    const closeBar = async () => {
+      await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.view.close());
+      gURLBar.blur();
+      WhimsyVerbs.sessions.delete(window);
+    };
+    const changeMode = async value => {
+      WhimsyVerbs.sessions.delete(window);
+      await WhimsyAIPageEdits.prompt(window, { value });
+      await TestUtils.waitForCondition(() => WhimsyVerbs.sessions.get(window)?.mode == "change-page", "⌘K is in Change this page");
+      await UrlbarTestUtils.promiseSearchComplete(window);
+      const ids = [];
+      for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+        ids.push((await UrlbarTestUtils.getDetailsOfResultAt(window, i)).result.payload.whimsyVerb);
+      }
+      return ids;
+    };
+    await whimsyBothSchemes(NAME("page-6.2"), async () => {
+      const suggested = await changeMode("");
+      Assert.deepEqual(suggested, ["change-page:whimsy-edit-suggest-comments", "change-page:whimsy-edit-suggest-bigger", "change-page:whimsy-edit-suggest-article"], "page-6.2: ⌘K in Change this page, with three suggestions");
+      is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-edit-cmdk-placeholder", "page-6.2: Describe a change");
+      ok(!WhimsyPageBar.current(window), "page-6.2: no bottom bar");
+      return closeBar;
+    });
+    is((await changeMode("hide the sidebar"))[0], "typed:change-page", "page-6.2: typing makes Change this page: …");
+    await closeBar();
 
     // The model waits at the gate while the busy bar's rise is held at 120ms.
     let go;
