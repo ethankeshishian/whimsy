@@ -179,16 +179,24 @@ add_task(async function translate_and_edit_shots() {
     WhimsyPageBar.hide(window);
     await TestUtils.waitForCondition(() => !WhimsyPageBar.current(window), "Bar gone");
 
-    WhimsyAIPageEdits.prompt(window);
-    const prompt = await bar();
-    ok(prompt.querySelector("input"), "page-6.2: the bar is a prompt");
+    await WhimsyAIPageEdits.prompt(window);
+    await UrlbarTestUtils.promiseSearchComplete(window);
+    const suggested = [];
+    for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+      suggested.push((await UrlbarTestUtils.getDetailsOfResultAt(window, i)).result.payload.whimsyVerb);
+    }
+    Assert.deepEqual(suggested, ["change-page:whimsy-edit-suggest-comments", "change-page:whimsy-edit-suggest-bigger", "change-page:whimsy-edit-suggest-article"], "page-6.2: ⌘K in Change this page, with three suggestions");
+    is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-edit-cmdk-placeholder", "page-6.2: Describe a change");
+    ok(!WhimsyPageBar.current(window), "page-6.2: no bottom bar");
     await whimsyBothSchemes(NAME("page-6.2"), async () => {});
+    EventUtils.sendString("hide the sidebar", window);
+    await UrlbarTestUtils.promiseSearchComplete(window);
+    is((await UrlbarTestUtils.getDetailsOfResultAt(window, 0)).result.payload.whimsyVerb, "typed:change-page", "page-6.2: typing makes Change this page: …");
+    await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.view.close());
+    gURLBar.blur();
+    WhimsyVerbs.sessions.delete(window);
 
-    // The prompt bar goes so the busy bar rises fresh; the model waits
-    // at the gate while the rise is held at 120ms.
-    const old = WhimsyPageBar.current(window).el;
-    WhimsyPageBar.hide(window);
-    await TestUtils.waitForCondition(() => !old.isConnected, "The prompt bar left");
+    // The model waits at the gate while the busy bar's rise is held at 120ms.
     let go;
     gate = new Promise(r => (go = r));
     const apply = WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "hide the sidebar and make the text bigger");

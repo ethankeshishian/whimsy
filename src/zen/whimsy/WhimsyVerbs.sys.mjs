@@ -1080,6 +1080,23 @@ export const WhimsyVerbs = {
     return WhimsyContextCommands.rank(win, subject, viewShare);
   },
 
+  /**
+   * ⌘K in a mode of its own (page 6.2, "Change this page"): `rows` before
+   * typing under `label`, `typed(text)` the one row typing makes, and
+   * `placeholder` the field's words.
+   */
+  async openMode(win, { mode, label, rows, typed, placeholder, title = "", value = "" }) {
+    const subject = { kind: "page", title, mode, groups: [{ kind: mode, label, rows, all: rows }], modeTyped: typed };
+    await this.start(win, subject);
+    if (placeholder) {
+      win.document.l10n.setAttributes(win.gURLBar.inputField, placeholder);
+    }
+    if (value) {
+      win.gURLBar.inputField.setUserInput(value);
+    }
+    return subject;
+  },
+
   // Firefox's own Cmd+K (key_search): focus the web search.
   search(win) {
     win.document.getElementById("Tools:Search")?.doCommand();
@@ -1546,6 +1563,13 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
   // ⌘K's groups in their frozen order; typing flattens them (cmd-3.9),
   // and with nothing to pick, Ask about what's on screen, then search.
   #contextRows(subject, query, addCallback) {
+    if (subject.modeTyped && query.trim()) {
+      // A mode (openMode): typing makes its one row, nothing else.
+      const row = subject.modeTyped(query.trim());
+      subject.typed = new Map([[row.id, row]]);
+      addCallback(this, this.#result(subject, row, subject.groups[0].label, true));
+      return;
+    }
     if (!query.trim()) {
       let first = true;
       for (const group of subject.groups) {
