@@ -7777,15 +7777,16 @@ whimsy-tabs-done-unmute =
 whimsy-tabs-done-meta = { $titles }
 
 ## W23 secfix: the pause before a connector tool that may change something
-## (chat and Ask). $tool (String) - the tool's name, like "Create comment";
+## (chat and Ask). $tool (String) - the tool's name, like "Create Comment";
 ## $server (String) - the connector, like "Linear".
 
 whimsy-tool-confirm-title = { $tool } on { $server }
 whimsy-tool-confirm-note = It will send this. Nothing runs until you choose.
 whimsy-tool-confirm-allow = Allow once
 whimsy-tool-confirm-deny = Don’t allow
-whimsy-tool-confirm-allowed = Allowed { $tool } on { $server }
-whimsy-tool-confirm-denied = Didn’t allow { $tool } on { $server }
+whimsy-tool-confirm-allowed = Allowed: { $tool } on { $server }
+whimsy-tool-confirm-denied = Didn’t allow: { $tool } on { $server }
+whimsy-tool-confirm-deny-esc = <kbd>Esc</kbd> don’t allow
 
 ## W23 secfix: the agent's pause before going to a site the task hasn't
 ## been on. $host (String) - the site, like "example.com"; $count (Number) -

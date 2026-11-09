@@ -3,22 +3,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /* W23 secfix H1: the pause before a connector tool that may change
-   something, in chat and in Ask. Amber, like the agent's pauses. */
+   something, in chat and in Ask. It wears the agent's pause card: chat's
+   warning, dialog, and text tokens, with the same values as fallbacks
+   for Ask's document, which doesn't load chat's sheet. Buttons match
+   .whimsy-agent-btn. */
 
 .whimsy-tool-confirm {
-  --whimsy-tool-amber: light-dark(rgb(176, 112, 0), rgb(240, 180, 70));
+  --whimsy-tool-warning: var(--whimsy-chat-warning, light-dark(rgb(217, 138, 0), rgb(240, 177, 60)));
+  --whimsy-tool-dialog: var(--whimsy-agent-dialog, light-dark(#ffffff, #2a2a2c));
+  --whimsy-tool-text: var(--whimsy-chat-text, light-dark(#111111, #ffffff));
+  --whimsy-tool-muted: var(--whimsy-chat-muted, color-mix(in srgb, currentColor 62%, transparent));
   display: grid;
   gap: 8px;
   margin-block: 6px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--whimsy-tool-amber) 10%, light-dark(#ffffff, #2a2a2c));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-tool-amber) 45%, transparent);
-  color: light-dark(rgb(29, 29, 31), rgb(242, 242, 245));
+  background: color-mix(in srgb, var(--whimsy-tool-warning) 10%, var(--whimsy-tool-dialog));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-tool-warning) 45%, transparent);
+  color: var(--whimsy-tool-text);
   font-size: 13px;
   line-height: 1.45;
   &:focus-visible {
-    outline: 2px solid AccentColor;
+    outline: var(--whimsy-chat-focus, 2px solid AccentColor);
     outline-offset: 2px;
   }
   &[data-decided] {
@@ -28,7 +34,7 @@
     padding: 4px 0;
     background: none;
     box-shadow: none;
-    color: light-dark(rgb(110, 110, 115), rgb(160, 160, 166));
+    color: var(--whimsy-tool-muted);
     font-size: 12px;
   }
 }
@@ -50,7 +56,7 @@
   stroke: currentColor;
   &[data-ic="alert"] {
     background-image: url("chrome://browser/skin/zen-icons/security-warning.svg");
-    color: var(--whimsy-tool-amber);
+    color: color-mix(in srgb, var(--whimsy-tool-warning) 80%, var(--whimsy-tool-text));
   }
   &[data-ic="check"] {
     background-image: url("chrome://global/skin/icons/check.svg");
@@ -64,6 +70,7 @@
   margin: 0;
 }
 
+/* P2-M2: every character of the arguments, scrolling. */
 .whimsy-tool-confirm-args {
   margin: 0;
   max-height: 160px;
@@ -78,25 +85,62 @@
 
 .whimsy-tool-confirm-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
 }
 
 .whimsy-tool-confirm-btn {
   appearance: none;
-  min-height: 26px;
-  padding: 3px 12px;
-  border: 0;
-  border-radius: 7px;
-  background: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.1));
-  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  margin: 0;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.1));
+  color: var(--whimsy-tool-text);
   font: inherit;
   font-size: 12px;
   font-weight: 500;
+  transition:
+    background-color 100ms ease-out,
+    scale 100ms ease-out;
   &:hover {
-    background: light-dark(rgba(0, 0, 0, 0.11), rgba(255, 255, 255, 0.15));
+    background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
+  }
+  &:active {
+    scale: 0.96;
+  }
+  &.primary {
+    background: var(--whimsy-chat-accent-bg, AccentColor);
+    color: light-dark(white, #0f1720);
   }
   &:focus-visible {
-    outline: 2px solid AccentColor;
-    outline-offset: 1px;
+    outline: var(--whimsy-chat-focus, 2px solid AccentColor);
+    outline-offset: 2px;
+  }
+}
+
+.whimsy-tool-confirm-keys {
+  margin-inline-start: auto;
+  font-size: 11px;
+  color: var(--whimsy-tool-muted);
+  & kbd {
+    padding: 1px 4px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.18));
+    font: inherit;
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-tool-confirm-btn {
+    transition: none;
+    &:active {
+      scale: none;
+    }
   }
 }

@@ -7,10 +7,10 @@
 // tool and server, the arguments it will send, and Allow once or Don't
 // allow. Claude Code waits on it through the run's permission tool
 // (WhimsyConnectors.guard). Nothing is a default button: Return never
-// allows, Escape doesn't allow.
+// allows, Escape doesn't allow (the card says so). P2-M2: the arguments
+// show in full (the box scrolls), so what's approved is what's shown.
 
 const SHEET = "chrome://browser/content/whimsy/whimsy-tool-confirm.css";
-const ARGS_CHARS = 1500;
 const sheets = new WeakSet();
 
 function el(doc, tag, attrs = {}, ...children) {
@@ -31,21 +31,25 @@ function el(doc, tag, attrs = {}, ...children) {
 }
 
 export const WhimsyToolConfirm = {
-  /** "create_comment" reads as "Create comment". */
+  /**
+   * "create_comment" reads as "Create Comment": a tool is a command name,
+   * so it takes Title Case (kit.md's casing rule).
+   */
   toolLabel(tool) {
-    const words = String(tool ?? "").replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").trim().toLowerCase();
-    return words ? words[0].toUpperCase() + words.slice(1) : "";
+    return String(tool ?? "").replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").trim().toLowerCase()
+      .replace(/(^|\s)(\S)/g, (m, space, first) => space + first.toUpperCase());
   },
 
-  /** The arguments exactly as they'll be sent, as indented JSON. */
+  /**
+   * The arguments exactly as they'll be sent, as indented JSON, in full:
+   * Allow once approves this whole text, never a part of it (P2-M2).
+   */
   argsText(args) {
-    let text;
     try {
-      text = JSON.stringify(args ?? {}, null, 2);
+      return JSON.stringify(args ?? {}, null, 2) ?? String(args);
     } catch {
-      text = String(args);
+      return String(args);
     }
-    return text.length > ARGS_CHARS ? `${text.slice(0, ARGS_CHARS)}\n…` : text;
   },
 
   loadSheet(win) {
@@ -75,7 +79,9 @@ export const WhimsyToolConfirm = {
       }
     };
     const id = `whimsy-tool-confirm-${Services.uuid.generateUUID().toString().slice(1, 9)}`;
-    const allow = el(doc, "button", { class: "whimsy-tool-confirm-btn", "data-choice": "allow", l10n: "whimsy-tool-confirm-allow" });
+    // Allow once is the primary button, but never the default: Return on
+    // the card does nothing.
+    const allow = el(doc, "button", { class: "whimsy-tool-confirm-btn primary", "data-choice": "allow", l10n: "whimsy-tool-confirm-allow" });
     const deny = el(doc, "button", { class: "whimsy-tool-confirm-btn", "data-choice": "deny", l10n: "whimsy-tool-confirm-deny" });
     allow.addEventListener("click", () => press(true));
     deny.addEventListener("click", () => press(false));
@@ -85,7 +91,8 @@ export const WhimsyToolConfirm = {
         el(doc, "span", { class: "whimsy-tool-confirm-title", id, l10n: ["whimsy-tool-confirm-title", names] })),
       el(doc, "p", { class: "whimsy-tool-confirm-note", l10n: "whimsy-tool-confirm-note" }),
       el(doc, "pre", { class: "whimsy-tool-confirm-args", dir: "ltr" }, this.argsText(args)),
-      el(doc, "div", { class: "whimsy-tool-confirm-actions" }, allow, deny));
+      el(doc, "div", { class: "whimsy-tool-confirm-actions" }, allow, deny,
+        el(doc, "span", { class: "whimsy-tool-confirm-keys", l10n: "whimsy-tool-confirm-deny-esc" })));
     card.addEventListener("keydown", event => {
       if (event.key == "Escape") {
         event.preventDefault();

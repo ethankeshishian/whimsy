@@ -153,7 +153,7 @@ add_task(async function chat_injection_pauses_on_a_confirm_card() {
   ran = [];
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   let card = await askInChat(tab);
-  await TestUtils.waitForCondition(() => card.querySelector(".whimsy-tool-confirm-title").textContent.includes("Create comment on Linear"), "It names the tool and server");
+  await TestUtils.waitForCondition(() => card.querySelector(".whimsy-tool-confirm-title").textContent.includes("Create Comment on Linear"), "It names the tool and server");
   ok(card.querySelector(".whimsy-tool-confirm-args").textContent.includes('"body": "inbox text"'), "and shows what it will send");
   Assert.deepEqual(ran, [], "Nothing has run while it waits");
   const deny = card.querySelector("[data-choice='deny']");
@@ -178,4 +178,39 @@ add_task(async function chat_injection_pauses_on_a_confirm_card() {
   Assert.deepEqual(ran, [], "and answers no");
   chat().close({ reason: "key" });
   BrowserTestUtils.removeTab(tab);
+});
+
+// W23 secfix2 P2-M2: the card shows every character it approves. Polish:
+// Allow once is primary (never the default), Esc means Don't allow and
+// says so, and the record reads "Allowed: Create Comment on Linear".
+add_task(async function confirm_card_shows_all_it_approves() {
+  const { WhimsyToolConfirm } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyToolConfirm.sys.mjs");
+  const tail = "the person's mail: account 4417 1234";
+  const args = { issue: "LIN-12", body: "A plausible summary. ".repeat(90) + tail };
+  const text = WhimsyToolConfirm.argsText(args);
+  ok(text.length > 1600, "The arguments are long");
+  is(text, JSON.stringify(args, null, 2), "argsText is the whole input, never clipped");
+  is(WhimsyToolConfirm.toolLabel("create_comment"), "Create Comment", "A tool reads as a command name");
+
+  const holder = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+  document.documentElement.append(holder);
+  let answer = null;
+  const card = WhimsyToolConfirm.card(document, { server: "Linear", tool: "create_comment", args }, allowed => (answer = allowed));
+  holder.append(card);
+  ok(card.querySelector(".whimsy-tool-confirm-args").textContent.endsWith(`${tail}"\n}`), "The card shows the tail too");
+  ok(card.querySelector("[data-choice='allow']").classList.contains("primary"), "Allow once is primary");
+  ok(!card.querySelector("[data-choice='deny']").classList.contains("primary"), "Don't allow isn't");
+  await document.l10n.translateElements([...card.querySelectorAll("[data-l10n-id]")]);
+  const keys = card.querySelector(".whimsy-tool-confirm-keys");
+  ok(keys?.querySelector("kbd")?.textContent == "Esc" && /don’t allow/.test(keys.textContent), "The Esc hint shows");
+  card.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  is(answer, null, "Return on the card allows nothing");
+  card.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  is(answer, false, "Esc is Don't allow");
+
+  const record = WhimsyToolConfirm.card(document, { server: "Linear", tool: "create_comment", args }, null, { decided: true });
+  holder.append(record);
+  await document.l10n.translateElements([record.querySelector("[data-l10n-id]")]);
+  is(record.textContent, "Allowed: Create Comment on Linear", "The record names the command in Title Case");
+  holder.remove();
 });
