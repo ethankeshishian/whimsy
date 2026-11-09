@@ -12,7 +12,6 @@ const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whi
 const { WhimsyAIMemory } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIMemory.sys.mjs");
 const { WhimsyAIIndex } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIIndex.sys.mjs");
 const { WhimsyChat } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChat.sys.mjs");
-const { ProvidersManager } = ChromeUtils.importESModule("moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs");
 
 const LAST_PREF = "whimsy.fire.last";
 
@@ -112,17 +111,22 @@ add_task(async function shots_fire_done_toast() {
 
 // cmd-4.1: a "Related" row in the command bar, found by meaning.
 add_task(async function shots_related_row() {
-  WhimsyAIIndex._setTestEmbedder(text => [text.toLowerCase().includes("coffee") ? 1 : 0, 1, 0, 0]);
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  UrlbarTestUtils.init(this);
+  WhimsyAIIndex._setTestEmbedder(text => /coffee|caffeine/i.test(text) ? [1, 1, 0, 0] : [0, 0, 1, 0]);
   await WhimsyAIIndex.clear({});
-  await WhimsyAIIndex.add({ url: "https://example.com/coffee-shot", title: "Best espresso machines", text: "coffee espresso" });
+  await WhimsyAIIndex.add({ url: "https://www.nytimes.com/2026/wellness/afternoon-coffee-sleep.html",
+    title: "Why your afternoon coffee wrecks your night", text: "coffee sleep" });
+  await WhimsyAIIndex.add({ url: "https://examine.com/caffeine-half-life/",
+    title: "Caffeine half-life: how long it really lasts", text: "caffeine" });
   WhimsyAIIndex.initWindow(window);
   try {
     await whimsyBothSchemes("w23-memory-fire-cmd-4.1", async () => {
-      const provider = ProvidersManager.getInstanceForSap("urlbar").getProvider("WhimsyRelated");
-      const added = [];
-      await provider.startQuery({ searchString: "coffee" }, (p, result) => added.push(result));
-      ok(added.length, "A Related row was produced for the shot (rendered by the urlbar view itself)");
-      return null;
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, value: "caffeine and sleep" });
+      const tagged = await TestUtils.waitForCondition(() => [...gURLBar.view.panel.querySelectorAll(".urlbarView-row")]
+        .filter(r => r.querySelector(".urlbarView-tag")?.textContent == "Related"), "Related rows in the bar");
+      Assert.equal(tagged.length, 2, "cmd-4.1: both pages show, each tagged Related, in the real command bar");
+      return () => UrlbarTestUtils.promisePopupClose(window);
     });
   } finally {
     WhimsyAIIndex._setTestEmbedder(null);
