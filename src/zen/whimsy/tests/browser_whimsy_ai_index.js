@@ -153,6 +153,47 @@ add_task(async function captures_a_real_public_tab_visit() {
   }
 });
 
+// The listener installs once at window start regardless of the pref
+// (_initCapture has no feature check); only `on` gates each visit, read
+// fresh every time. So flipping the pref mid-session, same window, no
+// restart, should start and stop capture immediately.
+add_task(async function related_capture_starts_and_stops_live_without_restart() {
+  await WhimsyAIIndex.clear({});
+  WhimsyAIIndex.initWindow(window);
+  const was = Services.prefs.getBoolPref("whimsy.feature.ai-related");
+  const tabs = [];
+  try {
+    Services.prefs.setBoolPref("whimsy.feature.ai-related", false);
+    // waitForStateStop: the passive listener decides whether to capture
+    // inside the same STATE_STOP notification this waits for (synchronous,
+    // before any awaited readTab/add work); waitForLoad alone (the default)
+    // only waits for the content "load" event, which can resolve before
+    // that notification fires, letting it land after the *next* pref flip
+    // below and leak this page in under the wrong setting.
+    let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-off", true, true);
+    tabs.push(tab);
+    await WhimsyAIIndex._captureVisit(window, tab.linkedBrowser);
+    is(await WhimsyAIIndex.count(), 0, "Off when the page finishes: nothing captured");
+
+    // No restart, no re-init: turning it on mid-session captures the very next visit.
+    Services.prefs.setBoolPref("whimsy.feature.ai-related", true);
+    tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-on", true, true);
+    tabs.push(tab);
+    await WhimsyAIIndex._captureVisit(window, tab.linkedBrowser);
+    is(await WhimsyAIIndex.count(), 1, "Turned on live: captured right away, no restart");
+
+    // And turning it off again stops it just as fast.
+    Services.prefs.setBoolPref("whimsy.feature.ai-related", false);
+    tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?live-off-again", true, true);
+    tabs.push(tab);
+    await WhimsyAIIndex._captureVisit(window, tab.linkedBrowser);
+    is(await WhimsyAIIndex.count(), 1, "Turned off live: the next visit after that isn't captured either");
+  } finally {
+    Services.prefs.setBoolPref("whimsy.feature.ai-related", was);
+    tabs.forEach(t => BrowserTestUtils.removeTab(t));
+  }
+});
+
 // The real on-device model (when this Mac has it): an unrelated page must
 // score under the Related cut-off and a page on the same topic over it.
 add_task(async function real_model_scores_unrelated_below_cutoff() {
