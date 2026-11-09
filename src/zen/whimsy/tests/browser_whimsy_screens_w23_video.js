@@ -155,14 +155,22 @@ add_task(async function shots_summary() {
   // fu-media dec-3: pressed again, the summary hides and Summarize says it'll show it.
   // fu-media dec-3: pressed again, the summary hides and Summarize says it'll show it.
   const press = () => SpecialPowers.spawn(browser, [], () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").pressSummarize());
-  await shootPage("w23-video-dec-3", browser, async () => {
+  await shootPage("w23-video-dec-3", browser, async dark => {
+    dump(`WHIMSY-DEBUG dec-3 dark=${dark}: hovering\n`);
     await hoverVideo(browser);
+    dump(`WHIMSY-DEBUG dec-3 dark=${dark}: hovered, waiting for controls\n`);
     await shownControl(browser);
+    dump(`WHIMSY-DEBUG dec-3 dark=${dark}: controls shown, pressing\n`);
     await press();
+    dump(`WHIMSY-DEBUG dec-3 dark=${dark}: pressed, waiting for hidden\n`);
     await TestUtils.waitForCondition(async () => (await videoControl(browser)).summ.state == "hidden", "Summarize would show it again");
+    dump(`WHIMSY-DEBUG dec-3 dark=${dark}: hidden, returning cleanup\n`);
     return async () => {
+      dump(`WHIMSY-DEBUG dec-3 dark=${dark}: cleanup pressing\n`);
       await press();
+      dump(`WHIMSY-DEBUG dec-3 dark=${dark}: cleanup pressed, waiting for open\n`);
       await TestUtils.waitForCondition(() => chatPanel().isOpen, "The summary is back");
+      dump(`WHIMSY-DEBUG dec-3 dark=${dark}: cleanup done\n`);
     };
   });
   EventUtils.synthesizeMouseAtCenter(body.querySelector(".whimsy-video-chip[data-chip='transcript']"), {});
