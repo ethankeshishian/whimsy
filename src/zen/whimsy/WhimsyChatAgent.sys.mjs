@@ -611,8 +611,10 @@ export const WhimsyChatAgent = {
     const mode = this.mode;
     const card = await this.append(panel, thread.id, { role: "card", card: "agent-plan", state: "drafting", mode, request: text });
     let plan = null;
+    // The tab the request starts from: the planner reads its address, and
+    // its site counts as visited (H2).
+    const tab = lazy.WhimsyChatThreads.tabOf(thread) ?? win.gBrowser.selectedTab;
     try {
-      const tab = lazy.WhimsyChatThreads.tabOf(thread) ?? win.gBrowser.selectedTab;
       const page = tab && !lazy.WhimsyAIContext.isOffLimits(tab) ? `${tab.label} (${tab.linkedBrowser.currentURI.spec})` : "";
       const hidden = named.filter(uuid => lazy.WhimsyAIContext.isHiddenSpace(win, uuid))
         .map(uuid => lazy.WhimsyAIContext.spaces(win).find(s => s.uuid == uuid)?.name).filter(Boolean);
