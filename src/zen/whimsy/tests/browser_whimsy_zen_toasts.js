@@ -20,7 +20,12 @@ const heightOf = toast => toast.element.clientHeight;
 
 registerCleanupFunction(() => closeToasts());
 
+// W23 polish: the AI discovery hints (WhimsyAIHints) show as a toast with
+// the same key on a timer tied to the shared window, not this file, so one
+// can land mid-test (left waiting by an earlier file's chat/ask surface)
+// and throw off every exact pixel this file checks. Off for the file.
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", false]] });
   closeToasts();
   await TestUtils.waitForCondition(
     () => !document.querySelector("#zen-toast-container > *"),
