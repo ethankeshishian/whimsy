@@ -335,37 +335,7 @@ add_task(async function test_new_space_from_empty_scratch_shows_one_form() {
       form.inputName.focus();
       form.inputName.select();
       await TestUtils.waitForCondition(() => form.inputName.matches(":focus"), "The name field has focus");
-      const DIAGlog = [];
-      const DIAGcap = e => e.key == " " && DIAGlog.push(`cap-${e.type}:${e.defaultPrevented}`);
-      const DIAGbub = e => e.key == " " && DIAGlog.push(`bub-${e.type}:${e.defaultPrevented}:${e.target.localName}`);
-      for (const t of ["keydown", "keypress", "beforeinput", "input"]) {
-        window.addEventListener(t, DIAGcap, true);
-        window.addEventListener(t, DIAGbub, { mozSystemGroup: true });
-      }
-      const DIAGin = e => DIAGlog.push(`input-${e.type}:${JSON.stringify(e.data)}:${form.inputName.value}`);
-      form.inputName.addEventListener("input", DIAGin);
       EventUtils.sendString("From Private", window);
-      for (const t of ["keydown", "keypress", "beforeinput", "input"]) {
-        window.removeEventListener(t, DIAGcap, true);
-        window.removeEventListener(t, DIAGbub, { mozSystemGroup: true });
-      }
-      form.inputName.removeEventListener("input", DIAGin);
-      info(`DIAG space: ${DIAGlog.join(" ")}`);
-      if (form.inputName.value != "From Private") {
-        const DIAGdump = node => {
-          for (const l of Services.els.getListenerInfoFor(node)) {
-            if (/^key|input/.test(l.type)) {
-              let src = "";
-              try { src = String(l.listenerObject).slice(0, 200).replace(/\s+/g, " "); } catch (e) {}
-              info(`DIAG listener on ${node.localName || node.nodeName || "window"}#${node.id || ""} ${l.type} cap=${l.capturing} sys=${l.inSystemEventGroup}: ${src}`);
-            }
-          }
-        };
-        for (let n = form.inputName; n; n = n.parentNode || (n == document ? window : null)) {
-          DIAGdump(n);
-          if (n == window) break;
-        }
-      }
       is(form.inputName.value, "From Private", "The name is typed into the form");
       ok(!form.createButton.disabled, "Typing a name allows Create");
       const madeId = form.workspaceId;

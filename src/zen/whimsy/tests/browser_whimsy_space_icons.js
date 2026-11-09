@@ -162,37 +162,13 @@ add_task(async function test_skin_tones() {
 });
 
 add_task(async function test_tab_icon_picker_stays_open() {
-  const DIAGhide = e => e.target == panel() && info(`DIAG ${e.type} at ${Date.now()}: ${new Error().stack.split("\n").slice(0, 12).join(" <- ")}`);
-  for (const t of ["popupshowing", "popupshown", "popuphiding", "popuphidden"]) {
-    panel().addEventListener(t, DIAGhide, true);
-  }
-  const DIAGorig = panel().hidePopup;
-  panel().hidePopup = function (...a) {
-    info(`DIAG hidePopup called: ${new Error().stack.split("\n").slice(0, 12).join(" <- ")}`);
-    return DIAGorig.apply(this, a);
-  };
-  info(`DIAG focus ${Services.focus.activeWindow == window} selected ${gBrowser.selectedTab.label} visible ${gBrowser.selectedTab.checkVisibility()} rect ${JSON.stringify(gBrowser.selectedTab.getBoundingClientRect())}`);
-  {
-    const t = gBrowser.selectedTab;
-    const chain = [];
-    for (let n = t; n && n.nodeType == 1; n = n.parentNode || n.host) {
-      const cs = getComputedStyle(n);
-      const r = n.getBoundingClientRect();
-      chain.push(`${n.localName}#${n.id}.${String(n.className).slice(0, 40)}[${cs.display},${cs.visibility},${Math.round(r.width)}x${Math.round(r.height)}${n.hidden ? ",hidden" : ""}${n.hasAttribute("collapsed") ? ",collapsed" : ""}]`);
-    }
-    info(`DIAG tab chain: ${chain.join(" < ")}`);
-    info(`DIAG tab: ws ${t.getAttribute("zen-workspace-id")} active ${gZenWorkspaces.activeWorkspace} essential ${t.hasAttribute("zen-essential")} pinned ${t.pinned} glance ${t.hasAttribute("zen-glance-tab")} url ${t.linkedBrowser.currentURI.spec} tabs ${gBrowser.tabs.length} compact ${document.documentElement.getAttribute("zen-compact-mode")} sidebar ${document.getElementById("navigator-toolbox")?.getBoundingClientRect().width} winw ${window.innerWidth}`);
-  }
-  info(`DIAG before open: panel ${panel().state} svg ${gZenEmojiPicker.svgList.children.length} open-attr ${document.querySelectorAll("[zen-emoji-open]").length}`);
   // A tab's own picker opens from a tab on screen. An empty space shows
   // only Zen's hidden empty tab (an earlier file can leave the space so),
   // and a popup anchored to a hidden node closes as it opens.
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   await TestUtils.waitForCondition(() => tab.checkVisibility(), "The tab is on screen");
   const picked = gZenEmojiPicker.open(tab, { closeOnSelect: false, onSelect: () => {} });
-  info(`DIAG open returned ${picked}`);
-  const DIAGev = await BrowserTestUtils.waitForEvent(panel(), "popupshown");
-  info(`DIAG shown: target ${DIAGev.target.localName}#${DIAGev.target.id} panel ${panel().state} svg ${gZenEmojiPicker.svgList.children.length} emoji ${gZenEmojiPicker.emojiList.children.length} only-svg ${panel().hasAttribute("only-svg-icons")}`);
+  await BrowserTestUtils.waitForEvent(panel(), "popupshown");
   is(glyphButtons()[0].getAttribute("icon"), WhimsySpaceIcons.ARC_GLYPHS[0], "The shared picker has Arc's order");
   glyph("heart.svg").doCommand();
   is(panel().state, "open", "A tab's icon picker keeps Zen's behavior (stays open)");
