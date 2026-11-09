@@ -808,7 +808,7 @@ export function errorSpec(msg, { win, panel } = {}) {
     return {
       tone: "grey",
       l10n: [`whimsy-chat-error-cannot-${need}`, { who: whoLabel(provider, msg.model) }],
-      detail: can.length ? ["whimsy-chat-error-can", { names: new Intl.ListFormat("en", { type: "conjunction" }).format(can.map(providerName)) }] : null,
+      detail: can.length ? ["whimsy-chat-error-can", { names: new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format(can.map(providerName)) }] : null,
       buttons: [
         others.length
           ? { l10n: ["whimsy-chat-error-ask", { provider: providerName(others[0]) }], primary: true, run: retry({ provider: others[0] }) }
@@ -862,7 +862,7 @@ export function errorSpec(msg, { win, panel } = {}) {
   return {
     tone: RED.has(code) || !AMBER.has(code) ? "red" : "amber",
     l10n: code == "all-failed" && tried.length > 1
-      ? ["whimsy-chat-error-all-failed", { names: new Intl.ListFormat("en", { type: "conjunction" }).format(tried.map(providerName)) }]
+      ? ["whimsy-chat-error-all-failed", { names: new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format(tried.map(providerName)) }]
       : ["whimsy-chat-error-down", { provider: name }],
     buttons: [
       others.length && code != "all-failed" ? { l10n: ["whimsy-chat-error-ask-instead", { provider: providerName(others[0]) }], primary: true, run: retry({ provider: others[0] }) } : null,

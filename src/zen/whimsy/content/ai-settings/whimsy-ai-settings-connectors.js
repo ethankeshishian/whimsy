@@ -318,7 +318,7 @@
       field.type = "url";
       field.placeholder = "your-team.atlassian.net";
       field.setAttribute("autofocus", "");
-      field.setAttribute("aria-label", "Jira");
+      field.setAttribute("data-l10n-id", "whimsy-connectors-jira-site-field");
     } else {
       const group = S.el("div", "whimsy-connectors-checks", state.body);
       for (const s of lazy.CATALOG[id].scopes) {
@@ -368,7 +368,7 @@
     const field = S.el("input", "whimsy-ai-input", state.body);
     field.id = "whimsyConnectorsClientId";
     field.setAttribute("autofocus", "");
-    field.setAttribute("aria-label", "Client ID");
+    field.setAttribute("data-l10n-id", `whimsy-connectors-client-id-field-${id}`);
     field.value = Services.prefs.getStringPref(`whimsy.connectors.${id}.client-id`, "");
     S.el("span", "whimsy-connectors-spacer", state.footer);
     S.button(state.footer, "whimsy-ai-confirm-cancel-button", { onClick: () => S.closeSheet() });

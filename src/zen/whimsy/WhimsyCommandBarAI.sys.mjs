@@ -1230,7 +1230,7 @@ export const WhimsyCommandBarAI = {
       }
     } else if (code == "all-failed" || code == "plan-limit" || code == "rate-limited" || code == "none-capable") {
       tone = "warn";
-      const names = new Intl.ListFormat("en", { type: "conjunction" }).format((tried.length ? tried : [provider]).map(nameOf));
+      const names = new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format((tried.length ? tried : [provider]).map(nameOf));
       l10n = code == "none-capable"
         ? ["whimsy-cmdbar-error-none-capable", { names }]
         : [time ? "whimsy-cmdbar-error-all-out-until" : "whimsy-cmdbar-error-all-out", { names, count: Math.max(tried.length, 1), time }];
