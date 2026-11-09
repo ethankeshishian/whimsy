@@ -254,6 +254,10 @@ export const WhimsyAIHints = {
     return [...registered.keys()];
   },
 
+  _registeredHintForTesting(id) {
+    return registered.get(id) ?? null;
+  },
+
   _setTimingForTesting(t) {
     timing = t ? { ...DEFAULT_TIMING, ...t } : { ...DEFAULT_TIMING };
   },

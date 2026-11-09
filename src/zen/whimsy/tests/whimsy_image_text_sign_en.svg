@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="632" height="360" viewBox="0 0 632 360">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f3d4b"/><stop offset="1" stop-color="#11161b"/></linearGradient>
+    <radialGradient id="glow" cx="0.16" cy="0.18" r="0.5"><stop offset="0" stop-color="#5a6b7c" stop-opacity="0.55"/><stop offset="1" stop-color="#5a6b7c" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity="0.45"/></filter>
+  </defs>
+  <rect width="632" height="360" fill="url(#bg)"/>
+  <rect width="632" height="360" fill="url(#glow)"/>
+  <g transform="rotate(-2 288 177)" font-family="Avenir Next, Helvetica Neue, sans-serif">
+    <rect x="128" y="124" width="320" height="108" fill="#f3eedf" filter="url(#shadow)"/>
+    <text x="148" y="151" font-size="13" font-weight="600" fill="#8a6a2a" textLength="84" lengthAdjust="spacingAndGlyphs" letter-spacing="2">SINCE 1887</text>
+    <text x="148" y="185" font-size="30" font-weight="800" fill="#1d1d1f" textLength="280" lengthAdjust="spacingAndGlyphs">Hoshino Tea House</text>
+    <text x="148" y="211" font-size="16" font-weight="500" fill="#1d1d1f" textLength="190" lengthAdjust="spacingAndGlyphs">Open daily 9:00 to 17:00</text>
+  </g>
+</svg>

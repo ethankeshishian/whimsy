@@ -30,14 +30,18 @@ registerCleanupFunction(async () => {
 // recommendation).
 add_task(function registered_hints_match_merged_lanes() {
   const ids = new Set(WhimsyAIHints._registeredIdsForTesting());
-  for (const id of ["ask", "updates", "chat", "context-commands", "agent-mode"]) {
+  for (const id of ["ask", "updates", "chat", "context-commands", "agent-mode", "voice", "image-text"]) {
     ok(ids.has(id), `${id}'s lane is merged and registers its hint`);
   }
-  for (const id of ["summarize", "voice", "image-text"]) {
-    ok(!ids.has(id), `${id} belongs to a lane (video/voice-image) not merged yet`);
+  // Voice and image text work on this Mac, so their hints show with AI off.
+  for (const id of ["voice", "image-text"]) {
+    ok(WhimsyAIHints._registeredHintForTesting(id).aiOff, `${id}'s hint shows with AI off`);
   }
+  ok(!ids.has("summarize"), "No hint is registered under the old summarize id");
   for (const id of ids) {
-    ok(WhimsyAIHints.HINTS[id], `${id} has copy and an icon defined (WhimsyAIHints.HINTS)`);
+    // A hint takes its copy and icon from WhimsyAIHints.HINTS, or brings its own copy.
+    const hint = WhimsyAIHints._registeredHintForTesting(id);
+    ok(WhimsyAIHints.HINTS[id] || hint.l10nId != `whimsy-ai-hint-${id}`, `${id} has its copy defined`);
   }
 });
 

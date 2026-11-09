@@ -139,8 +139,8 @@ add_task(async function test_selection_lists_only_verbs() {
     const verbs = await shownVerbs();
     Assert.deepEqual(
       verbs,
-      ["search", "translate", "map", "email", "copy-markdown", "note", "calendar"],
-      "Only the selection's verbs, Search first, Add to Calendar for a date"
+      ["search", "translate", "map", "email", "copy-markdown", "note", "calendar", "listen-selection"],
+      "Only the selection's verbs, Search first, Add to Calendar for a date, then other features' (read aloud)"
     );
     const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
     is(result.rowLabel?.args?.text, "Team sync Nov 3 at 3pm", "The row label shows the selection");
@@ -258,7 +258,8 @@ add_task(async function test_verb_actions() {
       const originalLinear = WhimsyVerbs.linearConfigured;
       WhimsyVerbs.linearConfigured = () => true;
       try {
-        const ids = WhimsyVerbs.verbsFor(window, subject).map(v => v.id);
+        // Other features' verbs (read aloud) follow the built-in ones.
+        const ids = WhimsyVerbs.verbsFor(window, subject).map(v => v.id).filter(id => !WhimsyVerbs.registered.some(v => v.id == id));
         Assert.deepEqual(ids.slice(-2), ["linear-new", "linear-search"], "Linear verbs come last");
         await WhimsyVerbs.runVerb(window, "linear-new", subject);
         ok(calls.at(-1).url.startsWith("https://linear.new?title=Team%20sync"), "New Linear Issue prefilled");

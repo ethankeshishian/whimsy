@@ -1,0 +1,306 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 voice-image: dictation (WhimsyDictation). The command bar's mic, the
+   bar while it listens (the unsure tail greyed), the pill under a field's
+   caret, and the setup and access panels. Mockups 05-media media-5.x. */
+
+.whimsy-dictation-mic {
+  appearance: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  -moz-context-properties: fill;
+  fill: currentColor;
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 9%, transparent);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 1px;
+  }
+
+  &[listening] {
+    background: var(--zen-primary-color, AccentColor);
+    color: #fff;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition: background-color 150ms var(--whimsy-ease, ease-out), color 150ms var(--whimsy-ease, ease-out);
+  }
+}
+
+.whimsy-dictation-mic-glyph {
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  mask: url("chrome://browser/content/whimsy/icons/mic.svg") center / 16px no-repeat;
+}
+
+/* Beside the mic, not under it: the bar clips what hangs below its input row. */
+.whimsy-dictation-tip {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  inset-inline-end: calc(100% + 8px);
+  z-index: 3;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--zen-colors-tertiary, Field);
+  color: var(--toolbar-color, FieldText);
+  box-shadow: 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.14)), 0 6px 16px -6px rgba(0, 0, 0, 0.3);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+
+  & kbd {
+    font: inherit;
+    padding: 0 4px;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 30%, transparent);
+  }
+}
+
+.whimsy-dictation-mic:is(:focus-visible, :hover):not([listening]) > .whimsy-dictation-tip {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .whimsy-dictation-mic:hover > .whimsy-dictation-tip {
+    transition: opacity 120ms ease-out 600ms, visibility 0s 600ms;
+  }
+}
+
+/* The key to let go of, left of the mic (dec-15) and in the pill. */
+.whimsy-dictation-key {
+  flex-shrink: 0;
+  margin-inline-end: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  white-space: nowrap;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+/* The bar while it listens: the input's own text is hidden under a mirror
+   that draws settled words plainly, the unsure tail greyed, and the wave. */
+#urlbar[whimsy-dictating] {
+  & .urlbar-input-box {
+    position: relative;
+  }
+
+  & #urlbar-input {
+    color: transparent;
+  }
+}
+
+.whimsy-dictation-mirror {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: pre;
+  pointer-events: none;
+  color: var(--toolbar-field-focus-color, currentColor);
+}
+
+.whimsy-dictation-tail {
+  color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
+#urlbar[whimsy-dictating] #urlbar-input::placeholder {
+  color: transparent;
+}
+
+.whimsy-dictation-empty {
+  display: none;
+  color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
+.whimsy-dictation-said:empty + .whimsy-dictation-tail:empty + .whimsy-dictation-empty {
+  display: inline;
+}
+
+.whimsy-dictation-wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 16px;
+  margin-inline-start: 8px;
+  color: var(--zen-primary-color, AccentColor);
+
+  & > i {
+    width: 3px;
+    height: 6px;
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  & > i:nth-child(1) { height: 5px; }
+  & > i:nth-child(2) { height: 10px; }
+  & > i:nth-child(3) { height: 14px; }
+  & > i:nth-child(4) { height: 8px; }
+  & > i:nth-child(5) { height: 12px; }
+  & > i:nth-child(6) { height: 6px; }
+  & > i:nth-child(7) { height: 9px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    & > i {
+      animation: whimsy-dictation-wave 900ms ease-in-out infinite alternate;
+      transform-origin: center;
+    }
+    & > i:nth-child(2n) { animation-delay: -300ms; }
+    & > i:nth-child(3n) { animation-delay: -600ms; }
+  }
+}
+
+@keyframes whimsy-dictation-wave {
+  from { scale: 1 0.45; }
+  to { scale: 1 1; }
+}
+
+#urlbar:not([whimsy-dictation-phase="listening"]) .whimsy-dictation-mirror .whimsy-dictation-wave > i {
+  animation-play-state: paused;
+}
+
+/* The pill under the caret: Listening, Waiting for permission…, Done. */
+.whimsy-dictation-pill {
+  position: fixed;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px 0 10px;
+  border-radius: 15px;
+  background: var(--arrowpanel-background, Field);
+  color: var(--arrowpanel-color, FieldText);
+  box-shadow: 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.14)), 0 8px 22px -6px light-dark(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.6));
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+
+  &[hidden] {
+    display: none;
+  }
+
+  & .whimsy-dictation-wave {
+    margin: 0;
+  }
+
+  & .whimsy-dictation-key {
+    margin: 0;
+  }
+
+  & > .whimsy-dictation-spinner,
+  & > .whimsy-dictation-check,
+  & > .whimsy-dictation-pill-waiting,
+  & > .whimsy-dictation-pill-done {
+    display: none;
+  }
+
+  &[phase="permission"] {
+    & > :is(.whimsy-dictation-wave, .whimsy-dictation-pill-listening, .whimsy-dictation-key) {
+      display: none;
+    }
+    & > :is(.whimsy-dictation-spinner, .whimsy-dictation-pill-waiting) {
+      display: inline-block;
+    }
+  }
+
+  &[phase="done"] {
+    & > :is(.whimsy-dictation-wave, .whimsy-dictation-pill-listening, .whimsy-dictation-key) {
+      display: none;
+    }
+    & > :is(.whimsy-dictation-check, .whimsy-dictation-pill-done) {
+      display: inline-block;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      animation: whimsy-dictation-done 1200ms ease-in forwards;
+    }
+  }
+
+  &[phase="finishing"] .whimsy-dictation-wave > i {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes whimsy-dictation-done {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.whimsy-dictation-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+
+  @media (prefers-reduced-motion: no-preference) {
+    animation: whimsy-dictation-spin 800ms linear infinite;
+  }
+}
+
+@keyframes whimsy-dictation-spin {
+  to { rotate: 1turn; }
+}
+
+.whimsy-dictation-check {
+  width: 14px;
+  height: 14px;
+  background-color: light-dark(rgb(31, 143, 78), rgb(79, 209, 139));
+  mask: url("chrome://global/skin/icons/check.svg") center / 14px no-repeat;
+}
+
+/* The panels (media-5.9, media-5.10). */
+.whimsy-dictation-panel-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-inline-end: 8px;
+  background-color: color-mix(in srgb, currentColor 62%, transparent);
+  mask: url("chrome://browser/content/whimsy/icons/mic.svg") center / 16px no-repeat;
+
+  &.is-alert {
+    background-color: light-dark(rgb(196, 120, 0), rgb(255, 184, 76));
+    mask-image: url("chrome://global/skin/icons/warning.svg");
+  }
+}
+
+.whimsy-dictation-panel-text {
+  margin: 0;
+  padding: 0 16px 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+}
+
+/* The mic shows in the command bar, not in the resting address field. */
+#urlbar:not([open], [focused]) .whimsy-dictation-mic {
+  display: none;
+}
