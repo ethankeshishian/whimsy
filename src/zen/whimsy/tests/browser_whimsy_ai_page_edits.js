@@ -140,6 +140,7 @@ add_task(async function just_this_time_esc() {
     is(missing.kind, "missing", "Couldn't find it");
     const miss = await barShown();
     ok(miss.querySelector("[data-button=retry]"), "Try other words");
+    await TestUtils.waitForCondition(() => document.activeElement == miss.querySelector("[data-button=retry]"), "The bar has focus");
     EventUtils.synthesizeKey("KEY_Escape");
     await TestUtils.waitForCondition(() => !WhimsyPageBar.current(window), "Esc dismisses");
   });
