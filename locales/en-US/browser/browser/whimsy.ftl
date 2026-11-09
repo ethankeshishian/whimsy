@@ -6814,7 +6814,22 @@ whimsy-agent-chat-pause-skipped = Skipped: { $title }
 whimsy-agent-chat-pause-stopped = Stopped at: { $title }
 whimsy-agent-chat-pause-yours-done = You did it: { $title }
 # $task is the task's name, like Coffee reorder.
-whimsy-agent-chat-needs-you = { $task } needs you
+# The toast's first line: what the paused task waits on. $kind (string) - the pause kind; $host (string) - the site.
+whimsy-agent-chat-needs-you = { $kind ->
+    [pay] Waiting on you: pay on { $host }
+    [send] Waiting on you: send this on { $host }
+    [submit] Waiting on you: submit a form on { $host }
+    [delete] Waiting on you: delete this on { $host }
+    [account] Waiting on you: change a setting on { $host }
+    [sign-in] Waiting on you: sign in to { $host }
+    [captcha] Waiting on you: show { $host } you’re a person
+    [navigate] Waiting on you: go to { $host }
+    [download] Waiting on you: a download
+    [new-site-data] Waiting on you: details for a new site
+   *[other] Waiting on you
+}
+# Its second line. $task (string) - the task's name
+whimsy-agent-chat-needs-you-task = { $task }
 whimsy-agent-chat-review = Review
 
 whimsy-agent-chat-injection-title = This page tried to give me instructions. I ignored them.

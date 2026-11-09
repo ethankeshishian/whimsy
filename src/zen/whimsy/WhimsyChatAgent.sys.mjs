@@ -976,9 +976,14 @@ export const WhimsyChatAgent = {
       if (state.toasts.has(task.id) || !win.gZenUIManager?.toasts || Services.focus.activeWindow != win) {
         continue;
       }
+      const host = task.pause?.host ?? task.pause?.preview?.titleL10n?.args?.host ?? "";
+      const kind = task.pause?.kind ?? "";
       const toast = win.gZenUIManager.toasts.open("whimsy-agent-chat-needs-you", {
         key: `whimsy-agent-${task.id}`,
-        l10nArgs: { task: task.title || task.clientName || "" },
+        // Two lines (fu-agent 3.3): what it waits on, then the task.
+        l10nArgs: { kind: host || kind == "download" || kind == "new-site-data" ? kind : "", host },
+        descriptionId: "whimsy-agent-chat-needs-you-task",
+        descriptionArgs: { task: task.title || task.clientName || "" },
         timeout: 0,
         buttons: [{
           id: "whimsy-agent-chat-review",
