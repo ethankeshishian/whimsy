@@ -1021,6 +1021,7 @@ export const WhimsyChatAgent = {
     }
     const body = panel.body;
     let added = null;
+    let unfolding = null;
     for (const msg of messages) {
       if (msg.role != "card" || !String(msg.card ?? "").startsWith("agent-")) {
         continue;
@@ -1041,14 +1042,18 @@ export const WhimsyChatAgent = {
         body.querySelector(".whimsy-chat-empty")?.remove();
         body.append(fresh);
         added = fresh;
-        this.unfold(panel.win, fresh);
+        unfolding = this.unfold(panel.win, fresh);
       }
     }
     await panel.doc.l10n.translateFragment(body);
     if (added) {
       // A card that asks you something keeps its choices in view.
       const target = added.matches("[data-focus]") ? added.querySelector(".whimsy-agent-actions") ?? added : added;
-      target.scrollIntoView({ block: "nearest", behavior: reducedMotion(panel.win) ? "instant" : "smooth" });
+      const behavior = reducedMotion(panel.win) ? "instant" : "smooth";
+      target.scrollIntoView({ block: "nearest", behavior });
+      // The card grows as it unfolds; once it's full height, its choices go
+      // back in view.
+      unfolding?.finished.then(() => target.isConnected && target.scrollIntoView({ block: "nearest", behavior }), () => {});
       if (added.matches(".whimsy-agent-card[data-focus]") && panel.isOpen) {
         (added.querySelector("[data-autofocus]") ?? added).focus({ preventScroll: true });
       }
@@ -1078,7 +1083,7 @@ export const WhimsyChatAgent = {
     if (reducedMotion(win)) {
       return;
     }
-    node.animate({ gridTemplateRows: ["0fr", "1fr"], opacity: [0, 1] }, { duration: 300, easing: EXPAND });
+    return node.animate({ gridTemplateRows: ["0fr", "1fr"], opacity: [0, 1] }, { duration: 300, easing: EXPAND });
   },
 
   sigOf(msg) {

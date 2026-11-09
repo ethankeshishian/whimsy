@@ -184,7 +184,10 @@ async function pauseShot(name, kind, preview, extra = {}) {
     const task = await running();
     WhimsyAgentTasks.pause(task.id, { kind, host: extra.host ?? "hearthcoffee.com", preview, ...extra });
     const card = await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-pause'][data-focus]"), "Paused");
-    await TestUtils.waitForCondition(() => card.querySelector(".whimsy-agent-actions").getBoundingClientRect().bottom <= part(".whimsy-chat-body").getBoundingClientRect().bottom + 1, "Its choices are in view");
+    // Once it has unfolded to full height, not while it grows.
+    await whimsySettled();
+    await TestUtils.waitForCondition(() => card.querySelector(".whimsy-agent-actions").getBoundingClientRect().bottom <=
+      Math.min(part(".whimsy-chat-body").getBoundingClientRect().bottom, part(".whimsy-agent-run")?.getBoundingClientRect().top ?? Infinity) + 1, "Its choices are in view");
   });
 }
 
@@ -262,8 +265,16 @@ add_task(async function shot_end() {
     ];
     await planned();
     EventUtils.synthesizeMouseAtCenter(part("[data-choice='start']"), {});
-    // The step opens and loads a page first, which can take a while.
-    await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done", 100, 200);
+    try {
+      await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done");
+    } catch (e) {
+      // DEBUG: what the chat shows instead.
+      info(`DEBUG-END body: ${part(".whimsy-chat-body")?.textContent.replace(/\s+/g, " ").slice(-700)}`);
+      info(`DEBUG-END foot: ${el().querySelector(".whimsy-agent-run")?.textContent.replace(/\s+/g, " ")}`);
+      info(`DEBUG-END start: ${!!part("[data-choice='start']")} actions left ${actions.length}`);
+      await whimsyShot(`${P}debug-end`);
+      throw e;
+    }
   };
   await whimsyBothSchemes(`${P}fu-agent-7.1-end`, async () => {
     await finishOnce();

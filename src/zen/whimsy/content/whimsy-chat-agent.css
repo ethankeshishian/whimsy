@@ -276,8 +276,8 @@
   font-size: 12.5px;
   font-weight: 500;
   &::before {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     transition: rotate 150ms var(--whimsy-ease, ease);
   }
   &[aria-expanded="false"]::before {
