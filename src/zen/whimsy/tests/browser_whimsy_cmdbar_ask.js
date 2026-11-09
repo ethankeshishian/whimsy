@@ -343,10 +343,11 @@ add_task(async function open_in_chat_card_travels() {
 add_task(async function ask_hint_shows_with_the_first_ask_row() {
   const { WhimsyAIHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIHints.sys.mjs");
   await freshStore();
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", true], ["whimsy.ai.hints.seen", ""], ["whimsy.ai.hints.today", ""]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", true], ["whimsy.ai.hints.seen", "voice"], ["whimsy.ai.hints.today", ""]] });
+  // The dictation hint ("voice") also offers itself on the bar's first
+  // focus; seen already, so the Ask hint is the one that shows.
   WhimsyAIHints._setTimingForTesting({ gapMs: 0, seenMs: 600000, timeoutMs: 600000, pollMs: 50 });
   await typeInBar(Q);
-  info("DIAG toasts: " + JSON.stringify(gZenUIManager.toasts.getToasts().map(t => [t.key, t.element.getAttribute("whimsy-ai-hint")])));
   await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "ask", "The Ask row's one-time hint shows with the row");
   WhimsyAIHints.current.toast.close({ instant: true });
   WhimsyAIHints._setTimingForTesting(null);

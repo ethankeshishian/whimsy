@@ -870,6 +870,8 @@
   value: ""
 
 # W23 polish: Firefox's "PDFs just got easier… Split, merge, and more"
-# promo isn't Whimsy's; the PDF viewer opens without it.
-- name: pdfjs.featuresNotificationDismissed
-  value: true
+# promo isn't Whimsy's; the PDF viewer opens without it. pdf.js shows it
+# while its impressions are under this limit (the dismissed pref alone
+# isn't read), so the limit is 0.
+- name: pdfjs.featuresNotificationImpressionLimit
+  value: 0
