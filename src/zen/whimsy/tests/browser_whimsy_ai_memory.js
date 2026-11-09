@@ -25,7 +25,6 @@ async function clearAllMemories() {
 
 registerCleanupFunction(async () => {
   WhimsyAIProviders.setTestProvider(null);
-  Services.prefs.clearUserPref(WhimsyAIMemory.USE_PREF);
   await clearAllMemories();
 });
 

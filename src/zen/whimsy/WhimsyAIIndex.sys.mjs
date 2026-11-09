@@ -28,6 +28,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const RELATED_ICON = "chrome://browser/skin/zen-icons/search-page.svg";
 const MAX_RESULTS = 3;
+// Below this cosine similarity a page isn't "about" the query: on-device
+// sentence vectors score loosely related text well above zero, so > 0
+// alone would offer a Related row for nearly every query.
+const MIN_SCORE = 0.5;
 
 const FOLDER_KIND = "index";
 const FILE_NAME = "index.bin";
@@ -165,7 +169,7 @@ export const WhimsyAIIndex = {
     const s = await load();
     return s.entries
       .map(e => ({ url: e.url, title: e.title, score: cosine(vector, e.vector), date: e.date }))
-      .filter(e => e.score > 0)
+      .filter(e => e.score >= MIN_SCORE)
       .sort((a, b) => b.score - a.score || b.date - a.date)
       .slice(0, k)
       .map(({ url, title, score }) => ({ url, title, score }));
@@ -191,6 +195,13 @@ export const WhimsyAIIndex = {
 
   _setTestEmbedder(fn) {
     testEmbedder = fn;
+  },
+
+  // Tests: how alike two texts are to the real (or test) embedder.
+  _similarityForTesting(a, b) {
+    const va = embed(a);
+    const vb = embed(b);
+    return va && vb ? cosine(va, vb) : null;
   },
 
   // Tests: a scratch state (the folder itself is reset through

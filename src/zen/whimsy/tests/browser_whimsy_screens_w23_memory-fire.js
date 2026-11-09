@@ -17,7 +17,7 @@ const { ProvidersManager } = ChromeUtils.importESModule("moz-src:///browser/comp
 const LAST_PREF = "whimsy.fire.last";
 
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], [WhimsyAIMemory.USE_PREF, true]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], [WhimsyAIMemory.USE_PREF, true], ["whimsy.feature.ai-related", true]] });
   registerCleanupFunction(() => {
     Services.prefs.clearUserPref(LAST_PREF);
   });

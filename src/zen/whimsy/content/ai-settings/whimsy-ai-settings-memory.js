@@ -70,7 +70,7 @@
     edit.addEventListener("click", () => startEdit(item, memory));
     const del = S.el("button", "whimsy-ai-iconbtn", end, "whimsy-memory-delete-button", { fact: memory.text });
     del.type = "button";
-    S.el("img", "", del).src = "chrome://browser/skin/zen-icons/delete.svg";
+    S.el("img", "", del).src = "chrome://browser/skin/zen-icons/trash.svg";
     del.addEventListener("click", () => doDelete(memory));
     return item;
   }

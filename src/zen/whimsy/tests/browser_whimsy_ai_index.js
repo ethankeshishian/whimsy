@@ -31,6 +31,9 @@ function vectorFor(text) {
 }
 
 add_setup(async function () {
+  // browser.toml's [DEFAULT] keeps Related off so other tests' pages never
+  // fill the index; this file owns it.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-related", true]] });
   scratch = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-ai-index");
   await WhimsyAIStore._resetForTesting(PathUtils.join(scratch, "whimsy-ai"));
   WhimsyAIIndex._resetForTesting();
@@ -41,7 +44,6 @@ add_setup(async function () {
     await WhimsyAIStore._resetForTesting(null);
     await IOUtils.remove(scratch, { recursive: true });
     Services.prefs.setBoolPref("whimsy.ai.enabled", true);
-    Services.prefs.clearUserPref("whimsy.feature.ai-related");
   });
 });
 
@@ -140,6 +142,7 @@ add_task(async function index_never_records_a_non_public_address() {
 
 add_task(async function captures_a_real_public_tab_visit() {
   await WhimsyAIIndex.clear({});
+  WhimsyAIIndex.initWindow(window);
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   try {
     const url = tab.linkedBrowser.currentURI.spec;
@@ -147,5 +150,31 @@ add_task(async function captures_a_real_public_tab_visit() {
       "A real tab, loaded to a public https page, gets captured passively once its load finishes");
   } finally {
     BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// The real on-device model (when this Mac has it): an unrelated page must
+// score under the Related cut-off and a page on the same topic over it.
+add_task(async function real_model_scores_unrelated_below_cutoff() {
+  WhimsyAIIndex._setTestEmbedder(null);
+  try {
+    const pairs = [
+      ["caffeine and sleep", "Why your afternoon coffee wrecks your night"],
+      ["caffeine and sleep", "How long caffeine stays in your body"],
+      ["which macbook air is the lightest", "Why your afternoon coffee wrecks your night"],
+      ["which macbook air is the lightest", "Python snakes: care and feeding"],
+      ["caffeine and sleep", "Quarterly tax filing deadlines for freelancers"],
+      ["Tell me about this article", "Whimsy test article about national housing trends"],
+    ];
+    const scores = pairs.map(([a, b]) => WhimsyAIIndex._similarityForTesting(a, b));
+    info(`real model scores: ${JSON.stringify(pairs.map((p, i) => [p[0], p[1], scores[i]]))}`);
+    if (scores.some(x => x == null)) {
+      ok(true, "No on-device sentence model here; nothing to calibrate");
+      return;
+    }
+    Assert.greaterOrEqual(scores[0], 0.5, "Same topic scores over the cut-off");
+    Assert.less(Math.max(scores[2], scores[3], scores[4]), 0.5, "Unrelated topics score under it");
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
   }
 });
