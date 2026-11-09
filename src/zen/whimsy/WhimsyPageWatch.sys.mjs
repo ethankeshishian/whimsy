@@ -11,17 +11,23 @@
 // quits: user, Oct 29), the page is read on that schedule in a hidden
 // browser with the person's own sign-ins in the tab's container
 // (WhimsyAIReader), and the AI says whether the condition is met. Only when
-// the page's text changed is the AI asked again. Once it's met, Whimsy
-// alerts (a notification bar in the window and a macOS notification) and
-// keeps alerting at each check until the alert is dismissed; when the
-// condition stops being met, a later match alerts again. Watches are kept
-// in the profile; Settings lists them. The AI kill switch stops everything.
+// the page's text changed is the AI asked again. W23: a watch is a routine
+// with trigger "page" (WhimsyRoutines lists it). A hit posts one macOS
+// notification (none when the page is the tab in front of you), waits in
+// the command bar's Updates, and is written to the watch's thread, where
+// checks without a hit fold into one line. It alerts again only after the
+// condition stops being true and comes true again. Watches are kept in the
+// profile (0600). The AI kill switch stops everything.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
+  WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
+  WhimsyAIUpdates: "resource:///modules/whimsy/WhimsyAIUpdates.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
@@ -31,7 +37,7 @@ const TICK_MS = 60 * 1000;
 // Minutes. The person picks one; hourly by default.
 export const INTERVALS = [15, 60, 360, 1440];
 const DEFAULT_INTERVAL = 60;
-const MAX_WATCHES = 50;
+export const MAX_WATCHES = 50;
 const MENU_ID = "context_whimsyWatchPage";
 const PANEL_ID = "whimsy-watch-panel";
 
@@ -70,6 +76,11 @@ export const WhimsyPageWatch = {
         list = await IOUtils.readJSON(this._path);
       } catch {}
       this._watches = Array.isArray(list) ? list.filter(w => w?.id && w.url && w.condition) : [];
+      // Before W23 a met watch alerted until dismissed; it was already shown.
+      for (const w of this._watches) {
+        w.alerted ??= !!w.met;
+        delete w.dismissed;
+      }
       return this._watches;
     })();
     return this._loading;
@@ -77,6 +88,7 @@ export const WhimsyPageWatch = {
 
   async save() {
     await IOUtils.writeJSON(this._path, this._watches ?? [], { tmpPath: this._path + ".tmp" });
+    await IOUtils.setPermissions(this._path, 0o600);
     for (const listener of this._listeners) {
       try {
         listener();
@@ -145,7 +157,9 @@ export const WhimsyPageWatch = {
       lastHash: "",
       met: false,
       detail: "",
-      dismissed: false,
+      alerted: false,
+      paused: false,
+      threadId: null,
       error: "",
     };
     watches.push(watch);
@@ -162,22 +176,65 @@ export const WhimsyPageWatch = {
     if (index < 0) {
       return false;
     }
-    watches.splice(index, 1);
+    const [watch] = watches.splice(index, 1);
     this.clearAlerts(id);
+    lazy.WhimsyAIUpdates.dismiss(`watch:${id}`).catch(() => {});
+    if (watch.threadId) {
+      lazy.WhimsyAIStore.updateThread(watch.threadId, { routineDeleted: true }).catch(() => {});
+    }
     this.schedule();
     await this.save();
     return true;
   },
 
-  // The alert's X (or Open Page): no more alerts until it stops being met.
+  // The hit was seen (its notification clicked, or opened from Updates).
   async dismiss(id) {
+    this.clearAlerts(id);
+    await lazy.WhimsyAIUpdates.dismiss(`watch:${id}`);
+  },
+
+  /** Edits a watch: {condition, interval, paused, title}. */
+  async update(id, patch = {}) {
     const watch = (await this.load()).find(w => w.id == id);
     if (!watch) {
-      return;
+      throw new Error("No such watch");
     }
-    watch.dismissed = true;
-    this.clearAlerts(id);
+    if (patch.condition != null && String(patch.condition).trim()) {
+      const condition = String(patch.condition).trim().slice(0, 500);
+      if (condition != watch.condition) {
+        // A new condition is asked about afresh.
+        watch.condition = condition;
+        watch.lastHash = "";
+        watch.alerted = false;
+      }
+    }
+    if (INTERVALS.includes(patch.interval)) {
+      watch.interval = patch.interval;
+    }
+    if (patch.paused != null) {
+      watch.paused = !!patch.paused;
+    }
     await this.save();
+    this.schedule();
+    return watch;
+  },
+
+  /** Undo of a delete: puts the watch back as it was. */
+  async restore(watch) {
+    const watches = await this.load();
+    if (watches.some(w => w.id == watch.id) || watches.length >= MAX_WATCHES) {
+      return false;
+    }
+    watches.push(watch);
+    await this.save();
+    this.schedule();
+    return true;
+  },
+
+  /** Check now (the person asked): reads it even if not due. */
+  async checkNow(id) {
+    const watch = (await this.load()).find(w => w.id == id);
+    return watch ? this.check(watch) : null;
   },
 
   // ---- Scheduling (only while Whimsy runs) ----
@@ -229,7 +286,7 @@ export const WhimsyPageWatch = {
       if (!this.enabled) {
         return;
       }
-      if (this.isDue(watch)) {
+      if (!watch.paused && this.isDue(watch)) {
         await this.check(watch).catch(error => console.error("Whimsy: Watch a page", error));
       }
     }
@@ -276,7 +333,8 @@ export const WhimsyPageWatch = {
         const prompt =
           `Condition: ${watch.condition}\n\n` +
           "Is the condition true on this page right now? Answer from the page text only.\n" +
-          'Reply as JSON: {"met": true or false, "detail": "one short sentence with what the page says"}\n\n' +
+          'Reply as JSON: {"met": true or false, "title": "the finding in a few words, like MacBook Air 13-inch: $899", ' +
+          '"detail": "one short sentence with what the page says and what changed"}\n\n' +
           `Address: ${page.url}\nPage title: ${page.title}\n<page>\n${lazy.WhimsyAIProviders.clip(text, 0.9)}\n</page>`;
         let verdict;
         try {
@@ -296,21 +354,26 @@ export const WhimsyPageWatch = {
         const met = verdict?.met === true || verdict?.met === "true";
         // A condition that stopped being met can alert again later.
         if (!met) {
-          watch.dismissed = false;
+          watch.alerted = false;
         }
         watch.met = met;
         watch.detail = String(verdict?.detail ?? "").trim().slice(0, 300);
+        watch.finding = String(verdict?.title ?? "").trim().slice(0, 80);
         watch.lastHash = hash;
         watch.title = page.title || watch.title;
       }
       watch.error = "";
-      await this.save();
-      if (watch.met && !watch.dismissed) {
-        this.alert(watch);
-      } else {
-        this.clearAlerts(watch.id);
+      const hit = watch.met && !watch.alerted;
+      if (hit) {
+        watch.alerted = true;
       }
-      return { met: watch.met, detail: watch.detail };
+      await this.save();
+      if (hit) {
+        await this.alert(watch);
+      } else {
+        await this.quiet(watch);
+      }
+      return { met: watch.met, detail: watch.detail, hit };
     } finally {
       this._checking = false;
       if (this._controller == controller) {
@@ -321,85 +384,82 @@ export const WhimsyPageWatch = {
 
   // ---- Alerts ----
 
-  // A bar at the top of the most recent window (once) and a macOS
-  // notification (at every check, until dismissed).
+  async _thread(watch) {
+    if (watch.threadId && (await lazy.WhimsyAIStore.thread(watch.threadId))) {
+      return watch.threadId;
+    }
+    const thread = await lazy.WhimsyAIStore.createThread({ kind: "watch", title: watch.title || hostOf(watch.url), watchId: watch.id, url: watch.url });
+    watch.threadId = thread.id;
+    await this.save();
+    return thread.id;
+  },
+
+  // A check without a hit: one folded line per run of them.
+  async quiet(watch) {
+    const threadId = await this._thread(watch);
+    const last = (await lazy.WhimsyAIStore.messages(threadId)).at(-1);
+    if (last?.role == "card" && last.kind == "watch-quiet") {
+      await lazy.WhimsyAIStore.updateMessage(threadId, last.id, { count: (last.count ?? 1) + 1, until: Date.now() });
+    } else {
+      await lazy.WhimsyAIStore.append(threadId, { role: "card", kind: "watch-quiet", watchId: watch.id, since: Date.now(), count: 1 });
+    }
+  },
+
+  // A hit: the thread, the command bar's Updates, and one notification.
   async alert(watch) {
     if (!this.enabled) {
       return;
     }
-    this.notifySystem(watch);
-    const win = Services.wm.getMostRecentWindow("navigator:browser");
-    const value = `whimsy-watch-${watch.id}`;
-    const showing = [...Services.wm.getEnumerator("navigator:browser")].some(w =>
-      w.gNotificationBox?.getNotificationWithValue(value)
-    );
-    if (win && !showing && !lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
-      await win.gNotificationBox.appendNotification(
-        value,
-        {
-          label: {
-            "l10n-id": "whimsy-watch-alert",
-            "l10n-args": {
-              condition: watch.condition,
-              page: watch.title || hostOf(watch.url),
-              detail: watch.detail || "",
-            },
-          },
-          priority: win.gNotificationBox.PRIORITY_INFO_HIGH,
-          eventCallback: event => {
-            if (event == "dismissed") {
-              this.dismiss(watch.id);
-            }
-          },
-        },
-        [
-          {
-            "l10n-id": "whimsy-watch-alert-open",
-            callback: () => {
-              this.openWatch(win, watch);
-              this.dismiss(watch.id);
-              return false;
-            },
-          },
-          {
-            "l10n-id": "whimsy-watch-alert-stop",
-            callback: () => {
-              this.remove(watch.id);
-              return false;
-            },
-          },
-        ]
-      );
+    const threadId = await this._thread(watch);
+    const at = Date.now();
+    await lazy.WhimsyAIStore.append(threadId, {
+      role: "card",
+      kind: "routine-run",
+      watchId: watch.id,
+      at,
+      found: true,
+      text: watch.detail,
+      headline: watch.finding || watch.detail,
+      history: { prompt: `Watch ${watch.url} for: ${watch.condition}`, text: watch.detail },
+    });
+    await lazy.WhimsyAIUpdates.post({
+      id: `watch:${watch.id}`,
+      source: "watch",
+      watchId: watch.id,
+      title: watch.finding || watch.detail || watch.condition,
+      detail: watch.finding ? watch.detail : undefined,
+      url: watch.url,
+      threadId,
+    });
+    if (!this.inFront(watch)) {
+      this.notifySystem(watch);
     }
   },
 
+  // The watched page is the tab in front of you: no notification.
+  inFront(watch) {
+    const win = Services.focus.activeWindow;
+    const browser = win?.gBrowser?.selectedBrowser;
+    return !!browser && browser.currentURI?.spec == watch.url && (browser.getAttribute("usercontextid") | 0) == (watch.userContextId | 0);
+  },
+
   notifySystem(watch) {
+    const [fallback, body] = lazyL10n().formatValuesSync([
+      { id: "whimsy-watch-notification-title", args: { page: watch.title || hostOf(watch.url) } },
+      { id: "whimsy-watch-notification-body", args: { condition: watch.condition, detail: watch.detail || "" } },
+    ]);
+    const title = watch.finding || fallback;
     if (this._testNotify) {
-      this._testNotify(watch);
+      this._testNotify(watch, { title, body });
       return;
     }
     try {
       const alerts = Cc["@mozilla.org/alerts-service;1"].getService(Ci.nsIAlertsService);
       const notification = Cc["@mozilla.org/alert-notification;1"].createInstance(Ci.nsIAlertNotification);
-      const [title] = lazyL10n().formatValuesSync([
-        { id: "whimsy-watch-notification-title", args: { page: watch.title || hostOf(watch.url) } },
-      ]);
-      notification.init(
-        `whimsy-watch-${watch.id}`,
-        "chrome://branding/content/icon64.png",
-        title,
-        watch.detail || watch.condition,
-        true,
-        watch.id
-      );
+      notification.init(`whimsy-watch-${watch.id}`, "chrome://branding/content/icon64.png", title, body, true, watch.id);
       alerts.showAlert(notification, (_subject, topic) => {
         if (topic == "alertclickcallback") {
-          const win = Services.wm.getMostRecentWindow("navigator:browser");
-          if (win) {
-            win.focus();
-            this.openWatch(win, watch);
-            this.dismiss(watch.id);
-          }
+          this.openHit(watch);
         }
       });
     } catch (error) {
@@ -407,16 +467,19 @@ export const WhimsyPageWatch = {
     }
   },
 
-  clearAlerts(id) {
-    const value = `whimsy-watch-${id}`;
-    for (const win of Services.wm.getEnumerator("navigator:browser")) {
-      const notification = win.gNotificationBox?.getNotificationWithValue(value);
-      if (notification) {
-        win.gNotificationBox.removeNotification(notification);
-      }
+  // The notification's click: the page (never in a private window), and the hit is seen.
+  openHit(watch) {
+    const win = lazy.BrowserWindowTracker.getTopWindow({ private: false });
+    if (win) {
+      win.focus();
+      this.openWatch(win, watch);
     }
+    this.dismiss(watch.id);
+  },
+
+  clearAlerts(id) {
     try {
-      Cc["@mozilla.org/alerts-service;1"].getService(Ci.nsIAlertsService).closeAlert(value);
+      Cc["@mozilla.org/alerts-service;1"].getService(Ci.nsIAlertsService).closeAlert(`whimsy-watch-${id}`);
     } catch {}
   },
 
@@ -489,7 +552,7 @@ export const WhimsyPageWatch = {
       this.enabled &&
       !!tab &&
       !lazy.PrivateBrowsingUtils.isWindowPrivate(win) &&
-      !lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) &&
+      !lazy.WhimsyAIContext.isPrivate(tab) &&
       lazy.WhimsyAIReader.isReadableUrl(tab.linkedBrowser?.currentURI?.spec)
     );
   },

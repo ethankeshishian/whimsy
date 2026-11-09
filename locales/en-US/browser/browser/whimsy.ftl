@@ -1832,12 +1832,8 @@ whimsy-watch-done = Watch
 whimsy-watch-too-many = You’re watching as many pages as Whimsy allows. Stop one in Settings first.
 whimsy-watch-started = Watching this page
 whimsy-watch-stopped = Stopped watching this page
-whimsy-watch-alert = { $page }: “{ $condition }” { $detail }
-whimsy-watch-alert-open =
-    .label = Open Page
-whimsy-watch-alert-stop =
-    .label = Stop Watching
 whimsy-watch-notification-title = Found on { $page }
+whimsy-watch-notification-body = “{ $condition }”: { $detail }
 
 
 ## wave4: calendar Settings and the command bar
@@ -6278,3 +6274,99 @@ whimsy-ask-close =
 # $provider is the AI that answered, like Claude.
 whimsy-ask-using = Using { $provider }
 whimsy-ask-continue = Continue in chat
+
+## W23 routines-engine: routines running, their threads, and their Updates rows
+
+whimsy-action-new-routine = New Routine…
+# $routine is the routine's name; $headline is the first line of its result.
+whimsy-routine-update-title = { $routine }: { $headline }
+whimsy-routine-update-misses = Ran once for { $count } misses
+whimsy-routine-update-expired = { $routine } didn’t run: { $connector } sign-in expired
+whimsy-routine-update-signed-out = { $routine } didn’t run: { $provider } is signed out
+whimsy-routine-update-none-capable = { $routine } didn’t run: none of your providers can do it
+whimsy-routine-update-failed = { $routine } didn’t run after { $count } tries
+whimsy-routine-update-quota = { $routine } waits for { $time }: { $providers } ran out
+# $time is when the meeting started, like 9:00 AM.
+whimsy-routine-update-skipped = Meeting prep skipped { $meeting }: it started at { $time }
+whimsy-routine-reason-expired = Your { $connector } sign-in expired. Reconnect to run it.
+whimsy-routine-reason-signed-out = { $provider } is signed out. Sign in to run it.
+whimsy-routine-reason-none-capable = None of your providers can do this routine. Pick another one, or change what it does.
+whimsy-routine-reason-quota = { $providers } ran out. It runs again at { $time }.
+whimsy-routine-reason-failed = It didn’t finish after { $count } tries.
+whimsy-routine-notify-needs-you = { $routine } needs you
+whimsy-routine-step-reconnect = Reconnect { $connector }
+whimsy-routine-step-sign-in = Sign in
+whimsy-routine-step-edit = Edit routine
+whimsy-routine-step-try-again = Try again
+whimsy-routine-step-skip-today = Skip today
+whimsy-routine-run-running = Running
+whimsy-routine-run-working = Working on it
+whimsy-routine-run-failed = didn’t finish
+whimsy-routine-run-found = found
+whimsy-routine-run-took = took { $seconds } s
+whimsy-routine-run-caught-up =
+    { $count ->
+        [one] caught up while Whimsy was closed, took { $seconds } s
+       *[other] ran once for { $count } misses, took { $seconds } s
+    }
+whimsy-routine-fail-title = Didn’t run at { $time }
+whimsy-routine-fail-waiting = Waiting since { $time }
+whimsy-routine-skip-title = Skipped { $meeting }
+# $opened is when Whimsy opened, like 9:25 AM.
+whimsy-routine-skip-body = Whimsy opened at { $opened }, { $minutes } minutes after it started, so there was no time to prep.
+whimsy-routine-skip-prep = Prep it anyway
+whimsy-routine-watch-since = Since { $date }
+whimsy-routine-watch-quiet =
+    { $count ->
+        [one] checked once, no change
+       *[other] checked { $count } times, no change
+    }
+whimsy-routine-bar-routine = Routine
+whimsy-routine-bar-running = Running
+whimsy-routine-bar-watch = Page watch
+whimsy-routine-bar-watch-detail =
+    { $minutes ->
+        [15] { $condition } · every 15 minutes
+        [60] { $condition } · every hour
+        [360] { $condition } · every 6 hours
+       *[other] { $condition } · every day
+    }
+whimsy-routine-run-now = Run now
+whimsy-routine-check-now = Check now
+whimsy-routine-edit = Edit
+whimsy-routine-deleted = Routine deleted
+whimsy-routine-when-schedule = On a schedule
+whimsy-routine-when-hourly = Every hour
+whimsy-routine-when-daily = Every day at { $time }
+whimsy-routine-when-weekdays = Weekdays at { $time }
+# $days is a list of day names, like Mondays and Fridays.
+whimsy-routine-when-days = { $days } at { $time }
+whimsy-routine-when-return = When you’re back after { $hours } hours away
+whimsy-routine-when-meeting = { $minutes } min before each meeting
+whimsy-routine-when-meeting-after = When each meeting ends
+whimsy-routine-when-email = When an email arrives
+whimsy-routine-when-site = First visit to { $site } each day
+whimsy-routine-when-download = When a download finishes
+whimsy-routine-when-page =
+    { $minutes ->
+        [15] Every 15 minutes
+        [60] Every hour
+        [360] Every 6 hours
+       *[other] Every day
+    }
+whimsy-routine-builtin-daily-brief = Daily brief
+whimsy-routine-builtin-daily-brief-prompt = Summarize today’s meetings and the emails that need a reply. Flag anything due today.
+whimsy-routine-builtin-weekly-recap = Weekly recap
+whimsy-routine-builtin-weekly-recap-prompt = Recap what I worked on this week: meetings from my calendar, and issues I closed or moved. Group by project.
+whimsy-routine-builtin-meeting-prep = Meeting prep
+whimsy-routine-builtin-meeting-prep-prompt = Pull my last notes with these people, the doc linked in the invite, and anything they emailed me this week.
+whimsy-routine-builtin-price-watch = Price or stock watch
+whimsy-routine-builtin-price-watch-prompt = Tell me when the price drops or it’s back in stock.
+whimsy-routine-builtin-catch-up = Catch-up when you return
+whimsy-routine-builtin-catch-up-prompt = Tell me what I missed: new email that needs me, reviews waiting on me, and replies in Linear.
+whimsy-routine-builtin-doc-changes = Doc changes
+whimsy-routine-builtin-doc-changes-prompt = Tell me what changed in the Drive docs I opened this week, in a line each.
+whimsy-routine-builtin-standup = Standup digest
+whimsy-routine-builtin-standup-prompt = List my Linear or Jira issues that moved since yesterday, and what’s blocked.
+whimsy-routine-builtin-meeting-follow-up = Meeting follow-up
+whimsy-routine-builtin-meeting-follow-up-prompt = From Granola’s notes and the invite, list the decisions, who owes what, and a short follow-up email I can send.

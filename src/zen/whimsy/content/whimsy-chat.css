@@ -814,3 +814,125 @@
     outline: 1px solid currentColor;
   }
 }
+
+/* W23 routines-engine: routine and watch threads (06 rout-4.2–4.7, 5.7). */
+.whimsy-chat-icon[data-icon="check"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/check.svg"); }
+.whimsy-routine-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--whimsy-chat-muted);
+  & .whimsy-routine-bar-buttons {
+    display: flex;
+    gap: 4px;
+    margin-inline-start: auto;
+  }
+}
+.whimsy-routine-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--whimsy-chat-track);
+  color: var(--whimsy-chat-text);
+  font-weight: 500;
+  &[running] {
+    background: var(--whimsy-chat-accent-bg);
+    color: var(--whimsy-chat-accent);
+  }
+  & > .whimsy-chat-spinner {
+    width: 9px;
+    height: 9px;
+  }
+}
+.whimsy-routine-run {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  & > .whimsy-chat-msg {
+    padding: 0;
+  }
+  &[folded] {
+    padding: 8px 10px;
+    border-radius: var(--whimsy-chat-radius);
+    background: var(--whimsy-chat-track);
+  }
+}
+.whimsy-routine-run-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--whimsy-chat-muted);
+  & > b {
+    flex: none;
+    font-weight: 600;
+    color: var(--whimsy-chat-text);
+  }
+  & > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & > span::before {
+    content: "· ";
+  }
+  &[role="button"] {
+    cursor: default;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+.whimsy-routine-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+.whimsy-routine-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--whimsy-chat-text);
+  & > .whimsy-chat-icon {
+    width: 13px;
+    height: 13px;
+    color: light-dark(rgb(29, 138, 74), rgb(80, 200, 120));
+  }
+  & > .whimsy-chat-spinner {
+    width: 13px;
+    height: 13px;
+    color: var(--whimsy-chat-accent);
+  }
+}
+.whimsy-routine-skip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--whimsy-chat-track);
+  font-size: 13px;
+  & > b {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+  }
+  & > b > .whimsy-chat-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--whimsy-chat-muted);
+  }
+  & .whimsy-routine-skip-text {
+    font-size: 12.5px;
+    color: var(--whimsy-chat-muted);
+  }
+}
