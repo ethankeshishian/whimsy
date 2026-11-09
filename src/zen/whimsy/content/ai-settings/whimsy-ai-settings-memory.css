@@ -1,0 +1,46 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 memory-fire: Settings › AI › Memory list rows and in-place editing. */
+
+.whimsy-memory-row .whimsy-ai-item-end {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.whimsy-ai-iconbtn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+}
+
+.whimsy-ai-iconbtn:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.whimsy-ai-iconbtn > img {
+  width: 16px;
+  height: 16px;
+  display: block;
+  /* Whimsy's line icons draw with context-fill (pencil is a stroke). */
+  -moz-context-properties: fill, stroke;
+  fill: currentColor;
+  stroke: currentColor;
+}
+
+.whimsy-memory-edit {
+  flex: 1;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 6px;
+  padding: 4px 6px;
+  resize: none;
+  min-height: 1.4em;
+}

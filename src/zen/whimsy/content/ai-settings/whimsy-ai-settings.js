@@ -301,7 +301,7 @@ var WhimsyAISettings = {
     const win = this.browserWindow();
     const { WhimsyFireButton } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFireButton.sys.mjs");
     win?.focus();
-    WhimsyFireButton.openPanel(win);
+    WhimsyFireButton.openPanel(win, { aiOnly: true });
   },
 
   _buildOffLimits() {

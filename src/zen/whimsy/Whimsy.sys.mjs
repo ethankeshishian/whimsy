@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
+  WhimsyAIIndex: "resource:///modules/whimsy/WhimsyAIIndex.sys.mjs",
   WhimsyAISelectionCard: "resource:///modules/whimsy/WhimsyAISelectionCard.sys.mjs",
   WhimsyCommandBarUpdates: "resource:///modules/whimsy/WhimsyCommandBarUpdates.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
@@ -668,6 +669,8 @@ export const Whimsy = {
     run("ai-commands", () => lazy.WhimsyAICommands.initWindow(win));
     // W23 commands: AI rows on selected text and their result card; each checks its switch and AI on use.
     run("ai-selection-commands", () => lazy.WhimsyAISelectionCard.initWindow(win));
+    // W23 memory-fire: "Related" rows by meaning, from the on-device index.
+    run("ai-related", () => lazy.WhimsyAIIndex.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

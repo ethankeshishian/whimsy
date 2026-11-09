@@ -247,6 +247,13 @@ export const WhimsyAIHints = {
     return waiting?.id ?? null;
   },
 
+  // Tests: whichever ids are registered right now, so an audit (W23
+  // memory-fire's AI-off-everywhere test) doesn't need to hardcode the
+  // full id list from the spec as later lanes merge their own hints.
+  _registeredIdsForTesting() {
+    return [...registered.keys()];
+  },
+
   _setTimingForTesting(t) {
     timing = t ? { ...DEFAULT_TIMING, ...t } : { ...DEFAULT_TIMING };
   },
