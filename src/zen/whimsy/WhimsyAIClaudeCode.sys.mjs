@@ -352,7 +352,7 @@ export const WhimsyAIClaudeCode = {
    * the run). Only their read-only tools run without asking; any other
    * tool goes to the run's permission tool, or is refused without one.
    */
-  _args({ system, mcpFile = null, allowed = [], permissionTool = null, stream = false }) {
+  _args({ systemFile = null, mcpFile = null, allowed = [], permissionTool = null, stream = false }) {
     const args = ["-p", "--output-format", stream ? "stream-json" : "json"];
     if (stream) {
       args.push("--verbose", "--include-partial-messages");
@@ -370,13 +370,25 @@ export const WhimsyAIClaudeCode = {
       args.push("--strict-mcp-config");
     }
     args.push("--no-session-persistence");
-    if (system) {
-      args.push("--system-prompt", system);
+    // L2: the system prompt (page text, memories) goes in a 0600 file,
+    // never on the command line where `ps` shows it to other users.
+    if (systemFile) {
+      args.push("--system-prompt-file", systemFile);
     }
     if (Services.prefs.prefHasUserValue(MODEL_PREF)) {
       args.push("--model", Services.prefs.getStringPref(MODEL_PREF));
     }
     return args;
+  },
+
+  // Writes one run's private file (0600 in the 0700 folder, mode set before
+  // anything is written); the caller deletes it.
+  async _writePrivate(prefix, text) {
+    const file = PathUtils.join(await this._workdir(), `${prefix}-${Services.uuid.generateUUID().toString().slice(1, -1)}`);
+    await IOUtils.writeUTF8(file, "", { mode: "create" });
+    await IOUtils.setPermissions(file, 0o600);
+    await IOUtils.writeUTF8(file, text, { mode: "overwrite" });
+    return file;
   },
 
   // Writes the run's connector file (0600 in the 0700 folder), or null.
@@ -418,8 +430,9 @@ export const WhimsyAIClaudeCode = {
       throw error("claude-code-missing");
     }
     const { file, allowed, permissionTool } = await this._writeMcpConfig(mcpServers ?? tools);
+    const systemFile = system ? await this._writePrivate("system", String(system)) : null;
     try {
-      const args = this._args({ system, mcpFile: file, allowed, permissionTool });
+      const args = this._args({ systemFile, mcpFile: file, allowed, permissionTool });
       const { exitCode, stdout, stderr } = await this._run(command, args, { input: String(prompt ?? ""), signal });
       let result = null;
       for (const line of stdout.trim().split("\n").reverse()) {
@@ -436,8 +449,8 @@ export const WhimsyAIClaudeCode = {
       }
       throw this._failure(`${typeof result?.result == "string" ? result.result : ""}\n${stderr}`, exitCode);
     } finally {
-      if (file) {
-        await IOUtils.remove(file, { ignoreAbsent: true });
+      for (const path of [file, systemFile].filter(Boolean)) {
+        await IOUtils.remove(path, { ignoreAbsent: true });
       }
     }
   },
@@ -453,9 +466,10 @@ export const WhimsyAIClaudeCode = {
       throw error("claude-code-missing");
     }
     const { file, allowed, permissionTool } = await this._writeMcpConfig(mcpServers ?? tools);
+    const systemFile = system ? await this._writePrivate("system", String(system)) : null;
     let run = null;
     try {
-      run = await this._spawn(command, this._args({ system, mcpFile: file, allowed, permissionTool, stream: true }), {
+      run = await this._spawn(command, this._args({ systemFile, mcpFile: file, allowed, permissionTool, stream: true }), {
         input: String(prompt ?? ""),
         signal,
       });
@@ -503,8 +517,8 @@ export const WhimsyAIClaudeCode = {
         run?.proc.kill();
       } catch {}
       run?.cleanup();
-      if (file) {
-        await IOUtils.remove(file, { ignoreAbsent: true });
+      for (const path of [file, systemFile].filter(Boolean)) {
+        await IOUtils.remove(path, { ignoreAbsent: true });
       }
     }
   },
