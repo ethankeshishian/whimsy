@@ -218,7 +218,6 @@ export const WhimsyVideoSummary = {
   stateFor(actor, videoId) {
     const { win, tab } = this.tabOfActor(actor);
     const threadId = tab && this.threadFor(tab, videoId);
-    dump(`WHIMSY-DEBUG stateFor: videoId=${videoId} tabId=${tab?.linkedBrowser?.browserId} threadId=${threadId}\n`);
     if (!threadId) {
       return "none";
     }
@@ -246,19 +245,15 @@ export const WhimsyVideoSummary = {
     lazy.WhimsyAIHints.used("video-summary");
     const threadId = this.threadFor(tab, videoId);
     const panel = lazy.WhimsyChatPanel.forWindow(win);
-    dump(`WHIMSY-DEBUG toggle in: videoId=${videoId} tabId=${tab?.linkedBrowser?.browserId} threadId=${threadId} isOpen=${lazy.WhimsyChat.isOpen(win)} panelThreadId=${panel.thread?.id} byTabHasTab=${byTab.has(tab)}\n`);
     if (threadId && lazy.WhimsyChat.isOpen(win) && panel.thread?.id == threadId) {
       lazy.WhimsyChat.close(win, { reason: "video" });
-      dump("WHIMSY-DEBUG toggle: closed, returning hidden\n");
       return "hidden";
     }
     if (threadId && (await lazy.WhimsyAIStore.thread(threadId))) {
       await lazy.WhimsyChat.open(win, { threadId, focus: "card" });
-      dump("WHIMSY-DEBUG toggle: reopened, returning shown\n");
       return "shown";
     }
     await this.summarize(win, tab, { actor, videoId });
-    dump("WHIMSY-DEBUG toggle: fresh summarize, returning shown\n");
     return "shown";
   },
 

@@ -763,7 +763,6 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     }
     try {
       const state = await this.sendQuery("WhimsyVideoSpeed:SummaryState", { videoId: this.idOf(video) });
-      dump(`WHIMSY-DEBUG querySummary: videoId=${this.idOf(video)} state=${state} sameVideo=${this.current == video}\n`);
       if (this.current == video && state) {
         this.summaryState = state;
         this.render();
@@ -909,7 +908,6 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
 
   async pressSummarize() {
     const video = this.current;
-    dump(`WHIMSY-DEBUG pressSummarize: video=${!!video} videoId=${video ? this.idOf(video) : null} summarizing=${this.summarizing} summaryState(before)=${this.summaryState}\n`);
     if (!video || this.summarizing) {
       return;
     }
@@ -917,16 +915,14 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.render();
     try {
       const state = await this.sendQuery("WhimsyVideoSpeed:Summarize", { videoId: this.idOf(video) });
-      dump(`WHIMSY-DEBUG pressSummarize: got state=${state}\n`);
       if (state) {
         this.summaryState = state;
       }
     } catch (e) {
-      dump(`WHIMSY-DEBUG pressSummarize: threw ${e}\n`);
+      // The page is going away.
     }
     this.summarizing = false;
     this.render();
-    dump(`WHIMSY-DEBUG pressSummarize: summaryState(after)=${this.summaryState}\n`);
   }
 
   // Firefox's picture-in-picture, called directly (its own toggle is hidden by pref).
