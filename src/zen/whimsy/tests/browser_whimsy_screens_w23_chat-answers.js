@@ -409,6 +409,9 @@ add_task(async function shots_pass_through() {
       await ask("Do deep research on parking reform and rents");
       await answered();
       await TestUtils.waitForCondition(() => part(".whimsy-chat-report"), "Report card");
+      // The report opens in a background tab; wait for its file to load so
+      // the clean-up below finds it (a tab still on about:blank was left open).
+      await TestUtils.waitForCondition(() => gBrowser.tabs.some(t => t.linkedBrowser.currentURI.spec.endsWith(".md")), "The report opens beside the chat");
       return async () => {
         for (const t of gBrowser.tabs.filter(t => t.linkedBrowser.currentURI.spec.endsWith(".md"))) {
           BrowserTestUtils.removeTab(t);
