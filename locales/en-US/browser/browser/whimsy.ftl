@@ -6394,6 +6394,8 @@ whimsy-routine-builtin-meeting-follow-up-prompt = From Granola’s notes and the
 # The command bar's placeholder in commands mode ("/", or ⌘K on an image or a selection).
 whimsy-cmdk-type-command =
     .placeholder = Type a command
+# The chip at the start of the command bar in commands mode.
+whimsy-cmdk-mode-actions = Actions
 whimsy-cmdk-group-selection =
     .label = “{ $text }” · Selection
 whimsy-cmdk-group-field =
