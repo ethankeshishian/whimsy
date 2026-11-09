@@ -3,14 +3,27 @@
 
 "use strict";
 
-// W23 voice-image screenshots: dictation (media-5.3, 5.4, 5.5, 5.7, 5.9,
-// 5.10, fu-media 5.2, dec-15). A stand-in for @whimsy/speech;1; panels are
-// copied into the window before each shot (drawSnapshot misses popups).
+// W23 voice-image screenshots.
+// Dictation: media-5.3, 5.4, 5.5, 5.7, 5.9, 5.10, fu-media 5.2, and dec-15,
+// with a stand-in for @whimsy/speech;1.
+// Image text: media-3.1 (nothing drawn), 3.2 (selecting), 3.3 (copied toast),
+// 3.4 (⌘F), 3.5 and 3.7 (⌘K on an image with and without text), and 3.6
+// (translated in place).
+// Read aloud: ⌘K (media-4.1, fu-media 4.10), starting (4.2), playing (4.3),
+// pointing at the card (4.4), the speed and voice menu (fu-media 4.5), paused
+// (4.7), muted from the tab (4.8), finished (4.9), and the card's exit.
+// Panels are copied into the window before each shot (drawSnapshot misses popups).
+
+Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_image_text_w23.js", this);
+Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_read_aloud.js", this);
 
 const { WhimsyDictation } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDictation.sys.mjs");
 const { WhimsyAIHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIHints.sys.mjs");
+const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
 
-const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+UrlbarTestUtils.init(this);
+
+// ROOT comes from head_read_aloud.js.
 const DICTATION_PAGE = ROOT + "whimsy_dictation.html";
 const ARTICLE_PAGE = ROOT + "whimsy_chat_article.html";
 
@@ -40,17 +53,39 @@ function fakeSpeech({ locales = ["en-US"], mic = "authorized" } = {}) {
 
 let speech;
 
+const TRANSLATIONS = {
+  "創業 1887": "SINCE 1887",
+  星野茶舗: "Hoshino Tea Shop",
+  "営業時間 9:00〜17:00 · 年中無休": "Open 9:00 to 17:00 · Every day",
+};
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [
     ["whimsy.feature.dictation", true],
     ["whimsy.feature.ai-hints", false],
     ["whimsy.ai.hints.seen", "voice"],
+    ["reader.parse-on-load.enabled", true],
+    ["findbar.highlightAll", Services.prefs.getBoolPref("findbar.highlightAll", false)],
+    ["accessibility.typeaheadfind.flashBar", Services.prefs.getIntPref("accessibility.typeaheadfind.flashBar", 1)],
   ] });
+  WhimsyImageText.testRecognizer = imageTextRecognizer;
+  WhimsyImageText.testTranslate = lines => lines.map(line => TRANSLATIONS[line] ?? line);
+  WhimsyImageText.testTargetLanguage = "en";
+  WhimsyReadAloud.testSynth = synth;
   registerCleanupFunction(() => {
     WhimsyDictation.cancel();
     WhimsyDictation.setTestSpeech(null);
     WhimsyDictation._barOpens = 0;
     Services.prefs.clearUserPref("ui.IMERawInputForeground");
+    WhimsyImageText.testRecognizer = null;
+    WhimsyImageText.testTranslate = null;
+    WhimsyImageText.testTargetLanguage = null;
+    WhimsyReadAloud.stop({ animate: false });
+    WhimsyReadAloud.testSynth = null;
+    WhimsyReadAloud.leaveDelay = 5000;
+    Services.prefs.clearUserPref("whimsy.read-aloud.rate");
+    Services.prefs.clearUserPref("whimsy.read-aloud.voice");
+    closeToasts();
   });
 });
 
@@ -312,4 +347,253 @@ add_task(async function shots_field_and_panels() {
       };
     });
   });
+});
+
+// Image text.
+
+async function selectTwoLines(browser) {
+  const { lines } = await imageTextLayer(browser);
+  const [l2, l3] = [lines[1].rect, lines[2].rect];
+  await BrowserTestUtils.synthesizeMouseAtPoint(l2.x + 2, l2.y + l2.height / 2, { type: "mousedown" }, browser);
+  await BrowserTestUtils.synthesizeMouseAtPoint(l3.x + l3.width - 2, l3.y + l3.height / 2, { type: "mousemove" }, browser);
+  await BrowserTestUtils.synthesizeMouseAtPoint(l3.x + l3.width - 2, l3.y + l3.height / 2, { type: "mouseup" }, browser);
+  // Park the pointer off the image.
+  await BrowserTestUtils.synthesizeMouseAtPoint(5, 5, { type: "mousemove" }, browser);
+}
+
+async function imageCmdK() {
+  WhimsyVerbs.sessions.delete(window);
+  EventUtils.synthesizeKey("k", { accelKey: true });
+  await TestUtils.waitForCondition(() => WhimsyVerbs.sessions.get(window), "⌘K opened its menu");
+  await UrlbarTestUtils.promiseSearchComplete(window);
+  return async () => {
+    await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.view.close());
+    gURLBar.blur();
+    WhimsyVerbs.sessions.delete(window);
+  };
+}
+
+add_task(async function shots_select_and_copy() {
+  await withImageText("en", async browser => {
+    await whimsyBothSchemes("w23-voice-image-media-3.1", async () => {
+      ok((await imageTextLayer(browser)).lines.length == 3, "3.1: the sign's lines are recognized, nothing drawn");
+    });
+    await whimsyBothSchemes("w23-voice-image-media-3.2", async () => {
+      await selectTwoLines(browser);
+      ok(true, "3.2: two lines selected");
+    });
+    await whimsyBothSchemes("w23-voice-image-media-3.3", async () => {
+      await selectTwoLines(browser);
+      closeToasts();
+      EventUtils.synthesizeKey("c", { accelKey: true });
+      const toast = await TestUtils.waitForCondition(() => gZenUIManager.toasts.getToasts().find(t => t.messageId == "whimsy-image-text-copied"), "The toast");
+      await toast.shown;
+      ok(true, "3.3: Copied text from image");
+      return () => closeToasts();
+    });
+  });
+});
+
+add_task(async function shot_find() {
+  await withImageText("en", async browser => {
+    await whimsyBothSchemes("w23-voice-image-media-3.4", async () => {
+      EventUtils.synthesizeKey("f", { accelKey: true });
+      const findbar = await TestUtils.waitForCondition(() => gBrowser.isFindBarInitialized() && gBrowser.getCachedFindBar(), "The find bar");
+      await TestUtils.waitForCondition(() => !findbar.hidden && document.activeElement == findbar._findField, "Open");
+      findbar._findField.select();
+      EventUtils.sendString("tea");
+      await TestUtils.waitForCondition(() => /\/3$/.test(findbar.querySelector(".whimsy-find-count")?.getAttribute("value") ?? ""), "Three matches, one in the image");
+      EventUtils.synthesizeKey("KEY_Enter");
+      ok(true, "3.4: ⌘F finds the word in the image");
+      return async () => {
+        findbar.close(true);
+        await TestUtils.waitForCondition(() => findbar.hidden, "Closed");
+      };
+    });
+  });
+});
+
+add_task(async function shots_image_cmdk() {
+  await withImageText("jp", async () => {
+    await whimsyBothSchemes("w23-voice-image-media-3.5", async () => {
+      const close = await imageCmdK();
+      ok(true, "3.5: ⌘K with an image with text");
+      return close;
+    });
+  });
+  await withImageText("scene", async () => {
+    await whimsyBothSchemes("w23-voice-image-media-3.7", async () => {
+      const close = await imageCmdK();
+      ok(true, "3.7: ⌘K with an image without text");
+      return close;
+    });
+  });
+});
+
+add_task(async function shots_translate() {
+  await withImageText("jp", async () => {
+    await whimsyBothSchemes("w23-voice-image-media-3.6", async () => {
+      ok(await WhimsyImageText.translate(window), "3.6: translated in place");
+      await new Promise(r => setTimeout(r, 400));
+    });
+  });
+});
+
+// Read aloud.
+
+// Starts reading the open article and drives it to sentence `index`.
+async function reading(index = 0, { start = true } = {}) {
+  WhimsyReadAloud.stop({ animate: false });
+  document.getElementById("cmd_whimsyListenPage").doCommand();
+  await waitForSpeech(sentenceOf(0));
+  if (start) {
+    synth.start();
+  }
+  if (index) {
+    WhimsyReadAloud.goTo(index);
+  }
+  const shown = await cardShown();
+  await whimsySettled();
+  return shown;
+}
+
+async function shoot(name, prepare) {
+  await whimsyBothSchemes(`w23-voice-image-${name}`, async dark => {
+    const cleanup = await prepare(dark);
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(r => setTimeout(r, 250));
+    return async () => {
+      await cleanup?.();
+      WhimsyReadAloud.stop({ animate: false });
+    };
+  });
+  ok(true, `Shot ${name}`);
+}
+
+async function closeVerbsBar() {
+  if (gURLBar.view.isOpen) {
+    await UrlbarTestUtils.promisePopupClose(window, () => {
+      gURLBar.blur();
+      if (gURLBar.view.isOpen) {
+        gURLBar.view.close();
+      }
+    });
+  }
+  gURLBar.searchMode = null;
+  WhimsyVerbs.sessions.delete(window);
+}
+
+// ⌘K with AI on, typed "listen".
+async function cmdKListen() {
+  await SimpleTest.promiseFocus(window);
+  gBrowser.selectedBrowser.focus();
+  WhimsyVerbs.sessions.delete(window);
+  EventUtils.synthesizeKey("k", { accelKey: true });
+  await TestUtils.waitForCondition(() => WhimsyVerbs.sessions.get(window), "⌘K opened its menu");
+  await UrlbarTestUtils.promiseSearchComplete(window);
+  EventUtils.sendString("listen");
+  await UrlbarTestUtils.promiseSearchComplete(window);
+}
+
+add_task(async function shots_read_aloud_cmdk() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true]] });
+  try {
+    await withArticle(async () => {
+      await shoot("media-4.1", async () => {
+        await cmdKListen();
+        const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
+        is(result.payload.whimsyVerb, "listen-page", "4.1: Listen to this page first");
+        return closeVerbsBar;
+      });
+    });
+    await BrowserTestUtils.withNewTab(`${ROOT}whimsy_read_aloud_app.html`, async () => {
+      // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+      await new Promise(r => setTimeout(r, 500));
+      await shoot("fu-media-4.10", async () => {
+        await cmdKListen();
+        const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, 0);
+        is(result.payload.dynamicType, "whimsy-verb-off", "4.10: greyed with its reason");
+        return closeVerbsBar;
+      });
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function shots_player() {
+  // Read aloud works with AI off.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", false]] });
+  await withArticle(async browser => {
+    await shoot("media-4.2", async () => {
+      const { card } = await reading(0, { start: false });
+      ok(card.hasAttribute("busy"), "4.2: starting");
+    });
+    await shoot("media-4.3", async () => {
+      const { card } = await reading(2);
+      ok(card.classList.contains("playing"), "4.3: playing");
+      is(await highlighted(browser), "Then Austria did something odd.", "4.3: the sentence is tinted");
+    });
+    await shoot("media-4.4", async () => {
+      const { holder } = await reading(3);
+      synth.boundary(20);
+      InspectorUtils.addPseudoClassLock(holder, ":hover");
+      await whimsySettled();
+      ok(true, "4.4: pointing at the card");
+      return () => InspectorUtils.removePseudoClassLock(holder, ":hover");
+    });
+    await shoot("fu-media-4.5", async () => {
+      Services.prefs.setStringPref("whimsy.read-aloud.rate", "1.25");
+      const { card } = await reading(3);
+      // The click is covered by browser_whimsy_read_aloud.js; here only the look matters.
+      WhimsyReadAloud.openSpeedMenu(window, card.querySelector(".whimsy-read-aloud-speed"));
+      const panel = await TestUtils.waitForCondition(() => document.getElementById("whimsy-read-aloud-speed-menu"), "The speed menu opens");
+      await TestUtils.waitForCondition(() => panel.state == "open", "The speed menu is open");
+      await document.l10n.translateFragment(panel);
+      ok(panel.querySelector("[aria-selected='true']")?.textContent.includes("1.25×"), "4.5: 1.25× is checked");
+      await whimsySettled();
+      const undo = standInPopups();
+      return async () => {
+        undo();
+        const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+        panel.hidePopup();
+        await hidden;
+        Services.prefs.clearUserPref("whimsy.read-aloud.rate");
+      };
+    });
+    await shoot("media-4.7", async () => {
+      const { card } = await reading(4);
+      WhimsyReadAloud.pause();
+      ok(!card.classList.contains("playing"), "4.7: paused");
+    });
+    await shoot("media-4.8", async () => {
+      const { card } = await reading(4);
+      gBrowser.selectedTab.toggleMuteAudio();
+      ok(card.hasAttribute("muted"), "4.8: muted from the tab");
+      return () => gBrowser.selectedTab.hasAttribute("muted") && gBrowser.selectedTab.toggleMuteAudio();
+    });
+    await shoot("media-4.9", async () => {
+      await reading(0);
+      WhimsyReadAloud.goTo(WhimsyReadAloud.session.sentences.length - 1);
+      synth.end();
+      ok(WhimsyReadAloud.session.card.hasAttribute("finished"), "4.9: finished");
+    });
+
+    // The finished card's exit (Zen's zen-removing), mid-way.
+    await whimsySetScheme(false);
+    try {
+      await reading(0);
+      WhimsyReadAloud.goTo(WhimsyReadAloud.session.sentences.length - 1);
+      synth.end();
+      const card = WhimsyReadAloud.session.card;
+      await whimsySettled();
+      WhimsyReadAloud.stop();
+      await whimsyShotMid("w23-voice-image-media-4.9-leave", () => card.getAnimations().find(a => a.transitionProperty == "opacity"), 150);
+      await TestUtils.waitForCondition(() => !card.isConnected, "The card leaves");
+      ok(true, "Shot the exit mid-way");
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  });
+  await SpecialPowers.popPrefEnv();
 });

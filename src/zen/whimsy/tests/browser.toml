@@ -1103,16 +1103,12 @@ support-files = ["whimsy_chat_article.html"]
 support-files = ["whimsy_dictation.html", "whimsy_cmdk.html"]
 
 ["browser_whimsy_screens_w23_voice-image.js"]
-support-files = ["whimsy_dictation.html", "whimsy_chat_article.html"]
+support-files = ["whimsy_dictation.html", "whimsy_chat_article.html", "head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg", "head_read_aloud.js", "whimsy_read_aloud.html", "whimsy_read_aloud_app.html"]
+
 # W23 voice-image: it
 ["browser_whimsy_image_text.js"]
 support-files = ["head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
 
-["browser_whimsy_screens_w23_voice-image_it.js"]
-support-files = ["head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
 # W23 voice-image: ra (read aloud)
 ["browser_whimsy_read_aloud.js"]
-support-files = ["head_read_aloud.js", "whimsy_read_aloud.html", "whimsy_read_aloud_app.html"]
-
-["browser_whimsy_screens_w23_voice-image_ra.js"]
 support-files = ["head_read_aloud.js", "whimsy_read_aloud.html", "whimsy_read_aloud_app.html"]

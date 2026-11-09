@@ -52,7 +52,14 @@ async function withImageText(kind, fn) {
     try {
       await TestUtils.waitForCondition(async () => (await state()).images > 0, "The image in view was recognized");
     } catch (e) {
-      info(`Image text state: ${JSON.stringify(await state())}`);
+      let registered;
+      try {
+        browser.browsingContext.currentWindowGlobal.getActor("WhimsyImageText");
+        registered = true;
+      } catch (err) {
+        registered = String(err);
+      }
+      info(`Image text state: ${JSON.stringify(await state())}, parent actor: ${registered}, feature: ${Services.prefs.getBoolPref("whimsy.feature.image-text", true)}`);
       throw e;
     }
     await fn(browser, src);

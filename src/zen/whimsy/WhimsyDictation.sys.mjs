@@ -378,7 +378,12 @@ export const WhimsyDictation = {
       return false;
     }
     if (target != "field") {
-      state.base = win.gURLBar.value ?? "";
+      // Words add to what was typed. A page address the bar shows on opening,
+      // or a value that's all selected, is replaced instead.
+      const urlbar = win.gURLBar;
+      const input = urlbar.inputField;
+      const allSelected = input.selectionStart == 0 && input.selectionEnd == input.value.length;
+      state.base = urlbar.valueIsTyped && !allSelected ? (urlbar.value ?? "") : "";
       if (state.base && !/\s$/.test(state.base)) {
         state.base += " ";
       }
