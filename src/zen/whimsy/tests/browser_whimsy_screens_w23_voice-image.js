@@ -282,10 +282,10 @@ add_task(async function shots_command_bar_mic() {
       ["whimsy.ai.hints.seen", "ask,context-commands,chat,updates,video-summary,image-text,agent-mode"],
       ["whimsy.ai.hints.today", ""],
     ] });
-    WhimsyAIHints._resetForTesting();
-    WhimsyAIHints._setTimingForTesting({ gapMs: 0, seenMs: 60000, timeoutMs: 60000, pollMs: 50 });
-    WhimsyDictation.registerHint();
     await whimsyBothSchemes("w23-voice-image-fu-5.2", async () => {
+      WhimsyAIHints._resetForTesting();
+      WhimsyAIHints._setTimingForTesting({ gapMs: 0, seenMs: 60000, timeoutMs: 60000, pollMs: 50 });
+      WhimsyDictation.registerHint();
       // Each scheme shows the hint afresh: neither seen nor counted today.
       Services.prefs.setStringPref("whimsy.ai.hints.seen", "ask,context-commands,chat,updates,video-summary,image-text,agent-mode");
       Services.prefs.setStringPref("whimsy.ai.hints.today", "");
@@ -422,7 +422,8 @@ add_task(async function shot_find() {
       await TestUtils.waitForCondition(() => !findbar.hidden && document.activeElement == findbar._findField, "Open");
       findbar._findField.select();
       EventUtils.sendString("tea");
-      await TestUtils.waitForCondition(() => /\/3$/.test(findbar.querySelector(".whimsy-find-count")?.getAttribute("value") ?? ""), "Three matches, one in the image");
+      // Three in the page's text and one in the image.
+      await TestUtils.waitForCondition(() => /\/4$/.test(findbar.querySelector(".whimsy-find-count")?.getAttribute("value") ?? ""), "Four matches, one in the image");
       EventUtils.synthesizeKey("KEY_Enter");
       ok(true, "3.4: ⌘F finds the word in the image");
       return async () => {

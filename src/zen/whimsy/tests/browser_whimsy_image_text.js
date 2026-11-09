@@ -70,7 +70,7 @@ add_task(async function ibeam_and_select_copy_toast() {
     const [hx, hy] = center(lines[1].rect);
     const hit = await SpecialPowers.spawn(browser, [hx, hy], (x, y) => {
       const el = content.document.elementFromPoint(x, y);
-      return { tag: el.localName, onImage: el.id == "photo", top: el.parentNode == content.document.documentElement };
+      return { tag: el.localName, onImage: el.id == "photo", top: el.parentNode == content.document.body };
     });
     ok(!hit.onImage && hit.top, "The text layer, above the image, takes the pointer over a line");
 
