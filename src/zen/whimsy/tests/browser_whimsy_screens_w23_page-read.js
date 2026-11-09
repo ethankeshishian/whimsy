@@ -345,11 +345,23 @@ add_task(async function find_card() {
     });
     await whimsyBothSchemes(NAME("find-nothing"), async () => {
       const findbar = await openFind("when is the offsite");
-      for (let i = 0; i < 6; i++) {
-        const ask = findbar.querySelector(".whimsy-ask-button");
-        info(`DIAG${i} status=${findbar._findField.getAttribute("status")} val=${JSON.stringify(findbar._findField.value)} askEnabled=${WhimsyAIPage.askEnabled} prov=${WhimsyAIProviders.enabled} mode=${findbar.findMode}==${findbar.FIND_NORMAL} img=${findbar.hasAttribute("whimsy-image-matches")} count=${findbar.querySelector(".whimsy-find-count")?.getAttribute("value")} hidden=${ask.hidden} askable=${ask.hasAttribute("askable")} failed=${findbar._findFailedString} asks=${findbar.querySelectorAll(".whimsy-ask-button").length}`);
-        await new Promise(r => setTimeout(r, 500));
-      }
+      const finder = findbar.browser.finder;
+      info(`DIAGA same=${findbar.browser == gBrowser.selectedBrowser} uri=${findbar.browser.currentURI.spec} hidden=${findbar.hidden} ss=${finder.searchString} last=${findbar.browser._lastSearchString} listeners=${finder._listeners?.length} remote=${findbar.browser.isRemoteBrowser} status=${findbar._findField.getAttribute("status")}`);
+      const listener = {
+        onFindResult: d => info(`DIAGR result=${d.result} ss=${d.searchString}`),
+        onMatchesCountResult: r => info(`DIAGC total=${r.total} cur=${r.current}`),
+        onCurrentSelection() {},
+        onHighlightFinished() {},
+      };
+      finder.addResultListener(listener);
+      findbar._findFailedString = null;
+      findbar._find("when is the offsite");
+      await new Promise(r => setTimeout(r, 1500));
+      info(`DIAGB status=${findbar._findField.getAttribute("status")} count=${findbar.querySelector(".whimsy-find-count")?.getAttribute("value")}`);
+      finder.fastFind("zzzqqq", false, false);
+      await new Promise(r => setTimeout(r, 1500));
+      info(`DIAGD status=${findbar._findField.getAttribute("status")}`);
+      finder.removeResultListener(listener);
       await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered", 100, 150);
       return closeFind;
     });
