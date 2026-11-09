@@ -696,7 +696,8 @@ add_task(async function test_plan_label_in_composer() {
   registerCleanupFunction(() => findbar.close());
   const panel = () => document.getElementById("whimsy-ask-panel");
   WhimsyAIPage.showAnswer(window, findbar, { question: "q", answer: "a" });
-  ok(!panel().querySelector(".whimsy-ask-plan"), "On a key or locally: no plan label");
+  // The find card always names the provider ("Using …"); only a plan adds its label.
+  ok(!panel().querySelector('.whimsy-ask-plan [data-l10n-id="whimsy-ai-plan-using"], .whimsy-ask-manage'), "On a key or locally: no plan label");
   let managed = 0;
   WhimsyAIProviders.registerPlan("openai", {
     connect: async () => ({}),
