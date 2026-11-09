@@ -84,6 +84,17 @@ add_setup(async function () {
       ["whimsy.feature.selection-verbs", true],
       ["browser.translations.enable", true],
       ["whimsy.verbs.skills", ""],
+      // W23 commands: the manifest's own default turns Enable AI on for
+      // every file (for the AI tests' convenience), but this file is about
+      // the plain verbs ⌘K has always had - WhimsyVerbs' own W23 comment
+      // says AI off is "exactly the verbs above, unchanged". With AI left
+      // on, nothing selected now also matches the new context-commands
+      // feature (d4d85031), so test_cmd_k_without_selection_is_web_search
+      // never sees Firefox's plain web search. Scoping it off for the
+      // whole file, rather than threading a leak-pref fix through
+      // whichever AI file happens to run first, keeps this file testing
+      // what it says it tests.
+      ["whimsy.ai.enabled", false],
     ],
   });
   registerCleanupFunction(() => {
