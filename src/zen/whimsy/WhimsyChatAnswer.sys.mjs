@@ -12,6 +12,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReports: "resource:///modules/whimsy/WhimsyAIReports.sys.mjs",
@@ -683,7 +684,8 @@ function renderSaved(doc, msg, ctx) {
   }
   const actions = h(doc, "div", { class: "whimsy-chat-actions" });
   for (const action of lazy.WhimsyChat.answerActions(msg)) {
-    actions.append(h(doc, "button", { class: "whimsy-chat-btn", l10n: action.l10nId, "data-action": action.id, onclick: () => action.run(win, msg) }, icon(doc, action.icon)));
+    const l10n = action.l10nArgs ? [action.l10nId, action.l10nArgs(msg)] : action.l10nId;
+    actions.append(h(doc, "button", { class: "whimsy-chat-btn", l10n, "data-action": action.id, onclick: () => action.run(win, msg) }, icon(doc, action.icon)));
   }
   node.append(actions);
   return node;
@@ -856,6 +858,7 @@ export const WhimsyChatAnswer = {
     C.registerCard("note:chip-removed", (doc, msg, ctx) => lazy.WhimsyChatContextUI.renderRemovedNote(doc, msg, ctx));
     C.registerCard("note:left-out", (doc, msg) => lazy.WhimsyChatContextUI.renderLeftOut(doc, msg));
     lazy.WhimsyAIReports.init();
+    lazy.WhimsyAIMemory.init();
     C.registerCard("note:language", (doc, msg, ctx) =>
       noteLine(doc, {
         kind: "language",

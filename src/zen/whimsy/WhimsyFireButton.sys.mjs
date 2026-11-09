@@ -6,23 +6,15 @@
 // the session you're in, closing its tabs and erasing the traces they left,
 // so you can start fresh.
 //
-// batch8 shipped it as four scopes (This Site / Last 15 Minutes / This Space
-// / Everything). wave7/fire narrows it to what serves that point, in the
-// user's words:
-//   - "Fire in This Profile" (the default): the profile (container) the
-//     current space uses. Closes the unpinned tabs of every space in that
-//     profile, removes that profile's history visits from the last hour
-//     (WhimsySpaceHistory's per-visit profile; unattributed visits count as
-//     Default, as the History filter does), and clears cookies, site data
-//     and cache for the sites those visits and tabs touched, only in that
-//     container. Other profiles keep theirs. (Gecko can't clear one
-//     container by time, so it's by site.)
-//   - "Fire Everywhere": every profile, all time, behind a second confirm
-//     with Cancel as the default.
-// Per-site forgetting isn't ending a session; it's Firefox's "Forget About
-// This Site" (History), and stays reachable as the "Forget About This Site…"
-// command. The old "This Space" scope is the default row now; "Last 15
-// Minutes" became the last hour (Clear Recent History has finer ranges).
+// W23 memory-fire redesign: three separate rows (This Profile / Everywhere /
+// Forget About This Site) become one row with remembered settings: a range
+// (Last hour / Today / 7 days / All time), a space scope (this profile's
+// spaces, picked one by one, or every space everywhere) and a checklist of
+// what to erase, AI data included. The settings persist in whimsy.fire.last
+// (JSON) and are reused next time without re-asking, except that pressing
+// still asks once more, inside the same surface, for the riskiest choices:
+// All time, All spaces, or Memory. "Forget About This Site…" is unrelated
+// (it isn't ending a session) and keeps its own command and flow.
 //
 // Build-plan answer: pinned tabs and Essentials survive (DuckDuckGo's
 // Fireproof): they're left out of the close step, not the clear.
@@ -46,32 +38,36 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFormDrafts: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
+  WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
+const LAST_PREF = "whimsy.fire.last";
 const PANEL_ID = "whimsyFirePanel";
-const PANEL_WIDTH = 400;
-const ICONS = {
-  profile: "chrome://browser/skin/zen-icons/history.svg",
-  site: "chrome://browser/skin/zen-icons/forget.svg",
-  everything: "chrome://browser/skin/zen-icons/selectable/flame.svg",
-};
-const LAST_HOUR_MS = 60 * 60 * 1000;
-// W10-58: the "Clearing…" toast waits for the result (which replaces it);
-// the result stays long enough to read.
+const PANEL_WIDTH = 420;
+const FLAME_ICON = "chrome://browser/skin/zen-icons/selectable/flame.svg";
 const WORKING_TIMEOUT_MS = 120 * 1000;
 const DONE_TIMEOUT_MS = 6000;
-// What Everything clears, and exactly what the sheet names: history,
-// cookies, site data, cache and the download list. Bookmarks, passwords,
-// downloaded files and site permissions stay. Fire in This Profile clears SITE_FLAGS per site, and
-// that profile's history visits.
+const DAY_MS = 86400000;
+const RANGES = ["hour", "today", "week", "all"];
+// "Today's browsing items plus that hour's AI chats..." (fire-2.1): the
+// first-time AI items use the same hour as the browsing default, not the
+// browsing range, which is why ranges are stored once and applied to both.
+const DEFAULT_ITEMS = {
+  tabs: true, history: true, aiChats: true, agentActivity: true, index: true,
+  memory: false, routineResults: false, downloads: false,
+};
+const ITEM_IDS = Object.keys(DEFAULT_ITEMS);
+// What Fire never erases, now including the AI items themselves
+// (providers, connectors, commands, routines; fire dec-10).
+const KEPT_IDS = ["passwords", "bookmarks", "files", "permissions", "essentials", "ai-settings"];
+
 const FORGET_FLAGS =
   Ci.nsIClearDataService.CLEAR_HISTORY |
   Ci.nsIClearDataService.CLEAR_COOKIES_AND_SITE_DATA |
   Ci.nsIClearDataService.CLEAR_ALL_CACHES |
-  // The download list (Clear History's "downloads"); files on disk stay.
   Ci.nsIClearDataService.CLEAR_DOWNLOADS;
 const SITE_FLAGS = Ci.nsIClearDataService.CLEAR_COOKIES_AND_SITE_DATA | Ci.nsIClearDataService.CLEAR_ALL_CACHES;
 
@@ -115,13 +111,64 @@ function clearData(sinceMs = null) {
   });
 }
 
+// Last hour / today (local midnight) / 7 days / all time, as a duration in
+// ms (null for all time).
+function rangeMs(range) {
+  if (range == "hour") {
+    return 60 * 60 * 1000;
+  }
+  if (range == "week") {
+    return 7 * DAY_MS;
+  }
+  if (range == "today") {
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    return Date.now() - midnight.getTime();
+  }
+  return null;
+}
+
+function defaultSettings() {
+  return { range: "hour", allSpaces: false, spaceIds: null, items: { ...DEFAULT_ITEMS } };
+}
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(Services.prefs.getStringPref(LAST_PREF, ""));
+    const d = defaultSettings();
+    if (!saved || typeof saved != "object") {
+      return d;
+    }
+    return {
+      range: RANGES.includes(saved.range) ? saved.range : d.range,
+      allSpaces: !!saved.allSpaces,
+      spaceIds: Array.isArray(saved.spaceIds) ? saved.spaceIds : null,
+      items: { ...d.items, ...(saved.items && typeof saved.items == "object" ? saved.items : {}) },
+    };
+  } catch {
+    return defaultSettings();
+  }
+}
+
+function saveSettings(settings) {
+  Services.prefs.setStringPref(LAST_PREF, JSON.stringify(settings));
+}
+
+function anyItemOn(settings) {
+  return ITEM_IDS.some(id => settings.items[id]);
+}
+
+// Asks once more, inside the same surface, only for the riskiest choices.
+function needsConfirm(settings) {
+  return settings.range == "all" || settings.allSpaces || settings.items.memory;
+}
+
 export const WhimsyFireButton = {
-  // What Everything clears (the sheet names exactly these), and what the
-  // profile fire clears for each site it touched.
   forgetFlags: FORGET_FLAGS,
   siteFlags: SITE_FLAGS,
+  ITEM_IDS,
+  RANGES,
 
-  // Clears FORGET_FLAGS from the last `sinceMs` (all time when null).
   clearData(sinceMs = null) {
     return clearData(sinceMs);
   },
@@ -130,11 +177,16 @@ export const WhimsyFireButton = {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },
 
+  lastSettings() {
+    return loadSettings();
+  },
+
   initWindow(win) {
     const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
     WhimsyCommands.register(win, {
       id: "cmd_whimsyFireButton",
       l10nId: "whimsy-action-fire-button",
+      l10nArgs: () => ({ summary: this.summaryOf(win, loadSettings()) }),
       run: w => this.openPanel(w),
       icon: "chrome://browser/skin/forget.svg",
       isAvailable: () => this.enabled,
@@ -148,23 +200,17 @@ export const WhimsyFireButton = {
       icon: "chrome://browser/skin/forget.svg",
       isAvailable: w => this.enabled && !!siteOf(w.gBrowser.selectedTab),
     });
-    // wave8/cmds: W8-46 direct commands for Fire in This Profile and Fire Everywhere
-    WhimsyCommands.register(win, {
-      id: "cmd_whimsyFireProfile",
-      l10nId: "whimsy-fire-profile",
-      run: w => this.run(w, () => this.burnProfile(w), "profile"),
-      icon: "chrome://browser/skin/forget.svg",
-      isAvailable: () => this.enabled,
-    });
-    WhimsyCommands.register(win, {
-      id: "cmd_whimsyFireEverywhere",
-      l10nId: "whimsy-fire-everything",
-      // W10-30: straight to the surface's second step; nothing runs
-      // until its red button.
-      run: w => this.openPanel(w, { choice: "everything", confirm: true }),
-      icon: "chrome://browser/skin/forget.svg",
-      isAvailable: () => this.enabled,
-    });
+  },
+
+  // The command-bar row's tag: what pressing it (then ⌘Return to repeat)
+  // will do, in words.
+  summaryOf(win, settings = loadSettings()) {
+    const lang = Services.locale.appLocalesAsBCP47;
+    const rangeLabel = { hour: "Last hour", today: "Today", week: "7 days", all: "All time" }[settings.range];
+    const scopeLabel = settings.allSpaces
+      ? "all spaces"
+      : lazy.WhimsyProfiles.nameOf(this.profileId(win)) || "this profile";
+    return new Intl.ListFormat(lang, { style: "narrow", type: "unit" }).format([rangeLabel, scopeLabel]);
   },
 
   closableTabs(win, tabs) {
@@ -227,22 +273,29 @@ export const WhimsyFireButton = {
     return lazy.WhimsyProfiles.activeProfileId(win);
   },
 
-  // The spaces using a profile, in Zen's order.
-  profileSpaces(win, id = this.profileId(win)) {
-    return lazy.WhimsyProfiles.spacesFor(id, win).filter(space => !space.whimsyScratch);
+  // Every non-scratch space, hidden ones included only while unlocked
+  // (fire dec-11: Fire never unlocks one).
+  visibleSpaces(win) {
+    return lazy.WhimsyProfiles.spaces(win).filter(space =>
+      !space.whimsyScratch && !(space.whimsyHidden && lazy.WhimsySpaceLock.isCovered(space.uuid)));
   },
 
-  // Every tab, in every ordinary window, that lives in one of the profile's
-  // spaces: [[window, tabs], ...].
-  profileTabs(win, id = this.profileId(win)) {
-    const uuids = new Set(this.profileSpaces(win, id).map(space => space.uuid));
+  // The spaces a profile-scoped burn would act on: every space of the
+  // profile when spaceIds is null/empty, else just those (a partial pick).
+  profileSpaces(win, id = this.profileId(win), spaceIds = null) {
+    const all = this.visibleSpaces(win).filter(space => lazy.WhimsyProfiles.profileIdOfSpace(space) === id);
+    return spaceIds?.length ? all.filter(space => spaceIds.includes(space.uuid)) : all;
+  },
+
+  // Every tab, in every ordinary window, that lives in one of `spaces`:
+  // [[window, tabs], ...].
+  tabsOfSpaces(win, spaces) {
+    const uuids = new Set(spaces.map(space => space.uuid));
     const result = [];
     for (const w of Services.wm.getEnumerator("navigator:browser")) {
       if (w.closed || !w.gBrowser || lazy.PrivateBrowsingUtils.isWindowPrivate(w)) {
         continue;
       }
-      // Every space's tabs: gBrowser.tabs holds only the showing space's.
-      // Not Zen's shared empty tab, which carries a space id too.
       const tabs = (w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs).filter(t =>
         uuids.has(t.getAttribute("zen-workspace-id")) && !t.hasAttribute("zen-empty-tab"));
       if (tabs.length) {
@@ -252,13 +305,17 @@ export const WhimsyFireButton = {
     return result;
   },
 
-  // History visits of a profile since `since` (ms), as the History
-  // profile filter sees them.
+  profileTabs(win, id = this.profileId(win)) {
+    return this.tabsOfSpaces(win, this.profileSpaces(win, id));
+  },
+
+  // History visits of a profile since `since` (ms since the epoch, or 0
+  // for all time), as the History profile filter sees them.
   async profileVisits(id, since) {
     const rows = await lazy.WhimsySpaceHistory.query({
-      profile: lazy.WhimsyProfiles.keyFor(id), days: (Date.now() - since) / 86400000, limit: 100000,
+      profile: lazy.WhimsyProfiles.keyFor(id), days: (Date.now() - (since || 0)) / DAY_MS, limit: 100000,
     });
-    return rows.filter(row => row.date.getTime() >= since);
+    return since ? rows.filter(row => row.date.getTime() >= since) : rows;
   },
 
   // One visit, not the page: other profiles' visits to the same URL stay.
@@ -279,80 +336,114 @@ export const WhimsyFireButton = {
     });
   },
 
-  // The default: fire this profile. Removes its last hour of history,
-  // clears the sites it touched in its container only, and closes the
-  // unpinned tabs of its spaces. Returns what went, for the toast.
-  async burnProfile(win) {
-    const id = this.profileId(win);
-    const since = Date.now() - LAST_HOUR_MS;
-    const groups = this.profileTabs(win, id);
-    const sites = new Set();
-    for (const [, tabs] of groups) {
-      for (const tab of tabs) {
-        const site = (tab.lastAccessed || 0) >= since ? siteOf(tab) : null;
-        if (site) {
-          sites.add(site);
-        }
-      }
-    }
-    // H2: close and forget first, then clear. W10-58: the tabs go before
-    // the history lookup (seconds on a busy profile), so the window answers
-    // the button at once; run() says it's still clearing.
-    let count = 0;
-    for (const [w, tabs] of groups) {
-      count += this.burnTabs(w, tabs, "profile");
-    }
-    const visits = await this.profileVisits(id, since);
-    for (const visit of visits) {
-      const site = siteOfURL(visit.url);
-      if (site) {
-        sites.add(site);
-      }
-    }
-    await this.purgeClosed((tab, closedAt) => (tab.userContextId || 0) == id && closedAt >= since);
-    await Promise.all([...sites].map(site => this.clearSiteData(site, id)));
-    await Promise.all(visits.map(visit => this.removeVisit(visit)));
-    // R1 v2 §3: Fire never asks, and erases drafts in its scope too.
-    await lazy.WhimsyFormDrafts.forgetContainer(id);
-    return { count, visits: visits.length, sites: sites.size, profile: lazy.WhimsyProfiles.nameOf(id) };
-  },
-
-  // Form & search history (and search bar/find bar text), all time, with
-  // Firefox's own Clear History item, so Fire Everywhere covers what Clear
-  // All History does. Saved passwords and bookmarks aren't touched.
+  // Form & search history (and search bar/find bar text); only run when
+  // every space everywhere is in scope (it isn't per-container).
   clearFormHistory() {
     return lazy.Sanitizer.sanitize(["formdata"]);
   },
 
-  // Every ordinary window's tabs: [[window, tabs], ...].
   allTabs() {
     const result = [];
     for (const w of Services.wm.getEnumerator("navigator:browser")) {
       if (!w.closed && w.gBrowser && !lazy.PrivateBrowsingUtils.isWindowPrivate(w)) {
-        // Every space's tabs, not just the showing space's (gBrowser.tabs).
         result.push([w, (w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs).filter(t => !t.hasAttribute("zen-empty-tab"))]);
       }
     }
     return result;
   },
 
-  // Fire Everywhere: close every unpinned tab in every window, forget every
-  // closed tab and window, then clear (H2: that order).
-  async burnEverything(win) {
-    let count = 0;
-    for (const [w, tabs] of this.allTabs(win)) {
-      count += this.burnTabs(w, tabs, "everything");
+  // What settings would close, for the summary and the disabled state.
+  async counts(win, settings) {
+    const sum = groups => groups.reduce((n, [w, tabs]) => n + this.closableTabs(w, tabs).length, 0);
+    const spaces = settings.allSpaces ? this.visibleSpaces(win) : this.profileSpaces(win, this.profileId(win), settings.spaceIds);
+    return {
+      tabs: settings.items.tabs ? sum(this.tabsOfSpaces(win, spaces)) : 0,
+      spaces,
+    };
+  },
+
+  // Runs one Fire with `settings` (see loadSettings): closes tabs, then
+  // clears what's ticked, within the range and space scope. H2: tabs close
+  // and are forgotten first; only then does anything else clear.
+  async burn(win, settings) {
+    const since = rangeMs(settings.range) == null ? null : Date.now() - rangeMs(settings.range);
+    const id = this.profileId(win);
+    const spaces = settings.allSpaces ? this.visibleSpaces(win) : this.profileSpaces(win, id, settings.spaceIds);
+    const groups = settings.items.tabs ? this.tabsOfSpaces(win, spaces) : [];
+    let tabCount = 0;
+    for (const [w, tabs] of groups) {
+      tabCount += this.burnTabs(w, tabs, "fire");
     }
-    await this.purgeClosed(() => true);
-    await this.clearData();
-    await this.clearFormHistory();
-    // R1 v2 §3, §9: Fire Everywhere erases every draft, including the
-    // in-memory (private) ones.
-    await lazy.WhimsyFormDrafts.forgetAll();
-    // W23: chats, research reports, Activity, the index, memory, and routine
-    // results, with the Updates feed.
-    await lazy.WhimsyAIStore.clear();
-    return count;
+    const burnedIds = settings.allSpaces ? null : id;
+    await this.purgeClosed((tab, closedAt) =>
+      (since == null || closedAt >= since) &&
+      (settings.allSpaces || (tab.userContextId || 0) == burnedIds));
+
+    let visitCount = 0, siteCount = 0;
+    if (settings.items.history) {
+      if (settings.allSpaces) {
+        await clearData(since == null ? null : rangeMs(settings.range));
+        visitCount = -1; // Unknown exactly; the toast says "history" generically.
+      } else {
+        const sites = new Set();
+        for (const [, tabs] of groups) {
+          for (const tab of tabs) {
+            const site = (since == null || (tab.lastAccessed || 0) >= since) ? siteOf(tab) : null;
+            if (site) {
+              sites.add(site);
+            }
+          }
+        }
+        const visits = await this.profileVisits(id, since);
+        for (const visit of visits) {
+          const site = siteOfURL(visit.url);
+          if (site) {
+            sites.add(site);
+          }
+        }
+        await Promise.all([...sites].map(site => this.clearSiteData(site, id)));
+        await Promise.all(visits.map(visit => this.removeVisit(visit)));
+        visitCount = visits.length;
+        siteCount = sites.size;
+      }
+    }
+    if (settings.items.downloads) {
+      await new Promise(resolve => Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_DOWNLOADS, { onDataDeleted: resolve }));
+    }
+    if (settings.allSpaces && settings.items.history) {
+      await this.clearFormHistory();
+    }
+    if (settings.items.tabs) {
+      if (settings.allSpaces) {
+        await lazy.WhimsyFormDrafts.forgetAll();
+      } else {
+        await lazy.WhimsyFormDrafts.forgetContainer(id);
+      }
+    }
+    const kinds = [];
+    if (settings.items.aiChats) {
+      kinds.push("chats", "reports");
+    }
+    if (settings.items.agentActivity) {
+      kinds.push("activity");
+    }
+    if (settings.items.index) {
+      kinds.push("index");
+    }
+    if (settings.items.memory) {
+      kinds.push("memory");
+    }
+    if (settings.items.routineResults) {
+      kinds.push("routineResults");
+    }
+    if (kinds.length) {
+      await lazy.WhimsyAIStore.clear({ since, kinds });
+    }
+    return {
+      tabs: tabCount, visits: visitCount, sites: siteCount,
+      profile: settings.allSpaces ? null : lazy.WhimsyProfiles.nameOf(id),
+      items: ITEM_IDS.filter(i => settings.items[i]),
+    };
   },
 
   // "Forget About This Site…" (command bar): ForgetAboutSite takes the base
@@ -360,7 +451,7 @@ export const WhimsyFireButton = {
   async burnSite(win) {
     const site = siteOf(win.gBrowser.selectedTab);
     if (!site) {
-      return 0;
+      return { tabs: 0 };
     }
     let count = 0;
     for (const [w, tabs] of this.allTabs(win)) {
@@ -369,51 +460,64 @@ export const WhimsyFireButton = {
     await this.purgeClosed(tab => (tab.entries ?? []).some(entry => siteOfURL(entry.url) == site));
     await lazy.ForgetAboutSite.removeDataFromBaseDomain(site);
     await lazy.WhimsyFormDrafts.forgetSite(site);
-    return count;
+    return { tabs: count };
   },
 
-  // "Forget About This Site…": the Fire surface with the site chosen
-  // (W10-30: it replaced the system dialog). Nothing runs until its button.
+  // "Forget About This Site…": its own small surface (W10-30: it replaced
+  // the system dialog), unrelated to the Fire settings above since it
+  // isn't ending a session. Nothing runs until its button; no second ask.
   forgetSite(win) {
-    if (!siteOf(win.gBrowser.selectedTab)) {
+    const site = siteOf(win.gBrowser.selectedTab);
+    if (!site) {
       return null;
     }
-    return this.openPanel(win, { choice: "site" });
-  },
-
-  // What each choice would close, for the cards' wording.
-  counts(win) {
-    const profileId = this.profileId(win);
-    const sum = groups => groups.reduce((n, [w, tabs]) => n + this.closableTabs(w, tabs).length, 0);
-    const tab = win.gBrowser.selectedTab;
-    const site = lazy.PrivateBrowsingUtils.isWindowPrivate(win) ||
-      lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) ? null : siteOf(tab);
-    return {
-      profileId,
-      profile: sum(this.profileTabs(win, profileId)),
-      site,
-      siteTabs: site ? sum(this.allTabs(win).map(([w, tabs]) => [w, tabs.filter(t => siteOf(t) == site)])) : 0,
-      everything: sum(this.allTabs(win)),
-    };
-  },
-
-  // W10-30: a WhimsySurface (the Edit Look family). "What should Fire
-  // erase?" over three choice cards that say in full what each erases (the
-  // user didn't know what Fire Everywhere or Forget About This Site do),
-  // what's always kept, and one red button that names the choice. Fire
-  // Everywhere asks once more inside the same surface (Back is the
-  // default). Return on a card only chooses it.
-  panel(win, { choice = "profile" } = {}) {
     const doc = win.document;
-    const c = this.counts(win);
-    if (choice == "site" && !c.site) {
-      choice = "profile";
-    }
-    const lang = Services.locale.appLocalesAsBCP47;
-    const spaces = new Intl.ListFormat(lang, { style: "long", type: "conjunction" })
-      .format(this.profileSpaces(win, c.profileId).map(space => space.name).filter(Boolean));
-    const profile = lazy.WhimsyProfiles.nameOf(c.profileId);
+    const parts = lazy.WhimsySurface.create(win, {
+      id: PANEL_ID, width: 360, titleL10nId: "whimsy-fire-site-heading", close: true, footer: true,
+      className: "whimsy-fire whimsy-fire-site",
+    });
+    const { panel, view, footer, title } = parts;
+    doc.l10n.setAttributes(title, "whimsy-fire-site-heading", { site });
+    const body = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
+    doc.l10n.setAttributes(body, "whimsy-fire-site-body", { site });
+    view.append(body);
+    const cancel = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-fire-cancel", id: "whimsy-fire-cancel", onCommand: () => lazy.WhimsySurface.close(panel),
+    });
+    const forget = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-fire-run-site", l10nArgs: { site }, id: "whimsy-fire-forget", destructive: true,
+      onCommand: () => {
+        lazy.WhimsySurface.close(panel);
+        this.run(win, () => this.burnSite(win), "site", { site });
+      },
+    });
+    footer.append(cancel, forget);
+    lazy.WhimsySurface.finish(parts);
+    lazy.WhimsySurface.open(win, panel, { at: "page-center" });
+    return panel;
+  },
 
+  // A private window: that window only, with a fresh session; never
+  // crosses between private and normal (fire dec-8). No profile, spaces
+  // or items picker; just a single confirm.
+  async burnPrivateWindow(win) {
+    const tabs = (win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs).filter(t => !t.hasAttribute("zen-empty-tab"));
+    const count = this.burnTabs(win, tabs, "private");
+    const attrs = win.gBrowser.selectedBrowser?.browsingContext?.originAttributes ?? {};
+    await new Promise(resolve =>
+      Services.clearData.deleteDataFromOriginAttributesPattern(
+        { privateBrowsingId: attrs.privateBrowsingId || 1 }, resolve));
+    win.BrowserCommands?.openTab?.() ?? win.gBrowser.addTrustedTab("about:privatebrowsing", { inBackground: false });
+    return { tabs: count };
+  },
+
+  // W10-30: a WhimsySurface (the Edit Look family). One row of settings
+  // (range, scope, items) replaces the old three cards; the explicit red
+  // button always says "Can't be undone", and the riskiest choices (All
+  // time, All spaces, Memory) ask once more inside the same surface.
+  panel(win, { settings = loadSettings() } = {}) {
+    const doc = win.document;
+    const isPrivate = lazy.PrivateBrowsingUtils.isWindowPrivate(win);
     let step = "choose";
     const parts = lazy.WhimsySurface.create(win, {
       id: PANEL_ID,
@@ -422,7 +526,6 @@ export const WhimsyFireButton = {
       close: true,
       footer: true,
       className: "whimsy-fire",
-      // Esc on the second step goes Back.
       onEscape: () => {
         if (step == "confirm") {
           showChoose();
@@ -430,58 +533,79 @@ export const WhimsyFireButton = {
         }
         return false;
       },
-      initialFocus: () => step == "confirm" ? back : group.querySelector("[aria-checked='true']"),
     });
     const { panel, view, footer, title } = parts;
-    panel._whimsyFire = { profile, counts: c };
 
-    // Step 1: the choices.
-    const choose = doc.createXULElement("vbox");
-    choose.className = "whimsy-fire-step whimsy-fire-choose";
-    const group = lazy.WhimsySurface.group(doc, { role: "radiogroup", label: title.id });
-    group.classList.add("whimsy-fire-choices");
-    const cards = [
-      {
-        value: "profile",
-        nameL10nId: "whimsy-fire-choice-profile",
-        nameArgs: { profile },
-        detailL10nId: spaces ? "whimsy-fire-choice-profile-detail" : "whimsy-fire-choice-profile-detail-unnamed",
-        detailArgs: { count: c.profile, ...(spaces ? { spaces } : {}) },
-      },
-      c.site && {
-        value: "site",
-        nameL10nId: "whimsy-fire-choice-site",
-        nameArgs: { site: c.site },
-        detailL10nId: "whimsy-fire-choice-site-detail",
-        detailArgs: { site: c.site, count: c.siteTabs },
-      },
-      {
-        value: "everything",
-        tone: "destructive",
-        nameL10nId: "whimsy-fire-choice-everything",
-        detailL10nId: "whimsy-fire-choice-everything-detail",
-        detailArgs: { count: c.everything },
-      },
-    ].filter(Boolean);
-    for (const card of cards) {
-      const el = lazy.WhimsySurface.choice(doc, {
-        ...card,
-        icon: ICONS[card.value],
-        onPick: value => this.selectScope(win, panel, value),
-      });
-      el.classList.add("whimsy-fire-scope");
-      el.setAttribute("whimsy-fire-scope", card.value);
-      group.append(el);
+    if (isPrivate) {
+      return this.privatePanel(win, parts);
     }
-    // Return or Space on a card chooses it; it never runs anything.
-    group.addEventListener("keydown", event => {
-      const card = event.target.closest?.(".whimsy-fire-scope");
-      if (card && (event.key == "Enter" || event.key == " ")) {
-        event.preventDefault();
-        event.stopPropagation();
-        this.selectScope(win, panel, card.dataset.value);
-      }
+
+    const body = doc.createXULElement("vbox");
+    body.className = "whimsy-fire-step whimsy-fire-settings";
+    const current = { ...settings, items: { ...settings.items } };
+
+    // Range.
+    const rangeRow = doc.createXULElement("hbox");
+    rangeRow.className = "whimsy-fire-row";
+    rangeRow.setAttribute("align", "center");
+    const rangeLabel = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    doc.l10n.setAttributes(rangeLabel, "whimsy-fire-range-label");
+    const rangeDropdown = lazy.WhimsySurface.dropdown(doc, {
+      id: "whimsy-fire-range",
+      options: RANGES.map(r => ({ value: r, l10nId: `whimsy-fire-range-${r}` })),
+      value: current.range,
+      onPick: v => {
+        current.range = v;
+        refresh();
+      },
     });
+    rangeRow.append(rangeLabel, rangeDropdown.button);
+
+    // Scope: this profile's spaces (checked off one by one) or every space.
+    const scopeGroup = doc.createXULElement("vbox");
+    scopeGroup.className = "whimsy-fire-scope-group";
+    const allSpacesRow = this.checkRow(doc, "whimsy-fire-all-spaces", current.allSpaces, on => {
+      current.allSpaces = on;
+      refresh();
+    });
+    scopeGroup.append(allSpacesRow.row);
+    const spacesList = doc.createXULElement("vbox");
+    spacesList.className = "whimsy-fire-spaces-list";
+    const profileId = this.profileId(win);
+    for (const space of this.profileSpaces(win, profileId)) {
+      const checked = !current.spaceIds?.length || current.spaceIds.includes(space.uuid);
+      const r = this.checkRow(doc, null, checked, on => {
+        const all = this.profileSpaces(win, profileId).map(s => s.uuid);
+        const set = new Set(current.spaceIds?.length ? current.spaceIds : all);
+        if (on) {
+          set.add(space.uuid);
+        } else {
+          set.delete(space.uuid);
+        }
+        current.spaceIds = set.size == all.length ? null : [...set];
+        refresh();
+      });
+      r.label.textContent = space.name || "";
+      spacesList.append(r.row);
+    }
+    scopeGroup.append(spacesList);
+    const partialNote = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
+    partialNote.className = "whimsy-fire-partial-note";
+    doc.l10n.setAttributes(partialNote, "whimsy-fire-partial-note");
+
+    // Items.
+    const itemsList = doc.createXULElement("vbox");
+    itemsList.className = "whimsy-fire-items";
+    const itemRows = {};
+    for (const id of ITEM_IDS) {
+      const r = this.checkRow(doc, `whimsy-fire-item-${id}`, current.items[id], on => {
+        current.items[id] = on;
+        refresh();
+      });
+      itemRows[id] = r;
+      itemsList.append(r.row);
+    }
+
     const kept = doc.createXULElement("hbox");
     kept.className = "whimsy-fire-kept";
     kept.setAttribute("align", "start");
@@ -492,9 +616,14 @@ export const WhimsyFireButton = {
     keptText.id = "whimsy-fire-kept";
     doc.l10n.setAttributes(keptText, "whimsy-fire-kept");
     kept.append(check, keptText);
-    choose.append(group, kept);
 
-    // Step 2 (Fire Everywhere): one more question, in the same surface.
+    const undoneNote = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
+    undoneNote.className = "whimsy-fire-undone-note";
+    doc.l10n.setAttributes(undoneNote, "whimsy-fire-cant-undo");
+
+    body.append(rangeRow, scopeGroup, partialNote, itemsList, kept, undoneNote);
+
+    // Step 2: the extra ask for the riskiest choices.
     const confirm = doc.createXULElement("hbox");
     confirm.className = "whimsy-fire-step whimsy-fire-confirm";
     confirm.setAttribute("align", "start");
@@ -504,38 +633,32 @@ export const WhimsyFireButton = {
     const confirmTitle = doc.createElementNS("http://www.w3.org/1999/xhtml", "h2");
     confirmTitle.id = "whimsy-fire-confirm-title";
     confirmTitle.className = "whimsy-fire-confirm-title";
-    doc.l10n.setAttributes(confirmTitle, "whimsy-fire-everything-confirm-title");
+    doc.l10n.setAttributes(confirmTitle, "whimsy-fire-confirm-title-2");
     const confirmBody = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
     confirmBody.className = "whimsy-fire-confirm-body";
-    doc.l10n.setAttributes(confirmBody, "whimsy-fire-everything-confirm-body", { count: c.everything });
+    doc.l10n.setAttributes(confirmBody, "whimsy-fire-confirm-body-2");
     confirmText.append(confirmTitle, confirmBody);
-    confirm.append(lazy.WhimsySurface.tile(doc, { icon: ICONS.everything, tone: "destructive" }), confirmText);
-    view.append(choose, confirm);
+    confirm.append(lazy.WhimsySurface.tile(doc, { icon: FLAME_ICON, tone: "destructive" }), confirmText);
+    view.append(body, confirm);
 
     const cancel = lazy.WhimsySurface.footerButton(doc, {
-      l10nId: "whimsy-fire-cancel",
-      id: "whimsy-fire-cancel",
+      l10nId: "whimsy-fire-cancel", id: "whimsy-fire-cancel",
       onCommand: () => lazy.WhimsySurface.close(panel),
     });
     const forget = lazy.WhimsySurface.footerButton(doc, {
-      l10nId: "whimsy-fire-run-profile",
-      id: "whimsy-fire-forget",
-      destructive: true,
-      onCommand: () => this.forget(win, panel),
+      l10nId: "whimsy-fire-run", id: "whimsy-fire-forget", destructive: true,
+      onCommand: () => this.pressFire(win, panel, current),
     });
     const back = lazy.WhimsySurface.footerButton(doc, {
-      l10nId: "whimsy-fire-back",
-      id: "whimsy-fire-back",
-      primary: true,
+      l10nId: "whimsy-fire-back", id: "whimsy-fire-back", primary: true,
       onCommand: () => showChoose(),
     });
     const accept = lazy.WhimsySurface.footerButton(doc, {
-      l10nId: "whimsy-fire-everything-confirm-accept",
-      id: "whimsy-fire-everything-accept",
-      destructive: true,
+      l10nId: "whimsy-fire-confirm-accept-2", id: "whimsy-fire-confirm-accept", destructive: true,
       onCommand: () => {
         lazy.WhimsySurface.close(panel);
-        this.run(win, () => this.burnEverything(win), "everything");
+        saveSettings(current);
+        this.run(win, () => this.burn(win, current), "burn", { summary: this.summaryOf(win, current) });
       },
     });
     back.hidden = true;
@@ -547,18 +670,20 @@ export const WhimsyFireButton = {
       step = "choose";
       panel.dataset.step = step;
       title.hidden = false;
-      choose.hidden = false;
+      body.hidden = false;
       confirm.hidden = true;
       cancel.hidden = forget.hidden = false;
       back.hidden = accept.hidden = true;
       panel.setAttribute("aria-labelledby", title.id);
-      group.querySelector("[aria-checked='true']")?.focus();
+      if (panel.state == "open") {
+        back.focus();
+      }
     };
     const showConfirm = () => {
       step = "confirm";
       panel.dataset.step = step;
       title.hidden = true;
-      choose.hidden = true;
+      body.hidden = true;
       confirm.hidden = false;
       cancel.hidden = forget.hidden = true;
       back.hidden = accept.hidden = false;
@@ -569,48 +694,83 @@ export const WhimsyFireButton = {
     };
     panel._whimsyFireConfirm = showConfirm;
     panel._whimsyFireChoose = showChoose;
-    this.selectScope(win, panel, choice);
+    panel._whimsyFireCurrent = () => current;
+
+    const refresh = () => {
+      const fullProfile = this.profileSpaces(win, profileId).length;
+      spacesList.hidden = current.allSpaces;
+      const chosen = current.spaceIds?.length ?? fullProfile;
+      partialNote.hidden = current.allSpaces || chosen >= fullProfile;
+      const nothing = !anyItemOn(current);
+      forget.disabled = nothing;
+      doc.l10n.setAttributes(forget, "whimsy-fire-run");
+    };
+    refresh();
     return panel;
   },
 
-  // Marks one choice, and names it on the red button.
-  selectScope(win, panel, id) {
-    const doc = win.document;
-    const group = panel.querySelector(".whimsy-fire-choices");
-    lazy.WhimsySurface.check(group, id);
-    panel.dataset.scope = id;
-    const forget = panel.querySelector("#whimsy-fire-forget");
-    const site = panel._whimsyFire?.counts.site;
-    doc.l10n.setAttributes(forget, `whimsy-fire-run-${id}`, id == "site" ? { site } : undefined);
-    if (panel.state == "open") {
-      group.querySelector(`[data-value="${id}"]`)?.focus();
+  // A labelled checkbox row (plain HTML, inside the Whimsy surface; not a
+  // native popup list).
+  checkRow(doc, l10nId, checked, onChange) {
+    const row = doc.createElementNS("http://www.w3.org/1999/xhtml", "label");
+    row.className = "whimsy-fire-check-row";
+    const input = doc.createElementNS("http://www.w3.org/1999/xhtml", "input");
+    input.type = "checkbox";
+    input.checked = checked;
+    input.addEventListener("change", () => onChange(input.checked));
+    const label = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    if (l10nId) {
+      doc.l10n.setAttributes(label, l10nId);
     }
+    row.append(input, label);
+    return { row, input, label };
+  },
+
+  // A simplified surface for a private window: one question, one button.
+  privatePanel(win, parts) {
+    const doc = win.document;
+    const { panel, view, footer, title } = parts;
+    doc.l10n.setAttributes(title, "whimsy-fire-private-heading");
+    const body = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
+    doc.l10n.setAttributes(body, "whimsy-fire-private-body");
+    view.append(body);
+    const cancel = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-fire-cancel", id: "whimsy-fire-cancel",
+      onCommand: () => lazy.WhimsySurface.close(panel),
+    });
+    const forget = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-fire-private-run", id: "whimsy-fire-forget", destructive: true,
+      onCommand: () => {
+        lazy.WhimsySurface.close(panel);
+        this.run(win, () => this.burnPrivateWindow(win), "private", {});
+      },
+    });
+    footer.append(cancel, forget);
+    lazy.WhimsySurface.finish(parts);
+    return panel;
+  },
+
+  // The red footer button: the riskiest choices ask once more; the rest
+  // close the surface and run.
+  pressFire(win, panel, settings) {
+    if (needsConfirm(settings)) {
+      panel._whimsyFireConfirm?.();
+      return;
+    }
+    lazy.WhimsySurface.close(panel);
+    saveSettings(settings);
+    this.run(win, () => this.burn(win, settings), "burn", { summary: this.summaryOf(win, settings) });
   },
 
   // Says it's clearing at once, runs, then the same toast says what went
-  // (or that it failed, with Try Again). W10-58: clearing a busy profile
-  // takes seconds, and the only confirmation used to come long after the
-  // tabs vanished and leave after Zen's two seconds. W10-30: the result
-  // has a title and a second line (6s, held while hovered or while the
-  // window is behind), in the window that ran it. wave13/toast: Zen's toast,
-  // extended; the result replaces "Clearing…" in place.
+  // (or that it failed, with Try Again).
   async run(win, burn, kind, args = {}) {
-    kind = kind.replace(/^whimsy-fire-done-/, "");
     const root = win.document.documentElement;
-    // A brief flame/burst overlay (whimsy-browser.css); reduced motion
-    // skips it, and the toast confirms.
     root.setAttribute("whimsy-fire-burning", "");
     win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
-    const icon = ICONS[kind] ?? ICONS.everything;
     const working = win.gZenUIManager?.toasts?.open(`whimsy-fire-working-${kind}`, {
-      key: "whimsy-fire",
-      l10nArgs: args,
-      icon,
-      timeout: WORKING_TIMEOUT_MS,
+      key: "whimsy-fire", l10nArgs: args, icon: FLAME_ICON, timeout: WORKING_TIMEOUT_MS,
     });
-    // The result goes on the "Clearing…" toast if it's still up; else (a
-    // window that lost every tab gets a fresh one first) a new one, a tick
-    // later.
     const report = async ({ messageId, ...o }) => {
       if (working && !working.closing && !working.closed) {
         working.update({ messageId, ...o, timeout: DONE_TIMEOUT_MS });
@@ -619,67 +779,58 @@ export const WhimsyFireButton = {
       await new Promise(resolve => win.setTimeout(resolve, 0));
       return win.closed
         ? null
-        : (win.gZenUIManager?.toasts?.open(messageId, { key: "whimsy-fire", ...o, icon, timeout: DONE_TIMEOUT_MS }) ?? null);
+        : (win.gZenUIManager?.toasts?.open(messageId, { key: "whimsy-fire", ...o, icon: FLAME_ICON, timeout: DONE_TIMEOUT_MS }) ?? null);
     };
     let result;
     try {
-      result = (await burn()) || 0;
+      result = (await burn()) || {};
     } catch (e) {
       console.error("Whimsy: fire button", e);
       await report({
         messageId: "whimsy-fire-failed-title",
         l10nArgs: undefined,
         descriptionId: "whimsy-fire-failed-detail",
-        buttons: [
-          {
-            l10nId: "whimsy-fire-retry",
-            command: () => {
-              this.run(win, burn, kind, args);
-            },
-          },
-        ],
+        buttons: [{ l10nId: "whimsy-fire-retry", command: () => this.run(win, burn, kind, args) }],
       });
       return;
     }
-    // A burn returns the tabs it closed, or { count, ...what else went }.
-    const what = typeof result == "number" ? { count: result } : result;
-    const l10nArgs = { ...args, ...what };
+    const summary = this.describe(result);
     await report({
       messageId: `whimsy-fire-done-${kind}-title`,
-      l10nArgs,
-      descriptionId: `whimsy-fire-done-${kind}-detail`,
-      descriptionArgs: l10nArgs,
+      l10nArgs: args,
+      descriptionId: "whimsy-fire-done-detail",
+      descriptionArgs: { summary },
       buttons: null,
     });
   },
 
-  // The red footer button: Fire Everywhere goes to the second step; the
-  // others close the surface and run.
-  async forget(win, panel) {
-    const id = panel.dataset.scope;
-    if (id == "everything") {
-      panel._whimsyFireConfirm?.();
-      return;
+  // A plain-English list of what a burn() result cleared, for the toast's
+  // second line (kept short rather than one Fluent string per combination).
+  describe(result) {
+    const parts = [];
+    const n = (count, word) => count == 1 ? `1 ${word}` : `${count} ${word}s`;
+    if (result.tabs) {
+      parts.push(n(result.tabs, "tab"));
     }
-    lazy.WhimsySurface.close(panel);
-    if (id == "site") {
-      const site = panel._whimsyFire?.counts.site;
-      if (site) {
-        await this.run(win, () => this.burnSite(win), "site", { site });
+    if (result.visits > 0) {
+      parts.push(n(result.visits, "visit"));
+    } else if (result.visits == -1) {
+      parts.push("history");
+    }
+    const names = { aiChats: "AI chats", agentActivity: "agent activity", index: "the index",
+      memory: "memory", routineResults: "routine results", downloads: "the download list" };
+    for (const id of result.items ?? []) {
+      if (names[id]) {
+        parts.push(names[id]);
       }
-      return;
     }
-    await this.run(win, () => this.burnProfile(win), "profile");
+    return parts.length ? new Intl.ListFormat("en", { type: "conjunction" }).format(parts) : "nothing";
   },
 
   // Opens the surface: under `anchor` when given, else over the page where
-  // the command bar sits. `choice` picks the starting card; `confirm`
-  // opens Fire Everywhere's second step.
-  openPanel(win, { choice = "profile", confirm = false, anchor = null, triggerEvent = null } = {}) {
-    const panel = this.panel(win, { choice });
-    if (confirm) {
-      panel._whimsyFireConfirm();
-    }
+  // the command bar sits.
+  openPanel(win, { anchor = null, triggerEvent = null } = {}) {
+    const panel = this.panel(win);
     if (anchor) {
       lazy.WhimsySurface.open(win, panel, { anchor, position: "after_start", y: 6, triggerEvent });
     } else {

@@ -280,6 +280,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyRoutineTriggers.sys.mjs",
 ]
 
+# W23 memory-fire
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAIIndex.sys.mjs",
+    "WhimsyAIMemory.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]
@@ -294,8 +300,9 @@ BROWSER_CHROME_MANIFESTS += [
 # calendar/ (Next meeting's EventKit reader, and Add to Calendar's writer;
 # dropped from here by a moz.build re-sort, 1545592, so it wasn't built),
 # bonjour/ (Local servers' LAN services, dns_sd), share/ (the Share
-# submenu's macOS services, wave9/menus) and speech/ (live captions,
-# on-device Speech).
+# submenu's macOS services, wave9/menus), speech/ (live captions,
+# on-device Speech) and embedding/ (the meaning index's on-device sentence
+# embeddings, NaturalLanguage, wave23/memory-fire).
 DIRS += ["audiotap"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
@@ -303,6 +310,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
         "airplay",
         "bonjour",
         "calendar",
+        "embedding",
         "share",
         "speech",
     ]

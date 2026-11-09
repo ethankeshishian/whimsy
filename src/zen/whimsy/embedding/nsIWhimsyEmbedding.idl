@@ -1,0 +1,27 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * @brief On-device sentence embeddings (Apple's NaturalLanguage framework,
+ * NLEmbedding), on this Mac only: nothing here ever reaches a network.
+ * Whimsy's meaning index (WhimsyAIIndex) uses it to turn a page's title and
+ * text, and a command-bar query, into comparable vectors. Main thread only.
+ */
+[scriptable, uuid(7b6a2f3e-9c3a-4e2a-9d7a-6f1c2b4a9e10)]
+interface nsIWhimsyEmbedding : nsISupports {
+  /**
+   * @brief Whether an embedding model is available for `locale` ("en-US",
+   * ...) on this Mac.
+   */
+  boolean available(in AUTF8String locale);
+
+  /**
+   * @brief The sentence embedding for `text` in `locale`, as a flat array
+   * of floats (one fixed length per locale). Throws NS_ERROR_NOT_AVAILABLE
+   * when no model exists for that locale.
+   */
+  Array<float> embed(in AUTF8String text, in AUTF8String locale);
+};

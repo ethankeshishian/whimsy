@@ -563,7 +563,9 @@ whimsy-tabs-tree-style-islands =
 ## batch8: tab lifecycle — command bar
 
 whimsy-action-show-archive = View Archive…
-whimsy-action-fire-button = Fire Button…
+# W23 memory-fire: $summary (string) - what Fire will do with its last
+# remembered settings, e.g. "Last hour, this profile".
+whimsy-action-fire-button = Fire Button… ({ $summary })
 # wave7/fire: per-site forgetting, moved out of the Fire Button sheet.
 whimsy-action-forget-site = Forget About This Site…
 whimsy-action-heavy-tabs = Find Heavy Tabs
@@ -4683,7 +4685,8 @@ whimsy-fire-choice-everything-detail = { $count ->
     [one] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time, and closes 1 tab.
    *[other] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time, and closes { $count } tabs.
 }
-whimsy-fire-kept = Always kept: saved passwords, bookmarks, downloaded files, pinned tabs and Essentials.
+# W23 memory-fire (fire dec-10): AI settings join the always-kept list.
+whimsy-fire-kept = Always kept: saved passwords, bookmarks, downloaded files, pinned tabs, Essentials, and AI settings (providers, connectors, commands, and routines themselves).
 whimsy-fire-cancel =
     .label = Cancel
 whimsy-fire-run-profile =
@@ -6451,3 +6454,67 @@ whimsy-ai-card-error-offline = You’re offline. Connect to the internet, then t
 whimsy-ai-card-replaced-toast = Replaced the selected text
 whimsy-ai-card-inserted-toast = Inserted after the selected text
 whimsy-ai-card-copied-toast = Copied
+
+## W23 memory-fire: Memory (auto-saved facts, Settings › AI › Memory), the
+## command bar's Related results by meaning, and the Fire button redesign
+## (one row of settings: range, spaces, items, including AI data).
+
+# Memory
+whimsy-chat-note-memory-saved-one = Saved to memory: { $fact }
+whimsy-chat-note-memory-saved-many = Saved { $count } facts to memory
+whimsy-chat-note-memory-undo = Undo
+whimsy-chat-action-used-memories = { $count ->
+    [one] Used 1 memory
+   *[other] Used { $count } memories
+}
+whimsy-memory-switch =
+    .label = Use and save memories
+    .description = Off: saved ones are kept but not used, and nothing new is saved.
+whimsy-memory-date = Saved { $date }
+whimsy-memory-edit-button =
+    .aria-label = Edit “{ $fact }”
+whimsy-memory-delete-button =
+    .aria-label = Delete “{ $fact }”
+whimsy-memory-deleted-toast = Deleted the memory
+whimsy-memory-empty = Nothing saved yet.
+whimsy-memory-export-button = Export Markdown…
+whimsy-ai-jump-memory = Memory
+whimsy-ai-memory-heading = Memory
+whimsy-ai-memory-desc = Stable facts about you, saved automatically with Undo, used in answers. Never from private tabs.
+
+# Fire button
+whimsy-fire-range-label = Range
+whimsy-fire-range-hour = Last hour
+whimsy-fire-range-today = Today
+whimsy-fire-range-week = 7 days
+whimsy-fire-range-all = All time
+whimsy-fire-all-spaces = All spaces, every profile
+whimsy-fire-partial-note = Cookies and site data clear per profile, so sites in a space you left ticked may still lose theirs.
+whimsy-fire-item-tabs = Open tabs (pinned tabs and Essentials stay)
+whimsy-fire-item-history = Browsing history
+whimsy-fire-item-aiChats = AI chats, including research reports
+whimsy-fire-item-agentActivity = Agent activity
+whimsy-fire-item-index = The meaning index
+whimsy-fire-item-memory = Memory
+whimsy-fire-item-routineResults = Routine and watch results
+whimsy-fire-item-downloads = The download list
+whimsy-fire-cant-undo = This can’t be undone.
+whimsy-fire-run =
+    .label = Fire
+whimsy-fire-confirm-title-2 = Can’t be undone
+whimsy-fire-confirm-body-2 = This choice can’t be undone. Fire now?
+whimsy-fire-confirm-accept-2 =
+    .label = Fire
+whimsy-fire-private-heading = Fire this window?
+whimsy-fire-private-body = Closes this private window’s tabs and starts it fresh. Other windows aren’t touched.
+whimsy-fire-private-run =
+    .label = Fire This Window
+# $site (string)
+whimsy-fire-site-heading = Forget { $site }?
+whimsy-fire-site-body = Erases { $site }’s history, sign-ins and saved data, from all time, in every profile, and closes its tabs.
+whimsy-fire-working-burn = Clearing…
+whimsy-fire-working-private = Clearing this window…
+whimsy-fire-done-burn-title = Fired
+whimsy-fire-done-private-title = Fired this window
+# $summary (string) - a plain list of what went, e.g. "3 tabs, 2 visits, AI chats"
+whimsy-fire-done-detail = { $summary }

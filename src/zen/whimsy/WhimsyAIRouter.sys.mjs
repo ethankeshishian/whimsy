@@ -22,7 +22,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 export const TASKS = ["chat", "ask", "quick-text", "summary", "preview", "routine", "agent", "translate", "memory", "index"];
 // Tasks that go to Apple's on-device model first (Quick text on Apple).
-const QUICK_TASKS = new Set(["quick-text", "translate"]);
+// W23 memory-fire: memory extraction is a quick-text-shaped task too.
+const QUICK_TASKS = new Set(["quick-text", "translate", "memory"]);
 // Tasks a person reads as they're written: thinking defaults to Normal.
 const DEEP_TASKS = new Set(["chat", "ask", "agent"]);
 // Tasks that get the connectors' tools unless the caller passes its own.

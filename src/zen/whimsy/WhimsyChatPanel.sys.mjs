@@ -16,6 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIHints: "resource:///modules/whimsy/WhimsyAIHints.sys.mjs",
+  WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
@@ -1106,10 +1107,17 @@ class ChatPanel {
     return null;
   }
 
-  systemPrompt(page, extra = []) {
+  systemPrompt(page, extra = [], memories = []) {
     const lines = [
       "You are the chat in Whimsy, a web browser. Answer plainly and briefly, in the language the person writes in.",
     ];
+    if (memories.length) {
+      lines.push(
+        "",
+        "Stable facts you already know about this person (use only if relevant to the question; never list them unprompted):",
+        ...memories.map(m => `- ${m.text}`)
+      );
+    }
     if (page) {
       lines.push(
         'When the person says "this page" or "this tab", they mean the page below.',
@@ -1184,6 +1192,7 @@ class ChatPanel {
     let result = null;
     let failure = null;
     let needs = {};
+    let memories = [];
     let context = opts.context ?? null;
     try {
       if (!context && thread.kind == "tab") {
@@ -1208,7 +1217,12 @@ class ChatPanel {
       } else if (opts.instruction) {
         history.push({ role: "user", content: opts.instruction });
       }
-      const system = this.systemPrompt(page, extra);
+      // Memory: never for a private tab, and only the facts worth this question.
+      if (!opts.textOnly && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
+        const lastUser = history.findLast(m => m.role == "user")?.content ?? "";
+        memories = await lazy.WhimsyAIMemory.forPrompt(typeof lastUser == "string" ? lastUser : "");
+      }
+      const system = this.systemPrompt(page, extra, memories);
       needs = opts.textOnly ? { chars: system.length } : { ...lazy.WhimsyChatContextUI.needsOf(context ?? {}, system), ...(opts.needs ?? {}) };
       const choice = lazy.WhimsyChatAnswer.choiceFor(thread);
       const provider = opts.provider ?? (choice.provider != "auto" ? choice.provider : undefined);
@@ -1263,6 +1277,7 @@ class ChatPanel {
           partial: !!result?.partial || aborted,
           stopped: result?.stopped ?? undefined,
           next: result?.partial ? result?.next ?? null : undefined,
+          usedMemories: memories.length ? memories.map(m => ({ id: m.id, text: m.text })) : undefined,
           ...fields,
         });
       }
@@ -1282,6 +1297,12 @@ class ChatPanel {
     let language = null;
     if (saved?.role == "ai" && !opts.continueFrom && !opts.instruction) {
       language = await this.languageOffer(thread, context);
+    }
+    if (saved?.role == "ai" && !opts.continueFrom && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
+      lazy.WhimsyAIStore.messages(thread.id).then(list => {
+        const userText = list.findLast(m => m.role == "user" && m.id != saved.id)?.text ?? "";
+        return lazy.WhimsyAIMemory.noteAfterAnswer(this, thread, saved, userText);
+      }).catch(e => console.error("Whimsy: memory note", e));
     }
     if (this.thread?.id == thread.id) {
       this.sendButton.removeAttribute("streaming");
