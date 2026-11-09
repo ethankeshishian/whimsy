@@ -153,6 +153,9 @@ add_task(async function shots_dissolve() {
     await document.l10n.translateRoots();
     await whimsySettled();
     const rect = folder.getBoundingClientRect();
+    info(`DIAG task ${task.state} tabs ${task.tabs.size}; members ${[...folder._tabs].length}; ` +
+      tabs.map(t => `[conn ${t.isConnected} closing ${!!t.closing} member ${t.hasAttribute("whimsy-task-tab")} task ${t.getAttribute("whimsy-agent-task")} ws ${t.getAttribute("zen-workspace-id")}]`).join(" ") +
+      ` active ${gZenWorkspaces.activeWorkspace} folderParent ${folder.parentNode?.className} ${folder.parentNode?.id}`);
     info(`Folder before: connected ${folder.isConnected}, hidden ${folder.hidden}, ${rect.width}x${rect.height}, ` +
       `dissolving ${!!folder._dissolving}, reduced ${matchMedia("(prefers-reduced-motion: reduce)").matches}`);
     let elapsed = 0;

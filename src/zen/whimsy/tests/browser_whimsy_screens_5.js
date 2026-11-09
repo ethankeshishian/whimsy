@@ -650,12 +650,15 @@ add_task(async function ai_preview_and_watch() {
       WhimsyAIPage.summarize = summarize;
     }
 
-    WhimsyPageWatch.openDialog(window, tab);
-    const dialog = document.getElementById("whimsy-watch-panel");
-    await BrowserTestUtils.waitForPopupEvent(dialog, "shown");
+    // Watch This Page builds its panel after reading the watch list.
+    await WhimsyPageWatch.openDialog(window, tab);
+    const dialog = await TestUtils.waitForCondition(() => document.getElementById("whimsy-watch-panel"), "The watch panel is made");
+    await TestUtils.waitForCondition(() => dialog.state == "open", "The watch panel is open");
     await document.l10n.translateFragment(dialog);
     await shot("wave3-ai-watch-dialog");
+    const hidden = BrowserTestUtils.waitForPopupEvent(dialog, "hidden");
     dialog.hidePopup();
+    await hidden;
   } finally {
     BrowserTestUtils.removeTab(tab);
   }
