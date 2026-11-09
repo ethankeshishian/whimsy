@@ -199,7 +199,10 @@ export const WhimsyAITabs = {
         !tab.isConnected ||
         !this.isTodayTab(tab) ||
         tab.hasAttribute(SECTION_ATTR) ||
-        tab.hasAttribute("pending")
+        tab.hasAttribute("pending") ||
+        // An agent task's tab: its folder places it (WhimsyTaskFolder), and
+        // a move it didn't make reads as yours and takes the tab off the task.
+        tab.hasAttribute("whimsy-task-tab")
       ) {
         this.queueRender(win);
         return;

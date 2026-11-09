@@ -613,6 +613,14 @@ add_task(async function ai_provider_and_tidy_tabs() {
     for (const tab of tabs) {
       BrowserTestUtils.removeTab(tab);
     }
+    // Tidy also sorts the tabs that were already open: take them out of
+    // their sections, so no header is left for later files (it moved
+    // agent-tabs' new tabs above it).
+    for (const tab of gBrowser.tabs) {
+      WhimsyAITabs.setSection(tab, null);
+    }
+    WhimsyAITabs.queueRender(window);
+    await TestUtils.waitForCondition(() => !document.querySelector(".whimsy-tidy-header"), "No sections are left");
   }
 });
 
