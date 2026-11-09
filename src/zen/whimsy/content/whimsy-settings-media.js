@@ -74,6 +74,7 @@ Object.assign(gWhimsySettings, {
         group.remove();
       }
     }
+    this.buildDictation();
     this.buildDefaultSpeed();
     this.buildSavedSites();
     Preferences.queueUpdateOfAllElements();
@@ -150,6 +151,52 @@ Object.assign(gWhimsySettings, {
       list.textContent = new Intl.ListFormat(undefined, { type: "conjunction" }).format(names);
     } else {
       document.l10n.setAttributes(list, "whimsy-media-sites-more", { sites: names.slice(0, 2).join(", "), more: names.length - 2 });
+    }
+  },
+
+  // W23 voice-image: dictation. Hold Fn, and a note when macOS also uses a
+  // short press of Fn (its "Press 🌐 key to" isn't Do Nothing).
+  buildDictation() {
+    const holder = document.getElementById("whimsyMediaDictation");
+    const { Whimsy } = this.lazy;
+    if (!holder || holder.childElementCount || !Whimsy.featureEnabled("dictation")) {
+      return;
+    }
+    const { WhimsyDictation } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDictation.sys.mjs");
+    if (!WhimsyDictation.speech()) {
+      return;
+    }
+    const xul = tag => document.createXULElement(tag);
+    if (!Preferences.get("whimsy.dictation.hold-fn")) {
+      Preferences.add({ id: "whimsy.dictation.hold-fn", type: "bool" });
+    }
+    const box = holder.closest("groupbox");
+    box?.setAttribute("data-category", "paneWhimsyMedia");
+    const check = xul("checkbox");
+    check.id = "whimsyDictationHoldFn";
+    check.setAttribute("preference", "whimsy.dictation.hold-fn");
+    document.l10n.setAttributes(check, "whimsy-media-dictation-hold-fn");
+    const detail = xul("description");
+    detail.className = "description-deemphasized indent";
+    document.l10n.setAttributes(detail, "whimsy-media-dictation-detail");
+    holder.append(check, detail);
+    const usage = WhimsyDictation.fnKeyUsage();
+    if (usage !== 0 && usage !== null) {
+      const action = { 1: "input", 2: "emoji", 3: "dictation" }[usage] ?? "other";
+      const row = xul("hbox");
+      row.id = "whimsyDictationFnNote";
+      row.className = "indent whimsy-media-row";
+      row.setAttribute("align", "center");
+      const note = xul("description");
+      note.setAttribute("flex", "1");
+      note.className = "description-deemphasized";
+      document.l10n.setAttributes(note, "whimsy-media-dictation-fn-note", { action });
+      const open = xul("button");
+      open.id = "whimsyDictationOpenKeyboard";
+      document.l10n.setAttributes(open, "whimsy-media-dictation-open-keyboard");
+      open.addEventListener("command", () => WhimsyDictation.openKeyboardSettings());
+      row.append(note, open);
+      holder.append(row);
     }
   },
 

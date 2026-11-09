@@ -16,6 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
+  WhimsyDictation: "resource:///modules/whimsy/WhimsyDictation.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
   WhimsyAIIndex: "resource:///modules/whimsy/WhimsyAIIndex.sys.mjs",
   WhimsyAISelectionCard: "resource:///modules/whimsy/WhimsyAISelectionCard.sys.mjs",
@@ -673,6 +674,8 @@ export const Whimsy = {
     run("ai-selection-commands", () => lazy.WhimsyAISelectionCard.initWindow(win));
     // W23 video: Summarize on videos, its ⌘K row, and the subtitle sniffer; checks AI and its switch on use.
     run("ai-video-summary", () => lazy.WhimsyVideoSummary.initWindow(win));
+    // W23 voice-image: hold Fn to dictate, the command bar's mic, hold ⌘K; on this Mac, AI or not.
+    run("dictation", () => lazy.WhimsyDictation.initWindow(win));
     // W23 memory-fire: "Related" rows by meaning, from the on-device index.
     run("ai-related", () => lazy.WhimsyAIIndex.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in

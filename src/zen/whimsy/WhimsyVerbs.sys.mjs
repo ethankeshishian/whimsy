@@ -54,6 +54,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIViewShare: "resource:///modules/whimsy/WhimsyAIViewShare.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
+  WhimsyDictation: "resource:///modules/whimsy/WhimsyDictation.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   LanguageDetector: "resource://gre/modules/translations/LanguageDetector.sys.mjs",
 });
@@ -552,6 +553,7 @@ const CONTEXT_FEATURE = "whimsy.feature.ai-context-commands";
 const SPARKLE = `${ICONS}sparkles.svg`;
 const WICONS = "chrome://browser/content/whimsy/icons/";
 const VIEW_KINDS = ["article", "video", "image"];
+const HOLD_TO_SPEAK_MS = 300;
 const TOP_ROWS = 3;
 const MIN_SHARE = 0.04;
 // "This page": optional rows other lanes register keep this order, with
@@ -1155,8 +1157,75 @@ export const WhimsyVerbs = {
       parent.append(keyset);
     }
     shortcuts.addKey(win, { id: KEY_ID, command: KEY_COMMAND_ID, key: "K", modifiers: "accel" });
+    this.initHoldToSpeak(win);
     this.initCommands(win);
     this.initContextMenu(win);
+  },
+
+  // W23 voice-image (fu-media dec-15): ⌘K opens on key down as before; with
+  // both keys still down after 300ms the open menu listens (WhimsyDictation),
+  // and letting go stops, leaving the top match selected. Key repeat never
+  // reopens the menu.
+  initHoldToSpeak(win) {
+    const accel = event => (Services.appinfo.OS == "Darwin" ? event.metaKey : event.ctrlKey);
+    let held = false;
+    let timer = 0;
+    const release = () => {
+      if (timer) {
+        win.clearTimeout(timer);
+        timer = 0;
+      }
+      if (held) {
+        held = false;
+        win.gURLBar?.removeAttribute("whimsy-holding-k");
+        if (lazy.WhimsyDictation.active?.trigger == "cmdk") {
+          lazy.WhimsyDictation.stop();
+        }
+      }
+    };
+    win.addEventListener(
+      "keydown",
+      event => {
+        if (event.code == "KeyK" && accel(event) && !event.altKey && !event.shiftKey) {
+          if (event.repeat || held) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+          }
+          held = true;
+          win.gURLBar?.setAttribute("whimsy-holding-k", "");
+          // Row numbers stay hidden while K is held.
+          lazy.WhimsyCommandBarAI.stopNumbers?.(win);
+          // The menu may still be measuring the view at 300ms: wait for it
+          // while K stays down.
+          const listen = () => {
+            timer = 0;
+            if (!held) {
+              return;
+            }
+            if (win.gURLBar?.view.isOpen || win.gURLBar?.focused) {
+              lazy.WhimsyDictation.startFromCmdK(win);
+            } else {
+              timer = win.setTimeout(listen, 50);
+            }
+          };
+          timer = win.setTimeout(listen, HOLD_TO_SPEAK_MS);
+        } else if (held && event.key != "Meta" && event.key != "Control") {
+          release();
+        }
+      },
+      true
+    );
+    win.addEventListener(
+      "keyup",
+      event => {
+        if (held && (event.code == "KeyK" || event.key == "Meta" || event.key == "Control")) {
+          release();
+        }
+      },
+      true
+    );
+    win.addEventListener("blur", release);
   },
 
   initCommands(win) {

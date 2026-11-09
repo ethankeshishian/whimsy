@@ -7245,3 +7245,41 @@ whimsy-routine-chat-watch =
 whimsy-watch-note-updates = Only while Whimsy is open, with your sign-ins. The page’s text goes to your AI provider. Hits show in the command bar’s Updates.
 whimsy-watch-show-watches = Show watches
 whimsy-watch-undo = Undo
+
+## W23 voice-image: dictation (hold Fn, the command bar's mic, hold ⌘K), on this Mac
+
+whimsy-dictation-command = Dictate
+    .keywords = voice, speak, talk, microphone, mic, dictation
+whimsy-dictation-mic =
+    .aria-label = Dictate
+whimsy-dictation-mic-tip = Dictate · hold <kbd>fn</kbd>
+whimsy-dictation-placeholder = Listening…
+whimsy-dictation-listening = Listening
+whimsy-dictation-waiting = Waiting for permission…
+whimsy-dictation-done = Done
+whimsy-dictation-release-fn = release fn
+whimsy-dictation-release-cmdk = release ⌘K
+whimsy-dictation-hint-title = Hold Fn to talk instead of typing
+whimsy-dictation-hint-body = Works in any text field
+whimsy-dictation-denied-title = Whimsy can’t hear you
+whimsy-dictation-denied-microphone = Microphone access is off for Whimsy. Turn it on in System Settings › Privacy & Security › Microphone.
+whimsy-dictation-denied-speech = Speech recognition is off for Whimsy. Turn it on in System Settings › Privacy & Security › Speech Recognition.
+whimsy-dictation-open-settings = Open System Settings
+whimsy-dictation-setup-title = Dictation isn’t set up
+# $language (String) - the language's name, like "English (United States)"
+whimsy-dictation-setup-body = This Mac has no on-device dictation for { $language } yet. Turn on Dictation in System Settings › Keyboard and it downloads.
+whimsy-dictation-setup-unavailable = Dictation can’t start on this Mac. Check that a microphone is connected and Dictation is on in System Settings › Keyboard.
+whimsy-dictation-open-keyboard = Open Keyboard Settings
+whimsy-media-dictation-hold-fn =
+    .label = Hold Fn to dictate into any text field
+whimsy-media-dictation-detail = Speech turns into text on this Mac and is never sent anywhere. With no field selected, the command bar opens listening.
+# $action (String) - what a short press of Fn does: "input", "emoji", "dictation", or "other"
+whimsy-media-dictation-fn-note =
+    { $action ->
+        [input] A short press of Fn also changes your input source.
+        [emoji] A short press of Fn also shows Emoji & Symbols.
+        [dictation] A short press of Fn also starts macOS Dictation.
+       *[other] macOS also uses a short press of Fn.
+    } To keep Fn for Whimsy, set “Press 🌐 key to” to Do Nothing.
+whimsy-media-dictation-open-keyboard =
+    .label = Open Keyboard Settings

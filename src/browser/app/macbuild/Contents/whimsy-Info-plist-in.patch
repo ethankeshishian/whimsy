@@ -2,7 +2,7 @@ diff --git a/browser/app/macbuild/Contents/Info.plist.in b/browser/app/macbuild/
 index 32f717f..94e7bcd 100644
 --- a/browser/app/macbuild/Contents/Info.plist.in
 +++ b/browser/app/macbuild/Contents/Info.plist.in
-@@ -6,6 +6,103 @@
+@@ -6,9 +6,106 @@
  	<string>English</string>
  	<key>CFBundleDocumentTypes</key>
  	<array>
@@ -76,9 +76,9 @@ index 32f717f..94e7bcd 100644
 +			<key>LSHandlerRank</key>
 +			<string>Alternate</string>
 +		</dict>
-+		<dict>
-+			<key>CFBundleTypeExtensions</key>
-+			<array>
+ 		<dict>
+ 			<key>CFBundleTypeExtensions</key>
+ 			<array>
 +				<string>xml</string>
 +				<string>yaml</string>
 +				<string>yml</string>
@@ -103,14 +103,16 @@ index 32f717f..94e7bcd 100644
 +			<key>LSHandlerRank</key>
 +			<string>Alternate</string>
 +		</dict>
- 		<dict>
- 			<key>CFBundleTypeExtensions</key>
- 			<array>
-@@ -206,6 +303,16 @@
- 	<string>MOZB</string>
++		<dict>
++			<key>CFBundleTypeExtensions</key>
++			<array>
+ 				<string>html</string>
+ 				<string>htm</string>
+ 				<string>shtml</string>
+@@ -207,6 +304,16 @@
  	<key>CFBundleURLTypes</key>
  	<array>
-+		<dict>
+ 		<dict>
 +			<key>CFBundleURLName</key>
 +			<string>Whimsy link</string>
 +			<key>CFBundleTypeRole</key>
@@ -120,10 +122,11 @@ index 32f717f..94e7bcd 100644
 +				<string>whimsy</string>
 +			</array>
 +		</dict>
- 		<dict>
++		<dict>
  			<key>CFBundleURLIconFile</key>
  			<string>document.icns</string>
-@@ -273,6 +380,15 @@
+ 			<key>CFBundleURLName</key>
+@@ -273,11 +380,20 @@
    <key>MozillaDeveloperObjPath</key>
    <string>@MOZ_DEVELOPER_OBJ_PATH@</string>
  
@@ -139,6 +142,12 @@ index 32f717f..94e7bcd 100644
    <key>NSCameraUsageDescription</key>
    <string>Only sites you allow within @MAC_APP_NAME@ will be able to use the camera.</string>
  
+   <key>NSMicrophoneUsageDescription</key>
+-  <string>Only sites you allow within @MAC_APP_NAME@ will be able to use the microphone.</string>
++  <string>Hold Fn to dictate into any text field; speech is turned into text on this Mac. Sites use the microphone only when you allow them.</string>
+ 
+   <key>NSCameraReactionEffectGesturesEnabledDefault</key>
+   <false/>
 @@ -312,6 +428,16 @@
    <key>NSLocalNetworkUsageDescription</key>
    <string>@MAC_APP_NAME@ needs this access to open websites and services on your network.</string>
@@ -151,7 +160,7 @@ index 32f717f..94e7bcd 100644
 +  </array>
 +
 +  <key>NSSpeechRecognitionUsageDescription</key>
-+  <string>@MAC_APP_NAME@ turns a video's speech into live captions, on this Mac, when you turn on captions for a video that has none.</string>
++  <string>@MAC_APP_NAME@ turns speech into text on this Mac: dictation when you hold Fn, and live captions for videos that have none.</string>
 +
    <key>ASWebAuthenticationSessionWebBrowserSupportCapabilities</key>
    <dict>

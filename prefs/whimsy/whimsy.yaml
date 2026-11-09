@@ -841,3 +841,8 @@
 # Summarize and picture-in-picture at the top right of videos.
 - name: whimsy.video.top-buttons
   value: true
+
+# W23 voice-image: dictation
+# Hold Fn (300ms) to dictate into the focused field (Settings › Media).
+- name: whimsy.dictation.hold-fn
+  value: true

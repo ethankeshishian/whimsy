@@ -250,3 +250,5 @@
         content/browser/whimsy/whimsy-routine-form.mjs (../../zen/whimsy/content/whimsy-routine-form.mjs)
         content/browser/whimsy/whimsy-routines.css (../../zen/whimsy/content/whimsy-routines.css)
         content/browser/whimsy/library/library-routines-sprite.svg (../../zen/whimsy/content/library/library-routines-sprite.svg)
+# W23 voice-image: dictation
+        content/browser/whimsy/whimsy-dictation.css (../../zen/whimsy/content/whimsy-dictation.css)

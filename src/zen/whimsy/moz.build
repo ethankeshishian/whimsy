@@ -297,6 +297,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyRoutinesUI.sys.mjs",
 ]
 
+# W23 voice-image
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyDictation.sys.mjs",
+]
+
 # W23 agent-chat
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyChatAgent.sys.mjs",
