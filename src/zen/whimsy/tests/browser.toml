@@ -1101,3 +1101,6 @@ support-files = ["whimsy_chat_article.html"]
 # W23 voice-image: dictation (hold Fn, the command bar's mic, hold ⌘K).
 ["browser_whimsy_dictation.js"]
 support-files = ["whimsy_dictation.html", "whimsy_cmdk.html"]
+
+["browser_whimsy_screens_w23_voice-image.js"]
+support-files = ["whimsy_dictation.html", "whimsy_chat_article.html"]
