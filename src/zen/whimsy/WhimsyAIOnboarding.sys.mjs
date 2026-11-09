@@ -446,7 +446,7 @@ export const WhimsyAIOnboarding = {
             }
             const ui = self._card(doc, content, { id, logo: `${ICONS}${lazy.CATALOG[id].logo}.svg`, nameL10n: `whimsy-connectors-name-${id}`, detailL10n: `whimsy-onb-cs-detail-${id}`, action: CONNECTORS[id].action ?? "whimsy-onb-connect", marks: CONNECTORS[id].marks }, () => start(id));
             cards.set(id, ui);
-            if (c?.connected || s.services.has(id)) {
+            if ((c?.connected && c.status == "ok") || s.services.has(id)) {
               s.services.add(id);
               ui.set({ state: "done", status: "whimsy-onb-connected", tone: "pass" });
             } else if (c?.status == "needs-client-id") {
@@ -471,8 +471,14 @@ export const WhimsyAIOnboarding = {
     ui.set({ state: "busy", status: "whimsy-onb-choosing", tone: "busy" });
     const sheet = this._el(doc, "div", "whimsy-onb-sheet", null);
     sheet.setAttribute("role", "dialog");
-    const top = ui.card.offsetTop + ui.card.offsetHeight + 6;
-    sheet.style.top = `${top}px`;
+    if (win.getComputedStyle(content).position == "static") {
+      content.style.position = "relative";
+    }
+    // The card's busy line localizes after this runs and can rewrap it, so keep following its edge.
+    const place = () => (sheet.style.top = `${ui.card.getBoundingClientRect().bottom - content.getBoundingClientRect().top + content.scrollTop + 6}px`);
+    place();
+    const follow = new win.ResizeObserver(place);
+    follow.observe(ui.card);
     const head = this._el(doc, "div", "whimsy-onb-sheet-head", sheet);
     const logo = this._el(doc, "img", "", head);
     logo.src = `${ICONS}${lazy.CATALOG[id].logo}.svg`;
@@ -518,6 +524,7 @@ export const WhimsyAIOnboarding = {
     field?.addEventListener("input", sync);
     sync();
     const close = () => {
+      follow.disconnect();
       sheet.remove();
       if (s.busy == pending) {
         s.busy = null;
@@ -540,7 +547,6 @@ export const WhimsyAIOnboarding = {
       close();
       onGo(opts);
     });
-    content.style.position = "relative";
     content.append(sheet);
     if (!reduced(win) && !this.instant) {
       this.sheetAnimation = sheet.animate({ opacity: [0, 1], scale: [0.97, 1] }, { duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" });

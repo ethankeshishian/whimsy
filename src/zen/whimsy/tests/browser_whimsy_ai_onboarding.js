@@ -46,12 +46,17 @@ function shell() {
     return node;
   };
   stage = el("div", "zen-welcome");
+  stage.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex";
   const pages = el("div", "zen-welcome-pages", stage);
+  // Zen's intro animation reveals the pages; until then they take no clicks.
+  pages.style.cssText = "display:flex;opacity:1";
   const side = el("div", "zen-welcome-page-sidebar", pages);
   const buttons = el("div", "zen-welcome-page-sidebar-buttons", side);
   el("button", null, buttons).className = "zen-big-accent-button";
   el("div", "zen-welcome-page-content", pages);
-  doc.documentElement.append(stage);
+  // Zen's #zen-welcome lives in #browser; outside it the copy never lays out
+  // and every click lands on a zero-size node.
+  doc.getElementById("browser").append(stage);
   return stage;
 }
 
@@ -60,6 +65,7 @@ async function render(page) {
   const content = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
   content.className = "zen-welcome-page";
   content.setAttribute("page", page.id);
+  content.style.opacity = "1";
   document.getElementById("zen-welcome-page-content").append(content);
   const button = document.querySelector("#zen-welcome-page-sidebar-buttons > button");
   const pages = { nexts: 0, next() { this.nexts++; } };
@@ -67,6 +73,8 @@ async function render(page) {
   await page.render(content, pages);
   return { content, button, pages, card: id => content.querySelector(`.whimsy-onb-card[data-id="${id}"]`) };
 }
+
+const press = node => EventUtils.synthesizeMouseAtCenter(node, {}, window);
 
 const bottomId = () => document.querySelector("#zen-welcome-page-sidebar-buttons > button").getAttribute("data-l10n-id");
 
@@ -93,7 +101,7 @@ add_task(async function skip_for_now_becomes_continue() {
   const [providers] = WhimsyAIOnboarding.pages(window);
   const view = await render(providers);
   is(bottomId(), "whimsy-onb-skip", "Skip for now until something connects");
-  view.card("openai").querySelector('[data-action="connect"]').click();
+  press(view.card("openai").querySelector('[data-action="connect"]'));
   held.get("openai").resolve();
   await TestUtils.waitForCondition(() => view.card("openai").dataset.state == "done", "ChatGPT connects");
   is(bottomId(), "whimsy-onb-continue", "then Continue");
@@ -103,12 +111,12 @@ add_task(async function skip_for_now_becomes_continue() {
 add_task(async function one_sign_in_at_a_time() {
   const [providers] = WhimsyAIOnboarding.pages(window);
   const view = await render(providers);
-  view.card("claude").querySelector('[data-action="connect"]').click();
+  press(view.card("claude").querySelector('[data-action="connect"]'));
   await TestUtils.waitForCondition(() => view.card("claude").dataset.state == "busy", "Claude signs in");
   ok(view.card("openai").querySelector('[data-action="connect"]').disabled, "The other cards wait");
   const cancel = view.card("claude").querySelector('[data-action="cancel"]');
   ok(cancel, "Cancel is on the busy card");
-  cancel.click();
+  press(cancel);
   await TestUtils.waitForCondition(() => view.card("claude").dataset.state == "idle", "Cancel stops it");
   ok(!view.card("openai").querySelector('[data-action="connect"]').disabled, "and the others are back");
 });
@@ -116,7 +124,7 @@ add_task(async function one_sign_in_at_a_time() {
 add_task(async function failure_one_line_try_again() {
   const [providers] = WhimsyAIOnboarding.pages(window);
   const view = await render(providers);
-  view.card("openai").querySelector('[data-action="connect"]').click();
+  press(view.card("openai").querySelector('[data-action="connect"]'));
   held.get("openai").reject(Object.assign(new Error("closed"), { code: "sign-in-cancelled-by-page" }));
   await TestUtils.waitForCondition(() => view.card("openai").dataset.state == "failed", "The sign-in failed");
   const note = view.card("openai").querySelector(".whimsy-onb-note");
@@ -136,16 +144,16 @@ add_task(async function celebration_once_and_waits() {
   WhimsyAIOnboarding.session.providers.add("claude");
   await render(providers);
   const view = await render(connect);
-  view.card("linear").querySelector('[data-action="connect"]').click();
+  press(view.card("linear").querySelector('[data-action="connect"]'));
   held.get("linear").resolve();
   await TestUtils.waitForCondition(() => view.card("linear").dataset.state == "done", "Linear connects");
-  view.button.click();
+  press(view.button);
   const overlay = await TestUtils.waitForCondition(() => document.getElementById("whimsy-onb-done"), "You're all set plays");
   is(view.pages.nexts, 0, "It waits");
   EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(() => !overlay.isConnected, "Return moves on");
   is(view.pages.nexts, 1, "to the next page");
   ok(Services.prefs.getBoolPref("whimsy.ai.onboarding.celebrated"), "It played once");
-  view.button.click();
+  press(view.button);
   ok(!document.getElementById("whimsy-onb-done"), "Never twice");
 });
