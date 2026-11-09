@@ -564,26 +564,41 @@ export const WhimsyFireButton = {
         : { ...settings.items },
     };
 
-    // Range.
-    const rangeRow = doc.createXULElement("hbox");
-    rangeRow.className = "whimsy-fire-row";
-    rangeRow.setAttribute("align", "center");
-    const rangeLabel = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
-    doc.l10n.setAttributes(rangeLabel, "whimsy-fire-range-label");
-    const rangeDropdown = lazy.WhimsySurface.dropdown(doc, {
-      id: "whimsy-fire-range",
+    // fire-2.1: each part under its own small heading.
+    const heading = (l10nId, trailing = null) => {
+      const row = doc.createXULElement("hbox");
+      row.className = "whimsy-fire-heading-row";
+      row.setAttribute("align", "baseline");
+      const h = doc.createElementNS("http://www.w3.org/1999/xhtml", "h3");
+      h.className = "whimsy-fire-heading";
+      h.id = `${l10nId}-heading`;
+      doc.l10n.setAttributes(h, l10nId);
+      row.append(h);
+      if (trailing) {
+        row.append(trailing);
+      }
+      return { row, h };
+    };
+
+    // Range: a segmented control, Firefox's Clear Recent History buckets.
+    const rangeHead = heading("whimsy-fire-range-label");
+    const rangeSeg = lazy.WhimsySurface.seg(doc, {
+      name: "whimsy-fire-range",
       options: RANGES.map(r => ({ value: r, l10nId: `whimsy-fire-range-${r}` })),
-      value: current.range,
       onPick: v => {
         current.range = v;
+        rangeSeg.select(v);
         refresh();
       },
     });
-    rangeRow.append(rangeLabel, rangeDropdown.button);
+    rangeSeg.group.id = "whimsy-fire-range";
+    rangeSeg.group.setAttribute("aria-labelledby", rangeHead.h.id);
+    rangeSeg.select(current.range);
 
     // Scope: this profile's spaces (checked off one by one) or every space.
+    const scopeHead = heading("whimsy-fire-spaces-heading");
     const scopeGroup = doc.createXULElement("vbox");
-    scopeGroup.className = "whimsy-fire-scope-group";
+    scopeGroup.className = "whimsy-fire-scope-group whimsy-fire-box";
     const allSpacesRow = this.checkRow(doc, "whimsy-fire-all-spaces", current.allSpaces, on => {
       current.allSpaces = on;
       refresh();
@@ -613,17 +628,31 @@ export const WhimsyFireButton = {
     partialNote.className = "whimsy-fire-partial-note";
     doc.l10n.setAttributes(partialNote, "whimsy-fire-partial-note");
 
-    // Items.
+    // Items, in two boxes: browsing traces, then the AI's own.
     const itemsList = doc.createXULElement("vbox");
     itemsList.className = "whimsy-fire-items";
-    const itemRows = {};
-    for (const id of ITEM_IDS) {
-      const r = this.checkRow(doc, `whimsy-fire-item-${id}`, current.items[id], on => {
-        current.items[id] = on;
-        refresh();
-      });
-      itemRows[id] = r;
-      itemsList.append(r.row);
+    const groups = [
+      ["whimsy-fire-group-browsing", ITEM_IDS.filter(id => !AI_ITEM_IDS.includes(id))],
+      ["whimsy-fire-group-ai", ITEM_IDS.filter(id => AI_ITEM_IDS.includes(id))],
+    ];
+    const counts = [];
+    for (const [l10nId, ids] of groups) {
+      const count = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      count.className = "whimsy-fire-group-count";
+      counts.push({ count, ids });
+      const head = heading(l10nId, count);
+      const box = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      box.className = "whimsy-fire-box whimsy-fire-grid";
+      box.setAttribute("role", "group");
+      box.setAttribute("aria-labelledby", head.h.id);
+      for (const id of ids) {
+        const r = this.checkRow(doc, `whimsy-fire-item-${id}`, current.items[id], on => {
+          current.items[id] = on;
+          refresh();
+        });
+        box.append(r.row);
+      }
+      itemsList.append(head.row, box);
     }
 
     const kept = doc.createXULElement("hbox");
@@ -637,11 +666,19 @@ export const WhimsyFireButton = {
     doc.l10n.setAttributes(keptText, "whimsy-fire-kept");
     kept.append(check, keptText);
 
+    // What Fire is about to do can't be undone: said in red, before the press.
+    const undone = doc.createXULElement("hbox");
+    undone.className = "whimsy-fire-undone";
+    undone.setAttribute("align", "start");
+    const flame = doc.createXULElement("image");
+    flame.className = "whimsy-fire-undone-icon";
+    flame.setAttribute("src", FLAME_ICON);
     const undoneNote = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
     undoneNote.className = "whimsy-fire-undone-note";
     doc.l10n.setAttributes(undoneNote, "whimsy-fire-cant-undo");
+    undone.append(flame, undoneNote);
 
-    body.append(rangeRow, scopeGroup, partialNote, itemsList, kept, undoneNote);
+    body.append(rangeHead.row, rangeSeg.group, scopeHead.row, scopeGroup, partialNote, itemsList, undone, kept);
 
     // Step 2: the extra ask for the riskiest choices.
     const confirm = doc.createXULElement("hbox");
@@ -723,7 +760,11 @@ export const WhimsyFireButton = {
       partialNote.hidden = current.allSpaces || chosen >= fullProfile;
       const nothing = !anyItemOn(current);
       forget.disabled = nothing;
-      doc.l10n.setAttributes(forget, "whimsy-fire-run");
+      // fire-2.7: the label gains an ellipsis when pressing it asks once more.
+      doc.l10n.setAttributes(forget, needsConfirm(current) ? "whimsy-fire-run-ask" : "whimsy-fire-run");
+      for (const { count, ids } of counts) {
+        doc.l10n.setAttributes(count, "whimsy-fire-group-count", { on: ids.filter(id => current.items[id]).length, total: ids.length });
+      }
     };
     refresh();
     return panel;

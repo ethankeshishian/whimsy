@@ -6580,12 +6580,17 @@ whimsy-ai-memory-heading = Memory
 whimsy-ai-memory-desc = Stable facts about you, saved automatically with Undo, used in answers. Never from private tabs.
 
 # Fire button
-whimsy-fire-range-label = Range
+whimsy-fire-range-label = Time range
 whimsy-fire-range-hour = Last hour
 whimsy-fire-range-today = Today
 whimsy-fire-range-week = 7 days
 whimsy-fire-range-all = All time
 whimsy-fire-all-spaces = All spaces, every profile
+whimsy-fire-spaces-heading = Spaces
+whimsy-fire-group-browsing = Browsing
+whimsy-fire-group-ai = AI
+# $on (number) - items ticked in the group; $total (number) - items in it
+whimsy-fire-group-count = { $on } of { $total }
 whimsy-fire-partial-note = Cookies and site data clear per profile, so sites in a space you left ticked may still lose theirs.
 whimsy-fire-item-tabs = Open tabs (pinned tabs and Essentials stay)
 whimsy-fire-item-history = Browsing history
@@ -6598,6 +6603,9 @@ whimsy-fire-item-downloads = The download list
 whimsy-fire-cant-undo = This can’t be undone.
 whimsy-fire-run =
     .label = Fire
+# The ellipsis: pressing it asks once more (All time, All spaces, or Memory).
+whimsy-fire-run-ask =
+    .label = Fire…
 whimsy-fire-confirm-title-2 = Can’t be undone
 whimsy-fire-confirm-body-2 = Everything you ticked is erased for good. Nothing comes back.
 whimsy-fire-confirm-accept-2 =
