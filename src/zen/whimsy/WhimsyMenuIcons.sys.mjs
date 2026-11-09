@@ -224,6 +224,11 @@ const ICONS = {
   "context-searchselect-private": ZEN("private-window"),
   "context-translate-selection": ZEN("translations"),
   "context-ask-chat": ZEN("sparkles"),
+  // W23: the selection's AI rows (WhimsyAISelectionCard).
+  "context-whimsy-ai-improve": ZEN("wand-sparkle"),
+  "context-whimsy-ai-fix": ZEN("spell-check"),
+  "context-whimsy-ai-translate": ZEN("translations"),
+  "context-whimsy-ai-more": ZEN("square-wand-sparkle"),
   "context-create-aitab": ZEN("sparkles"),
 };
 

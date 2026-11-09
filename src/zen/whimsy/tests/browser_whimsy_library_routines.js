@@ -102,6 +102,15 @@ add_task(async function last_in_rail_after_easels() {
   const image = tab.querySelector(".zen-library-tab-icon-image");
   ok(getComputedStyle(image).backgroundImage.includes("library-routines-sprite.svg"), "drawn by its own sprite");
   await closeLibrary();
+  // Turning a section off and back on keeps the rail's order (Notes came
+  // back after Routines).
+  for (const feature of ["notes", "screenshot-sidebar"]) {
+    await SpecialPowers.pushPrefEnv({ set: [[`whimsy.feature.${feature}`, false]] });
+    await SpecialPowers.popPrefEnv();
+  }
+  const again = Object.keys(lib().zenLibrarySections);
+  Assert.deepEqual(again.slice(-2), ["whimsy-easels", "whimsy-routines"], "Notes and Files turned off and on: Routines is still last, after Easels");
+  is(again.indexOf("whimsy-notes"), ids.indexOf("whimsy-notes"), "and Notes is back in its place");
 });
 
 add_task(async function absent_in_private_window() {

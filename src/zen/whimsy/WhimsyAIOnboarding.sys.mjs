@@ -668,6 +668,16 @@ export const WhimsyAIOnboarding = {
       out ? out.finished.then(done, done) : done();
     };
     const onKey = event => {
+      // The overlay went without Continue (Zen's welcome torn down around
+      // it): stop listening and let the key through, or the next Enter
+      // anywhere in the window (chat's send) was swallowed.
+      if (!overlay.isConnected) {
+        win.removeEventListener("keydown", onKey, true);
+        if (this.celebration?.overlay == overlay) {
+          this.celebration = null;
+        }
+        return;
+      }
       if (event.key == "Enter" && !event.repeat) {
         event.preventDefault();
         event.stopPropagation();

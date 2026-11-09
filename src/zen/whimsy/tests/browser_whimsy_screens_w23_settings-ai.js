@@ -3,7 +3,9 @@
 
 "use strict";
 
-requestLongerTimeout(5);
+// Each shot opens Settings in a tab of its own, in both schemes: 108s on
+// its own, about 2.4 times that late in the full run (past 5 × 45s).
+requestLongerTimeout(8);
 
 // W23 settings-ai: shots of Settings › AI for side-by-side checks against
 // the mockups (07-settings set-x.y, followup/fu-settings). WHIMSY_SHOTS=<dir>

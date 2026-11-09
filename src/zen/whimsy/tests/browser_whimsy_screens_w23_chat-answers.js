@@ -304,7 +304,16 @@ add_task(async function shots_answers() {
     await ask("When did it start?");
     await answered();
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-cite"), {});
-    await TestUtils.waitForCondition(async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.getSelection().toString())).includes("Buffalo"), "Highlighted");
+    // The passage is tinted (a whimsy-passage-* highlight, page-1.3); the
+    // finder's selection is the fallback when the page can't tint it.
+    await TestUtils.waitForCondition(async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      const parts = [content.getSelection().toString()];
+      // The tint eases from 32% to 18% (WhimsyAIPreviewChild's LEVELS).
+      for (let level = 18; level <= 32; level += 2) {
+        content.CSS.highlights.get(`whimsy-passage-${level}`)?.forEach(range => parts.push(range.toString()));
+      }
+      return parts.join(" ");
+    })).includes("Buffalo"), "Highlighted");
   });
   // chat-4.4's "Used 2 memories" is L18's slot in the action row; this is the row it joins.
   await shoot("chat-4.4", async () => {
@@ -400,6 +409,9 @@ add_task(async function shots_pass_through() {
       await ask("Do deep research on parking reform and rents");
       await answered();
       await TestUtils.waitForCondition(() => part(".whimsy-chat-report"), "Report card");
+      // The report opens in a background tab; wait for its file to load so
+      // the clean-up below finds it (a tab still on about:blank was left open).
+      await TestUtils.waitForCondition(() => gBrowser.tabs.some(t => t.linkedBrowser.currentURI.spec.endsWith(".md")), "The report opens beside the chat");
       return async () => {
         for (const t of gBrowser.tabs.filter(t => t.linkedBrowser.currentURI.spec.endsWith(".md"))) {
           BrowserTestUtils.removeTab(t);

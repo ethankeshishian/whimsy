@@ -7,6 +7,10 @@
 // failed, delete confirm), empty with built-ins, the form in place, AI off,
 // and the sprite mid-play. Compared by eye with 06-routines and fu-routines.
 
+// Some 25-35 shots, most in both schemes: 31-37s on its own, past 45s in the full
+// run, like the other W23 screens files.
+requestLongerTimeout(3);
+
 const { WhimsyRoutines } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyRoutines.sys.mjs");
 const { WhimsyRoutinesUI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyRoutinesUI.sys.mjs");
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");

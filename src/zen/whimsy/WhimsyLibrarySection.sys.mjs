@@ -25,8 +25,8 @@ const SECTIONS = [
   { sectionId: "whimsy-playlist", feature: "playlist", name: "WhimsyPlaylistSection" },
   // wave5: Easels (Arc's Library > Easels).
   { sectionId: "whimsy-easels", feature: "easel", name: "WhimsyEaselsSection" },
-  // W23 routines-ui: Library › Routines, last in the rail; never in private windows.
-  { sectionId: "whimsy-routines", feature: "routines", name: "WhimsyRoutinesSection", after: "whimsy-easels", private: false },
+  // W23 routines-ui: Library › Routines, last in the rail (orderSections); never in private windows.
+  { sectionId: "whimsy-routines", feature: "routines", name: "WhimsyRoutinesSection", private: false },
 ];
 
 // Zen's History has a "Closed tabs" source that relabels its tab "Archive";
@@ -44,24 +44,25 @@ const OLD_ARCHIVE_SECTION = "whimsy-archive";
 // Any of these puts Whimsy's History in place of Zen's.
 const HISTORY_FEATURES = ["space-history", "archive-view", "snooze-tab"];
 
-// Moves `id` to sit right after `afterId` in the (plain, ordered) sections
-// object, keeping the same object Zen holds.
-function placeAfter(sections, id, afterId) {
-  if (!(id in sections) || !(afterId in sections)) {
+// Keeps Whimsy's sections after Zen's own, in SECTIONS order, in the
+// (plain, ordered) sections object Zen holds. A section switched off and
+// back on is added at the end of the object, so without this Notes or Files
+// turned back on would land after Routines.
+function orderSections(sections) {
+  const ids = SECTIONS.map(entry => entry.sectionId);
+  const entries = Object.entries(sections);
+  const ordered = [
+    ...entries.filter(([key]) => !ids.includes(key)),
+    ...ids.filter(id => id in sections).map(id => [id, sections[id]]),
+  ];
+  if (ordered.every(([key], i) => key == entries[i][0])) {
     return;
   }
-  const entries = Object.entries(sections);
   for (const [key] of entries) {
     delete sections[key];
   }
-  for (const [key, value] of entries) {
-    if (key == id) {
-      continue;
-    }
+  for (const [key, value] of ordered) {
     sections[key] = value;
-    if (key == afterId) {
-      sections[id] = entries.find(([k]) => k == id)[1];
-    }
   }
 }
 
@@ -181,6 +182,7 @@ export const WhimsyLibrarySection = {
       const historyChanged = lib.zenLibrarySections.history !== history;
       lib.zenLibrarySections.history = history;
       let changed = historyChanged;
+      let added = false;
       for (const entry of SECTIONS) {
         const on =
           Services.prefs.getBoolPref(`whimsy.feature.${entry.feature}`, true) &&
@@ -189,9 +191,7 @@ export const WhimsyLibrarySection = {
         const has = entry.sectionId in lib.zenLibrarySections;
         if (on && !has) {
           lib.zenLibrarySections[entry.sectionId] = sections[entry.name];
-          if (entry.after) {
-            placeAfter(lib.zenLibrarySections, entry.sectionId, entry.after);
-          }
+          added = true;
           changed = true;
         } else if (!on && has) {
           delete lib.zenLibrarySections[entry.sectionId];
@@ -201,6 +201,9 @@ export const WhimsyLibrarySection = {
           }
           changed = true;
         }
+      }
+      if (added) {
+        orderSections(lib.zenLibrarySections);
       }
       if (changed) {
         lib.requestUpdate?.();

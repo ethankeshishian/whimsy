@@ -187,6 +187,12 @@ add_task(async function mute_pauses() {
     // The card's mute is the tab's.
     await click(card.querySelector(".zen-media-mute-button"));
     ok(tab.hasAttribute("muted") && WhimsyReadAloud.session.state == "paused", "The card's mute mutes the tab and pauses");
+    {
+      // Full-run flake (W23 verify): this second press didn't unmute; say what's under it.
+      const mute = card.querySelector(".zen-media-mute-button");
+      const r = mute.getBoundingClientRect();
+      info(`Card mute at ${r.x},${r.y} ${r.width}x${r.height}; under its centre: ${document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.outerHTML.slice(0, 160)}; animations ${card.getAnimations({ subtree: true }).length}`);
+    }
     await click(card.querySelector(".zen-media-mute-button"));
     ok(!tab.hasAttribute("muted") && WhimsyReadAloud.session.state == "playing", "and unmutes it");
 
