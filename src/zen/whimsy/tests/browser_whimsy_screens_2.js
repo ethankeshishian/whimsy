@@ -272,21 +272,17 @@ add_task(async function video_captions() {
     await BrowserTestUtils.synthesizeMouseAtCenter("#video", { type: "mousemove" }, browser);
     await TestUtils.waitForCondition(async () => (await state())?.shown, "The control shows");
     const { cc } = await state();
-    info(`DIAG cc before click t=${Date.now()} ${JSON.stringify(cc)}`); // DIAG
     await BrowserTestUtils.synthesizeMouseAtPoint(cc.x, cc.y, {}, browser);
-    { const st = await state(); info(`DIAG after click t=${Date.now()} shown=${st?.shown} cc=${JSON.stringify(st?.cc)} captions=${JSON.stringify(st?.captions)} trans=${Services.prefs.getBoolPref("browser.translations.enable", true)}`); } // DIAG
     await SpecialPowers.spawn(browser, [], async () => {
       const video = content.document.getElementById("video");
       const seeked = new Promise(resolve => video.addEventListener("seeked", resolve, { once: true }));
       video.currentTime = 0.2;
       await seeked;
     });
-    try { // DIAG
     await TestUtils.waitForCondition(
       async () => (await state())?.captions?.text == "Where is the library?",
       "The translated cue shows"
     );
-    } catch (e) { const st = await state(); info(`DIAG timeout t=${Date.now()} shown=${st?.shown} cc=${JSON.stringify(st?.cc)} captions=${JSON.stringify(st?.captions)} paused=${await SpecialPowers.spawn(browser, [], () => { const v = content.document.getElementById("video"); return [v.paused, v.currentTime, [...v.textTracks].map(t => t.mode + ":" + (t.activeCues?.length ?? -1))].join(","); })}`); throw e; } // DIAG
     await BrowserTestUtils.synthesizeMouseAtCenter("#video", { type: "mousemove" }, browser);
     await new Promise(resolve => setTimeout(resolve, 200)); // The 120ms fades.
     await shot("wave5-video-captions", browser.browsingContext.currentWindowGlobal);
