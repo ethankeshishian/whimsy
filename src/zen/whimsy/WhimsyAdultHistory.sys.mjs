@@ -47,7 +47,7 @@ let filter = null;
 const testHashes = new Set();
 // Pages that labelled themselves this session (no fragment).
 const labelled = new Set();
-// Browsing contexts this module took out of global history.
+// Tabs' browsers (or browsing contexts) this module took out of global history.
 const disabled = new WeakSet();
 
 function withoutRef(url) {
@@ -161,14 +161,23 @@ export const WhimsyAdultHistory = {
     }
   },
 
+  // The tab's <browser> carries it too (disableglobalhistory): a browsing
+  // context replaced mid-load (a process switch that swaps it) takes its
+  // history switch from the attribute, not from the old context.
   _setHistory(bc, use) {
     try {
-      if (!use && bc.useGlobalHistory) {
+      const browser = bc.embedderElement?.localName == "browser" ? bc.embedderElement : null;
+      const key = browser ?? bc;
+      if (!use && !disabled.has(key) && bc.useGlobalHistory) {
+        disabled.add(key);
+        browser?.setAttribute("disableglobalhistory", "true");
         bc.useGlobalHistory = false;
-        disabled.add(bc);
-      } else if (use && disabled.has(bc)) {
+      } else if (use && disabled.has(key)) {
+        disabled.delete(key);
+        browser?.removeAttribute("disableglobalhistory");
         bc.useGlobalHistory = true;
-        disabled.delete(bc);
+      } else if (!use && disabled.has(key) && bc.useGlobalHistory) {
+        bc.useGlobalHistory = false;
       }
     } catch (e) {
       console.error("WhimsyAdultHistory: history switch", e);
