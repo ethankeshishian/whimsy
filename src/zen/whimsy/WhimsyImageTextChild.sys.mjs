@@ -83,6 +83,7 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
   // img -> {id, src, lines, box, els, translated, pill}
   images = new Map();
   pending = new Map();
+  seen = new WeakSet();
   timers = new Map();
   nextId = 1;
   host = null;
@@ -94,7 +95,11 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
 
   handleEvent(event) {
     if (event.type == "DOMContentLoaded" || event.type == "pageshow") {
-      this.start();
+      try {
+        this.start();
+      } catch (e) {
+        console.error("Whimsy: image text", e);
+      }
     } else if (event.type == "pagehide") {
       this.stop();
     }
@@ -165,8 +170,8 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
       return;
     }
     for (const img of this.document.images) {
-      if (!img._whimsyImageTextSeen) {
-        img._whimsyImageTextSeen = true;
+      if (!this.seen.has(img)) {
+        this.seen.add(img);
         this.observer.observe(img);
       }
     }
@@ -249,6 +254,7 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
       }
       lines = begin.lines ?? [...(await img.recognizeCurrentImageText())].map(fromQuad);
     } catch (e) {
+      console.error("Whimsy: image text recognition", e);
       return null;
     }
     if (!this.observer || !img.isConnected || (img.currentSrc || img.src) != src) {
@@ -347,24 +353,30 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
       return;
     }
     const doc = this.document;
+    const win = this.contentWindow;
     info.lines.forEach((line, i) => {
       const el = info.els[i];
       const [tl, tr, br, bl] = line.quad.map(([x, y]) => [x * box.width, y * box.height]);
       const width = Math.hypot(tr[0] - tl[0], tr[1] - tl[1]);
       const height = Math.max(4, Math.hypot(bl[0] - tl[0], bl[1] - tl[1]));
       const angle = Math.atan2(tr[1] - tl[1], tr[0] - tl[0]);
-      el.style.fontSize = `${height * 0.82}px`;
-      el.style.lineHeight = `${height}px`;
-      el.style.height = `${height}px`;
-      el.style.transform = "none";
-      const natural = el.scrollWidth || 1;
+      // Measure a line's own width only when its text or size changed.
+      const key = `${el.textContent}|${Math.round(height * 10)}`;
+      if (el._whimsyKey != key) {
+        el.style.fontSize = `${height * 0.82}px`;
+        el.style.lineHeight = `${height}px`;
+        el.style.height = `${height}px`;
+        el.style.transform = "none";
+        el._whimsyKey = key;
+        el._whimsyNatural = el.scrollWidth || 1;
+      }
+      const natural = el._whimsyNatural;
       // A translation keeps its own length, up to a third wider than the line.
       const scale = info.translated && !el._whimsyOriginal ? Math.min(1, (width * 1.33) / natural) : width / natural;
       el.style.transform = `translate(${tl[0]}px, ${tl[1]}px) rotate(${angle}rad) scaleX(${scale})`;
       // Lines under something the page put over the image take no pointer.
       const cx = box.viewLeft + (tl[0] + tr[0] + br[0] + bl[0]) / 4;
       const cy = box.viewTop + (tl[1] + tr[1] + br[1] + bl[1]) / 4;
-      const win = this.contentWindow;
       if (cx >= 0 && cy >= 0 && cx < win.innerWidth && cy < win.innerHeight) {
         const hit = doc.elementsFromPoint(cx, cy).find(e => e != this.host);
         el.classList.toggle("blocked", !!hit && hit != img);

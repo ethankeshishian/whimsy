@@ -44,13 +44,17 @@ function imageTextRecognizer(src) {
 async function withImageText(kind, fn) {
   await BrowserTestUtils.withNewTab(IMAGE_TEXT_PAGE(kind), async browser => {
     const src = `${IMAGE_TEXT_ROOT}whimsy_image_text_${kind == "scene" ? "scene" : `sign_${kind}`}.svg`;
-    await TestUtils.waitForCondition(
-      () => SpecialPowers.spawn(browser, [], () => {
+    const state = () =>
+      SpecialPowers.spawn(browser, [], () => {
         const actor = content.windowGlobalChild.getExistingActor("WhimsyImageText");
-        return [...(actor?.images.values() ?? [])].length > 0;
-      }),
-      "The image in view was recognized"
-    );
+        return actor ? { actor: true, observing: !!actor.observer, images: actor.images.size, pending: actor.pending.size, timers: actor.timers.size } : { actor: false };
+      });
+    try {
+      await TestUtils.waitForCondition(async () => (await state()).images > 0, "The image in view was recognized");
+    } catch (e) {
+      info(`Image text state: ${JSON.stringify(await state())}`);
+      throw e;
+    }
     await fn(browser, src);
   });
 }

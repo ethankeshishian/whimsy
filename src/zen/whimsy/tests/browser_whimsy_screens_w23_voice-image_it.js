@@ -5,8 +5,7 @@
 
 // W23 voice-image, image text: screenshots of media-3.1 (text in an image,
 // nothing drawn), 3.2/3.8 (selecting it), 3.3 (copied toast), 3.4 (⌘F),
-// 3.5 (⌘K on an image with text), 3.6 (translated in place with its pill
-), and 3.7 (⌘K on an image without text).
+// 3.5 (⌘K on an image with text), 3.6 (translated in place with its pill), and 3.7 (⌘K on an image without text).
 
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_image_text_w23.js", this);
 
