@@ -208,6 +208,34 @@ async function closePanels() {
   }
 }
 
+// DIAG (temporary): who writes data-l10n-id="undefined" in the bar.
+{
+  const bad = v => v === undefined || v === null || v == "undefined";
+  const proto = window.Element.prototype;
+  const origSet = proto.setAttribute;
+  proto.setAttribute = function (name, value) {
+    if (name == "data-l10n-id" && bad(value)) {
+      info(`DIAGL10N setAttribute on ${this.localName}#${this.id}.${this.className}: ${new Error().stack}`);
+    }
+    return origSet.call(this, name, value);
+  };
+  const l10n = document.l10n;
+  const origAttrs = l10n.setAttributes.bind(l10n);
+  l10n.setAttributes = (el, id, args) => {
+    if (bad(id)) {
+      info(`DIAGL10N setAttributes on ${el.localName}#${el.id}.${el.className}: ${new Error().stack}`);
+    }
+    return origAttrs(el, id, args);
+  };
+  new MutationObserver(records => {
+    for (const r of records) {
+      if (bad(r.target.getAttribute("data-l10n-id")) && r.target.hasAttribute("data-l10n-id")) {
+        info(`DIAGL10N mutation on ${r.target.localName}#${r.target.id}.${r.target.className} old=${r.oldValue}: ${new Error().stack}`);
+      }
+    }
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-l10n-id"], attributeOldValue: true, subtree: true });
+}
+
 add_task(async function shots_command_bar_mic() {
   useSpeech();
   await BrowserTestUtils.withNewTab(ARTICLE_PAGE, async () => {
