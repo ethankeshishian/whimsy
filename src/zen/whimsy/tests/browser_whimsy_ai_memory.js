@@ -167,6 +167,13 @@ add_task(async function panel_tracks_and_cancels_memory_note() {
       "...with its note line in the chat");
     const undo = note.querySelector(".whimsy-chat-link");
     ok(undo, "The note has Undo");
+    undo.scrollIntoView({ block: "center" });
+    const hit = () => {
+      const r = undo.getBoundingClientRect();
+      return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    };
+    await TestUtils.waitForCondition(() => undo.isConnected && hit() == undo, "Undo is on screen, nothing over it")
+      .catch(e => info(`Undo hit test: ${hit()?.outerHTML?.slice(0, 160)} connected=${undo.isConnected}`) ?? Promise.reject(e));
     EventUtils.synthesizeMouseAtCenter(undo, {});
     await TestUtils.waitForCondition(async () => !(await WhimsyAIMemory.list()).length, "Undo in the chat deletes it");
     await TestUtils.waitForCondition(() => !note.querySelector(".whimsy-chat-link"), "...and the Undo link goes");

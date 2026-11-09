@@ -784,7 +784,9 @@ export const WhimsyFireButton = {
 
   // Says it's clearing at once, runs, then the same toast says what went
   // (or that it failed, with Try Again).
-  async run(win, burn, kind, args = {}) {
+  // `args` fill the toasts' titles; a burn without them describes the last
+  // settings, which is what a burn with none runs.
+  async run(win, burn, kind, args = kind == "burn" ? this.summaryArgs(win) : {}) {
     const root = win.document.documentElement;
     root.setAttribute("whimsy-fire-burning", "");
     win.setTimeout(() => root.removeAttribute("whimsy-fire-burning"), 700);
