@@ -5,7 +5,8 @@
 /* W23 connectors: onboarding's AI and connector cards and "You're all set"
    (mockups 01-onboarding onb-1.x, onb-2.x, onb-5.x; tokens from the kit). */
 
-.zen-welcome-page:is([page="whimsy-ai-providers"], [page="whimsy-ai-connect"]) {
+/* #zen-welcome-pages outranks Zen's own `#zen-welcome-pages .zen-welcome-page` gap. */
+#zen-welcome-pages .zen-welcome-page:is([page="whimsy-ai-providers"], [page="whimsy-ai-connect"]) {
   --onb-rem: 13px;
   --onb-accent: light-dark(oklch(from var(--zen-primary-color, AccentColor) clamp(0.35, l, 0.6) c h), oklch(from var(--zen-primary-color, AccentColor) clamp(0.7, l, 0.85) c h));
   --onb-success: light-dark(rgb(29, 138, 74), rgb(92, 207, 138));
@@ -20,7 +21,7 @@
   overflow-y: auto;
 }
 
-.zen-welcome-page[page="whimsy-ai-connect"] {
+#zen-welcome-pages .zen-welcome-page[page="whimsy-ai-connect"] {
   gap: calc(0.6 * var(--onb-rem));
 }
 
@@ -295,6 +296,26 @@
   font-size: calc(1.1 * var(--onb-rem));
   font-weight: 600;
   color: var(--onb-accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &::before {
+    content: "";
+    width: 13px;
+    height: 13px;
+    background: center / contain no-repeat;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+
+  &[data-l10n-id="whimsy-onb-api-key"]::before {
+    background-image: url("chrome://browser/skin/zen-icons/selectable/key.svg");
+  }
+
+  &[data-l10n-id="whimsy-onb-cs-mcp"]::before {
+    background-image: url("chrome://browser/content/whimsy/icons/mcp.svg");
+  }
 }
 
 #whimsy-onb-status {
