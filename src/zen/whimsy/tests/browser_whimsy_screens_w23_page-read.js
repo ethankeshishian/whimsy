@@ -331,7 +331,11 @@ add_task(async function find_card() {
     });
     await whimsyBothSchemes(NAME("find-nothing"), async () => {
       const findbar = await openFind("when is the offsite");
-      info(`DIAG status=${findbar._findField.getAttribute("status")} askEnabled=${WhimsyAIPage.askEnabled} providersEnabled=${WhimsyAIProviders.enabled} mode=${findbar.findMode} imgMatches=${findbar.hasAttribute("whimsy-image-matches")} hidden=${findbar.querySelector(".whimsy-ask-button").hidden}`);
+      for (let i = 0; i < 10; i++) {
+        info(`DIAG[${i}] status=${findbar._findField.getAttribute("status")} askable=${findbar.querySelector(".whimsy-ask-button").hasAttribute("askable")} count=${findbar.querySelector(".whimsy-find-count")?.getAttribute("value")}`);
+        // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+        await new Promise(r => setTimeout(r, 300));
+      }
       await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered");
       return closeFind;
     });
