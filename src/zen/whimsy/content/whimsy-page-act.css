@@ -404,18 +404,6 @@ notification-message.whimsy-scam {
   }
 }
 
-/* 05-page 9.1: the site's name keeps room ahead of the page pills: in the
-   sidebar's narrow address field Compare is its sparkle alone (its name is
-   in its tooltip and label). */
-:root[zen-single-toolbar="true"] {
-  & #whimsy-compare-action:not([hidden]) {
-    padding-inline: 6px;
-    & > .whimsy-page-action-label {
-      display: none;
-    }
-  }
-}
-
 /* ---- Compare, after Watch price ---- */
 /* The same pill as Watch price (whimsy-navigation.css), so the two read
    as one row of page actions. */

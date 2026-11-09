@@ -226,6 +226,25 @@ panel.whimsy-surface.whimsy-trail {
   margin: 0;
   white-space: nowrap;
 }
+
+/* 05-page 9.1: the site's name keeps room ahead of the page pills. In a
+   narrow address field (the sidebar's; WhimsyPageActions.watchWidth sets
+   [whimsy-narrow]) every pill is its icon alone. The words stay in the
+   accessibility tree (and the tooltip), only out of sight. */
+#urlbar[whimsy-narrow] .whimsy-page-action:not([hidden]) {
+  padding-inline: 5px;
+  gap: 0;
+
+  & > .whimsy-page-action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 @keyframes whimsy-page-action-in {
   from { opacity: 0; }
 }

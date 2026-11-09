@@ -265,6 +265,20 @@ add_task(async function compare_and_tabs_shots() {
     watch.querySelector(".whimsy-page-action-icon").setAttribute("src", "chrome://browser/skin/zen-icons/selectable/bell.svg");
     watch.hidden = false;
     ok(WhimsyAICompare.updatePill(window), "page-9.1: Compare after Watch price");
+    // S13: a narrow address field shows every pill as its icon alone.
+    WhimsyPageActions.watchWidth(window);
+    const urlbar = document.getElementById("urlbar");
+    const width = urlbar.getBoundingClientRect().width;
+    is(urlbar.hasAttribute("whimsy-narrow"), width < 400, `page-9.1: narrow exactly when the field is (${Math.round(width)}px)`);
+    const pills = [...urlbar.querySelectorAll(".whimsy-page-action:not([hidden])")];
+    Assert.greaterOrEqual(pills.length, 2, "page-9.1: Watch price and Compare");
+    for (const p of pills) {
+      const words = p.querySelector(".whimsy-page-action-label").getBoundingClientRect().width;
+      ok(urlbar.hasAttribute("whimsy-narrow") ? words <= 1 : words > 1, `page-9.1: ${p.id} ${urlbar.hasAttribute("whimsy-narrow") ? "is its icon alone" : "shows its words"}`);
+    }
+    if (urlbar.hasAttribute("whimsy-narrow")) {
+      Assert.greaterOrEqual(document.getElementById("urlbar-input").getBoundingClientRect().width, 50, "page-9.1: the host keeps its room");
+    }
     await whimsyBothSchemes(NAME("page-9.1"), async () => {});
     await inChat("Compare prices");
     const card = await TestUtils.waitForCondition(() => document.querySelector(".whimsy-pa-card[data-kind=compare] .whimsy-pa-table")?.closest(".whimsy-pa-card"), "The table shows", 200, 100);
