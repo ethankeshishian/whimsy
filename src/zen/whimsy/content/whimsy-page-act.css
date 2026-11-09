@@ -404,6 +404,31 @@ notification-message.whimsy-scam {
   }
 }
 
+/* 05-page 9.1: the site's name stays ahead of the page pills. In the
+   sidebar's narrow address field Compare is its sparkle alone (its name is
+   in its tooltip and label), and Watch price's words give way before the
+   host does. */
+#urlbar-input {
+  min-width: 8ch;
+}
+:root[zen-single-toolbar="true"] {
+  & #whimsy-compare-action:not([hidden]) {
+    padding-inline: 6px;
+    & > .whimsy-page-action-label {
+      display: none;
+    }
+  }
+  & #whimsy-page-action {
+    flex-shrink: 1;
+    min-width: 26px;
+    & > .whimsy-page-action-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
 /* ---- Compare, after Watch price ---- */
 /* The same pill as Watch price (whimsy-navigation.css), so the two read
    as one row of page actions. */
