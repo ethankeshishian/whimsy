@@ -112,6 +112,7 @@ add_task(async function shots_threads() {
     return () => closeBar();
   });
   WhimsyRoutineTriggers.setTestSource("calendar", null);
+  ok(true, "Routine threads and catch-up were shot");
 });
 
 add_task(async function shots_updates() {
@@ -132,6 +133,7 @@ add_task(async function shots_updates() {
     await openEmptyBar();
     return () => closeBar();
   });
+  ok(true, "Failures in Updates were shot");
 });
 
 add_task(async function shots_watch() {
@@ -159,4 +161,5 @@ add_task(async function shots_watch() {
   });
   WhimsyPageWatch._testNotify = null;
   await WhimsyPageWatch.remove(watch.id);
+  ok(true, "The watch thread and hit were shot");
 });
