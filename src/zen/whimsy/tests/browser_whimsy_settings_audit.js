@@ -110,6 +110,8 @@ function domChoices(el) {
     // W11-07: Firefox's moz-select (Home and startup) sets each option's
     // value as a property.
     ...[...el.querySelectorAll("moz-option")].map(option => String(option.value)),
+    // W23: Settings › AI's segmented choices (role=radio buttons).
+    ...[...el.querySelectorAll("[role='radio'][data-value]")].map(item => item.dataset.value),
   ];
 }
 
