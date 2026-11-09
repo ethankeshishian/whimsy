@@ -182,7 +182,10 @@ add_task(async function shots_memory_note_and_used_line() {
 // set-7.1 / set-7.3 / fu-settings dec-13: Settings > AI > Memory (the
 // switch, the list, edit in place, Export).
 add_task(async function shots_memory_settings() {
-  await WhimsyAIMemory.save("Prefers dark mode");
+  const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
+  await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-memory-set-shots-" + Math.random().toString(16).slice(2)));
+  const lisbon = await WhimsyAIStore.createThread({ title: "Lisbon in March" });
+  await WhimsyAIMemory.save("Prefers aisle seats on flights", { source: lisbon.id });
   await WhimsyAIMemory.save("Works on the Whimsy browser");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
   const win = tab.linkedBrowser.contentWindow;
@@ -191,12 +194,19 @@ add_task(async function shots_memory_settings() {
     await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root && doc.getElementById("whimsyMemoryList")?.childElementCount >= 2,
       "Settings memory section is built");
     ok(doc.getElementById("whimsyMemoryList").childElementCount >= 2, "set-7.1: both memories are listed");
-    doc.getElementById("whimsyMemoryList").scrollIntoView({ block: "start", behavior: "instant" });
+    const reduce = win.WhimsyAISettings.reducedMotion;
+    win.WhimsyAISettings.reducedMotion = () => true;
+    try {
+      win.WhimsyAISettings.jumpTo("memory");
+    } finally {
+      win.WhimsyAISettings.reducedMotion = reduce;
+    }
     await whimsyBothSchemes("w23-memory-fire-set-7.1", async () => null);
   } finally {
     BrowserTestUtils.removeTab(tab);
     for (const m of await WhimsyAIMemory.list()) {
       await WhimsyAIMemory.remove(m.id, { block: false });
     }
+    await WhimsyAIStore._resetForTesting(null);
   }
 });

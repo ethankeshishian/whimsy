@@ -16,6 +16,7 @@
   const lazy = {};
   ChromeUtils.defineESModuleGetters(lazy, {
     WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
+    WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   });
   const ICONS = "chrome://browser/content/whimsy/icons/";
   const view = { list: null };
@@ -55,14 +56,29 @@
     input.addEventListener("blur", () => finish(true), { once: true });
   }
 
-  function row(memory) {
+  // Where a memory came from: its chat's title (or first question), if
+  // that chat is still around.
+  async function sourceTitle(memory) {
+    if (!memory.source) {
+      return "";
+    }
+    const thread = await lazy.WhimsyAIStore.thread(memory.source).catch(() => null);
+    return String(thread?.title || thread?.firstAsk || "").trim();
+  }
+
+  function row(memory, from = "") {
     const item = S.el("div", "whimsy-ai-item whimsy-memory-row");
     item.dataset.memory = memory.id;
     item.setAttribute("role", "listitem");
     S.tile(item, `${ICONS}memory.svg`);
     const text = S.el("span", "whimsy-ai-item-text", item);
     S.el("span", "whimsy-ai-item-name", text).textContent = memory.text;
-    S.el("span", "whimsy-ai-item-detail", text, "whimsy-memory-date", { date: dateLabel(memory.date ?? Date.now()) });
+    const date = dateLabel(memory.date ?? Date.now());
+    if (from) {
+      S.el("span", "whimsy-ai-item-detail", text, "whimsy-memory-from-chat", { title: from, date });
+    } else {
+      S.el("span", "whimsy-ai-item-detail", text, "whimsy-memory-date", { date });
+    }
     const end = S.el("span", "whimsy-ai-item-end", item);
     const edit = S.el("button", "whimsy-ai-iconbtn", end, "whimsy-memory-edit-button", { fact: memory.text });
     edit.type = "button";
@@ -115,9 +131,11 @@
     if (!all.length) {
       return;
     }
-    for (const memory of all) {
-      view.list.append(row(memory));
+    const sources = await Promise.all(all.map(sourceTitle));
+    if (!view.list) {
+      return;
     }
+    view.list.append(...all.map((memory, i) => row(memory, sources[i])));
     await document.l10n.translateFragment(view.list);
   }
 

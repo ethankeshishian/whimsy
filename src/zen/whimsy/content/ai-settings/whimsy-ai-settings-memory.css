@@ -27,6 +27,10 @@
   width: 16px;
   height: 16px;
   display: block;
+  /* Whimsy's line icons draw with context-fill (pencil is a stroke). */
+  -moz-context-properties: fill, stroke;
+  fill: currentColor;
+  stroke: currentColor;
 }
 
 .whimsy-memory-edit {

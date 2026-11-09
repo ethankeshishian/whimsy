@@ -6462,6 +6462,8 @@ whimsy-memory-switch =
     .label = Use and save memories
     .description = Off: saved ones are kept but not used, and nothing new is saved.
 whimsy-memory-date = Saved { $date }
+# $title (string) - the chat a memory was saved from; $date (string) - when.
+whimsy-memory-from-chat = From chat “{ $title }” · { $date }
 whimsy-memory-edit-button =
     .aria-label = Edit “{ $fact }”
 whimsy-memory-delete-button =
