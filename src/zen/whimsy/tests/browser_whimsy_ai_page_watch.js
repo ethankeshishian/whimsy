@@ -114,7 +114,9 @@ add_task(async function test_watch_flow() {
   }, "The Notify Me dialog opens");
   const input = panel.querySelector(".whimsy-watch-condition");
   await TestUtils.waitForCondition(() => document.activeElement == input, "with the condition field focused");
-  is(panel.querySelector(".whimsy-watch-interval").value, "60", "Hourly by default");
+  ok(panel.classList.contains("whimsy-surface"), "a WhimsySurface panel");
+  await document.l10n.translateFragment(panel);
+  is(panel.querySelector(".whimsy-watch-interval .whimsy-surface-dropdown-value").textContent, "Every hour", "Hourly by default");
   EventUtils.sendString("the espresso machine is in stock");
   EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(() => panel.state == "closed", "Enter saves it");
@@ -329,4 +331,101 @@ add_task(async function watch_controls_separate_accounts() {
     await WhimsyPageWatch.remove(a.id);
     await WhimsyPageWatch.remove(b.id);
   }
+});
+
+// W23 routines-ui: the panel is a WhimsySurface with a styled interval
+// menu, Watch shows a toast with Undo, the 50-watch cap says so in place,
+// chat opens it filled and outlined, and the list left Settings.
+async function openPanel(tab, opts) {
+  await WhimsyPageWatch.openDialog(window, tab, opts);
+  return TestUtils.waitForCondition(() => {
+    const p = document.getElementById("whimsy-watch-panel");
+    return p?.state == "open" && p;
+  }, "The panel opens");
+}
+
+add_task(async function watch_panel_is_surface_with_dropdown() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const panel = await openPanel(tab);
+  const dropdown = panel.querySelector(".whimsy-watch-interval");
+  ok(dropdown.classList.contains("whimsy-surface-dropdown"), "The interval is a WhimsySurface dropdown");
+  EventUtils.synthesizeMouseAtCenter(dropdown, {});
+  const list = await TestUtils.waitForCondition(() => document.getElementById("whimsy-watch-interval-list")?.state == "open" && document.getElementById("whimsy-watch-interval-list"), "Its menu opens");
+  is(list.querySelectorAll("[role=option]").length, 4, "15 minutes, an hour, 6 hours, or a day");
+  const option = list.querySelector("[role=option][data-value='15']");
+  EventUtils.synthesizeMouseAtCenter(option, {});
+  await BrowserTestUtils.waitForPopupEvent(list, "hidden");
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  EventUtils.synthesizeKey("KEY_Escape");
+  await hidden;
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function undo_toast() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const panel = await openPanel(tab);
+  panel.querySelector(".whimsy-watch-condition").focus();
+  EventUtils.sendString("the price drops");
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(() => panel.state == "closed", "Watch closes the panel");
+  const watch = await TestUtils.waitForCondition(async () => (await WhimsyPageWatch.list()).find(w => w.condition == "the price drops"), "The watch is saved");
+  const undo = await TestUtils.waitForCondition(() => document.querySelector(".zen-toast #whimsy-undo-toast-button"), "The toast offers Undo");
+  await TestUtils.waitForCondition(() => undo.getBoundingClientRect().width > 0, "laid out");
+  await TestUtils.waitForCondition(() => !WhimsyPageWatch._checking, "The first check is done");
+  EventUtils.synthesizeMouseAtCenter(undo, {});
+  await TestUtils.waitForCondition(async () => !(await WhimsyPageWatch.list()).some(w => w.id == watch.id), "Undo stops watching");
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function cap_shown_in_place() {
+  const real = WhimsyPageWatch.list;
+  WhimsyPageWatch.list = async () => Array.from({ length: MAX_WATCHES }, (_, i) => ({ id: `w${i}`, url: `https://example.org/${i}`, userContextId: 0 }));
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  try {
+    const panel = await openPanel(tab);
+    const error = panel.querySelector(".whimsy-watch-error");
+    ok(!error.hidden, "At 50 the panel says so in place");
+    await document.l10n.translateFragment(panel);
+    ok(error.textContent.includes("50 pages"), "with the count");
+    ok(document.getElementById("whimsy-watch-done").disabled, "Watch is off");
+    ok(!document.getElementById("whimsy-watch-show").hidden, "Show watches is offered");
+    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+    EventUtils.synthesizeKey("KEY_Escape");
+    await hidden;
+  } finally {
+    WhimsyPageWatch.list = real;
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function not_offered_private() {
+  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, PAGE);
+  is(await WhimsyPageWatch.openDialog(win, tab), null, "No panel for a private tab");
+  ok(!win.document.getElementById("whimsy-watch-panel"), "and nothing opened");
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function from_chat_filled_outlined() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const panel = await openPanel(tab, { condition: "tickets go on sale", interval: 15, outlined: true });
+  const input = panel.querySelector(".whimsy-watch-condition");
+  is(input.value, "tickets go on sale", "Chat fills what to look for");
+  ok(input.classList.contains("is-filled"), "outlined");
+  ok(panel.querySelector(".whimsy-watch-interval").classList.contains("is-filled"), "and how often");
+  await document.l10n.translateFragment(panel);
+  is(panel.querySelector(".whimsy-watch-interval .whimsy-surface-dropdown-value").textContent, "Every 15 minutes", "every 15 minutes");
+  is((await WhimsyPageWatch.list()).filter(w => w.condition == "tickets go on sale").length, 0, "Nothing is watched until Watch");
+  const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+  EventUtils.synthesizeKey("KEY_Escape");
+  await hidden;
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function settings_list_gone() {
+  await BrowserTestUtils.withNewTab("about:preferences#paneWhimsyAI", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIPage"), "Settings › AI is up");
+    ok(!doc.getElementById("whimsyAIWatchList"), "The watch list left Settings");
+  });
 });
