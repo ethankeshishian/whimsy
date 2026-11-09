@@ -401,7 +401,8 @@ add_task(async function tables_and_video_times() {
   script = async function* () {
     yield { type: "text", delta: "| | Store A | Store B |\n|---|---|---|\n| Price | $129 | $119 |\n\n- 0:42 Parking minimums raise rents\n- 1:03:15 Buffalo's results" };
   };
-  type("Compare these");
+  // Not "Compare…": page-act's Compare takes that sentence in chat.
+  type("Put these side by side");
   await answered();
   const table = part(".whimsy-chat-msg[data-role='ai'] table.whimsy-chat-table");
   ok(table, "A Markdown table is a table");
