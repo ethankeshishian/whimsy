@@ -335,7 +335,23 @@ add_task(async function test_new_space_from_empty_scratch_shows_one_form() {
       form.inputName.focus();
       form.inputName.select();
       await TestUtils.waitForCondition(() => form.inputName.matches(":focus"), "The name field has focus");
+      const kev = []; // DIAG
+      const logK = e => kev.push(`${e.type}${e.eventPhase == 1 ? "C" : "B"}${e.defaultPrevented ? "!" : ""}:${JSON.stringify(e.key ?? e.data)}:${e.target?.localName}.${e.target?.className}:v=${JSON.stringify(form.inputName.value)}`); // DIAG
+      const sysOpts = { capture: false, mozSystemGroup: true }; // DIAG
+      for (const type of ["keydown", "keypress", "beforeinput", "input", "keyup"]) { // DIAG
+        window.addEventListener(type, logK, true); // DIAG
+        window.addEventListener(type, logK, sysOpts); // DIAG
+      } // DIAG
+      const popups = [...document.querySelectorAll("panel, menupopup, tooltip")].filter(p => p.state && p.state != "closed").map(p => `${p.localName}#${p.id}:${p.state}`); // DIAG
+      info(`DIAG scratch before typing focus=${document.activeElement?.localName}.${document.activeElement?.className} fm=${Services.focus.focusedElement?.localName} popups=${popups} composing=${form.inputName.editor?.composing}`); // DIAG
       EventUtils.sendString("From Private", window);
+      for (const type of ["keydown", "keypress", "beforeinput", "input", "keyup"]) { // DIAG
+        window.removeEventListener(type, logK, true); // DIAG
+        window.removeEventListener(type, logK, sysOpts); // DIAG
+      } // DIAG
+      if (form.inputName.value != "From Private") { // DIAG
+        info(`DIAG scratch keys ${JSON.stringify(kev)}`); // DIAG
+      } // DIAG
       is(form.inputName.value, "From Private", "The name is typed into the form");
       ok(!form.createButton.disabled, "Typing a name allows Create");
       const madeId = form.workspaceId;
