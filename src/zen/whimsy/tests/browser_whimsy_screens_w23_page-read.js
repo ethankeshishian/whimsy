@@ -110,6 +110,7 @@ async function waitForPdf(browser) {
           img.onload = () => resolve({ url, ok: true });
           img.onerror = () => resolve({ url, ok: false });
           img.src = url;
+          content.setTimeout(() => resolve({ url, ok: false, late: true }), 5000);
         })
     );
     return { count: buttons.length, results: await Promise.all(loads) };
@@ -117,6 +118,7 @@ async function waitForPdf(browser) {
   Assert.greater(icons.results.length, 0, `The toolbar's ${icons.count} buttons have mask icons`);
   for (const { url, ok: loaded } of icons.results) {
     ok(loaded, `Toolbar icon ${url} loads`);
+    info(`DIAG icon ${url} ${loaded}`);
   }
   ok(
     await SpecialPowers.spawn(browser, [], () => content.document.getElementById("pdfFeaturesNotification")?.hidden ?? true),
