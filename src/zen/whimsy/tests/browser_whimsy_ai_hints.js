@@ -139,6 +139,7 @@ add_task(async function hint_in_closed_window_frees_the_line() {
   await TestUtils.waitForCondition(() => !WhimsyAIHints.waiting, "Its window closed: it stops waiting");
 
   win = await BrowserTestUtils.openNewBrowserWindow();
+  info(`DIAG closed=${win.closed} toasts=${!!win.gZenUIManager?.toasts} private=${ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIContext.sys.mjs").WhimsyAIContext.isPrivate(win.gBrowser?.selectedTab)} waiting=${WhimsyAIHints.waiting} current=${WhimsyAIHints.current?.id} seen=${Services.prefs.getStringPref("whimsy.ai.hints.seen")} today=${Services.prefs.getStringPref("whimsy.ai.hints.today")} ai=${Services.prefs.getBoolPref("whimsy.ai.enabled")} feat=${Services.prefs.getBoolPref("whimsy.feature.ai-hints", true)} reg=${WhimsyAIHints._registeredIdsForTesting()}`); // DIAG
   ok(WhimsyAIHints.request(win, "updates"), "Updates is taken in a second window");
   await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "updates", "and shows there");
   await BrowserTestUtils.closeWindow(win);
