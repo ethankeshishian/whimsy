@@ -120,6 +120,10 @@ add_task(async function shots_speed() {
     await hoverVideo(browser);
     await shownControl(browser);
     await SpecialPowers.spawn(browser, [], () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").setRate(20));
+    // The back-to-default button finishes arriving; the note stays 2s.
+    await TestUtils.waitForCondition(async () => (await videoControl(browser)).reset.shown, "Back to default shows");
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(r => setTimeout(r, 300));
   });
   await SpecialPowers.spawn(browser, [], () => (content.document.getElementById("video").playbackRate = 1));
   // The site keeps no speed for the shots after this one.
@@ -133,6 +137,13 @@ add_task(async function shots_summary() {
   stubProvider("Night trains nearly vanished from Europe by 2016, then came back as flying got pricier.\n\nChapters\n- 0:00 Why they disappeared\n- 0:01 ÖBB’s bet on Nightjet\n- 0:02 Riding Vienna to Paris");
   const { tab, browser } = await openVideo();
   // media-1.6: the chat panel half open as the summary starts.
+  // The answer waits a moment, so the opening frame shows Summarizing….
+  const reply = "Night trains nearly vanished from Europe by 2016, then came back as flying got pricier.\n\nChapters\n- 0:00 Why they disappeared\n- 0:01 ÖBB’s bet on Nightjet\n- 0:02 Riding Vienna to Paris";
+  WhimsyAIProviders.setTestProvider(async function* () {
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+    await new Promise(r => setTimeout(r, 1500));
+    yield { type: "text", delta: reply };
+  });
   await whimsySetScheme(false);
   await pressSummarize(browser);
   await whimsyShotMid("w23-video-media-1.6", () => chatPanel().el?.getAnimations()[0], 120);

@@ -682,21 +682,6 @@
   </groupbox>
   <groupbox id="whimsyMediaVideosGroup" data-category="paneWhimsyMedia" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-media-videos-heading"/></label>
-    <hbox align="center" data-whimsy-feature="background-mute">
-      <label id="whimsyBackgroundMuteLabel" control="whimsyBackgroundMute" data-l10n-id="whimsy-media-background-mute"/>
-      <menulist id="whimsyBackgroundMute" preference="whimsy.media.background-mute" data-pref-type="string">
-        <menupopup>
-          <menuitem value="prioritize" data-l10n-id="whimsy-media-background-mute-prioritize"/>
-          <menuitem value="background" data-l10n-id="whimsy-media-background-mute-background"/>
-          <menuitem value="off" data-l10n-id="whimsy-media-background-mute-off"/>
-        </menupopup>
-      </menulist>
-    </hbox>
-    <checkbox id="whimsyPipSnapBack" data-whimsy-feature="pip-snap-back"
-              data-l10n-id="whimsy-media-pip-snap-back" preference="whimsy.media.pip-snap-back"/>
-    <!-- wave3/private: floating calls -->
-    <checkbox id="whimsyCallPip" data-whimsy-feature="call-pip"
-              data-l10n-id="whimsy-media-call-pip" preference="whimsy.feature.call-pip"/>
     <!-- wave3/speed: speed control on videos -->
     <checkbox id="whimsyVideoSpeed" data-whimsy-feature="video-speed"
               data-l10n-id="whimsy-media-video-speed" preference="whimsy.feature.video-speed"/>
@@ -708,6 +693,21 @@
               data-l10n-id="whimsy-media-video-speech-captions" preference="whimsy.feature.video-speech-captions"/>
     <checkbox id="whimsyVideoTopButtons" data-whimsy-feature="ai-video-summary"
               data-l10n-id="whimsy-media-top-buttons" preference="whimsy.video.top-buttons"/>
+    <checkbox id="whimsyPipSnapBack" data-whimsy-feature="pip-snap-back"
+              data-l10n-id="whimsy-media-pip-snap-back" preference="whimsy.media.pip-snap-back"/>
+    <!-- wave3/private: floating calls -->
+    <checkbox id="whimsyCallPip" data-whimsy-feature="call-pip"
+              data-l10n-id="whimsy-media-call-pip" preference="whimsy.feature.call-pip"/>
+    <hbox align="center" data-whimsy-feature="background-mute">
+      <label id="whimsyBackgroundMuteLabel" control="whimsyBackgroundMute" data-l10n-id="whimsy-media-background-mute"/>
+      <menulist id="whimsyBackgroundMute" preference="whimsy.media.background-mute" data-pref-type="string">
+        <menupopup>
+          <menuitem value="prioritize" data-l10n-id="whimsy-media-background-mute-prioritize"/>
+          <menuitem value="background" data-l10n-id="whimsy-media-background-mute-background"/>
+          <menuitem value="off" data-l10n-id="whimsy-media-background-mute-off"/>
+        </menupopup>
+      </menulist>
+    </hbox>
   </groupbox>
   <groupbox id="whimsyMediaVoiceGroup" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-media-voice-heading"/></label>

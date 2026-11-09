@@ -311,7 +311,9 @@ button {
 #right {
   position: fixed;
   top: 0;
-  right: 0;
+  left: 0;
+  /* place() sets left to the video's right edge; the plates grow leftwards. */
+  transform: translateX(-100%);
   display: flex;
   gap: 6px;
   color: #fff;

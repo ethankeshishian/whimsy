@@ -831,8 +831,10 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.els.bar.style.left = `${Math.round(left)}px`;
     this.els.bar.style.top = `${Math.round(top)}px`;
     // The right plates hug the video's top right corner (PiP in the corner).
-    const right = Math.max(INSET, win.innerWidth - Math.min(r.right, win.innerWidth) + INSET);
-    this.els.right.style.right = `${Math.round(right)}px`;
+    // Anchored by the video's right edge, so a viewport that narrows (chat
+    // opening beside it) never drags them across the video.
+    const edge = Math.max(INSET, Math.min(r.right, win.innerWidth) - INSET);
+    this.els.right.style.left = `${Math.round(edge)}px`;
     this.els.right.style.top = `${Math.round(top)}px`;
     this.els.right.toggleAttribute("data-compact", r.width <= COMPACT_WIDTH);
   }
