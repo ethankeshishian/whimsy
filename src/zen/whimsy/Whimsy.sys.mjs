@@ -22,6 +22,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
+  WhimsyDictation: "resource:///modules/whimsy/WhimsyDictation.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
   WhimsyAIIndex: "resource:///modules/whimsy/WhimsyAIIndex.sys.mjs",
   WhimsyAISelectionCard: "resource:///modules/whimsy/WhimsyAISelectionCard.sys.mjs",
@@ -145,6 +146,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVideoSpeed: "resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs",
   WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
+});
+
+// W23 voice-image: image text.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyImageText: "resource:///modules/whimsy/WhimsyImageText.sys.mjs",
 });
 
 
@@ -540,6 +546,19 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
+    // W23 voice-image: image text. Text in images in view, recognized on this Mac.
+    ChromeUtils.registerWindowActor("WhimsyImageText", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyImageText.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyImageTextChild.sys.mjs",
+        events: { DOMContentLoaded: {}, pageshow: {}, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
     // wave5/quick: link lasso. The child only acts on an Option-drag the
     // page didn't handle; the parent makes the folder.
     ChromeUtils.registerWindowActor("WhimsyLasso", {
@@ -720,6 +739,12 @@ export const Whimsy = {
     run("ai-selection-commands", () => lazy.WhimsyAISelectionCard.initWindow(win));
     // W23 video: Summarize on videos, its ⌘K row, and the subtitle sniffer; checks AI and its switch on use.
     run("ai-video-summary", () => lazy.WhimsyVideoSummary.initWindow(win));
+    // W23 voice-image: hold Fn to dictate, the command bar's mic, hold ⌘K; on this Mac, AI or not.
+    run("dictation", () => lazy.WhimsyDictation.initWindow(win));
+    // W23 voice-image: image text; works with AI off, checks its switch on use.
+    run("image-text", () => lazy.WhimsyImageText.initWindow(win));
+    // W23 voice-image: read aloud, plain commands that work with AI off; checks its switch.
+    run("read-aloud", () => ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyReadAloud.sys.mjs").WhimsyReadAloud.initWindow(win));
     // W23 memory-fire: "Related" rows by meaning, from the on-device index.
     run("ai-related", () => lazy.WhimsyAIIndex.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in

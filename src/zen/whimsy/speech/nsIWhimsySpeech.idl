@@ -60,13 +60,53 @@ interface nsIWhimsySpeechSession : nsISupports {
 };
 
 /**
+ * @brief W23 voice-image: hears the Fn (globe) key while Whimsy is the
+ * frontmost app, on the main thread. Gecko doesn't send key events for Fn.
+ */
+[scriptable, function, uuid(5f0e4b8a-2a43-4c55-9d1e-7a3c2b9e61f4)]
+interface nsIWhimsyFnListener : nsISupports {
+  /**
+   * @param what "down", "up", or "other-key" (another key went down while
+   *        Fn was held, so Fn is a modifier this time).
+   */
+  void onFn(in ACString what);
+};
+
+/** @brief A running Fn watch. */
+[scriptable, uuid(0c6d3f2e-8b7a-4e1d-a5c9-3e2f1b6d7a80)]
+interface nsIWhimsyFnWatch : nsISupports {
+  void stop();
+};
+
+/**
+ * @brief W23 voice-image: dictation from the microphone, on this Mac only.
+ * Listening starts with nsIWhimsySpeech.listen and lasts until finish() or
+ * stop(); the microphone is off from the moment either is called.
+ */
+[scriptable, uuid(9a4c1e7d-6b2f-4f3a-8d5e-1c7b9e2a4f63)]
+interface nsIWhimsyMicSession : nsISupports {
+  /**
+   * @brief Turns the microphone off and lets the recognizer finish: the
+   * listener hears the whole text once more with isFinal (punctuated), or
+   * an error, then nothing.
+   */
+  void finish();
+
+  /** @brief Turns the microphone off; the listener hears nothing more. */
+  void stop();
+
+  readonly attribute AUTF8String locale;
+};
+
+/**
  * @brief Apple's speech recognizer (Speech framework), on this Mac only:
  * every session sets requiresOnDeviceRecognition, so no audio leaves the
  * Mac, and a locale without an on-device model is refused. Only Whimsy's
- * live captions use it, and only once the person turns on CC for a video
- * without captions: nothing here asks for access on its own.
+ * live captions use it once the person turns on CC for a video without
+ * captions, and dictation once they hold Fn or click the command bar's mic:
+ * nothing here asks for access on its own.
  */
-[scriptable, uuid(e1b2d7c4-3f0a-4d2e-9b6c-5a8f1e2d4c37)]
+[scriptable, uuid(3d8f6a21-7c4e-4b9a-b1f2-6e0d5c3a9b74)]
 interface nsIWhimsySpeech : nsISupports {
   /**
    * @brief One of "notDetermined", "denied", "restricted", "authorized".
@@ -90,4 +130,38 @@ interface nsIWhimsySpeech : nsISupports {
    */
   nsIWhimsySpeechSession start(in AUTF8String locale,
                                in nsIWhimsySpeechListener listener);
+
+  /**
+   * @brief The microphone's authorization status, named like
+   * authorizationStatus.
+   */
+  readonly attribute ACString microphoneStatus;
+
+  /** @brief Asks macOS for the microphone (its prompt shows the first time only). */
+  void requestMicrophoneAccess(in nsIWhimsySpeechCallback callback);
+
+  /**
+   * @brief Starts dictation: the default microphone, recognized in `locale`
+   * (one of onDeviceLocales). Fails with NS_ERROR_NOT_AVAILABLE when the
+   * microphone or speech recognition isn't authorized, the locale has no
+   * on-device model, or there is no microphone.
+   */
+  nsIWhimsyMicSession listen(in AUTF8String locale,
+                             in nsIWhimsySpeechListener listener);
+
+  /** @brief Watches the Fn key until the watch is stopped. */
+  nsIWhimsyFnWatch watchFnKey(in nsIWhimsyFnListener listener);
+
+  /**
+   * @brief What macOS does on a press of Fn (System Settings › Keyboard,
+   * "Press 🌐 key to"): 0 nothing, 1 change the input source, 2 show emoji,
+   * 3 start dictation, -1 not set (macOS's default, which isn't nothing).
+   */
+  readonly attribute long fnKeyUsage;
+
+  /**
+   * @brief Opens a System Settings page: "keyboard", "microphone" or
+   * "speech-recognition" (Privacy & Security).
+   */
+  void openSystemSettings(in ACString page);
 };

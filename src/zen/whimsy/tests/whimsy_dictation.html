@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Re: Sleeper to Vienna</title>
+<style>
+  body { font: 14px/1.55 -apple-system, sans-serif; margin: 0; background: light-dark(#f6f8fc, #1b1c1f); color: light-dark(#1f1f1f, #e3e3e3); color-scheme: light dark; }
+  form { position: absolute; right: 24px; bottom: 0; width: 520px; height: 430px; border-radius: 12px 12px 0 0; background: light-dark(#fff, #2a2b2e); box-shadow: 0 6px 30px rgba(0, 0, 0, 0.18); display: flex; flex-direction: column; }
+  .head { height: 40px; padding: 0 16px; display: flex; align-items: center; border-radius: 12px 12px 0 0; background: light-dark(#f2f6fc, #35363a); font-weight: 600; }
+  .to { padding: 10px 16px; border-bottom: 1px solid light-dark(#eee, #3a3b3e); color: light-dark(#5f6368, #9aa0a6); }
+  textarea { flex: 1; border: none; padding: 14px 16px; font: inherit; resize: none; background: transparent; color: inherit; outline: none; }
+  .foot { padding: 12px 16px; }
+  button { height: 36px; padding: 0 22px; border-radius: 18px; border: none; background: #0b57d0; color: #fff; font-weight: 600; }
+  p { margin: 24px; max-width: 420px; }
+</style>
+</head>
+<body>
+<p id="text">Plain text with nothing to type into.</p>
+<form id="compose" onsubmit="event.preventDefault(); window.submits = (window.submits || 0) + 1;">
+  <div class="head">Re: Sleeper to Vienna</div>
+  <div class="to">To: Sam Ortiz</div>
+  <textarea id="body">Hi Sam, thanks for the notes.</textarea>
+  <div class="foot"><button id="send">Send</button></div>
+</form>
+<script>
+  window.submits = 0;
+  window.enters = 0;
+  window.compositions = 0;
+  const body = document.getElementById("body");
+  body.addEventListener("keydown", e => { if (e.key == "Enter") window.enters++; });
+  body.addEventListener("compositionstart", () => window.compositions++);
+</script>
+</body>
+</html>

@@ -5,7 +5,8 @@
 # w7native/captions: Apple's on-device speech recognizer (Speech framework)
 # for live captions of videos without any. Only built on macOS (see
 # ../moz.build); the app's Info.plist carries
-# NSSpeechRecognitionUsageDescription (whimsy-Info-plist-in.patch).
+# NSSpeechRecognitionUsageDescription (whimsy-Info-plist-in.patch). W23
+# voice-image: dictation (hold Fn) uses it too, with the microphone.
 
 XPIDL_SOURCES += [
     "nsIWhimsySpeech.idl",
@@ -26,6 +27,7 @@ XPCOM_MANIFESTS += [
 ]
 
 OS_LIBS += [
+    "-framework AppKit",
     "-framework AVFoundation",
     "-framework Speech",
 ]

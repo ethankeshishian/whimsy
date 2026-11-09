@@ -7245,6 +7245,111 @@ whimsy-routine-chat-watch =
 whimsy-watch-note-updates = Only while Whimsy is open, with your sign-ins. The page’s text goes to your AI provider. Hits show in the command bar’s Updates.
 whimsy-watch-show-watches = Show watches
 whimsy-watch-undo = Undo
+
+## W23 voice-image: dictation (hold Fn, the command bar's mic, hold ⌘K), on this Mac
+
+whimsy-dictation-command = Dictate
+    .keywords = voice, speak, talk, microphone, mic, dictation
+whimsy-dictation-mic =
+    .aria-label = Dictate
+whimsy-dictation-mic-tip = Dictate · hold <kbd>fn</kbd>
+whimsy-dictation-placeholder = Listening…
+whimsy-dictation-listening = Listening
+whimsy-dictation-waiting = Waiting for permission…
+whimsy-dictation-done = Done
+whimsy-dictation-release-fn = release fn
+whimsy-dictation-release-cmdk = release ⌘K
+whimsy-dictation-hint-title = Hold Fn to talk instead of typing
+whimsy-dictation-hint-body = Works in any text field
+whimsy-dictation-denied-title = Whimsy can’t hear you
+whimsy-dictation-denied-microphone = Microphone access is off for Whimsy. Turn it on in System Settings › Privacy & Security › Microphone.
+whimsy-dictation-denied-speech = Speech recognition is off for Whimsy. Turn it on in System Settings › Privacy & Security › Speech Recognition.
+whimsy-dictation-open-settings = Open System Settings
+whimsy-dictation-setup-title = Dictation isn’t set up
+# $language (String) - the language's name, like "English (United States)"
+whimsy-dictation-setup-body = This Mac has no on-device dictation for { $language } yet. Turn on Dictation in System Settings › Keyboard and it downloads.
+whimsy-dictation-setup-unavailable = Dictation can’t start on this Mac. Check that a microphone is connected and Dictation is on in System Settings › Keyboard.
+whimsy-dictation-open-keyboard = Open Keyboard Settings
+whimsy-media-dictation-hold-fn =
+    .label = Hold Fn to dictate into any text field
+whimsy-media-dictation-detail = Speech turns into text on this Mac and is never sent anywhere. With no field selected, the command bar opens listening.
+# $action (String) - what a short press of Fn does: "input", "emoji", "dictation", or "other"
+whimsy-media-dictation-fn-note =
+    { $action ->
+        [input] A short press of Fn also changes your input source.
+        [emoji] A short press of Fn also shows Emoji & Symbols.
+        [dictation] A short press of Fn also starts macOS Dictation.
+       *[other] macOS also uses a short press of Fn.
+    } To keep Fn for Whimsy, set “Press 🌐 key to” to Do Nothing.
+whimsy-media-dictation-open-keyboard =
+    .label = Open Keyboard Settings
+## W23 voice-image: image text
+
+whimsy-image-text-copy-command = Copy text from image
+whimsy-image-text-translate-command = Translate text in image
+# $from and $to are language names, as in "Japanese to English".
+whimsy-image-text-pair = { $from } to { $to }
+whimsy-image-text-copied = Copied text from image
+whimsy-image-text-copied-lines =
+    { $count ->
+        [one] 1 line
+       *[other] { $count } lines
+    }
+# $language is a language name.
+whimsy-image-text-translated-from = Translated from { $language }
+whimsy-image-text-show-original = Show original
+whimsy-image-text-show-translation = Show translation
+whimsy-image-text-none = No text in the images on screen
+whimsy-image-text-translate-failed = Couldn’t translate the text in this image
+## W23 voice-image: read aloud. Plain commands (not AI), the mini player in
+## the sidebar, its speed and voice menu, and Settings › Media.
+
+whimsy-read-aloud-listen-page = Listen to this page
+whimsy-read-aloud-listen-selection = Listen to selection
+whimsy-read-aloud-listen-here = Listen from here
+whimsy-read-aloud-listen-here-detail = Starts at the paragraph in view
+whimsy-read-aloud-nothing = Nothing to read here. Select some text to hear it.
+# $minutes (number): about how long reading the page takes.
+whimsy-read-aloud-minutes = { $minutes } min
+# $site (string): the page's site, $voice (string): the voice's name.
+whimsy-read-aloud-artist = { $site } · { $voice }
+whimsy-read-aloud-finished = Finished · { $minutes } min
+whimsy-read-aloud-previous =
+    .tooltiptext = Previous sentence
+    .aria-label = Previous sentence
+whimsy-read-aloud-next =
+    .tooltiptext = Next sentence
+    .aria-label = Next sentence
+whimsy-read-aloud-play =
+    .tooltiptext = Play
+    .aria-label = Play
+whimsy-read-aloud-pause =
+    .tooltiptext = Pause
+    .aria-label = Pause
+whimsy-read-aloud-replay =
+    .tooltiptext = Play again
+    .aria-label = Play again
+whimsy-read-aloud-mute =
+    .tooltiptext = Mute or unmute this tab
+    .aria-label = Mute or unmute this tab
+whimsy-read-aloud-close =
+    .tooltiptext = Stop reading
+    .aria-label = Stop reading
+whimsy-read-aloud-focus =
+    .tooltiptext = Go to the tab
+    .aria-label = Go to the tab
+# $rate (string): the speed, like “1.25×”.
+whimsy-read-aloud-speed =
+    .title = Speed and voice
+    .aria-label = Speed { $rate }, and voice
+whimsy-read-aloud-speed-normal = Normal
+whimsy-read-aloud-voice = Voice
+# $name (string): the voice in use.
+whimsy-read-aloud-voice-detail = { $name } ›
+whimsy-read-aloud-settings-voice = Voice
+whimsy-read-aloud-settings-voice-detail = Voices on this Mac. Add more in System Settings › Accessibility › Spoken Content.
+whimsy-read-aloud-settings-speed = Reading speed
+whimsy-read-aloud-settings-speed-detail = Read aloud uses this speed and voice on every site.
 ## W23 page-act: Draft reply, Form fill, better translation, page edits by
 ## description, the scam warning, Compare, and tab requests (05-page 3–10,
 ## fu-page 2.4, 4.3, 9.4, 10.4, dec-13). Not agent tasks.

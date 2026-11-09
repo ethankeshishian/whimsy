@@ -1098,6 +1098,20 @@ support-files = ["whimsy_chat_article.html", "whimsy_cmdk.html"]
 ["browser_whimsy_screens_w23_memory-fire.js"]
 support-files = ["whimsy_chat_article.html"]
 
+# W23 voice-image: dictation (hold Fn, the command bar's mic, hold ⌘K).
+["browser_whimsy_dictation.js"]
+support-files = ["whimsy_dictation.html", "whimsy_cmdk.html"]
+
+["browser_whimsy_screens_w23_voice-image.js"]
+support-files = ["whimsy_dictation.html", "whimsy_chat_article.html", "head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg", "head_read_aloud.js", "whimsy_read_aloud.html", "whimsy_read_aloud_app.html"]
+
+# W23 voice-image: it
+["browser_whimsy_image_text.js"]
+support-files = ["head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
+
+# W23 voice-image: ra (read aloud)
+["browser_whimsy_read_aloud.js"]
+support-files = ["head_read_aloud.js", "whimsy_read_aloud.html", "whimsy_read_aloud_app.html"]
 # W23 page-act: Draft reply, Form fill, better translation, page edits,
 # the scam warning, Compare, tab requests, and this lane's screenshots.
 ["browser_whimsy_ai_fill.js"]
