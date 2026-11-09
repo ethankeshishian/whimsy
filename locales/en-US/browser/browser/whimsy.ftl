@@ -6380,3 +6380,74 @@ whimsy-routine-builtin-standup = Standup digest
 whimsy-routine-builtin-standup-prompt = List my Linear or Jira issues that moved since yesterday, and what’s blocked.
 whimsy-routine-builtin-meeting-follow-up = Meeting follow-up
 whimsy-routine-builtin-meeting-follow-up-prompt = From Granola’s notes and the invite, list the decisions, who owes what, and a short follow-up email I can send.
+
+## W23 commands: ⌘K, the context-aware menu. Group headings name what the
+## commands act on; { $text } is the selected text, { $title } the page's.
+
+whimsy-cmdk-group-selection = “{ $text }” · Selection
+whimsy-cmdk-group-field = “{ $text }” · Text field
+whimsy-cmdk-group-verbs = Do with selection
+whimsy-cmdk-group-yours = Your commands
+whimsy-cmdk-group-page = This page
+whimsy-cmdk-group-article-top = { $title } · Article
+whimsy-cmdk-group-video-top = { $title } · Video
+whimsy-cmdk-group-product-top = { $title } · Product
+whimsy-cmdk-group-article = Article
+whimsy-cmdk-group-video = Video on this page
+whimsy-cmdk-group-product = Product
+whimsy-cmdk-group-image =
+    { $count ->
+        [one] This image
+       *[other] These { $count } images
+    }
+whimsy-cmdk-group-commands = Commands
+whimsy-cmdk-group-search = Search
+whimsy-cmdk-no-match = No actions match
+whimsy-cmdk-explain = Explain
+whimsy-cmdk-ask-selection = Ask about this…
+whimsy-cmdk-summarize-page = Summarize page
+whimsy-cmdk-summarize-prompt = Summarize this page in a few short bullet points.
+whimsy-cmdk-ask-page = Ask about this page
+whimsy-cmdk-ask-video = Ask about this video
+whimsy-cmdk-ask-image =
+    { $count ->
+        [one] Ask about this image
+       *[other] Ask about these images
+    }
+whimsy-cmdk-ask-product = Ask about this product
+whimsy-cmdk-translate-pair = { $from } → { $to }
+whimsy-cmdk-tag-settings = Settings
+whimsy-cmdk-search-with = Search with { $engine }
+whimsy-cmdk-unavailable-no-text = There’s no text here to summarize.
+whimsy-cmdk-replaced-toast = Replaced with { $name }
+whimsy-cmdk-failed-toast = Couldn’t run { $name }. Try again, or check Settings › AI.
+
+## W23 commands: AI rows on selected text (right-click) and their result
+## card. { $language } is a language's name; { $provider } a model's.
+
+whimsy-ai-menu-improve =
+    .label = Improve Writing
+whimsy-ai-menu-fix =
+    .label = Fix Spelling and Grammar
+whimsy-ai-menu-translate =
+    .label = Translate
+whimsy-ai-menu-translate-to =
+    .label = { $language }
+whimsy-ai-menu-translate-other =
+    .label = Other…
+whimsy-ai-menu-more =
+    .label = More Commands…
+whimsy-ai-command-improve = Improve Writing
+whimsy-ai-command-fix = Fix Spelling and Grammar
+whimsy-ai-card-replace = Replace
+whimsy-ai-card-insert-after = Insert after
+whimsy-ai-card-copy = Copy
+whimsy-ai-card-try-again = Try again
+whimsy-ai-card-working = Writing…
+whimsy-ai-card-language = Translate to
+whimsy-ai-card-translate = Translate
+whimsy-ai-card-error = { $provider } didn’t answer. Try again, or pick another model in Settings › AI.
+whimsy-ai-card-error-offline = You’re offline. Connect to the internet, then try again.
+whimsy-ai-card-replaced-toast = Replaced the selected text
+whimsy-ai-card-inserted-toast = Inserted after the selected text
+whimsy-ai-card-copied-toast = Copied

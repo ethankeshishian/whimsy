@@ -1,0 +1,126 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 commands: ⌘K rows. Output tags (cmd-3.11), a greyed row with its
+   reason (fu-media 4.10). Colours come from whimsy-cmdbar-ai.css. */
+
+.urlbarView-row[dynamicType^="whimsy-verb"] .urlbarView-row-inner {
+  align-items: center;
+}
+
+.whimsy-cmdk-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--whimsy-ask-text-2);
+
+  &::before {
+    content: "—";
+    margin-inline: 6px;
+    color: var(--whimsy-ask-muted);
+  }
+}
+
+.whimsy-cmdk-tag {
+  flex: none;
+  margin-inline-start: auto;
+  margin-inline-end: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--whimsy-ask-hairline);
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+  white-space: nowrap;
+
+  .urlbarView-row[selected] & {
+    color: inherit;
+    border-color: color-mix(in srgb, currentColor 35%, transparent);
+  }
+}
+
+.urlbarView-row[dynamicType="whimsy-verb-off"] {
+  cursor: default;
+
+  .urlbarView-favicon,
+  .urlbarView-title {
+    opacity: 0.45;
+  }
+
+  &:hover .urlbarView-row-inner {
+    background: none;
+  }
+}
+
+/* The result card under selected text (page-2.3, fu-page 2.4 and 2.6). */
+.whimsy-ai-card {
+  --whimsy-card-muted: light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.5));
+  --whimsy-card-ins: light-dark(rgba(31, 143, 78, 0.16), rgba(79, 209, 139, 0.2));
+  --whimsy-card-del: light-dark(rgb(196, 43, 28), rgb(255, 120, 105));
+
+  .whimsy-surface-header {
+    gap: 8px;
+  }
+
+  .whimsy-ai-card-icon {
+    width: 14px;
+    height: 14px;
+    -moz-context-properties: fill;
+    fill: var(--zen-primary-color, #3d7bfd);
+  }
+
+  .whimsy-ai-card-body {
+    padding: 2px 4px 6px;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  .whimsy-ai-card-text,
+  .whimsy-ai-card-working,
+  .whimsy-ai-card-error {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    user-select: text;
+  }
+
+  .whimsy-ai-card-working {
+    color: var(--whimsy-card-muted);
+  }
+
+  .whimsy-ai-card-error {
+    color: var(--whimsy-card-del);
+  }
+
+  ins.whimsy-ai-card-ins {
+    text-decoration: none;
+    background: var(--whimsy-card-ins);
+    border-radius: 3px;
+  }
+
+  del.whimsy-ai-card-del {
+    color: var(--whimsy-card-del);
+    text-decoration: line-through;
+  }
+
+  .whimsy-ai-card-model {
+    font-size: 12px;
+    color: var(--whimsy-card-muted);
+    white-space: nowrap;
+  }
+
+  .whimsy-ai-card-choose {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  button[disabled] {
+    opacity: 0.45;
+  }
+}

@@ -22,6 +22,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -417,8 +419,8 @@ export const WhimsyAICommands = {
   _watchPrompts() {
     let timer = null;
     const refresh = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => this._scanPrompts().catch(e => console.error("Whimsy: commands' prompts", e)), 500);
+      lazy.clearTimeout(timer);
+      timer = lazy.setTimeout(() => this._scanPrompts().catch(e => console.error("Whimsy: commands' prompts", e)), 500);
     };
     Services.obs.addObserver(refresh, "whimsy-ai-store-changed");
     refresh();

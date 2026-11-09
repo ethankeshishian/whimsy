@@ -199,9 +199,10 @@ function marked(text, citations, done) {
 // ---- The answer card ----
 
 class Card {
-  constructor(win, question, { scope = null, provider = null } = {}) {
+  constructor(win, question, { scope = null, provider = null, prompt = null } = {}) {
     this.win = win;
     this.question = question;
+    this.prompt = prompt;
     this.scope = scope;
     this.provider = provider;
     this.tab = win.gBrowser.selectedTab;
@@ -511,8 +512,11 @@ export const WhimsyCommandBarAI = {
 
   // ---- Asking ----
 
-  /** Asks `text` and shows the answer card under the input. */
-  async ask(win, text, { scope = null, provider = null } = {}) {
+  /**
+   * Asks `text` and shows the answer card under the input. A ⌘K command
+   * passes its filled-in `prompt`; `text` is then what the card shows.
+   */
+  async ask(win, text, { scope = null, provider = null, prompt = null } = {}) {
     const question = String(text ?? "").trim();
     if (!question || !aiOn() || lazy.WhimsyAIContext.isPrivate(win.gBrowser.selectedTab)) {
       return null;
@@ -520,7 +524,7 @@ export const WhimsyCommandBarAI = {
     this.end(win, { keep: true });
     lazy.WhimsyAIUpdates.setRecentAnswer(null);
     lazy.WhimsyAIHints.used("ask");
-    const card = new Card(win, question, { scope: scope ?? scopeOf(question), provider });
+    const card = new Card(win, question, { scope: scope ?? (prompt ? null : scopeOf(question)), provider, prompt });
     cards.set(win, card);
     this.enterMode(win);
     this.requery(win);
@@ -606,7 +610,7 @@ export const WhimsyCommandBarAI = {
     }, LOADING_MS);
     card.request = {
       task: "ask",
-      messages: [{ role: "user", content: card.question }],
+      messages: [{ role: "user", content: card.prompt ?? card.question }],
       system,
       provider: card.provider ?? undefined,
       userStarted: true,

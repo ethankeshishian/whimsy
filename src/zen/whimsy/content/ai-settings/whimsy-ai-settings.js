@@ -526,7 +526,7 @@ var WhimsyAISettings = {
     }
     if (!this.reducedMotion()) {
       state.animation = sheet.animate({ opacity: [0, 1], scale: [0.97, 1] }, { duration: 160, easing: "cubic-bezier(0.2, 0, 0, 1)" });
-      scrim.animate({ opacity: [0, 1] }, { duration: 150 });
+      state.scrimAnimation = scrim.animate({ opacity: [0, 1] }, { duration: 150 });
     } else {
       state.animation = sheet.animate({ opacity: [0, 1] }, { duration: 100 });
     }

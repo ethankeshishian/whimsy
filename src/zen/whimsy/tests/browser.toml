@@ -1034,3 +1034,10 @@ support-files = ["whimsy_ai_page.html", "whimsy_ai_long.html", "whimsy_ai_links.
 support-files = ["whimsy_ai_page.html"]
 ["browser_whimsy_screens_w23_routines-engine.js"]
 support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
+support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
+
+["browser_whimsy_cmdk_ai.js"]
+support-files = ["whimsy_cmdk.html", "whimsy_test_image.png"]
+
+["browser_whimsy_ai_selection.js"]
+support-files = ["whimsy_ai_selection.html"]
