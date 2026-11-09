@@ -293,3 +293,95 @@ add_task(async function shot_outside() {
     return () => WhimsyAgentTasks.stop(task.id);
   });
 });
+
+// ---- Settings › AI: Agent, Outside agents, and Activity; Agent runs ----
+
+const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
+const { WhimsyClaudeReplay } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs");
+const { WhimsyOutsideAgents } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyOutsideAgents.sys.mjs");
+const SETTINGS_PREFS = ["whimsy.ai.outside-agents", "whimsy.claude.replay", "whimsy.claude.port", "whimsy.ai.activity.days"];
+
+async function seedRuns() {
+  await WhimsyClaudeReplay.clear();
+  const step = (task, title, url = "https://hearthcoffee.com/") => WhimsyClaudeReplay.record({ tool: "read_page", args: {}, url, title, task });
+  for (let i = 0; i < 3; i++) {
+    await step({ id: "airpods", client: "whimsy", title: "Compared AirPods Pro prices", mode: "background" }, "AirPods");
+  }
+  await step({ id: "brief", client: "whimsy", title: "Daily brief", mode: "background" }, "Brief");
+  await step({ id: "m5", client: "outside", clientName: "Claude Code", title: "Read 3 tabs about M5 laptops" }, "Laptops");
+  for (let i = 0; i < 5; i++) {
+    await step({ id: "coffee", client: "whimsy", title: "Coffee reorder" }, "Hearth Coffee");
+  }
+  await WhimsyClaudeReplay.flush();
+}
+
+async function openSection(id) {
+  const settingsTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
+  const win = settingsTab.linkedBrowser.contentWindow;
+  const doc = win.document;
+  await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root && doc.getElementById(`whimsyAISection-${id}`), `The ${id} section shows`);
+  win.WhimsyAISettings.jumpTo(id);
+  await new Promise(r => win.setTimeout(r, 400));
+  return { settingsTab, win, doc, $: x => doc.getElementById(x), close: () => BrowserTestUtils.removeTab(settingsTab) };
+}
+
+add_task(async function shot_settings() {
+  Services.prefs.setBoolPref("whimsy.ai.outside-agents", true);
+  Services.prefs.setBoolPref("whimsy.claude.replay", true);
+  const home = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-shots-home");
+  await IOUtils.makeDirectory(PathUtils.join(home, ".codex"));
+  await IOUtils.makeDirectory(PathUtils.join(home, ".cursor"));
+  WhimsyOutsideAgents._setHomeForTesting(home);
+  registerCleanupFunction(async () => {
+    WhimsyOutsideAgents._setHomeForTesting(null);
+    await WhimsyClaudeReplay.clear();
+    WhimsyClaude.shutdown();
+    SETTINGS_PREFS.forEach(p => Services.prefs.clearUserPref(p));
+    await IOUtils.remove(home, { recursive: true });
+  });
+  await WhimsyClaude.start();
+
+  await whimsyBothSchemes(`${P}set-8.3-agent`, async () => {
+    const page = await openSection("agent");
+    ok(page.$("whimsyAIAgentMode") && page.$("whimsyAIAgentPauses"), "Agent: the mode switch and the guardrail");
+    return page.close;
+  });
+  await whimsyBothSchemes(`${P}fu-settings-8.2-outside`, async () => {
+    const page = await openSection("outside-agents");
+    await TestUtils.waitForCondition(() => page.doc.querySelector("#whimsyAIOutsideApps [data-app]"), "Found apps are listed");
+    ok(page.doc.querySelector("#whimsyAIOutsideApps [data-app=codex] [data-action=connect]"), "Outside agents: found apps with Connect");
+    return page.close;
+  });
+  await whimsyBothSchemes(`${P}fu-settings-9.5-empty`, async () => {
+    await WhimsyClaudeReplay.clear();
+    const page = await openSection("activity");
+    await TestUtils.waitForCondition(() => page.$("whimsyAIActivityEmpty"), "Empty");
+    ok(page.$("whimsyAIActivityDeleteAll").disabled, "Activity, empty: says so; Delete all… stays, off");
+    return page.close;
+  });
+  await whimsyBothSchemes(`${P}set-9.1-activity`, async () => {
+    await seedRuns();
+    const page = await openSection("activity");
+    await TestUtils.waitForCondition(() => page.doc.querySelectorAll("#whimsyAIActivityRuns [data-run]").length == 4, "Runs");
+    ok(page.$("whimsyAIActivityDays"), "Activity: runs by day, and how long they're kept");
+    return page.close;
+  });
+  await whimsyBothSchemes(`${P}set-9.3-delete`, async () => {
+    await seedRuns();
+    const page = await openSection("activity");
+    const row = await TestUtils.waitForCondition(() => page.doc.querySelectorAll("#whimsyAIActivityRuns [data-run]")[1], "Runs");
+    EventUtils.synthesizeMouseAtCenter(row.querySelector("[data-action=delete]"), {}, page.win);
+    await TestUtils.waitForCondition(() => row.nextElementSibling?.matches(".whimsy-ai-confirm"), "Confirm");
+    ok(true, "Activity: Delete asks in place, under the run");
+    return page.close;
+  });
+  await whimsyBothSchemes(`${P}agent-7.4-runs`, async () => {
+    await seedRuns();
+    const coffee = (await WhimsyClaudeReplay.runs()).find(r => r.taskId == "coffee");
+    const runsTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, `about:whimsy?replay&run=${coffee.id}&step=4`);
+    const doc = runsTab.linkedBrowser.contentDocument;
+    await TestUtils.waitForCondition(() => doc.documentElement.hasAttribute("data-ready") && doc.title == "Agent runs", "Agent runs");
+    is(doc.getElementById("whimsy-replay-run-title").textContent, "Coffee reorder", "Agent runs: the linked run, named by its task");
+    return () => BrowserTestUtils.removeTab(runsTab);
+  });
+});

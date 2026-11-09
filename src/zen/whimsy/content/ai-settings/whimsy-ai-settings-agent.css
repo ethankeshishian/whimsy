@@ -93,6 +93,9 @@
   & > .whimsy-ai-seg {
     min-width: 300px;
   }
+  & > #whimsyAIActivityDeleteAll {
+    margin-inline-start: auto;
+  }
 }
 
 .whimsy-ai-agent-icon-btn {
@@ -122,4 +125,16 @@
   .whimsy-ai-agent-chevron {
     transition: none;
   }
+}
+
+/* An in-place confirm in a row of buttons takes its own line below them. */
+.whimsy-ai-agent-bar,
+.whimsy-ai-agent-buttons {
+  flex-wrap: wrap;
+  & > .whimsy-ai-confirm {
+    flex-basis: 100%;
+  }
+}
+.whimsy-ai-agent-bar > .whimsy-ai-confirm {
+  margin-block: 8px 10px;
 }

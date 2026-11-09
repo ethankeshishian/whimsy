@@ -1152,8 +1152,9 @@ export const WhimsyChatAgent = {
     return list;
   },
 
+  // about:whimsy?replay, not whimsy://replay: the urlbar route takes no query.
   openReplay(win, taskId, step) {
-    win.openTrustedLinkIn(`whimsy://replay?task=${encodeURIComponent(taskId)}&step=${step}`, "tab");
+    win.openTrustedLinkIn(`about:whimsy?replay&task=${encodeURIComponent(taskId)}&step=${step}`, "tab");
   },
 
   // ---- Popover beside chat (fu-agent 2.5) ----

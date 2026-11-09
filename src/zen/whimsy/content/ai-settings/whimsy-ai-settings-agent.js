@@ -294,12 +294,22 @@
         }
       };
       const changed = () => render();
+      // The server starts after the pref flips; refill the command when it's up.
+      const serverChanged = () => {
+        if (!body.hidden) {
+          fill();
+        }
+      };
       Services.prefs.addObserver(OUTSIDE_PREF, changed);
       Services.obs.addObserver(changed, "whimsy-outside-agents-changed");
+      Services.obs.addObserver(serverChanged, "whimsy-claude-changed");
       cleanups.push(() => {
         Services.prefs.removeObserver(OUTSIDE_PREF, changed);
         Services.obs.removeObserver(changed, "whimsy-outside-agents-changed");
+        Services.obs.removeObserver(serverChanged, "whimsy-claude-changed");
       });
+      // Settings may open before any browser window started the module.
+      lazy.WhimsyClaude.init();
       render();
       return () => cleanups.forEach(fn => fn());
     },
@@ -321,6 +331,17 @@
         syncFilter(value);
         render();
       });
+      // Delete all…: asks in place, below the bar. Off (not gone) with no runs.
+      const deleteAll = S.button(bar, "whimsy-ai-activity-delete-all", { small: true, kind: "text", id: "whimsyAIActivityDeleteAll" });
+      deleteAll.addEventListener("click", () =>
+        ctx.confirmStrip(bar, {
+          titleL10nId: "whimsy-ai-activity-delete-all-title",
+          textL10nId: "whimsy-ai-activity-delete-all-text",
+          okL10nId: "whimsy-ai-activity-delete-all-ok",
+          restoreFocus: deleteAll,
+          onConfirm: () => lazy.WhimsyClaudeReplay.clear(),
+        })
+      );
       const days = S.el("div", "whimsy-ai-list", container);
       days.id = "whimsyAIActivityRuns";
       const settings = S.el("div", "whimsy-ai-list", container);
@@ -350,12 +371,14 @@
       let token = 0;
       const render = async () => {
         const mine = ++token;
-        const runs = (await lazy.WhimsyClaudeReplay.runs()).filter(r => filter == "all" || (r.client ?? "outside") == filter).sort((a, b) => b.start - a.start);
+        const every = await lazy.WhimsyClaudeReplay.runs();
+        const runs = every.filter(r => filter == "all" || (r.client ?? "outside") == filter).sort((a, b) => b.start - a.start);
         if (mine != token) {
           return;
         }
         days.replaceChildren();
         days.classList.toggle("is-grouped", !!runs.length);
+        deleteAll.disabled = !every.length;
         if (!runs.length) {
           item(days, { icon: `${ZEN}sparkles.svg`, name: "whimsy-ai-activity-empty", detail: "whimsy-ai-activity-empty-detail" }).id = "whimsyAIActivityEmpty";
           return;
@@ -396,7 +419,7 @@
           S.el("span", "whimsy-ai-agent-chevron is-end", row).setAttribute("aria-hidden", "true");
           row.tabIndex = 0;
           row.setAttribute("role", "link");
-          const open = () => S.browserWindow()?.openTrustedLinkIn(`whimsy://replay?run=${encodeURIComponent(run.id)}`, "tab");
+          const open = () => S.browserWindow()?.openTrustedLinkIn(`about:whimsy?replay&run=${encodeURIComponent(run.id)}`, "tab");
           row.addEventListener("click", open);
           row.addEventListener("keydown", event => event.key == "Enter" && event.target == row && open());
         }

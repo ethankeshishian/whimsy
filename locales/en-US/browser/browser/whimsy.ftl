@@ -215,7 +215,6 @@ whimsy-ai-enable =
 whimsy-ai-off-note = AI is off. Turn on Enable AI to use anything below.
 whimsy-ai-locked-note = Your organization manages this setting.
 whimsy-ai-features-heading = Features
-whimsy-ai-claude-heading = Claude in Whimsy
 whimsy-ai-apple-open-settings =
     .label = Open System Settings
 whimsy-ai-firefox-chatbot =
@@ -226,8 +225,6 @@ whimsy-ai-firefox-link-previews =
     .label = Firefox link previews
 whimsy-ai-firefox-tab-groups =
     .label = Suggest tab groups
-whimsy-claude-fieldset =
-    .aria-label = Claude in Whimsy
 
 ## Settings → Privacy & Security → Tracking in links
 
@@ -1013,20 +1010,6 @@ whimsy-year-done = Done
 
 whimsy-claude-header =
     .label = Claude
-whimsy-claude-enable =
-    .label = Let outside agents use { -brand-short-name }
-    .description = Claude Code and other apps can read and use your tabs under the same rules as { -brand-short-name }’s agent: never private tabs, and a pause before anything risky. Only apps on this Mac with the token below can connect.
-whimsy-claude-ai-blocked = Claude is unavailable while AI is off.
-whimsy-claude-connect-heading = Connect Claude Code
-whimsy-claude-connect-intro = Run this in Terminal once:
-whimsy-claude-connect-json-intro = Or add this to an MCP config file (.mcp.json):
-whimsy-claude-copy-command =
-    .label = Copy Command
-whimsy-claude-copy-json =
-    .label = Copy JSON
-whimsy-claude-new-token =
-    .label = New Token
-whimsy-claude-copied = Copied
 whimsy-claude-new-token-note = Token changed. Your connection is ready.
 whimsy-claude-token-error = Couldn’t change the token. Try again.
 ## meeting: Next meeting in the sidebar
@@ -1927,11 +1910,6 @@ whimsy-media-video-captions =
 
 ## wave5/safety: Claude runs (agent replay, whimsy://replay)
 
-whimsy-claude-replay =
-    .label = Keep a replay of what Claude does
-    .description = Each run’s steps and small page snapshots stay on this device. Private tabs and the Private Space are never recorded; clearing history clears it.
-whimsy-claude-show-runs =
-    .label = Show Claude’s Runs
 whimsy-replay-title = Agent runs
 whimsy-replay-heading = Agent runs
 whimsy-replay-intro = Every step Whimsy’s agent and outside apps took in your tabs, with a snapshot of the page. Kept only on this Mac.
@@ -6540,6 +6518,10 @@ whimsy-ai-activity-delete =
 whimsy-ai-activity-delete-title = Delete this run?
 whimsy-ai-activity-delete-text = Its steps and screenshots are removed from this Mac. Anything it did on sites stays done.
 whimsy-ai-activity-delete-ok = Delete
+whimsy-ai-activity-delete-all = Delete all…
+whimsy-ai-activity-delete-all-title = Delete every run?
+whimsy-ai-activity-delete-all-text = All steps and screenshots are removed from this Mac. Anything the agents did on sites stays done.
+whimsy-ai-activity-delete-all-ok = Delete All
 whimsy-ai-activity-keep = Keep step screenshots
 whimsy-ai-activity-keep-detail = Small snapshots of each step, kept on this Mac. Private tabs are never captured, and card numbers, passwords, and one-time codes are covered before a snapshot is taken, so AI never sees them.
 whimsy-ai-activity-days = Keep runs for

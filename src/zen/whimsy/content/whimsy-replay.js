@@ -32,8 +32,9 @@
   };
   const isWeb = url => /^https?:\/\//i.test(url || "");
 
+  // W23: a run is named by its task; older runs by the site they used.
   function runName(r) {
-    return r.steps.map(s => host(s.url)).find(Boolean) || when.format(r.start);
+    return r.title || r.steps.map(s => host(s.url)).find(Boolean) || when.format(r.start);
   }
 
   function setTool(el, tool) {
@@ -230,7 +231,7 @@
   Services.obs.addObserver(observer, "whimsy-claude-replay-changed");
   window.addEventListener("unload", () => Services.obs.removeObserver(observer, "whimsy-claude-replay-changed"));
 
-  // whimsy://replay?task=…&step=… (a chat's step list) or ?run=… (Settings › AI › Activity).
+  // about:whimsy?replay&task=…&step=… (a chat's step list) or &run=… (Settings › AI › Activity).
   const params = new URLSearchParams(location.search);
   await load(null, { run: params.get("run"), task: params.get("task"), step: Number(params.get("step")) || 0 });
 })();
