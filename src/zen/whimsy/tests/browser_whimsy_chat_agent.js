@@ -156,7 +156,6 @@ add_task(async function mode_persists_across_new_chats() {
 });
 
 add_task(async function plan_waits_for_start_return() {
-  return;
   await fresh();
   const tab = await openOn();
   type("Order two more bags of the coffee I got last time");
