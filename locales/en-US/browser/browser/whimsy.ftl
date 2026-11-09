@@ -7301,3 +7301,52 @@ whimsy-image-text-show-original = Show original
 whimsy-image-text-show-translation = Show translation
 whimsy-image-text-none = No text in the images on screen
 whimsy-image-text-translate-failed = Couldn’t translate the text in this image
+## W23 voice-image: read aloud. Plain commands (not AI), the mini player in
+## the sidebar, its speed and voice menu, and Settings › Media.
+
+whimsy-read-aloud-listen-page = Listen to this page
+whimsy-read-aloud-listen-selection = Listen to selection
+whimsy-read-aloud-listen-here = Listen from here
+whimsy-read-aloud-listen-here-detail = Starts at the paragraph in view
+whimsy-read-aloud-nothing = Nothing to read here. Select some text to hear it.
+# $minutes (number): about how long reading the page takes.
+whimsy-read-aloud-minutes = { $minutes } min
+# $site (string): the page's site, $voice (string): the voice's name.
+whimsy-read-aloud-artist = { $site } · { $voice }
+whimsy-read-aloud-finished = Finished · { $minutes } min
+whimsy-read-aloud-previous =
+    .tooltiptext = Previous sentence
+    .aria-label = Previous sentence
+whimsy-read-aloud-next =
+    .tooltiptext = Next sentence
+    .aria-label = Next sentence
+whimsy-read-aloud-play =
+    .tooltiptext = Play
+    .aria-label = Play
+whimsy-read-aloud-pause =
+    .tooltiptext = Pause
+    .aria-label = Pause
+whimsy-read-aloud-replay =
+    .tooltiptext = Play again
+    .aria-label = Play again
+whimsy-read-aloud-mute =
+    .tooltiptext = Mute or unmute this tab
+    .aria-label = Mute or unmute this tab
+whimsy-read-aloud-close =
+    .tooltiptext = Stop reading
+    .aria-label = Stop reading
+whimsy-read-aloud-focus =
+    .tooltiptext = Go to the tab
+    .aria-label = Go to the tab
+# $rate (string): the speed, like “1.25×”.
+whimsy-read-aloud-speed =
+    .title = Speed and voice
+    .aria-label = Speed { $rate }, and voice
+whimsy-read-aloud-speed-normal = Normal
+whimsy-read-aloud-voice = Voice
+# $name (string): the voice in use.
+whimsy-read-aloud-voice-detail = { $name } ›
+whimsy-read-aloud-settings-voice = Voice
+whimsy-read-aloud-settings-voice-detail = Voices on this Mac. Add more in System Settings › Accessibility › Spoken Content.
+whimsy-read-aloud-settings-speed = Reading speed
+whimsy-read-aloud-settings-speed-detail = Read aloud uses this speed and voice on every site.

@@ -77,6 +77,12 @@ Object.assign(gWhimsySettings, {
     this.buildDictation();
     this.buildDefaultSpeed();
     this.buildSavedSites();
+    this.buildReadAloud();
+    // Read aloud and dictation share the Voice group; it shows once either has rows.
+    const voice = document.getElementById("whimsyMediaVoiceGroup");
+    if (voice?.querySelector("#whimsyMediaReadAloud > *, #whimsyMediaDictation > *")) {
+      voice.setAttribute("data-category", WHIMSY_MEDIA_PANE);
+    }
     Preferences.queueUpdateOfAllElements();
   },
 
@@ -170,8 +176,6 @@ Object.assign(gWhimsySettings, {
     if (!Preferences.get("whimsy.dictation.hold-fn")) {
       Preferences.add({ id: "whimsy.dictation.hold-fn", type: "bool" });
     }
-    const box = holder.closest("groupbox");
-    box?.setAttribute("data-category", "paneWhimsyMedia");
     const check = xul("checkbox");
     check.id = "whimsyDictationHoldFn";
     check.setAttribute("preference", "whimsy.dictation.hold-fn");
@@ -239,6 +243,73 @@ Object.assign(gWhimsySettings, {
     holder.replaceChildren(input, note);
     input.focus();
     input.select();
+  },
+});
+
+// W23 voice-image: read aloud's voice and speed (fu-media 4.5: saved, for every site).
+Object.assign(gWhimsySettings, {
+  buildReadAloud() {
+    const mount = document.getElementById("whimsyMediaReadAloud");
+    const { Whimsy } = this.lazy;
+    if (!mount || !Whimsy.featureEnabled("read-aloud")) {
+      return;
+    }
+    const { WhimsyReadAloud } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyReadAloud.sys.mjs");
+    const { WhimsySurface } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySurface.sys.mjs");
+    const row = (id, labelL10n, detailL10n) => {
+      const hbox = document.createXULElement("hbox");
+      hbox.setAttribute("align", "center");
+      hbox.className = "whimsy-media-row";
+      const text = document.createXULElement("vbox");
+      text.setAttribute("flex", "1");
+      const label = document.createXULElement("label");
+      label.id = `${id}Label`;
+      document.l10n.setAttributes(label, labelL10n);
+      const detail = document.createXULElement("description");
+      detail.className = "description-deemphasized";
+      document.l10n.setAttributes(detail, detailL10n);
+      text.append(label, detail);
+      const holder = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      holder.id = id;
+      hbox.append(text, holder);
+      mount.append(hbox);
+      return holder;
+    };
+    const voiceHolder = row("whimsyReadAloudVoice", "whimsy-read-aloud-settings-voice", "whimsy-read-aloud-settings-voice-detail");
+    const speedHolder = row("whimsyReadAloudSpeed", "whimsy-read-aloud-settings-speed", "whimsy-read-aloud-settings-speed-detail");
+    const format = rate => `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(rate)}×`;
+    const buildVoice = () => {
+      const voices = WhimsyReadAloud.voiceOptions(window);
+      const current = WhimsyReadAloud.voice(window);
+      const dropdown = WhimsySurface.dropdown(document, {
+        id: "whimsyReadAloudVoiceMenu",
+        label: "whimsyReadAloudVoiceLabel",
+        options: voices.length ? voices.map(v => ({ value: v.voiceURI, text: v.name })) : [{ value: "", text: "" }],
+        value: current?.voiceURI ?? "",
+        width: 220,
+        onPick: value => WhimsyReadAloud.setVoice(value),
+      });
+      voiceHolder.replaceChildren(dropdown.button);
+    };
+    const speeds = [0.75, 1, 1.25, 1.5, 2];
+    const speed = WhimsySurface.dropdown(document, {
+      id: "whimsyReadAloudSpeedMenu",
+      label: "whimsyReadAloudSpeedLabel",
+      options: (speeds.includes(WhimsyReadAloud.rate) ? speeds : [...speeds, WhimsyReadAloud.rate].sort((a, b) => a - b)).map(rate => ({
+        value: String(rate),
+        text: format(rate),
+        detailL10nId: rate == 1 ? "whimsy-read-aloud-speed-normal" : undefined,
+      })),
+      value: String(WhimsyReadAloud.rate),
+      width: 180,
+      onPick: value => WhimsyReadAloud.setRate(Number(value)),
+    });
+    speedHolder.replaceChildren(speed.button);
+    buildVoice();
+    // macOS lists its voices a moment after the first ask.
+    if (!WhimsyReadAloud.testSynth && window.speechSynthesis) {
+      window.speechSynthesis.addEventListener("voiceschanged", buildVoice);
+    }
   },
 });
 

@@ -695,6 +695,8 @@ export const Whimsy = {
     run("dictation", () => lazy.WhimsyDictation.initWindow(win));
     // W23 voice-image: image text; works with AI off, checks its switch on use.
     run("image-text", () => lazy.WhimsyImageText.initWindow(win));
+    // W23 voice-image: read aloud, plain commands that work with AI off; checks its switch.
+    run("read-aloud", () => ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyReadAloud.sys.mjs").WhimsyReadAloud.initWindow(win));
     // W23 memory-fire: "Related" rows by meaning, from the on-device index.
     run("ai-related", () => lazy.WhimsyAIIndex.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in

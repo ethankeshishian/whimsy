@@ -676,6 +676,9 @@ export const WhimsyContextCommands = {
     if (verb.tag) {
       row.tag = typeof verb.tag == "function" ? verb.tag(win, subject, view) : verb.tag;
     }
+    if (verb.detail) {
+      row.detail = lazy.l10n.formatValueSync(verb.detail);
+    }
     const reason = verb.unavailable?.(win, subject, view);
     if (reason) {
       row.unavailable = typeof reason == "string" ? lazy.l10n.formatValueSync(reason) : reason.text;
@@ -1508,7 +1511,7 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
         title: row.label,
         icon: row.icon ?? "",
         tag: row.tag ?? "",
-        detail: row.unavailable ?? "",
+        detail: row.unavailable ?? row.detail ?? "",
         ...extra,
       },
     });

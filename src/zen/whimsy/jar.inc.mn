@@ -238,6 +238,8 @@
         content/browser/whimsy/icons/pencil.svg (../../zen/whimsy/content/icons/pencil.svg)
 # W23 video: Settings › Media
         content/browser/whimsy/whimsy-settings-media.js (../../zen/whimsy/content/whimsy-settings-media.js)
+# W23 voice-image: read aloud
+        content/browser/whimsy/whimsy-read-aloud.css (../../zen/whimsy/content/whimsy-read-aloud.css)
 # W23 memory-fire: Settings › AI › Memory, and the related-results row icon
         content/browser/whimsy/ai-settings/whimsy-ai-settings-memory.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-memory.js)
         content/browser/whimsy/ai-settings/whimsy-ai-settings-memory.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-memory.css)

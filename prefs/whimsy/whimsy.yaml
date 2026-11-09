@@ -828,6 +828,14 @@
 - name: whimsy.ai.onboarding.celebrated
   value: false
 
+# W23 voice-image: read aloud
+# The voice (a voiceURI; empty is the system's) and the speed, for every site.
+- name: whimsy.read-aloud.voice
+  value: ""
+
+- name: whimsy.read-aloud.rate
+  value: "1.0"
+
 # W23 video
 # Firefox's own picture-in-picture toggle is hidden: the PiP plate at the
 # top right of videos calls PictureInPicture directly.
