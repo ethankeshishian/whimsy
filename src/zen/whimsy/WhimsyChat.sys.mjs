@@ -14,6 +14,8 @@ const registry = {
   cards: new Map(),
   actions: new Map(),
   taskSources: new Map(),
+  sendHandlers: new Map(),
+  threadViews: new Map(),
 };
 const impls = new WeakMap();
 const pending = new WeakMap();
@@ -142,6 +144,35 @@ export const WhimsyChat = {
 
   taskSource(id) {
     return registry.taskSources.get(id) ?? null;
+  },
+
+  /**
+   * Sees a sent message before chat answers it: {id, handle(panel, thread,
+   * text, context) -> Promise<boolean>}; true means it took the message.
+   */
+  registerSendHandler(handler) {
+    if (!handler?.id || typeof handler.handle != "function") {
+      throw new Error("A send handler needs id and handle");
+    }
+    registry.sendHandlers.set(handler.id, handler);
+    return () => registry.sendHandlers.get(handler.id) == handler && registry.sendHandlers.delete(handler.id);
+  },
+
+  sendHandlers() {
+    return [...registry.sendHandlers.values()];
+  },
+
+  /** Adds to the panel once a thread shows: {id, render(panel)}. */
+  registerThreadView(view) {
+    if (!view?.id || typeof view.render != "function") {
+      throw new Error("A thread view needs id and render");
+    }
+    registry.threadViews.set(view.id, view);
+    return () => registry.threadViews.get(view.id) == view && registry.threadViews.delete(view.id);
+  },
+
+  threadViews() {
+    return [...registry.threadViews.values()];
   },
 
   /** Tasks changed (a source calls this so the strip refreshes). */

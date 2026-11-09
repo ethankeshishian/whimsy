@@ -276,15 +276,37 @@ add_task(async function test_private_bridge_and_live_rotation() {
 add_task(async function test_settings_connection_and_rotation() {
   await BrowserTestUtils.withNewTab("about:preferences#whimsyAI", async browser => {
     const doc = browser.contentDocument;
-    await TestUtils.waitForCondition(() => doc.getElementById("whimsyClaudeCommand")?.textContent, "Settings shows the ready command");
-    ok(doc.getElementById("whimsyAISection-outside-agents")?.contains(doc.getElementById("whimsyClaudeGroup")), "The Claude group lives in the outside-agents section");
-    ok(!doc.getElementById("whimsyClaudeWholeBrowser") && !doc.getElementById("whimsyClaudeAsk"), "No whole-browser or ask-per-site switches");
-    ok(!doc.getElementById("whimsyClaudeForgetSites"), "No Forget Allowed Sites");
-    const command = doc.getElementById("whimsyClaudeCommand");
+    const win = doc.documentGlobal;
+    const section = await TestUtils.waitForCondition(() => doc.getElementById("whimsyAISection-outside-agents"), "Settings › AI has Outside agents");
+    const another = await TestUtils.waitForCondition(() => {
+      const node = doc.getElementById("whimsyAIOutsideAnother");
+      return node?.checkVisibility() && node;
+    }, "Another app… shows once outside agents are on");
+    another.scrollIntoView({ block: "center" });
+    EventUtils.synthesizeMouseAtCenter(another, {}, win);
+    const command = doc.getElementById("whimsyAIOutsideCommand");
+    await TestUtils.waitForCondition(() => command.textContent, "Settings shows the ready command");
+    ok(section.contains(command), "The connect command lives in the Outside agents section");
+    ok(!doc.getElementById("whimsyClaudeGroup"), "The old Claude card is gone, so the section shows once");
+    ok(!doc.getElementById("whimsyClaudeWholeBrowser") && !doc.getElementById("whimsyClaudeAsk") && !section.querySelector("[id*=WholeBrowser], [id*=Ask]"),
+      "No whole-browser or ask-per-site switches");
+    ok(!doc.getElementById("whimsyClaudeForgetSites") && !section.querySelector("[id*=Forget]"), "No Forget Allowed Sites");
     is(command.textContent, WhimsyClaude.connectInfo().command, "Settings shows the safe command");
-    doc.getElementById("whimsyClaudeNewToken").doCommand();
-    await TestUtils.waitForCondition(() => doc.getElementById("whimsyClaudeStatus").getAttribute("data-l10n-id") ==
+    const before = command.textContent;
+    const newKey = doc.getElementById("whimsyAIOutsideNewKey");
+    // The connect details unfold; click once they're there.
+    newKey.scrollIntoView({ block: "center" });
+    await Promise.all(doc.getAnimations().filter(a => a.effect?.getComputedTiming().iterations != Infinity).map(a => a.finished.catch(() => {})));
+    ok(newKey.checkVisibility(), "New key shows under the connect details");
+    EventUtils.synthesizeMouseAtCenter(newKey, {}, win);
+    const confirm = await TestUtils.waitForCondition(() => section.querySelector(".whimsy-ai-confirm [data-action=confirm]"), "New key asks first");
+    // Click once the strip has unfolded, as a person would.
+    await Promise.all(doc.getAnimations().filter(a => a.effect?.getComputedTiming().iterations != Infinity).map(a => a.finished.catch(() => {})));
+    confirm.scrollIntoView({ block: "center" });
+    EventUtils.synthesizeMouseAtCenter(confirm, {}, win);
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIOutsideStatus").getAttribute("data-l10n-id") ==
       "whimsy-claude-new-token-note", "Settings confirms completed rotation");
+    is(command.textContent, before, "The command names the bridge, never the key, so it stays the same");
   });
 });
 

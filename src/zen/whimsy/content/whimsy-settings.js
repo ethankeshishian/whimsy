@@ -868,96 +868,6 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// tierC-claude: Settings → AI → Claude in Whimsy (W10-28; it was a card in
-// Privacy & Security). buildAIPane puts it after the AI features.
-
-Object.assign(gWhimsySettings, {
-  insertClaudeGroup() {
-    const template = document.getElementById("template-whimsyClaude");
-    if (!template) {
-      return;
-    }
-    const group = template.content.firstElementChild;
-    const featureOn = this.lazy.Whimsy.featureEnabled("ai-outside-agents");
-    template.remove();
-    if (!featureOn) {
-      return;
-    }
-    const anchor = document.getElementById("whimsyAIFeaturesGroup") ?? document.getElementById("whimsyAIProviderGroup");
-    if (anchor) {
-      anchor.after(group);
-    } else {
-      document.getElementById("mainPrefPane").append(group);
-    }
-    // Shown by Firefox's pane switching, with the rest of Settings → AI.
-    group.hidden = globalThis.gLastCategory?.category != group.dataset.category;
-    this.initClaudeGroup();
-  },
-
-  initClaudeGroup() {
-    const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
-    this.initPrefCheckbox("whimsyClaudeEnable", "whimsy.ai.outside-agents");
-    this.initPrefCheckbox("whimsyClaudeReplay", "whimsy.claude.replay");
-    const $ = id => document.getElementById(id);
-    // wave5/safety: Claude runs (agent replay).
-    $("whimsyClaudeShowRuns").addEventListener("command", () =>
-      window.browsingContext.topChromeWindow.openTrustedLinkIn("about:whimsy?replay", "tab")
-    );
-    const status = $("whimsyClaudeStatus");
-    const copy = value => {
-      if (!value) {
-        return;
-      }
-      Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(value);
-      document.l10n.setAttributes(status, "whimsy-claude-copied");
-    };
-    // The command and JSON only exist while the server runs; it starts a
-    // moment after the switch is turned on.
-    const refresh = () => {
-      const blocked = !Services.prefs.getBoolPref("whimsy.ai.enabled", true);
-      $("whimsyClaudeAIBlocked").hidden = !blocked;
-      $("whimsyClaudeEnable").disabled = blocked;
-      const info = WhimsyClaude.connectInfo();
-      $("whimsyClaudeConnect").hidden = !info;
-      $("whimsyClaudeCommand").textContent = info?.command ?? "";
-      $("whimsyClaudeJSON").textContent = info?.json ?? "";
-    };
-    $("whimsyClaudeCopyCommand").addEventListener("command", () => copy(WhimsyClaude.connectInfo()?.command));
-    $("whimsyClaudeCopyJSON").addEventListener("command", () => copy(WhimsyClaude.connectInfo()?.json));
-    $("whimsyClaudeNewToken").addEventListener("command", async () => {
-      const button = $("whimsyClaudeNewToken");
-      button.disabled = true;
-      try {
-        await WhimsyClaude.regenerateToken();
-        document.l10n.setAttributes(status, "whimsy-claude-new-token-note");
-      } catch (e) {
-        console.error("Whimsy: Claude token", e);
-        document.l10n.setAttributes(status, "whimsy-claude-token-error");
-      } finally {
-        button.disabled = false;
-      }
-    });
-    const prefs = ["whimsy.ai.outside-agents", "whimsy.ai.enabled"];
-    for (const pref of prefs) {
-      Services.prefs.addObserver(pref, refresh);
-    }
-    Services.obs.addObserver(refresh, "whimsy-claude-changed");
-    window.addEventListener(
-      "unload",
-      () => {
-        for (const pref of prefs) {
-          Services.prefs.removeObserver(pref, refresh);
-        }
-        Services.obs.removeObserver(refresh, "whimsy-claude-changed");
-      },
-      { once: true }
-    );
-    // Settings may open before any browser window started the module.
-    WhimsyClaude.init();
-    refresh();
-  },
-});
-
 // wave4: calendar connections stay in Settings; permission is requested on click.
 // wave5/uxfix: they live in General (one place), not Look and Feel.
 // Firefox's settings redesign (on in Zen) folds General into its first
@@ -1266,7 +1176,6 @@ Object.assign(gWhimsySettings, {
     template.remove();
     const root = document.getElementById("whimsyAIPage");
     root.hidden = globalThis.gLastCategory?.category != WHIMSY_AI_PANE;
-    this.insertClaudeGroup();
     this.initAIWatchList();
     WhimsyAISettings.mount(root);
   },
@@ -3154,7 +3063,7 @@ Object.assign(gWhimsySettings, {
     }
     // W23: Settings › AI is one page; each row, fact, and switch is a row.
     if (group.id == "whimsyAIPage") {
-      return [...group.querySelectorAll(".whimsy-ai-item, .whimsy-ai-fact, #whimsyClaudeGroup :is(moz-checkbox, details)")]
+      return [...group.querySelectorAll(".whimsy-ai-item, .whimsy-ai-fact")]
         .map(row => ({ nodes: [row], main: row }))
         .filter(row => row.main.checkVisibility());
     }

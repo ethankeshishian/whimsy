@@ -307,3 +307,48 @@ add_task(async function test_view_claude_replays_command() {
   const commandEl = document.getElementById("cmd_whimsyViewClaudeReplays");
   ok(commandEl, "Command element exists in window");
 });
+
+// W23 agent-chat: the page is "Agent runs", and Settings › AI › Activity
+// (&run=) and a chat's step list (&task=…&step=) open it on that run.
+add_task(async function replay_title_agent_runs() {
+  Services.prefs.setBoolPref(KEEP, true);
+  await WhimsyClaudeReplay.clear();
+  const step = (task, title) => WhimsyClaudeReplay.record({ tool: "read_page", args: {}, url: "https://example.com/", title, task });
+  await step({ id: "first", client: "whimsy", title: "Compare three flights" }, "Flights");
+  await step({ id: "first", client: "whimsy", title: "Compare three flights" }, "Flights");
+  await step({ id: "second", client: "outside", clientName: "Claude Code", title: "Fill the expense form" }, "Expenses");
+  await WhimsyClaudeReplay.flush();
+  const runs = await WhimsyClaudeReplay.runs();
+  const first = runs.find(r => r.taskId == "first");
+  const second = runs.find(r => r.taskId == "second");
+  ok(first && second, "Two runs are kept");
+
+  const open = async (query, fn) =>
+    BrowserTestUtils.withNewTab(`about:whimsy?replay${query}`, async browser => {
+      const doc = browser.contentDocument;
+      await TestUtils.waitForCondition(() => doc.documentElement.hasAttribute("data-ready"), "The page loads its runs");
+      await fn(doc, id => doc.getElementById(id));
+    });
+  const current = $ => $("whimsy-replay-runs").querySelector("[aria-current=true]");
+
+  await open("", async (doc, $) => {
+    await TestUtils.waitForCondition(() => doc.title == "Agent runs", "The tab is titled Agent runs");
+    ok(!/Claude/.test(doc.title), "not Claude's runs: Whimsy's agent is in it too");
+    is(doc.l10n.getAttributes(doc.querySelector("h1")).id, "whimsy-replay-heading", "and so is the page");
+    is(current($)?.textContent.includes("Fill the expense form"), true, "With no link, the newest run shows");
+  });
+  await open(`&run=${encodeURIComponent(first.id)}`, async (doc, $) => {
+    ok(current($)?.textContent.includes("Compare three flights"), "&run= opens that run");
+    is($("whimsy-replay-run-title").textContent, "Compare three flights", "and shows it");
+  });
+  await open(`&task=second&step=0`, async (doc, $) => {
+    ok(current($)?.textContent.includes("Fill the expense form"), "&task= opens that task's run");
+  });
+  await open(`&task=first&step=1`, async (doc, $) => {
+    is($("whimsy-replay-scrub").value, "1", "&step= opens on that step");
+  });
+  await open(`&run=nope`, async (doc, $) => {
+    ok(current($), "An unknown run falls back to the newest");
+  });
+  await WhimsyClaudeReplay.clear();
+});

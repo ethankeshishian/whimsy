@@ -12,6 +12,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
+  WhimsyChatAgent: "resource:///modules/whimsy/WhimsyChatAgent.sys.mjs",
   WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
@@ -655,6 +656,8 @@ export const Whimsy = {
     // W23 chat-shell: the chat panel (⌘E). Installed only with its switch
     // on; the panel itself is built the first time it opens.
     run("ai-chat", () => lazy.WhimsyChatPanel.initWindow(win));
+    // W23 agent-chat: the agent in chat (mode switch, plan, run card, pauses).
+    run("ai-agent-chat", () => lazy.WhimsyChatAgent.initWindow(win));
     // W23 cmdbar-ai: Ask AI, the answer card, ⌘1–⌘9, and Updates on top.
     // Providers check their switches and AI on every query.
     run("ai-ask", () => lazy.WhimsyCommandBarAI.initWindow(win));
