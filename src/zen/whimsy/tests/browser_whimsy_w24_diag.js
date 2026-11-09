@@ -15,7 +15,7 @@ const { IPPProxyManager, IPPProxyStates } = ChromeUtils.importESModule(
 );
 
 function describe(el) {
-  const cs = el.ownerGlobal.getComputedStyle(el);
+  const cs = el.documentGlobal.getComputedStyle(el);
   const r = el.getBoundingClientRect();
   return `${el.localName}#${el.id}.${typeof el.className == "string" ? el.className : ""} rect=${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)} pad=${cs.padding} margin=${cs.margin} bg=${cs.backgroundColor} bgimg=${cs.backgroundImage.slice(0, 60)} border=${cs.borderTop}/${cs.borderBottom} shadow=${cs.boxShadow.slice(0, 80)} outline=${cs.outlineStyle}`;
 }

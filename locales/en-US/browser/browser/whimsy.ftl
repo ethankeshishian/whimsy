@@ -7809,3 +7809,14 @@ whimsy-agent-chat-verb-go = Go there
 
 whimsy-agent-chat-hand-over-frame = This is another site’s box inside the page, like a sign-in, payment, or post button. If you want it, press it yourself, then press Continue.
 whimsy-agent-field-frame = Inside
+
+## W24: Settings → Privacy & Security → Adult sites. Visits to adult sites
+## (Firefox's on-device list, or a page that labels itself) aren't kept.
+
+whimsy-adult-history-header =
+    .label = Adult sites
+whimsy-adult-history-toggle =
+    .label = Keep adult sites out of history
+    .description = Pages still load, but their visits stay out of history, address bar suggestions, Recently Closed, and Whimsy’s Library, Related, and memory. Checked on this Mac; nothing is sent anywhere.
+whimsy-setting-adult-history = History Filter for Adult Sites
+    .keywords = adult, explicit, nsfw, porn, history, hide from history, recently closed, suggestions, private

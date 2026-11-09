@@ -165,6 +165,15 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+  <!-- W24: keep adult sites out of history (Lens). -->
+  <html:div id="whimsyAdultHistoryGroup" data-category="panePrivacy" data-whimsy-feature="adult-history" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-adult-history-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/history.svg">
+        <html:moz-checkbox id="whimsyAdultHistory" data-l10n-id="whimsy-adult-history-toggle"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <!-- batch9p: the Private Space ("Scratch" in code) and private tabs -->
   <html:div id="whimsyPrivateGroup" data-category="panePrivacy" data-whimsy-feature="scratch" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">

@@ -288,6 +288,8 @@ var gWhimsySettings = {
     const inits = {
       "cookie-banners": () => this.initCookieBanners(),
       "strip-tracking": () => this.initStripTracking(),
+      // W24: keep adult sites out of history.
+      "adult-history": () => this.initPrefCheckbox("whimsyAdultHistory", "whimsy.adult-history.enabled"),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
       // W11-14: lock private browsing.

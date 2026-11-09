@@ -1708,6 +1708,9 @@ FEATURES = [
     # wave9: Battery saver (Arc parity: threshold <20%, banner, auto-off when charged, frame rate and background throttles)
     {"id": "battery-saver", "title": "Battery Saver: throttle frame rate (30fps) and background activity below 20% battery, with heads-up banner and auto-off when charged (Arc parity)",
      "detect": [("src/zen", r"(?i)battery-?saver")]},
+    # W24: keep adult sites out of history (Lens; FilterAdult list plus meta rating/RTA labels).
+    {"id": "adult-history", "title": "Keep adult sites out of history: on-device list and self-labels; pages load, visits aren't kept",
+     "detect": [("src/zen", r"(?i)FilterAdult[^\n]*(history|places)|adult-?history")]},
     # batch wave9: form protection (W9-03)
     {"id": "form-protection", "title": "Form protection: tabs with half-filled forms are exempt from auto-archive and show a subtle indicator",
      "detect": [("src/zen", r"(?i)form-?protection|whimsy-?form-?protected")]},

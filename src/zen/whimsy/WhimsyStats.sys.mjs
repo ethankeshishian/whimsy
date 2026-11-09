@@ -30,6 +30,7 @@ Services.obs.addObserver(function observer() {
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyAdultHistory: "resource:///modules/whimsy/WhimsyAdultHistory.sys.mjs",
 });
 
 export function isPrivateTab(tab) {
@@ -107,7 +108,8 @@ export const WhimsyStats = {
     const onClose = event => {
       const tab = event.target;
       const openedAt = parseInt(tab.getAttribute(OPENED_ATTR), 10);
-      if (!this.enabled || !openedAt || isPrivateTab(tab)) {
+      // W24: an adult site's page is never Year in tabs' longest tab.
+      if (!this.enabled || !openedAt || isPrivateTab(tab) || !lazy.WhimsyAdultHistory.keepsTab(tab)) {
         return;
       }
       this._recordIfLongest(tab, Date.now() - openedAt);

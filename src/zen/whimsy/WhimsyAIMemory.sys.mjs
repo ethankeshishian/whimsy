@@ -15,6 +15,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   noteLine: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
+  WhimsyAdultHistory: "resource:///modules/whimsy/WhimsyAdultHistory.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
@@ -273,6 +274,10 @@ export const WhimsyAIMemory = {
   /** A chat panel calls this after a fresh answer to append the note. */
   async noteAfterAnswer(panel, thread, answerMsg, userText, { signal = null } = {}) {
     if (!answerMsg || answerMsg.role != "ai") {
+      return;
+    }
+    // W24: nothing is remembered from a chat on an adult site's page.
+    if (!lazy.WhimsyAdultHistory.keepsTab(panel.currentTab)) {
       return;
     }
     const saved = await this.extract(thread.id, { userText, aiText: String(answerMsg.text ?? "") }, { signal });

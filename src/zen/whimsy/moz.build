@@ -341,6 +341,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyScamCheckChild.sys.mjs",
 ]
 
+# W24
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAdultHistory.sys.mjs",
+    "WhimsyAdultHistoryChild.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

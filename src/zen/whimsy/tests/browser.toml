@@ -1146,3 +1146,7 @@ support-files = ["whimsy_secfix2_codes.html"]
 
 # W24 build: temporary diagnostic.
 ["browser_whimsy_w24_diag.js"]
+
+# W24: keep adult sites out of history (stand-in hash and labelled stand-in pages).
+["browser_whimsy_adult_history.js"]
+support-files = ["whimsy_adult_standin.html", "whimsy_adult_labelled.html", "whimsy_adult_rta.html"]

@@ -20,6 +20,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
+  WhimsyAdultHistory: "resource:///modules/whimsy/WhimsyAdultHistory.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
@@ -152,7 +153,8 @@ export const WhimsyAIIndex = {
 
   /** @param {{url, title, text}} page. Never for a private tab (callers check). */
   async add({ url, title = "", text = "", date = Date.now() } = {}) {
-    if (!this.on || !url) {
+    // W24: never an adult site's page (WhimsyAdultHistory).
+    if (!this.on || !url || !lazy.WhimsyAdultHistory.keeps(url)) {
       return false;
     }
     const vector = embed(`${String(title ?? "").slice(0, TITLE_CHARS)}\n${String(text).slice(0, TEXT_CHARS)}`.trim());
@@ -168,6 +170,23 @@ export const WhimsyAIIndex = {
     }
     await save();
     return true;
+  },
+
+  /** W24: drops a page (origin and path, as stored) a site labelled adult after it was read. */
+  async forget(url) {
+    let key = String(url ?? "");
+    try {
+      const uri = Services.io.newURI(key);
+      key = uri.prePath + uri.filePath;
+    } catch {
+      // Not a URL: compare it as given.
+    }
+    const s = await load();
+    const before = s.entries.length;
+    s.entries = s.entries.filter(e => e.url != key && e.url != url);
+    if (s.entries.length != before) {
+      await save();
+    }
   },
 
   /** @returns {Promise<{url, title, score}[]>} best `k` matches, newest ties first. */
