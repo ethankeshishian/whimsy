@@ -293,16 +293,17 @@ async function openFind(text) {
   if (text) {
     findbar._findField.select();
     EventUtils.sendString(text);
-    // Reopening preloads the last search (status already settled from it,
-    // never "pending"), so "not pending" alone passes before this search
-    // has even started: wait for a real status (found or notfound), not
-    // just an attribute that isn't literally "pending". A heavier page
-    // (this file's PDF and chat tasks run first, in the same window) can
-    // leave the find round trip slower than the default poll allows.
-    await TestUtils.waitForCondition(() => {
-      const status = findbar._findField.getAttribute("status");
-      return status && status != "pending";
-    }, "Find ran", 100, 150);
+    // findbar.js's _find() skips re-searching once a shorter prefix has
+    // already failed (val.startsWith(this._findFailedString)), an
+    // optimization for real incremental typing. Typing "when is the
+    // offsite" character by character fails on an early prefix ("wh") and
+    // never searches the rest, so the field's own status (never "pending",
+    // and removed again on a real match - only "notfound" is ever truly
+    // set) can be left over from that prefix rather than this exact text.
+    // A fresh, forced find for the whole string is the real one.
+    findbar._findFailedString = null;
+    findbar._find(text);
+    await TestUtils.waitForCondition(() => findbar._findField.value == text, "The field has it");
     await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-find-count").getAttribute("value"), "The count shows");
   }
   return findbar;
