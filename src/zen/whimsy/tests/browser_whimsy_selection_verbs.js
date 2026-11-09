@@ -107,6 +107,8 @@ add_task(async function test_cmd_k_without_selection_is_web_search() {
     await select(browser, null);
     const command = document.getElementById("Tools:Search");
     const searched = BrowserTestUtils.waitForEvent(command, "command");
+    // TEMP diagnostic (reverted once the leak is found).
+    info(`TEMP diag: whimsy.ai.enabled=${Services.prefs.getBoolPref("whimsy.ai.enabled", false)} hadUserValue=${Services.prefs.prefHasUserValue("whimsy.ai.enabled")}`);
     gBrowser.selectedBrowser.focus();
     EventUtils.synthesizeKey("k", { accelKey: true });
     await searched;

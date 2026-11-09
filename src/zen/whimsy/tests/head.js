@@ -168,7 +168,9 @@ add_setup(function whimsySnapshotLeakedPrefs() {
   // gets to settle before the file ends, instead of firing after
   // everything else with nothing left to wait for it.
   registerCleanupFunction(function whimsyTurnAIOff() {
+    info(`TEMP diag: whimsy.ai.enabled before clear = ${Services.prefs.getBoolPref("whimsy.ai.enabled", false)} (hadUserValue=${Services.prefs.prefHasUserValue("whimsy.ai.enabled")})`);
     Services.prefs.clearUserPref("whimsy.ai.enabled");
+    info(`TEMP diag: whimsy.ai.enabled after clear = ${Services.prefs.getBoolPref("whimsy.ai.enabled", false)} (hadUserValue=${Services.prefs.prefHasUserValue("whimsy.ai.enabled")})`);
   });
 
   registerCleanupFunction(() => registerCleanupFunction(function whimsyRestoreLeakedPrefs() {
