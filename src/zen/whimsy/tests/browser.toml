@@ -1048,3 +1048,17 @@ support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
 
 ["browser_whimsy_screens_w23_agent-chat.js"]
 support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
+
+# W23 memory-fire: Memory (auto-save, Undo, Settings), the meaning index
+# and Related results, the Fire button redesign, and the AI-off-everywhere
+# audit.
+["browser_whimsy_ai_memory.js"]
+
+["browser_whimsy_ai_index.js"]
+support-files = ["whimsy_chat_article.html"]
+
+["browser_whimsy_ai_off_everywhere.js"]
+support-files = ["whimsy_chat_article.html", "whimsy_cmdk.html"]
+
+["browser_whimsy_screens_w23_memory-fire.js"]
+support-files = ["whimsy_chat_article.html"]

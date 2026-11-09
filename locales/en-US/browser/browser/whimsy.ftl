@@ -6504,8 +6504,25 @@ whimsy-fire-working-burn = Clearing…
 whimsy-fire-working-private = Clearing this window…
 whimsy-fire-done-burn-title = Fired
 whimsy-fire-done-private-title = Fired this window
-# $summary (string) - a plain list of what went, e.g. "3 tabs, 2 visits, AI chats"
+# $summary (string) - a locale-formatted list of what went, e.g. "3 tabs, 2 visits, and AI chats"
 whimsy-fire-done-detail = { $summary }
+# The words making up that $summary list (WhimsyFireButton.describe).
+whimsy-fire-done-tabs = { $count ->
+    [one] 1 tab
+   *[other] { $count } tabs
+}
+whimsy-fire-done-visits = { $count ->
+    [one] 1 visit
+   *[other] { $count } visits
+}
+whimsy-fire-done-history = history
+whimsy-fire-done-item-aiChats = AI chats
+whimsy-fire-done-item-agentActivity = agent activity
+whimsy-fire-done-item-index = the meaning index
+whimsy-fire-done-item-memory = memory
+whimsy-fire-done-item-routineResults = routine results
+whimsy-fire-done-item-downloads = the download list
+whimsy-fire-done-nothing = nothing
 ## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
 
 whimsy-agent-chat-mode =

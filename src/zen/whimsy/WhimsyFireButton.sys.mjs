@@ -60,6 +60,9 @@ const DEFAULT_ITEMS = {
   memory: false, routineResults: false, downloads: false,
 };
 const ITEM_IDS = Object.keys(DEFAULT_ITEMS);
+// "Forget everything…" (Settings › AI, turned off) opens Fire with only
+// these ticked, range All time, this profile (fire dec-16).
+const AI_ITEM_IDS = ["aiChats", "agentActivity", "index", "memory", "routineResults"];
 // What Fire never erases, now including the AI items themselves
 // (providers, connectors, commands, routines; fire dec-10).
 const KEPT_IDS = ["passwords", "bookmarks", "files", "permissions", "essentials", "ai-settings"];
@@ -500,13 +503,21 @@ export const WhimsyFireButton = {
   // A private window: that window only, with a fresh session; never
   // crosses between private and normal (fire dec-8). No profile, spaces
   // or items picker; just a single confirm.
+  //
+  // Verified assumption (handoff risk #7): Firefox's private browsing
+  // session (originAttributes.privateBrowsingId) is ONE shared cookie jar
+  // and cache across every private window, not one per window (see
+  // WhimsyPrivate.sys.mjs's header comment) — Gecko wipes it all together
+  // when the last private tab anywhere closes ("last-pb-context-exited").
+  // There is no id to scope a clear to just this window, so an explicit
+  // Services.clearData call here would reach every OTHER private window
+  // too, which "that window only" forbids. Closing this window's tabs
+  // (skipSessionStore, below) is itself that window's fresh session; when
+  // it was the only private window open, Gecko's own automatic wipe has
+  // already run by the time this returns.
   async burnPrivateWindow(win) {
     const tabs = (win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs).filter(t => !t.hasAttribute("zen-empty-tab"));
     const count = this.burnTabs(win, tabs, "private");
-    const attrs = win.gBrowser.selectedBrowser?.browsingContext?.originAttributes ?? {};
-    await new Promise(resolve =>
-      Services.clearData.deleteDataFromOriginAttributesPattern(
-        { privateBrowsingId: attrs.privateBrowsingId || 1 }, resolve));
     win.BrowserCommands?.openTab?.() ?? win.gBrowser.addTrustedTab("about:privatebrowsing", { inBackground: false });
     return { tabs: count };
   },
@@ -515,7 +526,7 @@ export const WhimsyFireButton = {
   // (range, scope, items) replaces the old three cards; the explicit red
   // button always says "Can't be undone", and the riskiest choices (All
   // time, All spaces, Memory) ask once more inside the same surface.
-  panel(win, { settings = loadSettings() } = {}) {
+  panel(win, { settings = loadSettings(), aiOnly = false } = {}) {
     const doc = win.document;
     const isPrivate = lazy.PrivateBrowsingUtils.isWindowPrivate(win);
     let step = "choose";
@@ -542,7 +553,12 @@ export const WhimsyFireButton = {
 
     const body = doc.createXULElement("vbox");
     body.className = "whimsy-fire-step whimsy-fire-settings";
-    const current = { ...settings, items: { ...settings.items } };
+    const current = {
+      ...settings,
+      items: aiOnly
+        ? Object.fromEntries(ITEM_IDS.map(id => [id, AI_ITEM_IDS.includes(id)]))
+        : { ...settings.items },
+    };
 
     // Range.
     const rangeRow = doc.createXULElement("hbox");
@@ -794,7 +810,7 @@ export const WhimsyFireButton = {
       });
       return;
     }
-    const summary = this.describe(result);
+    const summary = await this.describe(win, result);
     await report({
       messageId: `whimsy-fire-done-${kind}-title`,
       l10nArgs: args,
@@ -804,33 +820,42 @@ export const WhimsyFireButton = {
     });
   },
 
-  // A plain-English list of what a burn() result cleared, for the toast's
-  // second line (kept short rather than one Fluent string per combination).
-  describe(result) {
-    const parts = [];
-    const n = (count, word) => count == 1 ? `1 ${word}` : `${count} ${word}s`;
+  // What a burn() result cleared, as a locale-formatted list for the
+  // toast's second line. Every word comes from Fluent (ids below); only
+  // the list's conjunction ("3 tabs, 2 visits, and AI chats") is built in
+  // code, with Intl.ListFormat, which is locale-aware grammar, not English
+  // hardcoded.
+  async describe(win, result) {
+    const requests = [];
     if (result.tabs) {
-      parts.push(n(result.tabs, "tab"));
+      requests.push({ id: "whimsy-fire-done-tabs", args: { count: result.tabs } });
     }
     if (result.visits > 0) {
-      parts.push(n(result.visits, "visit"));
+      requests.push({ id: "whimsy-fire-done-visits", args: { count: result.visits } });
     } else if (result.visits == -1) {
-      parts.push("history");
+      requests.push({ id: "whimsy-fire-done-history" });
     }
-    const names = { aiChats: "AI chats", agentActivity: "agent activity", index: "the index",
-      memory: "memory", routineResults: "routine results", downloads: "the download list" };
+    const itemIds = {
+      aiChats: "whimsy-fire-done-item-aiChats", agentActivity: "whimsy-fire-done-item-agentActivity",
+      index: "whimsy-fire-done-item-index", memory: "whimsy-fire-done-item-memory",
+      routineResults: "whimsy-fire-done-item-routineResults", downloads: "whimsy-fire-done-item-downloads",
+    };
     for (const id of result.items ?? []) {
-      if (names[id]) {
-        parts.push(names[id]);
+      if (itemIds[id]) {
+        requests.push({ id: itemIds[id] });
       }
     }
-    return parts.length ? new Intl.ListFormat("en", { type: "conjunction" }).format(parts) : "nothing";
+    if (!requests.length) {
+      return win.document.l10n.formatValue("whimsy-fire-done-nothing");
+    }
+    const parts = await win.document.l10n.formatValues(requests);
+    return new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format(parts);
   },
 
   // Opens the surface: under `anchor` when given, else over the page where
   // the command bar sits.
-  openPanel(win, { anchor = null, triggerEvent = null } = {}) {
-    const panel = this.panel(win);
+  openPanel(win, { anchor = null, triggerEvent = null, aiOnly = false } = {}) {
+    const panel = this.panel(win, { aiOnly });
     if (anchor) {
       lazy.WhimsySurface.open(win, panel, { anchor, position: "after_start", y: 6, triggerEvent });
     } else {

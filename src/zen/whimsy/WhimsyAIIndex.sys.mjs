@@ -16,11 +16,13 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
 });
 
@@ -193,16 +195,69 @@ export const WhimsyAIIndex = {
   },
 
   provider: null,
+  _captureWindows: new Set(),
 
-  /** Registers the "Related" urlbar rows, once per session. */
-  initWindow() {
+  /** Registers the "Related" urlbar rows and passive capture, once per window. */
+  initWindow(win) {
     this.init();
-    if (this.provider) {
+    if (!this.provider) {
+      const manager = lazy.ProvidersManager;
+      this.provider = manager.getProvider("WhimsyRelated") ?? new WhimsyRelatedProvider();
+      manager.registerProvider(this.provider);
+    }
+    this._initCapture(win);
+  },
+
+  // Passive capture: a normal tab's title and reader text, once a page
+  // finishes loading. Never a private window (checked once, up front, so
+  // a private window's tabs are never even watched), never a private,
+  // hidden, or locked tab (isOffLimits, checked per visit since a tab can
+  // move spaces), and only public internet pages (never a local or
+  // intranet address, which this Mac can't tell apart from one needing a
+  // sign-in): WhimsyAIReader.isPublicUrl.
+  _initCapture(win) {
+    if (!win?.gBrowser || this._captureWindows.has(win) || lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
       return;
     }
-    const manager = lazy.ProvidersManager;
-    this.provider = manager.getProvider("WhimsyRelated") ?? new WhimsyRelatedProvider();
-    manager.registerProvider(this.provider);
+    this._captureWindows.add(win);
+    const listener = {
+      onStateChange: (browser, webProgress, request, flags) => {
+        const done = Ci.nsIWebProgressListener.STATE_STOP | Ci.nsIWebProgressListener.STATE_IS_WINDOW;
+        if ((flags & done) != done || !webProgress.isTopLevel) {
+          return;
+        }
+        this._captureVisit(win, browser).catch(() => {});
+      },
+    };
+    win.gBrowser.addTabsProgressListener(listener);
+    win.addEventListener("unload", () => {
+      win.gBrowser.removeTabsProgressListener(listener);
+      this._captureWindows.delete(win);
+    }, { once: true });
+  },
+
+  // Exposed (not test-only) so a test can drive one capture directly
+  // without waiting on a real navigation.
+  async _captureVisit(win, browser) {
+    if (!this.on) {
+      return;
+    }
+    const tab = win.gBrowser.getTabForBrowser(browser);
+    if (!tab || lazy.WhimsyAIContext.isOffLimits(tab)) {
+      return;
+    }
+    const url = browser.currentURI?.spec ?? "";
+    if (!lazy.WhimsyAIReader.isPublicUrl(url)) {
+      return;
+    }
+    const title = browser.contentTitle || tab.label || "";
+    let text = "";
+    try {
+      text = await lazy.WhimsyAIReader.readTab(browser, { removeBoilerplate: true });
+    } catch {
+      return;
+    }
+    await this.add({ url, title, text });
   },
 };
 
