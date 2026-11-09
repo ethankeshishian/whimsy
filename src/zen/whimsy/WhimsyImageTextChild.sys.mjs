@@ -121,7 +121,10 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     this.mutations.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcset"] });
     this.onScroll = () => this.layoutSoon();
     this.onCopyEvent = event => this.onCopy(event);
-    win.addEventListener("copy", this.onCopyEvent, { capture: true });
+    // In the system group: a page's own copy listeners are what Allow Copy
+    // looks for (WhimsyPageChild.pageBlocksCopy), so this one in the default
+    // group made every page read as blocking copying.
+    win.addEventListener("copy", this.onCopyEvent, { capture: true, mozSystemGroup: true });
     win.addEventListener("scroll", this.onScroll, { capture: true, passive: true, mozSystemGroup: true });
     win.addEventListener("resize", this.onScroll, { passive: true, mozSystemGroup: true });
     this.resizes = new win.ResizeObserver(() => this.layoutSoon());
@@ -136,7 +139,7 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     if (win && this.onScroll) {
       win.removeEventListener("scroll", this.onScroll, { capture: true, mozSystemGroup: true });
       win.removeEventListener("resize", this.onScroll, { mozSystemGroup: true });
-      win.removeEventListener("copy", this.onCopyEvent, { capture: true });
+      win.removeEventListener("copy", this.onCopyEvent, { capture: true, mozSystemGroup: true });
     }
     for (const timer of this.timers.values()) {
       win?.clearTimeout(timer);
