@@ -29,6 +29,7 @@ const HOLD_FN_PREF = "whimsy.dictation.hold-fn";
 // ui.* prefs live); cleared when dictation ends, and at startup in case a
 // crash left it.
 const GREY_PREF = "ui.IMERawInputForeground";
+const UNDERLINE_PREF = "ui.IMERawInputUnderlineStyle";
 const GREY = "#8e8e93";
 const SHEET = "chrome://browser/content/whimsy/whimsy-dictation.css";
 const MIC_ICON = "chrome://browser/content/whimsy/icons/mic.svg";
@@ -39,6 +40,18 @@ const HOLD_MS = 300;
 const FINISH_MS = 2000;
 const DONE_MS = 1200;
 const LANG_TAG = /^[a-zA-Z]{2,3}([-_][a-zA-Z0-9]{1,8})*$/;
+
+// Words not yet final are drawn grey and not underlined (media-5.5); the
+// prefs are ours only while they hold our values.
+function greyComposition(on) {
+  if (on) {
+    Services.prefs.setStringPref(GREY_PREF, GREY);
+    Services.prefs.setIntPref(UNDERLINE_PREF, 0);
+  } else if (Services.prefs.getStringPref(GREY_PREF, "") == GREY) {
+    Services.prefs.clearUserPref(GREY_PREF);
+    Services.prefs.clearUserPref(UNDERLINE_PREF);
+  }
+}
 
 function h(doc, tag, attrs = {}, ...kids) {
   const el = doc.createElementNS(HTML_NS, tag);
@@ -136,9 +149,7 @@ export const WhimsyDictation = {
     if (!this.enabled || !win.gURLBar) {
       return;
     }
-    if (Services.prefs.getStringPref(GREY_PREF, "") == GREY) {
-      Services.prefs.clearUserPref(GREY_PREF);
-    }
+    greyComposition(false);
     win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
     this._windows.add(win);
     win.addEventListener(
@@ -461,9 +472,7 @@ export const WhimsyDictation = {
     }
     state.phase = "done";
     state.tip = null;
-    if (Services.prefs.getStringPref(GREY_PREF, "") == GREY) {
-      Services.prefs.clearUserPref(GREY_PREF);
-    }
+    greyComposition(false);
     if (alive(state.win)) {
       this.hideListening(state);
     }
@@ -519,7 +528,7 @@ export const WhimsyDictation = {
     }
     state.tip = tip;
     state.lead = this.needsSpace(win) ? " " : "";
-    Services.prefs.setStringPref(GREY_PREF, GREY);
+    greyComposition(true);
     return true;
   },
 
@@ -704,21 +713,26 @@ export const WhimsyDictation = {
     return pill;
   },
 
-  placePill(state) {
-    const { win } = state;
-    const pill = this.pill(win);
-    const area = (win.gBrowser.selectedBrowser.closest(".browserStack") ?? win.gBrowser.selectedBrowser).getBoundingClientRect();
-    let x = area.left + area.width / 2;
-    let y = area.bottom - 80;
+  // Just under the caret of the focused field, in window CSS px, or null.
+  caretPoint(win) {
     try {
       const utils = win.windowUtils;
       const caret = utils.sendQueryContentEvent(utils.QUERY_CARET_RECT, 0, 0, 0, 0, utils.QUERY_CONTENT_FLAG_OFFSET_RELATIVE_TO_INSERTION_POINT);
       if (caret.succeeded) {
         const scale = win.devicePixelRatio || 1;
-        x = caret.left / scale;
-        y = (caret.top + caret.height) / scale + 12;
+        return { x: caret.left / scale, y: (caret.top + caret.height) / scale };
       }
     } catch {}
+    return null;
+  },
+
+  placePill(state) {
+    const { win } = state;
+    const pill = this.pill(win);
+    const area = (win.gBrowser.selectedBrowser.closest(".browserStack") ?? win.gBrowser.selectedBrowser).getBoundingClientRect();
+    const caret = this.caretPoint(win);
+    let x = caret?.x ?? area.left + area.width / 2;
+    let y = caret ? caret.y + 12 : area.bottom - 80;
     const width = pill.getBoundingClientRect().width || 160;
     x = Math.max(area.left + 8, Math.min(x - width / 2, area.right - width - 8));
     y = Math.max(area.top + 8, Math.min(y, area.bottom - 40));
@@ -789,9 +803,13 @@ export const WhimsyDictation = {
     if (anchor) {
       S.open(win, parts.panel, { anchor, position: "bottomright topright", gap: 6 });
     } else {
+      // Where the pill is, else under the caret of the field (media-5.9).
       const pill = this.pill(win);
-      const at = pill.hidden ? null : pill.getBoundingClientRect();
-      S.open(win, parts.panel, at ? { at: { x: at.left, y: at.top } } : {});
+      const rect = pill.hidden ? null : pill.getBoundingClientRect();
+      const caret = rect ? null : win.windowUtils.IMEStatus == Ci.nsIDOMWindowUtils.IME_STATUS_ENABLED && this.caretPoint(win);
+      const at = rect ? { x: rect.left, y: rect.top } : caret ? { x: caret.x, y: caret.y + 12 } : null;
+      const screenRect = at && { left: win.mozInnerScreenX + at.x, top: win.mozInnerScreenY + at.y, width: 1, height: 1 };
+      S.open(win, parts.panel, screenRect ? { screenRect, position: "after_start" } : {});
     }
     return parts.panel;
   },

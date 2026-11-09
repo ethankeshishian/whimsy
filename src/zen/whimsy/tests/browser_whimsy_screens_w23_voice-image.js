@@ -79,6 +79,7 @@ add_setup(async function () {
     WhimsyDictation.setTestSpeech(null);
     WhimsyDictation._barOpens = 0;
     Services.prefs.clearUserPref("ui.IMERawInputForeground");
+    Services.prefs.clearUserPref("ui.IMERawInputUnderlineStyle");
     WhimsyImageText.testRecognizer = null;
     WhimsyImageText.testTranslate = null;
     WhimsyImageText.testTargetLanguage = null;

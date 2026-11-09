@@ -77,6 +77,7 @@ add_setup(async function () {
     WhimsyDictation.setTestSpeech(null);
     WhimsyDictation._barOpens = 0;
     Services.prefs.clearUserPref(GREY_PREF);
+    Services.prefs.clearUserPref("ui.IMERawInputUnderlineStyle");
     for (const id of ["whimsy-dictation-setup", "whimsy-dictation-denied"]) {
       document.getElementById(id)?.hidePopup();
     }
