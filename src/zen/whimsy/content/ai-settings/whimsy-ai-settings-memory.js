@@ -106,11 +106,13 @@
     const on = Services.prefs.getBoolPref(lazy.WhimsyAIMemory.USE_PREF, true);
     view.toggle.pressed = on;
     view.list.hidden = !on;
-    view.empty.hidden = true;
     const all = await lazy.WhimsyAIMemory.list();
+    if (!view.list) {
+      return;
+    }
     view.list.replaceChildren();
+    view.empty.hidden = !!all.length;
     if (!all.length) {
-      view.empty.hidden = false;
       return;
     }
     for (const memory of all) {
@@ -136,8 +138,9 @@
       const update = () => render();
       Services.prefs.addObserver(lazy.WhimsyAIMemory.USE_PREF, update);
 
+      // Shown from the start (most people begin with none), so the page
+      // doesn't grow under a jump once the list has loaded.
       const empty = S.el("p", "whimsy-ai-desc", container, "whimsy-memory-empty");
-      empty.hidden = true;
       view.empty = empty;
       const list = S.el("div", "whimsy-ai-list", container);
       list.setAttribute("role", "list");

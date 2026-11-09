@@ -314,6 +314,8 @@ class WhimsyRelatedProvider extends UrlbarProvider {
         // Negative: relative to the end, so word matches and the Ask row
         // (positive suggestedIndex) stay ahead of these.
         suggestedIndex: -(MAX_RESULTS - i),
+        // One (empty) highlight list per tag: the view reads them by index.
+        highlights: { tags: [[]] },
         payload: {
           url: match.url,
           title: match.title || match.url,
