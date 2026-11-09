@@ -259,7 +259,16 @@ add_task(async function shots_first_use_and_way_back() {
     WhimsyAIHints._settleForTesting();
     WhimsyAIHints._setTimingForTesting({ gapMs: 0, seenMs: 600000, timeoutMs: 600000, pollMs: 50 });
     await typeInBar(Q);
-    await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "ask", "The Ask row's hint");
+    try {
+      await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "ask", "The Ask row's hint");
+    } catch (e) {
+      const h = WhimsyAIHints._registeredHintForTesting("ask");
+      let vis = "?";
+      try { vis = h?.isVisible(window); } catch (x) { vis = String(x); }
+      info(`DIAG hint: ids ${WhimsyAIHints._registeredIdsForTesting()} current ${WhimsyAIHints.current?.id} waiting ${WhimsyAIHints.waiting} visible ${vis} seen ${Services.prefs.getStringPref("whimsy.ai.hints.seen", "")} today ${Services.prefs.getStringPref("whimsy.ai.hints.today", "")} feature ${Services.prefs.getBoolPref("whimsy.feature.ai-hints", true)} toasts ${gZenUIManager.toasts.getToasts().map(t => t.element.getAttribute("whimsy-ai-hint") || t.element.outerHTML.slice(0, 120)).join(" | ")} viewOpen ${gURLBar.view.isOpen} rows ${[...gURLBar.view.panel.querySelectorAll(".urlbarView-row")].map(r => r.getAttribute("dynamicType") || r.getAttribute("type")).join(",")}`);
+      info(`DIAG retry request: ${WhimsyAIHints.request(window, "ask")} -> waiting ${WhimsyAIHints.waiting}`);
+      throw e;
+    }
     return async () => {
       WhimsyAIHints.current?.toast.close({ instant: true });
       WhimsyAIHints._setTimingForTesting(null);

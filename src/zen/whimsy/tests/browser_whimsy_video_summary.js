@@ -127,6 +127,10 @@ add_task(async function plan_text_only_video_note() {
   await summaryAnswered();
   ok(!hasImage(providerCalls[0]), "No frames for a text-only model");
   const note = chatPanel().body.querySelector(".whimsy-chat-note[data-kind='video-source'] span");
+  {
+    const { WhimsyAIRouter } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIRouter.sys.mjs");
+    info(`DIAG video: capable ${WhimsyAIRouter.capable({ images: true })} enabled ${WhimsyAIRouter._enabled()} streams ${WhimsyAIProviders._testStreams} order ${WhimsyAIProviders.order} notes ${[...chatPanel().body.querySelectorAll(".whimsy-chat-note")].map(n => n.dataset.kind + ":" + n.textContent + ":" + n.querySelector("span")?.getAttribute("data-l10n-args")).join(" | ")} thread ${chatPanel().thread?.id}`);
+  }
   await TestUtils.waitForCondition(() => note.textContent.includes("can’t look at frames"), "The note says it can't see frames");
   WhimsyAIProviders._usesPlan = usesPlan;
   await closeChat();

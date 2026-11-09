@@ -162,8 +162,11 @@ add_task(async function test_skin_tones() {
 });
 
 add_task(async function test_tab_icon_picker_stays_open() {
+  info(`DIAG before open: panel ${panel().state} svg ${gZenEmojiPicker.svgList.children.length} open-attr ${document.querySelectorAll("[zen-emoji-open]").length}`);
   const picked = gZenEmojiPicker.open(gBrowser.selectedTab, { closeOnSelect: false, onSelect: () => {} });
-  await BrowserTestUtils.waitForEvent(panel(), "popupshown");
+  info(`DIAG open returned ${picked}`);
+  const DIAGev = await BrowserTestUtils.waitForEvent(panel(), "popupshown");
+  info(`DIAG shown: target ${DIAGev.target.localName}#${DIAGev.target.id} panel ${panel().state} svg ${gZenEmojiPicker.svgList.children.length} emoji ${gZenEmojiPicker.emojiList.children.length} only-svg ${panel().hasAttribute("only-svg-icons")}`);
   is(glyphButtons()[0].getAttribute("icon"), WhimsySpaceIcons.ARC_GLYPHS[0], "The shared picker has Arc's order");
   glyph("heart.svg").doCommand();
   is(panel().state, "open", "A tab's icon picker keeps Zen's behavior (stays open)");

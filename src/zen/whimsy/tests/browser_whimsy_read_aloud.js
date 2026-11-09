@@ -193,7 +193,20 @@ add_task(async function mute_pauses() {
       const r = mute.getBoundingClientRect();
       info(`Card mute at ${r.x},${r.y} ${r.width}x${r.height}; under its centre: ${document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.outerHTML.slice(0, 160)}; animations ${card.getAnimations({ subtree: true }).length}`);
     }
+    let DIAGcmds = 0;
+    const DIAGmute = card.querySelector(".zen-media-mute-button");
+    const DIAGlog = [];
+    const DIAGon = e => DIAGlog.push(`${e.type}:${e.target.localName}.${e.target.className}:d${e.detail}`);
+    for (const t of ["mousedown", "mouseup", "click", "command", "dblclick"]) {
+      window.addEventListener(t, DIAGon, true);
+    }
+    DIAGmute.addEventListener("command", () => DIAGcmds++);
+    info(`DIAG before: muted ${tab.hasAttribute("muted")} audioMuted ${tab.linkedBrowser.audioMuted} state ${WhimsyReadAloud.session.state} mutePaused ${WhimsyReadAloud.session.mutePaused} same card ${WhimsyReadAloud.session.card == card} connected ${card.isConnected} disabled ${DIAGmute.disabled}`);
     await click(card.querySelector(".zen-media-mute-button"));
+    for (const t of ["mousedown", "mouseup", "click", "command", "dblclick"]) {
+      window.removeEventListener(t, DIAGon, true);
+    }
+    info(`DIAG after: cmds ${DIAGcmds} events ${DIAGlog.join(" ")} muted ${tab.hasAttribute("muted")} audioMuted ${tab.linkedBrowser.audioMuted} state ${WhimsyReadAloud.session.state} mutePaused ${WhimsyReadAloud.session.mutePaused} reason ${tab.muteReason}`);
     ok(!tab.hasAttribute("muted") && WhimsyReadAloud.session.state == "playing", "and unmutes it");
 
     // A plain pause takes the speaker away (media-4.7).
