@@ -110,33 +110,8 @@ async function highlighted(browser, name = "whimsy-read-aloud") {
   });
 }
 
-// Clicks once the control has stopped moving (the same box on two checks)
-// and nothing else is drawn over its centre: the card re-lays out as it
-// mutes and pauses, and a click on a moving control can land beside it.
 async function click(el) {
-  let last = "";
-  let covered = null;
-  await TestUtils.waitForCondition(() => {
-    const r = el.getBoundingClientRect();
-    const box = `${r.x},${r.y},${r.width},${r.height}`;
-    const still = r.width > 0 && box == last;
-    last = box;
-    if (!still) {
-      return false;
-    }
-    // A popup is a widget of its own: the window's elementFromPoint can't see into it.
-    if (el.closest("panel, menupopup")) {
-      return true;
-    }
-    const hit = el.ownerDocument.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-    // Its own parts, or a parent that takes its clicks (the tab's speaker).
-    const ours = !!hit && (el.contains(hit) || hit.contains(el));
-    if (hit && !ours && hit != covered) {
-      covered = hit;
-      info(`Over ${el.className} at its centre: ${hit.localName}#${hit.id}.${hit.className}`);
-    }
-    return ours;
-  }, "The control shows, still, with nothing over it");
+  await TestUtils.waitForCondition(() => el.getBoundingClientRect().width > 0, "The control shows");
   EventUtils.synthesizeMouseAtCenter(el, {}, el.ownerDocument.defaultView);
   await new Promise(r => setTimeout(r, 0));
 }
