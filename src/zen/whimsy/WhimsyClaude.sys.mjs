@@ -49,7 +49,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAgentGuard: "resource:///modules/whimsy/WhimsyAgentGuard.sys.mjs",
+  WhimsyAgentPointer: "resource:///modules/whimsy/WhimsyAgentPointer.sys.mjs",
   WhimsyAgentTasks: "resource:///modules/whimsy/WhimsyAgentTasks.sys.mjs",
+  WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   WhimsyClaudeReplay: "resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs",
   WhimsyClaudeShield: "resource:///modules/whimsy/WhimsyClaudeShield.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
@@ -963,6 +965,10 @@ export const WhimsyClaude = {
     if (!win || win._whimsyQuickWindow || !win.toolbar.visible) {
       return "window";
     }
+    // "Keep this tab" after a collision: the person's now; the task leaves it.
+    if (task?.released?.has(tab)) {
+      return "released";
+    }
     const named = task?.namedSpaceIds ?? [];
     const reason = lazy.WhimsyAIContext.isOffLimits(tab, { namedSpaceIds: named });
     if (reason) {
@@ -1112,6 +1118,9 @@ export const WhimsyClaude = {
       throw new ToolError("There's no space you may open tabs in right now.");
     }
     lazy.WhimsyAgentTasks.addTab(task, tab);
+    if (task.mode == "background") {
+      lazy.WhimsyTaskFolder.adopt(task, tab);
+    }
     return tab;
   },
 
@@ -1207,6 +1216,8 @@ export const WhimsyClaude = {
     state.activeTabs.add(tab);
     lazy.clearTimeout(state.activeTimers.get(tab));
     state.activeTimers.set(tab, lazy.setTimeout(() => this.clearActive(tab), ACTIVE_MS));
+    lazy.WhimsyAgentPointer.init();
+    lazy.WhimsyAgentPointer.activate(tab, task);
   },
 
   clearActive(tab) {
@@ -1215,6 +1226,7 @@ export const WhimsyClaude = {
     state.activeTimers.delete(tab);
     tab.removeAttribute(ACTIVE_ATTR);
     tab.removeAttribute(CLIENT_ATTR);
+    lazy.WhimsyAgentPointer.deactivate(tab);
   },
 
   // --- Talking to the page ---
@@ -1254,6 +1266,14 @@ export const WhimsyClaude = {
       lazy.WhimsyAgentTasks.addTab(ctx.task, tab);
     }
     this.markActive(tab, ctx.task);
+    // The Drive look: the pointer glides to the control, which gets an
+    // outline, before anything is pressed.
+    const rect = ACTIONS.has(action) ? ctx.target?.rect : null;
+    if (rect && !tab.closing) {
+      lazy.WhimsyAgentPointer.target(tab.linkedBrowser, rect, ctx.target.label || ctx.target.text || "");
+      await lazy.WhimsyAgentPointer.moveTo(tab.linkedBrowser, { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+    }
+    ctx.target = null;
     return fn(tab);
   },
 
@@ -1272,6 +1292,7 @@ export const WhimsyClaude = {
       keys: action == "key" ? args.keys : null,
       value: args.text ?? args.value ?? null,
     });
+    ctx.target = target;
     if (target.none) {
       return;
     }

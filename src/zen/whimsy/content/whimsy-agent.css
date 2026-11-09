@@ -1,0 +1,363 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 agent-tabs: the Drive look (page glow, pointer, target, working line)
+   and the unpinned task folder (zen-task-folder) for Background tabs.
+   Mockups: ai/04-agent.css 8-64, followup/fu-agent.css 18-26. One accent:
+   --whimsy-claude-accent (whimsy-browser.css); amber when it needs you. */
+
+:root {
+  --whimsy-agent-wait: light-dark(rgb(196, 125, 0), rgb(240, 177, 60));
+  --whimsy-agent-soft: color-mix(in srgb, var(--whimsy-claude-accent) 16%, transparent);
+}
+
+/* ---------- The page: a soft edge glow, the pointer, and the target ---------- */
+
+.whimsy-agent-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: clip;
+  border-radius: inherit;
+}
+
+.whimsy-agent-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--whimsy-claude-accent) 70%, transparent),
+    inset 0 0 36px 2px color-mix(in srgb, var(--whimsy-claude-accent) 30%, transparent);
+  opacity: 0;
+  transition: opacity 180ms var(--whimsy-ease);
+}
+
+.whimsy-agent-layer[glow] > .whimsy-agent-glow {
+  opacity: 1;
+  transition-duration: 240ms;
+}
+
+.whimsy-agent-layer[tone="wait"] > .whimsy-agent-glow {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--whimsy-agent-wait) 80%, transparent),
+    inset 0 0 28px color-mix(in srgb, var(--whimsy-agent-wait) 22%, transparent);
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-agent-layer[glow]:not([tone="wait"]) > .whimsy-agent-glow {
+    animation: whimsy-agent-breathe 1.8s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes whimsy-agent-breathe {
+  from {
+    box-shadow:
+      inset 0 0 0 1.5px color-mix(in srgb, var(--whimsy-claude-accent) 60%, transparent),
+      inset 0 0 18px color-mix(in srgb, var(--whimsy-claude-accent) 18%, transparent);
+  }
+  to {
+    box-shadow:
+      inset 0 0 0 1.5px color-mix(in srgb, var(--whimsy-claude-accent) 80%, transparent),
+      inset 0 0 40px 2px color-mix(in srgb, var(--whimsy-claude-accent) 34%, transparent);
+  }
+}
+
+.whimsy-agent-pointer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  background: var(--whimsy-claude-accent);
+  clip-path: polygon(0 0, 0 100%, 30% 72%, 52% 100%, 66% 92%, 45% 66%, 82% 66%);
+  filter: drop-shadow(0 0 1px #fff);
+}
+
+.whimsy-agent-pointer[hidden] {
+  display: none;
+}
+
+.whimsy-agent-target {
+  position: absolute;
+  outline: 2px solid var(--whimsy-claude-accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.whimsy-agent-target[hidden] {
+  display: none;
+}
+
+.whimsy-agent-layer[tone="wait"] .whimsy-agent-target {
+  outline-color: var(--whimsy-agent-wait);
+}
+
+.whimsy-agent-target-label {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  translate: 0 -50%;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--whimsy-claude-accent);
+  color: #fff;
+  font: 600 11px/16px system-ui, sans-serif;
+}
+
+.whimsy-agent-target-label:empty {
+  display: none;
+}
+
+.whimsy-agent-layer[tone="wait"] .whimsy-agent-target-label {
+  background: var(--whimsy-agent-wait);
+  color: #1d1d1f;
+}
+
+/* ---------- The tab: a working line under the title ---------- */
+
+.whimsy-agent-working {
+  display: none;
+  margin: 1px 0 0 !important;
+  font-size: 11px;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--whimsy-claude-accent) 85%, currentColor);
+}
+
+.tabbrowser-tab[whimsy-agent-working] .whimsy-agent-working,
+.whimsy-task-folder .whimsy-agent-working {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.whimsy-agent-working::before {
+  content: "";
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+:is(.tabbrowser-tab, .whimsy-task-folder)[whimsy-agent-working="wait"] .whimsy-agent-working {
+  color: color-mix(in srgb, var(--whimsy-agent-wait) 70%, currentColor);
+}
+
+:is(.tabbrowser-tab, .whimsy-task-folder)[whimsy-agent-working="muted"] .whimsy-agent-working {
+  color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+/* The tab grows to fit the line (like two-line titles in whimsy-browser.css)
+   rather than clipping it: 44px, the folder row's height (agent-2.1). */
+.tabbrowser-tab[whimsy-agent-working]:not([zen-essential]) {
+  &,
+  & .tab-stack,
+  & .tab-content {
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  & .tab-content {
+    min-height: max(var(--tab-min-height), 44px);
+  }
+
+  & .tab-label-container {
+    height: auto !important;
+    overflow: hidden;
+  }
+}
+
+/* Waiting on you (a pause or a collision): the tab's ring turns amber with
+   the page's glow (fu-agent 4.1). */
+.tabbrowser-tab[whimsy-agent-working="wait"] {
+  --whimsy-claude-accent: var(--whimsy-agent-wait);
+}
+
+/* Tabs opened for you keep a small mark until you use them (agent-3.5). */
+.tabbrowser-tab[whimsy-agent-opened] .tab-icon-stack::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--whimsy-claude-accent);
+  box-shadow: 0 0 0 1.5px var(--zen-colors-tertiary, Canvas);
+  pointer-events: none;
+}
+
+.tabbrowser-tab[whimsy-agent-opened] .tab-icon-stack {
+  position: relative;
+}
+
+/* ---------- The task folder (an unpinned-folder row, like Zen's) ---------- */
+
+.whimsy-task-folder {
+  /* Zen's folder icon reads these (zen-folders.css); tinted for the agent. */
+  --zen-folder-behind-bgcolor: light-dark(color-mix(in srgb, var(--whimsy-claude-accent) 60%, gray), color-mix(in srgb, var(--whimsy-claude-accent) 60%, #c1c1c1));
+  --zen-folder-front-bgcolor: light-dark(color-mix(in srgb, var(--whimsy-claude-accent), white 70%), color-mix(in srgb, var(--whimsy-claude-accent), black 40%));
+  --zen-folder-stroke: light-dark(color-mix(in srgb, var(--whimsy-claude-accent) 50%, black), color-mix(in srgb, var(--whimsy-claude-accent) 15%, #ebebeb));
+  display: flex;
+  /* XUL collapses anything with a [collapsed] attribute; a folded folder
+     still shows its row (Zen's zen-folder does the same). */
+  visibility: visible;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: 44px;
+  margin-block: var(--tab-block-margin, 2px);
+  padding-inline: 10px 8px;
+  border-radius: var(--border-radius-medium, 8px);
+  font-weight: 500;
+  overflow: hidden;
+  cursor: default;
+  -moz-user-focus: normal;
+}
+
+.whimsy-task-folder[hidden] {
+  display: none !important;
+}
+
+.whimsy-task-folder:hover {
+  background-color: var(--tab-hover-background-color, color-mix(in srgb, currentColor 8%, transparent));
+}
+
+.whimsy-task-folder:focus-visible {
+  outline: var(--focus-outline, 2px solid AccentColor);
+  outline-offset: -2px;
+}
+
+:root:not([zen-sidebar-expanded]) .whimsy-task-folder > :not(.whimsy-task-folder-icon) {
+  display: none;
+}
+
+.whimsy-task-folder-icon {
+  position: relative;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+}
+
+.whimsy-task-folder-icon > svg {
+  width: 20px;
+  height: 20px;
+  filter: contrast(125%);
+  overflow: visible;
+}
+
+.whimsy-task-folder-icon > svg :is(g, rect, path) {
+  transition:
+    transform 0.3s cubic-bezier(0.42, 0, 0, 1),
+    opacity 0.3s cubic-bezier(0.42, 0, 0, 1);
+}
+
+.whimsy-task-folder-icon > svg[state="open"] .back {
+  transform: skewX(16deg) translate(-4px, 2px) scale(0.85);
+}
+
+.whimsy-task-folder-icon > svg[state="open"] :is(.front, .dots, .icon) {
+  transform: skewX(-16deg) translate(8px, 2px) scale(0.85);
+}
+
+.whimsy-task-folder-icon > svg :is(.icon, .dots) {
+  opacity: 0;
+}
+
+.whimsy-task-folder-mark {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--whimsy-claude-accent);
+  display: grid;
+  place-items: center;
+}
+
+.whimsy-task-folder-mark::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  mask: url("chrome://browser/content/whimsy/icons/agent.svg") center / contain no-repeat;
+}
+
+.whimsy-task-folder-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
+}
+
+.whimsy-task-folder-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-task-folder .whimsy-agent-working {
+  font-weight: 400;
+}
+
+.whimsy-task-folder .whimsy-agent-working > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whimsy-task-folder-count {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--whimsy-agent-soft);
+  color: color-mix(in srgb, var(--whimsy-claude-accent) 80%, currentColor);
+  font: 600 10.5px/15px system-ui, sans-serif;
+}
+
+.whimsy-task-folder-twisty {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-inline: 2px 0;
+  opacity: 0.6;
+  background: currentColor;
+  /* One chevron: down when open, turned to point right when folded. */
+  mask: url("chrome://global/skin/icons/arrow-down-12.svg") center / contain no-repeat;
+  transition: rotate 150ms var(--whimsy-ease);
+}
+
+.whimsy-task-folder[collapsed] .whimsy-task-folder-twisty {
+  rotate: -90deg;
+}
+
+/* Member tabs: indented like a Zen folder's. Zen's own rule sets every
+   tab's margin from --zen-folder-indent (with more specificity than a
+   margin here could), so set the variable. */
+.tabbrowser-tab[whimsy-task-tab] {
+  --zen-folder-indent: 14px;
+}
+
+.tabbrowser-tab[whimsy-task-tab][whimsy-task-collapsed]:not([visuallyselected]) {
+  display: none !important;
+}
+
+/* Only the tab in use has the ring (the folder's other tabs don't). */
+.tabbrowser-tab[whimsy-task-tab]:not([whimsy-claude-active]) .tab-background {
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-task-folder-twisty,
+  .whimsy-task-folder-icon > svg :is(g, rect, path) {
+    transition: none;
+  }
+}

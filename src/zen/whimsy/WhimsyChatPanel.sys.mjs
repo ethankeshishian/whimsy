@@ -559,8 +559,10 @@ class ChatPanel {
     if ((opts.focus ?? "composer") == "composer" && this._open) {
       this.composer.focus();
     } else if (opts.focus == "card" && this._open) {
-      // A card waiting on you takes focus (agent-5.10).
-      [...this.body.querySelectorAll("[data-focus]")].at(-1)?.focus();
+      // A card waiting on you takes focus (agent-5.10): the pause asked
+      // for (opts.card, a pause id), else the last one.
+      const card = opts.card ? this.body.querySelector(`[data-pause-id="${CSS.escape(opts.card)}"][data-focus]`) : null;
+      (card ?? [...this.body.querySelectorAll("[data-focus]")].at(-1))?.focus();
     }
     return true;
   }
@@ -586,7 +588,7 @@ class ChatPanel {
     }
     // A task waiting on you: chat opens on its card, the oldest first.
     const [waiting] = lazy.WhimsyChat.tasks(this.win).filter(t => t.waiting && t.threadId).sort((a, b) => (a.waitingSince ?? 0) - (b.waitingSince ?? 0));
-    return this.open(waiting ? { threadId: waiting.threadId, focus: "card" } : {});
+    return this.open(waiting ? { threadId: waiting.threadId, focus: "card", card: waiting.pauseId ?? null } : {});
   }
 
   // ⌘E: open or close; with AI off, the toast first and setup after.

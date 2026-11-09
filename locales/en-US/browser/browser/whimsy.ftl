@@ -6740,3 +6740,30 @@ whimsy-agent-chat-tool-key = Pressed a key
 whimsy-agent-chat-tool-form-input = Filled a field
 whimsy-agent-chat-tool-scroll = Scrolled
 whimsy-agent-chat-tool-screenshot = Took a snapshot
+
+## W23 agent-tabs: the working line under a tab an agent is using, the task
+## folder for Background tabs, and tabs the agent opened for you.
+
+# $client is the agent's name, like Claude; $doing is its current step, like Checking the total.
+whimsy-agent-tabs-working = { $client } · { $doing }
+whimsy-agent-tabs-working-plain = { $client } · Working
+whimsy-agent-tabs-needs-you = { $client } · Needs you
+# A click or key press in one of its tabs paused the task.
+whimsy-agent-tabs-paused = { $client } · Paused
+whimsy-agent-tabs-yours = { $client } · You have the tab
+# The task folder's row. $title is the task's name, like Lisbon hotels.
+whimsy-agent-tabs-folder =
+    .aria-label = { $count ->
+        [one] { $title }, 1 tab
+       *[other] { $title }, { $count } tabs
+    }
+whimsy-agent-tabs-cmd-folder = Agent: Open or Fold the Task Folder
+# When a task ends, the tabs it kept stay in your space. $space is the space's name, like Travel.
+whimsy-agent-tabs-moved = { $count ->
+    [one] Moved 1 tab to { $space }
+   *[other] Moved { $count } tabs to { $space }
+}
+whimsy-agent-tabs-undo = Undo
+# The chat card when your click or key press in an agent's tab paused it. $site is the page's site, like casaamora.pt.
+whimsy-agent-tabs-collision-title = Paused so you can use { $site }
+whimsy-agent-chat-hand-over-collision = Carry on when you’re done, or keep this tab and I’ll leave it out.
