@@ -124,6 +124,10 @@ async function click(el) {
     if (!still) {
       return false;
     }
+    // A popup is a widget of its own: the window's elementFromPoint can't see into it.
+    if (el.closest("panel, menupopup")) {
+      return true;
+    }
     const hit = el.ownerDocument.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
     // Its own parts, or a parent that takes its clicks (the tab's speaker).
     const ours = !!hit && (el.contains(hit) || hit.contains(el));

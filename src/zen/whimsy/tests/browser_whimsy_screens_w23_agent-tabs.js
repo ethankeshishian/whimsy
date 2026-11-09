@@ -105,8 +105,28 @@ add_task(async function shots_task_folder() {
     diag.push("folder " + new Error().stack.split("\n").slice(0, 12).join(" | "));
     return origFolderRelease.apply(this, args);
   };
+  const proto = customElements.get("tabbrowser-tab").prototype;
+  const origRemove = Object.getOwnPropertyDescriptor(proto, "removeAttribute");
+  proto.removeAttribute = function (name) {
+    if (name == "whimsy-agent-task" || name == "whimsy-task-tab") {
+      diag.push(`remove ${name} ` + new Error().stack.split("\n").slice(0, 10).join(" | "));
+    }
+    return Element.prototype.removeAttribute.call(this, name);
+  };
+  const origAddTab = WhimsyAgentTasks.addTab;
+  WhimsyAgentTasks.addTab = function (t, tab) {
+    diag.push(`addTab ${t.id == undefined ? "?" : t.id.slice(0, 8)} ${tab.linkedBrowser?.currentURI?.spec}`);
+    return origAddTab.apply(this, [t, tab]);
+  };
   const { task, tabs, folder } = await folderTask(3);
+  diag.push(`after folderTask: task ${task.id.slice(0, 8)} size ${task.tabs.size}`);
   await new Promise(r => setTimeout(r, 500));
+  WhimsyAgentTasks.addTab = origAddTab;
+  if (origRemove) {
+    Object.defineProperty(proto, "removeAttribute", origRemove);
+  } else {
+    delete proto.removeAttribute;
+  }
   WhimsyAgentTasks.release = origRelease;
   WhimsyTaskFolder.release = origFolderRelease;
   info(`DIAG releases: ${diag.join(" ### ")}`);
@@ -174,8 +194,28 @@ add_task(async function shots_dissolve() {
     diag.push("folder " + new Error().stack.split("\n").slice(0, 12).join(" | "));
     return origFolderRelease.apply(this, args);
   };
+  const proto = customElements.get("tabbrowser-tab").prototype;
+  const origRemove = Object.getOwnPropertyDescriptor(proto, "removeAttribute");
+  proto.removeAttribute = function (name) {
+    if (name == "whimsy-agent-task" || name == "whimsy-task-tab") {
+      diag.push(`remove ${name} ` + new Error().stack.split("\n").slice(0, 10).join(" | "));
+    }
+    return Element.prototype.removeAttribute.call(this, name);
+  };
+  const origAddTab = WhimsyAgentTasks.addTab;
+  WhimsyAgentTasks.addTab = function (t, tab) {
+    diag.push(`addTab ${t.id == undefined ? "?" : t.id.slice(0, 8)} ${tab.linkedBrowser?.currentURI?.spec}`);
+    return origAddTab.apply(this, [t, tab]);
+  };
   const { task, tabs, folder } = await folderTask(3);
+  diag.push(`after folderTask: task ${task.id.slice(0, 8)} size ${task.tabs.size}`);
   await new Promise(r => setTimeout(r, 500));
+  WhimsyAgentTasks.addTab = origAddTab;
+  if (origRemove) {
+    Object.defineProperty(proto, "removeAttribute", origRemove);
+  } else {
+    delete proto.removeAttribute;
+  }
   WhimsyAgentTasks.release = origRelease;
   WhimsyTaskFolder.release = origFolderRelease;
   info(`DIAG releases: ${diag.join(" ### ")}`);
