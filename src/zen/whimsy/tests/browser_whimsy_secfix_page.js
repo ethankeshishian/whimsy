@@ -11,6 +11,8 @@ const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/Place
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const warning = browser => gBrowser.getNotificationBox(browser).getNotificationWithValue("whimsy-scam-warning");
+// The bar is in the box while it's still being localized; its message goes in after.
+const drawn = browser => warning(browser)?.querySelector(".whimsy-scam-body") ? warning(browser) : null;
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", false], ["whimsy.ai.enabled", true]] });
@@ -25,7 +27,7 @@ add_setup(async function () {
 
 add_task(async function a_form_drawn_late_is_checked() {
   await BrowserTestUtils.withNewTab(ROOT + "whimsy_secfix_late_scam.html", async browser => {
-    const notification = await TestUtils.waitForCondition(() => warning(browser), "The warning shows once the late form arrives");
+    const notification = await TestUtils.waitForCondition(() => drawn(browser), "The warning shows once the late form arrives");
     const reasons = [...notification.querySelectorAll(".whimsy-scam-body li")].map(li => li.getAttribute("data-l10n-id"));
     ok(reasons.includes("whimsy-scam-reason-threat"), "for what the page says");
   });
