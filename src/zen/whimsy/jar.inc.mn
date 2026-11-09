@@ -230,6 +230,10 @@
         content/browser/whimsy/ai-settings/whimsy-ai-settings-commands.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-commands.js)
         content/browser/whimsy/ai-settings/whimsy-ai-settings-commands.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-commands.css)
         content/browser/whimsy/whimsy-cmdk.css (../../zen/whimsy/content/whimsy-cmdk.css)
+        content/browser/whimsy/ai-settings/whimsy-ai-settings-agent.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-agent.js)
+        content/browser/whimsy/ai-settings/whimsy-ai-settings-agent.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-agent.css)
         content/browser/whimsy/icons/pencil.svg (../../zen/whimsy/content/icons/pencil.svg)
 # W23 video: Settings › Media
         content/browser/whimsy/whimsy-settings-media.js (../../zen/whimsy/content/whimsy-settings-media.js)
+# W23 agent-chat: the agent in chat, Settings › AI › Agent, Outside agents, and Activity
+        content/browser/whimsy/whimsy-chat-agent.css (../../zen/whimsy/content/whimsy-chat-agent.css)

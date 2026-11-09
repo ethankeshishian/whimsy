@@ -44,11 +44,13 @@ add_task(async function test_every_whimsy_group_is_searchable() {
     await win.gSearchResultsPane.initializeCategories();
     ok(!doc.getElementById("template-whimsyPrivacy"), "Search setup inserted Privacy's Whimsy groups");
     ok(!doc.getElementById("template-whimsyLooks"), "and Look and Feel's");
-    ok(!doc.getElementById("template-whimsyClaude"), "and Claude's");
+    ok(!doc.getElementById("template-whimsyAI"), "and Settings › AI's, where outside agents live");
+    ok(!doc.getElementById("template-whimsyClaude") && !doc.getElementById("whimsyClaudeGroup"), "The old Claude card is gone, not waiting anywhere");
     for (const id of ["Teach", "Navigation", "SearchDeck", "Profiles"]) {
       ok(!doc.getElementById(`template-whimsy${id}`), `and ${id}'s (wave9/designfix)`);
     }
-    ok(!shown(doc.getElementById("whimsyClaudeGroup")), "They stay hidden on another pane");
+    const aiPage = doc.getElementById("whimsyAIPage");
+    ok(aiPage && !shown(aiPage), "They stay hidden on another pane");
 
     const groups = [...doc.querySelectorAll("#mainPrefPane [id^='whimsy'][data-category]")].filter(
       el => el.localName != "hbox" && !el.closest("template")
@@ -63,7 +65,8 @@ add_task(async function test_every_whimsy_group_is_searchable() {
 
     // The searches users tried.
     const cases = [
-      ["Claude", "whimsyClaudeGroup"],
+      // W23: outside agents are a row of Settings › AI › Outside agents.
+      ["Claude", "whimsyAIOutsideEnable"],
       ["debit cards", "whimsyAutofillPayments"],
       ["shipping", "whimsyAutofillAddresses"],
       ["vpn", "whimsyVpnGroup"],

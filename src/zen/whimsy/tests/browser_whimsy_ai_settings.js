@@ -38,6 +38,14 @@ const TOUCHED = [
   "whimsy.ai.hints.seen",
   "whimsy.ai.hints.today",
   "whimsy.ai.claude-code.stream-probe",
+  // W23 agent-chat: Agent, Outside agents, and Activity.
+  "whimsy.ai.agent.mode",
+  "whimsy.ai.outside-agents",
+  "whimsy.ai.outside-agents.own-space",
+  "whimsy.ai.outside-agents.space-id",
+  "whimsy.claude.replay",
+  "whimsy.claude.port",
+  "whimsy.ai.activity.days",
 ];
 const saved = new Map(
   TOUCHED.map(name => {
@@ -564,5 +572,137 @@ add_task(async function no_use_for_ai_picker_or_command() {
   is(Services.prefs.getStringPref("whimsy.ai.order"), "claude,gemini", "Picking a provider the old way doesn't reorder");
   const page = await openAI();
   ok(!page.doc.querySelector("#whimsyAIUse, #whimsyAIProviderMenu, select, menulist"), "No picker in the page");
+  await done(page);
+});
+
+// ---- W23 agent-chat: Agent, Outside agents, and Activity ----
+
+const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
+const { WhimsyClaudeReplay } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs");
+const { WhimsyOutsideAgents } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyOutsideAgents.sys.mjs");
+
+registerCleanupFunction(async () => {
+  WhimsyOutsideAgents._setHomeForTesting(null);
+  WhimsyClaude.shutdown();
+  await WhimsyClaudeReplay.clear();
+  restorePrefs();
+});
+
+add_task(async function settings_agent_arrow_keys() {
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  Services.prefs.clearUserPref("whimsy.ai.agent.mode");
+  const page = await openAI();
+  const seg = await TestUtils.waitForCondition(() => page.$("whimsyAIAgentMode"), "The Agent section has its mode switch");
+  ok(page.$("whimsyAISection-agent").contains(seg), "The mode switch is in Agent");
+  seg.scrollIntoView({ block: "center" });
+  const checked = () => seg.querySelector("[aria-checked=true]")?.dataset.value;
+  is(checked(), "drive", "Drive is the default");
+  seg.querySelector("[aria-checked=true]").focus();
+  EventUtils.synthesizeKey("KEY_ArrowRight", {}, page.win);
+  await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.ai.agent.mode", "") == "background", "→ picks Background");
+  is(checked(), "background", "and the switch follows");
+  is(page.doc.activeElement?.dataset.value, "background", "Focus moves with it");
+  EventUtils.synthesizeKey("KEY_ArrowLeft", {}, page.win);
+  await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.ai.agent.mode", "") == "drive", "← picks Drive again");
+  click(page, seg.querySelector("[data-value=background]"));
+  await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.ai.agent.mode", "") == "background", "A click picks too");
+  Services.prefs.setStringPref("whimsy.ai.agent.mode", "drive");
+  await TestUtils.waitForCondition(() => checked() == "drive", "The switch follows the pref");
+  await done(page);
+});
+
+add_task(async function outside_agents_connect_found_app() {
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  Services.prefs.setBoolPref("whimsy.ai.outside-agents", true);
+  const home = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-settings-home");
+  await IOUtils.makeDirectory(PathUtils.join(home, ".codex"));
+  WhimsyOutsideAgents._setHomeForTesting(home);
+  await WhimsyClaude.start();
+  const page = await openAI();
+  try {
+    const section = await TestUtils.waitForCondition(() => page.$("whimsyAISection-outside-agents"), "Outside agents is there");
+    const row = await TestUtils.waitForCondition(() => section.querySelector(".whimsy-ai-item[data-app=codex]"), "Codex, found on this Mac, is listed");
+    ok(page.$("whimsyAIOutsideApps").contains(row), "in the apps list");
+    is(row.querySelector(".whimsy-ai-item-name").textContent, "Codex", "by name");
+    is(page.doc.l10n.getAttributes(row.querySelector(".whimsy-ai-item-detail")).id, "whimsy-ai-outside-found", "Found, not yet connected");
+    const connect = row.querySelector("[data-action=connect]");
+    ok(connect, "with Connect");
+    connect.scrollIntoView({ block: "center" });
+    await settled(page);
+    click(page, connect);
+    const config = PathUtils.join(home, ".codex", "config.toml");
+    await TestUtils.waitForCondition(() => IOUtils.exists(config), "Connect writes Codex's config");
+    const text = await IOUtils.readUTF8(config);
+    ok(text.includes("[mcp_servers.whimsy]") && text.includes(WhimsyClaude.connectInfo().bridgePath), "naming Whimsy's bridge");
+    ok(!/token|bearer/i.test(text), "and never the key");
+    const after = await TestUtils.waitForCondition(() => {
+      const node = section.querySelector(".whimsy-ai-item[data-app=codex]");
+      return node && page.doc.l10n.getAttributes(node.querySelector(".whimsy-ai-item-detail")).id == "whimsy-ai-outside-connected" && node;
+    }, "The row says Connected");
+    ok(after.querySelector("[data-action=remove]") && !after.querySelector("[data-action=connect]"), "Remove replaces Connect, so there's one action");
+  } finally {
+    WhimsyOutsideAgents._setHomeForTesting(null);
+    await done(page);
+    await IOUtils.remove(home, { recursive: true });
+  }
+});
+
+add_task(async function activity_filter_and_retention() {
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  Services.prefs.setBoolPref("whimsy.claude.replay", true);
+  await WhimsyClaudeReplay.clear();
+  const step = (task, title) => WhimsyClaudeReplay.record({ tool: "read_page", args: {}, url: "https://example.com/", title, task });
+  await step({ id: "mine", client: "whimsy", title: "Compare three flights" }, "Flights");
+  await step({ id: "theirs", client: "outside", clientName: "Claude Code", title: "Fill the expense form" }, "Expenses");
+  await WhimsyClaudeReplay.flush();
+  const page = await openAI();
+  const runs = await TestUtils.waitForCondition(() => {
+    const node = page.$("whimsyAIActivityRuns");
+    return node?.querySelectorAll(".whimsy-ai-item[data-run]").length == 2 && node;
+  }, "Activity lists both runs");
+  const names = () => [...runs.querySelectorAll(".whimsy-ai-item[data-run] .whimsy-ai-item-name")].map(n => n.textContent).sort();
+  Assert.deepEqual(names(), ["Compare three flights", "Fill the expense form"], "named by their task");
+
+  const filter = page.$("whimsyAIActivityFilter");
+  filter.scrollIntoView({ block: "center" });
+  click(page, filter.querySelector("[data-value=whimsy]"));
+  await TestUtils.waitForCondition(() => names().join() == "Compare three flights", "Whimsy shows only Whimsy's agent");
+  click(page, filter.querySelector("[data-value=outside]"));
+  await TestUtils.waitForCondition(() => names().join() == "Fill the expense form", "Outside apps shows only outside apps");
+  click(page, filter.querySelector("[data-value=all]"));
+  await TestUtils.waitForCondition(() => names().length == 2, "All shows both");
+
+  const days = page.$("whimsyAIActivityDays");
+  days.scrollIntoView({ block: "center" });
+  is(days.querySelector("[aria-checked=true]").dataset.value, "30", "30 days by default");
+  click(page, days.querySelector("[data-value='7']"));
+  await TestUtils.waitForCondition(() => Services.prefs.getIntPref("whimsy.ai.activity.days", 30) == 7, "7 days is kept");
+  click(page, days.querySelector("[data-value='0']"));
+  await TestUtils.waitForCondition(() => Services.prefs.getIntPref("whimsy.ai.activity.days", 30) == 0, "Forever is kept");
+  is(days.querySelector("[aria-checked=true]").dataset.value, "0", "and the switch shows it");
+
+  const doomed = runs.querySelector(".whimsy-ai-item[data-run]");
+  const id = doomed.dataset.run;
+  doomed.scrollIntoView({ block: "center" });
+  click(page, doomed.querySelector("[data-action=delete]"));
+  const strip = await TestUtils.waitForCondition(() => doomed.nextElementSibling?.matches(".whimsy-ai-confirm") && doomed.nextElementSibling, "Delete asks in place");
+  is(page.doc.activeElement, strip.querySelector("[data-action=cancel]"), "Cancel has focus");
+  ok((await WhimsyClaudeReplay.runs()).some(r => r.id == id), "Nothing is deleted before the confirm");
+  await settled(page);
+  click(page, strip.querySelector("[data-action=confirm]"));
+  await TestUtils.waitForCondition(async () => !(await WhimsyClaudeReplay.runs()).some(r => r.id == id), "The confirm deletes the run");
+  await TestUtils.waitForCondition(() => runs.querySelectorAll(".whimsy-ai-item[data-run]").length == 1, "and the list follows");
+
+  const deleteAll = page.$("whimsyAIActivityDeleteAll");
+  ok(!deleteAll.disabled, "Delete all… is on while there are runs");
+  deleteAll.scrollIntoView({ block: "center" });
+  click(page, deleteAll);
+  const all = await TestUtils.waitForCondition(() => page.doc.querySelector("#whimsyAISection-activity .whimsy-ai-confirm"), "Delete all asks in place");
+  is((await WhimsyClaudeReplay.runs()).length, 1, "Nothing is deleted before the confirm");
+  await settled(page);
+  click(page, all.querySelector("[data-action=confirm]"));
+  await TestUtils.waitForCondition(() => page.$("whimsyAIActivityEmpty"), "With no runs, Activity says so");
+  is((await WhimsyClaudeReplay.runs()).length, 0, "Every run is deleted");
+  ok(deleteAll.disabled, "and Delete all… stays in place, off");
   await done(page);
 });

@@ -1019,6 +1019,7 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 # W23 commands: the store, Link commands, Settings › AI › Commands, and screenshots
 ["browser_whimsy_ai_commands.js"]
 ["browser_whimsy_screens_w23_commands.js"]
+support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
 
 # W23 page-read
 ["browser_whimsy_ai_summary.js"]
@@ -1034,7 +1035,6 @@ support-files = ["whimsy_ai_page.html", "whimsy_ai_long.html", "whimsy_ai_links.
 support-files = ["whimsy_ai_page.html"]
 ["browser_whimsy_screens_w23_routines-engine.js"]
 support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
-support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
 
 ["browser_whimsy_cmdk_ai.js"]
 support-files = ["whimsy_cmdk.html", "whimsy_test_image.png"]
@@ -1053,3 +1053,10 @@ support-files = ["head_video_w23.js", "whimsy_video_vtt.html", "whimsy_video_vtt
 
 ["browser_whimsy_screens_w23_video.js"]
 support-files = ["head_video_w23.js", "whimsy_video_vtt.html", "whimsy_video_vtt.vtt", "whimsy_video.mp4"]
+# W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses,
+# notices, end of task, outside apps' threads) and this lane's screenshots.
+["browser_whimsy_chat_agent.js"]
+support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
+
+["browser_whimsy_screens_w23_agent-chat.js"]
+support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]

@@ -1,0 +1,171 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 agent-chat: Settings › AI › Agent, Outside agents, and Activity. */
+
+.whimsy-ai-agent-seg {
+  flex: none;
+  min-width: 200px;
+}
+
+.whimsy-ai-agent-sublabel {
+  margin: 4px 2px -8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-color-deemphasized);
+}
+
+.whimsy-ai-agent-guard {
+  align-items: flex-start;
+  & > .whimsy-ai-pill {
+    flex: none;
+  }
+}
+
+.whimsy-ai-agent-bullets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  margin: 8px 0 2px;
+  padding: 0;
+  list-style: none;
+  & > li {
+    position: relative;
+    padding-inline-start: 14px;
+    font-size: 12.5px;
+    &::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: 2px;
+      top: 0.55em;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: light-dark(rgb(217, 138, 0), rgb(240, 177, 60));
+    }
+  }
+}
+
+.whimsy-ai-agent-apps:empty {
+  display: none;
+}
+
+.whimsy-ai-agent-chevron {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  background: url("chrome://browser/skin/zen-icons/arrow-down.svg") center / contain no-repeat;
+  -moz-context-properties: fill;
+  fill: currentColor;
+  opacity: 0.6;
+  transition: rotate 150ms ease;
+  [aria-expanded="false"] > & {
+    rotate: -90deg;
+  }
+  &.is-end {
+    rotate: -90deg;
+  }
+}
+
+.whimsy-ai-agent-another {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 12px 54px;
+  &[hidden] {
+    display: none;
+  }
+}
+
+.whimsy-ai-agent-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  & > .whimsy-ai-agent-status {
+    flex: 1;
+  }
+}
+
+.whimsy-ai-agent-bar {
+  display: flex;
+  align-items: center;
+  margin-block-end: -10px;
+  & > .whimsy-ai-seg {
+    min-width: 300px;
+  }
+  & > #whimsyAIActivityDeleteAll {
+    margin-inline-start: auto;
+  }
+}
+
+.whimsy-ai-agent-icon-btn {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: var(--icon) center / 14px no-repeat;
+  -moz-context-properties: fill, stroke;
+  fill: currentColor;
+  stroke: currentColor;
+  color: inherit;
+  opacity: 0.7;
+  &:hover {
+    background-color: color-mix(in srgb, currentColor 9%, transparent);
+    opacity: 1;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-ai-agent-chevron {
+    transition: none;
+  }
+}
+
+/* An in-place confirm in a row of buttons takes its own line below them. */
+.whimsy-ai-agent-bar,
+.whimsy-ai-agent-buttons {
+  flex-wrap: wrap;
+  & > .whimsy-ai-confirm {
+    flex-basis: 100%;
+  }
+}
+.whimsy-ai-agent-bar > .whimsy-ai-confirm {
+  margin-block: 8px 10px;
+}
+
+/* Activity with runs: a day label over each day's own list, not a list of lists. */
+#whimsyAIActivityRuns.is-grouped {
+  gap: 6px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  & > * + * {
+    border-top: none;
+  }
+  & > .whimsy-ai-agent-sublabel {
+    margin: 6px 2px 0;
+  }
+  & > .whimsy-ai-agent-sublabel:first-child {
+    margin-top: 0;
+  }
+}
+
+/* Found and connected apps sit in the list like its other rows. */
+#whimsyAIOutsideApps {
+  display: flex;
+  flex-direction: column;
+  &:empty,
+  &[hidden] {
+    display: none;
+  }
+  & > * + * {
+    border-top: 1px solid var(--ai-hairline);
+  }
+}
