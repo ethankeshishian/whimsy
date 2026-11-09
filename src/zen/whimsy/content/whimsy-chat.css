@@ -117,7 +117,7 @@
     border-radius: 4px;
     background: var(--zen-accent-button-background, var(--whimsy-chat-accent-bg));
     opacity: 0;
-    transition: opacity 0.2s ease-in-out;
+    transition: opacity 0.2s ease-out;
   }
 
   &:is(:hover, [resizing])::before {
