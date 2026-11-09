@@ -392,32 +392,63 @@ export const WhimsyTaskFolder = {
     await gone;
   },
 
-  // Zap's dissolve on the row (particles from its own pixels); reduced
-  // motion: a plain 150ms fade.
+  // Zap's dissolve on the row (particles from its own pixels). Reduced
+  // motion, Zap's dust turned off, or no WebGL (blocklisted GPU, lost
+  // context): a plain 150ms fade, so the folder still leaves cleanly.
+  // The row's `dissolving` attribute says which ("zap" or "fade").
   async dissolveRow(folder) {
     const win = folder.ownerDocument.documentGlobal;
-    const done = () => folder.remove();
-    if (folder.hidden || reducedMotion(win)) {
-      if (!folder.hidden) {
-        await folder.animate({ opacity: [1, 0] }, { duration: FADE_MS, fill: "forwards" }).finished.catch(() => {});
-      }
-      done();
-      return;
-    }
-    let fx = null;
     try {
+      if (folder.hidden) {
+        return;
+      }
       const rect = folder.getBoundingClientRect();
       if (!rect.width || !rect.height) {
         return;
       }
+      const dust = !reducedMotion(win) && Services.prefs.getBoolPref("zen.boosts.dissolve-on-zap", true);
+      if (!dust || !(await this.zap(win, folder))) {
+        await this.fade(folder);
+      }
+    } finally {
+      folder.remove();
+    }
+  },
+
+  async fade(folder) {
+    if (!folder.isConnected || folder.style.getPropertyValue("opacity") == "0") {
+      return;
+    }
+    folder.setAttribute("dissolving", "fade");
+    await folder.animate({ opacity: [1, 0] }, { duration: FADE_MS, fill: "forwards" }).finished.catch(() => {});
+  },
+
+  // Runs Zap's dissolve; false (nothing shown yet) when WebGL can't.
+  async zap(win, folder) {
+    let fx = null;
+    let started = false;
+    try {
       const { ZapDissolve } = ChromeUtils.importESModule("resource:///modules/zen/boosts/ZenZapDissolve.sys.mjs");
       fx = new ZapDissolve(win.document);
       await fx.initialize();
-      await new Promise(resolve => {
+      // Asking the canvas again returns the context Zap made, or null if
+      // it couldn't make one.
+      const gl = fx.getElementById("zen-zap-dissolve-canvas")?.getContext("webgl");
+      const rect = folder.getBoundingClientRect();
+      if (!gl || gl.isContextLost() || !folder.isConnected || !rect.width || !rect.height) {
+        return false;
+      }
+      await new Promise((resolve, reject) => {
         // Never wait past the shader's 1.4s by much, whatever happens.
         const safety = win.setTimeout(resolve, dissolveClock ? 60000 : 2500);
+        const lost = () => {
+          win.clearTimeout(safety);
+          reject(new Error("WebGL context lost"));
+        };
+        gl.canvas.addEventListener("webglcontextlost", lost, { once: true });
         fx.dissolve(folder, () => {
           win.clearTimeout(safety);
+          gl.canvas.removeEventListener("webglcontextlost", lost);
           resolve();
         });
         if (dissolveClock) {
@@ -436,13 +467,18 @@ export const WhimsyTaskFolder = {
             cancelAnimationFrame: id => win.cancelAnimationFrame(id),
           };
         }
+        folder.setAttribute("dissolving", "zap");
         folder.style.setProperty("opacity", "0", "important");
+        started = true;
       });
+      return true;
     } catch (e) {
       console.error("Whimsy: task folder dissolve", e);
+      return started;
     } finally {
+      // Zap's own tearDown loses the context on purpose ("WebGL context
+      // was lost" in the console is it letting go, not a failure).
       fx?.tearDown();
-      done();
     }
   },
 

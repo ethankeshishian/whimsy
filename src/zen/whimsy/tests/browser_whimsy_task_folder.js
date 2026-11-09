@@ -154,6 +154,28 @@ add_task(async function dissolve_reduced_motion_fades() {
   await cleanup(tabs);
 });
 
+add_task(async function dissolve_without_webgl_fades() {
+  // A blocklisted GPU or a lost context: no particles, but the folder still
+  // leaves cleanly with the 150ms fade.
+  await SpecialPowers.pushPrefEnv({ set: [["webgl.disabled", true]] });
+  const { task, tabs, folder } = await backgroundTask(2);
+  try {
+    const start = Date.now();
+    const end = WhimsyTaskFolder.end(task, { archive: [tabs[1]] });
+    is(end.length, 0, "Every archived tab was the folder's");
+    await TestUtils.waitForCondition(() => !folder.isConnected || folder.hasAttribute("dissolving"), "The row starts to go");
+    is(folder.getAttribute("dissolving"), "fade", "Without WebGL the row fades");
+    await gone(folder);
+    ok(Date.now() - start < 2000, "quickly");
+    await TestUtils.waitForCondition(() => !tabs[1].isConnected, "The archived tab goes");
+    ok(tabs[0].isConnected && !tabs[0].hasAttribute(MEMBER), "and the kept tab stays, ordinary");
+  } finally {
+    WhimsyAgentTasks.finish(task.id);
+    await SpecialPowers.popPrefEnv();
+    await cleanup(tabs);
+  }
+});
+
 add_task(async function restart_restores_tabs_as_ordinary() {
   const { tabs, folder, task } = await backgroundTask(2);
   await TabStateFlusher.flushWindow(window);

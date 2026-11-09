@@ -147,26 +147,34 @@ add_task(async function shots_dissolve() {
   await fresh();
   const notes = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?notes");
   const { task, tabs, folder } = await folderTask(3);
-  await document.l10n.translateRoots();
-  await whimsySettled();
-  let elapsed = 0;
-  WhimsyTaskFolder._setDissolveClockForTesting(() => elapsed);
-  const end = WhimsyTaskFolder.dissolve(folder, { keep: tabs.slice(0, 2) });
-  await TestUtils.waitForCondition(() => folder.style.getPropertyValue("opacity") == "0", "The dissolve started");
-  for (const ms of [100, 250, 500, 800, 1100]) {
-    elapsed = ms;
-    await frames();
-    await frames();
-    await whimsyShot(`w23-agent-tabs-dissolve-mid-${ms}`);
-  }
-  elapsed = 5000;
-  await end;
-  ok(!folder.isConnected, "The folder dissolved");
-  // Kept tabs, marked, with the moved toast (agent-3.5).
-  await whimsyBothSchemes("w23-agent-tabs-kept", async () => {
+  try {
     await document.l10n.translateRoots();
-  });
-  ok(tabs.slice(0, 2).every(t => t.hasAttribute("whimsy-agent-opened")), "Kept tabs carry the mark");
-  WhimsyAgentTasks.finish(task.id);
-  await closeAll(notes, tabs);
+    await whimsySettled();
+    const rect = folder.getBoundingClientRect();
+    info(`Folder before: connected ${folder.isConnected}, hidden ${folder.hidden}, ${rect.width}x${rect.height}, ` +
+      `dissolving ${!!folder._dissolving}, reduced ${matchMedia("(prefers-reduced-motion: reduce)").matches}`);
+    let elapsed = 0;
+    WhimsyTaskFolder._setDissolveClockForTesting(() => elapsed);
+    const end = WhimsyTaskFolder.dissolve(folder, { keep: tabs.slice(0, 2) });
+    await TestUtils.waitForCondition(() => !folder.isConnected || folder.hasAttribute("dissolving"), "The dissolve started");
+    // Zap's particles, not the no-WebGL fade: these frames are the point.
+    is(folder.getAttribute("dissolving"), "zap", "The folder dissolves with Zap's particles");
+    for (const ms of [100, 250, 500, 800, 1100]) {
+      elapsed = ms;
+      await frames();
+      await frames();
+      await whimsyShot(`w23-agent-tabs-dissolve-mid-${ms}`);
+    }
+    elapsed = 5000;
+    await end;
+    ok(!folder.isConnected, "The folder dissolved");
+    // Kept tabs, marked, with the moved toast (agent-3.5).
+    await whimsyBothSchemes("w23-agent-tabs-kept", async () => {
+      await document.l10n.translateRoots();
+    });
+    ok(tabs.slice(0, 2).every(t => t.hasAttribute("whimsy-agent-opened")), "Kept tabs carry the mark");
+  } finally {
+    WhimsyAgentTasks.finish(task.id);
+    await closeAll(notes, tabs);
+  }
 });
