@@ -345,7 +345,6 @@ add_task(async function find_card() {
     });
     await whimsyBothSchemes(NAME("find-nothing"), async () => {
       const findbar = await openFind("when is the offsite");
-      info(`DIAG status=${findbar._findField.getAttribute("status")} val=${JSON.stringify(findbar._findField.value)} askEnabled=${WhimsyAIPage.askEnabled} mode=${findbar.findMode}==${findbar.FIND_NORMAL} imgMatches=${findbar.hasAttribute("whimsy-image-matches")} count=${findbar.querySelector(".whimsy-find-count")?.getAttribute("value")}`);
       await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered", 100, 150);
       return closeFind;
     });
