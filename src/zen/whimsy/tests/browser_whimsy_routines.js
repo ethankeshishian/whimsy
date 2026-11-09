@@ -205,24 +205,16 @@ add_task(async function stop_a_running_routine_from_its_thread() {
   answer = () => new Promise(() => started());
   const run = WhimsyRoutines.runNow(r.id);
   await begun;
-  info("The run started");
   const panel = await openThread((await WhimsyRoutines.get(r.id)).threadId);
   const stop = await TestUtils.waitForCondition(() => panel.el.querySelector('.whimsy-routine-bar button[data-action="stop"]'), "Stop is in the bar, in Run now's place");
   ok(!panel.el.querySelector('.whimsy-routine-bar button[data-action="run"]'), "with no Run now beside it");
   await TestUtils.waitForCondition(() => stop.textContent == "Stop", "labelled Stop");
-  info(`Stop is connected: ${stop.isConnected}`);
-  {
+  // The panel slides in: click once Stop is where the pointer lands.
+  await TestUtils.waitForCondition(() => {
     const rect = stop.getBoundingClientRect();
-    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    info(`DIAG rect ${JSON.stringify(rect)} hit ${hit?.localName}.${hit?.className} same=${hit == stop}`);
-    stop.addEventListener("click", () => info("DIAG click reached Stop"));
-  }
+    return stop.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
+  }, "Stop is on screen");
   EventUtils.synthesizeMouseAtCenter(stop, {}, window);
-  info(`Clicked; status ${(await WhimsyRoutines.get(r.id)).status}`);
-  await TestUtils.waitForCondition(async () => (await WhimsyRoutines.get(r.id)).status == null, "stopped by click").catch(() => {
-    info(`DIAG click did not stop; direct stop() returned ${WhimsyRoutines.stop(r.id)}`);
-  });
-  info("DIAG awaiting run");
   await run;
   const [card] = await runCards((await WhimsyRoutines.get(r.id)).threadId);
   ok(card.stopped && !card.running && !card.failed, "The run says it was stopped, not failed");
