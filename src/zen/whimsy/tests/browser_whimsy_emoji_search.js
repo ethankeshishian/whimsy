@@ -16,6 +16,17 @@ async function openPicker() {
   const shown = BrowserTestUtils.waitForEvent(panel, "popupshown");
   // Any visible element will do; the switcher hides with one space.
   const anchor = gBrowser.selectedTab;
+  // DIAG (temporary): who closes the picker?
+  const realHide = panel.hidePopup;
+  panel.hidePopup = function (...args) {
+    info(`DIAG hidePopup ${new Error().stack}`);
+    return realHide.apply(this, args);
+  };
+  const log = e => info(`DIAG ${e.type} ${e.target.id || e.target.localName} state=${panel.state} active=${document.activeElement?.id || document.activeElement?.localName} focused=${Services.focus.focusedWindow == window}`);
+  for (const type of ["popupshowing", "popupshown", "popuphiding", "popuphidden", "deactivate", "blur"]) {
+    window.addEventListener(type, log, true);
+  }
+  info(`DIAG anchor ${anchor.label} visible=${BrowserTestUtils.isVisible(anchor)} rect=${JSON.stringify(anchor.getBoundingClientRect())} tabs=${gBrowser.tabs.length}`);
   const picked = gZenEmojiPicker.open(anchor);
   await shown;
   return { panel, picked };
