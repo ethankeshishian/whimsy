@@ -17,7 +17,11 @@ UrlbarTestUtils.init(this);
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const PAGE = kind => `${ROOT}whimsy_cmdk.html?kind=${kind}`;
-const TOUCHED = ["whimsy.ai.enabled", "whimsy.ai.order", "whimsy.ai.quick-text-apple"];
+// whimsy.ai.enabled isn't tracked here: head.js's whimsySnapshotLeakedPrefs
+// clears it unconditionally at the end of every file, so a snapshot taken
+// here (which could already see it on, from the manifest's own default or
+// a leak) never gets a chance to write it back on.
+const TOUCHED = ["whimsy.ai.order", "whimsy.ai.quick-text-apple"];
 const saved = new Map(TOUCHED.map(name => [name, Services.prefs.prefHasUserValue(name) ? whimsyReadPref(name, Services.prefs.getPrefType(name)) : null]));
 
 function restorePrefs() {
