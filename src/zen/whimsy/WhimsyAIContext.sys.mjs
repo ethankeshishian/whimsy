@@ -88,6 +88,10 @@ function actorOf(windowGlobal) {
 }
 
 function tabIcon(tab) {
+  // A tab closed while its page was being read has no browser left.
+  if (!tab.linkedBrowser) {
+    return tab.getAttribute("image") || "";
+  }
   return tab.getAttribute("image") || tab.documentGlobal?.gBrowser?.getIcon?.(tab) || "";
 }
 
