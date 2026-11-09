@@ -241,6 +241,50 @@ add_task(async function live_stream_update_chip() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// A thread Summarize doesn't own (or doesn't exist) can never rewind.
+add_task(async function live_ago_pill_needs_a_video_thread() {
+  const { WhimsyVideoSummary: S } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs");
+  ok(!S.canRewind({ id: "not-a-video-thread" }), "No record, no rewind");
+  ok(!S.canRewind(null), "Not even for a null thread");
+  is(await S.seekAgo(window, { id: "not-a-video-thread" }, 1), false, "and seekAgo refuses");
+});
+
+// fu-media: a live chapter pill reads "N min ago" (not a fixed clock), and
+// only seeks while the stream can actually rewind there. The test fixture
+// is under a second long, so it's never seekable (whimsy.video-speed's own
+// > 1s guard) — exactly the case where the pill must stay inert.
+add_task(async function live_chapter_pill_reads_ago_and_cant_seek_when_not_seekable() {
+  await freshChatStore();
+  stubProvider("Spain lead.\n\nChapters\n- 18 min ago Spain score");
+  const { tab, browser } = await openVideo("?drawn");
+  await SpecialPowers.spawn(browser, [], () => {
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+    actor.isLive = el => el.id == "video";
+    const video = content.document.getElementById("video");
+    content.document.body.dataset.seeks = "0";
+    video.addEventListener("seeked", () => (content.document.body.dataset.seeks = String(Number(content.document.body.dataset.seeks) + 1)));
+  });
+  await hoverVideo(browser);
+  const state = await TestUtils.waitForCondition(async () => {
+    const s = await videoControl(browser);
+    return s?.right.shown && s;
+  }, "A live stream gets the top-right plates");
+  await clickPoint(browser, state.summ);
+  await summaryAnswered();
+  const threadId = chatPanel().thread.id;
+  const { WhimsyVideoSummary: S } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs");
+  ok(!S.canRewind({ id: threadId }), "This fixture is under a second: nowhere to rewind to");
+  const pill = await TestUtils.waitForCondition(() => chatPanel().body.querySelector(".whimsy-chat-time[data-minutes-ago='18']"), "A relative-time pill, not m:ss");
+  is(pill.textContent, "18 min ago", "It reads how long ago, not a clock time");
+  ok(pill.disabled, "and it's inert: nothing to seek through");
+  EventUtils.synthesizeMouseAtCenter(pill, {});
+  // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+  await new Promise(r => setTimeout(r, 200));
+  is(await SpecialPowers.spawn(browser, [], () => content.document.body.dataset.seeks), "0", "A disabled pill never seeks");
+  await closeChat();
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function drawn_subtitles_collected_while_playing() {
   const { tab, browser } = await openVideo("?drawn");
   const lines = await SpecialPowers.spawn(browser, [], async () => {

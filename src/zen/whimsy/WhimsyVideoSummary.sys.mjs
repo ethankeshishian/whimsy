@@ -47,11 +47,11 @@ const PROMPT = [
   "Leave out chapters when there's no transcript with times.",
 ].join(" ");
 const LIVE_PROMPT =
-  "This is a live stream. Summarize what was captioned while the person watched, then a line \"Chapters\" with one line per moment as \"- m:ss Title\" using the times given.";
+  "This is a live stream. Summarize what was captioned while the person watched, then a line \"Chapters\" with one line per moment as \"- N min ago Title\", copying the relative time already given for that moment (don't compute m:ss; there's no fixed clock to count from).";
 const QUOTES_PROMPT =
   "List the three to five most telling quotes from the transcript, word for word, each as \"- m:ss “quote”\" with the time it's said. No preamble.";
 const UPDATE_PROMPT =
-  "This is a live stream. Here's what was captioned since your last summary. Say what's happened since, then a line \"Chapters\" with one line per new moment as \"- m:ss Title\" using the times given. Don't repeat the earlier summary.";
+  "This is a live stream. Here's what was captioned since your last summary. Say what's happened since, then a line \"Chapters\" with one line per new moment as \"- N min ago Title\", copying the relative time already given for that moment. Don't repeat the earlier summary.";
 const HEARD_PROMPT = "In one or two sentences, say what has been said so far in this video, from the speech below. No preamble.";
 
 const formatTime = seconds => {
@@ -218,6 +218,7 @@ export const WhimsyVideoSummary = {
   stateFor(actor, videoId) {
     const { win, tab } = this.tabOfActor(actor);
     const threadId = tab && this.threadFor(tab, videoId);
+    dump(`WHIMSY-DEBUG stateFor: videoId=${videoId} tabId=${tab?.linkedBrowser?.browserId} threadId=${threadId}\n`);
     if (!threadId) {
       return "none";
     }
@@ -245,7 +246,7 @@ export const WhimsyVideoSummary = {
     lazy.WhimsyAIHints.used("video-summary");
     const threadId = this.threadFor(tab, videoId);
     const panel = lazy.WhimsyChatPanel.forWindow(win);
-    dump(`WHIMSY-DEBUG toggle in: threadId=${threadId} isOpen=${lazy.WhimsyChat.isOpen(win)} panelThreadId=${panel.thread?.id}\n`);
+    dump(`WHIMSY-DEBUG toggle in: videoId=${videoId} tabId=${tab?.linkedBrowser?.browserId} threadId=${threadId} isOpen=${lazy.WhimsyChat.isOpen(win)} panelThreadId=${panel.thread?.id} byTabHasTab=${byTab.has(tab)}\n`);
     if (threadId && lazy.WhimsyChat.isOpen(win) && panel.thread?.id == threadId) {
       lazy.WhimsyChat.close(win, { reason: "video" });
       dump("WHIMSY-DEBUG toggle: closed, returning hidden\n");
@@ -642,6 +643,30 @@ export const WhimsyVideoSummary = {
       return record.actor.sendQuery("WhimsyVideoSpeed:Seek", { videoId: record.videoId, time: seconds }).catch(() => false);
     }
     return false;
+  },
+
+  /**
+   * A live chapter pill reads "N min ago", not a fixed time: it seeks
+   * `minutes` back from the stream's position right now, not from when the
+   * summary was written. Only while the stream can actually rewind
+   * (`source.seekable`); otherwise there's nowhere to seek to.
+   */
+  async seekAgo(win, thread, minutes) {
+    const record = thread && threads.get(thread.id);
+    if (!record?.actor || Cu.isDeadWrapper(record.actor)) {
+      return false;
+    }
+    const fresh = await record.actor.sendQuery("WhimsyVideoSpeed:SummarySource", { videoId: record.videoId }).catch(() => null);
+    if (!fresh?.seekable || !Number.isFinite(fresh.currentTime)) {
+      return false;
+    }
+    return this.seek(win, thread, Math.max(0, fresh.currentTime - minutes * 60));
+  },
+
+  /** Whether this thread's stream can rewind right now (a live chapter pill is only a button then). */
+  canRewind(thread) {
+    const record = thread && threads.get(thread.id);
+    return !!record?.source?.seekable;
   },
 
   /** Whether a thread is a video summary (chat's time pills seek through it). */

@@ -19,6 +19,8 @@ add_task(async function settings_media_page_has_moved_checkboxes() {
       is(row?.closest("groupbox")?.getAttribute("data-category"), "paneWhimsyMedia", `${id} is on the Media page`);
     }
     ok(doc.getElementById("whimsyMediaReadAloud") && doc.getElementById("whimsyMediaDictation"), "Read aloud and dictation have their places");
+    const newBadge = doc.getElementById("whimsyVideoTopButtons").closest(".whimsy-media-new-row")?.querySelector(".whimsy-media-new-badge");
+    ok(newBadge?.textContent, "Summarize and picture-in-picture's row has a New badge");
 
     // The default speed: a styled menu, then Other… for any speed.
     const button = doc.getElementById("whimsyMediaDefaultSpeedMenu");
@@ -28,13 +30,20 @@ add_task(async function settings_media_page_has_moved_checkboxes() {
     // native menu; browser_whimsy_site_settings.js picks the same widget the
     // same way: .click() on the row, not a coordinate-based synthesized
     // click, which can miss while the popover is still settling.
+    const popup = () => doc.getElementById("whimsyMediaDefaultSpeedMenu-list") ?? window.document.getElementById("whimsyMediaDefaultSpeedMenu-list");
     button.click();
-    const option = await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='1.5']") ?? window.document.querySelector("[role=option][data-value='1.5']"), "The menu opens");
+    // Its rows are only interactive once it's actually open, not merely
+    // present (Gecko refuses a .click() inside a "showing" popup).
+    await TestUtils.waitForCondition(() => popup()?.state == "open", "The menu opens");
+    const option = popup().querySelector("[role=option][data-value='1.5']");
+    ok(option, "1.5× is an option");
     option.click();
     await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.video.default-speed") == "1.5", "Picking 1.5× sets the default");
 
     doc.getElementById("whimsyMediaDefaultSpeedMenu").click();
-    const other = await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='other']") ?? window.document.querySelector("[role=option][data-value='other']"), "The menu opens again");
+    await TestUtils.waitForCondition(() => popup()?.state == "open", "The menu opens again");
+    const other = popup().querySelector("[role=option][data-value='other']");
+    ok(other, "Other… is an option");
     other.click();
     const input = await TestUtils.waitForCondition(() => doc.getElementById("whimsyMediaDefaultSpeedInput"), "Other… is a field");
     input.focus();

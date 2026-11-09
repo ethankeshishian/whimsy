@@ -6530,6 +6530,7 @@ whimsy-media-forget-all =
 whimsy-media-videos-heading = On videos
 whimsy-media-top-buttons =
     .label = Show Summarize and picture-in-picture at the top right of videos
+whimsy-media-new-badge = New
 whimsy-media-voice-heading = Read aloud and dictation
 ## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
 

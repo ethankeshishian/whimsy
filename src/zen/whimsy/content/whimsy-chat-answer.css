@@ -909,6 +909,14 @@
   &:focus-visible {
     outline: var(--whimsy-chat-focus);
   }
+  /* A live chapter past the stream's rewindable window: a label, not a button. */
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  &:disabled:hover {
+    background: color-mix(in srgb, var(--whimsy-chat-accent-bg) 14%, transparent);
+  }
 }
 
 /* W23 video: the chapter that's playing, the transcript, and "What's said so far". */

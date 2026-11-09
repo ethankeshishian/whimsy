@@ -691,8 +691,11 @@
     <!-- w7native: live captions from speech when a video has none -->
     <checkbox id="whimsyVideoSpeechCaptions" data-whimsy-feature="video-speech-captions" class="indent"
               data-l10n-id="whimsy-media-video-speech-captions" preference="whimsy.feature.video-speech-captions"/>
-    <checkbox id="whimsyVideoTopButtons" data-whimsy-feature="ai-video-summary"
-              data-l10n-id="whimsy-media-top-buttons" preference="whimsy.video.top-buttons"/>
+    <hbox align="center" class="whimsy-media-new-row" data-whimsy-feature="ai-video-summary">
+      <checkbox id="whimsyVideoTopButtons" flex="1"
+                data-l10n-id="whimsy-media-top-buttons" preference="whimsy.video.top-buttons"/>
+      <label class="whimsy-media-new-badge" data-l10n-id="whimsy-media-new-badge"/>
+    </hbox>
     <checkbox id="whimsyPipSnapBack" data-whimsy-feature="pip-snap-back"
               data-l10n-id="whimsy-media-pip-snap-back" preference="whimsy.media.pip-snap-back"/>
     <!-- wave3/private: floating calls -->
