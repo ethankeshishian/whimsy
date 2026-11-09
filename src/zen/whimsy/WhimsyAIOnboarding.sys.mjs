@@ -474,7 +474,11 @@ export const WhimsyAIOnboarding = {
     if (win.getComputedStyle(content).position == "static") {
       content.style.position = "relative";
     }
-    sheet.style.top = `${ui.card.getBoundingClientRect().bottom - content.getBoundingClientRect().top + content.scrollTop + 6}px`;
+    // The card's busy line localizes after this runs and can rewrap it, so keep following its edge.
+    const place = () => (sheet.style.top = `${ui.card.getBoundingClientRect().bottom - content.getBoundingClientRect().top + content.scrollTop + 6}px`);
+    place();
+    const follow = new win.ResizeObserver(place);
+    follow.observe(ui.card);
     const head = this._el(doc, "div", "whimsy-onb-sheet-head", sheet);
     const logo = this._el(doc, "img", "", head);
     logo.src = `${ICONS}${lazy.CATALOG[id].logo}.svg`;
@@ -520,6 +524,7 @@ export const WhimsyAIOnboarding = {
     field?.addEventListener("input", sync);
     sync();
     const close = () => {
+      follow.disconnect();
       sheet.remove();
       if (s.busy == pending) {
         s.busy = null;
