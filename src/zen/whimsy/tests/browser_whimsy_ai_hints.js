@@ -128,6 +128,19 @@ add_task(async function hint_waits_for_real_toasts_and_surface() {
 // toast, or on screen) never holds up the hints of the windows still open.
 add_task(async function hint_in_closed_window_frees_the_line() {
   await resetHints();
+  // Zen's window sync copies a new window's blank tab into this one; those
+  // go, and so do the windows, even if the test fails.
+  const startTabs = new Set(gBrowser.tabs);
+  const windows = [];
+  const cleanup = async () => {
+    for (const w of windows.filter(w => !w.closed)) {
+      await BrowserTestUtils.closeWindow(w);
+    }
+    for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  };
+  registerCleanupFunction(cleanup);
   // A new window's surfaces register their own hints: these go in after.
   const register = () => {
     for (const id of ["chat", "updates", "ask"]) {
@@ -136,6 +149,7 @@ add_task(async function hint_in_closed_window_frees_the_line() {
   };
 
   let win = await BrowserTestUtils.openNewBrowserWindow();
+  windows.push(win);
   register();
   win.gZenUIManager.toasts.open("whimsy-ai-hint-got-it", { timeout: 0, key: "whimsy-test-real" });
   ok(WhimsyAIHints.request(win, "chat"), "Chat waits behind the other window's real toast");
@@ -143,6 +157,7 @@ add_task(async function hint_in_closed_window_frees_the_line() {
   await TestUtils.waitForCondition(() => !WhimsyAIHints.waiting, "Its window closed: it stops waiting");
 
   win = await BrowserTestUtils.openNewBrowserWindow();
+  windows.push(win);
   register();
   ok(WhimsyAIHints.request(win, "updates"), "Updates is taken in a second window");
   await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "updates", "and shows there");
@@ -152,6 +167,7 @@ add_task(async function hint_in_closed_window_frees_the_line() {
   ok(WhimsyAIHints.request(window, "ask"), "Ask is taken here");
   await waitForHint("ask");
   ok(true, "and shows: nothing is stuck");
+  await cleanup();
 });
 
 add_task(async function hint_not_shown_ai_off_except_media() {
