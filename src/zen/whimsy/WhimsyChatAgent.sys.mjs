@@ -1084,9 +1084,13 @@ export const WhimsyChatAgent = {
       }
     }
     await panel.doc.l10n.translateFragment(body);
+    // The run strip first: a pause grows it ("Waiting for you"), and the
+    // thread above shrinks by as much before the new card is measured.
+    this.renderRunCard(panel);
     if (added) {
-      // A card that asks you something keeps its choices in view.
-      const target = added.matches("[data-focus]") ? added.querySelector(".whimsy-agent-actions") ?? added : added;
+      // A card that asks you something stays whole in view, down to its
+      // last line (agent 5.1), as far as its top allows.
+      const target = added;
       const behavior = reducedMotion(panel.win) ? "instant" : "smooth";
       // Scroll the thread only: scrollIntoView would also scroll the card's
       // own clipped unfold wrapper, leaving its top cut off for good.
@@ -1112,7 +1116,6 @@ export const WhimsyChatAgent = {
         (added.querySelector("[data-autofocus]") ?? added).focus({ preventScroll: true });
       }
     }
-    this.renderRunCard(panel);
   },
 
   // Updates a card in place where it can (focus and hover stay put).
