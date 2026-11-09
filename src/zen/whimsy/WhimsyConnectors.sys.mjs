@@ -90,6 +90,20 @@ const day = (offset = 0) => {
   return d;
 };
 
+// W23 secfix L7: an owner-only file, written whole: the temporary file is
+// made 0600 before anything goes in it, then moved into place.
+async function writeOwnerOnlyJSON(path, value) {
+  const tmp = await IOUtils.createUniqueFile(PathUtils.parent(path), `${PathUtils.filename(path)}.tmp`, 0o600);
+  try {
+    await IOUtils.setPermissions(tmp, 0o600, false);
+    await IOUtils.writeJSON(tmp, value);
+    await IOUtils.move(tmp, path);
+  } finally {
+    await IOUtils.remove(tmp, { ignoreAbsent: true });
+  }
+  await IOUtils.setPermissions(path, 0o600, false);
+}
+
 export const WhimsyConnectors = {
   _file: null,
   _queue: Promise.resolve(),
@@ -130,8 +144,7 @@ export const WhimsyConnectors = {
     const run = this._queue.then(async () => {
       const file = await this._read();
       await change(file);
-      await IOUtils.writeJSON(this._path, file, { tmpPath: this._path + ".tmp" });
-      await IOUtils.setPermissions(this._path, 0o600);
+      await writeOwnerOnlyJSON(this._path, file);
     });
     this._queue = run.catch(() => {});
     return run.then(() => this._changed());

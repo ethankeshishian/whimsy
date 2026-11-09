@@ -140,3 +140,22 @@ add_task(async function fire_drops_preview_summaries() {
     WhimsyAIProviders.setTestProvider(null);
   }
 });
+
+// W23 secfix L7: the provider-key file is owner-only from its first byte.
+add_task(async function key_file_is_owner_only() {
+  const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  const path = WhimsyAIProviders._keyPath;
+  const before = await IOUtils.exists(path) ? await IOUtils.readUTF8(path) : null;
+  try {
+    await WhimsyAIProviders.setKey("openai", "sk-" + "test-secfix-1234");
+    is((await IOUtils.stat(path)).permissions & 0o777, 0o600, "The key file is 0600");
+    const parent = await IOUtils.getChildren(PathUtils.parent(path));
+    ok(!parent.some(p => PathUtils.filename(p).startsWith(`${PathUtils.filename(path)}.tmp`)), "and no temporary copy is left");
+  } finally {
+    await WhimsyAIProviders.setKey("openai", "");
+    if (before !== null) {
+      await IOUtils.writeUTF8(path, before);
+      await IOUtils.setPermissions(path, 0o600);
+    }
+  }
+});
