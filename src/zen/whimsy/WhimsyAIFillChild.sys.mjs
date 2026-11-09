@@ -99,6 +99,8 @@ export class WhimsyAIFillChild extends JSWindowActorChild {
         return this.findReply();
       case "WhimsyAIFill:WriteReply":
         return this.writeReply(message.data);
+      case "WhimsyAIFill:UndoReply":
+        return this.undoReply();
       case "WhimsyAIFill:Fields":
         return this.collect();
       case "WhimsyAIFill:Fill":
@@ -197,8 +199,36 @@ export class WhimsyAIFillChild extends JSWindowActorChild {
         sel.addRange(after);
       }
     }
+    this.lastReply = { box, before, after: valueOf(box) };
     const reduce = this.contentWindow.matchMedia("(prefers-reduced-motion: reduce)").matches;
     box.scrollIntoView({ block: "nearest", behavior: reduce ? "instant" : "smooth" });
+    return { ok: true };
+  }
+
+  // The toast's Undo: the box goes back to what it held, unless the
+  // person has typed in it since.
+  undoReply() {
+    const last = this.lastReply;
+    this.lastReply = null;
+    const box = last?.box;
+    if (!box?.isConnected || valueOf(box) != last.after) {
+      return { ok: false };
+    }
+    box.focus();
+    if (box.localName == "textarea") {
+      box.setUserInput(last.before);
+    } else {
+      const range = this.document.createRange();
+      range.selectNodeContents(box);
+      const sel = this.contentWindow.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      if (last.before) {
+        this.document.execCommand("insertText", false, last.before);
+      } else {
+        this.document.execCommand("delete");
+      }
+    }
     return { ok: true };
   }
 

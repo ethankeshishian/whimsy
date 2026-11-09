@@ -79,6 +79,14 @@ add_task(async function draft_written_selected_never_sent() {
     is(state.submitted, "", "The form was never submitted");
     is(state.clicked, "", "Comment was never pressed, even when the page asks");
     ok(/never instructions/.test(requests.at(-1).system), "Page text goes to the model as data");
+
+    // The toast's Undo puts the box back.
+    const undo = await TestUtils.waitForCondition(() => document.getElementById("whimsy-undo-toast-button"), "The toast offers Undo");
+    undo.click();
+    await SpecialPowers.spawn(browser, [], async () => {
+      await ContentTaskUtils.waitForCondition(() => content.document.getElementById("box").value == "", "Undone");
+    });
+    is((await boxState(browser)).submitted, "", "Undo never submits");
   });
   closeToasts();
 });

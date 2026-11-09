@@ -31,6 +31,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
   WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -239,7 +240,9 @@ export const WhimsyAIFill = {
     if (!written?.ok) {
       return { placed: "chat", draft };
     }
-    win.gZenUIManager?.showToast?.("whimsy-draft-written-toast");
+    lazy.WhimsyUndo.showToast(win, "whimsy-draft-written-toast", {
+      undo: () => actor.sendQuery("WhimsyAIFill:UndoReply").catch(() => {}),
+    });
     return { placed: "box", draft, box: box.label };
   },
 
