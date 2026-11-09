@@ -7576,11 +7576,47 @@ whimsy-compare-meta =
     }
 
 whimsy-tabs-cmd = Ask Chat to Arrange Tabs
-whimsy-tabs-row-close = Close { $count } “{ $what }” tabs
-whimsy-tabs-row-pin = Pin { $count } “{ $what }” tabs
-whimsy-tabs-row-unpin = Unpin { $count } “{ $what }” tabs
-whimsy-tabs-row-mute = Mute { $count } “{ $what }” tabs
-whimsy-tabs-row-unmute = Unmute { $count } “{ $what }” tabs
+# $count (number) - matching tabs; $what (string) - the words typed; $site (string) - the one site they are all on (the -site forms)
+whimsy-tabs-row-close = { $count ->
+    [one] Close 1 “{ $what }” tab
+   *[other] Close { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-close-site = { $count ->
+    [one] Close 1 { $site } tab
+   *[other] Close { $count } { $site } tabs
+}
+whimsy-tabs-row-pin = { $count ->
+    [one] Pin 1 “{ $what }” tab
+   *[other] Pin { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-pin-site = { $count ->
+    [one] Pin 1 { $site } tab
+   *[other] Pin { $count } { $site } tabs
+}
+whimsy-tabs-row-unpin = { $count ->
+    [one] Unpin 1 “{ $what }” tab
+   *[other] Unpin { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-unpin-site = { $count ->
+    [one] Unpin 1 { $site } tab
+   *[other] Unpin { $count } { $site } tabs
+}
+whimsy-tabs-row-mute = { $count ->
+    [one] Mute 1 “{ $what }” tab
+   *[other] Mute { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-mute-site = { $count ->
+    [one] Mute 1 { $site } tab
+   *[other] Mute { $count } { $site } tabs
+}
+whimsy-tabs-row-unmute = { $count ->
+    [one] Unmute 1 “{ $what }” tab
+   *[other] Unmute { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-unmute-site = { $count ->
+    [one] Unmute 1 { $site } tab
+   *[other] Unmute { $count } { $site } tabs
+}
 whimsy-tabs-detail = { $first } and { $more } more
 whimsy-tabs-folder-default = New folder
 whimsy-tabs-closed-toast =
