@@ -19,9 +19,6 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  clearInterval: "resource://gre/modules/Timer.sys.mjs",
-  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
-  setInterval: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
@@ -218,9 +215,11 @@ export const WhimsyAIHints = {
       if (current != state) {
         return;
       }
-      lazy.clearTimeout(state.seenTimer);
-      lazy.clearInterval(state.poll);
+      // The hint's own timers run on its window: a window that closed has
+      // dropped them already.
       try {
+        win.clearTimeout(state.seenTimer);
+        win.clearInterval(state.poll);
         win.removeEventListener("unload", onUnload);
       } catch {}
       current = null;
@@ -236,22 +235,18 @@ export const WhimsyAIHints = {
     current = state;
     toast.shown.then(() => {
       if (current == state && !state.cut) {
-        state.seenTimer = lazy.setTimeout(() => this._markSeen(hint.id), timing.seenMs);
+        state.seenTimer = win.setTimeout(() => this._markSeen(hint.id), timing.seenMs);
       }
     });
     // Gone with its surface.
-    state.poll = lazy.setInterval(() => {
-      if (win.closed) {
-        onUnload();
-        return;
-      }
+    state.poll = win.setInterval(() => {
       let visible = false;
       try {
         visible = !win.closed && hint.isVisible(win);
       } catch {}
       if (!visible) {
         // Cut short: not seen, even if the close animation outlasts the timer.
-        lazy.clearTimeout(state.seenTimer);
+        win.clearTimeout(state.seenTimer);
         state.cut = true;
         toast.close();
       }
