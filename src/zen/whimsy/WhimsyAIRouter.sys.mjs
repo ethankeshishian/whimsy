@@ -150,6 +150,11 @@ export const WhimsyAIRouter = {
     const request = this._normalize(req);
     if (req.tools === undefined && TOOL_TASKS.has(request.task)) {
       request.tools = await lazy.WhimsyConnectors.tools().catch(() => []);
+      // The kill switch went on while the connectors were gathered (the run
+      // wasn't in flight yet, so nothing aborted it).
+      if (!P.enabled) {
+        throw error("blocked");
+      }
     }
     // H1: a tool that may change something (any tool its server doesn't
     // mark read-only) runs only after the person presses Allow once. Runs
