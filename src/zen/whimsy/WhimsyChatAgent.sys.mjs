@@ -47,6 +47,8 @@ const HTML_NS = "http://www.w3.org/1999/xhtml";
 const SHEET = "chrome://browser/content/whimsy/whimsy-chat-agent.css";
 const ICONS = "chrome://browser/content/whimsy/icons/";
 const ZEN_ICONS = "chrome://browser/skin/zen-icons/";
+// P2-H1: domains in a request this long or longer are not pre-approved.
+const TYPED_SITES_CHARS = 500;
 const FEATURE_PREF = "whimsy.feature.ai-agent";
 const MODE_PREF = "whimsy.ai.agent.mode";
 const MAX_TURNS = 40;
@@ -232,6 +234,28 @@ export const WhimsyChatAgent = {
 
   set mode(mode) {
     Services.prefs.setStringPref(MODE_PREF, mode == "background" ? "background" : "drive");
+  },
+
+  /**
+   * H2: the sites a task counts as visited from the start: the tab it
+   * started in, and any site the person typed. P2-H1: only from a short
+   * request; a long pasted block isn't the person's instruction, and its
+   * domains aren't theirs to approve.
+   */
+  startSites(text, startUri = null) {
+    const sites = [];
+    if (startUri && /^https?$/.test(startUri.scheme)) {
+      sites.push(lazy.WhimsyAgentGuard.siteOf(startUri));
+    }
+    const typed = String(text ?? "");
+    if (typed.length < TYPED_SITES_CHARS) {
+      for (const match of typed.matchAll(/\b(?:https?:\/\/)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?=[\/\s:?#,;!)]|$)/gi)) {
+        try {
+          sites.push(lazy.WhimsyAgentGuard.siteOf(Services.io.newURI(`https://${match[1]}`)));
+        } catch {}
+      }
+    }
+    return sites.filter(Boolean);
   },
 
   init() {
@@ -641,20 +665,11 @@ export const WhimsyChatAgent = {
       const pause = lazy.WhimsyAgentTasks.ALLOW_KINDS.has(s?.pauses) || VERBS[s?.pauses] ? s.pauses : null;
       return { text: String(s?.text ?? s ?? "").slice(0, 200), pause };
     });
-    // H2: the start site and any site the person typed count as visited.
-    const sites = [];
     const startUri = tab && !lazy.WhimsyAIContext.isOffLimits(tab) ? tab.linkedBrowser.currentURI : null;
-    if (startUri && /^https?$/.test(startUri.scheme)) {
-      sites.push(lazy.WhimsyAgentGuard.siteOf(startUri));
-    }
-    for (const match of String(text).matchAll(/\b(?:https?:\/\/)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?=[\/\s:?#,;!)]|$)/gi)) {
-      try {
-        sites.push(lazy.WhimsyAgentGuard.siteOf(Services.io.newURI(`https://${match[1]}`)));
-      } catch {}
-    }
+    const sites = this.startSites(text, startUri);
     const task = lazy.WhimsyAgentTasks.start({
       client: "whimsy",
-      sites: sites.filter(Boolean),
+      sites,
       mode,
       threadId: thread.id,
       spaceId: win.gZenWorkspaces?.activeWorkspace ?? null,

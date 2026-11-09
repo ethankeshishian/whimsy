@@ -32,6 +32,9 @@ const MAX_TEXT = 60000;
 const MAX_NAME = 100;
 const MAX_FIND = 20;
 const MAX_CONCEALED = 8000;
+// P2-H1: page-supplied addresses kept per read.
+const MAX_LINKS = 3000;
+const MAX_LINK = 4096;
 // Elements whose insides are never page text.
 const NOT_TEXT = ["script", "style", "noscript", "template", "head"];
 
@@ -383,11 +386,31 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
     try {
       const result = fn();
       result.concealed = this.#concealed.join("\n");
+      if (!result.error) {
+        result.links = this.pageLinks();
+      }
       return result;
     } finally {
       this.#concealed = [];
       this.#backgrounds = new Map();
     }
+  }
+
+  // P2-H1: the addresses this page supplies (links and form actions,
+  // without fragments). An agent address that carries query or fragment
+  // data goes ahead without a pause only when the page offered it.
+  pageLinks() {
+    const links = new Set();
+    for (const el of this.doc.querySelectorAll("a[href], area[href], form[action]")) {
+      const url = el.localName == "form" ? el.action : el.href;
+      if (typeof url == "string" && /^https?:/i.test(url) && url.length <= MAX_LINK) {
+        links.add(url.split("#")[0]);
+        if (links.size >= MAX_LINKS) {
+          break;
+        }
+      }
+    }
+    return [...links];
   }
 
   // Visible to the person: what reading uses. Skipped elements' text is

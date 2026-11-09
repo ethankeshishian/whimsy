@@ -173,6 +173,8 @@ const MAX_AUDIT_LINES = 500;
 
 // Tools that act on a page: the guardrails look at them first.
 const ACTIONS = new Set(["click", "type", "key", "form_input"]);
+// P2-H1: actions after which the tab may be somewhere the agent sent it.
+const MOVES = new Set(["navigate", "click", "type", "key", "form_input"]);
 
 const STOPPED_TEXT = "The person stopped this task. Ask them before trying again.";
 
@@ -1011,36 +1013,84 @@ export const WhimsyClaude = {
     return !task.namedSpaceIds?.includes(tab.getAttribute?.("zen-workspace-id"));
   },
 
-  // H2: going to a site the task hasn't been on (and the person didn't
-  // name) pauses with "Go to <site>?". Every site the task reaches counts
-  // as visited afterwards.
+  // H2 and P2-H1: going to a site the task hasn't visited, or to an
+  // address carrying query or fragment data no page the task read
+  // supplied, pauses with "Go to <site>?". A site counts as visited only
+  // when the task started there or the person approved it; never from a
+  // redirect or the agent's own navigation.
   async guardNavigation(uri, ctx) {
     const { task } = ctx;
     task.sites ??= new Set();
-    const verdict = lazy.WhimsyAgentGuard.navigation(uri, task.sites);
-    if (!verdict) {
+    if (!lazy.WhimsyAgentGuard.navigation(uri, task.sites, { links: task.links })) {
       return;
     }
+    const knownSite = await lazy.WhimsyAgentGuard.isKnownSite(uri.host).catch(() => false);
+    const verdict = lazy.WhimsyAgentGuard.navigation(uri, task.sites, { links: task.links, knownSite });
+    await this.askToGo(verdict, uri, ctx);
+  },
+
+  async askToGo(verdict, uri, ctx, tab = null) {
+    const { task } = ctx;
     let pause = task.pause?.sig == ctx.sig ? task.pause : null;
     if (!pause) {
       if (task.pause) {
         lazy.WhimsyAgentTasks.clearPause(task);
       }
-      pause = lazy.WhimsyAgentTasks.pause(task.id, { ...verdict, sig: ctx.sig, url: this.pageURL(uri) });
+      pause = lazy.WhimsyAgentTasks.pause(task.id, {
+        ...verdict, sig: ctx.sig, url: this.pageURL(uri), ...(tab ? { tabId: this.tabId(tab) } : {}),
+      });
     }
     const choice = pause.choice ?? (await this.decision(ctx, pause));
     lazy.WhimsyAgentTasks.clearPause(task, pause);
     if (choice == "do") {
       task.sites.add(verdict.host);
+      (task.approvedSites ??= new Set()).add(verdict.host);
       return;
     }
     throw new StepResult(`The person chose not to go to ${verdict.host}. Skip this step, carry on, and tell them what's left.`);
   },
 
-  noteSite(task, tab) {
-    const uri = tab?.linkedBrowser?.currentURI;
-    if (task && uri && this.isWebURI(uri)) {
-      (task.sites ??= new Set()).add(lazy.WhimsyAgentGuard.siteOf(uri));
+  // P2-H1: a tab the agent moved (a load, a redirect, a link it pressed)
+  // that landed on a site the task hasn't visited can't be read or used
+  // until the person presses Go there. A tab the agent never moved is on
+  // a site the person chose, which counts as visited.
+  async guardLanded(tab, ctx) {
+    const { task } = ctx;
+    const uri = tab.linkedBrowser.currentURI;
+    if (!this.isWebURI(uri)) {
+      return;
+    }
+    task.sites ??= new Set();
+    if (!task.moved?.has(tab)) {
+      task.sites.add(lazy.WhimsyAgentGuard.siteOf(uri));
+      return;
+    }
+    if (lazy.WhimsyAgentGuard.visited(uri, task.sites)) {
+      return;
+    }
+    const knownSite = await lazy.WhimsyAgentGuard.isKnownSite(uri.host).catch(() => false);
+    // Where the tab already is: the address it carried has gone, so the
+    // question is only whether the agent may use this site.
+    const verdict = lazy.WhimsyAgentGuard.navigation(uri, new Set(), { knownSite });
+    await this.askToGo(verdict, uri, ctx, tab);
+  },
+
+  // The agent is about to move this tab (load, click, key, typing).
+  noteMoved(task, tab) {
+    (task.moved ??= new WeakSet()).add(tab);
+  },
+
+  // P2-H1: the addresses a page the task read supplied.
+  noteLinks(task, links) {
+    if (!Array.isArray(links)) {
+      return;
+    }
+    task.links ??= new Set();
+    for (const link of links) {
+      if (task.links.size >= 20000) {
+        break;
+      }
+      task.links.add(String(link));
     }
   },
 
@@ -1298,6 +1348,8 @@ export const WhimsyClaude = {
     const tab = await this.scopedTab(args.tabId, ctx);
     if (action != "tabs_close" && action != "navigate") {
       this.checkPage(tab);
+      await this.guardLanded(tab, ctx);
+      this.assertLive(ctx);
     }
     // The person approves one page. If another document took the tab while
     // the pause was up, the action would land there, so it stops instead.
@@ -1314,7 +1366,9 @@ export const WhimsyClaude = {
     if (!ctx.task.tabs.has(tab)) {
       lazy.WhimsyAgentTasks.addTab(ctx.task, tab);
     }
-    this.noteSite(ctx.task, tab);
+    if (MOVES.has(action)) {
+      this.noteMoved(ctx.task, tab);
+    }
     this.markActive(tab, ctx.task);
     // The Drive look: the pointer glides to the control, which gets an
     // outline, before anything is pressed.
@@ -1569,6 +1623,7 @@ export const WhimsyClaude = {
       }
       const tab = await this.openTab(null, ctx.task);
       this.assertLive(ctx);
+      this.noteMoved(ctx.task, tab);
       this.markActive(tab, ctx.task);
       if (uri) {
         await this.loadWithRetries(tab, ctx, () =>
@@ -1577,7 +1632,6 @@ export const WhimsyClaude = {
             triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId: tab.userContextId }),
           }), uri);
       }
-      this.noteSite(ctx.task, tab);
       return (await this.guardTabs([tab], ctx))[0];
     },
 
@@ -1614,7 +1668,6 @@ export const WhimsyClaude = {
             });
           }
         }, uri);
-        this.noteSite(ctx.task, tab);
         this.assertLive(ctx);
         return (await this.guardTabs([tab], ctx))[0];
       });
@@ -1622,11 +1675,12 @@ export const WhimsyClaude = {
 
     async read_page(args, ctx) {
       return this.withTab(args, "read_page", ctx, async tab => {
-        const { title, url, tree, truncated, concealed } = await this.page(tab, "Claude:ReadPage", {
+        const { title, url, tree, truncated, concealed, links } = await this.page(tab, "Claude:ReadPage", {
           filter: args.filter,
           ref: args.ref,
           shield: this.shieldOn,
         });
+        this.noteLinks(ctx.task, links);
         return this.guard(
           tab,
           ctx,
@@ -1638,19 +1692,21 @@ export const WhimsyClaude = {
 
     async get_page_text(args, ctx) {
       return this.withTab(args, "get_page_text", ctx, async tab => {
-        const { title, url, text: body, truncated, concealed } = await this.page(tab, "Claude:PageText", {
+        const { title, url, text: body, truncated, concealed, links } = await this.page(tab, "Claude:PageText", {
           shield: this.shieldOn,
         });
+        this.noteLinks(ctx.task, links);
         return this.guard(tab, ctx, `${title}\n${url}\n\n${body}${truncated ? "\n… (truncated)" : ""}`, concealed);
       });
     },
 
     async find(args, ctx) {
       return this.withTab(args, "find", ctx, async tab => {
-        const { matches, concealed } = await this.page(tab, "Claude:Find", {
+        const { matches, concealed, links } = await this.page(tab, "Claude:Find", {
           query: args.query,
           shield: this.shieldOn,
         });
+        this.noteLinks(ctx.task, links);
         return matches.length
           ? this.guard(tab, ctx, matches.join("\n"), concealed)
           : `Nothing matches "${args.query}".`;
