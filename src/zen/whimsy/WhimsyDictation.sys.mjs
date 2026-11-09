@@ -544,7 +544,7 @@ export const WhimsyDictation = {
       if (isFinal) {
         if (value) {
           tip.commitCompositionWith(value);
-        } else {
+        } else if (tip.hasComposition) {
           tip.cancelComposition();
         }
         return;
