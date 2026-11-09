@@ -68,7 +68,6 @@ add_setup(async () => {
     ["findbar.entireword", branch.getBoolPref("findbar.entireword", false)],
     ["findbar.matchdiacritics", branch.getIntPref("findbar.matchdiacritics", 0)],
     ["accessibility.typeaheadfind.flashBar", branch.getIntPref("accessibility.typeaheadfind.flashBar", 0)],
-    ["pdfjs.featuresNotificationImpressionCount", branch.getIntPref("pdfjs.featuresNotificationImpressionCount", 0)],
   ] });
   WhimsyAIProviders.setTestProvider(provider);
   registerCleanupFunction(async () => {
@@ -89,6 +88,39 @@ async function waitForPdf(browser) {
   await TestUtils.waitForCondition(
     () => SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.PDFViewerApplication?.pdfDocument),
     "The viewer has the document"
+  );
+  // W23 polish (MUST 4): the toolbar's icons are mask images. Wait until
+  // they've loaded (an unloaded mask paints nothing), and check they can:
+  // a blank toolbar must be the snapshot's timing, never a blocked load.
+  const icons = await SpecialPowers.spawn(browser, [], async () => {
+    const doc = content.document;
+    const buttons = [...doc.querySelectorAll("#toolbarContainer button")].filter(b => b.getClientRects().length);
+    const urls = new Set();
+    for (const button of buttons) {
+      const mask = content.getComputedStyle(button, "::before").maskImage;
+      const url = /url\("?([^")]+)"?\)/.exec(mask)?.[1];
+      if (url) {
+        urls.add(url);
+      }
+    }
+    const loads = [...urls].map(
+      url =>
+        new Promise(resolve => {
+          const img = new content.Image();
+          img.onload = () => resolve({ url, ok: true });
+          img.onerror = () => resolve({ url, ok: false });
+          img.src = url;
+        })
+    );
+    return { count: buttons.length, results: await Promise.all(loads) };
+  });
+  Assert.greater(icons.results.length, 0, `The toolbar's ${icons.count} buttons have mask icons`);
+  for (const { url, ok: loaded } of icons.results) {
+    ok(loaded, `Toolbar icon ${url} loads`);
+  }
+  ok(
+    await SpecialPowers.spawn(browser, [], () => content.document.getElementById("pdfFeaturesNotification")?.hidden ?? true),
+    "Firefox's split/merge promo stays hidden"
   );
 }
 
