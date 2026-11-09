@@ -270,6 +270,13 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFindCard.sys.mjs",
 ]
 
+# W23 routines-engine
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyRoutineCards.sys.mjs",
+    "WhimsyRoutines.sys.mjs",
+    "WhimsyRoutineTriggers.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

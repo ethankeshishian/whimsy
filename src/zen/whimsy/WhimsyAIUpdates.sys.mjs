@@ -26,6 +26,7 @@ let updates = null;
 let loading = null;
 let recent = null;
 let now = () => Date.now();
+const handlers = new Map();
 
 function notify() {
   Services.obs.notifyObservers(null, TOPIC);
@@ -198,6 +199,28 @@ export const WhimsyAIUpdates = {
     await save();
     notify();
     return true;
+  },
+
+  /**
+   * A source that acts on its own rows (a routine's next step):
+   * fn(win, update, {accel}) -> true when it handled the open.
+   */
+  registerHandler(source, fn) {
+    handlers.set(source, fn);
+    return () => handlers.get(source) == fn && handlers.delete(source);
+  },
+
+  async handle(win, update, opts = {}) {
+    const fn = handlers.get(update?.source);
+    if (!fn) {
+      return false;
+    }
+    try {
+      return !!(await fn(win, update, opts));
+    } catch (e) {
+      console.error("WhimsyAIUpdates: a handler failed", e);
+      return false;
+    }
   },
 
   /** The Recent answer row: a card from the command bar, or null to remove it. */

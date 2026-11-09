@@ -307,15 +307,15 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     }
     const u = target.update;
     const type = typeOf(u);
-    const lead = u.needsYou && u.nextStep;
+    const lead = (u.needsYou || u.dimmed) && u.nextStep;
     return {
       icon: show({ "data-type": type }),
       iconImg: { attributes: { src: TYPE_ICONS[type] } },
-      title: { textContent: u.title },
+      title: { textContent: u.title, attributes: { dimmed: u.dimmed && !u.needsYou ? "" : null } },
       detail: u.detail ? { attributes: { hidden: null }, textContent: u.detail } : hide,
       needs: u.needsYou ? { ...show({}), l10n: { id: "whimsy-cmdbar-needs-you" } } : hide,
       time: u.dueAt && u.dueAt > Date.now() ? { ...show({}), l10n: { id: "whimsy-cmdbar-in-minutes", args: { minutes: Math.max(1, Math.round((u.dueAt - Date.now()) / 60000)) } } } : { ...show({}), textContent: timeLabel(win, u.surfaced ?? u.posted) },
-      open: lead ? { ...show({}), l10n: { id: u.nextStep.l10nId } } : { ...show({}), l10n: { id: u.dimmed ? "whimsy-cmdbar-prep-anyway" : "whimsy-cmdbar-open" } },
+      open: { ...show({}), l10n: lead ? { id: u.nextStep.l10nId, args: u.nextStep.args } : { id: "whimsy-cmdbar-open" } },
       remind: { ...show({ open: remindOpen.get(win) == u.id ? "" : null, "aria-expanded": String(remindOpen.get(win) == u.id) }), l10n: { id: "whimsy-cmdbar-remind-me" } },
       dismiss: { ...show({}), l10n: { id: "whimsy-cmdbar-dismiss" } },
     };
@@ -582,6 +582,9 @@ export const WhimsyCommandBarUpdates = {
     const u = target.update;
     win.gURLBar.view.close();
     win.gURLBar.handleRevert?.();
+    if (await lazy.WhimsyAIUpdates.handle(win, u, { accel })) {
+      return;
+    }
     if (u.needsYou && u.nextStep?.command) {
       win.document.getElementById(u.nextStep.command)?.doCommand();
       return;

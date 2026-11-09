@@ -154,6 +154,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAITabs: "resource:///modules/whimsy/WhimsyAITabs.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
+  WhimsyRoutines: "resource:///modules/whimsy/WhimsyRoutines.sys.mjs",
 });
 
 // wave5/quick: QR code for any page (Firefox's QR dialog, exposed).
@@ -890,6 +891,8 @@ export const Whimsy = {
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
     later("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    // W23 routines: run only while Whimsy is open; missed ones catch up once.
+    later("routines", () => lazy.WhimsyRoutines.initWindow(win));
 
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.

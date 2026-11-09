@@ -815,13 +815,34 @@ class ChatPanel {
     if (token != this.renderToken) {
       return;
     }
-    const nodes = messages.map(m => this.renderMessage(m)).filter(Boolean);
+    let nodes = messages.map(m => this.renderMessage(m)).filter(Boolean);
+    // Routine and watch threads: a line for each day between runs.
+    const days = thread?.kind && lazy.WhimsyChat.cardRenderer(`threaddays:${thread.kind}`);
+    if (days) {
+      try {
+        nodes = days(doc, messages, nodes);
+      } catch (e) {
+        console.error("Whimsy chat: thread days", e);
+      }
+    }
     const stream = thread?.id && this.streams.get(thread.id);
     if (stream) {
       nodes.push(stream.node);
     }
     if (thread?.closedTab) {
       nodes.push(this.renderClosedNote(thread));
+    }
+    // Routine and watch threads: what this is, with Run now or Check now, and Edit.
+    const bar = thread?.kind && lazy.WhimsyChat.cardRenderer(`threadbar:${thread.kind}`);
+    if (bar) {
+      try {
+        const node = bar(doc, thread, { win, thread, panel: this });
+        if (node) {
+          nodes.unshift(node);
+        }
+      } catch (e) {
+        console.error("Whimsy chat: thread bar", e);
+      }
     }
     const pageTab = thread?.kind == "tab" && !thread.closedTab;
     doc.l10n.setAttributes(
@@ -1179,8 +1200,9 @@ class ChatPanel {
         live.setStatus("whimsy-chat-status-reading-tabs");
       }
       let history = (await lazy.WhimsyAIStore.messages(thread.id))
-        .filter(m => m.role == "user" || (m.role == "ai" && m.id != opts.continueFrom?.id))
-        .map(m => ({ role: m.role == "ai" ? "assistant" : "user", content: messageText(m) }));
+        .filter(m => m.role == "user" || (m.role == "ai" && m.id != opts.continueFrom?.id) || (m.role == "card" && m.history?.text))
+        // A routine's run is its prompt and what it found, so a reply can steer it.
+        .flatMap(m => m.role == "card" ? [{ role: "user", content: m.history.prompt }, { role: "assistant", content: m.history.text }] : [{ role: m.role == "ai" ? "assistant" : "user", content: messageText(m) }]);
       if (opts.continueFrom) {
         history.push({ role: "assistant", content: messageText(opts.continueFrom) }, { role: "user", content: lazy.WhimsyAIRouter.CONTINUE_PROMPT });
       } else if (opts.instruction) {

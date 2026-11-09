@@ -22,18 +22,24 @@ async function containerSpace(userContextId) {
 
 // Watch a page (like Safari's Notify Me): right-click a tab → Watch This
 // Page…, say what to look for and how often. Whimsy reads the page with the
-// tab's session while it runs, asks the AI only when the text changed, and
-// alerts (a bar + a macOS notification) at every check until dismissed. A
-// fake AI provider and a fake page reader stand in.
+// tab's session while it runs and asks the AI only when the text changed.
+// W23: a hit posts one macOS notification (none when the page is in front),
+// waits in the command bar's Updates, and goes to the watch's thread, where
+// checks without a hit fold into one line. No bar in the window, no
+// repeats. A fake AI provider and a fake page reader stand in.
 
 const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
-const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
+const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
+const { WhimsyAIUpdates } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIUpdates.sys.mjs");
+const { WhimsyPageWatch, MAX_WATCHES } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
+const { WhimsyRoutines } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyRoutines.sys.mjs");
 
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_ai_page.html";
 
 let pageText = "The espresso machine costs $129 and is out of stock.";
+let readFails = false;
 const reads = [];
 let asked = 0;
 const notified = [];
@@ -41,6 +47,9 @@ const notified = [];
 add_setup(async () => {
   WhimsyAIReader.setTestReader((url, options) => {
     reads.push({ url, options });
+    if (readFails) {
+      throw new Error("The page didn't load");
+    }
     return pageText;
   });
   WhimsyAIProviders.setTestProvider(({ prompt, system }) => {
@@ -48,15 +57,16 @@ add_setup(async () => {
       asked++;
       const text = prompt.split("<page>")[1] || "";
       const met = /is in stock/.test(text);
-      return JSON.stringify({ met, detail: met ? "It's in stock now." : "Still out of stock." });
+      return JSON.stringify({ met, title: met ? "Espresso machine: in stock" : "", detail: met ? "It's in stock now." : "Still out of stock." });
     }
     return "";
   });
-  WhimsyPageWatch._testNotify = watch => notified.push(watch.id);
+  WhimsyPageWatch._testNotify = (watch, n) => notified.push({ id: watch.id, ...n });
   registerCleanupFunction(async () => {
     for (const watch of await WhimsyPageWatch.list()) {
       await WhimsyPageWatch.remove(watch.id);
     }
+    await WhimsyAIStore.clear({ kinds: ["routineResults"] });
     WhimsyPageWatch._testNotify = null;
     WhimsyAIReader.setTestReader(null);
     WhimsyAIProviders.setTestProvider(null);
@@ -66,13 +76,21 @@ add_setup(async () => {
   });
 });
 
-function bar(watch) {
-  return gNotificationBox.getNotificationWithValue(`whimsy-watch-${watch.id}`);
-}
-
 async function checkNow(watch) {
   watch.lastChecked = 0;
   return WhimsyPageWatch.check(watch);
+}
+
+async function threadCards(watch) {
+  return (await WhimsyAIStore.messages(watch.threadId)).filter(m => m.role == "card");
+}
+
+async function hitRow(watch) {
+  return (await WhimsyAIUpdates.list()).updates.find(u => u.id == `watch:${watch.id}`);
+}
+
+function noBar() {
+  return !gNotificationBox.allNotifications.some(n => n.getAttribute("value")?.startsWith("whimsy-watch-"));
 }
 
 add_task(async function test_watch_flow() {
@@ -105,43 +123,67 @@ add_task(async function test_watch_flow() {
   is(watch.url, PAGE, "for the page");
   is(watch.condition, "the espresso machine is in stock", "with the condition in plain words");
   is(watch.interval, 60, "and the interval");
-  ok(await IOUtils.exists(PathUtils.join(PathUtils.profileDir, "whimsy-page-watches.json")), "kept in the profile");
+  const file = PathUtils.join(PathUtils.profileDir, "whimsy-page-watches.json");
+  is((await IOUtils.stat(file)).permissions, 0o600, "kept in the profile, owner-only");
   await TestUtils.waitForCondition(() => watch.lastChecked > 0 && !WhimsyPageWatch._checking, "Checked once right away");
   ok(!watch.met, "Not met yet");
-  ok(!bar(watch), "so no alert");
   is(asked, 1, "The AI was asked once");
   ok(WhimsyPageWatch._timer, "A timer runs while there are watches");
+  is((await WhimsyRoutines.get(watch.id))?.trigger.kind, "page", "A watch is a routine with trigger page");
 
-  // Same text: the last answer stands, no AI call.
+  // Hits notify only when the page isn't in front of you.
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+
+  // no_change_folds: unchanged text, no AI call, one folded line.
+  await TestUtils.waitForCondition(async () => watch.threadId && (await threadCards(watch)).length, "The watch has a thread");
   await checkNow(watch);
   is(asked, 1, "An unchanged page doesn't ask the AI again");
+  let cards = await threadCards(watch);
+  is(cards.length, 1, "Checks without a hit fold into one line");
+  is(cards[0].kind, "watch-quiet", "that counts them");
+  is(cards[0].count, 2, "twice so far");
 
-  // The page changes and the condition is met: a bar and a notification.
+  // one_notification_per_hit_no_repeat, hit_in_updates_and_thread, no_bar.
   pageText = "The espresso machine costs $129 and is in stock.";
   await checkNow(watch);
   is(asked, 2, "A changed page is asked about");
   ok(watch.met, "Met");
-  await TestUtils.waitForCondition(() => bar(watch), "An alert bar shows");
-  is(notified.length, 1, "and a notification");
-
-  // Recurring until dismissed.
+  is(notified.length, 1, "One notification");
+  is(notified[0].title, "Espresso machine: in stock", "titled with the finding");
+  is(notified[0].body, "“the espresso machine is in stock”: It's in stock now.", "with the condition and what changed");
+  ok(noBar(), "No bar in the window");
+  const row = await hitRow(watch);
+  ok(row, "The hit waits in Updates");
+  is(row.url, PAGE, "↩ opens the page");
+  is(row.threadId, watch.threadId, "⌘↩ opens the watch's thread");
+  cards = await threadCards(watch);
+  ok(cards.at(-1).kind == "routine-run" && cards.at(-1).found, "The hit is written to the thread");
   await checkNow(watch);
-  is(notified.length, 2, "Next check alerts again");
+  is(notified.length, 1, "Still met: no repeat");
   is(asked, 2, "without asking the AI again");
-  bar(watch).dismiss();
-  await TestUtils.waitForCondition(() => watch.dismissed, "Dismissing the bar stops the alerts");
-  await checkNow(watch);
-  is(notified.length, 2, "No alert after dismissing");
-  ok(!bar(watch), "and no bar");
 
-  // Stops being met, then met again: alerts again.
+  // realert_after_false_then_true.
   pageText = "The espresso machine is out of stock.";
   await checkNow(watch);
-  ok(!watch.met && !watch.dismissed, "Not met any more");
+  ok(!watch.met, "Not met any more");
+  is(notified.length, 1, "Nothing when it stops");
   pageText = "Back: the espresso machine is in stock.";
   await checkNow(watch);
-  await TestUtils.waitForCondition(() => bar(watch), "Met again: alerts again");
-  is(notified.length, 3, "with a notification");
+  is(notified.length, 2, "Met again: one more notification");
+
+  // Clicking the notification opens the page and marks the hit seen.
+  WhimsyPageWatch.openHit(watch);
+  await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "The notification switches to the page");
+  await TestUtils.waitForCondition(async () => !(await hitRow(watch)), "and the hit is seen");
+
+  // no_notification_when_page_in_front.
+  pageText = "Out of stock again.";
+  await checkNow(watch);
+  pageText = "Now the espresso machine is in stock.";
+  await checkNow(watch);
+  is(notified.length, 2, "No notification while the page is the tab in front");
+  ok(await hitRow(watch), "but the hit still waits in Updates");
+  BrowserTestUtils.removeTab(other);
 
   // The tab's menu now offers to stop.
   const shown2 = BrowserTestUtils.waitForPopupEvent(menu, "shown");
@@ -152,9 +194,73 @@ add_task(async function test_watch_flow() {
   menu.activateItem(item);
   await hidden2;
   await TestUtils.waitForCondition(async () => !(await WhimsyPageWatch.list()).length, "Stopping removes it");
-  ok(!bar(watch), "and its alert");
+  ok(!(await hitRow(watch)), "and its hit");
+  ok((await WhimsyAIStore.thread(watch.threadId))?.routineDeleted, "Its thread stays, marked deleted");
   ok(!WhimsyPageWatch._timer, "No timer with nothing to watch");
   BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function fifty_cap_shared_with_routines() {
+  pageText = "Nothing here.";
+  const ids = [];
+  for (let i = 0; i < MAX_WATCHES; i++) {
+    ids.push((await WhimsyPageWatch.add({ url: `${PAGE}?n=${i}`, condition: "in stock" })).id);
+  }
+  await TestUtils.waitForCondition(() => !WhimsyPageWatch._checking, "Checks done");
+  await Assert.rejects(
+    WhimsyRoutines.save({ title: "Price", prompt: "below $900", trigger: { kind: "page", url: `${PAGE}?n=x`, interval: 60 } }, { confirmed: true }),
+    /Too many watches/,
+    "A page-changes routine counts toward the same 50"
+  );
+  await Assert.rejects(WhimsyPageWatch.add({ url: `${PAGE}?n=y`, condition: "x" }), /Too many watches/, "and so does a watch");
+  const r = await WhimsyRoutines.save({ title: "Brief", prompt: "Brief me", trigger: { kind: "schedule", days: [1], hour: 8, minute: 0 } }, { confirmed: true });
+  ok(r.id, "Other routines don't count toward it");
+  await WhimsyRoutines.remove(r.id);
+  for (const id of ids) {
+    await WhimsyPageWatch.remove(id);
+  }
+});
+
+add_task(async function unreadable_page_needs_you_after_two_checks() {
+  pageText = "Nothing here.";
+  notified.length = 0;
+  const watch = await WhimsyPageWatch.add({ url: PAGE, title: "Espresso machine", condition: "in stock" });
+  await TestUtils.waitForCondition(() => watch.lastChecked && !WhimsyPageWatch._checking, "Checked once");
+  const failRow = async () => (await WhimsyAIUpdates.list()).updates.find(u => u.id == `watch:${watch.id}:fail`);
+
+  readFails = true;
+  await checkNow(watch);
+  is(watch.error, "unreadable", "The first failed check is kept on the watch");
+  ok(!(await failRow()), "but one failure might pass: no row yet");
+  is(notified.length, 0, "and no notification");
+
+  await checkNow(watch);
+  const row = await failRow();
+  ok(row?.needsYou, "Twice in a row: a row in Updates that needs you");
+  is(row.title, "Espresso machine: can’t read the page", "naming the page");
+  is(row.nextStep?.action, "open-page", "led by Open page");
+  is(notified.filter(n => n.failed).length, 1, "and one notification");
+  const fail = (await threadCards(watch)).find(m => m.kind == "routine-fail");
+  ok(fail, "The watch's thread says so too");
+  await checkNow(watch);
+  is(notified.filter(n => n.failed).length, 1, "A third failure doesn't notify again");
+
+  // Open page: the page, in front.
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const before = new Set(gBrowser.tabs);
+  ok(await WhimsyAIUpdates.handle(window, row, {}), "The watch handles its Open page");
+  await TestUtils.waitForCondition(() => gBrowser.selectedBrowser.currentURI.spec == PAGE, "The page opens");
+  ok(!(await failRow()), "and the row is cleared");
+  if (!before.has(gBrowser.selectedTab)) {
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
+  }
+  BrowserTestUtils.removeTab(other);
+
+  readFails = false;
+  await checkNow(watch);
+  is(watch.failures, 0, "A good check starts the count over");
+  is(watch.error, "", "and clears the error");
+  await WhimsyPageWatch.remove(watch.id);
 });
 
 add_task(async function test_container_session() {
