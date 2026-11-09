@@ -375,7 +375,7 @@ export const WhimsyAIFill = {
         if (values.length == 1) {
           plan.items.push({ index: field.index, value: values[0].slice(0, MAX_VALUE), look: "filled", tag: ftl("whimsy-fill-tag-address"), label: field.label });
         } else if (values.length > 1) {
-          const reason = ftl("whimsy-fill-tag-several", { count: values.length });
+          const reason = ftl("whimsy-fill-tag-several", { count: values.length, kind: key });
           plan.items.push({ index: field.index, value: values[0].slice(0, MAX_VALUE), look: "unsure", tag: reason, label: field.label });
         } else {
           pending.push({ id: `${fi}.${field.index}`, label: field.label, options: field.options, fi, index: field.index });

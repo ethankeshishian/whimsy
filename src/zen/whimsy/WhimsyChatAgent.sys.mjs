@@ -67,7 +67,7 @@ const VERBS = {
   pay: ["pay", "do-it", "dont-pay"],
   send: ["send", "edit-it", "dont-send"],
   submit: ["submit", "edit-it", "dont-submit"],
-  delete: ["delete", "do-it", "keep"],
+  delete: ["delete", "do-it", "dont-delete"],
   account: ["change", "do-it", "dont-change"],
   security: [null, "do-it", "skip"],
   "new-site-data": ["type", "do-it", "skip-site"],
@@ -1414,7 +1414,7 @@ export const WhimsyChatAgent = {
     };
     const actions = h(doc, "div", { class: "whimsy-agent-actions" },
       ...verbs.map(v => button(doc, [v.l10n, { amount }], () => decide(v.choice), {
-        primary: false, destructive: v.choice == "do" && msg.kind == "delete", ic: v.choice == "self" ? "hand" : null, choice: v.choice,
+        primary: v.choice == "do" && msg.kind != "delete", destructive: v.choice == "do" && msg.kind == "delete", ic: v.choice == "self" ? "hand" : null, choice: v.choice,
       })),
       skip ? h(doc, "span", { class: "whimsy-agent-keys", l10n: [`${skip.l10n}-esc`, { amount }] }) : null);
     const card = this.frame(doc, msg, { kind: "pause", ic: PAUSE_ICONS[msg.kind] ?? "alert", head: preview.titleL10n ? [preview.titleL10n.id, preview.titleL10n.args] : "whimsy-agent-chat-paused", tag: "whimsy-agent-chat-tag-paused", focus: true },

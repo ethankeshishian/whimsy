@@ -5251,7 +5251,7 @@ whimsy-chat-hide-button =
 whimsy-chat-splitter =
     .aria-label = Resize chat
 whimsy-chat-private-title = Private tab
-whimsy-chat-empty-title = Ask about this page
+whimsy-chat-empty-title = Ask about this tab
 whimsy-chat-empty-body = Chat reads the whole tab, not just what’s on screen. Nothing is sent until you ask.
 whimsy-chat-empty-title-blank = Ask anything
 whimsy-chat-empty-body-blank = Nothing is sent until you ask.
@@ -5873,7 +5873,7 @@ whimsy-ai-features-tidy-titles =
     .label = Tidy tab titles
     .description = Pinning a tab gives it a short name. Names you type are never changed.
 whimsy-ai-features-ask-on-page =
-    .label = Ask on Page
+    .label = Ask on page
     .description = ⌘F answers a question about the page when it finds nothing.
 whimsy-ai-features-link-previews =
     .label = Link preview summaries
@@ -6602,7 +6602,7 @@ whimsy-fire-item-tabs = Open tabs (pinned tabs and Essentials stay)
 whimsy-fire-item-history = Browsing history
 whimsy-fire-item-aiChats = AI chats, including research reports
 whimsy-fire-item-agentActivity = Agent activity
-whimsy-fire-item-index = The meaning index
+whimsy-fire-item-index = Related pages’ index
 whimsy-fire-item-memory = Memory
 whimsy-fire-item-routineResults = Routine and watch results
 whimsy-fire-item-downloads = The download list
@@ -6653,25 +6653,35 @@ whimsy-fire-done-burn-title = { $scope ->
         }
     }
 whimsy-fire-done-private-title = Fired this window
-# $summary (string) - a locale-formatted list of what went, e.g. "3 tabs, 2 visits, and AI chats"
+# $summary (string) - what went, from the strings below, e.g. "Closed 7 tabs · erased 142 visits, sign-ins on 18 sites, and AI chats"
 whimsy-fire-done-detail = { $summary }
-# The words making up that $summary list (WhimsyFireButton.describe).
-whimsy-fire-done-tabs = { $count ->
-    [one] 1 tab
-   *[other] { $count } tabs
+# $tabs (number) - tabs closed; $list (string) - a locale-formatted list of what was erased
+whimsy-fire-done-closed-erased = { $tabs ->
+    [one] Closed 1 tab · erased { $list }
+   *[other] Closed { $tabs } tabs · erased { $list }
 }
+whimsy-fire-done-closed = { $tabs ->
+    [one] Closed 1 tab
+   *[other] Closed { $tabs } tabs
+}
+whimsy-fire-done-erased = Erased { $list }
+# The words making up that $list (WhimsyFireButton.describe).
 whimsy-fire-done-visits = { $count ->
     [one] 1 visit
    *[other] { $count } visits
 }
+whimsy-fire-done-sites = { $count ->
+    [one] sign-ins on 1 site
+   *[other] sign-ins on { $count } sites
+}
 whimsy-fire-done-history = history
 whimsy-fire-done-item-aiChats = AI chats
 whimsy-fire-done-item-agentActivity = agent activity
-whimsy-fire-done-item-index = the meaning index
+whimsy-fire-done-item-index = the Related pages’ index
 whimsy-fire-done-item-memory = memory
 whimsy-fire-done-item-routineResults = routine results
 whimsy-fire-done-item-downloads = the download list
-whimsy-fire-done-nothing = nothing
+whimsy-fire-done-nothing = Nothing to erase
 ## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
 
 whimsy-agent-chat-mode =
@@ -6762,8 +6772,8 @@ whimsy-agent-chat-verb-submit = Submit
 whimsy-agent-chat-verb-dont-submit = Don’t submit
 whimsy-agent-chat-verb-dont-submit-esc = <kbd>Esc</kbd> don’t submit
 whimsy-agent-chat-verb-delete = Delete
-whimsy-agent-chat-verb-keep = Keep it
-whimsy-agent-chat-verb-keep-esc = <kbd>Esc</kbd> keep it
+whimsy-agent-chat-verb-dont-delete = Don’t delete
+whimsy-agent-chat-verb-dont-delete-esc = <kbd>Esc</kbd> don’t delete
 whimsy-agent-chat-verb-change = Change it
 whimsy-agent-chat-verb-dont-change = Don’t change
 whimsy-agent-chat-verb-dont-change-esc = <kbd>Esc</kbd> don’t change
@@ -7384,7 +7394,14 @@ whimsy-fill-cmd = Fill In This Form
 whimsy-fill-prompt = Fill this in for me
 whimsy-fill-status = Filling from what you’ve saved…
 whimsy-fill-tag-address = From your saved address
-whimsy-fill-tag-several = { $count } saved. Check this one.
+# $count (number) - how many different saved values fit; $kind (string) - the field's autofill key (tel, email, name, street-address, and so on)
+whimsy-fill-tag-several = { $kind ->
+    [tel] { $count } numbers saved. Check this one.
+    [email] { $count } emails saved. Check this one.
+    [name] { $count } names saved. Check this one.
+    [street-address] { $count } addresses saved. Check this one.
+   *[other] { $count } versions saved. Check this one.
+}
 whimsy-fill-tag-memory = Guessed from a memory
 whimsy-fill-tag-message = From your message
 whimsy-fill-tag-left = Your password manager fills this

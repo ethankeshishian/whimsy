@@ -867,20 +867,21 @@ export const WhimsyFireButton = {
     });
   },
 
-  // What a burn() result cleared, as a locale-formatted list for the
-  // toast's second line. Every word comes from Fluent (ids below); only
-  // the list's conjunction ("3 tabs, 2 visits, and AI chats") is built in
-  // code, with Intl.ListFormat, which is locale-aware grammar, not English
-  // hardcoded.
+  // What a burn() result cleared, for the toast's second line, in two
+  // clauses: "Closed 7 tabs · erased 142 visits, sign-ins on 18 sites, and
+  // 3 chats". Every word comes from Fluent (ids below); only the list's
+  // conjunction is built in code, with Intl.ListFormat, which is
+  // locale-aware grammar, not English hardcoded.
   async describe(win, result) {
+    const l10n = win.document.l10n;
     const requests = [];
-    if (result.tabs) {
-      requests.push({ id: "whimsy-fire-done-tabs", args: { count: result.tabs } });
-    }
     if (result.visits > 0) {
       requests.push({ id: "whimsy-fire-done-visits", args: { count: result.visits } });
     } else if (result.visits == -1) {
       requests.push({ id: "whimsy-fire-done-history" });
+    }
+    if (result.sites > 0) {
+      requests.push({ id: "whimsy-fire-done-sites", args: { count: result.sites } });
     }
     const itemIds = {
       aiChats: "whimsy-fire-done-item-aiChats", agentActivity: "whimsy-fire-done-item-agentActivity",
@@ -892,11 +893,19 @@ export const WhimsyFireButton = {
         requests.push({ id: itemIds[id] });
       }
     }
-    if (!requests.length) {
-      return win.document.l10n.formatValue("whimsy-fire-done-nothing");
+    const list = requests.length
+      ? new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format(await l10n.formatValues(requests))
+      : "";
+    if (result.tabs && list) {
+      return l10n.formatValue("whimsy-fire-done-closed-erased", { tabs: result.tabs, list });
     }
-    const parts = await win.document.l10n.formatValues(requests);
-    return new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format(parts);
+    if (result.tabs) {
+      return l10n.formatValue("whimsy-fire-done-closed", { tabs: result.tabs });
+    }
+    if (list) {
+      return l10n.formatValue("whimsy-fire-done-erased", { list });
+    }
+    return l10n.formatValue("whimsy-fire-done-nothing");
   },
 
   // Opens the surface: under `anchor` when given, else over the page where
