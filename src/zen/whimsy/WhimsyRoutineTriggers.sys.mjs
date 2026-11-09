@@ -5,8 +5,10 @@
 // W23: what starts a routine. Schedules are plain clock math; the rest
 // watch the browser and the Mac and tell WhimsyRoutines when something
 // happened:
-//   return    the Mac was asleep, or nobody touched it (a locked screen),
-//             for at least the routine's time; fires once on the way back
+//   return    the Mac was asleep (sleep and wake notifications), or nobody
+//             touched it (the system idle time, which a locked screen also
+//             runs up; Gecko has no screen-lock topic), for at least the
+//             routine's time; fires once, at the first input on the way back
 //   open-site the first visit each day to a site, never a private or
 //             off-limits tab
 //   download  a finished download, never a private one
@@ -15,6 +17,10 @@
 // Nothing here calls AI; WhimsyRoutines decides what runs.
 
 const lazy = {};
+
+function idleService() {
+  return Cc["@mozilla.org/widget/useridleservice;1"].getService(Ci.nsIUserIdleService);
+}
 ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
@@ -25,8 +31,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
-// The shortest "I come back" a routine can ask for, and the idle check.
-const MIN_AWAY_MINUTES = 15;
 const MAIL_POLL_MS = 5 * MINUTE;
 const MAX_SEEN_MAIL = 300;
 const MAX_SLOTS = 2000;
@@ -65,6 +69,7 @@ export const WhimsyRoutineTriggers = {
   _windows: new Set(),
   _downloadView: null,
   _idle: null,
+  _wakeWatch: null,
   _awaySince: null,
   _sleepAt: null,
   _visits: new Map(),
@@ -146,6 +151,7 @@ export const WhimsyRoutineTriggers = {
     this._started = true;
     Services.obs.addObserver(this, "sleep_notification");
     Services.obs.addObserver(this, "wake_notification");
+    Services.obs.addObserver(this, "whimsy-routines-changed");
     this._watchIdle();
     this._watchDownloads().catch(e => console.error("Whimsy routines: downloads", e));
   },
@@ -157,12 +163,9 @@ export const WhimsyRoutineTriggers = {
     this._started = false;
     Services.obs.removeObserver(this, "sleep_notification");
     Services.obs.removeObserver(this, "wake_notification");
-    if (this._idle) {
-      try {
-        Cc["@mozilla.org/widget/useridleservice;1"].getService(Ci.nsIUserIdleService).removeIdleObserver(this, this._idle);
-      } catch {}
-      this._idle = null;
-    }
+    Services.obs.removeObserver(this, "whimsy-routines-changed");
+    this._setIdle(null);
+    this._stopWakeWatch();
     if (this._downloadView) {
       const { list, view } = this._downloadView;
       list.removeView(view);
@@ -192,32 +195,72 @@ export const WhimsyRoutineTriggers = {
 
   // ---- I come back: asleep, or the Mac untouched (a locked screen) ----
 
+  // Idle for the shortest time any "I come back" routine asks for; none, no observer.
   _watchIdle() {
+    const minutes = this._routines("return").map(r => Number(r.trigger.awayMinutes) || 60);
+    this._setIdle(minutes.length ? Math.max(1, Math.min(...minutes)) * 60 : null);
+  },
+
+  _setIdle(seconds) {
+    if (seconds == this._idle) {
+      return;
+    }
     try {
-      const idle = Cc["@mozilla.org/widget/useridleservice;1"].getService(Ci.nsIUserIdleService);
-      this._idle = MIN_AWAY_MINUTES * 60;
-      idle.addIdleObserver(this, this._idle);
+      if (this._idle) {
+        idleService().removeIdleObserver(this, this._idle);
+      }
+      this._idle = null;
+      if (seconds) {
+        idleService().addIdleObserver(this, seconds);
+        this._idle = seconds;
+      }
     } catch {
       this._idle = null;
+    }
+  },
+
+  // After a wake, the first input means you're back.
+  _startWakeWatch() {
+    this._stopWakeWatch();
+    const watch = {
+      observe: (_s, topic) => topic == "active" && this._back(this._now()),
+    };
+    try {
+      idleService().addIdleObserver(watch, 1);
+      this._wakeWatch = watch;
+    } catch {
+      this._back(this._now());
+    }
+  },
+
+  _stopWakeWatch() {
+    if (this._wakeWatch) {
+      try {
+        idleService().removeIdleObserver(this._wakeWatch, 1);
+      } catch {}
+      this._wakeWatch = null;
     }
   },
 
   observe(subject, topic) {
     const now = this._now();
     switch (topic) {
+      case "whimsy-routines-changed":
+        this._watchIdle();
+        break;
       case "sleep_notification":
         this._sleepAt = now;
         this._awaySince ??= now;
         break;
-      case "idle":
-        // Idle for the threshold already: away since then.
-        this._awaySince ??= now - MIN_AWAY_MINUTES * MINUTE;
+      case "idle": {
+        // Untouched for the threshold already: away since the last input.
+        this._awaySince ??= now - Math.max(this._idleTime(), (this._idle ?? 0) * 1000);
         break;
+      }
       case "wake_notification":
         this._sleepAt = null;
-        // Back from sleep, but nobody's there until there's input.
-        if (!this._idle) {
-          this._back(now);
+        if (this._awaySince != null) {
+          this._startWakeWatch();
         }
         break;
       case "active":
@@ -226,7 +269,17 @@ export const WhimsyRoutineTriggers = {
     }
   },
 
+  // How long since the last input anywhere on the Mac (ms).
+  _idleTime() {
+    try {
+      return idleService().idleTime;
+    } catch {
+      return 0;
+    }
+  },
+
   _back(now) {
+    this._stopWakeWatch();
     if (this._awaySince == null) {
       return;
     }
@@ -473,5 +526,8 @@ export const WhimsyRoutineTriggers = {
     this._seenMail.clear();
     this._mailPolled = 0;
     this._awaySince = null;
+    this._sleepAt = null;
+    this._stopWakeWatch();
+    this._watchIdle();
   },
 };

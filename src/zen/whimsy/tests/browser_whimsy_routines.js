@@ -13,6 +13,8 @@ const { WhimsyRoutineTriggers } = ChromeUtils.importESModule("resource:///module
 const { WhimsyAIProviders, WhimsyAIError } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
 const { WhimsyAIUpdates } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIUpdates.sys.mjs");
+const { WhimsyChat } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChat.sys.mjs");
+const { WhimsyChatPanel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatPanel.sys.mjs");
 
 const MINUTE = 60 * 1000;
 // Monday, November 9, 2026, 7:50 AM local time.
@@ -134,6 +136,7 @@ add_task(async function show_in_thread_only_posts_no_update() {
 add_task(async function return_after_lock_threshold() {
   await fresh();
   await WhimsyRoutines.save({ title: "Catch-up", prompt: "What did I miss?", trigger: { kind: "return", awayMinutes: 120 } }, { confirmed: true });
+  is(WhimsyRoutineTriggers._idle, 120 * 60, "The idle check waits the routine's own two hours, not a fixed time");
   WhimsyRoutineTriggers._simulateAway(60 * MINUTE);
   await WhimsyRoutines.idle();
   is(asked.length, 0, "An hour away is under the routine's two hours");
@@ -141,6 +144,105 @@ add_task(async function return_after_lock_threshold() {
   await WhimsyRoutines.idle();
   is(asked.length, 1, "Back after more than two hours: it runs once");
   ok(asked[0].prompt.includes("awayMs"), "knowing how long you were away");
+});
+
+add_task(async function return_counts_sleep_and_untouched_mac() {
+  await fresh();
+  const realIdle = WhimsyRoutineTriggers._idleTime;
+  WhimsyRoutineTriggers._idleTime = () => 0;
+  const r = await WhimsyRoutines.save({ title: "Catch-up", prompt: "What did I miss?", trigger: { kind: "return", awayMinutes: 120 } }, { confirmed: true });
+  const short = await WhimsyRoutines.save({ title: "Quick look", prompt: "Anything new?", trigger: { kind: "return", awayMinutes: 30 } }, { confirmed: true });
+  is(WhimsyRoutineTriggers._idle, 30 * 60, "The idle check waits the shortest time any routine asks for");
+  await WhimsyRoutines.pause(short.id, true);
+  is(WhimsyRoutineTriggers._idle, 120 * 60, "A paused routine doesn't count");
+
+  // Asleep for an hour: under two hours, nothing runs.
+  WhimsyRoutineTriggers.observe(null, "sleep_notification");
+  clock += 60 * MINUTE;
+  WhimsyRoutineTriggers.observe(null, "wake_notification");
+  ok(WhimsyRoutineTriggers._wakeWatch, "After a wake, it waits for your first input");
+  is(asked.length, 0, "Waking alone isn't coming back");
+  WhimsyRoutineTriggers._wakeWatch.observe(null, "active");
+  await WhimsyRoutines.idle();
+  is(asked.length, 0, "An hour asleep is under the routine's two hours");
+
+  // Asleep for three hours: it runs on the first input.
+  WhimsyRoutineTriggers.observe(null, "sleep_notification");
+  clock += 180 * MINUTE;
+  WhimsyRoutineTriggers.observe(null, "wake_notification");
+  WhimsyRoutineTriggers._wakeWatch.observe(null, "active");
+  await WhimsyRoutines.idle();
+  is(asked.length, 1, "Three hours asleep: it runs");
+  ok(!WhimsyRoutineTriggers._wakeWatch, "and stops waiting for input");
+
+  // Locked (nobody touched the Mac) for the routine's time: it runs on the way back.
+  clock += 10 * MINUTE;
+  WhimsyRoutineTriggers.observe(null, "idle");
+  WhimsyRoutineTriggers.observe(null, "active");
+  await WhimsyRoutines.idle();
+  is(asked.length, 2, "Untouched for two hours, as a locked screen is: it runs");
+
+  await WhimsyRoutines.remove(r.id);
+  await WhimsyRoutines.remove(short.id);
+  is(WhimsyRoutineTriggers._idle, null, "No I come back routines: no idle check");
+  WhimsyRoutineTriggers._idleTime = realIdle;
+});
+
+async function openThread(threadId) {
+  const panel = WhimsyChatPanel.forWindow(window);
+  await WhimsyChat.open(window, { threadId });
+  await TestUtils.waitForCondition(() => panel.ready && panel.thread?.id == threadId, "The thread is open");
+  await TestUtils.waitForCondition(() => panel.el.querySelector(".whimsy-routine-bar button"), "The thread bar is filled");
+  return panel;
+}
+
+add_task(async function stop_a_running_routine_from_its_thread() {
+  await fresh();
+  const r = await WhimsyRoutines.save(BRIEF, { confirmed: true });
+  let started;
+  const begun = new Promise(resolve => (started = resolve));
+  // Never answers: only Stop ends it.
+  answer = () => new Promise(() => started());
+  const run = WhimsyRoutines.runNow(r.id);
+  await begun;
+  const panel = await openThread((await WhimsyRoutines.get(r.id)).threadId);
+  const stop = await TestUtils.waitForCondition(() => panel.el.querySelector('.whimsy-routine-bar button[data-action="stop"]'), "Stop is in the bar, in Run now's place");
+  ok(!panel.el.querySelector('.whimsy-routine-bar button[data-action="run"]'), "with no Run now beside it");
+  await TestUtils.waitForCondition(() => stop.textContent == "Stop", "labelled Stop");
+  EventUtils.synthesizeMouseAtCenter(stop, {}, window);
+  await run;
+  const [card] = await runCards((await WhimsyRoutines.get(r.id)).threadId);
+  ok(card.stopped && !card.running && !card.failed, "The run says it was stopped, not failed");
+  is((await WhimsyRoutines.get(r.id)).status, null, "The routine is idle again");
+  is((await WhimsyAIUpdates.list()).updates.length, 0, "Nothing goes to Updates");
+  is(notified.length, 0, "and nothing notifies");
+  await TestUtils.waitForCondition(() => panel.el.querySelector('.whimsy-routine-bar button[data-action="run"]'), "The open thread follows: Run now is back");
+  await TestUtils.waitForCondition(
+    () => panel.el.querySelector(".whimsy-routine-run .whimsy-routine-run-head > span")?.textContent == "stopped",
+    "and the run reads stopped"
+  );
+  panel.close({ reason: "key" });
+});
+
+add_task(async function day_lines_between_runs() {
+  await fresh();
+  const r = await WhimsyRoutines.save(BRIEF, { confirmed: true });
+  const today = new Date();
+  today.setHours(8, 0, 0, 0);
+  const DAY = 24 * 60 * MINUTE;
+  for (const at of [today.getTime() - 2 * DAY, today.getTime() - 2 * DAY + 60 * MINUTE, today.getTime() - DAY, today.getTime()]) {
+    clock = at;
+    await WhimsyRoutines.runNow(r.id);
+  }
+  const panel = await openThread((await WhimsyRoutines.get(r.id)).threadId);
+  await TestUtils.waitForCondition(() => [...panel.el.querySelectorAll(".whimsy-routine-day")].every(d => d.textContent), "The day lines are filled");
+  const days = [...panel.el.querySelectorAll(".whimsy-routine-day")].map(d => d.textContent);
+  const weekday = new Date(today.getTime() - 2 * DAY).toLocaleDateString([], { weekday: "long" });
+  Assert.deepEqual(days, [weekday, "Yesterday", "Today"], "One line for each day with runs, two runs on one day share it");
+  const firstRun = panel.el.querySelector(".whimsy-routine-day + .whimsy-routine-run");
+  ok(firstRun, "Each day line sits right above its first run");
+  is(firstRun.querySelector(".whimsy-routine-run-head > b").textContent, new Date(today.getTime() - 2 * DAY).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), "The run itself shows only its time");
+  panel.close({ reason: "key" });
 });
 
 add_task(async function open_site_trigger_ignores_private_tab() {

@@ -815,7 +815,16 @@ class ChatPanel {
     if (token != this.renderToken) {
       return;
     }
-    const nodes = messages.map(m => this.renderMessage(m)).filter(Boolean);
+    let nodes = messages.map(m => this.renderMessage(m)).filter(Boolean);
+    // Routine and watch threads: a line for each day between runs.
+    const days = thread?.kind && lazy.WhimsyChat.cardRenderer(`threaddays:${thread.kind}`);
+    if (days) {
+      try {
+        nodes = days(doc, messages, nodes);
+      } catch (e) {
+        console.error("Whimsy chat: thread days", e);
+      }
+    }
     const stream = thread?.id && this.streams.get(thread.id);
     if (stream) {
       nodes.push(stream.node);

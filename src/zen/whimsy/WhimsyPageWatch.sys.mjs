@@ -37,6 +37,8 @@ const TICK_MS = 60 * 1000;
 // Minutes. The person picks one; hourly by default.
 export const INTERVALS = [15, 60, 360, 1440];
 const DEFAULT_INTERVAL = 60;
+// Failed checks in a row before a watch needs you.
+const FAILS_BEFORE_ALERT = 2;
 export const MAX_WATCHES = 50;
 const MENU_ID = "context_whimsyWatchPage";
 const PANEL_ID = "whimsy-watch-panel";
@@ -178,7 +180,9 @@ export const WhimsyPageWatch = {
     }
     const [watch] = watches.splice(index, 1);
     this.clearAlerts(id);
+    this.clearAlerts(`${id}-fail`);
     lazy.WhimsyAIUpdates.dismiss(`watch:${id}`).catch(() => {});
+    lazy.WhimsyAIUpdates.dismiss(`watch:${id}:fail`).catch(() => {});
     if (watch.threadId) {
       lazy.WhimsyAIStore.updateThread(watch.threadId, { routineDeleted: true }).catch(() => {});
     }
@@ -249,6 +253,19 @@ export const WhimsyPageWatch = {
     Services.prefs.addObserver("whimsy.ai.enabled", reschedule);
     Services.prefs.addObserver("whimsy.feature.ai-providers", reschedule);
     Services.obs.addObserver(() => this.stop(), "quit-application-granted");
+    // A failure's Open page: the page in its own container.
+    lazy.WhimsyAIUpdates.registerHandler?.("watch", async (win, u, { accel } = {}) => {
+      if (accel || u.nextStep?.action != "open-page") {
+        return false;
+      }
+      const watch = (await this.load()).find(w => w.id == u.watchId);
+      if (!watch) {
+        return false;
+      }
+      await lazy.WhimsyAIUpdates.dismiss(u.id);
+      this.openWatch(win, watch);
+      return true;
+    });
     await this.load();
     this.schedule();
   },
@@ -322,9 +339,8 @@ export const WhimsyPageWatch = {
         if (controller.signal.aborted) {
           return null;
         }
-        watch.error = "unreadable";
-        await this.save();
         console.warn("Whimsy: Watch a page couldn't read", watch.url, error);
+        await this.failed(watch, "unreadable");
         return null;
       }
       const text = page.text.replace(/\s+/g, " ").trim();
@@ -346,8 +362,7 @@ export const WhimsyPageWatch = {
           });
         } catch (error) {
           if (!controller.signal.aborted) {
-            watch.error = error?.code || "failed";
-            await this.save();
+            await this.failed(watch, error?.code || "failed");
           }
           return null;
         }
@@ -361,6 +376,11 @@ export const WhimsyPageWatch = {
         watch.finding = String(verdict?.title ?? "").trim().slice(0, 80);
         watch.lastHash = hash;
         watch.title = page.title || watch.title;
+      }
+      if (watch.failures) {
+        watch.failures = 0;
+        this.clearAlerts(`${watch.id}-fail`);
+        await lazy.WhimsyAIUpdates.dismiss(`watch:${watch.id}:fail`);
       }
       watch.error = "";
       const hit = watch.met && !watch.alerted;
@@ -434,6 +454,74 @@ export const WhimsyPageWatch = {
     if (!this.inFront(watch)) {
       this.notifySystem(watch);
     }
+  },
+
+  // A check that failed. Twice in a row needs you: a row in Updates with
+  // Open page, a card in the thread, and one notification. A good check
+  // clears it.
+  async failed(watch, code) {
+    watch.error = code;
+    watch.failures = (watch.failures ?? 0) + 1;
+    await this.save();
+    if (watch.failures != FAILS_BEFORE_ALERT || !this.enabled) {
+      return;
+    }
+    const page = watch.title || hostOf(watch.url);
+    const unreadable = code == "unreadable";
+    const [title, detail] = lazyL10n().formatValuesSync([
+      { id: unreadable ? "whimsy-watch-update-unreadable" : "whimsy-watch-update-failed", args: { page } },
+      { id: unreadable ? "whimsy-watch-reason-unreadable" : "whimsy-watch-reason-failed", args: { count: watch.failures } },
+    ]);
+    const threadId = await this._thread(watch);
+    const step = { l10nId: "whimsy-watch-step-open-page", action: "open-page" };
+    await lazy.WhimsyAIStore.append(threadId, {
+      role: "card",
+      kind: "routine-fail",
+      watchId: watch.id,
+      at: Date.now(),
+      code,
+      tone: "fail",
+      titleL10n: "whimsy-watch-fail-title",
+      reason: [unreadable ? "whimsy-watch-reason-unreadable" : "whimsy-watch-reason-failed", { count: watch.failures }],
+      step,
+    });
+    await lazy.WhimsyAIUpdates.post({
+      id: `watch:${watch.id}:fail`,
+      source: "watch",
+      watchId: watch.id,
+      title,
+      detail,
+      url: watch.url,
+      needsYou: true,
+      nextStep: step,
+      threadId,
+    });
+    if (this._testNotify) {
+      this._testNotify(watch, { title, body: detail, failed: true });
+      return;
+    }
+    try {
+      const alerts = Cc["@mozilla.org/alerts-service;1"].getService(Ci.nsIAlertsService);
+      const notification = Cc["@mozilla.org/alert-notification;1"].createInstance(Ci.nsIAlertNotification);
+      notification.init(`whimsy-watch-${watch.id}-fail`, "chrome://branding/content/icon64.png", title, detail, true, watch.id);
+      alerts.showAlert(notification, (_subject, topic) => {
+        if (topic == "alertclickcallback") {
+          this.openFailure(watch);
+        }
+      });
+    } catch (error) {
+      console.warn("Whimsy: Watch a page notification", error);
+    }
+  },
+
+  // Open page on a failure: the page, so you can see why (a sign-in, a moved page).
+  openFailure(watch) {
+    const win = lazy.BrowserWindowTracker.getTopWindow({ private: false });
+    if (win) {
+      win.focus();
+      this.openWatch(win, watch);
+    }
+    lazy.WhimsyAIUpdates.dismiss(`watch:${watch.id}:fail`).catch(() => {});
   },
 
   // The watched page is the tab in front of you: no notification.

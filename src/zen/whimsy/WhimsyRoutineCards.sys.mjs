@@ -6,16 +6,20 @@
 // entry (the newest open, older ones one line; steps fold into "took
 // 40 s"), a failure is chat's one error block with its next step, skipped
 // meeting prep is a neutral card, and a watch's checks without a hit fold
-// into one line. The bar on top says what the thread is (Routine or Page
-// watch) with Run now or Check now, and Edit.
+// into one line. A line for each day sits between runs ("Today",
+// "Yesterday", "Tuesday"). The bar on top says what the thread is (Routine
+// or Page watch) with Run now (Stop while it runs) or Check now, and Edit.
+// An open thread follows its runs as they change.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
   WhimsyPageWatch: "resource:///modules/whimsy/WhimsyPageWatch.sys.mjs",
   WhimsyRoutines: "resource:///modules/whimsy/WhimsyRoutines.sys.mjs",
   errorBlock: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
   renderMarkdown: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -45,19 +49,53 @@ function icon(doc, name) {
   return h(doc, "span", { class: "whimsy-chat-icon", "data-icon": name, "aria-hidden": "true" });
 }
 
-// "8:02 AM" today, "Tue 9:14 AM" this week, else "Oct 30, 9:14 AM".
+// "8:02 AM"; the day line above the run says which day.
 function when(ms) {
+  return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function startOfDay(ms) {
   const d = new Date(ms);
-  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (ms >= today.getTime()) {
-    return time;
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+// "Today", "Yesterday", "Tuesday" this week, else "Oct 30" (and the year when it isn't this one).
+function dayLine(doc, ms) {
+  const today = startOfDay(Date.now());
+  const day = startOfDay(ms);
+  const node = h(doc, "div", { class: "whimsy-routine-day", role: "separator" });
+  if (day >= today) {
+    doc.l10n.setAttributes(node, "whimsy-routine-day-today");
+  } else if (day >= startOfDay(today - DAY / 2)) {
+    doc.l10n.setAttributes(node, "whimsy-routine-day-yesterday");
+  } else if (day > today - 7 * DAY) {
+    node.textContent = new Date(ms).toLocaleDateString([], { weekday: "long" });
+  } else {
+    const year = new Date(ms).getFullYear() == new Date().getFullYear() ? undefined : "numeric";
+    node.textContent = new Date(ms).toLocaleDateString([], { month: "short", day: "numeric", year });
   }
-  if (ms >= today.getTime() - 6 * DAY) {
-    return `${d.toLocaleDateString([], { weekday: "short" })} ${time}`;
+  return node;
+}
+
+// The day lines: before the first run, failure, or skip of each day.
+function withDays(doc, messages, nodes) {
+  const byId = new Map(messages.map(m => [m.id, m]));
+  const out = [];
+  let last = null;
+  for (const node of nodes) {
+    const m = byId.get(node.getAttribute?.("data-msg-id"));
+    const at = m?.role == "card" ? (m.at ?? m.since) : null;
+    if (at) {
+      const day = startOfDay(at);
+      if (day != last) {
+        out.push(dayLine(doc, at));
+        last = day;
+      }
+    }
+    out.push(node);
   }
-  return `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+  return out;
 }
 
 function dateOf(ms) {
@@ -68,6 +106,9 @@ function dateOf(ms) {
 function runMeta(msg) {
   if (msg.running) {
     return ["whimsy-routine-run-running"];
+  }
+  if (msg.stopped) {
+    return ["whimsy-routine-run-stopped"];
   }
   if (msg.failed) {
     return ["whimsy-routine-run-failed"];
@@ -136,10 +177,19 @@ function body(doc, msg, ctx) {
   return h(doc, "div", { class: "whimsy-chat-msg", "data-role": "ai" }, text);
 }
 
+async function openWatchPage(win, watchId) {
+  const watch = (await lazy.WhimsyPageWatch.list()).find(w => w.id == watchId);
+  if (watch) {
+    lazy.WhimsyPageWatch.openWatch(win, watch);
+  }
+}
+
 function renderFail(doc, msg, ctx) {
   const step = msg.step;
   const buttons = [];
-  if (step) {
+  if (step?.action == "open-page") {
+    buttons.push({ l10n: [step.l10nId, step.args], primary: true, run: () => openWatchPage(ctx.win, msg.watchId) });
+  } else if (step) {
     buttons.push({ l10n: [step.l10nId, step.args], primary: true, run: () => lazy.WhimsyRoutines.act(ctx.win, msg.routineId, step) });
     if (step.action == "reconnect" || step.action == "sign-in") {
       buttons.push({ l10n: "whimsy-routine-step-skip-today", run: () => lazy.WhimsyRoutines.act(ctx.win, msg.routineId, { action: "skip-today" }) });
@@ -147,7 +197,7 @@ function renderFail(doc, msg, ctx) {
   }
   const node = lazy.errorBlock(doc, {
     tone: msg.tone == "grey" ? "grey" : "fail",
-    l10n: [msg.tone == "grey" ? "whimsy-routine-fail-waiting" : "whimsy-routine-fail-title", { time: when(msg.at) }],
+    l10n: [msg.titleL10n ?? (msg.tone == "grey" ? "whimsy-routine-fail-waiting" : "whimsy-routine-fail-title"), { time: when(msg.at) }],
     detail: msg.reason,
     buttons,
     code: msg.code,
@@ -249,9 +299,12 @@ async function fillBar(doc, bar, thread, ctx) {
     doc.l10n.setAttributes(pill, "whimsy-routine-bar-running");
   }
   const label = watch ? ["whimsy-routine-bar-watch-detail", { condition: r.prompt, minutes: r.trigger.interval }] : triggerLabel(r.trigger);
+  // Stop sits in Run now's place while it runs.
   const run = watch
     ? h(doc, "button", { class: "whimsy-chat-link", l10n: "whimsy-routine-check-now", onclick: () => lazy.WhimsyPageWatch.checkNow(r.id) })
-    : h(doc, "button", { class: "whimsy-chat-link", l10n: "whimsy-routine-run-now", disabled: running, onclick: () => lazy.WhimsyRoutines.runNow(r.id) });
+    : running
+      ? h(doc, "button", { class: "whimsy-chat-link", "data-action": "stop", l10n: "whimsy-routine-stop", onclick: () => lazy.WhimsyRoutines.stop(r.id) })
+      : h(doc, "button", { class: "whimsy-chat-link", "data-action": "run", l10n: "whimsy-routine-run-now", onclick: () => lazy.WhimsyRoutines.runNow(r.id) });
   const edit = h(doc, "button", {
     class: "whimsy-chat-link",
     l10n: "whimsy-routine-edit",
@@ -261,9 +314,65 @@ async function fillBar(doc, bar, thread, ctx) {
   await doc.l10n.translateFragment(bar);
 }
 
+// What an open thread shows: its run cards and the routine's state.
+async function signature(thread) {
+  const id = thread.routineId ?? thread.watchId;
+  const r = id ? await lazy.WhimsyRoutines.get(id) : null;
+  const cards = (await lazy.WhimsyAIStore.messages(thread.id)).filter(m => m.role == "card");
+  return JSON.stringify([!!r, r?.status ?? null, cards.map(m => [m.id, !!m.running, !!m.folded, !!m.failed, !!m.stopped, m.steps?.length ?? 0, m.count ?? 0, !!m.text])]);
+}
+
+// Open threads follow their runs: when what they show changes, chat redraws them.
+const live = new Set();
+let liveTimer = null;
+let observing = false;
+const TOPICS = ["whimsy-ai-store-changed", "whimsy-routines-changed"];
+const liveObserver = {
+  observe() {
+    liveTimer ??= lazy.setTimeout(() => refreshLive().catch(e => console.error("Whimsy routines: thread", e)), 100);
+  },
+};
+
+function follow(entry) {
+  live.add(entry);
+  if (!observing) {
+    observing = true;
+    TOPICS.forEach(t => Services.obs.addObserver(liveObserver, t));
+  }
+}
+
+async function refreshLive() {
+  liveTimer = null;
+  for (const entry of [...live]) {
+    if (entry.sig == null) {
+      continue;
+    }
+    const { bar, thread, ctx } = entry;
+    if (!bar.isConnected || ctx.panel?.thread?.id != thread.id) {
+      live.delete(entry);
+      continue;
+    }
+    if ((await signature(thread)) != entry.sig) {
+      live.delete(entry);
+      ctx.panel.showThread(thread.id);
+    }
+  }
+  if (!live.size && observing) {
+    observing = false;
+    TOPICS.forEach(t => Services.obs.removeObserver(liveObserver, t));
+  }
+}
+
 function renderBar(doc, thread, ctx) {
   const bar = h(doc, "div", { class: "whimsy-routine-bar", "data-kind": thread.kind });
-  fillBar(doc, bar, thread, ctx).catch(e => console.error("Whimsy routines: thread bar", e));
+  const entry = { bar, thread, ctx, sig: null };
+  if (ctx.panel?.showThread) {
+    follow(entry);
+  }
+  signature(thread)
+    .then(sig => (entry.sig = sig))
+    .then(() => fillBar(doc, bar, thread, ctx))
+    .catch(e => console.error("Whimsy routines: thread bar", e));
   return bar;
 }
 
@@ -283,5 +392,7 @@ export const WhimsyRoutineCards = {
     C.registerCard("watch-quiet", renderQuiet);
     C.registerCard("threadbar:routine", renderBar);
     C.registerCard("threadbar:watch", renderBar);
+    C.registerCard("threaddays:routine", withDays);
+    C.registerCard("threaddays:watch", withDays);
   },
 };

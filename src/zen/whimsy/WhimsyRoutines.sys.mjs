@@ -87,6 +87,8 @@ let loading = null;
 let timer = null;
 let queue = [];
 let running = null;
+// The run in progress, so Stop can end it: {id, controller}.
+let current = null;
 let runLog = [];
 let removed = new Map();
 let formOpener = null;
@@ -355,6 +357,22 @@ export const WhimsyRoutines = {
     return this._enqueue(r, { reason: "manual", userStarted: true, event });
   },
 
+  /** Stop: ends the routine's run in progress (its card says Stopped) and drops a queued one. */
+  stop(id) {
+    queue = queue.filter(job => {
+      if (job.id == id) {
+        job.resolve(null);
+        return false;
+      }
+      return true;
+    });
+    if (current?.id != id) {
+      return false;
+    }
+    current.controller.abort();
+    return true;
+  },
+
   /** Try it now: runs a draft once, saves nothing, and resolves to its result. */
   async tryOnce(draft) {
     if (!this.enabled) {
@@ -420,6 +438,7 @@ export const WhimsyRoutines = {
     Services.obs.addObserver(() => this._quit(), "quit-application-granted");
     WhimsyRoutineTriggers.start({ fire: (kind, event) => this._triggered(kind, event), routines: kind => this._routinesFor(kind) }, { now: () => now() });
     await load();
+    WhimsyRoutineTriggers._watchIdle();
     await this._catchUp();
     this._schedule();
   },
@@ -651,9 +670,14 @@ export const WhimsyRoutines = {
     }
     const steps = [];
     const started = now();
+    const controller = new AbortController();
+    if (card) {
+      current = { id: r.id, controller };
+    }
     let result;
     try {
       result = await lazy.WhimsyAIRouter.run({
+        signal: controller.signal,
         task: "routine",
         system: SYSTEM,
         messages: [{ role: "user", content: this._prompt(r, { event, whileClosed, misses }) }],
@@ -672,6 +696,13 @@ export const WhimsyRoutines = {
         throw Object.assign(new Error(result.stopped || "failed"), { code: result.stopped || "failed", provider: result.provider });
       }
     } catch (e) {
+      if (card && controller.signal.aborted) {
+        await lazy.WhimsyAIStore.updateMessage(r.threadId, card.id, { running: false, stopped: true, tookMs: now() - started, steps: steps.slice(-20) });
+        r.status = null;
+        await save();
+        changed();
+        return null;
+      }
       if (card) {
         await lazy.WhimsyAIStore.updateMessage(r.threadId, card.id, { running: false, failed: true });
       }
@@ -679,6 +710,10 @@ export const WhimsyRoutines = {
         throw e;
       }
       return this._fail(r, e, opts);
+    } finally {
+      if (current?.controller == controller) {
+        current = null;
+      }
     }
     const text = String(result.text ?? "").trim();
     const headline = headlineOf(text);
@@ -987,6 +1022,7 @@ export const WhimsyRoutines = {
     runLog = [];
     removed.clear();
     queue = [];
+    current = null;
     aliveWritten = 0;
     launchedAt = now();
     WhimsyRoutineTriggers._resetForTesting();

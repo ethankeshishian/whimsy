@@ -6302,6 +6302,15 @@ whimsy-routine-step-skip-today = Skip today
 whimsy-routine-run-running = Running
 whimsy-routine-run-working = Working on it
 whimsy-routine-run-failed = didn’t finish
+whimsy-routine-run-stopped = stopped
+whimsy-routine-day-today = Today
+whimsy-routine-day-yesterday = Yesterday
+whimsy-watch-fail-title = Couldn’t check at { $time }
+whimsy-watch-update-unreadable = { $page }: can’t read the page
+whimsy-watch-update-failed = { $page }: checks aren’t finishing
+whimsy-watch-reason-unreadable = The page didn’t load the last { $count } times. Open it to see why, like a sign-in or a moved page.
+whimsy-watch-reason-failed = The last { $count } checks didn’t finish. It tries again at the next check.
+whimsy-watch-step-open-page = Open page
 whimsy-routine-run-found = found
 whimsy-routine-run-took = took { $seconds } s
 whimsy-routine-run-caught-up =
@@ -6332,6 +6341,7 @@ whimsy-routine-bar-watch-detail =
        *[other] { $condition } · every day
     }
 whimsy-routine-run-now = Run now
+whimsy-routine-stop = Stop
 whimsy-routine-check-now = Check now
 whimsy-routine-edit = Edit
 whimsy-routine-deleted = Routine deleted

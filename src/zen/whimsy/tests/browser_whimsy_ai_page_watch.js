@@ -39,6 +39,7 @@ const { WhimsyRoutines } = ChromeUtils.importESModule("resource:///modules/whims
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_ai_page.html";
 
 let pageText = "The espresso machine costs $129 and is out of stock.";
+let readFails = false;
 const reads = [];
 let asked = 0;
 const notified = [];
@@ -46,6 +47,9 @@ const notified = [];
 add_setup(async () => {
   WhimsyAIReader.setTestReader((url, options) => {
     reads.push({ url, options });
+    if (readFails) {
+      throw new Error("The page didn't load");
+    }
     return pageText;
   });
   WhimsyAIProviders.setTestProvider(({ prompt, system }) => {
@@ -129,6 +133,7 @@ add_task(async function test_watch_flow() {
 
   // Hits notify only when the page isn't in front of you.
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const before = new Set(gBrowser.tabs);
 
   // no_change_folds: unchanged text, no AI call, one folded line.
   await TestUtils.waitForCondition(async () => watch.threadId && (await threadCards(watch)).length, "The watch has a thread");
@@ -215,6 +220,47 @@ add_task(async function fifty_cap_shared_with_routines() {
   for (const id of ids) {
     await WhimsyPageWatch.remove(id);
   }
+});
+
+add_task(async function unreadable_page_needs_you_after_two_checks() {
+  pageText = "Nothing here.";
+  notified.length = 0;
+  const watch = await WhimsyPageWatch.add({ url: PAGE, title: "Espresso machine", condition: "in stock" });
+  await TestUtils.waitForCondition(() => watch.lastChecked && !WhimsyPageWatch._checking, "Checked once");
+  const failRow = async () => (await WhimsyAIUpdates.list()).updates.find(u => u.id == `watch:${watch.id}:fail`);
+
+  readFails = true;
+  await checkNow(watch);
+  is(watch.error, "unreadable", "The first failed check is kept on the watch");
+  ok(!(await failRow()), "but one failure might pass: no row yet");
+  is(notified.length, 0, "and no notification");
+
+  await checkNow(watch);
+  const row = await failRow();
+  ok(row?.needsYou, "Twice in a row: a row in Updates that needs you");
+  is(row.title, "Espresso machine: can’t read the page", "naming the page");
+  is(row.nextStep?.action, "open-page", "led by Open page");
+  is(notified.filter(n => n.failed).length, 1, "and one notification");
+  const fail = (await threadCards(watch)).find(m => m.kind == "routine-fail");
+  ok(fail, "The watch's thread says so too");
+  await checkNow(watch);
+  is(notified.filter(n => n.failed).length, 1, "A third failure doesn't notify again");
+
+  // Open page: the page, in front.
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  ok(await WhimsyAIUpdates.handle(window, row, {}), "The watch handles its Open page");
+  await TestUtils.waitForCondition(() => gBrowser.selectedBrowser.currentURI.spec == PAGE, "The page opens");
+  ok(!(await failRow()), "and the row is cleared");
+  if (!before.has(gBrowser.selectedTab)) {
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
+  }
+  BrowserTestUtils.removeTab(other);
+
+  readFails = false;
+  await checkNow(watch);
+  is(watch.failures, 0, "A good check starts the count over");
+  is(watch.error, "", "and clears the error");
+  await WhimsyPageWatch.remove(watch.id);
 });
 
 add_task(async function test_container_session() {
