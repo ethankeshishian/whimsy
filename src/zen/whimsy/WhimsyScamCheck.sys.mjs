@@ -38,6 +38,14 @@ function trusted() {
   return Services.prefs.getStringPref(TRUST_PREF, "").split(",").filter(Boolean);
 }
 
+const SCAM_BAR_CSS = `
+  .container { align-items: start; }
+  .icon-container { height: 20px; align-items: center; align-self: start; }
+  .content { flex-direction: column; align-items: stretch; }
+  .text-container { padding-block: 2px 0; }
+  .actions.active { align-self: flex-end; }
+`;
+
 export class WhimsyScamCheckParent extends JSWindowActorParent {
   receiveMessage(message) {
     if (message.name != "WhimsyScamCheck:Signals") {
@@ -178,11 +186,21 @@ export const WhimsyScamCheck = {
       doc.l10n.setAttributes(li, id, args);
       list.append(li);
     }
-    body.append(title, " ", sub, list);
+    body.append(title, sub, list);
     notification.append(body);
     // A shield, not the generic warning triangle (05-page 8.3).
     await notification.updateComplete;
     notification.messageImage?.setAttribute("src", SHIELD_ICON);
+    // 05-page 8.3: the shield sits on the title's line, and the buttons
+    // take their own row at the card's bottom right. The message bar's
+    // layout lives in its shadow root, so it gets one more sheet there.
+    try {
+      const sheet = new win.CSSStyleSheet();
+      sheet.replaceSync(SCAM_BAR_CSS);
+      notification.renderRoot.adoptedStyleSheets = [...notification.renderRoot.adoptedStyleSheets, sheet];
+    } catch (e) {
+      console.error("Whimsy: scam card layout", e);
+    }
     // Esc does nothing here: the warning stays until a choice is made.
     notification.addEventListener("keydown", event => event.key == "Escape" && event.preventDefault(), true);
     return notification;
