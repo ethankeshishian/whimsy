@@ -554,6 +554,7 @@ export const Whimsy = {
       matches: ["https://*/*", "http://*/*", "file:///*"],
       allFrames: true,
       messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
     });
 
     // wave5/quick: link lasso. The child only acts on an Option-drag the

@@ -751,7 +751,20 @@ export const WhimsyDictation = {
   panel(win, { id, titleL10nId, icon, text, buttonL10nId, page }) {
     const S = lazy.WhimsySurface;
     const doc = win.document;
-    const parts = S.create(win, { id, width: 320, titleL10nId, close: true, footer: true, className: "whimsy-dictation-panel" });
+    const urlbar = win.gURLBar;
+    const mic = urlbar.view.isOpen || urlbar.focused ? this.mic(win) : null;
+    const anchor = mic?.getBoundingClientRect().width ? mic : null;
+    // Under the command bar's mic, focus stays in the bar: moving it into the
+    // panel would close the bar and take the panel's anchor with it.
+    const parts = S.create(win, {
+      id,
+      width: 320,
+      titleL10nId,
+      close: true,
+      footer: true,
+      className: "whimsy-dictation-panel",
+      initialFocus: anchor ? false : undefined,
+    });
     const glyph = h(doc, "span", { class: `whimsy-dictation-panel-icon is-${icon}`, "aria-hidden": "true" });
     parts.header.prepend(glyph);
     const body = h(doc, "p", { class: "whimsy-dictation-panel-text" });
@@ -773,9 +786,7 @@ export const WhimsyDictation = {
     open.setAttribute("default", "true");
     parts.footer.append(spacer, open);
     S.finish(parts);
-    const urlbar = win.gURLBar;
-    const anchor = urlbar.view.isOpen || urlbar.focused ? this.mic(win) : null;
-    if (anchor?.getBoundingClientRect().width) {
+    if (anchor) {
       S.open(win, parts.panel, { anchor, position: "bottomright topright", gap: 6 });
     } else {
       const pill = this.pill(win);

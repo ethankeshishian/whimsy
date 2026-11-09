@@ -192,8 +192,9 @@ export const WhimsyImageText = {
         return { enabled: true, lines };
       }
       case "Whimsy:ImageText:Found": {
-        const src = String(data?.src ?? "");
-        const lines = Array.isArray(data?.lines) ? data.lines.map(String) : [];
+        // Web content is untrusted: keep to what the child itself would send.
+        const src = String(data?.src ?? "").slice(0, 4096);
+        const lines = Array.isArray(data?.lines) ? data.lines.slice(0, 200).map(line => String(line).slice(0, 500)) : [];
         this.remember(src, lines);
         if (browser && lines.length && actor.browsingContext == actor.browsingContext.top) {
           if (!pages.has(browser)) {
@@ -213,7 +214,7 @@ export const WhimsyImageText = {
         }
         return null;
       case "Whimsy:ImageText:Copied":
-        this.toastCopied(windowOf(browser), Number(data?.lines) || 1);
+        this.toastCopied(windowOf(browser), Math.min(Math.max(Math.trunc(Number(data?.lines)) || 1, 1), 200));
         return null;
       case "Whimsy:ImageText:Used":
         lazy.WhimsyAIHints.used("image-text");

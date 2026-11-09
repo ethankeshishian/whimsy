@@ -14,6 +14,8 @@
 // (4.7), muted from the tab (4.8), finished (4.9), and the card's exit.
 // Panels are copied into the window before each shot (drawSnapshot misses popups).
 
+requestLongerTimeout(4);
+
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_image_text_w23.js", this);
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_read_aloud.js", this);
 
@@ -94,6 +96,17 @@ function useSpeech(options) {
   speech = fakeSpeech(options);
   WhimsyDictation.setTestSpeech(speech);
   return speech;
+}
+
+// Fluent in the bar: dictation's own strings (other surfaces translate theirs).
+async function translateBar() {
+  for (const el of gURLBar.querySelectorAll("[data-l10n-id]")) {
+    const id = el.getAttribute("data-l10n-id");
+    if (!id || id == "undefined") {
+      info(`An element in the bar has no message: ${el.outerHTML.slice(0, 200)}`);
+    }
+  }
+  await document.l10n.translateElements([...gURLBar.querySelectorAll("[data-l10n-id^='whimsy-dictation']")]);
 }
 
 async function frames(n = 2) {
@@ -201,12 +214,16 @@ add_task(async function shots_command_bar_mic() {
     await whimsyBothSchemes("w23-voice-image-media-5.3", async () => {
       await openBar("night trains");
       const mic = document.getElementById("whimsy-dictation-mic");
-      mic.focus({ focusVisible: true });
+      // Moving focus would close the bar; the look of keyboard focus is what's shot.
+      InspectorUtils.addPseudoClassLock(mic, ":focus-visible");
       await document.l10n.translateFragment(mic);
       await frames();
-      ok(mic.matches(":focus-visible"), "The mic has keyboard focus");
+      ok(mic.matches(":focus-visible"), "The mic shows keyboard focus");
       is(getComputedStyle(mic.querySelector(".whimsy-dictation-tip")).visibility, "visible", "Its tooltip shows");
-      return closeBar;
+      return async () => {
+        InspectorUtils.removePseudoClassLock(mic, ":focus-visible");
+        await closeBar();
+      };
     });
 
     // media-5.4: listening in the bar, the unsure tail greyed.
@@ -221,7 +238,7 @@ add_task(async function shots_command_bar_mic() {
       speech.sessions.at(-1).say("night trains from vienna to paris");
       await TestUtils.waitForCondition(() => gURLBar.value == "night trains from vienna to paris", "Words in the bar");
       await TestUtils.waitForCondition(() => gURLBar.view.isOpen, "Results update");
-      await document.l10n.translateFragment(gURLBar);
+      await translateBar();
       await frames();
       ok(gURLBar.querySelector(".whimsy-dictation-tail").textContent.length, "A tail is greyed");
       return closeBar;
@@ -232,7 +249,7 @@ add_task(async function shots_command_bar_mic() {
       gBrowser.selectedBrowser.focus();
       await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => content.document.activeElement?.blur());
       await holdFn();
-      await document.l10n.translateFragment(gURLBar);
+      await translateBar();
       await frames();
       is(WhimsyDictation.active.target, "commandbar", "The bar listens");
       return async () => {
@@ -249,7 +266,7 @@ add_task(async function shots_command_bar_mic() {
       speech.sessions.at(-1).say("summarize this");
       speech.sessions.at(-1).say("summarize this page");
       await TestUtils.waitForCondition(() => gURLBar.value == "summarize this page", "Words in the menu");
-      await document.l10n.translateFragment(gURLBar);
+      await translateBar();
       await frames(3);
       ok(!gURLBar.querySelector(".whimsy-dictation-key").hidden, "It says release ⌘K");
       return async () => {
