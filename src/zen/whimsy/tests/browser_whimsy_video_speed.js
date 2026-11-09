@@ -77,7 +77,8 @@ const watchNote = browser =>
           resolve(speednote.textContent);
         }
       });
-      observer.observe(speednote, { attributes: true, attributeFilter: ["hidden"] });
+      // The control is anonymous content: only chromeOnlyNodes sees it.
+      observer.observe(speednote, { attributes: true, attributeFilter: ["hidden"], chromeOnlyNodes: true });
     });
   });
 const noteShown = browser =>
