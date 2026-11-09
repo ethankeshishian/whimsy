@@ -37,6 +37,8 @@
   flex: none;
   width: calc(var(--whimsy-chat-width, 380px) + var(--whimsy-chat-gap));
   min-width: calc(var(--whimsy-chat-width, 380px) + var(--whimsy-chat-gap));
+  /* A long thread scrolls inside; it never makes the window's content taller. */
+  contain: size;
   overflow: clip;
   color: var(--whimsy-chat-text);
   font: menu;

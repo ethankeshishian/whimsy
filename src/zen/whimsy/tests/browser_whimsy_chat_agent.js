@@ -390,7 +390,11 @@ add_task(async function save_as_command_prefills_with_blanks() {
     const save = await TestUtils.waitForCondition(() => part(".whimsy-agent-end [data-choice='save']"), "Save as… is on the summary");
     click(save);
     const menu = await TestUtils.waitForCondition(() => part(".whimsy-agent-save-menu"), "The menu opens");
+    await menu.ownerDocument.l10n.translateFragment(menu);
+    ok(menu.querySelector("[data-item='command'][aria-selected='true']"), "Localizing the menu keeps its options");
     ok(!menu.querySelector("[data-item='routine']"), "Make it a routine… waits for Routines");
+    ok(getComputedStyle(save, "::before").backgroundImage.includes("save.svg"), "Save as… keeps its icon");
+    is(menu.ownerDocument.activeElement, menu, "Keys go to the menu");
     EventUtils.synthesizeKey("KEY_Enter");
     await TestUtils.waitForCondition(() => opened, "The command sheet opens");
     is(opened.prefill.prompt, PLAN.template, "with the plan's prompt, details as blanks");

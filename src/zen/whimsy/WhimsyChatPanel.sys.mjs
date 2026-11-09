@@ -799,6 +799,7 @@ class ChatPanel {
     this.ready = false;
     this.setPrivate(false);
     this.thread = thread;
+    this.renderTasks();
     this.title.hidden = false;
     this.header.querySelector(".whimsy-chat-head-private").hidden = true;
     for (const id of ["whimsy-chat-list-button", "whimsy-chat-new-button"]) {
@@ -1497,19 +1498,24 @@ class ChatPanel {
 
   // ---- Tasks strip ----
 
+  // The shown thread's own task is on its run card; the strip never repeats it.
+  stripTasks() {
+    return lazy.WhimsyChat.tasks(this.win).filter(t => !t.threadId || t.threadId != this.thread?.id);
+  }
+
   renderTasks() {
     if (!this.el) {
       return;
     }
     const { doc, win } = this;
     const strip = this.tasksStrip;
-    const tasks = lazy.WhimsyChat.tasks(win).sort((a, b) => !!b.waiting - !!a.waiting);
+    const tasks = this.stripTasks().sort((a, b) => !!b.waiting - !!a.waiting);
     if (!tasks.length) {
       this.tasksExpanded = false;
       this.knownTasks.clear();
       if (!strip.hidden && this._open && !reducedMotion(win)) {
         strip.animate({ opacity: [1, 0] }, { duration: DUR_OUT, easing: EASE_EXIT }).finished.then(
-          () => (strip.hidden = !lazy.WhimsyChat.tasks(win).length),
+          () => (strip.hidden = !this.stripTasks().length),
           () => {}
         );
       } else {

@@ -12,13 +12,25 @@
   --whimsy-agent-dialog: light-dark(#ffffff, #2a2a2c);
 }
 
-.whimsy-agent-icon {
+/* Icons draw with context-fill and context-stroke (a mask drops stroked icons). Button and
+   disclosure icons are pseudo-elements, since Fluent replaces a localized element's children. */
+.whimsy-agent-icon,
+.whimsy-agent-btn[data-ic]::before,
+.whimsy-agent-btn[aria-haspopup]::after,
+.whimsy-agent-disclose::after {
+  content: "";
   display: inline-block;
   flex: none;
   width: 14px;
   height: 14px;
-  background-color: currentColor;
-  mask: var(--whimsy-agent-icon) center / contain no-repeat;
+  background: var(--whimsy-agent-icon) center / contain no-repeat;
+  -moz-context-properties: fill, fill-opacity, stroke, stroke-opacity;
+  fill: currentColor;
+  stroke: currentColor;
+}
+.whimsy-agent-btn[aria-haspopup]::after,
+.whimsy-agent-disclose::after {
+  background-image: url("chrome://browser/skin/zen-icons/chevron.svg");
 }
 
 /* ---- Mode switch beside the model line (agent-1.1, 1.2) ---- */
@@ -121,17 +133,12 @@
     background: var(--whimsy-agent-dialog);
   }
   &[data-collapsed] {
-    box-shadow: none;
-    background: none;
+    background: var(--whimsy-agent-dialog);
     & .whimsy-agent-card-inner {
-      padding-block: 2px;
+      padding-block: 8px;
     }
     & .whimsy-agent-card-head {
-      font-weight: 500;
-      color: var(--whimsy-chat-muted);
-    }
-    & .whimsy-agent-card-head > .whimsy-agent-icon {
-      color: var(--whimsy-chat-success, rgb(52, 168, 83));
+      font-weight: 600;
     }
   }
 }
@@ -215,9 +222,14 @@
   transition:
     background-color 100ms ease-out,
     scale 100ms ease-out;
-  & > .whimsy-agent-icon {
+  &[data-ic]::before {
     width: 12px;
     height: 12px;
+  }
+  &[aria-haspopup]::after {
+    width: 10px;
+    height: 10px;
+    margin-inline-start: 1px;
   }
   &:hover {
     background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
@@ -242,6 +254,13 @@
   margin-inline-start: auto;
   font-size: 11px;
   color: var(--whimsy-chat-muted);
+  & kbd {
+    padding: 1px 4px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.18));
+    font: inherit;
+    font-size: 10px;
+  }
 }
 .whimsy-agent-disclose {
   display: inline-flex;
@@ -256,12 +275,12 @@
   font: inherit;
   font-size: 12.5px;
   font-weight: 500;
-  & > .whimsy-agent-icon {
+  &::after {
     width: 10px;
     height: 10px;
     transition: rotate 150ms var(--whimsy-ease, ease);
   }
-  &[aria-expanded="false"] > .whimsy-agent-icon {
+  &[aria-expanded="false"]::after {
     rotate: -90deg;
   }
   &:focus-visible {
@@ -307,7 +326,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--whimsy-chat-hairline);
+  box-shadow: inset 0 0 0 1.5px light-dark(rgba(0, 0, 0, 0.16), rgba(255, 255, 255, 0.2));
   color: white;
   & > .whimsy-agent-icon {
     width: 9px;
@@ -595,6 +614,22 @@
   color: var(--whimsy-chat-muted);
   font-size: 11.5px;
 }
+.whimsy-agent-li-reopen {
+  margin: 0;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  &:hover {
+    color: var(--whimsy-chat-text);
+    background: var(--whimsy-chat-hover);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+  }
+}
 .whimsy-agent-pages {
   display: flex;
   flex-direction: column;
@@ -633,14 +668,17 @@
     color: var(--whimsy-agent);
   }
 }
-.whimsy-chat-foot[whimsy-agent-outside] > .whimsy-chat-model {
-  display: none;
+.whimsy-chat-foot[whimsy-agent-outside] {
+  & > .whimsy-chat-model,
+  & .whimsy-chat-chips {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .whimsy-agent-mode::before,
   .whimsy-agent-progress > i,
-  .whimsy-agent-disclose > .whimsy-agent-icon {
+  .whimsy-agent-disclose::after {
     transition: none;
   }
 }

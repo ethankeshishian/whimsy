@@ -144,6 +144,7 @@ add_task(async function shot_mode_and_plan() {
   await whimsyBothSchemes(`${P}agent-1.4-plan`, async () => {
     await fresh();
     await planned();
+    ok(part(".whimsy-agent-mode") && part("[data-choice='start']"), "The plan waits for Start beside the mode switch");
   });
 });
 
@@ -172,6 +173,7 @@ add_task(async function shot_drive() {
     await running();
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-agent-segment[data-mode='background']"), {});
     await TestUtils.waitForCondition(() => part(".whimsy-agent-run [data-l10n-id='whimsy-agent-chat-show']"), "Background run card");
+    ok(part(".whimsy-agent-segment[data-mode='background'][aria-checked='true']"), "The switch flips mid-task");
     return () => Services.prefs.clearUserPref("whimsy.ai.agent.mode");
   });
 });
@@ -217,6 +219,7 @@ add_task(async function shot_pauses() {
     await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-pause'][data-focus]"), "Paused");
     WhimsyAgentTasks.decide(task.id, "do");
     await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-collapsed]"), "Approved");
+    ok(!part(".whimsy-agent-card[data-card='agent-pause'][data-focus]"), "An approved pause folds to one line");
   });
 });
 
@@ -245,6 +248,7 @@ add_task(async function shot_safety() {
     await fresh();
     type("Check the hotel prices in my private tab too");
     await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-refused']"), "Refused");
+    ok(!part(".whimsy-agent-card[data-card='agent-plan']"), "A private request gets no plan");
   });
 });
 
@@ -262,13 +266,15 @@ add_task(async function shot_end() {
   await whimsyBothSchemes(`${P}fu-agent-7.1-end`, async () => {
     await finishOnce();
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-agent-end [data-choice='save']"), {});
-    await TestUtils.waitForCondition(() => part(".whimsy-agent-save-menu"), "Save menu");
+    await TestUtils.waitForCondition(() => part(".whimsy-agent-save-menu .whimsy-chat-option"), "Save menu");
+    ok(part(".whimsy-agent-save-menu [data-item='command']"), "Save as command is listed");
     return () => EventUtils.synthesizeKey("KEY_Escape");
   });
   await whimsyBothSchemes(`${P}agent-7.2-looked-at`, async () => {
     await finishOnce();
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-agent-end > .whimsy-agent-disclose"), {});
     await TestUtils.waitForCondition(() => !part(".whimsy-agent-pages").hidden, "Pages");
+    ok(part(".whimsy-agent-end > .whimsy-agent-disclose[aria-expanded='true']"), "Looked at opens");
   });
 });
 
@@ -282,6 +288,7 @@ add_task(async function shot_outside() {
     }
     await WhimsyChat.open(window, { threadId: task.threadId });
     await TestUtils.waitForCondition(() => part(".whimsy-agent-from") && part(".whimsy-agent-run"), "Outside thread");
+    ok(chat().composer.disabled, "An outside thread is read-only");
     return () => WhimsyAgentTasks.stop(task.id);
   });
 });

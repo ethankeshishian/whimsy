@@ -138,14 +138,15 @@ function h(doc, tag, attrs = {}, ...children) {
   return node;
 }
 
+const iconStyle = name => `--whimsy-agent-icon: url("${ICON_URLS[name] ?? name}")`;
+
 function icon(doc, name) {
-  const url = ICON_URLS[name] ?? name;
-  return h(doc, "span", { class: "whimsy-agent-icon", style: `--whimsy-agent-icon: url("${url}")`, "aria-hidden": "true" });
+  return h(doc, "span", { class: "whimsy-agent-icon", style: iconStyle(name), "aria-hidden": "true" });
 }
 
 function button(doc, l10n, run, { primary = false, destructive = false, ic = null, choice = null } = {}) {
   const cls = `whimsy-agent-btn${primary ? " primary" : ""}${destructive ? " destructive" : ""}`;
-  return h(doc, "button", { class: cls, l10n, "data-choice": choice, onclick: run }, ic ? icon(doc, ic) : null);
+  return h(doc, "button", { class: cls, l10n, "data-choice": choice, onclick: run, "data-ic": !!ic, style: ic ? iconStyle(ic) : null });
 }
 
 function reducedMotion(win) {
@@ -250,7 +251,8 @@ export const WhimsyChatAgent = {
     // The strip's rows: who, what step, and whether it waits for you.
     C.registerTaskSource({
       id: "agent",
-      list: () => lazy.WhimsyAgentTasks.list().map(task => this.stripRow(task)),
+      // A plan waiting for Start is not a task yet (agent-1.4).
+      list: () => lazy.WhimsyAgentTasks.list().filter(t => t.state != "planning").map(task => this.stripRow(task)),
       show: (win, task) => task.threadId && C.open(win, { threadId: task.threadId, focus: "card" }),
       stop: task => lazy.WhimsyAgentTasks.stop(task.id),
     });
@@ -378,6 +380,8 @@ export const WhimsyChatAgent = {
     }
     const { doc, win } = panel;
     this.loadSheet(win);
+    // A re-rendered thread drops its steps without blur or mouseleave.
+    this.hidePopover(win);
     const thread = panel.thread;
     const end = panel.modelRow.querySelector(".whimsy-chat-model-end");
     const outside = thread?.kind == "outside";
@@ -397,7 +401,8 @@ export const WhimsyChatAgent = {
     if (outside) {
       panel.composer.disabled = true;
       panel.sendButton.disabled = true;
-      doc.l10n.setAttributes(panel.composer, "whimsy-agent-chat-outside-composer", { client: thread.title ?? "" });
+      const client = lazy.WhimsyAgentTasks.list().find(t => t.threadId == thread.id)?.clientName;
+      doc.l10n.setAttributes(panel.composer, "whimsy-agent-chat-outside-composer", { client: client || thread.title || "" });
     } else if (show && this.mode == "background" && thread && !thread.closedTab) {
       doc.l10n.setAttributes(panel.composer, "whimsy-agent-chat-composer-background");
     }
@@ -871,7 +876,7 @@ export const WhimsyChatAgent = {
       { id: "command", l10n: "whimsy-agent-chat-save-command", detail: "whimsy-agent-chat-save-command-detail", run: () => this.saveAsCommand(win, msg) },
       state.routineMaker && { id: "routine", l10n: "whimsy-agent-chat-save-routine", detail: "whimsy-agent-chat-save-routine-detail", run: () => state.routineMaker(win, { prompt: msg.prompt ?? msg.template ?? "" }) },
     ].filter(Boolean);
-    const menu = h(doc, "div", { class: "whimsy-chat-menu whimsy-agent-save-menu", role: "listbox", tabindex: "-1", l10n: "whimsy-agent-chat-save-as" },
+    const menu = h(doc, "div", { class: "whimsy-chat-menu whimsy-agent-save-menu", role: "listbox", tabindex: "-1", l10n: "whimsy-agent-chat-save-menu" },
       ...items.map((item, i) => h(doc, "div", {
         class: "whimsy-chat-option",
         role: "option",
@@ -1054,6 +1059,9 @@ export const WhimsyChatAgent = {
     const focused = node.contains(node.ownerDocument.activeElement) ? node.ownerDocument.activeElement : null;
     const key = focused?.dataset.choice ?? focused?.dataset.step ?? null;
     const asks = fresh.matches("[data-focus]") && !node.matches("[data-focus]");
+    if (node.querySelector("[aria-describedby='whimsy-agent-popover']")) {
+      this.hidePopover(node.ownerGlobal);
+    }
     node.replaceWith(fresh);
     if (focused) {
       const again = key ? fresh.querySelector(`[data-choice="${key}"], [data-step="${key}"]`) : null;
@@ -1179,7 +1187,7 @@ export const WhimsyChatAgent = {
       }
       pop.replaceChildren(
         h(doc, "img", { class: "whimsy-agent-popover-shot", src: shot.thumb, alt: "" }),
-        h(doc, "div", { class: "whimsy-agent-popover-text" }, h(doc, "b", {}, text), h(doc, "span", {}, `${shot.url.split(/[?#]/)[0]} · ${timeOf(shot.t, win)}`))
+        h(doc, "div", { class: "whimsy-agent-popover-text" }, h(doc, "b", {}, text), h(doc, "span", {}, `${shot.url.split(/[?#]/)[0].replace(/^https?:\/\//, "")} · ${timeOf(shot.t, win)}`))
       );
       pop.hidden = false;
       const panelRect = chat.querySelector(".whimsy-chat-panel").getBoundingClientRect();
@@ -1188,7 +1196,9 @@ export const WhimsyChatAgent = {
         ? panelRect.right + 8
         : panelRect.left - POPOVER_W - 8;
       pop.style.left = `${Math.max(8, left)}px`;
-      pop.style.top = `${Math.max(8, Math.min(rect.top - 8, win.innerHeight - 320))}px`;
+      // Centred on its step, inside the window.
+      const height = pop.getBoundingClientRect().height;
+      pop.style.top = `${Math.max(8, Math.min(rect.top + rect.height / 2 - height / 2, win.innerHeight - height - 8))}px`;
       anchor.setAttribute("aria-describedby", "whimsy-agent-popover");
       if (fresh && !reducedMotion(win)) {
         pop.animate({ opacity: [0, 1] }, { duration: 150, easing: EASE });
@@ -1236,7 +1246,7 @@ export const WhimsyChatAgent = {
         e.currentTarget.setAttribute("aria-expanded", String(open));
         steps.hidden = !open;
       },
-    }, icon(doc, "chevron"));
+    });
     const actions = live
       ? h(doc, "div", { class: "whimsy-agent-actions" },
         h(doc, "button", { class: "whimsy-agent-btn primary", "data-choice": "start", "data-autofocus": true, l10n: "whimsy-agent-chat-start", onclick: () => this.start(ctx.win, msg.taskId) }),
@@ -1457,7 +1467,9 @@ export const WhimsyChatAgent = {
     const list = rows => h(doc, "div", { class: "whimsy-agent-list" }, ...rows.map(r => h(doc, "div", { class: "whimsy-agent-li" },
       h(doc, "img", { class: "whimsy-agent-fav", src: `page-icon:${r.url}`, alt: "" }),
       h(doc, "span", { class: "whimsy-agent-li-text" }, r.title || r.url),
-      r.end ? h(doc, "span", { class: "whimsy-agent-li-end" }, r.end) : null)));
+      r.reopen
+        ? h(doc, "button", { class: "whimsy-agent-li-end whimsy-agent-li-reopen", l10n: "whimsy-agent-chat-reopen", onclick: () => win.openTrustedLinkIn(r.url, "tab", { inBackground: true }) })
+        : r.end ? h(doc, "span", { class: "whimsy-agent-li-end" }, r.end) : null)));
     if (msg.kept?.length) {
       root.append(this.frame(doc, { ...msg, id: `${msg.id}-kept`, card: "agent-kept" }, { ic: "check", head: ["whimsy-agent-chat-kept", { count: msg.kept.length }] }, list(msg.kept)));
     }
@@ -1474,7 +1486,7 @@ export const WhimsyChatAgent = {
     }
     if (msg.pages?.length) {
       const pages = h(doc, "div", { class: "whimsy-agent-pages", hidden: true },
-        list(msg.pages.map(p => ({ ...p, end: "" }))),
+        list(msg.pages.map(p => ({ ...p, reopen: true }))),
         h(doc, "div", { class: "whimsy-agent-actions" },
           button(doc, "whimsy-agent-chat-reopen-all", () => {
             for (const p of msg.pages) {
@@ -1493,7 +1505,7 @@ export const WhimsyChatAgent = {
             pages.animate({ opacity: [0, 1], translate: ["0 -4px", "0 0"] }, { duration: 300, easing: EXPAND });
           }
         },
-      }, icon(doc, "chevron")), pages);
+      }), pages);
     }
     const save = h(doc, "button", {
       class: "whimsy-agent-btn",
@@ -1502,7 +1514,9 @@ export const WhimsyChatAgent = {
       "data-choice": "save",
       l10n: "whimsy-agent-chat-save-as",
       onclick: e => this.openSaveMenu(ctx.panel, e.currentTarget, msg),
-    }, icon(doc, "save"));
+      "data-ic": true,
+      style: iconStyle("save"),
+    });
     root.append(h(doc, "div", { class: "whimsy-agent-actions" }, save,
       button(doc, "whimsy-agent-chat-replay", () => this.openReplay(win, msg.taskId, 0), { ic: "play", choice: "replay" })));
     return root;
