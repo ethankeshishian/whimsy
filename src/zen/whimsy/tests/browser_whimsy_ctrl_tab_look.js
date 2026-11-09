@@ -441,16 +441,36 @@ add_task(async function test_private_space_selection_shows() {
     await TestUtils.waitForCondition(() => !gZenWorkspaces.isChangingWorkspace, "The space switch finished");
     await new Promise(resolve => setTimeout(resolve, 100));
   };
+  const DIAG = label =>
+    info(
+      `DIAG ${label}: scratch=${WhimsyPrivate.getScratch(window)?.uuid} active=${gZenWorkspaces.activeWorkspace} tabs=` +
+        JSON.stringify(
+          [...gZenWorkspaces.allStoredTabs].map(t => ({
+            u: t.linkedBrowser?.currentURI?.spec,
+            ws: t.getAttribute("zen-workspace-id"),
+            p: WhimsyPrivate.isPrivateTab(t),
+            sel: t.selected,
+            empty: t.hasAttribute("zen-empty-tab"),
+            ess: t.hasAttribute("zen-essential"),
+            pin: t.pinned,
+            hid: t.hidden,
+            attrs: [...t.attributes].map(a => a.name).filter(n => /whimsy|zen/.test(n)).join(","),
+          }))
+        )
+    );
   try {
+    DIAG("before");
     EventUtils.synthesizeKey("n", { accelKey: true, shiftKey: true });
     await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(window), "The Private Space shows");
     await settle();
+    DIAG("shown");
     for (const n of [1, 2]) {
       const tab = WhimsyPrivate.openPrivateTab(window, { url: "https://example.com/browser/?look" + n });
       await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
       gBrowser.selectedTab = tab;
     }
     await settle();
+    DIAG("opened");
     ok(root.hasAttribute("whimsy-scratch-active"), "The Private Space is active");
     is(accentOf(), "rgb(152, 110, 255)", "The Private Space wears the private violet accent");
 
