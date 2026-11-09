@@ -551,6 +551,10 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* W23 routines-engine: a wait that clears itself reads dimmed (rout-4.8). */
+  .urlbarView-row:not([selected]) & .whimsy-update-title[dimmed] {
+    color: var(--text-color-deemphasized);
+  }
 }
 
 .whimsy-update-detail {

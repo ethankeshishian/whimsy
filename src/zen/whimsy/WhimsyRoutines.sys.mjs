@@ -666,6 +666,7 @@ export const WhimsyRoutines = {
         running: true,
         steps: [],
       });
+      await this._fold(r.threadId, card.id);
       changed();
     }
     const steps = [];

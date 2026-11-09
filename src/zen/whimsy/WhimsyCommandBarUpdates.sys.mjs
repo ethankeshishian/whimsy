@@ -311,7 +311,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     return {
       icon: show({ "data-type": type }),
       iconImg: { attributes: { src: TYPE_ICONS[type] } },
-      title: { textContent: u.title },
+      title: { textContent: u.title, attributes: { dimmed: u.dimmed && !u.needsYou ? "" : null } },
       detail: u.detail ? { attributes: { hidden: null }, textContent: u.detail } : hide,
       needs: u.needsYou ? { ...show({}), l10n: { id: "whimsy-cmdbar-needs-you" } } : hide,
       time: u.dueAt && u.dueAt > Date.now() ? { ...show({}), l10n: { id: "whimsy-cmdbar-in-minutes", args: { minutes: Math.max(1, Math.round((u.dueAt - Date.now()) / 60000)) } } } : { ...show({}), textContent: timeLabel(win, u.surfaced ?? u.posted) },

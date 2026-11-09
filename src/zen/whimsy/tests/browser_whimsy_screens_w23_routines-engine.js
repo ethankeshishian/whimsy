@@ -90,7 +90,7 @@ add_task(async function shots_threads() {
     await whimsySettled();
     const head = WhimsyChatPanel.forWindow(window).el.querySelector(".whimsy-routine-run[folded] .whimsy-routine-run-head");
     EventUtils.synthesizeMouseAtCenter(head, {}, window);
-    await whimsyShotMid(`${NAME("4.2-open")}-${dark ? "dark" : "light"}`, () => head.parentNode.querySelector(".whimsy-chat-msg")?.getAnimations()[0], 80);
+    await whimsyShotMid(`${NAME("4.2-open")}-${dark ? "dark" : "light"}`, () => head.parentNode.querySelector(".whimsy-chat-msg")?.getAnimations()[0], 40);
     await close();
     await SpecialPowers.popPrefEnv();
   }

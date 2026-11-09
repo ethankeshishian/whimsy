@@ -830,17 +830,49 @@
     margin-inline-start: auto;
   }
 }
+.whimsy-routine-bar-btn {
+  appearance: none;
+  flex: none;
+  min-height: 24px;
+  margin: 0;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 6px;
+  background: var(--whimsy-chat-track);
+  color: var(--whimsy-chat-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 100ms ease-out, transform 100ms ease-out;
+  &:hover {
+    background-color: var(--whimsy-chat-hover);
+  }
+  &:active {
+    transform: scale(0.96);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: 1px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:active {
+      transform: none;
+    }
+  }
+}
 .whimsy-routine-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
+  gap: 4px;
+  padding: 1px 7px;
   border-radius: 999px;
   background: var(--whimsy-chat-track);
-  color: var(--whimsy-chat-text);
+  color: var(--whimsy-chat-muted);
+  font-size: 11px;
   font-weight: 500;
+  line-height: 16px;
   &[running] {
-    background: var(--whimsy-chat-accent-bg);
+    background: color-mix(in srgb, var(--whimsy-chat-accent) 16%, transparent);
     color: var(--whimsy-chat-accent);
   }
   & > .whimsy-chat-spinner {

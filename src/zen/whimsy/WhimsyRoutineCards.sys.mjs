@@ -126,6 +126,10 @@ function runMeta(msg) {
 }
 
 function renderRun(doc, msg, ctx) {
+  // A run that didn't finish says nothing: a quiet retry stays quiet, and a failure that needs you has its own block.
+  if (msg.failed) {
+    return null;
+  }
   const meta = runMeta(msg);
   const head = h(
     doc,
@@ -294,26 +298,26 @@ async function fillBar(doc, bar, thread, ctx) {
   const id = thread.routineId ?? thread.watchId;
   const r = id ? await lazy.WhimsyRoutines.get(id) : null;
   const watch = thread.kind == "watch";
-  const pill = h(doc, "span", { class: "whimsy-routine-pill", l10n: watch ? "whimsy-routine-bar-watch" : "whimsy-routine-bar-routine" });
+  const pill = h(doc, "span", { class: "whimsy-routine-pill" }, h(doc, "span", { l10n: watch ? "whimsy-routine-bar-watch" : "whimsy-routine-bar-routine" }));
   if (!r) {
     bar.replaceChildren(pill, h(doc, "span", { l10n: "whimsy-routine-deleted" }));
     return;
   }
   const running = r.status == "running";
   if (running) {
-    pill.replaceChildren(h(doc, "span", { class: "whimsy-chat-spinner" }));
+    // The label sits in its own span: Fluent would wipe the spinner beside it.
+    pill.replaceChildren(h(doc, "span", { class: "whimsy-chat-spinner" }), h(doc, "span", { l10n: "whimsy-routine-bar-running" }));
     pill.setAttribute("running", "");
-    doc.l10n.setAttributes(pill, "whimsy-routine-bar-running");
   }
   const label = watch ? ["whimsy-routine-bar-watch-detail", { condition: r.prompt, minutes: r.trigger.interval }] : triggerLabel(r.trigger);
   // Stop sits in Run now's place while it runs.
   const run = watch
-    ? h(doc, "button", { class: "whimsy-chat-link", l10n: "whimsy-routine-check-now", onclick: () => lazy.WhimsyPageWatch.checkNow(r.id) })
+    ? h(doc, "button", { class: "whimsy-routine-bar-btn", l10n: "whimsy-routine-check-now", onclick: () => lazy.WhimsyPageWatch.checkNow(r.id) })
     : running
-      ? h(doc, "button", { class: "whimsy-chat-link", "data-action": "stop", l10n: "whimsy-routine-stop", onclick: () => lazy.WhimsyRoutines.stop(r.id) })
-      : h(doc, "button", { class: "whimsy-chat-link", "data-action": "run", l10n: "whimsy-routine-run-now", onclick: () => lazy.WhimsyRoutines.runNow(r.id) });
+      ? h(doc, "button", { class: "whimsy-routine-bar-btn", "data-action": "stop", l10n: "whimsy-routine-stop", onclick: () => lazy.WhimsyRoutines.stop(r.id) })
+      : h(doc, "button", { class: "whimsy-routine-bar-btn", "data-action": "run", l10n: "whimsy-routine-run-now", onclick: () => lazy.WhimsyRoutines.runNow(r.id) });
   const edit = h(doc, "button", {
-    class: "whimsy-chat-link",
+    class: "whimsy-routine-bar-btn",
     l10n: "whimsy-routine-edit",
     onclick: () => lazy.WhimsyRoutines.openForm(ctx.win, { routineId: r.id }),
   });
