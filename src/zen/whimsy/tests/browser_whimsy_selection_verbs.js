@@ -12,10 +12,6 @@ const { WhimsyVerbs, parseEvent, buildICS } = ChromeUtils.importESModule(
 const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
 const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
 const { gWhimsyNotesStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
-// TEMP diagnostic (reverted once the leak is found): L07 bisect for
-// test_cmd_k_without_selection_is_web_search.
-const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
-const { WhimsyAIContext } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIContext.sys.mjs");
 
 const PAGE =
   getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_verbs.html";
@@ -111,19 +107,6 @@ add_task(async function test_cmd_k_without_selection_is_web_search() {
     await select(browser, null);
     const command = document.getElementById("Tools:Search");
     const searched = BrowserTestUtils.waitForEvent(command, "command");
-    // TEMP diagnostic (reverted once the leak is found).
-    const tab = gBrowser.selectedTab;
-    const subject = await WhimsyVerbs.subjectFor(window);
-    info(
-      `TEMP diag: whimsy.ai.enabled=${WhimsyAI.enabled} ` +
-        `whimsy.feature.ai-context-commands=${Services.prefs.getBoolPref("whimsy.feature.ai-context-commands", true)} ` +
-        `isPrivate=${WhimsyAIContext.isPrivate(tab)} ` +
-        `subjectFor.kind=${subject?.kind} ` +
-        `view.isOpen=${gURLBar.view.isOpen} searchMode=${JSON.stringify(gURLBar.searchMode)} ` +
-        `session=${!!WhimsyVerbs.sessions.get(window)} ` +
-        `activeElement=${document.activeElement?.id || document.activeElement?.tagName} ` +
-        `cardPanel=${document.getElementById("whimsy-ai-selection-card")?.state}`
-    );
     gBrowser.selectedBrowser.focus();
     EventUtils.synthesizeKey("k", { accelKey: true });
     await searched;
