@@ -756,7 +756,7 @@
 
 # Providers out of room until their reset (JSON, survives a restart).
 - name: whimsy.ai.resting
-  value: "{}"
+  value: ""
 
 # The first connection has turned AI on (it never does again).
 - name: whimsy.ai.auto-enabled
