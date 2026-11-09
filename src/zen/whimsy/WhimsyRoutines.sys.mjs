@@ -382,6 +382,17 @@ export const WhimsyRoutines = {
     return this._execute(r, { reason: "try", userStarted: true, draft: true });
   },
 
+  /** W23 routines-ui: the thread a Library row opens, made on first use. */
+  async threadFor(id) {
+    const s = await load();
+    const r = s.routines.find(x => x.id == id);
+    if (r) {
+      return this._thread(r);
+    }
+    const watch = (await lazy.WhimsyPageWatch.load()).find(w => w.id == id);
+    return watch ? lazy.WhimsyPageWatch._thread(watch) : null;
+  },
+
   /** Library › Routines (L17) opens the form; chat and commands call this. */
   setFormOpener(fn) {
     formOpener = fn;

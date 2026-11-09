@@ -120,7 +120,6 @@ var WhimsyAISettings = {
 
   mount(root) {
     this.root = root;
-    this.watchList = root.querySelector("#whimsyAIWatchList");
     root.replaceChildren();
     const top = this.el("div", "whimsy-ai-top", root);
     top.id = "whimsyAITop";
@@ -685,11 +684,6 @@ WhimsyAISettings.register({
       observers.push([pref, update]);
       update();
     }
-    // The watch list stays with its switch until Library › Routines has it.
-    const watches = S.watchList;
-    if (watches) {
-      list.querySelector("#whimsyAIPageWatch").parentElement.after(watches);
-    }
     const routines = S.el("div", "whimsy-ai-item is-button", list);
     routines.id = "whimsyAIRoutinesRow";
     S.tile(routines, "chrome://browser/skin/zen-icons/library.svg");
@@ -711,7 +705,7 @@ WhimsyAISettings.openRoutines = function () {
   }
   const { WhimsyArcMenus } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyArcMenus.sys.mjs");
   win.focus();
-  if (WhimsyArcMenus.openLibrarySection(win, "routines")) {
+  if (WhimsyArcMenus.openLibrarySection(win, "whimsy-routines", { keepOpen: true })) {
     return true;
   }
   return WhimsyArcMenus.openLibrarySection(win, "history");

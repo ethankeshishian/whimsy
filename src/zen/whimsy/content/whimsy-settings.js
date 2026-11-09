@@ -1176,58 +1176,11 @@ Object.assign(gWhimsySettings, {
     template.remove();
     const root = document.getElementById("whimsyAIPage");
     root.hidden = globalThis.gLastCategory?.category != WHIMSY_AI_PANE;
-    this.initAIWatchList();
     WhimsyAISettings.mount(root);
   },
 });
 
 document.addEventListener("DOMContentLoaded", () => gWhimsySettings.registerAIPane(), { once: true });
-
-// wave3/ai: Watch a page — the list of watches under its switch, each with
-// its condition, last result and a Stop button.
-Object.assign(gWhimsySettings, {
-  initAIWatchList() {
-    const list = document.getElementById("whimsyAIWatchList");
-    if (!list || this._aiWatchWired) {
-      return;
-    }
-    this._aiWatchWired = true;
-    const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
-    const render = async () => {
-      const watches = await WhimsyPageWatch.list();
-      list.replaceChildren();
-      list.hidden = !watches.length;
-      for (const watch of watches) {
-        const row = document.createElement("li");
-        row.className = "whimsy-ai-watch";
-        const text = document.createElement("div");
-        const what = document.createElement("div");
-        what.className = "whimsy-ai-watch-condition";
-        what.textContent = watch.condition;
-        const where = document.createElement("div");
-        where.className = "whimsy-updates-detail";
-        let host = watch.url;
-        try {
-          host = new URL(watch.url).host;
-        } catch {}
-        document.l10n.setAttributes(
-          where,
-          watch.error ? "whimsy-ai-watch-row-error" : watch.met ? "whimsy-ai-watch-row-met" : "whimsy-ai-watch-row",
-          { page: watch.title || host, minutes: watch.interval }
-        );
-        text.append(what, where);
-        const stop = document.createXULElement("button");
-        document.l10n.setAttributes(stop, "whimsy-ai-watch-stop");
-        stop.addEventListener("command", () => WhimsyPageWatch.remove(watch.id));
-        row.append(text, stop);
-        list.append(row);
-      }
-    };
-    WhimsyPageWatch.addListener(render);
-    window.addEventListener("unload", () => WhimsyPageWatch.removeListener(render), { once: true });
-    render();
-  },
-});
 
 // system: Settings → Links, one pane for where links open: links from other
 // apps (Mini Whimsy, a tab or Glance), Glance (Zen's own Glance group moves

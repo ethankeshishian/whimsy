@@ -1121,7 +1121,14 @@ export const WhimsySurface = {
         setL10n(doc, d, option.detailL10nId, option.detailL10nArgs);
         row.append(d);
       }
+      // W23 routines-ui: an option that can't be picked says why in its detail.
+      if (option.disabled) {
+        row.setAttribute("aria-disabled", "true");
+      }
       const pick = () => {
+        if (option.disabled) {
+          return;
+        }
         this.close(parts.panel);
         onPick(option.value);
       };

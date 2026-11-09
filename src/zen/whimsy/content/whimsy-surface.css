@@ -682,3 +682,9 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
     fill: light-dark(rgb(176, 110, 0), rgb(240, 177, 60));
   }
 }
+
+/* W23 routines-ui: an option that can't be picked stays readable but dim. */
+.whimsy-surface-option[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}

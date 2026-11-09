@@ -237,3 +237,8 @@
         content/browser/whimsy/whimsy-chat-agent.css (../../zen/whimsy/content/whimsy-chat-agent.css)
 # W23 agent-tabs: the Drive look and the task folder
         content/browser/whimsy/whimsy-agent.css (../../zen/whimsy/content/whimsy-agent.css)
+# W23 routines-ui: Library › Routines, the routine form, and its sprite
+        content/browser/whimsy/whimsy-library-routines.mjs (../../zen/whimsy/content/whimsy-library-routines.mjs)
+        content/browser/whimsy/whimsy-routine-form.mjs (../../zen/whimsy/content/whimsy-routine-form.mjs)
+        content/browser/whimsy/whimsy-routines.css (../../zen/whimsy/content/whimsy-routines.css)
+        content/browser/whimsy/library/library-routines-sprite.svg (../../zen/whimsy/content/library/library-routines-sprite.svg)

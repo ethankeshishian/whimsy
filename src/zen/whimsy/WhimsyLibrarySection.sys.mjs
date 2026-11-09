@@ -15,6 +15,8 @@
 // Each entry stays out until its own whimsy.feature.<id> pref is on, and a
 // pref observer keeps that live without reopening the window.
 
+const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
+
 const SECTIONS = [
   { sectionId: "whimsy-notes", feature: "notes", name: "WhimsyNotesSection" },
   { sectionId: "whimsy-finder-folders", feature: "finder-folders", name: "WhimsyFinderFoldersSection" },
@@ -23,6 +25,8 @@ const SECTIONS = [
   { sectionId: "whimsy-playlist", feature: "playlist", name: "WhimsyPlaylistSection" },
   // wave5: Easels (Arc's Library > Easels).
   { sectionId: "whimsy-easels", feature: "easel", name: "WhimsyEaselsSection" },
+  // W23 routines-ui: Library › Routines, last in the rail; never in private windows.
+  { sectionId: "whimsy-routines", feature: "routines", name: "WhimsyRoutinesSection", after: "whimsy-easels", private: false },
 ];
 
 // Zen's History has a "Closed tabs" source that relabels its tab "Archive";
@@ -178,7 +182,10 @@ export const WhimsyLibrarySection = {
       lib.zenLibrarySections.history = history;
       let changed = historyChanged;
       for (const entry of SECTIONS) {
-        const on = Services.prefs.getBoolPref(`whimsy.feature.${entry.feature}`, true);
+        const on =
+          Services.prefs.getBoolPref(`whimsy.feature.${entry.feature}`, true) &&
+          !!sections[entry.name] &&
+          !(entry.private === false && PrivateBrowsingUtils.isWindowPrivate(win));
         const has = entry.sectionId in lib.zenLibrarySections;
         if (on && !has) {
           lib.zenLibrarySections[entry.sectionId] = sections[entry.name];

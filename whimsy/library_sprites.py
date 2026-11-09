@@ -137,6 +137,39 @@ def easels(t):
     return (f'<g transform="rotate({tilt:.2f} 64 116)">{body(canvas)}{stroke}</g>{legs}')
 
 
+def _arc_point(r, deg):
+    a = math.radians(deg)
+    return 64 + r * math.cos(a), 64 + r * math.sin(a)
+
+
+def _chasing_arrow(start, end, r=46):
+    # An arc running clockwise from `start` to `end` degrees, with its head
+    # pointing along the way it turns.
+    (x0, y0), (x1, y1) = _arc_point(r, start), _arc_point(r, end)
+    a = math.radians(end)
+    tx, ty = -math.sin(a), math.cos(a)
+    heads = ""
+    for s in (1, -1):
+        ang = math.radians(150 * s)
+        hx = tx * math.cos(ang) - ty * math.sin(ang)
+        hy = tx * math.sin(ang) + ty * math.cos(ang)
+        heads += f"M{x1:.2f} {y1:.2f}l{hx * 17:.2f} {hy * 17:.2f}"
+    return f"M{x0:.2f} {y0:.2f}A{r} {r} 0 0 1 {x1:.2f} {y1:.2f}{heads}"
+
+
+def routines(t):
+    # Two arrows chase each other round a sparkle: the loop turns half a turn
+    # with Meeting's clock-hand ease (it is two-fold symmetric, so it lands on
+    # its resting pose) while the sparkle springs like Playlist's play button.
+    turn = 180 * ease_in_out(t / 0.8) if t else 0
+    pop = spring(t, freq=1.2, decay=5.5)
+    loop = _chasing_arrow(200, 320) + _chasing_arrow(20, 140)
+    star = "M64 38Q67.5 60.5 90 64Q67.5 67.5 64 90Q60.5 67.5 38 64Q60.5 60.5 64 38Z"
+    s = 1 + 0.28 * pop
+    return (f'<g transform="rotate({turn:.2f} 64 64)">{line(loop)}</g>'
+            f'<g transform="translate(64 64) scale({s:.3f}) translate(-64 -64)">{body(star)}</g>')
+
+
 ICONS = {
     "notes": notes,
     "folders": folders,
@@ -145,6 +178,8 @@ ICONS = {
     "archive": archive,
     "playlist": playlist,
     "easels": easels,
+    # W23 routines-ui
+    "routines": routines,
 }
 
 
