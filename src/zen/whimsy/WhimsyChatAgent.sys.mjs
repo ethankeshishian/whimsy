@@ -67,7 +67,7 @@ const VERBS = {
   pay: ["pay", "do-it", "dont-pay"],
   send: ["send", "edit-it", "dont-send"],
   submit: ["submit", "edit-it", "dont-submit"],
-  delete: ["delete", "do-it", "keep"],
+  delete: ["delete", "do-it", "dont-delete"],
   account: ["change", "do-it", "dont-change"],
   security: [null, "do-it", "skip"],
   "new-site-data": ["type", "do-it", "skip-site"],
@@ -468,6 +468,10 @@ export const WhimsyChatAgent = {
     if (!task) {
       run?.remove();
       return;
+    }
+    // Once a task starts, the header names it ("Coffee reorder"), not the tab.
+    if (task.title && panel.title) {
+      panel.title.textContent = task.title;
     }
     const isNew = !run;
     if (isNew) {
@@ -906,7 +910,9 @@ export const WhimsyChatAgent = {
     };
     const items = [
       { id: "command", l10n: "whimsy-agent-chat-save-command", detail: "whimsy-agent-chat-save-command-detail", run: () => this.saveAsCommand(win, msg) },
-      state.routineMaker && { id: "routine", l10n: "whimsy-agent-chat-save-routine", detail: "whimsy-agent-chat-save-routine-detail", run: () => state.routineMaker(win, { prompt: msg.prompt ?? msg.template ?? "" }) },
+      // Routines (routines-ui) registers the maker; the row also needs
+      // routines and AI on.
+      state.routineMaker && Services.prefs.getBoolPref("whimsy.feature.routines", true) && lazy.WhimsyAI.enabled && { id: "routine", l10n: "whimsy-agent-chat-save-routine", detail: "whimsy-agent-chat-save-routine-detail", run: () => state.routineMaker(win, { prompt: msg.prompt ?? msg.template ?? "" }) },
     ].filter(Boolean);
     const menu = h(doc, "div", { class: "whimsy-chat-menu whimsy-agent-save-menu", role: "listbox", tabindex: "-1", l10n: "whimsy-agent-chat-save-menu" },
       ...items.map((item, i) => h(doc, "div", {
@@ -976,9 +982,14 @@ export const WhimsyChatAgent = {
       if (state.toasts.has(task.id) || !win.gZenUIManager?.toasts || Services.focus.activeWindow != win) {
         continue;
       }
+      const host = task.pause?.host ?? task.pause?.preview?.titleL10n?.args?.host ?? "";
+      const kind = task.pause?.kind ?? "";
       const toast = win.gZenUIManager.toasts.open("whimsy-agent-chat-needs-you", {
         key: `whimsy-agent-${task.id}`,
-        l10nArgs: { task: task.title || task.clientName || "" },
+        // Two lines (fu-agent 3.3): what it waits on, then the task.
+        l10nArgs: { kind: host || kind == "download" || kind == "new-site-data" ? kind : "", host },
+        descriptionId: "whimsy-agent-chat-needs-you-task",
+        descriptionArgs: { task: task.title || task.clientName || "" },
         timeout: 0,
         buttons: [{
           id: "whimsy-agent-chat-review",
@@ -1079,9 +1090,13 @@ export const WhimsyChatAgent = {
       }
     }
     await panel.doc.l10n.translateFragment(body);
+    // The run strip first: a pause grows it ("Waiting for you"), and the
+    // thread above shrinks by as much before the new card is measured.
+    this.renderRunCard(panel);
     if (added) {
-      // A card that asks you something keeps its choices in view.
-      const target = added.matches("[data-focus]") ? added.querySelector(".whimsy-agent-actions") ?? added : added;
+      // A card that asks you something stays whole in view, down to its
+      // last line (agent 5.1), as far as its top allows.
+      const target = added;
       const behavior = reducedMotion(panel.win) ? "instant" : "smooth";
       // Scroll the thread only: scrollIntoView would also scroll the card's
       // own clipped unfold wrapper, leaving its top cut off for good.
@@ -1107,7 +1122,6 @@ export const WhimsyChatAgent = {
         (added.querySelector("[data-autofocus]") ?? added).focus({ preventScroll: true });
       }
     }
-    this.renderRunCard(panel);
   },
 
   // Updates a card in place where it can (focus and hover stay put).
@@ -1414,7 +1428,7 @@ export const WhimsyChatAgent = {
     };
     const actions = h(doc, "div", { class: "whimsy-agent-actions" },
       ...verbs.map(v => button(doc, [v.l10n, { amount }], () => decide(v.choice), {
-        primary: false, destructive: v.choice == "do" && msg.kind == "delete", ic: v.choice == "self" ? "hand" : null, choice: v.choice,
+        primary: v.choice == "do" && msg.kind != "delete", destructive: v.choice == "do" && msg.kind == "delete", ic: v.choice == "self" ? "hand" : null, choice: v.choice,
       })),
       skip ? h(doc, "span", { class: "whimsy-agent-keys", l10n: [`${skip.l10n}-esc`, { amount }] }) : null);
     const card = this.frame(doc, msg, { kind: "pause", ic: PAUSE_ICONS[msg.kind] ?? "alert", head: preview.titleL10n ? [preview.titleL10n.id, preview.titleL10n.args] : "whimsy-agent-chat-paused", tag: "whimsy-agent-chat-tag-paused", focus: true },

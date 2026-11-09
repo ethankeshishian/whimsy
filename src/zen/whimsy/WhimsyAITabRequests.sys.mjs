@@ -53,6 +53,12 @@ function hostOf(tab) {
   }
 }
 
+// The one site every tab is on, or "".
+function sameHost(tabs) {
+  const hosts = new Set(tabs.map(hostOf));
+  return hosts.size == 1 ? [...hosts][0] : "";
+}
+
 export const WhimsyAITabRequests = {
   // threadId -> {request, options, action, name}
   _pending: new Map(),
@@ -130,11 +136,16 @@ export const WhimsyAITabRequests = {
     if (!tabs.length) {
       return [];
     }
+    // The site names the group only when the matches are all its tabs.
+    const host = sameHost(tabs);
+    const site = host && this.candidates(win).filter(c => c.host == host).length == tabs.length ? host : "";
     return [
       {
         id: `typed:tabs-${action}`,
         icon: ROW_ICON,
-        label: lazy.l10n.formatValueSync(`whimsy-tabs-row-${action}`, { count: tabs.length, what: match[2].trim() }),
+        // "Close 3 youtube.com tabs" when the matches are that site's
+        // tabs; else the person's words, in curly quotes (page 10.2).
+        label: lazy.l10n.formatValueSync(`whimsy-tabs-row-${action}${site ? "-site" : ""}`, { count: tabs.length, what: match[2].trim(), site }),
         tag: this.spaceName(win, tabs[0]),
         run: w => this.apply(w, { action, tabs }),
       },

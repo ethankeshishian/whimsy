@@ -117,7 +117,7 @@
     border-radius: 4px;
     background: var(--zen-accent-button-background, var(--whimsy-chat-accent-bg));
     opacity: 0;
-    transition: opacity 0.2s ease-in-out;
+    transition: opacity 0.2s ease-out;
   }
 
   &:is(:hover, [resizing])::before {
@@ -141,7 +141,7 @@
 .whimsy-chat-icon[data-icon="chat-hide"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/chat-hide.svg"); }
 .whimsy-chat-icon[data-icon="back"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/back.svg"); }
 .whimsy-chat-icon[data-icon="search"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/search-glass.svg"); }
-.whimsy-chat-icon[data-icon="send"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/arrow-up.svg"); }
+.whimsy-chat-icon[data-icon="send"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/send-arrow.svg"); }
 .whimsy-chat-icon[data-icon="lock"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/security.svg"); }
 .whimsy-chat-icon[data-icon="sparkle"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/sparkles.svg"); }
 .whimsy-chat-icon[data-icon="video"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/video-chip.svg"); }
@@ -646,7 +646,8 @@
     width: 14px;
     height: 14px;
   }
-  &[off],
+  /* Empty but enabled keeps the accent (chat mockups); only a disabled
+     composer (a private tab) greys it. */
   &:disabled {
     background: var(--whimsy-chat-active);
     color: var(--whimsy-chat-muted);

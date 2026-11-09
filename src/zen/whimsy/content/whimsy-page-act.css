@@ -382,9 +382,14 @@
 /* ---- The scam warning's words, inside Zen's notification ---- */
 notification-message.whimsy-scam {
   max-width: 30rem;
+  /* Light mode: a card's edge and lift, so it doesn't melt into a white page. */
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.1), transparent);
+  box-shadow: 0 4px 16px light-dark(rgba(0, 0, 0, 0.1), transparent);
 }
-/* fu-page dec-13: Zen's floating card, title inline, 12.5px words. */
+/* 05-page 8.3: the title on its own line, then the why, then the reasons. */
 .whimsy-scam-body {
+  display: grid;
+  gap: 2px;
   font-size: 12.5px;
   line-height: 1.4;
   & b {

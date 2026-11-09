@@ -40,12 +40,31 @@ async function closeFire(panel) {
   }
 }
 
+async function openSpacesMenu(panel) {
+  panel.querySelector("#whimsy-fire-spaces-change").click();
+  await TestUtils.waitForCondition(() => document.getElementById("whimsyFireSpacesMenu")?.state == "open", "The spaces menu opens");
+  const menu = document.getElementById("whimsyFireSpacesMenu");
+  await document.l10n.translateFragment(menu);
+  return menu;
+}
+async function closeSpacesMenu(menu) {
+  if (menu.state == "open") {
+    const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
+    menu.hidePopup();
+    await hidden;
+  }
+}
+
 // fire-2.1: first-time defaults (range, scope, items, kept, can't-undo).
 add_task(async function shots_fire_panel_defaults() {
   Services.prefs.clearUserPref(LAST_PREF);
   await whimsyBothSchemes("w23-memory-fire-fire-2.1", async () => {
     const panel = await openFire();
     ok(panel.state == "open" && panel.querySelector("#whimsy-fire-forget"), "fire-2.1: the Fire surface is open on its defaults");
+    const note = panel.querySelector(".whimsy-fire-undone-note");
+    await TestUtils.waitForCondition(() => /^whimsy-fire-summary-/.test(note.getAttribute("data-l10n-id") ?? ""), "fire-2.1: the red note says what goes");
+    await document.l10n.translateElements([note]);
+    ok(/the last hour/.test(note.textContent) && /Can’t be undone/.test(note.textContent), `fire-2.1: the summary names the range and can't be undone (${note.textContent})`);
     // MUST 6: a panel is its own widget; copy it into the window for the shot.
     await whimsySettled();
     const undo = whimsyStandInPopups();
@@ -56,13 +75,34 @@ add_task(async function shots_fire_panel_defaults() {
   });
 });
 
+// fire-2.3: Change's menu, every space by profile, open over the surface.
+add_task(async function shots_fire_spaces_menu() {
+  Services.prefs.clearUserPref(LAST_PREF);
+  await whimsyBothSchemes("w23-memory-fire-fire-2.3", async () => {
+    const panel = await openFire();
+    const menu = await openSpacesMenu(panel);
+    ok(menu.querySelector('[role="option"][data-value="all"]') && menu.querySelector(".whimsy-fire-spaces-menu-profile"),
+      "fire-2.3: All spaces, then spaces under their profile");
+    await whimsySettled();
+    const undo = whimsyStandInPopups();
+    return async () => {
+      undo();
+      await closeSpacesMenu(menu);
+      return closeFire(panel);
+    };
+  });
+});
+
 // fire-2.7: everything, all time, every space; Fire… because it asks once
 // more. fire-3.1: the press asks, in the same surface.
 add_task(async function shots_fire_panel_second_ask() {
   Services.prefs.clearUserPref(LAST_PREF);
-  const everything = panel => {
+  const everything = async panel => {
     panel.querySelector('#whimsy-fire-range [data-value="all"]').click();
-    for (const input of panel.querySelectorAll(".whimsy-fire-scope-group > label input, .whimsy-fire-items input")) {
+    const menu = await openSpacesMenu(panel);
+    menu.querySelector('[role="option"][data-value="all"]').click();
+    await closeSpacesMenu(menu);
+    for (const input of panel.querySelectorAll(".whimsy-fire-items input")) {
       if (!input.checked) {
         input.click();
       }
@@ -70,7 +110,7 @@ add_task(async function shots_fire_panel_second_ask() {
   };
   await whimsyBothSchemes("w23-memory-fire-fire-2.7", async () => {
     const panel = await openFire();
-    everything(panel);
+    await everything(panel);
     is(document.l10n.getAttributes(panel.querySelector("#whimsy-fire-forget")).id, "whimsy-fire-run-ask", "fire-2.7: Fire… says it asks once more");
     await whimsySettled();
     const undo = whimsyStandInPopups();
@@ -81,7 +121,7 @@ add_task(async function shots_fire_panel_second_ask() {
   });
   await whimsyBothSchemes("w23-memory-fire-fire-3.1", async () => {
     const panel = await openFire();
-    everything(panel);
+    await everything(panel);
     panel.querySelector("#whimsy-fire-forget").click();
     await TestUtils.waitForCondition(() => panel.dataset.step == "confirm", "The confirm step shows");
     ok(panel.dataset.step == "confirm", "fire-3.1: it asks once more, in the same surface");
@@ -201,6 +241,15 @@ add_task(async function shots_memory_note_and_used_line() {
       await document.l10n.translateFragment(chat.body);
       return null;
     });
+    await whimsyBothSchemes("w23-memory-fire-chat-4.4", async () => {
+      used.click();
+      const list = await TestUtils.waitForCondition(() => used.closest(".whimsy-chat-actions").nextElementSibling?.matches(".whimsy-chat-used-memories") && used.closest(".whimsy-chat-actions").nextElementSibling, "The list opens in place");
+      is(used.getAttribute("aria-expanded"), "true", "chat-4.4: Used 1 memory opens its list in place");
+      ok(list.querySelector("li") && list.querySelector(".whimsy-chat-link"), "with the memory and Manage memory…");
+      await document.l10n.translateFragment(chat.body);
+      return () => used.click();
+    });
+    ok(!used.closest(".whimsy-chat-actions").nextElementSibling?.matches(".whimsy-chat-used-memories"), "Pressing it again folds the list");
   } finally {
     if (chat.isOpen) {
       chat.close({ reason: "key" });
@@ -236,6 +285,15 @@ add_task(async function shots_memory_settings() {
     } finally {
       win.WhimsyAISettings.reducedMotion = reduce;
     }
+    ok(!doc.getElementById("whimsyMemorySearch").closest("[hidden]"), "set-7.1: a search pill above the list");
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyMemoryCount").textContent.includes("2"), "set-7.1: and the count");
+    const search = doc.getElementById("whimsyMemorySearch");
+    search.value = "aisle";
+    search.dispatchEvent(new win.Event("input"));
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyMemoryList").childElementCount == 1, "Searching narrows the list");
+    search.value = "";
+    search.dispatchEvent(new win.Event("input"));
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyMemoryList").childElementCount == 2, "Clearing it brings both back");
     await whimsyBothSchemes("w23-memory-fire-set-7.1", async () => null);
   } finally {
     BrowserTestUtils.removeTab(tab);

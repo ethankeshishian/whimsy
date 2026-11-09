@@ -31,6 +31,7 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
@@ -558,6 +559,7 @@ const TOP_ROWS = 3;
 const MIN_SHARE = 0.04;
 // "This page": optional rows other lanes register keep this order, with
 // "Change this page…" right above Zap Elements.
+const IMAGE_ORDER = ["ai:ask-image", "image-text:translate", "image-text:copy", "image:copy", "image:save"];
 const PAGE_ORDER = ["pip", "change-page", "zap", "translate", "copy-markdown", "note", "email", "linear-new"];
 
 function contextOn(win) {
@@ -747,11 +749,16 @@ export const WhimsyContextCommands = {
     }
     for (const [i, kind] of kinds.entries()) {
       const rows = [...registered(kind).map(v => this.verbRow(win, v, subject, view)), ...AI_ROWS[kind].map(def => this.aiRow(def, subject, view))];
+      if (kind == "image") {
+        // media 3.5: Ask, the image's text, then Firefox's own rows.
+        const at = row => (IMAGE_ORDER.includes(row?.id) ? IMAGE_ORDER.indexOf(row.id) : IMAGE_ORDER.length);
+        rows.sort((a, b) => at(a) - at(b));
+      }
       if (kind == "product") {
         // Compare and Watch price (the page's chips) lead.
         rows.sort((a, b) => (/compare|watch-price/.test(b.id) ? 1 : 0) - (/compare|watch-price/.test(a.id) ? 1 : 0));
       }
-      make(kind, this.groupLabel(kind, i == 0, title, view), rows, { top: kind == "product" ? 4 : TOP_ROWS });
+      make(kind, this.groupLabel(kind, i == 0, title, view), rows, { top: kind == "product" ? 4 : kind == "image" ? IMAGE_ORDER.length : TOP_ROWS });
     }
     if (!kinds.includes("article")) {
       // Not in view, but typing still finds the page's commands (greyed when they can't run).
@@ -1073,6 +1080,23 @@ export const WhimsyVerbs = {
   /** The ⌘K groups for a subject and the view's share (cmd dec-11). */
   rank(subject, viewShare, win = lazy.BrowserWindowTracker.getTopWindow()) {
     return WhimsyContextCommands.rank(win, subject, viewShare);
+  },
+
+  /**
+   * ⌘K in a mode of its own (page 6.2, "Change this page"): `rows` before
+   * typing under `label`, `typed(text)` the one row typing makes, and
+   * `placeholder` the field's words.
+   */
+  async openMode(win, { mode, label, rows, typed, placeholder, title = "", value = "" }) {
+    const subject = { kind: "page", title, mode, groups: [{ kind: mode, label, rows, all: rows }], modeTyped: typed };
+    await this.start(win, subject);
+    if (placeholder) {
+      win.document.l10n.setAttributes(win.gURLBar.inputField, placeholder);
+    }
+    if (value) {
+      win.gURLBar.inputField.setUserInput(value);
+    }
+    return subject;
   },
 
   // Firefox's own Cmd+K (key_search): focus the web search.
@@ -1541,6 +1565,13 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
   // ⌘K's groups in their frozen order; typing flattens them (cmd-3.9),
   // and with nothing to pick, Ask about what's on screen, then search.
   #contextRows(subject, query, addCallback) {
+    if (subject.modeTyped && query.trim()) {
+      // A mode (openMode): typing makes its one row, nothing else.
+      const row = subject.modeTyped(query.trim());
+      subject.typed = new Map([[row.id, row]]);
+      addCallback(this, this.#result(subject, row, subject.groups[0].label, true));
+      return;
+    }
     if (!query.trim()) {
       let first = true;
       for (const group of subject.groups) {
@@ -1640,3 +1671,47 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
     WhimsyVerbs.runVerb(win, whimsyVerb, subject);
   }
 }
+
+// ⌘K on an image: Firefox's Copy Image and Save Image As… (media 3.5), with
+// AI on or off. They act on the image ⌘K picked (the one under the pointer,
+// or the biggest in view).
+function pickedImage(view) {
+  const src = lazy.WhimsyAIViewShare.pickImages(view)[0]?.src ?? "";
+  return /^(?:https?|data|blob):/i.test(src) ? src : "";
+}
+
+WhimsyVerbs.registerVerb({
+  id: "image:copy",
+  group: "image",
+  l10nId: "whimsy-cmdk-copy-image",
+  icon: `${ICONS}edit-copy.svg`,
+  isAvailable: (win, subject, view) => lazy.WhimsyAIViewShare.pickImages(view).length == 1 && !!pickedImage(view),
+  run: async (win, subject) => {
+    win.gURLBar.view.close();
+    const src = pickedImage(subject?.view);
+    try {
+      const response = await win.fetch(src, { credentials: "omit" });
+      lazy.BrowserUtils.copyImageToClipboard(await response.arrayBuffer());
+      win.gZenUIManager?.toasts?.open("whimsy-cmdk-copied-image", { key: "whimsy-cmdk-copied-image", icon: "chrome://browser/skin/zen-icons/check.svg" });
+    } catch (e) {
+      console.error("Whimsy: copy image", e);
+    }
+  },
+});
+
+WhimsyVerbs.registerVerb({
+  id: "image:save",
+  group: "image",
+  l10nId: "whimsy-cmdk-save-image",
+  icon: `${ICONS}downloads.svg`,
+  isAvailable: (win, subject, view) => lazy.WhimsyAIViewShare.pickImages(view).length == 1 && !!pickedImage(view),
+  run: (win, subject) => {
+    win.gURLBar.view.close();
+    const src = pickedImage(subject?.view);
+    const browser = win.gBrowser.selectedBrowser;
+    const principal = browser.contentPrincipal;
+    win.urlSecurityCheck(src, principal);
+    win.internalSave(src, null, null, null, null, null, false, "SaveImageTitle", null, null, browser.cookieJarSettings ?? null, null, false, null,
+      lazy.PrivateBrowsingUtils.isBrowserPrivate(browser), principal);
+  },
+});

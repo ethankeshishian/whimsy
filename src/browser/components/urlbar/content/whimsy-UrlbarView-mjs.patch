@@ -2,13 +2,35 @@ diff --git a/browser/components/urlbar/content/UrlbarView.mjs b/browser/componen
 index 0fbe830..ba3acdc 100644
 --- a/browser/components/urlbar/content/UrlbarView.mjs
 +++ b/browser/components/urlbar/content/UrlbarView.mjs
-@@ -3572,25 +3572,30 @@ export class UrlbarView {
+@@ -3259,7 +3259,11 @@
+    */
+   #rowLabel(row) {
+     if (!UrlbarPrefs.get("groupLabels.enabled")) {
+-      return null;
++      // Whimsy: Zen turns Firefox's group labels off, but ⌘K's own groups
++      // (This image, This page, Commands) keep their headings.
++      return row.result.payload?.whimsyVerb && row.result.rowLabel
++        ? row.result.rowLabel
++        : null;
+     }
+ 
+     if (row.result.rowLabel) {
+@@ -3572,25 +3576,30 @@
     *   last selectable element.
     */
    #getNextSelectableElement(element) {
 -    let row = this.#getRowFromElement(element);
 -    if (!row) {
 -      return null;
+-    }
+-
+-    let next = /** @type {SelectableElement} */ (row.nextElementSibling);
+-    let selectables = this.#getKeyboardSelectablesInRow(row);
+-    if (selectables.length) {
+-      let index = selectables.indexOf(element);
+-      if (index < selectables.length - 1) {
+-        next = selectables[index + 1];
+-      }
 -    }
 +    // Whimsy: a loop, not a recursion per element that can't be selected.
 +    // The command bar lists every command (hundreds of rows), and walking
@@ -20,12 +42,9 @@ index 0fbe830..ba3acdc 100644
 +        return null;
 +      }
  
--    let next = /** @type {SelectableElement} */ (row.nextElementSibling);
--    let selectables = this.#getKeyboardSelectablesInRow(row);
--    if (selectables.length) {
--      let index = selectables.indexOf(element);
--      if (index < selectables.length - 1) {
--        next = selectables[index + 1];
+-    if (next && !this.#isSelectableElement(next)) {
+-      next = this.#getNextSelectableElement(next);
+-    }
 +      let next = /** @type {SelectableElement} */ (row.nextElementSibling);
 +      let selectables = this.#getKeyboardSelectablesInRow(row);
 +      if (selectables.length) {
@@ -33,22 +52,18 @@ index 0fbe830..ba3acdc 100644
 +        if (index < selectables.length - 1) {
 +          next = selectables[index + 1];
 +        }
-       }
--    }
++      }
  
--    if (next && !this.#isSelectableElement(next)) {
--      next = this.#getNextSelectableElement(next);
+-    return next;
 +      if (!next || this.#isSelectableElement(next)) {
 +        return next;
 +      }
 +      element = next;
-     }
--
--    return next;
++    }
    }
  
    /**
-@@ -3604,28 +3609,30 @@ export class UrlbarView {
+@@ -3604,28 +3613,30 @@
     *   the first selectable element.
     */
    #getPreviousSelectableElement(element) {
@@ -56,13 +71,7 @@ index 0fbe830..ba3acdc 100644
 -    if (!row) {
 -      return null;
 -    }
-+    // Whimsy: a loop, as in #getNextSelectableElement.
-+    for (;;) {
-+      let row = this.#getRowFromElement(element);
-+      if (!row) {
-+        return null;
-+      }
- 
+-
 -    /** @type {SelectableElement} */
 -    let previous = row.previousElementSibling;
 -    let selectables = this.#getKeyboardSelectablesInRow(row);
@@ -72,6 +81,17 @@ index 0fbe830..ba3acdc 100644
 -        previous = selectables[selectables.length - 1];
 -      } else if (index > 0) {
 -        previous = selectables[index - 1];
++    // Whimsy: a loop, as in #getNextSelectableElement.
++    for (;;) {
++      let row = this.#getRowFromElement(element);
++      if (!row) {
++        return null;
+       }
+-    }
+ 
+-    if (previous && !this.#isSelectableElement(previous)) {
+-      previous = this.#getPreviousSelectableElement(previous);
+-    }
 +      /** @type {SelectableElement} */
 +      let previous = row.previousElementSibling;
 +      let selectables = this.#getKeyboardSelectablesInRow(row);
@@ -82,18 +102,14 @@ index 0fbe830..ba3acdc 100644
 +        } else if (index > 0) {
 +          previous = selectables[index - 1];
 +        }
-       }
--    }
++      }
  
--    if (previous && !this.#isSelectableElement(previous)) {
--      previous = this.#getPreviousSelectableElement(previous);
+-    return previous;
 +      if (!previous || this.#isSelectableElement(previous)) {
 +        return previous;
 +      }
 +      element = previous;
-     }
--
--    return previous;
++    }
    }
  
    /**

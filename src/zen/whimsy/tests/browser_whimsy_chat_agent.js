@@ -255,7 +255,10 @@ add_task(async function pay_return_does_nothing_esc_is_dont() {
   await TestUtils.waitForCondition(() => document.activeElement == card, "Focus moves to the card, not a button");
   const labels = [...card.querySelectorAll(".whimsy-agent-actions > .whimsy-agent-btn")].map(b => b.getAttribute("data-l10n-id"));
   Assert.deepEqual(labels, ["whimsy-agent-chat-verb-pay", "whimsy-agent-chat-verb-do-it", "whimsy-agent-chat-verb-dont-pay"], "Pay / I'll do it / Don't pay");
-  ok(!card.querySelector(".whimsy-agent-btn.primary"), "No default button");
+  // The first action is drawn as the primary (agent 5.1), but it is not a
+  // default button: focus stays on the card and Return never presses it.
+  is([...card.querySelectorAll(".whimsy-agent-btn.primary")].map(b => b.dataset.choice).join(), "do", "Pay is drawn as the primary action");
+  ok(document.activeElement == card, "No default button: focus is on the card");
   const decided = WhimsyAgentTasks.wait(task, task.pause);
   EventUtils.synthesizeKey("KEY_Enter");
   card.querySelector("[data-choice='do']").focus();

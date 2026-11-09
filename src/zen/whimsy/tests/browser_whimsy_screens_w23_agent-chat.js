@@ -277,6 +277,11 @@ add_task(async function shot_end() {
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-agent-end [data-choice='save']"), {});
     await TestUtils.waitForCondition(() => part(".whimsy-agent-save-menu .whimsy-chat-option"), "Save menu");
     ok(part(".whimsy-agent-save-menu [data-item='command']"), "Save as command is listed");
+    // Routines registers the second row once the window is up.
+    await TestUtils.waitForCondition(() => part(".whimsy-agent-save-menu [data-item='routine']"), "Make it a routine is listed too");
+    const menu = part(".whimsy-agent-save-menu");
+    const last = [...menu.querySelectorAll(".whimsy-chat-option")].at(-1);
+    Assert.lessOrEqual(menu.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom, 8, "The menu hugs its rows: no empty slot under them");
     return () => EventUtils.synthesizeKey("KEY_Escape");
   });
   await whimsyBothSchemes(`${P}agent-7.2-looked-at`, async () => {
@@ -315,10 +320,10 @@ async function seedRuns() {
   for (let i = 0; i < 3; i++) {
     await step({ id: "airpods", client: "whimsy", title: "Compared AirPods Pro prices", mode: "background" }, "AirPods");
   }
-  await step({ id: "brief", client: "whimsy", title: "Daily brief", mode: "background" }, "Brief");
+  await step({ id: "brief", client: "whimsy", title: "Daily brief", mode: "background", kind: "routine" }, "Brief");
   await step({ id: "m5", client: "outside", clientName: "Claude Code", title: "Read 3 tabs about M5 laptops" }, "Laptops");
   for (let i = 0; i < 5; i++) {
-    await step({ id: "coffee", client: "whimsy", title: "Coffee reorder" }, "Hearth Coffee");
+    await step({ id: "coffee", client: "whimsy", title: "Coffee reorder", approvals: 1 }, "Hearth Coffee");
   }
   await WhimsyClaudeReplay.flush();
 }
@@ -384,6 +389,8 @@ add_task(async function shot_settings() {
     const page = await openSection("activity");
     await TestUtils.waitForCondition(() => page.doc.querySelectorAll("#whimsyAIActivityRuns [data-run]").length == 4, "Runs");
     ok(page.$("whimsyAIActivityDays"), "Activity: runs by day, and how long they're kept");
+    const detail = id => page.doc.querySelector(`#whimsyAIActivityRuns [data-run] .whimsy-ai-item-text [data-l10n-args*='${id}']`);
+    ok(detail('"mode":"routine"') && detail('"pauses":1'), "A routine's run says so, and a run you approved a pause in says that too");
     return page.close;
   });
   await whimsyBothSchemes(`${P}set-9.3-delete`, async () => {

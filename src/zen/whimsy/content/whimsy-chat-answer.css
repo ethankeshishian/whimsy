@@ -183,6 +183,12 @@
   vertical-align: -2px;
   background: var(--whimsy-chat-accent-bg);
   animation: whimsy-chat-caret 1s steps(2) infinite;
+
+  /* Reduce Motion: a still caret, half strength, so streaming still reads as live. */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 @keyframes whimsy-chat-caret {
   50% {
@@ -249,7 +255,7 @@
   width: 10px;
   height: 10px;
   rotate: -90deg;
-  transition: rotate 150ms var(--whimsy-ease, cubic-bezier(0.2, 0, 0, 1));
+  transition: rotate 150ms cubic-bezier(0.2, 0, 0, 1);
   .whimsy-chat-thinking[open] & {
     rotate: 0deg;
   }
@@ -1045,4 +1051,38 @@
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+/* chat-4.4: Used N memories, a disclosure: its chevron, and the list in place. */
+.whimsy-chat-btn-labelled[data-action="used-memories"]::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: url("chrome://browser/content/whimsy/icons/chevron-down.svg") center / contain no-repeat;
+  -moz-context-properties: fill, stroke;
+  fill: currentColor;
+  stroke: currentColor;
+  rotate: -90deg;
+  transition: rotate 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+.whimsy-chat-btn-labelled[data-action="used-memories"][aria-expanded="true"]::after {
+  rotate: 0deg;
+}
+.whimsy-chat-used-memories {
+  display: grid;
+  gap: 6px;
+  margin-block-start: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--whimsy-chat-track);
+  font-size: 12px;
+  & ul {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding-inline-start: 16px;
+  }
+  & .whimsy-chat-link {
+    justify-self: start;
+  }
 }

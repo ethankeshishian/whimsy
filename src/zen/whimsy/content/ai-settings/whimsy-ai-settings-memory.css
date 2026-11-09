@@ -44,3 +44,34 @@
   resize: none;
   min-height: 1.4em;
 }
+
+/* set-7.1: the Library's search pill and the count, above the list. */
+.whimsy-memory-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-block: 4px 8px;
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-memory-search {
+  flex: 1;
+  max-width: 260px;
+  min-height: 28px;
+  margin: 0;
+  padding-inline: 28px 10px;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 4%, transparent) url("chrome://global/skin/icons/search-glass.svg") 9px center / 14px no-repeat;
+  -moz-context-properties: fill;
+  fill: color-mix(in srgb, currentColor 60%, transparent);
+  font: inherit;
+  font-size: 0.92em;
+}
+.whimsy-memory-count {
+  margin-inline-start: auto;
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 62%, transparent));
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+}

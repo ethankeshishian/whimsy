@@ -9,6 +9,35 @@
   align-items: center;
 }
 
+/* Group headings (This image, This page, Change this page): Firefox's row
+   label, which the UrlbarView patch keeps for ⌘K rows while Zen turns
+   group labels off. Drawn above the row, outside its hover and selection. */
+.urlbarView-row[dynamicType^="whimsy-verb"][label] {
+  position: relative;
+  margin-block-start: 26px;
+
+  &::before {
+    content: attr(label);
+    position: absolute;
+    inset-block-start: -21px;
+    inset-inline-start: 0;
+    margin-inline-start: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--whimsy-ask-muted);
+    opacity: 1;
+    pointer-events: none;
+    white-space: nowrap;
+    max-width: calc(100% - 16px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &:first-child {
+    margin-block-start: 24px;
+  }
+}
+
 .whimsy-cmdk-detail {
   flex: 1 1 auto;
   min-width: 0;

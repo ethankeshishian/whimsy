@@ -36,6 +36,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const FEATURE_PREF = "whimsy.feature.ai-page-edits";
 const STORE_PREF = "whimsy.ai.page-edits";
 const ICON = "chrome://browser/skin/zen-icons/wand-sparkle.svg";
+const SPARKLE_ICON = "chrome://browser/skin/zen-icons/sparkles.svg";
+// "Change this page" suggestions in ⌘K (page 6.2).
+const SUGGESTIONS = ["whimsy-edit-suggest-comments", "whimsy-edit-suggest-bigger", "whimsy-edit-suggest-article"];
 const SHEET = "chrome://browser/content/whimsy/whimsy-page-act.css";
 const CSS_START = "/* whimsy-page-edits */";
 const CSS_END = "/* /whimsy-page-edits */";
@@ -427,24 +430,35 @@ export const WhimsyAIPageEdits = {
 
   // --- Asking ---
 
-  /** "Change this page…" with nothing typed: the bar turns into a prompt. */
-  prompt(win, { value = "", editing = null } = {}) {
+  /**
+   * "Change This Page…": ⌘K in its own mode (page 6.2), with three
+   * suggestions; typing makes "Change this page: …". `value` starts it
+   * typed (Try other words); `editing` updates a kept change.
+   */
+  async prompt(win, { value = "", editing = null } = {}) {
     const tab = win.gBrowser.selectedTab;
     if (!this.canEdit(win, tab)) {
-      return;
+      return null;
     }
-    WhimsyPageBar.show(win, tab.linkedBrowser, {
-      owner: "edits",
-      icon: "sparkle",
-      input: { l10n: "whimsy-edit-placeholder", value },
-      buttons: [
-        { id: "cancel", l10n: "whimsy-edit-cancel" },
-        { id: "go", l10n: "whimsy-edit-go", primary: true },
-      ],
-      onButton: (id, text) => (id == "go" && text.trim() ? this.apply(win, tab, text.trim(), { editing }) : WhimsyPageBar.hide(win, "edits")),
-      onEscape: () => WhimsyPageBar.hide(win, "edits"),
+    const run = text => this.apply(win, tab, text, { editing });
+    const rows = SUGGESTIONS.map(id => {
+      const label = lazy.l10n.formatValueSync(id);
+      return { id: `change-page:${id}`, icon: SPARKLE_ICON, label, run: () => run(label) };
     });
-    lazy.WhimsyAIHints.request?.(win, "page-edits-site");
+    return lazy.WhimsyVerbs.openMode(win, {
+      mode: "change-page",
+      label: { id: "whimsy-edit-cmdk-group" },
+      rows,
+      placeholder: "whimsy-edit-cmdk-placeholder",
+      title: tab.label,
+      value,
+      typed: text => ({
+        id: "typed:change-page",
+        icon: ICON,
+        label: lazy.l10n.formatValueSync("whimsy-edit-cmdk-typed", { text }),
+        run: () => run(text),
+      }),
+    });
   },
 
   async planFor(tab, sentence, outline, { signal } = {}) {
@@ -561,6 +575,8 @@ export const WhimsyAIPageEdits = {
       onButton: id => (id == "keep" ? this.keep(win) : id == "undo" ? this.undo(win) : this.finish(win)),
       onEscape: () => this.finish(win),
     });
+    // Before the first keep: what keeping means (shown once).
+    lazy.WhimsyAIHints.request?.(win, "page-edits-site");
   },
 
   /** Just this time (Esc): the change stays until the page reloads. */

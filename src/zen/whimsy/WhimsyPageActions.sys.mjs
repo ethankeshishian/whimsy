@@ -31,6 +31,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const FEATURE_PREF = "whimsy.feature.page-actions";
 const SHEET = "chrome://browser/content/whimsy/whimsy-navigation.css";
 const PILL_ID = "whimsy-page-action";
+// 05-page 9.1: below this address field width (the sidebar's, usually) the
+// page pills (Watch price, Compare, Cook mode…) show their icons alone, so
+// the site's name keeps its room. Measured on #urlbar, whose width the
+// pills don't change, so the switch never feeds back on itself.
+const NARROW_URLBAR = 400;
+const narrowWatched = new WeakSet();
 const COOK_ID = "whimsy-cook-panel";
 const ICONS = {
   event: "chrome://browser/content/whimsy/space-icons/calendar.svg",
@@ -378,7 +384,21 @@ export const WhimsyPageActions = {
     return [`whimsy-page-action-${action.kind}`, args];
   },
 
+  // Marks the address field narrow ([whimsy-narrow]) while it is; the
+  // pills' words then step aside (whimsy-navigation.css).
+  watchWidth(win) {
+    const urlbar = win.document.getElementById("urlbar");
+    if (!urlbar || narrowWatched.has(urlbar)) {
+      return;
+    }
+    narrowWatched.add(urlbar);
+    const set = width => urlbar.toggleAttribute("whimsy-narrow", width > 0 && width < NARROW_URLBAR);
+    new win.ResizeObserver(entries => set(entries.at(-1).contentRect.width)).observe(urlbar);
+    set(urlbar.getBoundingClientRect().width);
+  },
+
   update(win) {
+    this.watchWidth(win);
     const browser = win.gBrowser?.selectedBrowser;
     const action = this.enabled && browser ? this.actionFor(browser) : null;
     const show = !!action && this.available(win, action);

@@ -99,15 +99,13 @@ function useSpeech(options) {
   return speech;
 }
 
-// Fluent in the bar, skipping an element with no message id (logged).
+// Fluent in the bar. Commands mode once left the address field with
+// data-l10n-id="undefined" (Firefox's search-mode placeholder had no entry
+// for Zen's actions source), which threw and left the bar half translated.
 async function translateBar() {
-  for (const el of gURLBar.querySelectorAll("[data-l10n-id]")) {
-    const id = el.getAttribute("data-l10n-id");
-    if (!id || id == "undefined") {
-      info(`An element in the bar has no message: ${el.outerHTML.slice(0, 200)}`);
-    }
-  }
-  await document.l10n.translateElements([...gURLBar.querySelectorAll("[data-l10n-id]")].filter(el => !["", "undefined"].includes(el.getAttribute("data-l10n-id"))));
+  const missing = [...gURLBar.querySelectorAll("[data-l10n-id]")].filter(el => ["", "undefined"].includes(el.getAttribute("data-l10n-id")));
+  is(missing.map(el => el.id || el.className).join(), "", "Every element in the bar has a real message id");
+  await document.l10n.translateElements([...gURLBar.querySelectorAll("[data-l10n-id]")]);
 }
 
 async function frames(n = 2) {
@@ -438,7 +436,22 @@ add_task(async function shots_image_cmdk() {
   await withImageText("jp", async () => {
     await whimsyBothSchemes("w23-voice-image-media-3.5", async () => {
       const close = await imageCmdK();
-      ok(true, "3.5: ⌘K with an image with text");
+      const ids = [];
+      for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+        ids.push((await UrlbarTestUtils.getDetailsOfResultAt(window, i)).result.payload.whimsyVerb);
+      }
+      info(`3.5 rows: ${ids.join(", ")}`);
+      ok(ids.includes("image:copy") && ids.includes("image:save"), "3.5: Copy Image and Save Image As… are listed");
+      is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-cmdk-type-command", "3.5: the field says Type a command");
+      ok(!BrowserTestUtils.isVisible(document.getElementById("urlbar-search-mode-indicator")), "3.5: no empty search-mode capsule");
+      // Group headings: Firefox's row labels, shown for ⌘K's rows.
+      const labelled = () => [...gURLBar.view.panel.querySelectorAll(".urlbarView-row[label]")].filter(r => BrowserTestUtils.isVisible(r));
+      await TestUtils.waitForCondition(() => labelled().some(r => r.getAttribute("label") == "This image"), "3.5: the This image heading");
+      const first = labelled()[0];
+      is(first.getAttribute("label"), "This image", "3.5: the first group's heading is This image");
+      ok(first.querySelector(".urlbarView-title")?.textContent, "3.5: the headed row keeps its title (the label didn't wipe it)");
+      ok(labelled().some(r => r.getAttribute("label") == "This page"), "3.5: This page heads the page's commands");
+      await translateBar();
       return close;
     });
   });

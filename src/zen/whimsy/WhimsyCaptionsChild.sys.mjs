@@ -651,17 +651,9 @@ export class VideoCaptions {
 
   get strings() {
     if (!this._strings) {
-      const fallback = {
-        none: "This video has no captions to translate",
-        failed: "Couldn’t translate these captions, so they’re shown as they are",
-        region: "Translated captions",
-        move: "Drag to move. Double-click to put back",
-        listening: "Listening to the video for live captions…",
-        "speech-denied": "Allow Speech Recognition in System Settings → Privacy & Security to get live captions",
-        "speech-unavailable": "Live captions need an on-device Dictation language in System Settings → Keyboard",
-        "speech-protected": "This video is protected, so it can’t be captioned",
-        "speech-no-audio": "This video has no sound to caption",
-      };
+      // No English copies of the ftl: a string that can't load stays
+      // empty rather than drifting from whimsy.ftl.
+      const fallback = Object.fromEntries(["none", "failed", "region", "move", "listening", "speech-denied", "speech-unavailable", "speech-protected", "speech-no-audio"].map(k => [k, ""]));
       try {
         const [none, failed, region, listening, denied, unavailable, isProtected, noAudio] = lazy.l10n.formatMessagesSync([
           { id: "whimsy-video-captions-none" },

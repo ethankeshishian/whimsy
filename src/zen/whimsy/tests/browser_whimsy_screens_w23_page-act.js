@@ -179,16 +179,37 @@ add_task(async function translate_and_edit_shots() {
     WhimsyPageBar.hide(window);
     await TestUtils.waitForCondition(() => !WhimsyPageBar.current(window), "Bar gone");
 
-    WhimsyAIPageEdits.prompt(window);
-    const prompt = await bar();
-    ok(prompt.querySelector("input"), "page-6.2: the bar is a prompt");
-    await whimsyBothSchemes(NAME("page-6.2"), async () => {});
+    const closeBar = async () => {
+      await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.view.close());
+      gURLBar.blur();
+      WhimsyVerbs.sessions.delete(window);
+    };
+    const changeMode = async value => {
+      WhimsyVerbs.sessions.delete(window);
+      await WhimsyAIPageEdits.prompt(window, { value });
+      await TestUtils.waitForCondition(() => WhimsyVerbs.sessions.get(window)?.mode == "change-page", "⌘K is in Change this page");
+      await UrlbarTestUtils.promiseSearchComplete(window);
+      const ids = [];
+      for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+        ids.push((await UrlbarTestUtils.getDetailsOfResultAt(window, i)).result.payload.whimsyVerb);
+      }
+      return ids;
+    };
+    await whimsyBothSchemes(NAME("page-6.2"), async () => {
+      const suggested = await changeMode("");
+      Assert.deepEqual(suggested, ["change-page:whimsy-edit-suggest-comments", "change-page:whimsy-edit-suggest-bigger", "change-page:whimsy-edit-suggest-article"], "page-6.2: ⌘K in Change this page, with three suggestions");
+      is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-edit-cmdk-placeholder", "page-6.2: Describe a change");
+      ok(!WhimsyPageBar.current(window), "page-6.2: no bottom bar");
+      await TestUtils.waitForCondition(() => gURLBar.view.panel.querySelector(".urlbarView-row[label]"), "page-6.2: a heading");
+      const heading = gURLBar.view.panel.querySelector(".urlbarView-row[label]");
+      is(heading?.getAttribute("label"), "Change this page", "page-6.2: the suggestions sit under Change this page");
+      ok(heading?.querySelector(".urlbarView-title")?.textContent, "page-6.2: the headed row keeps its title");
+      return closeBar;
+    });
+    is((await changeMode("hide the sidebar"))[0], "typed:change-page", "page-6.2: typing makes Change this page: …");
+    await closeBar();
 
-    // The prompt bar goes so the busy bar rises fresh; the model waits
-    // at the gate while the rise is held at 120ms.
-    const old = WhimsyPageBar.current(window).el;
-    WhimsyPageBar.hide(window);
-    await TestUtils.waitForCondition(() => !old.isConnected, "The prompt bar left");
+    // The model waits at the gate while the busy bar's rise is held at 120ms.
     let go;
     gate = new Promise(r => (go = r));
     const apply = WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "hide the sidebar and make the text bigger");
@@ -244,6 +265,20 @@ add_task(async function compare_and_tabs_shots() {
     watch.querySelector(".whimsy-page-action-icon").setAttribute("src", "chrome://browser/skin/zen-icons/selectable/bell.svg");
     watch.hidden = false;
     ok(WhimsyAICompare.updatePill(window), "page-9.1: Compare after Watch price");
+    // S13: a narrow address field shows every pill as its icon alone.
+    WhimsyPageActions.watchWidth(window);
+    const urlbar = document.getElementById("urlbar");
+    const width = urlbar.getBoundingClientRect().width;
+    is(urlbar.hasAttribute("whimsy-narrow"), width < 400, `page-9.1: narrow exactly when the field is (${Math.round(width)}px)`);
+    const pills = [...urlbar.querySelectorAll(".whimsy-page-action:not([hidden])")];
+    Assert.greaterOrEqual(pills.length, 2, "page-9.1: Watch price and Compare");
+    for (const p of pills) {
+      const words = p.querySelector(".whimsy-page-action-label").getBoundingClientRect().width;
+      ok(urlbar.hasAttribute("whimsy-narrow") ? words <= 1 : words > 1, `page-9.1: ${p.id} ${urlbar.hasAttribute("whimsy-narrow") ? "is its icon alone" : "shows its words"}`);
+    }
+    if (urlbar.hasAttribute("whimsy-narrow")) {
+      Assert.greaterOrEqual(document.getElementById("urlbar-input").getBoundingClientRect().width, 50, "page-9.1: the host keeps its room");
+    }
     await whimsyBothSchemes(NAME("page-9.1"), async () => {});
     await inChat("Compare prices");
     const card = await TestUtils.waitForCondition(() => document.querySelector(".whimsy-pa-card[data-kind=compare] .whimsy-pa-table")?.closest(".whimsy-pa-card"), "The table shows", 200, 100);

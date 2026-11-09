@@ -107,17 +107,9 @@ export function parseRate(text) {
   return /^\d*\.?\d+$/.test(cleaned) ? Number(cleaned) : NaN;
 }
 
-const W23_FALLBACK = {
-  reset: "Back to {rate}",
-  fastest: "Set to {rate}, as fast as videos go",
-  summarize: "Summarize",
-  summarizing: "Summarizing…",
-  summarizeTip: "Summarize this video",
-  hideSummary: "Hide summary",
-  showSummary: "Show summary",
-  pip: "Picture-in-Picture",
-  pipBack: "Back to the page",
-};
+// No English copies of the ftl: a string that can't load stays empty
+// rather than drifting from whimsy.ftl.
+const W23_FALLBACK = Object.fromEntries(["reset", "fastest", "summarize", "summarizing", "summarizeTip", "hideSummary", "showSummary", "pip", "pipBack"].map(k => [k, ""]));
 
 export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   // Videos seen in this document (pruned when they leave it).

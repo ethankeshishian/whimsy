@@ -102,15 +102,17 @@ add_task(async function fire_everywhere_empties_both_stores() {
   // Only the purge is real; closing tabs and clearing site data are
   // covered by browser_whimsy_fire_button.js.
   const originals = {
-    allTabs: WhimsyFireButton.allTabs,
-    clearData: WhimsyFireButton.clearData,
-    clearFormHistory: WhimsyFireButton.clearFormHistory,
+    tabsOfSpaces: WhimsyFireButton.tabsOfSpaces,
+    sanitize: WhimsyFireButton.sanitize,
+    clearHistory: WhimsyFireButton.clearHistory,
   };
-  WhimsyFireButton.allTabs = () => [];
-  WhimsyFireButton.clearData = async () => {};
-  WhimsyFireButton.clearFormHistory = async () => {};
+  WhimsyFireButton.tabsOfSpaces = () => [];
+  WhimsyFireButton.sanitize = async () => {};
+  WhimsyFireButton.clearHistory = async () => {};
   try {
-    await WhimsyFireButton.burnEverything(window);
+    // Fire, every space, all time, with Closed tabs and Archive ticked
+    // (the W23 surface's Fire Everywhere).
+    await WhimsyFireButton.burn(window, { range: "all", allSpaces: true, spaceIds: null, items: { tabs: true, history: true, closed: true } });
   } finally {
     Object.assign(WhimsyFireButton, originals);
   }

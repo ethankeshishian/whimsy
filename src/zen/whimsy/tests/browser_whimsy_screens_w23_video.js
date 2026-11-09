@@ -55,6 +55,9 @@ function holdContent(browser, which, ms) {
       // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
       await new Promise(r => content.setTimeout(r, 400));
       actor.show(video);
+      // The fade runs from [data-shown]: wait for it, so the frame held
+      // below is really 60ms into the fade, not before it began.
+      await ContentTaskUtils.waitForCondition(() => actor.els.bar.closest("[data-shown]") || actor.els.bar.hasAttribute("data-shown"), "The plates are shown");
       // Flush styles so the fade-in transitions exist to hold, then wait a
       // frame and for the CSS transitions to actually start (same pattern
       // as the "reset" branch's WAAPI animation below) before pausing them
@@ -82,6 +85,7 @@ function holdContent(browser, which, ms) {
       }
     }
     await frame();
+    return Number(content.getComputedStyle(part == "plates" ? actor.els.bar : actor.els.reset).opacity);
   });
 }
 
@@ -102,7 +106,8 @@ add_task(async function shots_plates() {
   await shootPage("w23-video-dec-1-mid-60", browser, async () => {
     await hoverVideo(browser);
     await shownControl(browser);
-    await holdContent(browser, "plates", 60);
+    const opacity = await holdContent(browser, "plates", 60);
+    ok(opacity > 0.2 && opacity < 1, `dec-1 mid: the plates are part way in at 60ms (opacity ${opacity})`);
     return () => releaseContent(browser);
   });
   // media-1.3: the keyboard ring on the number.

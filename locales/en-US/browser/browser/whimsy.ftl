@@ -2041,9 +2041,11 @@ whimsy-season-toast-summer-description = The balloon brought sunglasses
 
 whimsy-action-selection-verbs = Actions for Selection
 # The command bar's group label above the verbs: the selected text (cut short).
-whimsy-verbs-row-selection = “{ $text }”
+whimsy-verbs-row-selection =
+    .label = “{ $text }”
 # The same label when nothing is selected: the page's title.
-whimsy-verbs-row-page = { $text }
+whimsy-verbs-row-page =
+    .label = { $text }
 whimsy-verb-translate = Translate
 whimsy-verb-translate-page = Translate Page
 # $engine (String) - the default search engine, e.g. Google
@@ -3713,7 +3715,7 @@ whimsy-snooze-when =
 # A preset that no longer makes sense today (Tonight at 9 PM).
 whimsy-snooze-unavailable = Too late today
 whimsy-snooze-past = That time has already passed
-whimsy-snooze-no-match = Try “tomorrow 3pm”, “fri”, “in 2 hours” or “nov 12”.
+whimsy-snooze-no-match = Try “tomorrow 3pm”, “fri”, “in 2 hours”, or “nov 12”.
 whimsy-snooze-pick = Pick Date & Time…
 whimsy-snooze-date =
     .aria-label = Date
@@ -5251,7 +5253,7 @@ whimsy-chat-hide-button =
 whimsy-chat-splitter =
     .aria-label = Resize chat
 whimsy-chat-private-title = Private tab
-whimsy-chat-empty-title = Ask about this page
+whimsy-chat-empty-title = Ask about this tab
 whimsy-chat-empty-body = Chat reads the whole tab, not just what’s on screen. Nothing is sent until you ask.
 whimsy-chat-empty-title-blank = Ask anything
 whimsy-chat-empty-body-blank = Nothing is sent until you ask.
@@ -5664,7 +5666,7 @@ whimsy-ai-off-forget = Forget everything…
 whimsy-ai-limits-heading = Off limits to AI
 whimsy-ai-limits-desc = True for chat, commands, routines, Whimsy’s agent, and outside agents. These can’t be changed.
 whimsy-ai-limits-private = Private tabs and windows
-whimsy-ai-limits-private-detail = AI never sees, opens, or acts in them, even when you ask.
+whimsy-ai-limits-private-detail = AI never sees, opens, or acts in them, even when you ask, and agent runs never capture them.
 whimsy-ai-limits-hidden = Hidden spaces
 whimsy-ai-limits-hidden-detail = Used only when you ask. A locked one still needs your Touch ID or password.
 whimsy-ai-limits-cards = Cards and passwords
@@ -5873,7 +5875,7 @@ whimsy-ai-features-tidy-titles =
     .label = Tidy tab titles
     .description = Pinning a tab gives it a short name. Names you type are never changed.
 whimsy-ai-features-ask-on-page =
-    .label = Ask on Page
+    .label = Ask on page
     .description = ⌘F answers a question about the page when it finds nothing.
 whimsy-ai-features-link-previews =
     .label = Link preview summaries
@@ -5985,6 +5987,12 @@ whimsy-connectors-client-step3-microsoft = Paste its Application (client) ID her
 whimsy-connectors-client-open-google = Open Google Cloud credentials
 whimsy-connectors-client-open-microsoft = Open Microsoft Entra app registrations
 whimsy-connectors-client-save = Save
+whimsy-connectors-jira-site-field =
+    .aria-label = Jira site
+whimsy-connectors-client-id-field-google =
+    .aria-label = Client ID
+whimsy-connectors-client-id-field-microsoft =
+    .aria-label = Application (client) ID
 whimsy-connectors-mcp-title = Add an MCP server
 whimsy-connectors-mcp-address = Server address
 whimsy-connectors-mcp-hint = The address from the server’s docs, like https://mcp.notion.com/mcp.
@@ -6383,28 +6391,49 @@ whimsy-routine-builtin-meeting-follow-up-prompt = From Granola’s notes and the
 ## W23 commands: ⌘K, the context-aware menu. Group headings name what the
 ## commands act on; { $text } is the selected text, { $title } the page's.
 
-whimsy-cmdk-group-selection = “{ $text }” · Selection
-whimsy-cmdk-group-field = “{ $text }” · Text field
-whimsy-cmdk-group-verbs = Do with selection
-whimsy-cmdk-group-yours = Your commands
-whimsy-cmdk-group-page = This page
-whimsy-cmdk-group-article-top = { $title } · Article
-whimsy-cmdk-group-video-top = { $title } · Video
-whimsy-cmdk-group-product-top = { $title } · Product
-whimsy-cmdk-group-article = Article
-whimsy-cmdk-group-video = Video on this page
-whimsy-cmdk-group-product = Product
+# The command bar's placeholder in commands mode ("/", or ⌘K on an image or a selection).
+whimsy-cmdk-type-command =
+    .placeholder = Type a command
+whimsy-cmdk-group-selection =
+    .label = “{ $text }” · Selection
+whimsy-cmdk-group-field =
+    .label = “{ $text }” · Text field
+whimsy-cmdk-group-verbs =
+    .label = Do with selection
+whimsy-cmdk-group-yours =
+    .label = Your commands
+whimsy-cmdk-group-page =
+    .label = This page
+whimsy-cmdk-group-article-top =
+    .label = { $title } · Article
+whimsy-cmdk-group-video-top =
+    .label = { $title } · Video
+whimsy-cmdk-group-product-top =
+    .label = { $title } · Product
+whimsy-cmdk-group-article =
+    .label = Article
+whimsy-cmdk-group-video =
+    .label = Video on this page
+whimsy-cmdk-group-product =
+    .label = Product
 whimsy-cmdk-group-image =
-    { $count ->
-        [one] This image
-       *[other] These { $count } images
-    }
-whimsy-cmdk-group-commands = Commands
-whimsy-cmdk-group-search = Search
-whimsy-cmdk-no-match = No actions match
+    .label =
+        { $count ->
+            [one] This image
+           *[other] These { $count } images
+        }
+whimsy-cmdk-group-commands =
+    .label = Commands
+whimsy-cmdk-group-search =
+    .label = Search
+whimsy-cmdk-no-match =
+    .label = No actions match
 whimsy-cmdk-explain = Explain
 whimsy-cmdk-ask-selection = Ask About This…
 whimsy-cmdk-summarize-page = Summarize This Page
+whimsy-cmdk-copy-image = Copy Image
+whimsy-cmdk-save-image = Save Image As…
+whimsy-cmdk-copied-image = Copied image
 whimsy-cmdk-summarize-prompt = Summarize this page in a few short bullet points.
 whimsy-cmdk-ask-page = Ask About This Page
 whimsy-cmdk-ask-video = Ask About This Video
@@ -6558,6 +6587,7 @@ whimsy-chat-action-used-memories = { $count ->
     [one] Used 1 memory
    *[other] Used { $count } memories
 }
+whimsy-chat-used-memories-manage = Manage memory…
 whimsy-memory-switch =
     .label = Use and save memories
     .description = Off: saved ones are kept but not used, and nothing new is saved.
@@ -6570,6 +6600,14 @@ whimsy-memory-delete-button =
     .aria-label = Delete “{ $fact }”
 whimsy-memory-deleted-toast = Deleted the memory
 whimsy-memory-empty = Nothing saved yet.
+whimsy-memory-search =
+    .placeholder = Search memories
+    .aria-label = Search memories
+whimsy-memory-count = { $count ->
+    [one] 1 memory
+   *[other] { $count } memories
+}
+whimsy-memory-no-match = No memories match.
 whimsy-memory-export-button = Export Markdown…
 # The exported file's heading, the save dialog's title, and its file type.
 whimsy-memory-export-heading = Memory
@@ -6585,8 +6623,25 @@ whimsy-fire-range-hour = Last hour
 whimsy-fire-range-today = Today
 whimsy-fire-range-week = 7 days
 whimsy-fire-range-all = All time
-whimsy-fire-all-spaces = All spaces, every profile
 whimsy-fire-spaces-heading = Spaces
+# fire-2.3: the Spaces row (the picked spaces' names, then this small detail) and its Change menu.
+whimsy-fire-spaces-change = Change
+whimsy-fire-scope-all = All spaces
+whimsy-fire-scope-all-detail = every profile
+# $profile (string) - the profile the picked spaces use
+whimsy-fire-scope-profile = { $profile } profile
+# $count (number) - how many profiles the picked spaces use
+whimsy-fire-scope-profiles = { $count ->
+        [one] 1 profile
+       *[other] { $count } profiles
+    }
+whimsy-fire-spaces-menu =
+    .aria-label = Spaces to clear
+# $count (number) - every space Fire can clear
+whimsy-fire-spaces-menu-count = { $count }
+whimsy-fire-spaces-menu-profile = { $profile } profile
+whimsy-fire-spaces-menu-current = current
+whimsy-fire-spaces-menu-note = Spaces in one profile share sign-ins. Hidden spaces are listed only while unlocked.
 whimsy-fire-group-browsing = Browsing
 whimsy-fire-group-ai = AI
 # $on (number) - items ticked in the group; $total (number) - items in it
@@ -6594,13 +6649,53 @@ whimsy-fire-group-count = { $on } of { $total }
 whimsy-fire-partial-note = Cookies and site data clear per profile, so sites in a space you left ticked may still lose theirs.
 whimsy-fire-item-tabs = Open tabs (pinned tabs and Essentials stay)
 whimsy-fire-item-history = Browsing history
+whimsy-fire-item-cookies = Cookies and sign-ins
+whimsy-fire-item-cache = Cache
+whimsy-fire-item-form = Form and search history
+whimsy-fire-item-form-detail = every profile
+whimsy-fire-item-closed = Closed tabs and Archive
 whimsy-fire-item-aiChats = AI chats, including research reports
 whimsy-fire-item-agentActivity = Agent activity
-whimsy-fire-item-index = The meaning index
+whimsy-fire-item-index = Related pages’ index
 whimsy-fire-item-memory = Memory
 whimsy-fire-item-routineResults = Routine and watch results
 whimsy-fire-item-downloads = The download list
+whimsy-fire-item-downloads-detail = files stay
 whimsy-fire-cant-undo = This can’t be undone.
+# fire-2.1's red note: what Fire is about to do. $tabs (number) - tabs it closes;
+# $list (string) - a locale-formatted list of what it erases (the whimsy-fire-done-* words);
+# $range, $scope, and $profile as in whimsy-action-fire-button.
+whimsy-fire-summary-both = { $tabs ->
+    [one] Closes <b>1 tab</b>
+   *[other] Closes <b>{ $tabs } tabs</b>
+} and erases { $list } from <b>{ $range ->
+        [today] today
+        [week] the last 7 days
+        [all] all time
+       *[hour] the last hour
+    }</b>, { $scope ->
+        [all] in every space and profile
+        [named] in <b>{ $profile }</b>
+       *[this] in this profile
+    }. Can’t be undone.
+whimsy-fire-summary-close = { $tabs ->
+    [one] Closes <b>1 tab</b>
+   *[other] Closes <b>{ $tabs } tabs</b>
+}, { $scope ->
+        [all] in every space and profile
+        [named] in <b>{ $profile }</b>
+       *[this] in this profile
+    }. Can’t be undone.
+whimsy-fire-summary-erase = Erases { $list } from <b>{ $range ->
+        [today] today
+        [week] the last 7 days
+        [all] all time
+       *[hour] the last hour
+    }</b>, { $scope ->
+        [all] in every space and profile
+        [named] in <b>{ $profile }</b>
+       *[this] in this profile
+    }. Can’t be undone.
 whimsy-fire-run =
     .label = Fire
 # The ellipsis: pressing it asks once more (All time, All spaces, or Memory).
@@ -6647,25 +6742,39 @@ whimsy-fire-done-burn-title = { $scope ->
         }
     }
 whimsy-fire-done-private-title = Fired this window
-# $summary (string) - a locale-formatted list of what went, e.g. "3 tabs, 2 visits, and AI chats"
+# $summary (string) - what went, from the strings below, e.g. "Closed 7 tabs · erased 142 visits, sign-ins on 18 sites, and AI chats"
 whimsy-fire-done-detail = { $summary }
-# The words making up that $summary list (WhimsyFireButton.describe).
-whimsy-fire-done-tabs = { $count ->
-    [one] 1 tab
-   *[other] { $count } tabs
+# $tabs (number) - tabs closed; $list (string) - a locale-formatted list of what was erased
+whimsy-fire-done-closed-erased = { $tabs ->
+    [one] Closed 1 tab · erased { $list }
+   *[other] Closed { $tabs } tabs · erased { $list }
 }
+whimsy-fire-done-closed = { $tabs ->
+    [one] Closed 1 tab
+   *[other] Closed { $tabs } tabs
+}
+whimsy-fire-done-erased = Erased { $list }
+# The words making up that $list (WhimsyFireButton.describe).
 whimsy-fire-done-visits = { $count ->
     [one] 1 visit
    *[other] { $count } visits
 }
+whimsy-fire-done-sites = { $count ->
+    [one] sign-ins on 1 site
+   *[other] sign-ins on { $count } sites
+}
 whimsy-fire-done-history = history
 whimsy-fire-done-item-aiChats = AI chats
 whimsy-fire-done-item-agentActivity = agent activity
-whimsy-fire-done-item-index = the meaning index
+whimsy-fire-done-item-index = the Related pages’ index
 whimsy-fire-done-item-memory = memory
 whimsy-fire-done-item-routineResults = routine results
 whimsy-fire-done-item-downloads = the download list
-whimsy-fire-done-nothing = nothing
+whimsy-fire-done-item-cookies = sign-ins and site data
+whimsy-fire-done-item-cache = the cache
+whimsy-fire-done-item-form = form and search history
+whimsy-fire-done-item-closed = closed tabs and the Archive
+whimsy-fire-done-nothing = Nothing to erase
 ## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
 
 whimsy-agent-chat-mode =
@@ -6756,8 +6865,8 @@ whimsy-agent-chat-verb-submit = Submit
 whimsy-agent-chat-verb-dont-submit = Don’t submit
 whimsy-agent-chat-verb-dont-submit-esc = <kbd>Esc</kbd> don’t submit
 whimsy-agent-chat-verb-delete = Delete
-whimsy-agent-chat-verb-keep = Keep it
-whimsy-agent-chat-verb-keep-esc = <kbd>Esc</kbd> keep it
+whimsy-agent-chat-verb-dont-delete = Don’t delete
+whimsy-agent-chat-verb-dont-delete-esc = <kbd>Esc</kbd> don’t delete
 whimsy-agent-chat-verb-change = Change it
 whimsy-agent-chat-verb-dont-change = Don’t change
 whimsy-agent-chat-verb-dont-change-esc = <kbd>Esc</kbd> don’t change
@@ -6798,7 +6907,22 @@ whimsy-agent-chat-pause-skipped = Skipped: { $title }
 whimsy-agent-chat-pause-stopped = Stopped at: { $title }
 whimsy-agent-chat-pause-yours-done = You did it: { $title }
 # $task is the task's name, like Coffee reorder.
-whimsy-agent-chat-needs-you = { $task } needs you
+# The toast's first line: what the paused task waits on. $kind (string) - the pause kind; $host (string) - the site.
+whimsy-agent-chat-needs-you = { $kind ->
+    [pay] Waiting on you: pay on { $host }
+    [send] Waiting on you: send this on { $host }
+    [submit] Waiting on you: submit a form on { $host }
+    [delete] Waiting on you: delete this on { $host }
+    [account] Waiting on you: change a setting on { $host }
+    [sign-in] Waiting on you: sign in to { $host }
+    [captcha] Waiting on you: show { $host } you’re a person
+    [navigate] Waiting on you: go to { $host }
+    [download] Waiting on you: a download
+    [new-site-data] Waiting on you: details for a new site
+   *[other] Waiting on you
+}
+# Its second line. $task (string) - the task's name
+whimsy-agent-chat-needs-you-task = { $task }
 whimsy-agent-chat-review = Review
 
 whimsy-agent-chat-injection-title = This page tried to give me instructions. I ignored them.
@@ -6911,18 +7035,19 @@ whimsy-ai-activity-whimsy = Whimsy
 whimsy-ai-activity-outside = Outside apps
 whimsy-ai-activity-empty = No runs yet
 whimsy-ai-activity-empty-detail = When the agent or an outside app works in your tabs, each run shows here with its steps.
+# $mode (string) - background, routine, or drive; $count (number) - steps; $pauses (number) - pauses the person approved
 whimsy-ai-activity-run-whimsy =
     { $mode ->
-        [background]
-            { $count ->
-                [one] Whimsy agent · Background · 1 step
-               *[other] Whimsy agent · Background · { $count } steps
-            }
-       *[drive]
-            { $count ->
-                [one] Whimsy agent · Drive · 1 step
-               *[other] Whimsy agent · Drive · { $count } steps
-            }
+        [background] Whimsy agent · Background
+        [routine] Routine · Background
+       *[drive] Whimsy agent · Drive
+    } · { $count ->
+        [one] 1 step
+       *[other] { $count } steps
+    }{ $pauses ->
+        [0] {""}
+        [one] {" · "}paused once, you approved
+       *[other] {" · "}paused { $pauses } times, you approved
     }
 whimsy-ai-activity-run-outside =
     { $count ->
@@ -6940,7 +7065,7 @@ whimsy-ai-activity-delete-all-title = Delete every run?
 whimsy-ai-activity-delete-all-text = All steps and screenshots are removed from this Mac. Anything the agents did on sites stays done.
 whimsy-ai-activity-delete-all-ok = Delete all
 whimsy-ai-activity-keep = Keep runs and step screenshots
-whimsy-ai-activity-keep-detail = Each run’s steps and small snapshots, kept on this Mac; off, nothing new is kept. Private tabs are never captured, and card numbers, passwords, and one-time codes are covered before a snapshot is taken, so AI never sees them.
+whimsy-ai-activity-keep-detail = Small snapshots of each step. Card and password fields are blurred.
 whimsy-ai-activity-days = Keep runs for
 whimsy-ai-activity-days-7 = 7 days
 whimsy-ai-activity-days-30 = 30 days
@@ -7378,7 +7503,14 @@ whimsy-fill-cmd = Fill In This Form
 whimsy-fill-prompt = Fill this in for me
 whimsy-fill-status = Filling from what you’ve saved…
 whimsy-fill-tag-address = From your saved address
-whimsy-fill-tag-several = { $count } saved. Check this one.
+# $count (number) - how many different saved values fit; $kind (string) - the field's autofill key (tel, email, name, street-address, and so on)
+whimsy-fill-tag-several = { $kind ->
+    [tel] { $count } numbers saved. Check this one.
+    [email] { $count } emails saved. Check this one.
+    [name] { $count } names saved. Check this one.
+    [street-address] { $count } addresses saved. Check this one.
+   *[other] { $count } versions saved. Check this one.
+}
 whimsy-fill-tag-memory = Guessed from a memory
 whimsy-fill-tag-message = From your message
 whimsy-fill-tag-left = Your password manager fills this
@@ -7428,10 +7560,13 @@ whimsy-translate-done = Done
 whimsy-edit-cmd = Change This Page…
 whimsy-edit-cmdk-row = Change This Page…
 whimsy-edit-cmdk-typed = Change this page: { $text }
-whimsy-edit-placeholder =
+whimsy-edit-cmdk-group =
+    .label = Change this page
+whimsy-edit-cmdk-placeholder =
     .placeholder = Describe a change, like “hide the comments”
-    .aria-label = Describe a change
-whimsy-edit-go = Change
+whimsy-edit-suggest-comments = Hide the comments
+whimsy-edit-suggest-bigger = Make the text bigger
+whimsy-edit-suggest-article = Hide everything but the article
 whimsy-edit-cancel = Cancel
 whimsy-edit-busy = Changing this page…
 whimsy-edit-done = Changed this page
@@ -7531,11 +7666,47 @@ whimsy-compare-meta =
     }
 
 whimsy-tabs-cmd = Ask Chat to Arrange Tabs
-whimsy-tabs-row-close = Close { $count } “{ $what }” tabs
-whimsy-tabs-row-pin = Pin { $count } “{ $what }” tabs
-whimsy-tabs-row-unpin = Unpin { $count } “{ $what }” tabs
-whimsy-tabs-row-mute = Mute { $count } “{ $what }” tabs
-whimsy-tabs-row-unmute = Unmute { $count } “{ $what }” tabs
+# $count (number) - matching tabs; $what (string) - the words typed; $site (string) - the one site they are all on (the -site forms)
+whimsy-tabs-row-close = { $count ->
+    [one] Close 1 “{ $what }” tab
+   *[other] Close { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-close-site = { $count ->
+    [one] Close 1 { $site } tab
+   *[other] Close { $count } { $site } tabs
+}
+whimsy-tabs-row-pin = { $count ->
+    [one] Pin 1 “{ $what }” tab
+   *[other] Pin { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-pin-site = { $count ->
+    [one] Pin 1 { $site } tab
+   *[other] Pin { $count } { $site } tabs
+}
+whimsy-tabs-row-unpin = { $count ->
+    [one] Unpin 1 “{ $what }” tab
+   *[other] Unpin { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-unpin-site = { $count ->
+    [one] Unpin 1 { $site } tab
+   *[other] Unpin { $count } { $site } tabs
+}
+whimsy-tabs-row-mute = { $count ->
+    [one] Mute 1 “{ $what }” tab
+   *[other] Mute { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-mute-site = { $count ->
+    [one] Mute 1 { $site } tab
+   *[other] Mute { $count } { $site } tabs
+}
+whimsy-tabs-row-unmute = { $count ->
+    [one] Unmute 1 “{ $what }” tab
+   *[other] Unmute { $count } “{ $what }” tabs
+}
+whimsy-tabs-row-unmute-site = { $count ->
+    [one] Unmute 1 { $site } tab
+   *[other] Unmute { $count } { $site } tabs
+}
 whimsy-tabs-detail = { $first } and { $more } more
 whimsy-tabs-folder-default = New folder
 whimsy-tabs-closed-toast =
