@@ -128,7 +128,6 @@ async function waitForPdf(browser) {
   Assert.greater(icons.results.length, 0, `The toolbar's ${icons.count} buttons have mask icons`);
   for (const { url, ok: loaded } of icons.results) {
     ok(loaded, `Toolbar icon ${url} loads`);
-    info(`DIAG icon ${url} ${loaded}`);
   }
   ok(
     await SpecialPowers.spawn(browser, [], () => content.document.getElementById("pdfFeaturesNotification")?.hidden ?? true),
@@ -293,20 +292,41 @@ async function openFind(text) {
   if (text) {
     findbar._findField.select();
     EventUtils.sendString(text);
-    // findbar.js's _find() skips re-searching once a shorter prefix has
-    // already failed (val.startsWith(this._findFailedString)), an
-    // optimization for real incremental typing. Typing "when is the
-    // offsite" character by character fails on an early prefix ("wh") and
-    // never searches the rest, so the field's own status (never "pending",
-    // and removed again on a real match - only "notfound" is ever truly
-    // set) can be left over from that prefix rather than this exact text.
-    // A fresh, forced find for the whole string is the real one.
-    findbar._findFailedString = null;
-    findbar._find(text);
-    await TestUtils.waitForCondition(() => findbar._findField.value == text, "The field has it");
-    await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-find-count").getAttribute("value"), "The count shows");
+    await findExactly(findbar, text);
   }
   return findbar;
+}
+
+// Typing over the last search races it: findbar.js skips any longer string
+// once a shorter prefix has failed (_findFailedString), and a search issued
+// while the bar reopens can be dropped. Asks for exactly `text` until the
+// finder answers for it, so the bar's status (only ever "notfound" or
+// absent) is this text's.
+async function findExactly(findbar, text) {
+  const finder = findbar.browser.finder;
+  let answered = false;
+  const cancelled = event => event.defaultPrevented && info(`A find event for "${event.detail?.query}" was cancelled`);
+  findbar.addEventListener("find", cancelled);
+  const listener = {
+    onFindResult: data => (answered ||= data.searchString == text),
+    onMatchesCountResult() {},
+    onCurrentSelection() {},
+    onHighlightFinished() {},
+  };
+  finder.addResultListener(listener);
+  try {
+    await TestUtils.waitForCondition(() => {
+      if (!answered) {
+        findbar._findFailedString = null;
+        findbar._find(text);
+      }
+      return answered;
+    }, `The finder answers for "${text}"`, 200, 50);
+  } finally {
+    finder.removeResultListener(listener);
+    findbar.removeEventListener("find", cancelled);
+  }
+  await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-find-count").getAttribute("value"), "The count shows");
 }
 
 async function closeFind() {
@@ -345,23 +365,6 @@ add_task(async function find_card() {
     });
     await whimsyBothSchemes(NAME("find-nothing"), async () => {
       const findbar = await openFind("when is the offsite");
-      const finder = findbar.browser.finder;
-      info(`DIAGA same=${findbar.browser == gBrowser.selectedBrowser} uri=${findbar.browser.currentURI.spec} hidden=${findbar.hidden} ss=${finder.searchString} last=${findbar.browser._lastSearchString} listeners=${finder._listeners?.length} remote=${findbar.browser.isRemoteBrowser} status=${findbar._findField.getAttribute("status")}`);
-      const listener = {
-        onFindResult: d => info(`DIAGR result=${d.result} ss=${d.searchString}`),
-        onMatchesCountResult: r => info(`DIAGC total=${r.total} cur=${r.current}`),
-        onCurrentSelection() {},
-        onHighlightFinished() {},
-      };
-      finder.addResultListener(listener);
-      findbar._findFailedString = null;
-      findbar._find("when is the offsite");
-      await new Promise(r => setTimeout(r, 1500));
-      info(`DIAGB status=${findbar._findField.getAttribute("status")} count=${findbar.querySelector(".whimsy-find-count")?.getAttribute("value")}`);
-      finder.fastFind("zzzqqq", false, false);
-      await new Promise(r => setTimeout(r, 1500));
-      info(`DIAGD status=${findbar._findField.getAttribute("status")}`);
-      finder.removeResultListener(listener);
       await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered", 100, 150);
       return closeFind;
     });
