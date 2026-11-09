@@ -176,12 +176,23 @@ add_task(async function scanned_pdf_ocr_first() {
     points: [{ text: "Rent is due on the first", quote: "" }],
   }));
   prompts = [];
+  // The page has no text layer, so it goes to on-device text recognition.
+  // A stand-in answers as the real one does (the OS service is slow and can
+  // stall past the product's 10-second limit late in a long run).
+  const asked = [];
+  WhimsyAIPage.setTestOcrRecognizer(page => {
+    asked.push(page);
+    return "Rent is due on the first of the month, the monthly rent.";
+  });
+  registerCleanupFunction(() => WhimsyAIPage.setTestOcrRecognizer(null));
   await BrowserTestUtils.withNewTab(SCANNED, async browser => {
     await TestUtils.waitForCondition(
       () => SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.PDFViewerApplication?.pdfDocument),
       "The viewer has the document"
     );
     const msg = await WhimsyAIPage.summarizeInChat(window, gBrowser.selectedTab);
+    WhimsyAIPage.setTestOcrRecognizer(null);
+    Assert.deepEqual(asked, [1], "The text-free page is recognized");
     is(msg.role, "ai", "A scanned PDF still gets a summary");
     ok(/monthly rent/i.test(prompts.at(-1)), "from text recognized on this Mac first");
     const panel = document.getElementById("whimsy-chat");
