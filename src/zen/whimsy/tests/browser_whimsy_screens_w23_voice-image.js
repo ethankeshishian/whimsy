@@ -44,6 +44,7 @@ add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [
     ["whimsy.feature.dictation", true],
     ["whimsy.feature.ai-hints", false],
+    ["whimsy.ai.hints.seen", "voice"],
   ] });
   registerCleanupFunction(() => {
     WhimsyDictation.cancel();
