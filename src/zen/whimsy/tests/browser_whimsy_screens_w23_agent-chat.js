@@ -18,6 +18,9 @@ const { WhimsySpaceLock } = ChromeUtils.importESModule("resource:///modules/whim
 
 const ROOT = "https://example.com/browser/zen/whimsy/tests/";
 const CHECKOUT = ROOT + "whimsy_agent_checkout.html";
+// Forty-odd shots in both schemes, settings and Agent runs included.
+requestLongerTimeout(3);
+
 const P = "w23-agent-chat-";
 const chat = () => WhimsyChatPanel.forWindow(window);
 const el = () => document.getElementById("whimsy-chat");
