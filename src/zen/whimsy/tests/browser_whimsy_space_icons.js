@@ -172,6 +172,17 @@ add_task(async function test_tab_icon_picker_stays_open() {
     return DIAGorig.apply(this, a);
   };
   info(`DIAG focus ${Services.focus.activeWindow == window} selected ${gBrowser.selectedTab.label} visible ${gBrowser.selectedTab.checkVisibility()} rect ${JSON.stringify(gBrowser.selectedTab.getBoundingClientRect())}`);
+  {
+    const t = gBrowser.selectedTab;
+    const chain = [];
+    for (let n = t; n && n.nodeType == 1; n = n.parentNode || n.host) {
+      const cs = getComputedStyle(n);
+      const r = n.getBoundingClientRect();
+      chain.push(`${n.localName}#${n.id}.${String(n.className).slice(0, 40)}[${cs.display},${cs.visibility},${Math.round(r.width)}x${Math.round(r.height)}${n.hidden ? ",hidden" : ""}${n.hasAttribute("collapsed") ? ",collapsed" : ""}]`);
+    }
+    info(`DIAG tab chain: ${chain.join(" < ")}`);
+    info(`DIAG tab: ws ${t.getAttribute("zen-workspace-id")} active ${gZenWorkspaces.activeWorkspace} essential ${t.hasAttribute("zen-essential")} pinned ${t.pinned} glance ${t.hasAttribute("zen-glance-tab")} url ${t.linkedBrowser.currentURI.spec} tabs ${gBrowser.tabs.length} compact ${document.documentElement.getAttribute("zen-compact-mode")} sidebar ${document.getElementById("navigator-toolbox")?.getBoundingClientRect().width} winw ${window.innerWidth}`);
+  }
   info(`DIAG before open: panel ${panel().state} svg ${gZenEmojiPicker.svgList.children.length} open-attr ${document.querySelectorAll("[zen-emoji-open]").length}`);
   const picked = gZenEmojiPicker.open(gBrowser.selectedTab, { closeOnSelect: false, onSelect: () => {} });
   info(`DIAG open returned ${picked}`);
