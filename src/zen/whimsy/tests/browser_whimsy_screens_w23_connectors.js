@@ -195,7 +195,14 @@ add_task(async function onboarding_states() {
   WhimsyAIOnboarding.session.services.add("google");
   shell();
   WhimsyAIOnboarding.celebrate(window, () => {});
-  await whimsyShotMid("w23-connectors-onb-5.2", () => WhimsyAIOnboarding.celebration?.animations[2], 400);
+  // Every part of the celebration held at 400ms, not just one tile.
+  const animations = await TestUtils.waitForCondition(() => WhimsyAIOnboarding.celebration?.animations, "onb-5.2: the celebration started");
+  for (const animation of animations) {
+    animation.pause();
+    animation.currentTime = 400;
+  }
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await whimsyShot("w23-connectors-onb-5.2-mid-400");
   ok(true, "onb-5.2: shot captured");
   WhimsyAIOnboarding.celebration?.overlay.remove();
   document.getElementById("zen-welcome")?.remove();
