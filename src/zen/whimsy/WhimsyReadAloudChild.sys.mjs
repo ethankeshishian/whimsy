@@ -169,7 +169,11 @@ export class WhimsyReadAloudChild extends JSWindowActorChild {
     const safe = /^[#a-z0-9(),.%\s-]+$/i.test(tint) ? tint : "rgb(10, 132, 255)";
     const css =
       `::highlight(${HIGHLIGHT}) { background-color: color-mix(in srgb, ${safe} 22%, transparent); }` +
-      `::highlight(${PAUSED}) { background-color: color-mix(in srgb, ${safe} 11%, transparent); }`;
+      `::highlight(${PAUSED}) { background-color: color-mix(in srgb, ${safe} 11%, transparent); }` +
+      // Dark pages need more of the colour to show it at all.
+      `@media (prefers-color-scheme: dark) {` +
+      `::highlight(${HIGHLIGHT}) { background-color: color-mix(in srgb, ${safe} 40%, transparent); }` +
+      `::highlight(${PAUSED}) { background-color: color-mix(in srgb, ${safe} 20%, transparent); } }`;
     this.sheet = `data:text/css;charset=utf-8,${encodeURIComponent(css)}`;
     const utils = this.contentWindow.windowUtils;
     utils.loadSheetUsingURIString(this.sheet, utils.AUTHOR_SHEET);
