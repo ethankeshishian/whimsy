@@ -11,11 +11,7 @@ const { WhimsyAICommands } = ChromeUtils.importESModule("resource:///modules/whi
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_ai_selection.html";
-// whimsy.ai.enabled isn't tracked here: head.js's whimsyRestoreLeakedPrefs
-// clears it unconditionally at the end of every file, so a snapshot taken
-// here (which could already see it on, from the manifest's own default or
-// a leak) never gets a chance to write it back on.
-const TOUCHED = ["whimsy.ai.order", "whimsy.ai.translate.recent"];
+const TOUCHED = ["whimsy.ai.enabled", "whimsy.ai.order", "whimsy.ai.translate.recent"];
 const saved = new Map(TOUCHED.map(name => [name, Services.prefs.prefHasUserValue(name) ? whimsyReadPref(name, Services.prefs.getPrefType(name)) : null]));
 const IMPROVED = "Hi Priya, sorry for the slow reply. We should have moved the launch sooner, but there’s still time if we decide this week.";
 
