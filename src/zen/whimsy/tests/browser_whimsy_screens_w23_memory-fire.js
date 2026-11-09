@@ -56,16 +56,35 @@ add_task(async function shots_fire_panel_defaults() {
   });
 });
 
-// fire-2.7: ticking Memory asks once more, in the same surface.
+// fire-2.7: everything, all time, every space; Fire… because it asks once
+// more. fire-3.1: the press asks, in the same surface.
 add_task(async function shots_fire_panel_second_ask() {
   Services.prefs.clearUserPref(LAST_PREF);
+  const everything = panel => {
+    panel.querySelector('#whimsy-fire-range [data-value="all"]').click();
+    for (const input of panel.querySelectorAll(".whimsy-fire-scope-group > label input, .whimsy-fire-items input")) {
+      if (!input.checked) {
+        input.click();
+      }
+    }
+  };
   await whimsyBothSchemes("w23-memory-fire-fire-2.7", async () => {
     const panel = await openFire();
-    const input = panel.querySelector('[data-l10n-id="whimsy-fire-item-memory"]')?.closest("label")?.querySelector("input");
-    input.click();
+    everything(panel);
+    is(document.l10n.getAttributes(panel.querySelector("#whimsy-fire-forget")).id, "whimsy-fire-run-ask", "fire-2.7: Fire… says it asks once more");
+    await whimsySettled();
+    const undo = whimsyStandInPopups();
+    return () => {
+      undo();
+      return closeFire(panel);
+    };
+  });
+  await whimsyBothSchemes("w23-memory-fire-fire-3.1", async () => {
+    const panel = await openFire();
+    everything(panel);
     panel.querySelector("#whimsy-fire-forget").click();
     await TestUtils.waitForCondition(() => panel.dataset.step == "confirm", "The confirm step shows");
-    ok(panel.dataset.step == "confirm", "fire-2.7: Memory asks once more, in the same surface");
+    ok(panel.dataset.step == "confirm", "fire-3.1: it asks once more, in the same surface");
     await whimsySettled();
     const undo = whimsyStandInPopups();
     return () => {
