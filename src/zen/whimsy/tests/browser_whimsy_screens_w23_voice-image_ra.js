@@ -36,6 +36,7 @@ async function reading(index = 0, { start = true } = {}) {
 async function shoot(name, prepare) {
   await whimsyBothSchemes(`w23-voice-image-${name}`, async dark => {
     const cleanup = await prepare(dark);
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
     await new Promise(r => setTimeout(r, 250));
     return async () => {
       await cleanup?.();
@@ -133,6 +134,7 @@ add_task(async function shots_cmdk() {
       });
     });
     await BrowserTestUtils.withNewTab(`${ROOT}whimsy_read_aloud_app.html`, async () => {
+      // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
       await new Promise(r => setTimeout(r, 500));
       await shoot("fu-media-4.10", async () => {
         await cmdKListen();

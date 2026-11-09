@@ -101,7 +101,7 @@ async function cardShown(win = window) {
 
 // The text tinted in the page under `name`, or "".
 async function highlighted(browser, name = "whimsy-read-aloud") {
-  await new Promise(r => setTimeout(r, 50));
+  // The mark message goes first on the same channel, so this sees it.
   return SpecialPowers.spawn(browser, [name], async which => {
     const highlight = content.CSS.highlights.get(which);
     const range = highlight ? [...highlight][0] : null;

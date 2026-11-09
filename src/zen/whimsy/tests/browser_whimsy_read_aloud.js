@@ -108,6 +108,7 @@ add_task(async function keyboard_order_and_keys() {
 add_task(async function unavailable_without_article_text() {
   await BrowserTestUtils.withNewTab(`${ROOT}whimsy_read_aloud_app.html`, async browser => {
     // Reader View decides on load; give it the time it takes.
+    // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
     await new Promise(r => setTimeout(r, 500));
     ok(!browser.isArticle, "Not an article");
     const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
