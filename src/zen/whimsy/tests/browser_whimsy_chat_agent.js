@@ -287,7 +287,6 @@ add_task(async function dont_ask_again_absent_on_pay_send_delete_signin() {
 });
 
 add_task(async function unlock_card_only_when_named() {
-  return;
   await fresh();
   const tab = await openOn();
   const realSpaces = WhimsyAIContext.spaces;
@@ -319,7 +318,6 @@ add_task(async function unlock_card_only_when_named() {
 });
 
 add_task(async function private_request_refused_plainly() {
-  return;
   await fresh();
   const tab = await openOn();
   type("Check the hotel prices in my private tab too");
@@ -330,7 +328,6 @@ add_task(async function private_request_refused_plainly() {
 });
 
 add_task(async function injection_notice_show_where() {
-  return;
   await fresh();
   const tab = await openOn();
   await ownThread();
@@ -350,7 +347,6 @@ add_task(async function injection_notice_show_where() {
 });
 
 add_task(async function end_of_task_no_answer_keeps() {
-  return;
   await fresh();
   const tab = await openOn();
   const ids = {};
@@ -382,7 +378,6 @@ add_task(async function end_of_task_no_answer_keeps() {
 });
 
 add_task(async function save_as_command_prefills_with_blanks() {
-  return;
   await fresh();
   const tab = await openOn();
   const real = WhimsyAICommands.openEditor;
@@ -411,7 +406,6 @@ add_task(async function save_as_command_prefills_with_blanks() {
 });
 
 add_task(async function stop_ends_task_and_says_what_changed() {
-  return;
   await fresh();
   const tab = await openOn();
   let release;
@@ -436,7 +430,6 @@ add_task(async function stop_ends_task_and_says_what_changed() {
 });
 
 add_task(async function outside_thread_is_read_only_with_run_card() {
-  return;
   await fresh();
   const tab = await openOn();
   const task = WhimsyAgentTasks.start({ client: "outside", clientName: "Claude Code", title: "Fix flaky test" });
@@ -454,7 +447,6 @@ add_task(async function outside_thread_is_read_only_with_run_card() {
 });
 
 add_task(async function outside_pause_toast_cmd_e() {
-  return;
   await fresh();
   const tab = await openOn();
   const task = WhimsyAgentTasks.start({ client: "outside", clientName: "Claude Code", title: "Fix flaky test" });
