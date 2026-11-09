@@ -9,6 +9,8 @@
 
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_video_w23.js", this);
 
+const { WhimsyAI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAI.sys.mjs");
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -75,7 +77,10 @@ add_task(async function small_video_icon_only_and_none() {
 });
 
 add_task(async function ai_off_no_summarize_pip_stays() {
+  // Turning AI off and on again applies asynchronously (WhimsyAI.apply):
+  // wait for it each way, or the next test asks for a summary mid-restore.
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", false]] });
+  await WhimsyAI.pending;
   const { tab, browser } = await openVideo();
   await hoverVideo(browser);
   const state = await shownControl(browser);
@@ -83,6 +88,7 @@ add_task(async function ai_off_no_summarize_pip_stays() {
   ok(state.pip.shown, "PiP stays in the corner");
   BrowserTestUtils.removeTab(tab);
   await SpecialPowers.popPrefEnv();
+  await WhimsyAI.pending;
 });
 
 add_task(async function summarize_toggle_closes_and_reopens_same() {
