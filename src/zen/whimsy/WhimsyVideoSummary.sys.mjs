@@ -200,6 +200,7 @@ export const WhimsyVideoSummary = {
     );
     lazy.WhimsyChat.registerCard("video-heard", (doc, msg) => this.renderHeard(doc, msg));
     lazy.WhimsyChat.registerCard("video-transcript", (doc, msg, ctx) => this.renderTranscript(doc, msg, ctx));
+    lazy.WhimsyChat.registerCard("video-live", (doc, msg) => this.renderLive(doc, msg));
     lazy.WhimsyChat.registerCard("video-actions", (doc, msg, ctx) => this.renderActions(doc, msg, ctx));
   },
 
@@ -325,6 +326,14 @@ export const WhimsyVideoSummary = {
     if (panel.thread?.id != thread.id) {
       return thread.id;
     }
+    // Live: a line above the summary says it covers what you watched.
+    if (source.live) {
+      const first = source.cues[0]?.start ?? source.currentTime ?? 0;
+      const minutes = Math.max(1, Math.round(((source.currentTime ?? 0) - first) / 60));
+      const head = await lazy.WhimsyAIStore.append(thread.id, { role: "card", kind: "video-live", minutes, from: from || "page" });
+      panel.body.append(this.renderLive(panel.doc, head));
+      await panel.doc.l10n.translateFragment(panel.body.lastElementChild);
+    }
     const prompt = [source.live ? LIVE_PROMPT : PROMPT, "", this.describe(source, from)].join("\n");
     const saved = await panel.answer(panel.thread, {
       instruction: prompt,
@@ -341,7 +350,7 @@ export const WhimsyVideoSummary = {
     const note = await lazy.WhimsyAIStore.append(thread.id, {
       role: "note",
       kind: "video-source",
-      from: textOnly && !source.drm ? "text-only" : source.drm ? `drm-${from || "page"}` : from || "page",
+      from: source.live ? "live" : textOnly && !source.drm ? "text-only" : source.drm ? `drm-${from || "page"}` : from || "page",
       frames: frames.length,
     });
     if (panel.thread?.id == thread.id) {
@@ -504,7 +513,7 @@ export const WhimsyVideoSummary = {
 
   renderActions(doc, msg, { win, thread } = {}) {
     const chips = {
-      transcript: { l10n: "whimsy-video-chip-transcript", icon: "chrome://browser/content/whimsy/icons/text-chip.svg", run: () => this.showTranscript(win) },
+      transcript: { l10n: "whimsy-video-chip-transcript", icon: "chrome://browser/content/whimsy/icons/transcript.svg", run: () => this.showTranscript(win) },
       quotes: { l10n: "whimsy-video-chip-quotes", icon: "chrome://browser/content/whimsy/icons/listen.svg", run: () => this.keyQuotes(win) },
       update: { l10n: "whimsy-video-chip-update", icon: "chrome://browser/skin/zen-icons/reload.svg", run: () => this.update(win) },
     };
@@ -530,6 +539,16 @@ export const WhimsyVideoSummary = {
             )
           )
       )
+    );
+  },
+
+  renderLive(doc, msg) {
+    return h(
+      doc,
+      "div",
+      { class: "whimsy-chat-msg whimsy-video-live", "data-role": "card", "data-msg-id": msg.id },
+      h(doc, "span", { class: "whimsy-video-live-badge", l10n: "whimsy-video-live-badge" }),
+      h(doc, "span", { class: "whimsy-video-live-text", l10n: ["whimsy-video-live-watched", { minutes: msg.minutes ?? 1, from: msg.from ?? "captions" }] })
     );
   },
 

@@ -836,7 +836,7 @@
 
 # The speed videos start at (Settings › Media); a site's saved speed beats it.
 - name: whimsy.video.default-speed
-  value: "1"
+  value: "1.0"
 
 # Summarize and picture-in-picture at the top right of videos.
 - name: whimsy.video.top-buttons

@@ -6474,10 +6474,27 @@ whimsy-video-note =
         [drm-subtitles] From the subtitles and the page
         [drm-drawn] From the subtitles and the page
         [drm-page] This video is copy-protected, so this is from the page.
+        [live] Times jump back only while the stream can rewind
        *[page]
             { $frames ->
                 [0] From the page, not the video
                *[other] From frames and the description
+            }
+    }
+whimsy-video-live-badge = LIVE
+# $minutes (Number) - how long you've watched; $from (String) - where the words came from
+whimsy-video-live-watched =
+    { $from ->
+        [drawn]
+            { $minutes ->
+                [one] The minute you’ve watched, from the subtitles on the video
+               *[other] The { $minutes } minutes you’ve watched, from the subtitles on the video
+            }
+        [page] From the page; the stream had no captions while you watched
+       *[other]
+            { $minutes ->
+                [one] The minute you’ve watched, from its live captions
+               *[other] The { $minutes } minutes you’ve watched, from its live captions
             }
     }
 whimsy-video-heard-heading = What’s said so far

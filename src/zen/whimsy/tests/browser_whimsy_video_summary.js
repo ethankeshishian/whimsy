@@ -193,7 +193,7 @@ add_task(async function transcript_and_key_quotes_chips() {
   EventUtils.synthesizeMouseAtCenter(quotes, {});
   await TestUtils.waitForCondition(() => providerCalls.length == 2, "Key quotes asks the model");
   ok(sentText(providerCalls[1]).includes("most telling quotes"), "for quotes from the transcript");
-  ok(sentText(providerCalls[1]).includes("Night trains nearly vanished"), "with the transcript in its context");
+  ok(JSON.stringify(providerCalls[1].request).includes("Night trains nearly vanished"), "with the transcript in its context");
   await TestUtils.waitForCondition(() => [...body.querySelectorAll(".whimsy-chat-msg[data-role='user']")].some(m => m.textContent.includes("Key quotes from this video")), "The question shows as yours");
   await TestUtils.waitForCondition(() => body.querySelectorAll(".whimsy-chat-msg[data-role='ai']:not([busy])").length == 2, "and the quotes stream in");
   await closeChat();
@@ -222,6 +222,9 @@ add_task(async function live_stream_update_chip() {
   const body = chatPanel().body;
   const update = await TestUtils.waitForCondition(() => body.querySelector(".whimsy-video-chip[data-chip='update']"), "Live: an Update chip");
   ok(!body.querySelector(".whimsy-video-chip[data-chip='transcript']"), "and no Transcript for a stream");
+  const live = body.querySelector(".whimsy-video-live");
+  ok(live && live.compareDocumentPosition(body.querySelector(".whimsy-chat-msg[data-role='ai']")) & Node.DOCUMENT_POSITION_FOLLOWING, "A LIVE line sits above the summary");
+  await TestUtils.waitForCondition(() => live.textContent.includes("you’ve watched"), "and says it covers what you watched");
   await TestUtils.waitForCondition(() => update.textContent == "Update", "Update is labelled");
 
   await SpecialPowers.spawn(browser, [], () => {

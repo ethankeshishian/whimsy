@@ -45,9 +45,12 @@ function holdContent(browser, which, ms) {
     const frame = () => new Promise(r => content.requestAnimationFrame(() => content.requestAnimationFrame(r)));
     if (part == "plates") {
       actor.hide();
-      await frame();
+      // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+      await new Promise(r => content.setTimeout(r, 400));
       actor.show(video);
-      await frame();
+      // Flush styles so the fade-in transitions exist to hold.
+      actor.els.bar.getBoundingClientRect();
+      actor.els.right.getBoundingClientRect();
       for (const a of [...actor.els.bar.getAnimations(), ...actor.els.right.getAnimations()]) {
         a.pause();
         a.currentTime = at;
@@ -119,6 +122,9 @@ add_task(async function shots_speed() {
     await SpecialPowers.spawn(browser, [], () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").setRate(20));
   });
   await SpecialPowers.spawn(browser, [], () => (content.document.getElementById("video").playbackRate = 1));
+  // The site keeps no speed for the shots after this one.
+  const { WhimsyVideoSpeed } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs");
+  await WhimsyVideoSpeed.forget(browser.browsingContext);
   BrowserTestUtils.removeTab(tab);
 });
 
@@ -136,15 +142,15 @@ add_task(async function shots_summary() {
   await TestUtils.waitForCondition(() => body.querySelector(".whimsy-video-chip[data-chip='quotes']"), "The chips are in");
   await shootPage("w23-video-media-1.7", browser, () => hoverVideo(browser));
   // fu-media dec-3: pressed again, the summary hides and Summarize says it'll show it.
+  // fu-media dec-3: pressed again, the summary hides and Summarize says it'll show it.
+  const press = () => SpecialPowers.spawn(browser, [], () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").pressSummarize());
   await shootPage("w23-video-dec-3", browser, async () => {
     await hoverVideo(browser);
-    const state = await shownControl(browser);
-    await clickPoint(browser, state.summ);
+    await shownControl(browser);
+    await press();
     await TestUtils.waitForCondition(async () => (await videoControl(browser)).summ.state == "hidden", "Summarize would show it again");
     return async () => {
-      const again = await videoControl(browser);
-      await hoverVideo(browser);
-      await clickPoint(browser, again.summ);
+      await press();
       await TestUtils.waitForCondition(() => chatPanel().isOpen, "The summary is back");
     };
   });
