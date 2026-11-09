@@ -19,6 +19,10 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  clearInterval: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setInterval: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
 });
@@ -67,8 +71,10 @@ function countShown() {
   Services.prefs.setStringPref(TODAY_PREF, `${today()}:${shownToday() + 1}`);
 }
 
-function sleep(win, ms) {
-  return new Promise(resolve => win.setTimeout(resolve, ms));
+// Not the window's own timers: a closed window drops them, and the line
+// would wait forever on a hint asked for in a window that's gone.
+function sleep(ms) {
+  return new Promise(resolve => lazy.setTimeout(resolve, ms));
 }
 
 function alive(win) {
@@ -171,11 +177,11 @@ export const WhimsyAIHints = {
       }
       const wait = lastClosedAt + timing.gapMs - Date.now();
       if (wait > 0) {
-        await sleep(win, wait);
+        await sleep(wait);
         continue;
       }
       if (realToastShowing(win)) {
-        await sleep(win, timing.pollMs);
+        await sleep(timing.pollMs);
         continue;
       }
       waiting = null;
@@ -212,27 +218,40 @@ export const WhimsyAIHints = {
       if (current != state) {
         return;
       }
-      win.clearTimeout(state.seenTimer);
-      win.clearInterval(state.poll);
+      lazy.clearTimeout(state.seenTimer);
+      lazy.clearInterval(state.poll);
+      try {
+        win.removeEventListener("unload", onUnload);
+      } catch {}
       current = null;
       lastClosedAt = Date.now();
       resolveClosed();
     };
+    // Its window closed: the toast went with it, cut short and not seen.
+    const onUnload = () => {
+      state.cut = true;
+      finish();
+    };
+    win.addEventListener("unload", onUnload);
     current = state;
     toast.shown.then(() => {
       if (current == state && !state.cut) {
-        state.seenTimer = win.setTimeout(() => this._markSeen(hint.id), timing.seenMs);
+        state.seenTimer = lazy.setTimeout(() => this._markSeen(hint.id), timing.seenMs);
       }
     });
     // Gone with its surface.
-    state.poll = win.setInterval(() => {
+    state.poll = lazy.setInterval(() => {
+      if (win.closed) {
+        onUnload();
+        return;
+      }
       let visible = false;
       try {
         visible = !win.closed && hint.isVisible(win);
       } catch {}
       if (!visible) {
         // Cut short: not seen, even if the close animation outlasts the timer.
-        win.clearTimeout(state.seenTimer);
+        lazy.clearTimeout(state.seenTimer);
         state.cut = true;
         toast.close();
       }
