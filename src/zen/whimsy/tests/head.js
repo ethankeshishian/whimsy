@@ -151,6 +151,26 @@ add_setup(function whimsySnapshotLeakedPrefs() {
     return { name, hadUserValue, type, value: hadUserValue ? whimsyReadPref(name, type) : undefined };
   });
 
+  // W23 commands: Enable AI (whimsy.ai.enabled) is off by default, but the
+  // manifest's own per-file default pushes it on, and several AI files set
+  // it straight with Services.prefs.setBoolPref rather than through a
+  // pushPrefEnv the harness pops on its own. A file's own saved/restore
+  // snapshot is taken at load time, which is already after that ambient
+  // "on" state, so restoring it just writes "on" back instead of really
+  // clearing it, and it snowballs into whichever file runs next
+  // (browser_whimsy_selection_verbs.js then finds AI on and opens the
+  // context command bar instead of a plain web search). Unlike the hint
+  // prefs below, turning AI off has real side effects (WhimsyAI's pref
+  // observer cascades into WhimsyPageWatch, WhimsyAITabs, WhimsyAIProviders
+  // and others), so this clear is a normal (single-wave) cleanup rather than
+  // doubly-deferred: it runs before whimsySettleVsync's own doubly-deferred
+  // wait, so any animation or async work that transition kicks off still
+  // gets to settle before the file ends, instead of firing after
+  // everything else with nothing left to wait for it.
+  registerCleanupFunction(function whimsyTurnAIOff() {
+    Services.prefs.clearUserPref("whimsy.ai.enabled");
+  });
+
   registerCleanupFunction(() => registerCleanupFunction(function whimsyRestoreLeakedPrefs() {
     ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIHints.sys.mjs").WhimsyAIHints._settleForTesting();
     // W23: the chat's ⌘E hint (watchForHint) runs off a timer on the shared
