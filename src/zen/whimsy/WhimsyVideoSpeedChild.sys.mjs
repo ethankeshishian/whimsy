@@ -908,6 +908,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
 
   async pressSummarize() {
     const video = this.current;
+    dump(`WHIMSY-DEBUG pressSummarize: video=${!!video} summarizing=${this.summarizing} summaryState(before)=${this.summaryState}\n`);
     if (!video || this.summarizing) {
       return;
     }
@@ -915,14 +916,16 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.render();
     try {
       const state = await this.sendQuery("WhimsyVideoSpeed:Summarize", { videoId: this.idOf(video) });
+      dump(`WHIMSY-DEBUG pressSummarize: got state=${state}\n`);
       if (state) {
         this.summaryState = state;
       }
     } catch (e) {
-      // The page is going away.
+      dump(`WHIMSY-DEBUG pressSummarize: threw ${e}\n`);
     }
     this.summarizing = false;
     this.render();
+    dump(`WHIMSY-DEBUG pressSummarize: summaryState(after)=${this.summaryState}\n`);
   }
 
   // Firefox's picture-in-picture, called directly (its own toggle is hidden by pref).

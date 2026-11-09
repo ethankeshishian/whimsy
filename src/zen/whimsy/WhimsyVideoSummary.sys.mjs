@@ -245,15 +245,19 @@ export const WhimsyVideoSummary = {
     lazy.WhimsyAIHints.used("video-summary");
     const threadId = this.threadFor(tab, videoId);
     const panel = lazy.WhimsyChatPanel.forWindow(win);
+    dump(`WHIMSY-DEBUG toggle in: threadId=${threadId} isOpen=${lazy.WhimsyChat.isOpen(win)} panelThreadId=${panel.thread?.id}\n`);
     if (threadId && lazy.WhimsyChat.isOpen(win) && panel.thread?.id == threadId) {
       lazy.WhimsyChat.close(win, { reason: "video" });
+      dump("WHIMSY-DEBUG toggle: closed, returning hidden\n");
       return "hidden";
     }
     if (threadId && (await lazy.WhimsyAIStore.thread(threadId))) {
       await lazy.WhimsyChat.open(win, { threadId, focus: "card" });
+      dump("WHIMSY-DEBUG toggle: reopened, returning shown\n");
       return "shown";
     }
     await this.summarize(win, tab, { actor, videoId });
+    dump("WHIMSY-DEBUG toggle: fresh summarize, returning shown\n");
     return "shown";
   },
 

@@ -24,14 +24,18 @@ add_task(async function settings_media_page_has_moved_checkboxes() {
     const button = doc.getElementById("whimsyMediaDefaultSpeedMenu");
     ok(button, "The default speed is a menu button");
     button.scrollIntoView();
-    EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
+    // The listbox is a real styled surface (an NSPopover-backed panel), not a
+    // native menu; browser_whimsy_site_settings.js picks the same widget the
+    // same way: .click() on the row, not a coordinate-based synthesized
+    // click, which can miss while the popover is still settling.
+    button.click();
     const option = await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='1.5']") ?? window.document.querySelector("[role=option][data-value='1.5']"), "The menu opens");
-    EventUtils.synthesizeMouseAtCenter(option, {}, option.documentGlobal);
+    option.click();
     await TestUtils.waitForCondition(() => Services.prefs.getStringPref("whimsy.video.default-speed") == "1.5", "Picking 1.5× sets the default");
 
-    EventUtils.synthesizeMouseAtCenter(doc.getElementById("whimsyMediaDefaultSpeedMenu"), {}, browser.contentWindow);
+    doc.getElementById("whimsyMediaDefaultSpeedMenu").click();
     const other = await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='other']") ?? window.document.querySelector("[role=option][data-value='other']"), "The menu opens again");
-    EventUtils.synthesizeMouseAtCenter(other, {}, other.documentGlobal);
+    other.click();
     const input = await TestUtils.waitForCondition(() => doc.getElementById("whimsyMediaDefaultSpeedInput"), "Other… is a field");
     input.focus();
     input.select();
