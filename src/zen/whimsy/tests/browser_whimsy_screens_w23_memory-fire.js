@@ -17,7 +17,9 @@ const { ProvidersManager } = ChromeUtils.importESModule("moz-src:///browser/comp
 const LAST_PREF = "whimsy.fire.last";
 
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], [WhimsyAIMemory.USE_PREF, true], ["whimsy.feature.ai-related", true]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], [WhimsyAIMemory.USE_PREF, true], ["whimsy.feature.ai-related", true],
+    // No first-use hint toasts over the shots.
+    ["whimsy.feature.ai-hints", false]] });
   registerCleanupFunction(() => {
     Services.prefs.clearUserPref(LAST_PREF);
   });
@@ -44,6 +46,7 @@ add_task(async function shots_fire_panel_defaults() {
   Services.prefs.clearUserPref(LAST_PREF);
   await whimsyBothSchemes("w23-memory-fire-fire-2.1", async () => {
     const panel = await openFire();
+    ok(panel.state == "open" && panel.querySelector("#whimsy-fire-forget"), "fire-2.1: the Fire surface is open on its defaults");
     return () => closeFire(panel);
   });
 });
@@ -57,6 +60,7 @@ add_task(async function shots_fire_panel_second_ask() {
     input.click();
     panel.querySelector("#whimsy-fire-forget").click();
     await TestUtils.waitForCondition(() => panel.dataset.step == "confirm", "The confirm step shows");
+    ok(panel.dataset.step == "confirm", "fire-2.7: Memory asks once more, in the same surface");
     return () => closeFire(panel);
   });
 });
@@ -71,6 +75,7 @@ add_task(async function shots_fire_panel_private_window() {
       await shown;
       const panel = win.document.getElementById("whimsyFirePanel");
       await win.document.l10n.translateFragment(panel);
+      ok(panel.state == "open", "fire-4.1: the private window's Fire surface is open");
       return async () => {
         if (panel.state == "open") {
           const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
@@ -89,6 +94,7 @@ add_task(async function shots_fire_panel_ai_only() {
   Services.prefs.clearUserPref(LAST_PREF);
   await whimsyBothSchemes("w23-memory-fire-fire-dec-16-ai-only", async () => {
     const panel = await openFire({ aiOnly: true });
+    ok(panel.state == "open", "dec-16: Fire opens from Forget everything with the AI items");
     return () => closeFire(panel);
   });
 });
@@ -98,6 +104,7 @@ add_task(async function shots_fire_done_toast() {
   await whimsyBothSchemes("w23-memory-fire-fire-3.2", async () => {
     await WhimsyFireButton.run(window, async () => ({ tabs: 2, items: ["aiChats", "memory"] }), "burn");
     const toast = currentToast();
+    ok(toast, "fire-3.2: the done toast shows");
     await toast?.shown;
     return () => closeToasts();
   });
@@ -123,16 +130,49 @@ add_task(async function shots_related_row() {
   }
 });
 
-// fu-chat 4.5 / chat-4.4: the memory-saved note with Undo, and the "Used N
-// memories" line, rendered the way a chat panel would append them.
+// fu-chat 4.5 / chat-4.4: the memory-saved note with Undo after a real
+// answer in the chat panel, then the "Used 1 memory" action on the next.
 add_task(async function shots_memory_note_and_used_line() {
-  const render = WhimsyChat.cardRenderer("note:memory-saved");
-  await whimsyBothSchemes("w23-memory-fire-fu-chat-4.5", async () => {
-    const node = render(document, { facts: ["Lives in Austin"], memoryIds: ["shot-1"] }, { thread: { id: "shot" } });
-    document.documentElement.append(node);
-    await document.l10n.translateFragment(node);
-    return () => node.remove();
-  });
+  const { WhimsyChatPanel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatPanel.sys.mjs");
+  const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
+  await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-memory-shots-" + Math.random().toString(16).slice(2)));
+  WhimsyAIProviders.setTestProvider(async request => request.task == "memory"
+    ? (request.lastUserText.includes("I live in Austin") ? JSON.stringify(["Lives in Austin"]) : "[]")
+    : "Try the breakfast tacos on East Cesar Chavez.");
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const chat = WhimsyChatPanel.forWindow(window);
+  const ask = async text => {
+    chat.composer.focus();
+    EventUtils.sendString(text);
+    EventUtils.synthesizeKey("KEY_Enter");
+    await TestUtils.waitForCondition(() => chat.body.querySelector(".whimsy-chat-msg[data-role='ai']:not([busy])") &&
+      !chat.body.querySelector(".whimsy-chat-msg[busy]"), "Answered");
+    await chat.memoryNote;
+  };
+  try {
+    EventUtils.synthesizeKey("e", { accelKey: true });
+    await TestUtils.waitForCondition(() => chat.isOpen && chat.ready, "Chat is open");
+    await ask("I live in Austin, any taco tips?");
+    await TestUtils.waitForCondition(() => chat.body.querySelector("[data-kind='memory-saved']"), "The memory note shows");
+    await ask("Where should I eat in Austin tonight?");
+    const used = await TestUtils.waitForCondition(() => chat.body.querySelector("[data-action='used-memories']"), "The used-memories action shows");
+    ok(used, "fu-chat 4.5 / chat-4.4: the note line and the Used 1 memory action are both in the chat");
+    await whimsyBothSchemes("w23-memory-fire-fu-chat-4.5", async () => {
+      await document.l10n.translateFragment(chat.body);
+      return null;
+    });
+  } finally {
+    if (chat.isOpen) {
+      chat.close({ reason: "key" });
+    }
+    BrowserTestUtils.removeTab(tab);
+    WhimsyAIProviders.setTestProvider(null);
+    for (const m of await WhimsyAIMemory.list()) {
+      await WhimsyAIMemory.remove(m.id, { block: false });
+    }
+    await WhimsyAIStore._resetForTesting(null);
+  }
 });
 
 // set-7.1 / set-7.3 / fu-settings dec-13: Settings > AI > Memory (the
@@ -146,6 +186,7 @@ add_task(async function shots_memory_settings() {
   try {
     await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root && doc.getElementById("whimsyMemoryList")?.childElementCount >= 2,
       "Settings memory section is built");
+    ok(doc.getElementById("whimsyMemoryList").childElementCount >= 2, "set-7.1: both memories are listed");
     doc.getElementById("whimsyMemoryList").scrollIntoView({ block: "start", behavior: "instant" });
     await whimsyBothSchemes("w23-memory-fire-set-7.1", async () => null);
   } finally {

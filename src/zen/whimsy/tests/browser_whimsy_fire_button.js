@@ -448,7 +448,8 @@ add_task(async function test_fire_confirms_at_once_then_shows_the_result() {
   is(failed.messageId, "whimsy-fire-failed-title", "A failure replaces it");
   const retry = failed.element.querySelector(".whimsy-toast-button");
   is(document.l10n.getAttributes(retry.querySelector(".whimsy-toast-button-label")).id, "whimsy-fire-retry", "with Try Again");
-  retry.click();
+  await failed.shown;
+  EventUtils.synthesizeMouseAtCenter(retry, {});
   await TestUtils.waitForCondition(() => attempts == 2, "Try Again runs it again");
   closeToasts();
 });

@@ -57,22 +57,18 @@ add_task(async function auto_save_note_line_undo_blocks() {
   const listed = await WhimsyAIMemory.list();
   ok(listed.some(m => m.id == saved[0].id), "It shows up in the list");
 
-  // The note line a chat panel renders (WhimsyChat.registerCard).
+  // The note line a chat panel renders (WhimsyChat.registerCard); pressing
+  // its Undo for real is panel_tracks_and_cancels_memory_note's job.
   const render = WhimsyChat.cardRenderer("note:memory-saved");
   ok(render, "The memory-saved card is registered");
   const msg = { role: "ai", facts: saved.map(m => m.text), memoryIds: saved.map(m => m.id) };
   const node = render(document, msg, { thread: { id: "thread-1" } });
   is(node.dataset.kind, "memory-saved", "The note is a memory-saved card");
-  document.documentElement.append(node);
-  try {
-    const undo = node.querySelector(".whimsy-chat-link");
-    ok(undo, "It has an Undo link");
-    undo.click();
-    await TestUtils.waitForCondition(async () => !(await WhimsyAIMemory.get(saved[0].id)), "Undo deletes the fact");
-    info(`blocked list after Undo: ${JSON.stringify(await WhimsyAIStore.readDoc("memory-blocked", []))}`);
-  } finally {
-    node.remove();
-  }
+  ok(node.querySelector(".whimsy-chat-link"), "It has an Undo link");
+  await WhimsyAIMemory._undoFromNote({ id: "thread-1" }, msg, node);
+  ok(!(await WhimsyAIMemory.get(saved[0].id)), "Undo deletes the fact");
+  ok(!node.querySelector(".whimsy-chat-link"), "...and the link goes");
+  info(`blocked list after Undo: ${JSON.stringify(await WhimsyAIStore.readDoc("memory-blocked", []))}`);
 
   // Undo blocks the exact fact text (case/whitespace aside) from being
   // saved again, even from an unrelated exchange.
@@ -167,8 +163,14 @@ add_task(async function panel_tracks_and_cancels_memory_note() {
     await TestUtils.waitForCondition(() => memoryAsks == 1, "Asked again");
     await chat.memoryNote;
     ok((await WhimsyAIMemory.list()).some(m => m.text == "Has a cat named Miso"), "Left open, the fact is saved");
-    await TestUtils.waitForCondition(() => document.querySelector("#whimsy-chat [data-kind='memory-saved']"),
+    const note = await TestUtils.waitForCondition(() => document.querySelector("#whimsy-chat [data-kind='memory-saved']"),
       "...with its note line in the chat");
+    const undo = note.querySelector(".whimsy-chat-link");
+    ok(undo, "The note has Undo");
+    EventUtils.synthesizeMouseAtCenter(undo, {});
+    await TestUtils.waitForCondition(async () => !(await WhimsyAIMemory.list()).length, "Undo in the chat deletes it");
+    await TestUtils.waitForCondition(() => !note.querySelector(".whimsy-chat-link"), "...and the Undo link goes");
+    is(await WhimsyAIMemory.save("Has a cat named Miso"), null, "...and blocks it from coming back");
   } finally {
     if (chat.isOpen) {
       chat.close({ reason: "key" });

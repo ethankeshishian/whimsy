@@ -28,10 +28,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const RELATED_ICON = "chrome://browser/skin/zen-icons/search-page.svg";
 const MAX_RESULTS = 3;
-// Below this cosine similarity a page isn't "about" the query: on-device
-// sentence vectors score loosely related text well above zero, so > 0
-// alone would offer a Related row for nearly every query.
-const MIN_SCORE = 0.5;
+// Below this cosine similarity a page isn't "about" the query. Apple's
+// sentence vectors score unrelated text 0.28-0.36 and same-topic text
+// 0.39-0.51 (browser_whimsy_ai_index.js logs them), so > 0 alone offered a
+// Related row for nearly every query; 0.45 keeps only clear matches.
+const MIN_SCORE = 0.45;
 
 const FOLDER_KIND = "index";
 const FILE_NAME = "index.bin";
@@ -118,6 +119,7 @@ async function save() {
 }
 
 export const WhimsyAIIndex = {
+  MIN_SCORE,
   FEATURE,
   MAX_ENTRIES,
 

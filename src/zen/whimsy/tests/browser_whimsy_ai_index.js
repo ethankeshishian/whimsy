@@ -172,8 +172,8 @@ add_task(async function real_model_scores_unrelated_below_cutoff() {
       ok(true, "No on-device sentence model here; nothing to calibrate");
       return;
     }
-    Assert.greaterOrEqual(scores[0], 0.5, "Same topic scores over the cut-off");
-    Assert.less(Math.max(scores[2], scores[3], scores[4]), 0.5, "Unrelated topics score under it");
+    Assert.greaterOrEqual(scores[1], WhimsyAIIndex.MIN_SCORE, "A clearly same-topic page scores over the cut-off");
+    Assert.less(Math.max(scores[2], scores[3], scores[4]), WhimsyAIIndex.MIN_SCORE, "Unrelated topics score under it");
   } finally {
     WhimsyAIIndex._setTestEmbedder(vectorFor);
   }
