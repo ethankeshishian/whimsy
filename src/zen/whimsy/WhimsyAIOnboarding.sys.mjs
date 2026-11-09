@@ -446,7 +446,7 @@ export const WhimsyAIOnboarding = {
             }
             const ui = self._card(doc, content, { id, logo: `${ICONS}${lazy.CATALOG[id].logo}.svg`, nameL10n: `whimsy-connectors-name-${id}`, detailL10n: `whimsy-onb-cs-detail-${id}`, action: CONNECTORS[id].action ?? "whimsy-onb-connect", marks: CONNECTORS[id].marks }, () => start(id));
             cards.set(id, ui);
-            if (c?.connected || s.services.has(id)) {
+            if ((c?.connected && c.status == "ok") || s.services.has(id)) {
               s.services.add(id);
               ui.set({ state: "done", status: "whimsy-onb-connected", tone: "pass" });
             } else if (c?.status == "needs-client-id") {
