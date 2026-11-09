@@ -6582,6 +6582,14 @@ whimsy-memory-delete-button =
     .aria-label = Delete “{ $fact }”
 whimsy-memory-deleted-toast = Deleted the memory
 whimsy-memory-empty = Nothing saved yet.
+whimsy-memory-search =
+    .placeholder = Search memories
+    .aria-label = Search memories
+whimsy-memory-count = { $count ->
+    [one] 1 memory
+   *[other] { $count } memories
+}
+whimsy-memory-no-match = No memories match.
 whimsy-memory-export-button = Export Markdown…
 # The exported file's heading, the save dialog's title, and its file type.
 whimsy-memory-export-heading = Memory

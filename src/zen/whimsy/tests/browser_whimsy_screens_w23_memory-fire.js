@@ -236,6 +236,15 @@ add_task(async function shots_memory_settings() {
     } finally {
       win.WhimsyAISettings.reducedMotion = reduce;
     }
+    ok(!doc.getElementById("whimsyMemorySearch").closest("[hidden]"), "set-7.1: a search pill above the list");
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyMemoryCount").textContent.includes("2"), "set-7.1: and the count");
+    const search = doc.getElementById("whimsyMemorySearch");
+    search.value = "aisle";
+    search.dispatchEvent(new win.Event("input"));
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyMemoryList").childElementCount == 1, "Searching narrows the list");
+    search.value = "";
+    search.dispatchEvent(new win.Event("input"));
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyMemoryList").childElementCount == 2, "Clearing it brings both back");
     await whimsyBothSchemes("w23-memory-fire-set-7.1", async () => null);
   } finally {
     BrowserTestUtils.removeTab(tab);

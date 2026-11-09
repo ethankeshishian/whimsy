@@ -131,6 +131,9 @@
     }
     view.list.replaceChildren();
     view.empty.hidden = !!all.length;
+    // set-7.1: a search pill and the count, once there's anything to find.
+    view.tools.hidden = !on || !all.length;
+    document.l10n.setAttributes(view.count, "whimsy-memory-count", { count: all.length });
     if (!all.length) {
       return;
     }
@@ -138,7 +141,10 @@
     if (!view.list) {
       return;
     }
-    view.list.append(...all.map((memory, i) => row(memory, sources[i])));
+    const query = view.search.value.trim().toLocaleLowerCase();
+    const shown = all.map((memory, i) => [memory, sources[i]]).filter(([memory, from]) => !query || `${memory.text} ${from}`.toLocaleLowerCase().includes(query));
+    view.list.append(...shown.map(([memory, from]) => row(memory, from)));
+    view.none.hidden = !!shown.length;
     await document.l10n.translateFragment(view.list);
   }
 
@@ -163,6 +169,18 @@
       // doesn't grow under a jump once the list has loaded.
       const empty = S.el("p", "whimsy-ai-desc", container, "whimsy-memory-empty");
       view.empty = empty;
+      const tools = S.el("div", "whimsy-memory-tools", container);
+      tools.hidden = true;
+      const search = S.el("input", "whimsy-memory-search", tools, "whimsy-memory-search");
+      search.type = "search";
+      search.id = "whimsyMemorySearch";
+      search.addEventListener("input", () => render());
+      const count = S.el("span", "whimsy-memory-count", tools);
+      count.id = "whimsyMemoryCount";
+      Object.assign(view, { tools, search, count });
+      const none = S.el("p", "whimsy-ai-desc", container, "whimsy-memory-no-match");
+      none.hidden = true;
+      view.none = none;
       const list = S.el("div", "whimsy-ai-list", container);
       list.setAttribute("role", "list");
       list.id = "whimsyMemoryList";
