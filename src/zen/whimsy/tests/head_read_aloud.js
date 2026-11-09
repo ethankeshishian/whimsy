@@ -104,7 +104,8 @@ async function highlighted(browser, name = "whimsy-read-aloud") {
   // The mark message goes first on the same channel, so this sees it.
   return SpecialPowers.spawn(browser, [name], async which => {
     const highlight = content.CSS.highlights.get(which);
-    const range = highlight ? [...highlight][0] : null;
+    let range = null;
+    highlight?.forEach(r => (range ??= r));
     return range ? range.toString().replace(/\s+/g, " ").trim() : "";
   });
 }
@@ -116,6 +117,8 @@ async function click(el) {
 }
 
 async function openSpeedMenu(button) {
+  const r = button.getBoundingClientRect();
+  info(`Speed button at ${r.x},${r.y} ${r.width}x${r.height}; on top there: ${document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.outerHTML.slice(0, 160)}`);
   await click(button);
   const panel = await TestUtils.waitForCondition(() => document.getElementById("whimsy-read-aloud-speed-menu"), "The speed menu opens");
   await TestUtils.waitForCondition(() => panel.state == "open", "The speed menu is open");
