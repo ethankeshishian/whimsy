@@ -70,7 +70,7 @@ add_task(async function related_after_matches_max_three() {
   const added = [];
   await provider.startQuery(context, (p, result) => added.push(result));
   Assert.lessOrEqual(added.length, 3, "At most 3 rows");
-  ok(added.every(r => r.payload.whimsyRelated && r.payload.icon), "Tagged Related, with an icon");
+  ok(added.every(r => r.payload.tags?.[0] == "Related" && r.payload.icon), "Tagged Related, with an icon");
   ok(added.every(r => r.suggestedIndex < 0), "Negative suggestedIndex: after word matches and the Ask row");
 });
 

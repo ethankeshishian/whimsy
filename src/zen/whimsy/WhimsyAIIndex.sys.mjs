@@ -26,7 +26,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
 });
 
-const RELATED_TYPE = "whimsyRelated";
 const RELATED_ICON = "chrome://browser/skin/zen-icons/search-page.svg";
 const MAX_RESULTS = 3;
 
@@ -303,6 +302,11 @@ class WhimsyRelatedProvider extends UrlbarProvider {
   async startQuery(context, addCallback) {
     const text = context.searchString.trim();
     const matches = await WhimsyAIIndex.query(text, MAX_RESULTS);
+    if (!matches.length) {
+      return;
+    }
+    // The urlbar's own tag chip, after the title (and read after it).
+    const relatedTag = await new Localization(["browser/whimsy.ftl"]).formatValue("whimsy-command-related-tag");
     for (const [i, match] of matches.entries()) {
       addCallback(this, new lazy.UrlbarResult({
         type: UrlbarShared.RESULT_TYPE.URL,
@@ -314,7 +318,7 @@ class WhimsyRelatedProvider extends UrlbarProvider {
           url: match.url,
           title: match.title || match.url,
           icon: RELATED_ICON,
-          whimsyRelated: true,
+          tags: [relatedTag],
         },
       }));
     }

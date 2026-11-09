@@ -6447,6 +6447,9 @@ whimsy-ai-card-copied-toast = Copied
 ## command bar's Related results by meaning, and the Fire button redesign
 ## (one row of settings: range, spaces, items, including AI data).
 
+# Related results: the tag after a command-bar row found by meaning.
+whimsy-command-related-tag = Related
+
 # Memory
 whimsy-chat-note-memory-saved-one = Saved to memory: { $fact }
 whimsy-chat-note-memory-saved-many = Saved { $count } facts to memory

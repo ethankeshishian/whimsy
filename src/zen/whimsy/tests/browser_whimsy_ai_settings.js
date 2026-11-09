@@ -251,6 +251,14 @@ add_task(async function jump_strip_scrolls_to_section() {
   ok(ids.includes("providers") && ids.includes("features"), "Providers and Features");
   click(page, strip.querySelector('[data-section="features"]'));
   const top = $("whimsyAITop");
+  const where = () => {
+    const sc = S._scroller();
+    return `features.top=${$("whimsyAISection-features").getBoundingClientRect().top} top.bottom=${top.getBoundingClientRect().bottom} ` +
+      `scrollTop=${sc?.scrollTop} clientHeight=${sc?.clientHeight} scrollHeight=${sc?.scrollHeight} ` +
+      `sections=${[...doc.querySelectorAll("#whimsyAIOn section[data-section]")].map(x => `${x.dataset.section}:${Math.round(x.getBoundingClientRect().height)}`).join(",")}`;
+  };
+  info(`before jump: ${where()}`);
+  setTimeout(() => info(`1s after jump: ${where()}`), 1000);
   await TestUtils.waitForCondition(() => {
     const at = $("whimsyAISection-features").getBoundingClientRect().top;
     return Math.abs(at - top.getBoundingClientRect().bottom) < 60 || S._scroller().scrollTop + S._scroller().clientHeight >= S._scroller().scrollHeight - 2;
