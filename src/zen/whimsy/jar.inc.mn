@@ -235,3 +235,5 @@
         content/browser/whimsy/icons/pencil.svg (../../zen/whimsy/content/icons/pencil.svg)
 # W23 agent-chat: the agent in chat, Settings › AI › Agent, Outside agents, and Activity
         content/browser/whimsy/whimsy-chat-agent.css (../../zen/whimsy/content/whimsy-chat-agent.css)
+# W23 agent-tabs: the Drive look and the task folder
+        content/browser/whimsy/whimsy-agent.css (../../zen/whimsy/content/whimsy-agent.css)

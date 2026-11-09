@@ -1053,3 +1053,10 @@ support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
 # unpinned task folder for background tabs (dissolves like Zap), collisions,
 # needs-you, and the agent badge; plus this lane's screenshots.
 ["browser_whimsy_task_folder.js"]
+support-files = ["whimsy_claude.html"]
+
+["browser_whimsy_agent_tabs.js"]
+support-files = ["whimsy_claude.html"]
+
+["browser_whimsy_screens_w23_agent-tabs.js"]
+support-files = ["whimsy_claude.html", "whimsy_agent_checkout.html"]

@@ -33,6 +33,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyClaude: "resource:///modules/whimsy/WhimsyClaude.sys.mjs",
   WhimsyClaudeReplay: "resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -548,6 +549,7 @@ export const WhimsyChatAgent = {
           : l10n.formatValueSync("whimsy-agent-chat-strip-outside", { client: task.clientName }),
       waiting,
       waitingSince: waiting ? task.pause.created : 0,
+      pauseId: waiting ? task.pause.id : null,
       threadId: task.threadId,
       created: task.created,
     };
@@ -827,9 +829,11 @@ export const WhimsyChatAgent = {
         archived.push(tab);
       }
     }
-    // Tabs it only read leave as one group; Archive keeps them.
-    if (archived.length) {
-      win.gBrowser.removeTabs(archived, { animate: true, skipPermitUnload: true });
+    // Tabs it only read leave as one group; Archive keeps them. A Background
+    // task's folder dissolves like Zap: kept tabs stay where it sat.
+    const loose = lazy.WhimsyTaskFolder.end(task, { archive: archived });
+    if (loose.length) {
+      win.gBrowser.removeTabs(loose, { animate: true, skipPermitUnload: true });
     }
     const end = await this.append(null, run.threadId, {
       role: "card",
@@ -993,6 +997,7 @@ export const WhimsyChatAgent = {
     if (task.threadId) {
       this.syncThread(task.threadId);
     }
+    lazy.WhimsyTaskFolder.refresh(task);
     for (const win of browserWindows()) {
       const panel = panelOf(win);
       if (panel.el && panel.thread?.id == task.threadId) {
@@ -1069,7 +1074,8 @@ export const WhimsyChatAgent = {
       // The card grows as it unfolds; once it's full height, its choices go
       // back in view.
       unfolding?.finished.then(() => panel.win.requestAnimationFrame(reveal), () => {});
-      if (added.matches(".whimsy-agent-card[data-focus]") && panel.isOpen) {
+      // A collision leaves focus in the page you're using (agent-tabs).
+      if (added.matches(".whimsy-agent-card[data-focus]") && panel.isOpen && added.dataset.pauseKind != "collision") {
         (added.querySelector("[data-autofocus]") ?? added).focus({ preventScroll: true });
       }
     }
@@ -1125,6 +1131,8 @@ export const WhimsyChatAgent = {
         "data-msg-id": msg.id,
         "data-sig": this.sigOf(msg),
         "data-focus": focus,
+        "data-pause-id": msg.pauseId ?? null,
+        "data-pause-kind": msg.pauseId ? msg.kind ?? null : null,
         tabindex: focus ? "-1" : null,
         role: "group",
       },

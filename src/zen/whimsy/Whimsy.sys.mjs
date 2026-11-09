@@ -13,6 +13,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
   WhimsyChatAgent: "resource:///modules/whimsy/WhimsyChatAgent.sys.mjs",
+  WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
@@ -657,6 +658,8 @@ export const Whimsy = {
     run("ai-chat", () => lazy.WhimsyChatPanel.initWindow(win));
     // W23 agent-chat: the agent in chat (mode switch, plan, run card, pauses).
     run("ai-agent-chat", () => lazy.WhimsyChatAgent.initWindow(win));
+    // W23 agent-tabs: Background tabs' task folder, and "you win" collisions.
+    run("ai-task-folder", () => lazy.WhimsyTaskFolder.initWindow(win));
     // W23 cmdbar-ai: Ask AI, the answer card, ⌘1–⌘9, and Updates on top.
     // Providers check their switches and AI on every query.
     run("ai-ask", () => lazy.WhimsyCommandBarAI.initWindow(win));

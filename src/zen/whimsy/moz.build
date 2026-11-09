@@ -285,6 +285,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyChatAgent.sys.mjs",
 ]
 
+# W23 agent-tabs
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAgentPointer.sys.mjs",
+    "WhimsyTaskFolder.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]
