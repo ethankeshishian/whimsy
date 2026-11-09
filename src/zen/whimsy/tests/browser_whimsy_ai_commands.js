@@ -12,11 +12,7 @@ const { WhimsyAICommands, parseSkills, linkFor } = ChromeUtils.importESModule("r
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
 
-// whimsy.ai.enabled isn't tracked here: head.js's whimsySnapshotLeakedPrefs
-// clears it unconditionally at the end of every file, so a snapshot taken
-// here (which could already see it on, from the manifest's own default or
-// a leak) never gets a chance to write it back on.
-const TOUCHED = ["whimsy.ai.order", "whimsy.ai.off", "whimsy.ai.quick-text-apple", "whimsy.verbs.skills", "whimsy.feature.ai-commands"];
+const TOUCHED = ["whimsy.ai.enabled", "whimsy.ai.order", "whimsy.ai.off", "whimsy.ai.quick-text-apple", "whimsy.verbs.skills", "whimsy.feature.ai-commands"];
 const saved = new Map(
   TOUCHED.map(name => {
     const type = Services.prefs.getPrefType(name);
