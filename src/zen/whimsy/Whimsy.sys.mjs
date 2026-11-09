@@ -142,6 +142,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
 });
 
+// W23 voice-image: image text.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyImageText: "resource:///modules/whimsy/WhimsyImageText.sys.mjs",
+});
+
 
 // wave3: handoff. Firefox's Handoff without private tabs or Scratch.
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -503,6 +508,18 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
+    // W23 voice-image: image text. Text in images in view, recognized on this Mac.
+    ChromeUtils.registerWindowActor("WhimsyImageText", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyImageText.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyImageTextChild.sys.mjs",
+        events: { DOMContentLoaded: {}, pageshow: {}, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+    });
+
     // wave5/quick: link lasso. The child only acts on an Option-drag the
     // page didn't handle; the parent makes the folder.
     ChromeUtils.registerWindowActor("WhimsyLasso", {
@@ -676,6 +693,8 @@ export const Whimsy = {
     run("ai-video-summary", () => lazy.WhimsyVideoSummary.initWindow(win));
     // W23 voice-image: hold Fn to dictate, the command bar's mic, hold ⌘K; on this Mac, AI or not.
     run("dictation", () => lazy.WhimsyDictation.initWindow(win));
+    // W23 voice-image: image text; works with AI off, checks its switch on use.
+    run("image-text", () => lazy.WhimsyImageText.initWindow(win));
     // W23 memory-fire: "Related" rows by meaning, from the on-device index.
     run("ai-related", () => lazy.WhimsyAIIndex.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
