@@ -6505,3 +6505,17 @@ whimsy-video-transcript-from =
         [drawn] From the subtitles on the video
        *[other] From the video’s captions
     }
+whimsy-pane-media-title = Media
+whimsy-pane-media-heading = Media
+whimsy-media-speed-heading = Speed
+whimsy-media-default-speed = Default speed for videos
+whimsy-media-default-speed-detail = Videos start at this speed. Sites where you picked a speed keep theirs.
+whimsy-media-default-speed-normal = Normal
+whimsy-media-default-speed-other = Other…
+whimsy-media-default-speed-other-detail = 0.06 to 16
+whimsy-media-default-speed-input =
+    .aria-label = Default speed for videos
+whimsy-media-videos-heading = On videos
+whimsy-media-top-buttons =
+    .label = Show Summarize and picture-in-picture at the top right of videos
+whimsy-media-voice-heading = Read aloud and dictation

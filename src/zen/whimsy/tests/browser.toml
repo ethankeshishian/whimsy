@@ -1048,3 +1048,5 @@ support-files = ["head_video_w23.js", "whimsy_video_vtt.html", "whimsy_video_vtt
 
 ["browser_whimsy_video_summary.js"]
 support-files = ["head_video_w23.js", "whimsy_video_vtt.html", "whimsy_video_vtt.vtt", "whimsy_video_vtt.ttml", "whimsy_video.mp4"]
+
+["browser_whimsy_settings_media.js"]
