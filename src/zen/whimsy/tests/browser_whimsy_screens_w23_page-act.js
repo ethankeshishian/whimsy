@@ -184,8 +184,16 @@ add_task(async function translate_and_edit_shots() {
     ok(prompt.querySelector("input"), "page-6.2: the bar is a prompt");
     await whimsyBothSchemes(NAME("page-6.2"), async () => {});
 
+    // The prompt bar goes so the busy bar rises fresh; the model waits
+    // at the gate while the rise is held at 120ms.
+    WhimsyPageBar.hide(window);
+    let go;
+    gate = new Promise(r => (go = r));
     const apply = WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "hide the sidebar and make the text bigger");
     await whimsyShotMid(NAME("page-6.4"), () => WhimsyPageBar.current(window)?.el.getAnimations()[0], 120);
+    ok(true, "page-6.4: the bar's rise, mid");
+    go();
+    gate = null;
     await apply;
     const applied = await bar();
     ok(applied.querySelector(".primary[data-button=keep]"), "page-6.4: Keep on this site leads");

@@ -126,7 +126,7 @@ export class WhimsyAIPageEditsChild extends JSWindowActorChild {
    * hide: selectors to hide; css: sanitized CSS; click: selectors of
    * disclosure controls. Returns how many elements each part matched.
    */
-  apply({ hide = [], css = "", click = [] }) {
+  async apply({ hide = [], css = "", click = [] }) {
     const doc = this.document;
     const valid = s => {
       try {
@@ -154,8 +154,22 @@ export class WhimsyAIPageEditsChild extends JSWindowActorChild {
     const rules = [hidden.length ? `${hidden.join(",\n")} { display: none !important; }` : "", css].filter(Boolean).join("\n");
     if (rules) {
       const uri = `data:text/css,${encodeURIComponent(rules)}`;
-      this.utils.loadSheetUsingURIString(uri, this.utils.AUTHOR_SHEET);
-      this.sheets.push(uri);
+      const load = () => {
+        if (!this.sheets.includes(uri)) {
+          this.utils.loadSheetUsingURIString(uri, this.utils.AUTHOR_SHEET);
+          this.sheets.push(uri);
+        }
+      };
+      // The new look swaps in with a crossfade of the page (a view
+      // transition's default fade); reduced motion and background tabs
+      // swap instantly.
+      const reduce = this.contentWindow.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!reduce && doc.visibilityState == "visible" && typeof doc.startViewTransition == "function") {
+        try {
+          await doc.startViewTransition(load).updateCallbackDone;
+        } catch {}
+      }
+      load();
     }
     return { hidden: hidden.length, missing: hide.length - hidden.length, clicked, styled: !!css };
   }
