@@ -330,12 +330,9 @@ add_task(async function find_card() {
       return closeFind;
     });
     await whimsyBothSchemes(NAME("find-nothing"), async () => {
+      info(`DIAG pre field=${JSON.stringify(gBrowser.getCachedFindBar()?._findField.value)} activeIsField=${document.activeElement == gBrowser.getCachedFindBar()?._findField} hidden=${gBrowser.getCachedFindBar()?.hidden}`);
       const findbar = await openFind("when is the offsite");
-      for (let i = 0; i < 10; i++) {
-        info(`DIAG[${i}] status=${findbar._findField.getAttribute("status")} askable=${findbar.querySelector(".whimsy-ask-button").hasAttribute("askable")} count=${findbar.querySelector(".whimsy-find-count")?.getAttribute("value")}`);
-        // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
-        await new Promise(r => setTimeout(r, 300));
-      }
+      info(`DIAG post field=${JSON.stringify(findbar._findField.value)} status=${findbar._findField.getAttribute("status")} count=${findbar.querySelector(".whimsy-find-count")?.getAttribute("value")}`);
       await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered");
       return closeFind;
     });
