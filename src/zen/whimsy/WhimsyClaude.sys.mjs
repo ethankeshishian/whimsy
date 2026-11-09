@@ -1406,11 +1406,12 @@ export const WhimsyClaude = {
     if (action == "type" || action == "form_input") {
       target.newSite = !(await lazy.WhimsyAgentGuard.isKnownSite(uri.host).catch(() => false));
     }
+    target.approvedSite = !!task.approvedSites?.has(lazy.WhimsyAgentGuard.siteOf(uri));
     if (target.sensitive) {
       ctx.secret = true;
     }
     const verdict = lazy.WhimsyAgentGuard.classify(action, target);
-    if (!verdict || lazy.WhimsyAgentTasks.allowed(task, verdict.kind, verdict.host)) {
+    if (!verdict || (!verdict.everyTime && lazy.WhimsyAgentTasks.allowed(task, verdict.kind, verdict.host))) {
       return;
     }
     let pause = task.pause?.sig == ctx.sig ? task.pause : null;

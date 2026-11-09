@@ -325,6 +325,11 @@ export const WhimsyAgentGuard = {
       handOver = !!target.frame.crossOrigin;
     } else if (action == "click" || (action == "key" && target.submits)) {
       kind = pressKind(target);
+      // P2-M3: on a site the person approved mid-task, every form submit
+      // or send pauses with what was filled in (typing itself doesn't).
+      if (!kind && target.approvedSite && (target.submits || (target.form && target.role != "link"))) {
+        kind = "submit";
+      }
     } else if (action == "type" || action == "form_input") {
       if (target.captcha) {
         kind = "captcha";
@@ -348,6 +353,10 @@ export const WhimsyAgentGuard = {
     const amount = kind == "pay" || kind == "unsure" ? amountOf(target) : null;
     const file = kind == "download" ? fileName(target.href, target.download) : null;
     const result = { kind, host, preview: preview(kind, target, host, { amount, file }) };
+    if (target.approvedSite && (kind == "submit" || kind == "send")) {
+      // Every one, so no "don't ask again" here.
+      result.everyTime = true;
+    }
     if (handOver) {
       result.handOver = true;
       result.preview.reason = target.frame?.crossOrigin ? "frame" : target.sensitive ?? "security";

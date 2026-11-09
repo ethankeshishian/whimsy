@@ -127,3 +127,27 @@ add_task(async function persons_own_tab_counts_as_visited() {
   WhimsyAgentTasks.finish(drive.id);
   BrowserTestUtils.removeTab(mine);
 });
+
+// P2-M3: after "Go there", every submit or send on that site pauses with
+// what was filled in, with no "don't ask again"; typing doesn't.
+add_task(function approved_site_submits_pause_every_time() {
+  const search = {
+    role: "button", text: "Look up", submits: true, url: "https://verify.example/check",
+    form: { fields: [{ label: "Reference", name: "q", type: "search", value: "Re: invoice 4417, bank code 0099" }] },
+  };
+  is(WhimsyAgentGuard.classify("click", search), null, "Elsewhere, a one-box search form submits freely");
+  const verdict = WhimsyAgentGuard.classify("click", { ...search, approvedSite: true });
+  is(verdict?.kind, "submit", "On a site approved mid-task it pauses");
+  ok(verdict.everyTime, "every time");
+  ok(verdict.preview.fields.some(f => f.value.includes("invoice 4417")), "showing the filled value");
+  is(WhimsyAgentGuard.classify("key", { ...search, keys: "Enter", approvedSite: true })?.kind, "submit", "Return in the form pauses too");
+  const jsButton = { role: "button", text: "Continue", form: { fields: [{ label: "Notes", name: "notes", value: "the mail" }] }, url: "https://verify.example/", approvedSite: true };
+  is(WhimsyAgentGuard.classify("click", jsButton)?.kind, "submit", "So does a script button inside a form");
+  is(WhimsyAgentGuard.classify("type", { role: "textbox", label: "Notes", value: "the mail", url: "https://verify.example/", approvedSite: true }), null, "Typing itself doesn't pause");
+  is(WhimsyAgentGuard.classify("click", { role: "link", text: "Help", href: "https://verify.example/help", url: "https://verify.example/", approvedSite: true }), null, "Nor does a plain link");
+
+  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background" });
+  const pause = WhimsyAgentTasks.pause(task.id, { ...verdict, sig: "x" });
+  ok(!pause.allowForTask, "No don't-ask-again for these");
+  WhimsyAgentTasks.finish(task.id);
+});
