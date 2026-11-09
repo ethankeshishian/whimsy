@@ -119,8 +119,25 @@ async function click(el) {
 async function openSpeedMenu(button) {
   const r = button.getBoundingClientRect();
   info(`Speed button at ${r.x},${r.y} ${r.width}x${r.height}; on top there: ${document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.outerHTML.slice(0, 160)}`);
+  const evs = []; // DIAG
+  const logEv = e => evs.push(`${e.type}:${e.target?.localName}.${e.target?.className}:${e.clientX},${e.clientY}:t${Date.now()}`); // DIAG
+  for (const type of ["mousedown", "mouseup", "click", "mouseover"]) { // DIAG
+    window.addEventListener(type, logEv, true); // DIAG
+  } // DIAG
   await click(button);
-  const panel = await TestUtils.waitForCondition(() => document.getElementById("whimsy-read-aloud-speed-menu"), "The speed menu opens");
+  let panel; // DIAG
+  try { // DIAG
+  panel = await TestUtils.waitForCondition(() => document.getElementById("whimsy-read-aloud-speed-menu"), "The speed menu opens");
+  } catch (e) { // DIAG
+    const holder = document.getElementById("whimsy-read-aloud-player"); // DIAG
+    const r2 = button.getBoundingClientRect(); // DIAG
+    info(`DIAG speed menu missing connected=${button.isConnected} rect=${r2.x},${r2.y},${r2.width}x${r2.height} cards=${holder?.querySelectorAll(".zen-media-card").length} removing=${holder?.querySelectorAll("[zen-removing]").length} events=${JSON.stringify(evs)}`); // DIAG
+    throw e; // DIAG
+  } finally { // DIAG
+    for (const type of ["mousedown", "mouseup", "click", "mouseover"]) { // DIAG
+      window.removeEventListener(type, logEv, true); // DIAG
+    } // DIAG
+  } // DIAG
   await TestUtils.waitForCondition(() => panel.state == "open", "The speed menu is open");
   await document.l10n.translateFragment(panel);
   return panel;
