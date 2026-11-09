@@ -387,6 +387,8 @@ export const WhimsyAIStore = {
     await lazy.WhimsyAIUpdates._clearKinds(kinds, since);
     await saveThreads();
     await writes;
+    // In-memory AI text (link preview summaries) goes too (L5).
+    Services.obs.notifyObservers(null, "whimsy-ai-store-cleared", JSON.stringify({ kinds, since }));
   },
 
   /** Resolves once every write so far is on disk. */

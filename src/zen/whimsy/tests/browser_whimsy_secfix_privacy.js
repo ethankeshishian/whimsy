@@ -115,3 +115,28 @@ add_task(async function memory_never_learns_from_the_answer() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// W23 secfix L5: Fire drops link-preview summaries kept in memory.
+add_task(async function fire_drops_preview_summaries() {
+  const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
+  const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
+  const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  let asked = 0;
+  WhimsyAIReader.setTestReader(() => "Signed-in statement text.");
+  WhimsyAIProviders.setTestProvider(async () => {
+    asked++;
+    return JSON.stringify({ title: "Statement", points: ["A balance"] });
+  });
+  try {
+    const url = "https://example.com/statement?fire";
+    await WhimsyAIPage.summarize(url, { userContextId: 0 });
+    await WhimsyAIPage.summarize(url, { userContextId: 0 });
+    is(asked, 1, "Sanity: the summary is kept for a while");
+    await WhimsyAIStore.clear({ kinds: ["chats"] });
+    await WhimsyAIPage.summarize(url, { userContextId: 0 });
+    is(asked, 2, "After Fire it's gone, so it's made again");
+  } finally {
+    WhimsyAIReader.setTestReader(null);
+    WhimsyAIProviders.setTestProvider(null);
+  }
+});
