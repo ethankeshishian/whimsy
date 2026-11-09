@@ -41,6 +41,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
@@ -416,6 +418,32 @@ export const WhimsyFireButton = {
     return lazy.Sanitizer.sanitize(items, { range });
   },
 
+  // Gecko empties the disk cache on its cache thread after cache2.clear()
+  // returns, so a Fire that resolved then could still find (and serve) the
+  // pages it said it erased. The disk-consumption callback waits for that
+  // eviction (CacheIndex holds it until the evictor is done). Capped, so a
+  // stuck cache thread can't hold the Fire button forever.
+  cacheCleared(cap = 10000) {
+    return new Promise(resolve => {
+      // The cache holds its observer weakly; the timer keeps this one alive.
+      const observer = {
+        QueryInterface: ChromeUtils.generateQI(["nsICacheStorageConsumptionObserver", "nsISupportsWeakReference"]),
+        onNetworkCacheDiskConsumption: () => done(),
+      };
+      const timer = lazy.setTimeout(() => observer && resolve(), cap);
+      const done = () => {
+        lazy.clearTimeout(timer);
+        resolve();
+      };
+      try {
+        Services.cache2.asyncGetDiskConsumption(observer);
+      } catch (e) {
+        // No disk cache index (disabled, or still building): nothing to wait for.
+        done();
+      }
+    });
+  },
+
   // Every profile's history visits since `since` (ms; null for all time).
   clearHistory(since) {
     return since == null
@@ -512,6 +540,9 @@ export const WhimsyFireButton = {
       ];
       if (names.length) {
         await this.sanitize(names, range);
+      }
+      if (items.cache) {
+        await this.cacheCleared();
       }
       if (items.history) {
         visitCount = -1; // Unknown exactly; the toast says "history" generically.
