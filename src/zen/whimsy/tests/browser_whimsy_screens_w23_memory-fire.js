@@ -101,7 +101,8 @@ add_task(async function shots_fire_panel_ai_only() {
 // fire-3.2: the done toast, its second line in Fluent.
 add_task(async function shots_fire_done_toast() {
   await whimsyBothSchemes("w23-memory-fire-fire-3.2", async () => {
-    await WhimsyFireButton.run(window, async () => ({ tabs: 2, items: ["aiChats", "memory"] }), "burn");
+    await WhimsyFireButton.run(window, async () => ({ tabs: 7, visits: 142, items: ["aiChats", "memory"] }), "burn",
+      WhimsyFireButton.summaryArgs(window, { range: "hour", allSpaces: false }));
     const toast = currentToast();
     ok(toast, "fire-3.2: the done toast shows");
     await toast?.shown;

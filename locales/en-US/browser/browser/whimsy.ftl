@@ -560,9 +560,19 @@ whimsy-tabs-tree-style-islands =
 ## batch8: tab lifecycle — command bar
 
 whimsy-action-show-archive = View Archive…
-# W23 memory-fire: $summary (string) - what Fire will do with its last
-# remembered settings, e.g. "Last hour, this profile".
-whimsy-action-fire-button = Fire Button… ({ $summary })
+# W23 memory-fire: what Fire will do with its last settings. $range is
+# hour, today, week, or all; $scope is all (every space and profile),
+# named (the profile called $profile), or this (an unnamed profile).
+whimsy-action-fire-button = Fire Button… ({ $range ->
+        [today] Today
+        [week] 7 days
+        [all] All time
+       *[hour] Last hour
+    }, { $scope ->
+        [all] all spaces
+        [named] { $profile }
+       *[this] this profile
+    })
 # wave7/fire: per-site forgetting, moved out of the Fire Button sheet.
 whimsy-action-forget-site = Forget About This Site…
 whimsy-action-heavy-tabs = Find Heavy Tabs
@@ -6495,7 +6505,7 @@ whimsy-fire-cant-undo = This can’t be undone.
 whimsy-fire-run =
     .label = Fire
 whimsy-fire-confirm-title-2 = Can’t be undone
-whimsy-fire-confirm-body-2 = This choice can’t be undone. Fire now?
+whimsy-fire-confirm-body-2 = Everything you ticked is erased for good. Nothing comes back.
 whimsy-fire-confirm-accept-2 =
     .label = Fire
 whimsy-fire-private-heading = Fire this window?
@@ -6505,9 +6515,35 @@ whimsy-fire-private-run =
 # $site (string)
 whimsy-fire-site-heading = Forget { $site }?
 whimsy-fire-site-body = Erases { $site }’s history, sign-ins and saved data, from all time, in every profile, and closes its tabs.
-whimsy-fire-working-burn = Clearing…
+# $range, $scope, and $profile as in whimsy-action-fire-button.
+whimsy-fire-working-burn = { $range ->
+        [today] Clearing today…
+        [week] Clearing the last 7 days…
+        [all] Clearing everything…
+       *[hour] Clearing the last hour…
+    }
 whimsy-fire-working-private = Clearing this window…
-whimsy-fire-done-burn-title = Fired
+# $range, $scope, and $profile as in whimsy-action-fire-button.
+whimsy-fire-done-burn-title = { $scope ->
+        [all] { $range ->
+            [today] Fired today, everywhere
+            [week] Fired the last 7 days, everywhere
+            [all] Fired everything, everywhere
+           *[hour] Fired the last hour, everywhere
+        }
+        [named] { $range ->
+            [today] Fired today in { $profile }
+            [week] Fired the last 7 days in { $profile }
+            [all] Fired all of { $profile }
+           *[hour] Fired the last hour in { $profile }
+        }
+       *[this] { $range ->
+            [today] Fired today
+            [week] Fired the last 7 days
+            [all] Fired all time
+           *[hour] Fired the last hour
+        }
+    }
 whimsy-fire-done-private-title = Fired this window
 # $summary (string) - a locale-formatted list of what went, e.g. "3 tabs, 2 visits, and AI chats"
 whimsy-fire-done-detail = { $summary }

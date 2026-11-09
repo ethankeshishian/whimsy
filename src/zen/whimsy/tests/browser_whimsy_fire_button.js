@@ -138,7 +138,7 @@ add_task(function test_first_time_defaults() {
     "Today's browsing items plus that hour's AI chats, agent activity and the index; memory, routine results and downloads start off");
 });
 
-add_task(function test_one_row_repeats_last_settings() {
+add_task(async function test_one_row_repeats_last_settings() {
   const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
   ok(WhimsyCommands.get("cmd_whimsyFireButton"), "One Fire Button… row");
   ok(!WhimsyCommands.get("cmd_whimsyFireProfile"), "Fire in This Profile is gone");
@@ -146,7 +146,9 @@ add_task(function test_one_row_repeats_last_settings() {
   ok(WhimsyCommands.get("cmd_whimsyForgetSite"), "Forget About This Site… stays, on its own");
   const title = WhimsyCommands.title(WhimsyCommands.get("cmd_whimsyFireButton"));
   ok(title.startsWith("Fire Button…"), "The row names itself");
-  ok(title.includes(WhimsyFireButton.summaryOf(window)), "...and its tag shows what the last settings will do");
+  const args = WhimsyFireButton.summaryArgs(window);
+  is(title, await document.l10n.formatValue("whimsy-action-fire-button", args), "...and its tag shows what the last settings will do");
+  ok(/\(.+, .+\)$/.test(title), "(range, scope), in Fluent's words");
 });
 
 add_task(async function test_fire_surface_shows_range_scope_and_items() {

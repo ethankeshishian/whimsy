@@ -189,7 +189,7 @@ export const WhimsyFireButton = {
     WhimsyCommands.register(win, {
       id: "cmd_whimsyFireButton",
       l10nId: "whimsy-action-fire-button",
-      l10nArgs: () => ({ summary: this.summaryOf(win, loadSettings()) }),
+      l10nArgs: () => this.summaryArgs(win, loadSettings()),
       run: w => this.openPanel(w),
       icon: "chrome://browser/skin/forget.svg",
       isAvailable: () => this.enabled,
@@ -207,13 +207,17 @@ export const WhimsyFireButton = {
 
   // The command-bar row's tag: what pressing it (then ⌘Return to repeat)
   // will do, in words.
-  summaryOf(win, settings = loadSettings()) {
-    const lang = Services.locale.appLocalesAsBCP47;
-    const rangeLabel = { hour: "Last hour", today: "Today", week: "7 days", all: "All time" }[settings.range];
-    const scopeLabel = settings.allSpaces
-      ? "all spaces"
-      : lazy.WhimsyProfiles.nameOf(this.profileId(win)) || "this profile";
-    return new Intl.ListFormat(lang, { style: "narrow", type: "unit" }).format([rangeLabel, scopeLabel]);
+  // What Fire will do with `settings`, as Fluent args (range, scope, and
+  // the profile's name): the command row's tag and the toasts' titles
+  // select their words from these (whimsy-action-fire-button,
+  // whimsy-fire-working-burn, whimsy-fire-done-burn-title).
+  summaryArgs(win, settings = loadSettings()) {
+    const range = ["hour", "today", "week", "all"].includes(settings.range) ? settings.range : "hour";
+    if (settings.allSpaces) {
+      return { range, scope: "all", profile: "" };
+    }
+    const profile = lazy.WhimsyProfiles.nameOf(this.profileId(win)) || "";
+    return { range, scope: profile ? "named" : "this", profile };
   },
 
   closableTabs(win, tabs) {
@@ -674,7 +678,7 @@ export const WhimsyFireButton = {
       onCommand: () => {
         lazy.WhimsySurface.close(panel);
         saveSettings(current);
-        this.run(win, () => this.burn(win, current), "burn", { summary: this.summaryOf(win, current) });
+        this.run(win, () => this.burn(win, current), "burn", this.summaryArgs(win, current));
       },
     });
     back.hidden = true;
@@ -775,7 +779,7 @@ export const WhimsyFireButton = {
     }
     lazy.WhimsySurface.close(panel);
     saveSettings(settings);
-    this.run(win, () => this.burn(win, settings), "burn", { summary: this.summaryOf(win, settings) });
+    this.run(win, () => this.burn(win, settings), "burn", this.summaryArgs(win, settings));
   },
 
   // Says it's clearing at once, runs, then the same toast says what went
