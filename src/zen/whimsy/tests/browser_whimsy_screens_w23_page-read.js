@@ -289,7 +289,14 @@ async function openFind(text) {
   if (text) {
     findbar._findField.select();
     EventUtils.sendString(text);
-    await TestUtils.waitForCondition(() => findbar._findField.getAttribute("status") != "pending", "Find ran");
+    // Reopening preloads the last search (status already settled from it,
+    // never "pending"), so "not pending" alone passes before this search
+    // has even started: wait for a real status (found or notfound), not
+    // just an attribute that isn't literally "pending".
+    await TestUtils.waitForCondition(() => {
+      const status = findbar._findField.getAttribute("status");
+      return status && status != "pending";
+    }, "Find ran");
     await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-find-count").getAttribute("value"), "The count shows");
   }
   return findbar;
@@ -330,9 +337,7 @@ add_task(async function find_card() {
       return closeFind;
     });
     await whimsyBothSchemes(NAME("find-nothing"), async () => {
-      info(`DIAG pre field=${JSON.stringify(gBrowser.getCachedFindBar()?._findField.value)} activeIsField=${document.activeElement == gBrowser.getCachedFindBar()?._findField} hidden=${gBrowser.getCachedFindBar()?.hidden}`);
       const findbar = await openFind("when is the offsite");
-      info(`DIAG post field=${JSON.stringify(findbar._findField.value)} status=${findbar._findField.getAttribute("status")} count=${findbar.querySelector(".whimsy-find-count")?.getAttribute("value")}`);
       await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered");
       return closeFind;
     });
