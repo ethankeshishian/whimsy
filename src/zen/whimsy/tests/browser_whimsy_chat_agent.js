@@ -392,7 +392,7 @@ add_task(async function save_as_command_prefills_with_blanks() {
     const menu = await TestUtils.waitForCondition(() => part(".whimsy-agent-save-menu"), "The menu opens");
     await menu.ownerDocument.l10n.translateFragment(menu);
     ok(menu.querySelector("[data-item='command'][aria-selected='true']"), "Localizing the menu keeps its options");
-    ok(!menu.querySelector("[data-item='routine']"), "Make it a routine… waits for Routines");
+    ok(menu.querySelector("[data-item='routine']"), "Make it a routine… is offered once Routines is on");
     ok(getComputedStyle(save, "::before").backgroundImage.includes("save.svg"), "Save as… keeps its icon");
     is(menu.ownerDocument.activeElement, menu, "Keys go to the menu");
     EventUtils.synthesizeKey("KEY_Enter");

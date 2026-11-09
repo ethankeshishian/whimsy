@@ -575,6 +575,32 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
     visibility: visible;
   }
 }
+/* W23 routines-ui: an option's own icon in the check's column; the picked
+   one reads bold (the routine form's token menus). */
+.whimsy-surface-option-icon {
+  width: 14px;
+  height: 14px;
+  -moz-context-properties: fill, stroke;
+  fill: currentColor;
+  stroke: currentColor;
+  opacity: 0.8;
+  [aria-selected="true"] > & {
+    opacity: 1;
+    fill: var(--zen-primary-color, AccentColor);
+    stroke: var(--zen-primary-color, AccentColor);
+  }
+}
+.whimsy-surface-option:has(> .whimsy-surface-option-icon)[aria-selected="true"] > .whimsy-surface-option-label {
+  font-weight: 600;
+}
+.whimsy-surface-dropdown-icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  -moz-context-properties: fill, stroke;
+  fill: var(--zen-primary-color, AccentColor);
+  stroke: var(--zen-primary-color, AccentColor);
+}
 .whimsy-surface-option-detail {
   font-size: 11px;
   color: var(--whimsy-surface-muted);
@@ -681,4 +707,10 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
     -moz-context-properties: fill;
     fill: light-dark(rgb(176, 110, 0), rgb(240, 177, 60));
   }
+}
+
+/* W23 routines-ui: an option that can't be picked stays readable but dim. */
+.whimsy-surface-option[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
 }

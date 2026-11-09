@@ -167,6 +167,8 @@
         content/browser/whimsy/icons/chat-hide.svg (../../zen/whimsy/content/icons/chat-hide.svg)
         content/browser/whimsy/icons/claude.svg (../../zen/whimsy/content/icons/claude.svg)
         content/browser/whimsy/icons/clock.svg (../../zen/whimsy/content/icons/clock.svg)
+        content/browser/whimsy/icons/globe-line.svg (../../zen/whimsy/content/icons/globe-line.svg)
+        content/browser/whimsy/icons/calendar-line.svg (../../zen/whimsy/content/icons/calendar-line.svg)
         content/browser/whimsy/icons/compare.svg (../../zen/whimsy/content/icons/compare.svg)
         content/browser/whimsy/icons/drive.svg (../../zen/whimsy/content/icons/drive.svg)
         content/browser/whimsy/icons/eye.svg (../../zen/whimsy/content/icons/eye.svg)
@@ -243,3 +245,8 @@
         content/browser/whimsy/whimsy-chat-agent.css (../../zen/whimsy/content/whimsy-chat-agent.css)
 # W23 agent-tabs: the Drive look and the task folder
         content/browser/whimsy/whimsy-agent.css (../../zen/whimsy/content/whimsy-agent.css)
+# W23 routines-ui: Library › Routines, the routine form, and its sprite
+        content/browser/whimsy/whimsy-library-routines.mjs (../../zen/whimsy/content/whimsy-library-routines.mjs)
+        content/browser/whimsy/whimsy-routine-form.mjs (../../zen/whimsy/content/whimsy-routine-form.mjs)
+        content/browser/whimsy/whimsy-routines.css (../../zen/whimsy/content/whimsy-routines.css)
+        content/browser/whimsy/library/library-routines-sprite.svg (../../zen/whimsy/content/library/library-routines-sprite.svg)

@@ -29,6 +29,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyAIUpdates: "resource:///modules/whimsy/WhimsyAIUpdates.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyRoutinesUI: "resource:///modules/whimsy/WhimsyRoutinesUI.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
 });
 
 const PREF = "whimsy.feature.page-watch";
@@ -658,103 +661,124 @@ export const WhimsyPageWatch = {
     this.openDialog(win, tab);
   },
 
-  // Safari's Notify Me sheet: what to watch for, and how often.
-  openDialog(win, tab) {
-    const doc = win.document;
-    let panel = doc.getElementById(PANEL_ID);
-    if (!panel) {
-      panel = this.createDialog(win);
+  // Safari's Notify Me sheet, as a WhimsySurface arrow panel from the tab:
+  // what to watch for, and how often (a WhimsySurface dropdown). Chat opens
+  // it filled, with what it filled outlined until touched. At the cap it
+  // says so in place.
+  async openDialog(win, tab, { condition = "", interval = DEFAULT_INTERVAL, outlined = false } = {}) {
+    if (!this.canWatch(win, tab)) {
+      return null;
     }
-    const url = tab.linkedBrowser.currentURI.spec;
-    panel._whimsyTab = tab;
-    doc.l10n.setAttributes(panel.querySelector(".whimsy-watch-page"), "whimsy-watch-page", {
-      page: tab.label || hostOf(url),
-    });
-    const input = panel.querySelector(".whimsy-watch-condition");
-    input.value = "";
-    panel.querySelector(".whimsy-watch-interval").value = String(DEFAULT_INTERVAL);
-    panel.querySelector(".whimsy-watch-error").hidden = true;
-    const anchor = tab.isConnected && tab.checkVisibility?.() ? tab : doc.getElementById("urlbar-input-container");
-    panel.openPopup(anchor, tab.isConnected ? "end_before" : "bottomleft topleft", 0, 0, false, false);
-    panel.addEventListener("popupshown", () => input.focus(), { once: true });
-  },
-
-  createDialog(win) {
     const doc = win.document;
-    const panel = doc.createXULElement("panel");
-    panel.id = PANEL_ID;
-    panel.className = "whimsy-ai-panel";
-    panel.setAttribute("type", "arrow");
-    panel.setAttribute("role", "dialog");
+    const S = lazy.WhimsySurface;
+    const url = tab.linkedBrowser.currentURI.spec;
+    const userContextId = tab.getAttribute("usercontextid") | 0;
+    const watches = await this.list();
+    const full = watches.length >= MAX_WATCHES && !watches.some(w => w.url == url && w.userContextId == userContextId);
     const HTML = "http://www.w3.org/1999/xhtml";
-    const el = (tag, cls) => {
+    const el = (tag, cls, l10nId, args) => {
       const node = doc.createElementNS(HTML, tag);
       node.className = cls;
+      if (l10nId) {
+        doc.l10n.setAttributes(node, l10nId, args);
+      }
       return node;
     };
-    const body = el("form", "whimsy-watch-body");
-    const heading = el("h2", "whimsy-watch-heading");
-    doc.l10n.setAttributes(heading, "whimsy-watch-heading");
+    let chosen = INTERVALS.includes(interval) ? interval : DEFAULT_INTERVAL;
+    let input;
+    const parts = S.create(win, {
+      id: PANEL_ID,
+      width: 320,
+      titleL10nId: "whimsy-watch-heading",
+      footer: true,
+      className: "whimsy-watch-surface",
+      initialFocus: () => input,
+    });
     const page = el("div", "whimsy-watch-page");
-    const label = el("label", "whimsy-watch-label");
-    doc.l10n.setAttributes(label, "whimsy-watch-condition-label");
-    const input = el("textarea", "whimsy-watch-condition");
-    input.rows = 3;
-    input.required = true;
+    const icon = el("img", "whimsy-watch-favicon");
+    icon.src = `page-icon:${url}`;
+    icon.alt = "";
+    page.append(icon, el("span", "whimsy-watch-page-name", "whimsy-watch-page", { page: tab.label || hostOf(url) }));
+    const label = el("label", "whimsy-watch-label", "whimsy-watch-condition-label");
+    input = el("textarea", "whimsy-watch-condition", "whimsy-watch-condition");
+    input.rows = 2;
     input.id = "whimsy-watch-condition";
     label.htmlFor = input.id;
-    doc.l10n.setAttributes(input, "whimsy-watch-condition");
-    const intervalLabel = el("label", "whimsy-watch-label");
-    doc.l10n.setAttributes(intervalLabel, "whimsy-watch-interval-label");
-    const interval = el("select", "whimsy-watch-interval");
-    interval.id = "whimsy-watch-interval";
-    intervalLabel.htmlFor = interval.id;
-    for (const minutes of INTERVALS) {
-      const option = el("option", "");
-      option.value = String(minutes);
-      doc.l10n.setAttributes(option, "whimsy-watch-interval", { minutes });
-      interval.append(option);
+    input.value = condition;
+    const row = el("div", "whimsy-watch-row");
+    const intervalLabel = el("span", "whimsy-watch-label", "whimsy-watch-interval-label");
+    intervalLabel.id = "whimsy-watch-interval-label";
+    const dropdown = S.dropdown(doc, {
+      id: "whimsy-watch-interval",
+      label: intervalLabel.id,
+      options: INTERVALS.map(minutes => ({ value: String(minutes), l10nId: "whimsy-watch-interval", l10nArgs: { minutes } })),
+      value: String(chosen),
+      width: 200,
+      onPick: v => {
+        chosen = Number(v);
+        dropdown.button.classList.remove("is-filled");
+      },
+    });
+    dropdown.button.classList.add("whimsy-watch-interval");
+    row.append(intervalLabel, dropdown.button);
+    if (outlined) {
+      input.classList.add("is-filled");
+      dropdown.button.classList.add("is-filled");
     }
-    const note = el("p", "whimsy-watch-note");
-    doc.l10n.setAttributes(note, "whimsy-watch-note");
     const error = el("p", "whimsy-watch-error");
-    error.hidden = true;
-    const buttons = el("div", "whimsy-watch-buttons");
-    const cancel = el("button", "whimsy-watch-cancel");
-    cancel.type = "button";
-    doc.l10n.setAttributes(cancel, "whimsy-watch-cancel");
-    cancel.addEventListener("click", () => panel.hidePopup());
-    const done = el("button", "whimsy-watch-done primary");
-    done.type = "submit";
-    doc.l10n.setAttributes(done, "whimsy-watch-done");
-    buttons.append(cancel, done);
-    body.append(heading, page, label, input, intervalLabel, interval, note, error, buttons);
+    error.setAttribute("role", "alert");
+    error.hidden = !full;
+    if (full) {
+      doc.l10n.setAttributes(error, "whimsy-routine-form-watch-cap", { count: MAX_WATCHES });
+    }
+    const note = el("p", "whimsy-watch-note", "whimsy-watch-note-updates");
+    parts.view.append(page, label, input, row, error, note);
+
+    const show = S.textButton(doc, {
+      l10nId: "whimsy-watch-show-watches",
+      id: "whimsy-watch-show",
+      onCommand: () => {
+        S.close(parts.panel);
+        lazy.WhimsyRoutinesUI.openLibrary(win);
+      },
+    });
+    show.hidden = !full;
+    const spacer = doc.createXULElement("spacer");
+    spacer.setAttribute("flex", "1");
+    const cancel = S.footerButton(doc, { l10nId: "whimsy-watch-cancel", id: "whimsy-watch-cancel", onCommand: () => S.close(parts.panel) });
+    let saving = false;
     const submit = async () => {
-      const tab = panel._whimsyTab;
-      const condition = input.value.trim();
-      if (!condition || !tab) {
+      const text = input.value.trim();
+      if (!text || full || saving) {
         input.focus();
         return;
       }
+      saving = true;
+      let watch;
       try {
-        await this.add({
-          url: tab.linkedBrowser.currentURI.spec,
-          title: tab.label,
-          condition,
-          interval: Number(interval.value),
-          userContextId: tab.getAttribute("usercontextid") | 0,
-        });
+        watch = await this.add({ url, title: tab.label, condition: text, interval: chosen, userContextId });
       } catch (e) {
+        saving = false;
         error.hidden = false;
-        doc.l10n.setAttributes(error, e?.code == "too-many" ? "whimsy-watch-too-many" : "whimsy-ai-error-failed");
+        if (e?.code == "too-many") {
+          doc.l10n.setAttributes(error, "whimsy-routine-form-watch-cap", { count: MAX_WATCHES });
+          show.hidden = false;
+        } else {
+          doc.l10n.setAttributes(error, "whimsy-ai-error-failed");
+        }
         return;
       }
-      panel.hidePopup();
-      win.gZenUIManager?.showToast("whimsy-watch-started");
+      S.close(parts.panel);
+      lazy.WhimsyUndo.showToast(win, "whimsy-watch-started", { undo: () => this.remove(watch.id) });
     };
-    body.addEventListener("submit", event => {
-      event.preventDefault();
-      submit();
+    const done = S.footerButton(doc, { l10nId: "whimsy-watch-done", id: "whimsy-watch-done", primary: true, onCommand: () => submit() });
+    parts.footer.append(show, spacer, cancel, done);
+    const sync = () => {
+      done.disabled = full || !input.value.trim();
+    };
+    input.addEventListener("input", () => {
+      input.classList.remove("is-filled");
+      sync();
     });
     input.addEventListener("keydown", event => {
       if (event.key == "Enter" && !event.shiftKey) {
@@ -762,9 +786,11 @@ export const WhimsyPageWatch = {
         submit();
       }
     });
-    panel.append(body);
-    doc.getElementById("mainPopupSet").append(panel);
-    return panel;
+    sync();
+    S.finish(parts);
+    const anchor = tab.isConnected && tab.checkVisibility?.() ? tab : doc.getElementById("urlbar-input-container");
+    S.open(win, parts.panel, { anchor, position: tab.isConnected ? "end_before" : "bottomleft topleft" });
+    return parts.panel;
   },
 };
 

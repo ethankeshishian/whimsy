@@ -6,6 +6,8 @@ import { WhimsySpaceHistorySection } from "./whimsy-library-space-history.mjs";
 import { WhimsyPlaylistSection } from "./whimsy-library-playlist.mjs";
 // wave5: Easels.
 import { WhimsyEaselsSection } from "./whimsy-library-easels.mjs";
+// W23 routines-ui: Library › Routines.
+import { WhimsyRoutinesSection } from "./whimsy-library-routines.mjs";
 const { WhimsyLibrarySection } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs"
 );
@@ -13,4 +15,5 @@ WhimsyLibrarySection.registerWindow(window, {
   WhimsyNotesSection, WhimsyFinderFoldersSection, WhimsyFilesSection,
   WhimsySpaceHistorySection, WhimsyPlaylistSection,
   WhimsyEaselsSection,
+  WhimsyRoutinesSection,
 });

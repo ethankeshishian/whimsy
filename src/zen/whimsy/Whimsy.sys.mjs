@@ -30,6 +30,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFollowerTabs: "resource:///modules/whimsy/WhimsyFollowerTabs.sys.mjs",
   WhimsyGithubReviews: "resource:///modules/whimsy/WhimsyGithubReviews.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
+  WhimsyRoutinesUI: "resource:///modules/whimsy/WhimsyRoutinesUI.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
@@ -921,6 +922,8 @@ export const Whimsy = {
     later("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
     // W23 routines: run only while Whimsy is open; missed ones catch up once.
     later("routines", () => lazy.WhimsyRoutines.initWindow(win));
+    // W23 routines-ui: the form opener, chat's "make a routine", the badge.
+    later("routines-ui", () => lazy.WhimsyRoutinesUI.initWindow(win));
 
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.

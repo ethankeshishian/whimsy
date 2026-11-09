@@ -6988,3 +6988,260 @@ whimsy-agent-tabs-undo = Undo
 # The chat card when your click or key press in an agent's tab paused it. $site is the page's site, like casaamora.pt.
 whimsy-agent-tabs-collision-title = Paused so you can use { $site }
 whimsy-agent-chat-hand-over-collision = Carry on when you’re done, or keep this tab and I’ll leave it out.
+
+## W23 routines-ui: Library › Routines, the routine form, and Watch This Page
+
+whimsy-library-routines-title = Routines
+whimsy-library-routines-search =
+    .placeholder = Search routines and watches
+whimsy-library-routines-new = New
+whimsy-library-routines-group-routines = Routines
+whimsy-library-routines-group-watches = Page watches
+whimsy-library-routines-watch-count = { $count } of { $max }
+whimsy-library-routines-no-results = No routines or watches match
+whimsy-library-routines-more =
+    { $count ->
+        [one] 1 more built-in routine
+       *[other] { $count } more built-in routines
+    }
+whimsy-library-routines-fewer = Fewer built-in routines
+whimsy-library-routines-intro-title = Let Whimsy do the regular stuff
+whimsy-library-routines-intro = Routines run while Whimsy is open and leave what they find in the command bar’s Updates. All of these are off until you turn one on.
+whimsy-library-routines-suggested = Suggested from your history
+whimsy-library-routines-builtin = Built-in
+whimsy-library-routines-add = Add
+whimsy-library-routines-suggest-watch = Watch the price of { $title }
+whimsy-library-routines-suggest-watch-why =
+    { $count ->
+        [one] You opened this page once this week
+       *[other] You’ve opened this page { $count } times this week
+    }
+whimsy-library-routines-suggest-doc = Doc changes for { $title }
+whimsy-library-routines-suggest-doc-why = You reopen this doc most days
+whimsy-library-routines-builtin-detail-daily-brief = Weekdays at 8:00 AM · mail and calendar
+whimsy-library-routines-builtin-detail-weekly-recap = Fridays at 4:00 PM · what you worked on
+whimsy-library-routines-builtin-detail-meeting-prep = 10 minutes before each meeting
+whimsy-library-routines-builtin-detail-price-watch = When a product page changes
+whimsy-library-routines-builtin-detail-catch-up = When you’re back after 2 hours
+whimsy-library-routines-builtin-detail-doc-changes = When a Drive doc you follow changes
+whimsy-library-routines-builtin-detail-standup = Weekday mornings · Linear or Jira
+whimsy-library-routines-builtin-detail-meeting-follow-up = When a meeting ends · Granola and calendar
+whimsy-library-routines-run =
+    .title = Run now
+    .aria-label = Run now
+whimsy-library-routines-check =
+    .title = Check now
+    .aria-label = Check now
+whimsy-library-routines-stop =
+    .title = Stop
+    .aria-label = Stop
+whimsy-library-routines-pause =
+    .title = Pause
+    .aria-label = Pause
+whimsy-library-routines-resume =
+    .title = Resume
+    .aria-label = Resume
+whimsy-library-routines-edit =
+    .title = Edit
+    .aria-label = Edit
+whimsy-library-routines-delete =
+    .title = Delete
+    .aria-label = Delete
+whimsy-library-routines-paused = Paused
+whimsy-library-routines-running = Working on it
+whimsy-library-routines-never = Not run yet
+whimsy-library-routines-not-checked = Not checked yet
+whimsy-library-routines-pill-needs-you = Needs you
+whimsy-library-routines-pill-waiting = Waiting
+whimsy-library-routines-pill-skipped = Skipped
+whimsy-library-routines-pill-found = Found
+whimsy-library-routines-found = Found: { $detail }
+whimsy-library-routines-checked = { $detail } Checked { $time }.
+whimsy-library-routines-yesterday = Yesterday
+whimsy-library-routines-delete-ask = <b>Delete { $title }?</b> Past results stay in its chat thread.
+whimsy-library-routines-delete-cancel = Cancel
+whimsy-library-routines-delete-confirm = Delete
+whimsy-library-routines-deleted = Deleted { $title }
+whimsy-library-routines-undo = Undo
+whimsy-library-routines-step-providers = Providers…
+whimsy-library-routines-step-edit-watch = Edit watch
+whimsy-library-routines-off-title = Routines need AI
+whimsy-library-routines-off-body = Routines and page watches run on your AI. Connect Apple Intelligence, Claude, or ChatGPT to get daily briefs, meeting prep, and alerts when a page changes.
+whimsy-library-routines-off-button = Set up AI
+whimsy-library-routines-off-kept =
+    { $routines ->
+        [0] { $watches ->
+            [0] Nothing runs until AI is on.
+            [one] Your page watch is kept. Nothing runs until AI is on.
+           *[other] Your { $watches } page watches are kept. Nothing runs until AI is on.
+        }
+        [one] { $watches ->
+            [0] Your routine is kept. Nothing runs until AI is on.
+            [one] Your routine and page watch are kept. Nothing runs until AI is on.
+           *[other] Your routine and { $watches } page watches are kept. Nothing runs until AI is on.
+        }
+       *[other] { $watches ->
+            [0] Your { $routines } routines are kept. Nothing runs until AI is on.
+            [one] Your { $routines } routines and page watch are kept. Nothing runs until AI is on.
+           *[other] Your { $routines } routines and { $watches } page watches are kept. Nothing runs until AI is on.
+        }
+    }
+whimsy-action-view-routines = View Routines
+whimsy-routine-form-new = New routine
+whimsy-routine-form-edit = Edit routine
+whimsy-routine-form-when = When
+whimsy-routine-form-do = Do this
+whimsy-routine-form-show = Show it in
+whimsy-routine-form-using = Using
+whimsy-routine-form-kw-when = When
+whimsy-routine-form-kw-do = do this
+whimsy-routine-form-kw-show = show it in
+whimsy-routine-form-kw-using = using
+whimsy-routine-form-trigger-schedule = On a schedule
+whimsy-routine-form-trigger-needs-calendar = needs a calendar
+whimsy-routine-form-trigger-needs-mail = needs Gmail or Outlook
+whimsy-routine-form-trigger-page = A page changes
+whimsy-routine-form-trigger-return = I come back
+whimsy-routine-form-trigger-meeting = Before a meeting
+whimsy-routine-form-trigger-email = An email arrives
+whimsy-routine-form-trigger-open-site = I open a site
+whimsy-routine-form-trigger-download = A download finishes
+whimsy-routine-form-token-schedule = on a schedule
+whimsy-routine-form-token-page = a page changes
+whimsy-routine-form-token-return = I come back
+whimsy-routine-form-token-meeting = before a meeting
+whimsy-routine-form-token-email = an email arrives
+whimsy-routine-form-token-open-site = I open a site
+whimsy-routine-form-token-download = a download finishes
+# $days is daily, weekdays, weekends, d0 (Sunday) to d6 (Saturday), or list;
+# $list is short day names, like "Mon, Wed, and Fri"; $time is like 8:00 AM.
+whimsy-routine-form-schedule =
+    { $days ->
+        [daily] Every day at { $time }
+        [weekdays] Weekdays at { $time }
+        [weekends] Weekends at { $time }
+        [d0] Sundays at { $time }
+        [d1] Mondays at { $time }
+        [d2] Tuesdays at { $time }
+        [d3] Wednesdays at { $time }
+        [d4] Thursdays at { $time }
+        [d5] Fridays at { $time }
+        [d6] Saturdays at { $time }
+       *[list] { $list } at { $time }
+    }
+# The same, as a token in the middle of a sentence.
+whimsy-routine-form-schedule-token =
+    { $days ->
+        [daily] every day at { $time }
+        [weekdays] weekdays at { $time }
+        [weekends] weekends at { $time }
+        [d0] Sundays at { $time }
+        [d1] Mondays at { $time }
+        [d2] Tuesdays at { $time }
+        [d3] Wednesdays at { $time }
+        [d4] Thursdays at { $time }
+        [d5] Fridays at { $time }
+        [d6] Saturdays at { $time }
+       *[list] { $list } at { $time }
+    }
+whimsy-routine-form-schedule-hourly-token = every hour
+whimsy-routine-form-schedule-pick = Pick days and time…
+whimsy-routine-form-schedule-days =
+    .aria-label = Days
+whimsy-routine-form-schedule-time =
+    .aria-label = Time
+whimsy-routine-form-schedule-done = Done
+whimsy-routine-form-schedule-need-day = Pick at least one day.
+whimsy-routine-form-days-daily = Every day
+whimsy-routine-form-days-weekdays = Weekdays
+whimsy-routine-form-days-weekends = Weekends
+whimsy-routine-form-days-hourly = Every hour
+whimsy-routine-form-days-one =
+    { $day ->
+        [0] Sundays
+        [1] Mondays
+        [2] Tuesdays
+        [3] Wednesdays
+        [4] Thursdays
+        [5] Fridays
+       *[6] Saturdays
+    }
+whimsy-routine-form-away =
+    { $minutes ->
+        [30] After 30 minutes away
+        [60] After an hour away
+       *[other] After { $hours } hours away
+    }
+whimsy-routine-form-lead = { $minutes } minutes before
+whimsy-routine-form-lead-after = When it ends
+whimsy-routine-form-email-anyone = From anyone
+whimsy-routine-form-email-known = From people I know
+whimsy-routine-form-download-any = Any file
+whimsy-routine-form-download-pdf = PDFs
+whimsy-routine-form-download-image = Images
+whimsy-routine-form-site =
+    .placeholder = A site, like example.com
+whimsy-routine-form-no-page = Open the page in a tab first
+whimsy-routine-form-prompt =
+    .placeholder = What should it do? Say it in plain words.
+whimsy-routine-form-ideas = Ideas
+whimsy-routine-form-idea-1 = Give me the top 5 stories about browsers and AI, with a line each.
+whimsy-routine-form-idea-2 = Tell me what needs a reply today, and what can wait.
+whimsy-routine-form-idea-3 = Sum up what changed since last time, in three bullets.
+whimsy-routine-form-show-bar = The command bar
+whimsy-routine-form-show-bar-notify = The command bar and a notification
+whimsy-routine-form-show-thread = Only its chat thread
+whimsy-routine-form-show-bar-token = the command bar
+whimsy-routine-form-show-bar-notify-token = the command bar and a notification
+whimsy-routine-form-show-thread-token = only its chat thread
+whimsy-routine-form-show-default = default
+whimsy-routine-form-using-auto = Automatic
+whimsy-routine-form-using-auto-short = Automatic · { $provider }
+whimsy-routine-form-using-first = { $provider } first
+whimsy-routine-form-cant-mail = can’t read mail
+whimsy-routine-form-cant-calendar = can’t read your calendar
+whimsy-routine-form-cant-tools = can’t use your connectors
+whimsy-routine-form-note = Runs only while Whimsy is open. If it’s closed at run time, it runs once when you’re back.
+whimsy-routine-form-note-site = Never runs in private tabs. Runs while Whimsy is open, as always.
+whimsy-routine-form-site-first-visit = first visit each day
+whimsy-routine-form-site-other = Another site…
+whimsy-routine-form-try = Try it now
+whimsy-routine-form-trying = Trying…
+whimsy-routine-form-cancel = Cancel
+whimsy-routine-form-turn-on = Turn on
+whimsy-routine-form-save = Save
+whimsy-routine-form-close =
+    .aria-label = Close
+whimsy-routine-form-too-many = You have as many routines as Whimsy allows. Delete one to add this.
+whimsy-routine-form-watch-cap = You’re watching { $count } pages, the most Whimsy allows. Stop one to watch this.
+whimsy-routine-form-failed = That didn’t save. Try again.
+whimsy-routine-form-try-failed = The try didn’t finish. Check your AI providers and try again.
+whimsy-routine-form-needs-mail = Needs your mail
+whimsy-routine-form-needs-mail-detail = Read only. Whimsy never sends, deletes, or moves mail.
+whimsy-routine-form-needs-calendar = Needs your calendar
+whimsy-routine-form-needs-calendar-detail = Read only. Whimsy never adds, changes, or deletes events.
+whimsy-routine-form-needs-issues = Needs Linear or Jira
+whimsy-routine-form-needs-issues-detail = Read only. Whimsy never changes your issues.
+whimsy-routine-form-needs-drive = Needs Google Drive
+whimsy-routine-form-needs-drive-detail = Read only. Whimsy never changes your docs.
+whimsy-routine-form-connect-gmail = Connect Gmail
+whimsy-routine-form-connect-outlook = Connect Outlook
+whimsy-routine-form-connect-google-calendar = Connect Google Calendar
+whimsy-routine-form-connect-apple-calendar = Connect Apple Calendar
+whimsy-routine-form-connect-linear = Connect Linear
+whimsy-routine-form-connect-jira = Connect Jira
+whimsy-routine-form-connect-drive = Connect Google Drive
+whimsy-routine-form-connected = Connected
+whimsy-routine-chat-drafted = Here’s a routine for that. Check it and turn it on.
+whimsy-routine-chat-opened = Opened “{ $title }” to confirm
+whimsy-routine-chat-reopen = Open it again
+whimsy-routine-chat-watch =
+    { $minutes ->
+        [15] I’ll watch this page every 15 minutes. Check it and press Watch.
+        [60] I’ll watch this page every hour. Check it and press Watch.
+        [360] I’ll watch this page every 6 hours. Check it and press Watch.
+       *[other] I’ll watch this page every day. Check it and press Watch.
+    }
+whimsy-watch-note-updates = Only while Whimsy is open, with your sign-ins. The page’s text goes to your AI provider. Hits show in the command bar’s Updates.
+whimsy-watch-show-watches = Show watches
+whimsy-watch-undo = Undo

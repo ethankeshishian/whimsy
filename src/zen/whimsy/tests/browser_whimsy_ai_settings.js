@@ -558,7 +558,7 @@ add_task(async function routines_row_opens_library() {
   open.scrollIntoView({ block: "center" });
   click(page, open);
   await TestUtils.waitForCondition(() => calls.length, "It opens the Library");
-  is(calls[0][1], "routines", "at Routines");
+  is(calls[0][1], "whimsy-routines", "at Routines");
   is(calls[0][0], window, "in the browser window");
   WhimsyArcMenus.openLibrarySection = real;
   await done(page);

@@ -1,0 +1,939 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 routines-ui: Library › Routines, the routine form (in place and in
+   chat's sheet), and Watch This Page. Built on the Library's own metrics:
+   Routing's 36px search and New, 12px bold groups, Boosts-sized rows. */
+
+whimsy-library-routines-section {
+  --whimsy-routines-muted: color-mix(in srgb, currentColor 60%, transparent);
+  --whimsy-routines-fail: light-dark(#d1242f, #ff6b6b);
+  --whimsy-routines-warn: light-dark(#9a6700, #e3b341);
+  --whimsy-routines-accent: var(--zen-primary-color, AccentColor);
+}
+
+/* Routines widens the Library to 600px (onShown); the section fills it
+   rather than keeping Zen's 418px column. */
+whimsy-library-routines-section.zen-library-section[data-section="whimsy-routines"] {
+  max-width: none;
+}
+
+/* AI off: Media's opt-in card over a skeleton, no search or New. */
+whimsy-library-routines-section[needs-opt-in] {
+  & .zen-library-search-top {
+    display: none;
+  }
+  & .zen-library-search-results {
+    overflow: hidden;
+  }
+}
+.whimsy-routines-skeleton {
+  display: grid;
+  gap: 18px;
+  padding: 18px 4px;
+  opacity: 0.5;
+}
+.whimsy-routines-skeleton-row {
+  display: flex;
+  gap: 12px;
+  & > span:first-child {
+    flex: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--zen-library-pill-bg);
+  }
+  & > span:last-child {
+    flex: 1;
+    display: grid;
+    gap: 7px;
+    align-content: center;
+  }
+  & i {
+    display: block;
+    height: 9px;
+    border-radius: 5px;
+    background: var(--zen-library-pill-bg);
+    &:nth-child(1) { width: 45%; }
+    &:nth-child(2) { width: 60%; }
+    &:nth-child(3) { width: 80%; }
+  }
+}
+.whimsy-routines-opt-in {
+  animation: whimsy-routines-fade 0.1s ease-in-out;
+}
+@keyframes whimsy-routines-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The form in place: the list fades out as Routing's does. */
+[data-section="whimsy-routines"] .zen-library-search-top[open] ~ .zen-library-search-results {
+  opacity: 0;
+  pointer-events: none;
+  transform: none;
+}
+[data-section="whimsy-routines"] .zen-library-search-top[open] .zen-library-filter-panel {
+  height: auto;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  margin-inline: -14px;
+  padding-inline: 14px;
+}
+
+/* ---- Groups and rows ---- */
+
+.whimsy-routines-group h3 {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 8px 5px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.6;
+  & .whimsy-routines-count {
+    font-weight: 600;
+  }
+}
+
+/* Zen's rows are one line, size-contained to 34px; ours carry a result and
+   sometimes next steps or the delete question, so they size to content. */
+.whimsy-routine-row {
+  contain: content;
+  content-visibility: visible;
+  position: relative;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 10px 8px 6px;
+  border-radius: 14px;
+  outline: none;
+  transition: opacity 180ms ease, background-color 100ms ease-out;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--focus-outline-color, AccentColor);
+  }
+  &[paused] {
+    opacity: 0.55;
+  }
+  &[confirming] {
+    background: var(--zen-library-pill-hover-bg, color-mix(in srgb, currentColor 10%, transparent));
+  }
+  &[removing] {
+    opacity: 0;
+    height: 0;
+    padding-block: 0;
+    overflow: hidden;
+    transition: opacity 180ms ease, height 180ms ease, padding 180ms ease;
+  }
+  & .zen-library-row-text {
+    gap: 1px;
+  }
+  & .zen-library-row-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    & .whimsy-routine-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+.whimsy-routine-tile {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tile, #6e6e73) 20%, light-dark(white, transparent));
+  & img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    -moz-context-properties: fill, stroke;
+    fill: var(--tile, currentColor);
+    stroke: var(--tile, currentColor);
+  }
+  &.is-site {
+    background: var(--zen-library-pill-bg);
+  }
+  &.is-small {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    & img {
+      width: 15px;
+      height: 15px;
+    }
+  }
+}
+
+.whimsy-routine-result {
+  font-size: 12.5px;
+  line-height: 1.35;
+  &[data-tone="fail"] {
+    color: var(--whimsy-routines-fail);
+  }
+  &[data-tone="warn"] {
+    color: var(--whimsy-routines-warn);
+  }
+  &[data-tone="muted"] {
+    opacity: 0.6;
+  }
+}
+
+/* The time (or spinner, or pill) keeps its own narrow column; the four
+   buttons sit over the row's end, centred, so they never widen it. */
+.whimsy-routine-end {
+  flex: none;
+  align-self: center;
+  display: grid;
+  justify-items: end;
+  min-width: 68px;
+}
+.whimsy-routine-time {
+  font-size: 12px;
+  color: var(--whimsy-routines-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 150ms ease;
+}
+.whimsy-routine-acts {
+  position: absolute;
+  inset-inline-end: 6px;
+  top: 50%;
+  translate: 0 -50%;
+  display: flex;
+  gap: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 150ms ease;
+}
+.whimsy-routine-row:is(:hover, :focus-within) {
+  & .whimsy-routine-acts {
+    opacity: 1;
+    visibility: visible;
+  }
+  /* The text ends before the buttons rather than under them. */
+  & > .zen-library-row-text {
+    padding-inline-end: calc(4 * 34px - 68px);
+  }
+  & :is(.whimsy-routine-time, .whimsy-routine-spinner) {
+    opacity: 0;
+  }
+}
+.whimsy-routine-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: var(--zen-library-radius, 10px);
+  background: none;
+  color: inherit;
+  & img {
+    width: 16px;
+    height: 16px;
+    -moz-context-properties: fill, stroke;
+    fill: currentColor;
+    stroke: currentColor;
+  }
+  &:hover {
+    background: var(--zen-library-pill-hover-bg, color-mix(in srgb, currentColor 10%, transparent));
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+  &.is-destructive img {
+    fill: var(--whimsy-routines-fail);
+    stroke: var(--whimsy-routines-fail);
+  }
+}
+
+.whimsy-routine-spinner {
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: whimsy-routines-spin 800ms linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@keyframes whimsy-routines-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+.whimsy-routine-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  animation: whimsy-routines-fade 150ms ease;
+  &[data-tone="fail"] {
+    color: var(--whimsy-routines-fail);
+    background: color-mix(in srgb, var(--whimsy-routines-fail) 16%, transparent);
+  }
+  &[data-tone="warn"] {
+    color: var(--whimsy-routines-warn);
+    background: color-mix(in srgb, var(--whimsy-routines-warn) 18%, transparent);
+  }
+  &[data-tone="accent"] {
+    color: var(--whimsy-routines-accent);
+    background: color-mix(in srgb, var(--whimsy-routines-accent) 16%, transparent);
+  }
+  &[data-tone="muted"] {
+    background: var(--zen-library-pill-bg);
+    opacity: 0.8;
+  }
+}
+
+.whimsy-routine-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.whimsy-routine-step,
+.whimsy-routine-add,
+.whimsy-routine-confirm button,
+.whimsy-routine-form-buttons button,
+.whimsy-routine-form-connect-button,
+.whimsy-routine-idea {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 7px;
+  background: var(--zen-library-pill-bg, color-mix(in srgb, currentColor 10%, transparent));
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  &:hover:not(:disabled) {
+    background: var(--zen-library-pill-hover-bg, color-mix(in srgb, currentColor 16%, transparent));
+  }
+  &:disabled {
+    opacity: 0.45;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+.whimsy-routine-step[primary],
+.whimsy-routine-form-primary {
+  background: var(--zen-primary-color, AccentColor) !important;
+  color: white !important;
+}
+
+/* Delete, confirmed in the row: Cancel has focus. */
+.whimsy-routine-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 6px 6px 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--whimsy-routines-fail) 14%, transparent);
+  font-size: 12.5px;
+  animation: whimsy-routines-unfold 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
+  & .whimsy-routine-confirm-text {
+    flex: 1;
+    white-space: normal !important;
+    opacity: 0.85;
+  }
+  & .whimsy-routine-confirm-delete {
+    background: var(--whimsy-routines-fail);
+    color: white;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: whimsy-routines-fade 150ms ease;
+  }
+}
+@keyframes whimsy-routines-unfold {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* ---- Empty: suggestions, then the built-ins as switches ---- */
+
+.whimsy-routines-intro {
+  padding: 6px 8px 4px;
+  & h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  & p {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--whimsy-routines-muted);
+  }
+}
+.whimsy-routine-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: light-dark(rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.06));
+}
+.whimsy-routine-builtin {
+  align-items: center;
+  padding-block: 6px;
+  & .zen-library-row-title {
+    font-size: 13.5px;
+  }
+}
+.whimsy-routine-switch {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 30px;
+  height: 18px;
+  margin: 0;
+  border-radius: 9px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  transition: background-color 150ms ease;
+  &::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    inset-inline-start: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: translate 150ms ease;
+  }
+  &:checked {
+    background: var(--zen-primary-color, AccentColor);
+    &::after {
+      translate: 12px 0;
+    }
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 2px;
+  }
+}
+.whimsy-routines-more {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 4px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  opacity: 0.75;
+  & img {
+    width: 12px;
+    height: 12px;
+    -moz-context-properties: fill;
+    fill: currentColor;
+    transition: rotate 150ms ease;
+  }
+  &[aria-expanded="true"] img {
+    rotate: 90deg;
+  }
+  &:hover {
+    opacity: 1;
+  }
+}
+
+/* ---- The routine form ---- */
+
+.whimsy-routine-form {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 8px;
+  font-size: 13px;
+
+  & h3 {
+    margin: 12px 0 7px;
+    font-size: 0.93em;
+    font-weight: 600;
+    opacity: 0.85;
+  }
+}
+.whimsy-routine-form-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  & .whimsy-routine-chip {
+    padding: 7px 10px;
+    font-size: 12.5px;
+  }
+}
+.whimsy-routine-form-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+.whimsy-routine-form.is-library :is(.whimsy-surface-dropdown, .whimsy-routine-form-site) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  margin: 0;
+  padding-inline: 12px 10px;
+  border: none;
+  border-radius: var(--zen-library-radius, 10px);
+  background: var(--zen-library-pill-bg);
+  color: inherit;
+  font: inherit;
+  justify-content: space-between;
+}
+.whimsy-routine-form-missing {
+  align-self: center;
+  font-size: 12px;
+  color: var(--whimsy-routines-muted);
+}
+.whimsy-routine-form-prompt {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 64px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--zen-library-radius, 10px);
+  background: var(--zen-library-pill-bg, color-mix(in srgb, currentColor 8%, transparent));
+  color: inherit;
+  font: inherit;
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--focus-outline-color, AccentColor);
+  }
+}
+.whimsy-routine-form-ideas {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 6px;
+  & .whimsy-routine-idea {
+    text-align: start;
+    font-weight: 400;
+  }
+}
+.whimsy-routine-form-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.whimsy-routine-form-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--whimsy-routines-muted, color-mix(in srgb, currentColor 60%, transparent));
+}
+.whimsy-routine-form-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: light-dark(#d1242f, #ff6b6b);
+}
+.whimsy-routine-form-tried {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  font-size: 12.5px;
+  & .whimsy-routine-form-tried-head {
+    font-weight: 600;
+  }
+  & .whimsy-routine-form-tried-body {
+    white-space: pre-line;
+    opacity: 0.8;
+    max-height: 120px;
+    overflow: auto;
+  }
+}
+.whimsy-routine-form-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 12px;
+  & .whimsy-routine-form-spacer {
+    flex: 1;
+  }
+  & .whimsy-routine-form-try {
+    background: none;
+    opacity: 0.8;
+  }
+  & button {
+    padding: 8px 14px;
+    border-radius: var(--zen-library-radius, 10px);
+    font-weight: 600;
+  }
+}
+
+/* Mail and calendar triggers offer the connector in place. */
+.whimsy-routine-form-connect {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 12%, transparent);
+  font-size: 12.5px;
+  animation: whimsy-routines-unfold 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
+  @media (prefers-reduced-motion: reduce) {
+    animation: whimsy-routines-fade 150ms ease;
+  }
+}
+.whimsy-routine-form-connect-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  & img {
+    width: 14px;
+    height: 14px;
+    -moz-context-properties: fill;
+    fill: var(--zen-primary-color, AccentColor);
+  }
+}
+.whimsy-routine-form-connect-detail {
+  margin: 3px 0 8px;
+  opacity: 0.7;
+}
+.whimsy-routine-form-connect-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.whimsy-routine-form-connect-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  & .whimsy-routine-form-logo {
+    width: 14px;
+    height: 14px;
+  }
+  &[busy] .whimsy-routine-form-logo {
+    display: none;
+  }
+}
+.whimsy-routine-form-spinner {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: whimsy-routines-spin 800ms linear infinite;
+}
+.whimsy-routine-form-connected {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.whimsy-routine-form-check {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: light-dark(#1f883d, #3fb950);
+  animation: whimsy-routines-pop 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  mask: url("chrome://global/skin/icons/check.svg") center / 10px no-repeat, linear-gradient(black, black);
+  mask-composite: exclude;
+}
+@keyframes whimsy-routines-pop {
+  from {
+    scale: 0.4;
+    opacity: 0;
+  }
+}
+
+/* What chat filled: a soft accent outline until it's touched. */
+:is(.whimsy-routine-form, .whimsy-watch-surface) .is-filled {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, transparent) !important;
+  background-color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 10%, var(--zen-library-pill-bg, transparent)) !important;
+}
+:is(.whimsy-routine-form, .whimsy-watch-surface) .was-filled {
+  transition: box-shadow 240ms ease, background-color 240ms ease;
+}
+
+/* Chat's sheet: the same fields as a sentence. */
+.whimsy-routine-sheet .whimsy-routine-form {
+  /* In line with the sheet's title. */
+  padding: 0 4px;
+  gap: 10px;
+  & .whimsy-routine-form-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  & .whimsy-routine-form-do {
+    display: grid;
+  }
+  & .whimsy-routine-form-kw {
+    min-width: 70px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  /* The sentence's tokens, at the mockup's 28px. */
+  & :is(.whimsy-surface-dropdown, .whimsy-routine-token.is-fixed) {
+    box-sizing: border-box;
+    min-height: 28px;
+    padding: 4px 8px 4px 9px;
+    border-radius: 7px;
+    font-size: 13px;
+  }
+  /* "do this" is a field to write in: white, hairline, no grip. */
+  & .whimsy-routine-form-prompt {
+    min-height: 66px;
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+    border-radius: 8px;
+    background: light-dark(white, rgba(255, 255, 255, 0.06));
+    resize: none;
+  }
+  & .whimsy-routine-form-do .whimsy-routine-form-kw {
+    min-width: 0;
+  }
+  & .whimsy-routine-form-detail {
+    display: contents;
+  }
+  & .whimsy-routine-form-pair {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 10px;
+    row-gap: 10px;
+  }
+  & .whimsy-routine-form-pair .whimsy-routine-form-kw {
+    min-width: 0;
+  }
+  & .whimsy-routine-form-site {
+    height: 28px;
+    padding-inline: 8px;
+    border: none;
+    border-radius: 7px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    color: inherit;
+    font: inherit;
+  }
+}
+.whimsy-routine-sheet-buttons {
+  flex: 1;
+  padding-top: 0;
+}
+
+/* ---- Chat's draft card ---- */
+
+.whimsy-routine-draft-card .whimsy-routine-draft-note {
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 11.5px;
+  opacity: 0.6;
+  text-align: start;
+  &:hover {
+    opacity: 0.9;
+    text-decoration: underline;
+  }
+}
+
+/* ---- Watch This Page ---- */
+
+.whimsy-watch-surface .whimsy-surface-view > :is(.whimsy-watch-page, .whimsy-watch-label, .whimsy-watch-condition, .whimsy-watch-row, .whimsy-watch-error, .whimsy-watch-note) {
+  /* In line with the title; the view's 10px gap spaces them. */
+  margin-inline: 4px;
+}
+.whimsy-watch-page {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -8px;
+  font-size: 12px;
+  opacity: 0.7;
+  & .whimsy-watch-favicon {
+    width: 14px;
+    height: 14px;
+  }
+  & .whimsy-watch-page-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+.whimsy-watch-surface .whimsy-watch-label {
+  display: block;
+  margin-block: 0 -4px;
+  font-weight: 500;
+  font-size: 13px;
+}
+.whimsy-watch-condition {
+  box-sizing: border-box;
+  width: calc(100% - 8px);
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 8px;
+  background: light-dark(white, rgba(255, 255, 255, 0.06));
+  color: inherit;
+  font: inherit;
+  resize: none;
+  outline: none;
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--focus-outline-color, AccentColor);
+  }
+}
+.whimsy-watch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  & .whimsy-watch-label {
+    margin: 0;
+  }
+}
+.whimsy-watch-error {
+  margin-block: 0;
+  font-size: 12px;
+  color: light-dark(#d1242f, #ff6b6b);
+}
+.whimsy-watch-note {
+  margin-block: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  opacity: 0.65;
+}
+
+/* The schedule token's "Pick days and time…": the menu becomes day chips
+   and a time field in place. */
+.whimsy-routine-schedule-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+  animation: whimsy-routines-editor-in 150ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes whimsy-routines-editor-in {
+  from {
+    opacity: 0;
+  }
+}
+.whimsy-routine-schedule-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.whimsy-routine-schedule-day {
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+  font: inherit;
+  font-weight: 500;
+  transition: background-color 100ms ease-out, color 100ms ease-out;
+  &:hover {
+    background: color-mix(in srgb, currentColor 14%, transparent);
+  }
+  &[aria-pressed="true"] {
+    background: var(--zen-primary-color, AccentColor);
+    color: white;
+  }
+  &:active {
+    scale: 0.96;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+.whimsy-routine-schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.whimsy-routine-schedule-time {
+  flex: 1;
+  height: 28px;
+  padding-inline: 8px;
+  border: none;
+  border-radius: 7px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+  font: inherit;
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 1px;
+  }
+}
+.whimsy-routine-schedule-done {
+  height: 28px;
+  padding-inline: 14px;
+  border: none;
+  border-radius: 7px;
+  background: var(--zen-primary-color, AccentColor);
+  color: white;
+  font: inherit;
+  font-weight: 500;
+  &:disabled {
+    opacity: 0.45;
+  }
+  &:not(:disabled):active {
+    scale: 0.96;
+  }
+}
+.whimsy-routine-schedule-hint {
+  margin: 0;
+  font-size: 11.5px;
+  opacity: 0.65;
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-routine-schedule-day:active,
+  .whimsy-routine-schedule-done:active {
+    scale: none;
+  }
+}
+
+/* A fixed part of the sentence ("first visit each day"): a token's look,
+   nothing to open. */
+.whimsy-routine-token.is-fixed {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--whimsy-surface-hover);
+  font-size: 12px;
+  font-weight: 500;
+}
+.whimsy-routine-site-field {
+  min-width: 0;
+}
+
+/* The tokens' icons in the accent, lifted in dark so they read on a dark
+   token. */
+.whimsy-routine-sheet .whimsy-surface-dropdown-icon {
+  fill: light-dark(var(--zen-primary-color, AccentColor), color-mix(in srgb, var(--zen-primary-color, AccentColor) 45%, white));
+  stroke: light-dark(var(--zen-primary-color, AccentColor), color-mix(in srgb, var(--zen-primary-color, AccentColor) 45%, white));
+}
