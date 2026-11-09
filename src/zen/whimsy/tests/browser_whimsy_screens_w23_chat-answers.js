@@ -308,10 +308,9 @@ add_task(async function shots_answers() {
     // finder's selection is the fallback when the page can't tint it.
     await TestUtils.waitForCondition(async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
       const parts = [content.getSelection().toString()];
-      for (const [name, highlight] of content.CSS.highlights) {
-        if (name.startsWith("whimsy-passage")) {
-          highlight.forEach(range => parts.push(range.toString()));
-        }
+      // The tint eases from 32% to 18% (WhimsyAIPreviewChild's LEVELS).
+      for (let level = 18; level <= 32; level += 2) {
+        content.CSS.highlights.get(`whimsy-passage-${level}`)?.forEach(range => parts.push(range.toString()));
       }
       return parts.join(" ");
     })).includes("Buffalo"), "Highlighted");

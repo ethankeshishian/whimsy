@@ -225,8 +225,13 @@ add_task(async function shots_memory_note_and_used_line() {
     chat.composer.focus();
     EventUtils.sendString(text);
     EventUtils.synthesizeKey("KEY_Enter");
+    info(`DIAG composer "${chat.composer.value}" focused ${document.activeElement?.className}`);
     await TestUtils.waitForCondition(() => chat.body.querySelector(".whimsy-chat-msg[data-role='ai']:not([busy])") &&
-      !chat.body.querySelector(".whimsy-chat-msg[busy]"), "Answered");
+      !chat.body.querySelector(".whimsy-chat-msg[busy]"), "Answered").catch(e => {
+      info(`DIAG body: ${chat.body.outerHTML.slice(0, 3000)}`);
+      info(`DIAG composer after "${chat.composer.value}" open ${chat.isOpen}`);
+      throw e;
+    });
     await chat.memoryNote;
   };
   try {
