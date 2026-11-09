@@ -6885,6 +6885,52 @@ whimsy-routine-form-trigger-meeting = Before a meeting
 whimsy-routine-form-trigger-email = An email arrives
 whimsy-routine-form-trigger-open-site = I open a site
 whimsy-routine-form-trigger-download = A download finishes
+whimsy-routine-form-token-schedule = on a schedule
+whimsy-routine-form-token-page = a page changes
+whimsy-routine-form-token-return = I come back
+whimsy-routine-form-token-meeting = before a meeting
+whimsy-routine-form-token-email = an email arrives
+whimsy-routine-form-token-open-site = I open a site
+whimsy-routine-form-token-download = a download finishes
+# $days is daily, weekdays, weekends, d0 (Sunday) to d6 (Saturday), or list;
+# $list is short day names, like "Mon, Wed, and Fri"; $time is like 8:00 AM.
+whimsy-routine-form-schedule =
+    { $days ->
+        [daily] Every day at { $time }
+        [weekdays] Weekdays at { $time }
+        [weekends] Weekends at { $time }
+        [d0] Sundays at { $time }
+        [d1] Mondays at { $time }
+        [d2] Tuesdays at { $time }
+        [d3] Wednesdays at { $time }
+        [d4] Thursdays at { $time }
+        [d5] Fridays at { $time }
+        [d6] Saturdays at { $time }
+       *[list] { $list } at { $time }
+    }
+# The same, as a token in the middle of a sentence.
+whimsy-routine-form-schedule-token =
+    { $days ->
+        [daily] every day at { $time }
+        [weekdays] weekdays at { $time }
+        [weekends] weekends at { $time }
+        [d0] Sundays at { $time }
+        [d1] Mondays at { $time }
+        [d2] Tuesdays at { $time }
+        [d3] Wednesdays at { $time }
+        [d4] Thursdays at { $time }
+        [d5] Fridays at { $time }
+        [d6] Saturdays at { $time }
+       *[list] { $list } at { $time }
+    }
+whimsy-routine-form-schedule-hourly-token = every hour
+whimsy-routine-form-schedule-pick = Pick days and time…
+whimsy-routine-form-schedule-days =
+    .aria-label = Days
+whimsy-routine-form-schedule-time =
+    .aria-label = Time
+whimsy-routine-form-schedule-done = Done
+whimsy-routine-form-schedule-need-day = Pick at least one day.
 whimsy-routine-form-days-daily = Every day
 whimsy-routine-form-days-weekdays = Weekdays
 whimsy-routine-form-days-weekends = Weekends
@@ -6924,6 +6970,9 @@ whimsy-routine-form-idea-3 = Sum up what changed since last time, in three bulle
 whimsy-routine-form-show-bar = The command bar
 whimsy-routine-form-show-bar-notify = The command bar and a notification
 whimsy-routine-form-show-thread = Only its chat thread
+whimsy-routine-form-show-bar-token = the command bar
+whimsy-routine-form-show-bar-notify-token = the command bar and a notification
+whimsy-routine-form-show-thread-token = only its chat thread
 whimsy-routine-form-show-default = default
 whimsy-routine-form-using-auto = Automatic
 whimsy-routine-form-using-auto-short = Automatic · { $provider }
@@ -6932,6 +6981,9 @@ whimsy-routine-form-cant-mail = can’t read mail
 whimsy-routine-form-cant-calendar = can’t read your calendar
 whimsy-routine-form-cant-tools = can’t use your connectors
 whimsy-routine-form-note = Runs only while Whimsy is open. If it’s closed at run time, it runs once when you’re back.
+whimsy-routine-form-note-site = Never runs in private tabs. Runs while Whimsy is open, as always.
+whimsy-routine-form-site-first-visit = first visit each day
+whimsy-routine-form-site-other = Another site…
 whimsy-routine-form-try = Try it now
 whimsy-routine-form-trying = Trying…
 whimsy-routine-form-cancel = Cancel

@@ -1027,7 +1027,9 @@ export const WhimsySurface = {
   /**
    * A dropdown button that opens a small listbox surface under it (This
    * Site's Autoplay and Pretend to Be). Options: [{value, l10nId, l10nArgs,
-   * detailL10nId, rule}] (rule: a hairline before this option).
+   * shortL10nId, detailL10nId, rule, disabled, expand}] (rule: a hairline
+   * before this option; shortL10nId: the button's label; expand: builds an
+   * editor that replaces the menu in place).
    * Returns { button, setValue(value, l10nId, l10nArgs) }.
    */
   dropdown(doc, { id, label = null, options, value, onPick, width = 240, position = "after_end" }) {
@@ -1137,6 +1139,19 @@ export const WhimsySurface = {
       }
       const pick = () => {
         if (option.disabled) {
+          return;
+        }
+        // W23 routines-ui: an option with `expand` turns the menu into its
+        // editor in place; the editor picks with done(value).
+        if (option.expand) {
+          const editor = option.expand({
+            done: v => {
+              this.close(parts.panel);
+              onPick(v);
+            },
+          });
+          list.replaceWith(editor);
+          editor.querySelector("[autofocus], button, input")?.focus();
           return;
         }
         this.close(parts.panel);

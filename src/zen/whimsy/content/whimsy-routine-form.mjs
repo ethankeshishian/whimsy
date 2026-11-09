@@ -128,6 +128,37 @@ function daysKey(trigger) {
   return `d${trigger.days?.[0] ?? 1}`;
 }
 
+// The sheet's one schedule token: "weekdays at 8:00 AM". Its value packs
+// the days and the time ("1,2,3,4,5@8:0"), or "hourly".
+const WEEK = [1, 2, 3, 4, 5, 6, 0];
+
+function scheduleValue(trigger) {
+  if (trigger.every == "hour") {
+    return "hourly";
+  }
+  return `${[...(trigger.days ?? [])].sort().join(",")}@${trigger.hour ?? 8}:${trigger.minute ?? 0}`;
+}
+
+function scheduleArgs(days, hour, minute) {
+  const key = daysKey({ days });
+  const args = { days: key.startsWith("d") && days.length == 1 ? key : key in DAY_SETS ? key : "list", time: timeText(hour, minute) };
+  if (args.days == "list") {
+    // 4 January 2026 is a Sunday.
+    const name = day => new Date(2026, 0, 4 + day).toLocaleDateString([], { weekday: "short" });
+    args.list = new Intl.ListFormat([], { style: "short", type: "conjunction" }).format(WEEK.filter(d => days.includes(d)).map(name));
+  }
+  return args;
+}
+
+function scheduleOption(days, hour, minute) {
+  return {
+    value: scheduleValue({ days, hour, minute }),
+    l10nId: "whimsy-routine-form-schedule",
+    shortL10nId: "whimsy-routine-form-schedule-token",
+    l10nArgs: scheduleArgs(days, hour, minute),
+  };
+}
+
 /** The tabs a page trigger can watch: readable, never private. */
 function watchableTabs(win) {
   return win.gBrowser.tabs.filter(
@@ -183,14 +214,19 @@ export function buildRoutineForm(win, o) {
     sync();
     o.onResize?.();
   };
+  // Fields touched once stay plain when the sentence re-renders.
+  const touchedFields = new Set();
   const touched = node => {
+    if (node?.dataset.field) {
+      touchedFields.add(node.dataset.field);
+    }
     if (node?.classList.contains("is-filled")) {
       node.classList.remove("is-filled");
       node.classList.add("was-filled");
     }
   };
   const filled = node => {
-    if (o.outlined) {
+    if (o.outlined && !touchedFields.has(node.dataset.field)) {
       node.classList.add("is-filled");
     }
     return node;
@@ -208,6 +244,7 @@ export function buildRoutineForm(win, o) {
         value: t.kind,
         icon: t.icon,
         l10nId: `whimsy-routine-form-trigger-${t.kind}`,
+        shortL10nId: `whimsy-routine-form-token-${t.kind}`,
         detailL10nId: TRIGGER_NEEDS[t.kind],
       })),
       value: draft.trigger.kind,
@@ -299,7 +336,7 @@ export function buildRoutineForm(win, o) {
       { value: "bar", l10nId: "whimsy-routine-form-show-bar", detailL10nId: "whimsy-routine-form-show-default" },
       { value: "bar+notify", l10nId: "whimsy-routine-form-show-bar-notify" },
       { value: "thread", l10nId: "whimsy-routine-form-show-thread" },
-    ],
+    ].map(x => (layout == "sheet" ? { ...x, shortL10nId: `${x.l10nId}-token` } : x)),
     value: draft.showIn,
     width: 300,
     onPick: v => {
@@ -391,6 +428,10 @@ export function buildRoutineForm(win, o) {
     const parts = [];
     switch (t.kind) {
       case "schedule": {
+        if (layout == "sheet") {
+          parts.push(scheduleToken(t));
+          break;
+        }
         const days = [
           { value: "weekdays", l10nId: "whimsy-routine-form-days-weekdays" },
           { value: "daily", l10nId: "whimsy-routine-form-days-daily" },
@@ -502,6 +543,10 @@ export function buildRoutineForm(win, o) {
         );
         break;
       case "open-site": {
+        if (layout == "sheet") {
+          parts.push(siteToken(t), el(doc, "span", "whimsy-routine-token is-fixed", "whimsy-routine-form-site-first-visit"));
+          break;
+        }
         const input = el(doc, "input", "zen-library-routing-reference whimsy-routine-form-site", "whimsy-routine-form-site");
         input.type = "text";
         input.value = t.host ?? "";
@@ -533,6 +578,163 @@ export function buildRoutineForm(win, o) {
         chip.tabIndex = on ? 0 : -1;
       }
     }
+  }
+
+  // The sheet's site: the sites open in tabs, then "Another site…", which
+  // turns the menu into a field in place.
+  function siteToken(t) {
+    const hosts = [];
+    for (const tab of watchableTabs(win)) {
+      const url = tab.linkedBrowser.currentURI;
+      const host = url.host?.replace(/^www\./, "");
+      if (host && !hosts.some(h => h.value == host)) {
+        hosts.push({ value: host, text: host, icon: `page-icon:${url.spec}` });
+      }
+    }
+    if (!t.host && hosts.length) {
+      const selected = win.gBrowser.selectedTab.linkedBrowser.currentURI.host?.replace(/^www\./, "");
+      draft.trigger = { ...draft.trigger, host: hosts.some(h => h.value == selected) ? selected : hosts[0].value };
+    }
+    const host = draft.trigger.host;
+    if (host && !hosts.some(h => h.value == host)) {
+      hosts.unshift({ value: host, text: host, icon: `page-icon:https://${host}/` });
+    }
+    const options = [...hosts, { value: "", l10nId: "whimsy-routine-form-site-other", rule: hosts.length > 0, expand: ({ done }) => siteEditor(done) }];
+    return dropdown("site", {
+      options,
+      value: host || "",
+      width: 260,
+      onPick: v => {
+        draft.trigger = { kind: "open-site", host: v };
+        renderDetail();
+        sync();
+      },
+    });
+  }
+
+  function siteEditor(done) {
+    const editor = el(doc, "div", "whimsy-routine-schedule-editor");
+    const row = el(doc, "div", "whimsy-routine-schedule-row");
+    const input = el(doc, "input", "whimsy-routine-schedule-time whimsy-routine-site-field", "whimsy-routine-form-site");
+    input.type = "text";
+    const ok = el(doc, "button", "whimsy-routine-schedule-done", "whimsy-routine-form-schedule-done");
+    ok.type = "button";
+    const value = () => input.value.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "");
+    const update = () => (ok.disabled = !/^[^\s.]+(\.[^\s.]+)+$/.test(value()));
+    const finish = () => {
+      if (!ok.disabled) {
+        done(value());
+      }
+    };
+    input.addEventListener("input", update);
+    input.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        finish();
+      }
+    });
+    ok.addEventListener("click", finish);
+    row.append(input, ok);
+    editor.append(row);
+    update();
+    return editor;
+  }
+
+  // The sheet's schedule: common schedules, the current one, then "Pick
+  // days and time…", which turns the menu into day chips and a time field.
+  function scheduleToken(t) {
+    const hour = t.hour ?? 8;
+    const minute = t.minute ?? 0;
+    const options = [
+      scheduleOption(DAY_SETS.daily, hour, minute),
+      scheduleOption(DAY_SETS.weekdays, hour, minute),
+    ];
+    const current = scheduleValue(t);
+    if (t.every != "hour" && !options.some(x => x.value == current)) {
+      options.push(scheduleOption(t.days ?? DAY_SETS.weekdays, hour, minute));
+    }
+    if (!options.some(x => x.value == scheduleValue({ days: [5], hour: 16, minute: 0 }))) {
+      options.push(scheduleOption([5], 16, 0));
+    }
+    options.push(
+      { value: "hourly", l10nId: "whimsy-routine-form-days-hourly", shortL10nId: "whimsy-routine-form-schedule-hourly-token" },
+      { value: "pick", l10nId: "whimsy-routine-form-schedule-pick", rule: true, expand: ({ done }) => scheduleEditor(t, done) }
+    );
+    return dropdown("schedule", {
+      options,
+      value: current,
+      width: 260,
+      onPick: v => {
+        if (v == "hourly") {
+          draft.trigger = { kind: "schedule", every: "hour", minute: 0 };
+        } else {
+          const [days, time] = v.split("@");
+          const [h, m] = time.split(":").map(Number);
+          draft.trigger = { kind: "schedule", days: days.split(",").map(Number), hour: h, minute: m };
+        }
+        renderDetail();
+      },
+    });
+  }
+
+  function scheduleEditor(t, done) {
+    const editor = el(doc, "div", "whimsy-routine-schedule-editor");
+    const chips = el(doc, "div", "whimsy-routine-schedule-days", "whimsy-routine-form-schedule-days");
+    chips.setAttribute("role", "group");
+    const picked = new Set(t.every == "hour" ? DAY_SETS.weekdays : t.days ?? DAY_SETS.weekdays);
+    for (const day of WEEK) {
+      const chip = el(doc, "button", "whimsy-routine-schedule-day");
+      chip.type = "button";
+      chip.dataset.day = day;
+      const date = new Date(2026, 0, 4 + day);
+      chip.textContent = date.toLocaleDateString([], { weekday: "narrow" });
+      chip.setAttribute("aria-label", date.toLocaleDateString([], { weekday: "long" }));
+      chip.setAttribute("aria-pressed", picked.has(day) ? "true" : "false");
+      chip.addEventListener("click", () => {
+        if (picked.has(day)) {
+          picked.delete(day);
+        } else {
+          picked.add(day);
+        }
+        chip.setAttribute("aria-pressed", picked.has(day) ? "true" : "false");
+        update();
+      });
+      chips.append(chip);
+    }
+    const row = el(doc, "div", "whimsy-routine-schedule-row");
+    const time = el(doc, "input", "whimsy-routine-schedule-time", "whimsy-routine-form-schedule-time");
+    time.type = "time";
+    const pad = n => String(n).padStart(2, "0");
+    time.value = `${pad(t.hour ?? 8)}:${pad(t.minute ?? 0)}`;
+    const ok = el(doc, "button", "whimsy-routine-schedule-done", "whimsy-routine-form-schedule-done");
+    ok.type = "button";
+    row.append(time, ok);
+    const hint = el(doc, "p", "whimsy-routine-schedule-hint", "whimsy-routine-form-schedule-need-day");
+    hint.hidden = true;
+    const update = () => {
+      const valid = picked.size > 0 && /^\d{2}:\d{2}/.test(time.value);
+      ok.disabled = !valid;
+      hint.hidden = picked.size > 0;
+      return valid;
+    };
+    const finish = () => {
+      if (!update()) {
+        return;
+      }
+      const [h, m] = time.value.split(":").map(Number);
+      done(scheduleValue({ days: [...picked], hour: h, minute: m }));
+    };
+    time.addEventListener("input", update);
+    time.addEventListener("keydown", event => {
+      if (event.key == "Enter") {
+        event.preventDefault();
+        finish();
+      }
+    });
+    ok.addEventListener("click", finish);
+    editor.append(chips, row, hint);
+    update();
+    return editor;
   }
 
   function unmetNeed() {
@@ -681,6 +883,11 @@ export function buildRoutineForm(win, o) {
       note.hidden = true;
     } else {
       note.hidden = false;
+    }
+    // I open a site says it never runs in private tabs.
+    const noteId = draft.trigger.kind == "open-site" ? "whimsy-routine-form-note-site" : "whimsy-routine-form-note";
+    if (note.getAttribute("data-l10n-id") != noteId) {
+      doc.l10n.setAttributes(note, noteId);
     }
   }
 

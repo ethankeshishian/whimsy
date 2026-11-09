@@ -368,8 +368,18 @@ add_task(async function shots_sheet_and_menus() {
     }, () => document.getElementById("whimsy-routine-sheet-trigger-list")?.state == "open");
     await popupShots("w23-routines-ui-rout-3.3", async () => {
       await openSheetWith({ trigger: schedule, prompt: "Summarize today’s meetings." });
-      await tokenMenu("days");
-    }, () => document.getElementById("whimsy-routine-sheet-days-list")?.state == "open");
+      await tokenMenu("schedule");
+    }, () => document.getElementById("whimsy-routine-sheet-schedule-list")?.state == "open");
+    // rout-3.3, then "Pick days and time…": the menu turns into day chips.
+    await popupShots("w23-routines-ui-rout-3.3-pick", async () => {
+      await openSheetWith({ trigger: schedule, prompt: "Summarize today’s meetings." });
+      const menu = await tokenMenu("schedule");
+      const pick = menu.querySelector("[data-value='pick']");
+      await TestUtils.waitForCondition(() => pick.getBoundingClientRect().width > 0, "Pick days and time… is laid out");
+      EventUtils.synthesizeMouseAtCenter(pick, {});
+      await TestUtils.waitForCondition(() => menu.querySelector(".whimsy-routine-schedule-editor"), "The editor is in");
+      await document.l10n.translateFragment(menu);
+    }, () => !!document.querySelector("#whimsy-routine-sheet-schedule-list .whimsy-routine-schedule-editor"));
     await popupShots("w23-routines-ui-rout-3.4", () => openSheetWith({ trigger: { kind: "page", interval: 60 }, prompt: "Tell me when the price drops below $900." }));
     await popupShots("w23-routines-ui-rout-3.5", () => openSheetWith({ trigger: { kind: "return" }, prompt: "Catch me up on what I missed." }));
     connected = new Set(["google"]);
@@ -388,7 +398,8 @@ add_task(async function shots_sheet_and_menus() {
     }, () => !!sheet().querySelector(".whimsy-routine-form-spinner"));
     WhimsyConnectors.connect = realConnect;
     await popupShots("w23-routines-ui-rout-3.9", () => openSheetWith({ trigger: { kind: "meeting", leadMinutes: 10 }, prompt: "Pull my last notes with the attendees." }));
-    await popupShots("w23-routines-ui-rout-3.10", () => openSheetWith({ trigger: { kind: "open-site" }, prompt: "Show me what changed since my last visit." }));
+    await popupShots("w23-routines-ui-rout-3.10", () => openSheetWith({ trigger: { kind: "open-site", host: "linear.app" }, prompt: "Show me what’s assigned to me that changed since yesterday." }),
+      () => !!sheet().querySelector("[data-field='site']"));
     await popupShots("w23-routines-ui-rout-3.11", () => openSheetWith({ trigger: { kind: "download" }, prompt: "Summarize it in three lines." }));
     await popupShots("w23-routines-ui-rout-3.12", async () => {
       await openSheetWith({ trigger: schedule, prompt: "Summarize today’s meetings." });
@@ -402,6 +413,21 @@ add_task(async function shots_sheet_and_menus() {
       await openSheetWith({ trigger: { kind: "schedule" }, prompt: "" });
       sheet().querySelector("[data-field='trigger']").focus();
     }, () => !!sheet().querySelector(".whimsy-routine-form-ideas, .whimsy-routine-form-idea"));
+    // rout-3.15: a narrow window; the sheet keeps 480px and the sentence wraps.
+    const { outerWidth, outerHeight } = window;
+    window.resizeTo(900, 820);
+    await TestUtils.waitForCondition(() => window.innerWidth <= 900, "A narrow window");
+    try {
+      await popupShots("w23-routines-ui-rout-3.15", () => openSheetWith({ trigger: { kind: "open-site", host: "linear.app" }, prompt: "Show me what’s assigned to me that changed since yesterday." }),
+        Object.assign(() => {
+          const when = sheet().querySelector(".whimsy-routine-form-when");
+          const tokens = [...when.querySelectorAll(".whimsy-routine-token")];
+          return Math.round(sheet().getBoundingClientRect().width) <= 480 && tokens.every(t => t.getBoundingClientRect().right <= when.getBoundingClientRect().right + 0.5);
+        }, { what: "the sheet keeps 480px and its tokens stay inside" }));
+    } finally {
+      window.resizeTo(outerWidth, outerHeight);
+      await TestUtils.waitForCondition(() => window.outerWidth == outerWidth, "Wide again");
+    }
     // rout-4.1: made in chat, beside the chat, outlined.
     const { WhimsyChat } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChat.sys.mjs");
     await WhimsyChat.open(window);

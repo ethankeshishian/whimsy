@@ -395,3 +395,72 @@ add_task(async function chat_card_outlined_never_auto_on() {
   await hidden;
   is((await WhimsyRoutines.list()).length, 0, "Closing it saves nothing");
 });
+
+// The sheet's sentence: lowercase tokens, days and time as one token, and
+// "Pick days and time…" turning the menu into day chips and a time field.
+add_task(async function sheet_schedule_token_and_day_chips() {
+  await fresh();
+  WhimsyRoutinesUI.openForm(window, { prefill: { title: "Weekly recap", prompt: "Recap my week.", trigger: { kind: "schedule", days: [1, 2, 3, 4, 5], hour: 8, minute: 0 } }, outlined: true });
+  const sheet = await TestUtils.waitForCondition(() => document.getElementById("whimsy-routine-sheet")?.state == "open" && document.getElementById("whimsy-routine-sheet"), "The sheet opens");
+  await document.l10n.translateFragment(sheet);
+  const trigger = sheet.querySelector("[data-field='trigger']");
+  const token = sheet.querySelector("[data-field='schedule']");
+  ok(token, "Days and time are one token");
+  ok(!sheet.querySelector("[data-field='days'], [data-field='time']"), "No separate days or time token");
+  is(trigger.querySelector(".whimsy-surface-dropdown-value").getAttribute("data-l10n-id"), "whimsy-routine-form-token-schedule", "The trigger token reads in lowercase");
+  const value = token.querySelector(".whimsy-surface-dropdown-value");
+  await TestUtils.waitForCondition(() => value.textContent.startsWith("weekdays at "), "The token reads “weekdays at 8:00 AM”");
+
+  await visible(token, "The schedule token is still");
+  const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == "whimsy-routine-sheet-schedule-list");
+  EventUtils.synthesizeMouseAtCenter(token, {});
+  await shown;
+  const menu = document.getElementById("whimsy-routine-sheet-schedule-list");
+  await document.l10n.translateFragment(menu);
+  const pick = menu.querySelector("[data-value='pick']");
+  ok(pick, "The menu ends with Pick days and time…");
+  is(menu.querySelector("[aria-selected='true']")?.dataset.value, "1,2,3,4,5@8:0", "Weekdays at 8:00 AM is checked");
+  await visible(pick, "Pick days and time… is still");
+  EventUtils.synthesizeMouseAtCenter(pick, {});
+  const editor = await TestUtils.waitForCondition(() => menu.querySelector(".whimsy-routine-schedule-editor"), "The menu turns into the editor in place");
+  is(menu.state, "open", "The menu stays open");
+  is(editor.querySelectorAll(".whimsy-routine-schedule-day[aria-pressed='true']").length, 5, "Weekdays are on");
+  const done = editor.querySelector(".whimsy-routine-schedule-done");
+  for (const day of [1, 2, 3, 4, 5]) {
+    editor.querySelector(`[data-day='${day}']`).click();
+  }
+  ok(done.disabled, "No days, no Done");
+  ok(!editor.querySelector(".whimsy-routine-schedule-hint").hidden, "It says to pick a day");
+  editor.querySelector("[data-day='1']").click();
+  editor.querySelector("[data-day='3']").click();
+  editor.querySelector(".whimsy-routine-schedule-time").value = "18:30";
+  editor.querySelector(".whimsy-routine-schedule-time").dispatchEvent(new Event("input"));
+  ok(!done.disabled, "Days and a time: Done");
+  const hidden = BrowserTestUtils.waitForPopupEvent(menu, "hidden");
+  done.click();
+  await hidden;
+  const after = sheet.querySelector("[data-field='schedule']");
+  await document.l10n.translateFragment(sheet);
+  is(after.querySelector(".whimsy-surface-dropdown-value").getAttribute("data-l10n-id"), "whimsy-routine-form-schedule-token", "The token shows the new schedule");
+  is(JSON.parse(after.querySelector(".whimsy-surface-dropdown-value").getAttribute("data-l10n-args")).days, "list", "Monday and Wednesday read as a list");
+  ok(!after.classList.contains("is-filled"), "A touched token stays plain");
+  const sheetHidden = BrowserTestUtils.waitForPopupEvent(sheet, "hidden");
+  sheet.hidePopup();
+  await sheetHidden;
+  is((await WhimsyRoutines.list()).length, 0, "Nothing saved");
+});
+
+add_task(async function sheet_site_token() {
+  await fresh();
+  WhimsyRoutinesUI.openForm(window, { prefill: { prompt: "Show me what changed.", trigger: { kind: "open-site", host: "linear.app" } }, outlined: true });
+  const sheet = await TestUtils.waitForCondition(() => document.getElementById("whimsy-routine-sheet")?.state == "open" && document.getElementById("whimsy-routine-sheet"), "The sheet opens");
+  await document.l10n.translateFragment(sheet);
+  const site = sheet.querySelector("[data-field='site']");
+  ok(site, "The site is a token");
+  is(site.querySelector(".whimsy-surface-dropdown-value").textContent, "linear.app", "It reads the site");
+  ok(sheet.querySelector(".whimsy-routine-token.is-fixed"), "first visit each day follows it");
+  is(sheet.querySelector(".whimsy-routine-form-note").getAttribute("data-l10n-id"), "whimsy-routine-form-note-site", "The note says private tabs never run it");
+  const hidden = BrowserTestUtils.waitForPopupEvent(sheet, "hidden");
+  sheet.hidePopup();
+  await hidden;
+});
