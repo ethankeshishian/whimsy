@@ -136,13 +136,16 @@ export const WhimsyAITabRequests = {
     if (!tabs.length) {
       return [];
     }
+    // The site names the group only when the matches are all its tabs.
+    const host = sameHost(tabs);
+    const site = host && this.candidates(win).filter(c => c.host == host).length == tabs.length ? host : "";
     return [
       {
         id: `typed:tabs-${action}`,
         icon: ROW_ICON,
-        // Name the site when every match is on one ("Close 3 youtube.com
-        // tabs"); else the person's words, in curly quotes (page 10.2).
-        label: lazy.l10n.formatValueSync(`whimsy-tabs-row-${action}${sameHost(tabs) ? "-site" : ""}`, { count: tabs.length, what: match[2].trim(), site: sameHost(tabs) }),
+        // "Close 3 youtube.com tabs" when the matches are that site's
+        // tabs; else the person's words, in curly quotes (page 10.2).
+        label: lazy.l10n.formatValueSync(`whimsy-tabs-row-${action}${site ? "-site" : ""}`, { count: tabs.length, what: match[2].trim(), site }),
         tag: this.spaceName(win, tabs[0]),
         run: w => this.apply(w, { action, tabs }),
       },

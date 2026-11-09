@@ -406,8 +406,7 @@ notification-message.whimsy-scam {
 
 /* 05-page 9.1: the site's name stays ahead of the page pills. In the
    sidebar's narrow address field Compare is its sparkle alone (its name is
-   in its tooltip and label), and Watch price's words give way before the
-   host does. */
+   in its tooltip and label). */
 #urlbar-input {
   min-width: 8ch;
 }
@@ -416,15 +415,6 @@ notification-message.whimsy-scam {
     padding-inline: 6px;
     & > .whimsy-page-action-label {
       display: none;
-    }
-  }
-  & #whimsy-page-action {
-    flex-shrink: 1;
-    min-width: 26px;
-    & > .whimsy-page-action-label {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
   }
 }
