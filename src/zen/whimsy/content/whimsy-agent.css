@@ -180,6 +180,9 @@
   --zen-folder-front-bgcolor: light-dark(color-mix(in srgb, var(--whimsy-claude-accent), white 70%), color-mix(in srgb, var(--whimsy-claude-accent), black 40%));
   --zen-folder-stroke: light-dark(color-mix(in srgb, var(--whimsy-claude-accent) 50%, black), color-mix(in srgb, var(--whimsy-claude-accent) 15%, #ebebeb));
   display: flex;
+  /* XUL collapses anything with a [collapsed] attribute; a folded folder
+     still shows its row (Zen's zen-folder does the same). */
+  visibility: visible;
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
@@ -191,6 +194,10 @@
   overflow: hidden;
   cursor: default;
   -moz-user-focus: normal;
+}
+
+.whimsy-task-folder[hidden] {
+  display: none !important;
 }
 
 .whimsy-task-folder:hover {
@@ -309,9 +316,11 @@
   rotate: -90deg;
 }
 
-/* Member tabs: indented like a Zen folder's (--zen-folder-indent, 14px). */
+/* Member tabs: indented like a Zen folder's. Zen's own rule sets every
+   tab's margin from --zen-folder-indent (with more specificity than a
+   margin here could), so set the variable. */
 .tabbrowser-tab[whimsy-task-tab] {
-  margin-inline-start: 14px !important;
+  --zen-folder-indent: 14px;
 }
 
 .tabbrowser-tab[whimsy-task-tab][whimsy-task-collapsed]:not([visuallyselected]) {
