@@ -387,11 +387,8 @@ class ChatPanel {
     menu.id = "whimsy-chat-head-menu";
     const move = doc.createXULElement("menuitem");
     move.addEventListener("command", () => this.setSide(this.side == "left" ? "right" : "left"));
-    const hide = doc.createXULElement("menuitem");
-    doc.l10n.setAttributes(hide, "whimsy-chat-menu-hide");
-    hide.setAttribute("key", "key_cmd_whimsyChatToggle");
-    hide.addEventListener("command", () => this.close({ reason: "hide" }));
-    menu.append(move, hide);
+    // Only the side: hiding is the header's button and ⌘E (one place each).
+    menu.append(move);
     menu.addEventListener("popupshowing", () =>
       doc.l10n.setAttributes(move, this.side == "left" ? "whimsy-chat-menu-move-right" : "whimsy-chat-menu-move-left")
     );
