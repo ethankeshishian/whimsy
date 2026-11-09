@@ -20,6 +20,7 @@ const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppC
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
+  WhimsyAICompare: "resource:///modules/whimsy/WhimsyAICompare.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
@@ -381,6 +382,8 @@ export const WhimsyPageActions = {
     const browser = win.gBrowser?.selectedBrowser;
     const action = this.enabled && browser ? this.actionFor(browser) : null;
     const show = !!action && this.available(win, action);
+    // W23 page-act: Compare sits right after Watch price.
+    lazy.WhimsyAICompare.updatePill(win);
     let pill = win.document.getElementById(PILL_ID);
     if (!show) {
       if (pill) {

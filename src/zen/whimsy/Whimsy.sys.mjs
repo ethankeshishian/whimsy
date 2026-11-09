@@ -13,6 +13,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
   WhimsyChatAgent: "resource:///modules/whimsy/WhimsyChatAgent.sys.mjs",
+  WhimsyAICompare: "resource:///modules/whimsy/WhimsyAICompare.sys.mjs",
+  WhimsyAIFill: "resource:///modules/whimsy/WhimsyAIFill.sys.mjs",
+  WhimsyAIPageEdits: "resource:///modules/whimsy/WhimsyAIPageEdits.sys.mjs",
+  WhimsyAITabRequests: "resource:///modules/whimsy/WhimsyAITabRequests.sys.mjs",
+  WhimsyAITranslate: "resource:///modules/whimsy/WhimsyAITranslate.sys.mjs",
+  WhimsyScamCheck: "resource:///modules/whimsy/WhimsyScamCheck.sys.mjs",
   WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
@@ -489,6 +495,36 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
+    // W23 page-act: Draft reply and Form fill (every frame, so a payment
+    // frame's fields can be marked as left to the password manager), page
+    // edits and AI translation (top frame), and the scam check (top frame,
+    // on pageshow; it reads only pages with a password or card field).
+    ChromeUtils.registerWindowActor("WhimsyAIFill", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIFill.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyAIFillChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    ChromeUtils.registerWindowActor("WhimsyAIPageEdits", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIPageEdits.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyAIPageEditsChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    ChromeUtils.registerWindowActor("WhimsyScamCheck", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyScamCheck.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyScamCheckChild.sys.mjs",
+        events: { pageshow: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
     // W23 ⌘K: the view's make-up when ⌘K opens, and what the selection sits in.
     ChromeUtils.registerWindowActor("WhimsyAIViewShare", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIViewShare.sys.mjs" },
@@ -661,6 +697,15 @@ export const Whimsy = {
     run("ai-chat", () => lazy.WhimsyChatPanel.initWindow(win));
     // W23 agent-chat: the agent in chat (mode switch, plan, run card, pauses).
     run("ai-agent-chat", () => lazy.WhimsyChatAgent.initWindow(win));
+    // W23 page-act: on-the-page AI (not agent tasks). Each checks its own
+    // switch and AI on use; these only add commands, chat handlers, and the
+    // Compare pill.
+    run("ai-draft-reply", () => lazy.WhimsyAIFill.initWindow(win));
+    run("ai-page-edits", () => lazy.WhimsyAIPageEdits.initWindow(win));
+    run("ai-translate", () => lazy.WhimsyAITranslate.initWindow(win));
+    run("ai-scam-warning", () => lazy.WhimsyScamCheck.initWindow(win));
+    run("ai-compare", () => lazy.WhimsyAICompare.initWindow(win));
+    run("ai-tab-requests", () => lazy.WhimsyAITabRequests.initWindow(win));
     // W23 agent-tabs: Background tabs' task folder, and "you win" collisions.
     run("ai-task-folder", () => lazy.WhimsyTaskFolder.initWindow(win));
     // W23 cmdbar-ai: Ask AI, the answer card, ⌘1–⌘9, and Updates on top.

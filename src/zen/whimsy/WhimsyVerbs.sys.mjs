@@ -849,6 +849,27 @@ export const WhimsyVerbs = {
     this.registered = this.registered.filter(v => v.id != verb.id).concat(verb);
   },
 
+  // W23 page-act: {id, rows(win, text) -> row[]}, asked as ⌘K is typed in.
+  typedRows: new Map(),
+  registerTypedRow(provider) {
+    this.typedRows.set(provider.id, provider);
+  },
+
+  typedRowsFor(win, text) {
+    if (!text || !win) {
+      return [];
+    }
+    const out = [];
+    for (const provider of this.typedRows.values()) {
+      try {
+        out.push(...(provider.rows(win, text) ?? []));
+      } catch (e) {
+        console.error(`Whimsy: typed row ${provider.id}`, e);
+      }
+    }
+    return out;
+  },
+
   unregisterVerb(id) {
     this.registered = this.registered.filter(v => v.id != id);
   },
@@ -1458,13 +1479,21 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
       }
       return;
     }
-    const rows = WhimsyContextCommands.filter(subject.groups, query);
+    // W23 page-act: rows built from the typed words ("Change this page:
+    // …", "Close 3 YouTube tabs") lead.
+    const typed = WhimsyVerbs.typedRowsFor(lazy.BrowserWindowTracker.getTopWindow(), query.trim());
+    subject.typed = new Map(typed.map(row => [row.id, row]));
     let first = true;
+    for (const row of typed) {
+      addCallback(this, this.#result(subject, row, { id: "whimsy-cmdk-group-commands" }, first));
+      first = false;
+    }
+    const rows = WhimsyContextCommands.filter(subject.groups, query);
     for (const row of rows) {
       addCallback(this, this.#result(subject, row, { id: "whimsy-cmdk-group-commands" }, first && !row.unavailable));
       first &&= !!row.unavailable;
     }
-    if (!first) {
+    if (!first && !typed.length) {
       return;
     }
     const text = query.trim();
@@ -1472,7 +1501,7 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
     if (!rows.length) {
       const scope = subject.groups[0]?.kind == "video" ? "video" : "page";
       const ask = { id: "ask", icon: SPARKLE, label: text, tag: lazy.l10n.formatValueSync(scope == "video" ? "whimsy-cmdbar-ask-video" : "whimsy-cmdk-ask-page") };
-      addCallback(this, this.#result(subject, ask, { id: "whimsy-cmdk-no-match" }, true, { query: text, scope }));
+      addCallback(this, this.#result(subject, ask, { id: "whimsy-cmdk-no-match" }, first, { query: text, scope }));
       addCallback(this, this.#result(subject, search, { id: "whimsy-cmdk-no-match" }, false, { query: text }));
       return;
     }
@@ -1504,7 +1533,7 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
 
   #runContext(win, subject, payload) {
     const { whimsyVerb: id, query, scope } = payload;
-    const row = subject.groups.flatMap(g => g.all).find(r => r.id == id);
+    const row = subject.groups.flatMap(g => g.all).find(r => r.id == id) ?? subject.typed?.get(id);
     if ((!row && id != "ask" && id != "web-search") || row?.unavailable) {
       return;
     }
