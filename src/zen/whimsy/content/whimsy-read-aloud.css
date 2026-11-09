@@ -115,8 +115,14 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* The rows that unfold on hover slide up from under the buttons (and
+     take clicks as soon as the hover starts); the buttons stay on top, so a
+     click during the unfold reaches the button you see, not the progress
+     bar, which would seek. */
   .zen-media-controls-hbox {
     align-items: center;
+    position: relative;
+    z-index: 1;
   }
 
   .zen-media-controls-hbox > :is(toolbarbutton, button):focus-visible {
