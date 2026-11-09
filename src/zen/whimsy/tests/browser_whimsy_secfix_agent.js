@@ -23,7 +23,7 @@ const waitForPause = (task, kind) =>
   TestUtils.waitForCondition(() => task.pause && !task.pause.choice && task.pause.kind == kind && task.pause, `The task pauses (${kind})`);
 
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], ["whimsy.feature.ai-hints", false]] });
   WhimsyAgentGuard._setTrustedSitesForTesting(null);
   registerCleanupFunction(async () => {
     WhimsyAgentTasks._resetForTesting();

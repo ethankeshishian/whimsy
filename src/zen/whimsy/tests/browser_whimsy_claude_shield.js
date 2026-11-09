@@ -57,6 +57,8 @@ async function openPage(url) {
 
 add_setup(async function () {
   await gZenWorkspaces.promiseInitialized;
+  // The agent's tabs would otherwise trip AI hints, which count in prefs.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", false]] });
   Services.prefs.setBoolPref(AI_ENABLED, true);
   await WhimsyClaude.clearAudit();
   registerCleanupFunction(async () => {
