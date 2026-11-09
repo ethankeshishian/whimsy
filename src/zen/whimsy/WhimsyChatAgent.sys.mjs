@@ -1046,9 +1046,11 @@ export const WhimsyChatAgent = {
     }
     await panel.doc.l10n.translateFragment(body);
     if (added) {
-      added.scrollIntoView({ block: "nearest", behavior: reducedMotion(panel.win) ? "instant" : "smooth" });
+      // A card that asks you something keeps its choices in view.
+      const target = added.matches("[data-focus]") ? added.querySelector(".whimsy-agent-actions") ?? added : added;
+      target.scrollIntoView({ block: "nearest", behavior: reducedMotion(panel.win) ? "instant" : "smooth" });
       if (added.matches(".whimsy-agent-card[data-focus]") && panel.isOpen) {
-        (added.querySelector("[data-autofocus]") ?? added).focus();
+        (added.querySelector("[data-autofocus]") ?? added).focus({ preventScroll: true });
       }
     }
     this.renderRunCard(panel);
@@ -1060,7 +1062,7 @@ export const WhimsyChatAgent = {
     const key = focused?.dataset.choice ?? focused?.dataset.step ?? null;
     const asks = fresh.matches("[data-focus]") && !node.matches("[data-focus]");
     if (node.querySelector("[aria-describedby='whimsy-agent-popover']")) {
-      this.hidePopover(node.ownerGlobal);
+      this.hidePopover(node.ownerDocument.defaultView);
     }
     node.replaceWith(fresh);
     if (focused) {

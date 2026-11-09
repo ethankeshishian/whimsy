@@ -183,7 +183,8 @@ async function pauseShot(name, kind, preview, extra = {}) {
     await fresh();
     const task = await running();
     WhimsyAgentTasks.pause(task.id, { kind, host: extra.host ?? "hearthcoffee.com", preview, ...extra });
-    await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-pause'][data-focus]"), "Paused");
+    const card = await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-pause'][data-focus]"), "Paused");
+    await TestUtils.waitForCondition(() => card.querySelector(".whimsy-agent-actions").getBoundingClientRect().bottom <= part(".whimsy-chat-body").getBoundingClientRect().bottom + 1, "Its choices are in view");
   });
 }
 
