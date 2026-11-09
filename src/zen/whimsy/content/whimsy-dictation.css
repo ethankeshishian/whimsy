@@ -49,10 +49,12 @@
   mask: url("chrome://browser/content/whimsy/icons/mic.svg") center / 16px no-repeat;
 }
 
+/* Beside the mic, not under it: the bar clips what hangs below its input row. */
 .whimsy-dictation-tip {
   position: absolute;
-  top: calc(100% + 8px);
-  inset-inline-end: 0;
+  top: 50%;
+  translate: 0 -50%;
+  inset-inline-end: calc(100% + 8px);
   z-index: 3;
   padding: 5px 8px;
   border-radius: 6px;

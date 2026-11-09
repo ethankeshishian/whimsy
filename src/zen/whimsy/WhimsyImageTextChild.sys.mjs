@@ -31,6 +31,7 @@ const STYLE = `
 .line.translated {
   color: var(--ink); background-color: var(--plate);
   border-radius: 2px; padding: 0 2px; margin-left: -2px;
+  box-shadow: 0 0 0 2px var(--plate);
 }
 .line.translated::selection { color: HighlightText; }
 .line.arrive { animation: arrive 150ms both; }
@@ -368,6 +369,7 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
         el.style.lineHeight = `${height}px`;
         el.style.height = `${height}px`;
         el.style.transform = "none";
+        el.style.minWidth = "";
         el._whimsyKey = key;
         el._whimsyNatural = el.scrollWidth || 1;
       }
@@ -375,6 +377,8 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
       // A translation keeps its own length, up to a third wider than the line.
       const scale = info.translated && !el._whimsyOriginal ? Math.min(1, (width * 1.33) / natural) : width / natural;
       el.style.transform = `translate(${tl[0]}px, ${tl[1]}px) rotate(${angle}rad) scaleX(${scale})`;
+      // A shorter translation's plate still covers the whole line.
+      el.style.minWidth = info.translated && !el._whimsyOriginal ? `${width / scale}px` : "";
       // Lines under something the page put over the image take no pointer.
       const cx = box.viewLeft + (tl[0] + tr[0] + br[0] + bl[0]) / 4;
       const cy = box.viewTop + (tl[1] + tr[1] + br[1] + bl[1]) / 4;
@@ -495,18 +499,27 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
       for (const line of info.lines) {
         const xs = line.quad.map(p => p[0] * w);
         const ys = line.quad.map(p => p[1] * h);
-        const x = Math.max(0, Math.floor(Math.min(...xs)));
-        const y = Math.max(0, Math.floor(Math.min(...ys)));
-        const data = ctx.getImageData(x, y, Math.max(1, Math.ceil(Math.max(...xs)) - x), Math.max(1, Math.ceil(Math.max(...ys)) - y)).data;
+        // The box a little grown: its rim is the background around the
+        // words (the plate), its inside holds the words (the ink).
+        const x = Math.max(0, Math.floor(Math.min(...xs)) - 2);
+        const y = Math.max(0, Math.floor(Math.min(...ys)) - 2);
+        const bw = Math.max(1, Math.min(w, Math.ceil(Math.max(...xs)) + 2) - x);
+        const bh = Math.max(1, Math.min(h, Math.ceil(Math.max(...ys)) + 2) - y);
+        const data = ctx.getImageData(x, y, bw, bh).data;
         const buckets = new Map();
         const pixels = [];
-        for (let i = 0; i < data.length; i += 16) {
-          const px = [data[i], data[i + 1], data[i + 2]];
-          pixels.push(px);
-          const key = px.map(v => v >> 4).join(",");
-          const entry = buckets.get(key) ?? { n: 0, px };
-          entry.n++;
-          buckets.set(key, entry);
+        for (let row = 0; row < bh; row++) {
+          for (let col = 0; col < bw; col++) {
+            const i = (row * bw + col) * 4;
+            const px = [data[i], data[i + 1], data[i + 2]];
+            pixels.push(px);
+            if (row < 2 || row >= bh - 2 || col < 2 || col >= bw - 2) {
+              const key = px.map(v => v >> 4).join(",");
+              const entry = buckets.get(key) ?? { n: 0, px };
+              entry.n++;
+              buckets.set(key, entry);
+            }
+          }
         }
         const plate = [...buckets.values()].sort((a, b) => b.n - a.n)[0]?.px ?? [255, 255, 255];
         let ink = luminance(plate) > 128 ? [29, 29, 31] : [250, 250, 250];
