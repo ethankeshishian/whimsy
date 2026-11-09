@@ -640,6 +640,9 @@
 .whimsy-agent-save-menu {
   inset-inline-end: auto;
   inset-block-end: auto;
+  /* Hugs its rows: one row when routines are off. */
+  height: max-content;
+  min-height: 0;
   width: 300px;
   transform-origin: top left;
   & .whimsy-chat-option {

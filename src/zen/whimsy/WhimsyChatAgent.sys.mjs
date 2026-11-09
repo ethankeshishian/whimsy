@@ -906,7 +906,9 @@ export const WhimsyChatAgent = {
     };
     const items = [
       { id: "command", l10n: "whimsy-agent-chat-save-command", detail: "whimsy-agent-chat-save-command-detail", run: () => this.saveAsCommand(win, msg) },
-      state.routineMaker && { id: "routine", l10n: "whimsy-agent-chat-save-routine", detail: "whimsy-agent-chat-save-routine-detail", run: () => state.routineMaker(win, { prompt: msg.prompt ?? msg.template ?? "" }) },
+      // Routines (routines-ui) registers the maker; the row also needs
+      // routines and AI on.
+      state.routineMaker && Services.prefs.getBoolPref("whimsy.feature.routines", true) && lazy.WhimsyAI.enabled && { id: "routine", l10n: "whimsy-agent-chat-save-routine", detail: "whimsy-agent-chat-save-routine-detail", run: () => state.routineMaker(win, { prompt: msg.prompt ?? msg.template ?? "" }) },
     ].filter(Boolean);
     const menu = h(doc, "div", { class: "whimsy-chat-menu whimsy-agent-save-menu", role: "listbox", tabindex: "-1", l10n: "whimsy-agent-chat-save-menu" },
       ...items.map((item, i) => h(doc, "div", {

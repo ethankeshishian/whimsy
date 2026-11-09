@@ -277,6 +277,11 @@ add_task(async function shot_end() {
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-agent-end [data-choice='save']"), {});
     await TestUtils.waitForCondition(() => part(".whimsy-agent-save-menu .whimsy-chat-option"), "Save menu");
     ok(part(".whimsy-agent-save-menu [data-item='command']"), "Save as command is listed");
+    // Routines registers the second row once the window is up.
+    await TestUtils.waitForCondition(() => part(".whimsy-agent-save-menu [data-item='routine']"), "Make it a routine is listed too");
+    const menu = part(".whimsy-agent-save-menu");
+    const last = [...menu.querySelectorAll(".whimsy-chat-option")].at(-1);
+    Assert.lessOrEqual(menu.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom, 8, "The menu hugs its rows: no empty slot under them");
     return () => EventUtils.synthesizeKey("KEY_Escape");
   });
   await whimsyBothSchemes(`${P}agent-7.2-looked-at`, async () => {
