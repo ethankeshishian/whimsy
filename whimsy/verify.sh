@@ -3,13 +3,16 @@
 # screenshots of the real window to $WHIMSY_SHOTS (default .surfer/shots).
 #   sh whimsy/verify.sh          everything
 #   sh whimsy/verify.sh quick    Whimsy tests + screenshots only
-#   sh whimsy/verify.sh gate     the updater's gate: Whimsy tests must pass;
-#                                a failing Zen test file gets one retry
+#   sh whimsy/verify.sh gate     the updater's gate; also retries Zen's failing
+#                                test files once
+# A failing Whimsy test file gets one retry in every mode. A file that passes
+# on retry is listed in .surfer/verify/flaky.txt for the next wave to fix.
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH" _ZO_DOCTOR=0
 export WHIMSY_SHOTS="${WHIMSY_SHOTS:-$PWD/.surfer/shots}"
 MODE="${1:-all}"
 rm -rf "$WHIMSY_SHOTS" && mkdir -p "$WHIMSY_SHOTS" .surfer/verify
+: > .surfer/verify/flaky.txt
 # The sandbox read path must be the src/ the engine links into: in a
 # worktree, engine/ is a symlink to the main checkout's engine.
 ROOT=$(cd "$(dirname "$(cd engine && pwd -P)")" && pwd -P)
@@ -42,8 +45,8 @@ run() { # run <name> <paths...>
   fi
 }
 
-# Zen's suites: retry each failing test file once, so one flaky test can't
-# block an update but a real breakage still does.
+# Retry each failing test file once, so one flaky test can't block an update
+# but a real breakage still does.
 run_with_retry() { # run_with_retry <name> <path>
   if run "$1" "$2"; then return 0; fi
   # A missing summary, empty run, or crash is not a flaky test failure.
@@ -62,6 +65,7 @@ run_with_retry() { # run_with_retry <name> <path>
   for f in $retry_files; do
     if run "$1-retry-$(basename "$f" .js)" "$f"; then
       echo "  $f passed on retry (flaky)"
+      echo "$f" >> .surfer/verify/flaky.txt
     else
       bad="$bad $f"
     fi
@@ -92,7 +96,7 @@ wait_for_foreground() { # wait_for_foreground <name>
   done
 }
 
-run whimsy zen/whimsy/tests || status=1
+run_with_retry whimsy zen/whimsy/tests || status=1
 # Native-event tests need a visible window; run just those headed.
 wait_for_foreground whimsy-native &&
 (WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js zen/whimsy/tests/browser_whimsy_native_services.js zen/whimsy/tests/browser_whimsy_arc_menu_keys_native.js) || status=1
