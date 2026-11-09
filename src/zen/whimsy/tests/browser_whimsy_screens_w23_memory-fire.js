@@ -46,7 +46,13 @@ add_task(async function shots_fire_panel_defaults() {
   await whimsyBothSchemes("w23-memory-fire-fire-2.1", async () => {
     const panel = await openFire();
     ok(panel.state == "open" && panel.querySelector("#whimsy-fire-forget"), "fire-2.1: the Fire surface is open on its defaults");
-    return () => closeFire(panel);
+    // MUST 6: a panel is its own widget; copy it into the window for the shot.
+    await whimsySettled();
+    const undo = whimsyStandInPopups();
+    return () => {
+      undo();
+      return closeFire(panel);
+    };
   });
 });
 
@@ -60,7 +66,12 @@ add_task(async function shots_fire_panel_second_ask() {
     panel.querySelector("#whimsy-fire-forget").click();
     await TestUtils.waitForCondition(() => panel.dataset.step == "confirm", "The confirm step shows");
     ok(panel.dataset.step == "confirm", "fire-2.7: Memory asks once more, in the same surface");
-    return () => closeFire(panel);
+    await whimsySettled();
+    const undo = whimsyStandInPopups();
+    return () => {
+      undo();
+      return closeFire(panel);
+    };
   });
 });
 

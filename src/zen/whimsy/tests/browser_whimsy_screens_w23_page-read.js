@@ -254,10 +254,17 @@ add_task(async function link_preview() {
       }, "The cards open");
       await TestUtils.waitForCondition(() => release && panel.querySelector('[data-card="ai"] .whimsy-ai-shimmer'), "The summary is loading");
       await whimsySettled();
+      // MUST 6: the cards are a panel of their own; copy them in for the shot.
+      let undo = whimsyStandInPopups();
       await whimsyShot(NAME(`preview-loading-${dark ? "dark" : "light"}`));
+      undo();
       release();
       await TestUtils.waitForCondition(() => panel.querySelector('[data-card="ai"] .whimsy-preview-points'), "then fills in place");
+      await whimsySettled();
+      undo = whimsyStandInPopups();
+      ok(document.querySelector('div#whimsy-link-hover [data-card="ai"] .whimsy-preview-points'), "The filled cards are in the shot");
       return async () => {
+        undo();
         WhimsyAIPage.hidePreview(window);
         BrowserTestUtils.removeTab(tab);
       };

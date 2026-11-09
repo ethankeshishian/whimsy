@@ -263,6 +263,70 @@ async function whimsySettled(doc = document) {
   "Animations have settled").catch(() => info("Some animation kept running"));
 }
 
+// drawSnapshot paints the window's own widget, and an open panel is a
+// widget of its own, so it never shows in a shot. For the shot, each open
+// panel is copied into the window where it sits, with its content box's
+// look and its custom properties, and taken out again afterwards (W23
+// routines-ui; shared for every popup shot since the W23 polish pass).
+// Call it just before the shot; it returns the function that undoes it.
+function whimsyStandInPopups(doc = document) {
+  const win = doc.defaultView;
+  const made = [];
+  for (const panel of doc.querySelectorAll("panel")) {
+    if (panel.state != "open") {
+      continue;
+    }
+    const box = panel.shadowRoot?.querySelector("[part~='content']") ?? panel;
+    const outer = panel.getOuterScreenRect();
+    const inPanel = panel.getBoundingClientRect();
+    const rect = box.getBoundingClientRect();
+    const stand = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    stand.id = panel.id;
+    stand.className = `${panel.className} whimsy-surface-tokens`;
+    const look = win.getComputedStyle(panel);
+    for (let i = 0; i < look.length; i++) {
+      const name = look.item(i);
+      if (name.startsWith("--")) {
+        stand.style.setProperty(name, look.getPropertyValue(name));
+      }
+    }
+    const boxLook = win.getComputedStyle(box);
+    for (const name of ["background-color", "background-image", "border-top", "border-right", "border-bottom", "border-left", "border-radius", "box-shadow", "padding", "color", "font-family", "font-size", "font-weight", "line-height"]) {
+      stand.style.setProperty(name, boxLook.getPropertyValue(name));
+    }
+    // The OS draws a real panel's shadow; the stand-in draws its own.
+    if (boxLook.boxShadow == "none") {
+      stand.style.boxShadow = "0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.16)";
+    }
+    if (/rgba\(.*, 0\)|transparent/.test(boxLook.backgroundColor)) {
+      stand.style.backgroundColor = "var(--zen-dialog-background, var(--arrowpanel-background, Canvas))";
+    }
+    Object.assign(stand.style, {
+      position: "fixed",
+      zIndex: "2147483647",
+      boxSizing: "border-box",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      left: `${outer.left - win.mozInnerScreenX + rect.left - inPanel.left}px`,
+      top: `${outer.top - win.mozInnerScreenY + rect.top - inPanel.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+    });
+    for (const child of panel.children) {
+      const copy = child.cloneNode(true);
+      const from = child.querySelectorAll("input, textarea");
+      copy.querySelectorAll("input, textarea").forEach((field, i) => {
+        field.value = from[i]?.value ?? field.value;
+      });
+      stand.append(copy);
+    }
+    doc.documentElement.append(stand);
+    made.push(stand);
+  }
+  return () => made.forEach(s => s.remove());
+}
+
 // Shoots `<name>-light` and `<name>-dark`. `prepare(dark)` shows the state
 // and may return a cleanup function, run before the scheme is popped.
 async function whimsyBothSchemes(name, prepare) {

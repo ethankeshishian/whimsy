@@ -134,67 +134,6 @@ add_task(async function shots_empty_and_off() {
   ok(tab, "The rail tab is there");
 });
 
-// drawSnapshot paints the window's own widget, and an open panel is a
-// widget of its own, so it never shows in a shot. For the shot, each open
-// panel is copied into the window where it sits, with its content box's
-// look and its custom properties, and taken out again afterwards.
-function standInPopups() {
-  const made = [];
-  for (const panel of document.querySelectorAll("panel")) {
-    if (panel.state != "open") {
-      continue;
-    }
-    const box = panel.shadowRoot?.querySelector("[part~='content']") ?? panel;
-    const outer = panel.getOuterScreenRect();
-    const inPanel = panel.getBoundingClientRect();
-    const rect = box.getBoundingClientRect();
-    const stand = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-    stand.id = panel.id;
-    stand.className = `${panel.className} whimsy-surface-tokens`;
-    const look = getComputedStyle(panel);
-    for (let i = 0; i < look.length; i++) {
-      const name = look.item(i);
-      if (name.startsWith("--")) {
-        stand.style.setProperty(name, look.getPropertyValue(name));
-      }
-    }
-    const boxLook = getComputedStyle(box);
-    for (const name of ["background-color", "background-image", "border-top", "border-right", "border-bottom", "border-left", "border-radius", "box-shadow", "padding", "color", "font-family", "font-size", "font-weight", "line-height"]) {
-      stand.style.setProperty(name, boxLook.getPropertyValue(name));
-    }
-    // The OS draws a real panel's shadow; the stand-in draws its own.
-    if (boxLook.boxShadow == "none") {
-      stand.style.boxShadow = "0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.16)";
-    }
-    if (/rgba\(.*, 0\)|transparent/.test(boxLook.backgroundColor)) {
-      stand.style.backgroundColor = "var(--zen-dialog-background, var(--arrowpanel-background, Canvas))";
-    }
-    Object.assign(stand.style, {
-      position: "fixed",
-      zIndex: "2147483647",
-      boxSizing: "border-box",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      left: `${outer.left - window.mozInnerScreenX + rect.left - inPanel.left}px`,
-      top: `${outer.top - window.mozInnerScreenY + rect.top - inPanel.top}px`,
-      width: `${rect.width}px`,
-      height: `${rect.height}px`,
-    });
-    for (const child of panel.children) {
-      const copy = child.cloneNode(true);
-      const from = child.querySelectorAll("input, textarea");
-      copy.querySelectorAll("input, textarea").forEach((field, i) => {
-        field.value = from[i]?.value ?? field.value;
-      });
-      stand.append(copy);
-    }
-    document.documentElement.append(stand);
-    made.push(stand);
-  }
-  return () => made.forEach(s => s.remove());
-}
-
 async function openPopup(id, open) {
   const shown = BrowserTestUtils.waitForEvent(document, "popupshown", true, e => e.target.id == id);
   await open();
@@ -224,7 +163,7 @@ async function popupShots(name, open, check) {
     if (check) {
       ok(check(), `${name}: ${check.what ?? "shown"}`);
     }
-    const undo = standInPopups();
+    const undo = whimsyStandInPopups();
     return async () => {
       undo();
       await closePopups();
