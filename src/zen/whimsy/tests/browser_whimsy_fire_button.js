@@ -538,6 +538,7 @@ add_task(async function test_spaces_change_menu() {
 // chosen range (real clearing through Firefox's Sanitizer, every space).
 add_task(async function test_browsing_items_clear_only_their_own_for_the_range() {
   const { PlacesTestUtils } = ChromeUtils.importESModule("resource://testing-common/PlacesTestUtils.sys.mjs");
+  const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
   const { SiteDataTestUtils } = ChromeUtils.importESModule("resource://testing-common/SiteDataTestUtils.sys.mjs");
   const { FormHistory } = ChromeUtils.importESModule("resource://gre/modules/FormHistory.sys.mjs");
   const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
@@ -565,7 +566,7 @@ add_task(async function test_browsing_items_clear_only_their_own_for_the_range()
   };
 
   async function seed() {
-    await PlacesTestUtils.clearHistory();
+    await PlacesUtils.history.clear();
     await PlacesTestUtils.addVisits([
       { uri: NEW, visitDate: now * 1000 },
       { uri: OLD, visitDate: (now - 3 * HOUR) * 1000 },
@@ -632,7 +633,7 @@ add_task(async function test_browsing_items_clear_only_their_own_for_the_range()
     ok(all.cookies && all.cache && all.closed, "...and nothing unticked");
   } finally {
     WhimsyFireButton.tabsOfSpaces = originalTabs;
-    await PlacesTestUtils.clearHistory();
+    await PlacesUtils.history.clear();
     await FormHistory.update({ op: "remove", fieldname: FIELD });
     for (const d of await downloads.getAll()) {
       await downloads.remove(d);
