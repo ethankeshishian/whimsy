@@ -9,8 +9,13 @@ support-files = ["whimsy_slow_load.sjs"]
 # that opens something private; browser_whimsy_private_lock.js tests it.
 # W23 ai-core: AI is off until a provider connects; tests start with it on
 # (browser_whimsy_ai_kill_switch.js and _plans.js check the default).
+# W23 memory-fire: Memory is on for people, but it asks the provider a
+# second, background "memory" question after every answer; tests start with
+# it off so other features' provider stubs only see their own calls
+# (browser_whimsy_ai_memory.js and the memory-fire screens turn it on).
 prefs = [
   "whimsy.ai.enabled=true",
+  "whimsy.ai.memory=false",
   "whimsy.privateLock.askDismissals.tabs=2",
   "whimsy.privateLock.askDismissals.space=2",
   "whimsy.privateLock.askDismissals.windows=2",

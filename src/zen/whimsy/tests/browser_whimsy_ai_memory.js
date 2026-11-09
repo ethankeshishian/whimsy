@@ -30,7 +30,23 @@ registerCleanupFunction(async () => {
 });
 
 add_setup(async () => {
+  // browser.toml's [DEFAULT] keeps memory off so other features' tests
+  // never see its extra "memory" provider call; this file owns it.
+  await SpecialPowers.pushPrefEnv({ set: [[WhimsyAIMemory.USE_PREF, true]] });
   await clearAllMemories();
+});
+
+add_task(async function remove_with_block_blocks_before_delete() {
+  const saved = await WhimsyAIMemory.save("Has a dog named Rex");
+  ok(saved, "Saved");
+  const removing = WhimsyAIMemory.remove(saved.id, { block: true });
+  // The moment the fact's file is gone, its text must already be blocked.
+  await TestUtils.waitForCondition(async () => !(await WhimsyAIMemory.get(saved.id)), "Deleted");
+  const blocked = await WhimsyAIStore.readDoc("memory-blocked", []);
+  info(`blocked list when the file disappeared: ${JSON.stringify(blocked)}`);
+  ok(blocked.some(b => b.fact == "has a dog named rex"), "Blocked by the time it's deleted");
+  await removing;
+  is(await WhimsyAIMemory.save("has a  dog named REX"), null, "Saving it again is refused");
 });
 
 add_task(async function auto_save_note_line_undo_blocks() {
@@ -54,6 +70,7 @@ add_task(async function auto_save_note_line_undo_blocks() {
     ok(undo, "It has an Undo link");
     undo.click();
     await TestUtils.waitForCondition(async () => !(await WhimsyAIMemory.get(saved[0].id)), "Undo deletes the fact");
+    info(`blocked list after Undo: ${JSON.stringify(await WhimsyAIStore.readDoc("memory-blocked", []))}`);
   } finally {
     node.remove();
   }
@@ -61,6 +78,7 @@ add_task(async function auto_save_note_line_undo_blocks() {
   // Undo blocks the exact fact text (case/whitespace aside) from being
   // saved again, even from an unrelated exchange.
   const again = await WhimsyAIMemory.extract("thread-2", { userText: "unrelated", aiText: "ok" });
+  info(`re-extract saved: ${JSON.stringify(again.map(m => m.text))}`);
   is(again.length, 0, "The blocked fact isn't saved again");
   is((await WhimsyAIMemory.save("Lives in Austin")), null, "...and a direct save() of the same text is blocked too");
 });
@@ -101,4 +119,63 @@ add_task(async function never_from_private() {
   is(saved.length, 0, "extract() refuses a private exchange outright, without asking the model");
   is((await WhimsyAIMemory.list()).some(m => m.text == "Should never be saved"), false,
     "Nothing from it ever reached storage");
+});
+
+// The chat panel's background memory save is tracked (one at a time,
+// awaitable through memoryNote) and cancelled when the panel closes, so
+// it never asks the provider or saves anything after you've left.
+add_task(async function panel_tracks_and_cancels_memory_note() {
+  const { WhimsyChatPanel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatPanel.sys.mjs");
+  await clearAllMemories();
+  let memoryAsks = 0;
+  let release;
+  let held = new Promise(r => (release = r));
+  WhimsyAIProviders.setTestProvider(async request => {
+    if (request.task == "memory") {
+      memoryAsks++;
+      await held;
+      return JSON.stringify(["Has a cat named Miso"]);
+    }
+    return "Cats are great.";
+  });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const chat = WhimsyChatPanel.forWindow(window);
+  const openChat = async () => {
+    if (!chat.isOpen) {
+      EventUtils.synthesizeKey("e", { accelKey: true });
+    }
+    await TestUtils.waitForCondition(() => chat.isOpen && chat.ready, "Chat is open");
+  };
+  const ask = text => {
+    chat.composer.focus();
+    EventUtils.sendString(text);
+    EventUtils.synthesizeKey("KEY_Enter");
+  };
+  try {
+    await openChat();
+    ask("I have a cat named Miso");
+    await TestUtils.waitForCondition(() => memoryAsks == 1, "The answer starts a background memory save");
+    const pending = chat.memoryNote;
+    chat.close({ reason: "key" });
+    release();
+    await pending;
+    is((await WhimsyAIMemory.list()).length, 0, "Closing the panel cancelled it: nothing saved");
+
+    memoryAsks = 0;
+    held = Promise.resolve();
+    await openChat();
+    ask("Miso is a tabby");
+    await TestUtils.waitForCondition(() => memoryAsks == 1, "Asked again");
+    await chat.memoryNote;
+    ok((await WhimsyAIMemory.list()).some(m => m.text == "Has a cat named Miso"), "Left open, the fact is saved");
+    await TestUtils.waitForCondition(() => document.querySelector("#whimsy-chat [data-kind='memory-saved']"),
+      "...with its note line in the chat");
+  } finally {
+    if (chat.isOpen) {
+      chat.close({ reason: "key" });
+    }
+    BrowserTestUtils.removeTab(tab);
+    WhimsyAIProviders.setTestProvider(null);
+    await clearAllMemories();
+  }
 });

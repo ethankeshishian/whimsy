@@ -188,12 +188,14 @@ export const WhimsyAIMemory = {
     const dir = await folder();
     const path = PathUtils.join(dir, `${id.replace(/[^\w-]/g, "")}.json`);
     const entry = await IOUtils.readJSON(path).catch(() => null);
-    await IOUtils.remove(path, { ignoreAbsent: true });
+    // Block first, then delete: once the fact is gone it's already blocked,
+    // so an extraction that lands in between can't save it back.
     if (block && entry) {
       const list = await blockedList();
       list.push({ fact: normalize(entry.text), blockedAt: Date.now() });
       await lazy.WhimsyAIStore.writeDoc(BLOCKED_DOC, list.slice(-MAX_MEMORIES));
     }
+    await IOUtils.remove(path, { ignoreAbsent: true });
     return entry;
   },
 
@@ -228,8 +230,8 @@ export const WhimsyAIMemory = {
    * model first), saves each (skipping blocked ones), and returns what was
    * saved: [{id, text, source, date}].
    */
-  async extract(threadId, exchange, { isPrivate = false } = {}) {
-    if (isPrivate || !this.on) {
+  async extract(threadId, exchange, { isPrivate = false, signal = null } = {}) {
+    if (isPrivate || !this.on || signal?.aborted) {
       return [];
     }
     this.init();
@@ -244,10 +246,16 @@ export const WhimsyAIMemory = {
         task: "memory",
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: `User: ${userText}\n\nAssistant: ${aiText}` }],
+        signal: signal ?? undefined,
       });
       facts = parseFacts(result.text);
     } catch (e) {
-      console.error("WhimsyAIMemory: extract failed", e);
+      if (!signal?.aborted) {
+        console.error("WhimsyAIMemory: extract failed", e);
+      }
+      return [];
+    }
+    if (signal?.aborted) {
       return [];
     }
     const saved = [];
@@ -261,11 +269,13 @@ export const WhimsyAIMemory = {
   },
 
   /** A chat panel calls this after a fresh answer to append the note. */
-  async noteAfterAnswer(panel, thread, answerMsg, userText) {
+  async noteAfterAnswer(panel, thread, answerMsg, userText, { signal = null } = {}) {
     if (!answerMsg || answerMsg.role != "ai") {
       return;
     }
-    const saved = await this.extract(thread.id, { userText, aiText: String(answerMsg.text ?? "") });
+    const saved = await this.extract(thread.id, { userText, aiText: String(answerMsg.text ?? "") }, { signal });
+    // Once anything is saved, the note goes in the thread even if the panel
+    // has moved on, so the fact always has its Undo.
     if (!saved.length) {
       return;
     }
