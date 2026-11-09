@@ -916,6 +916,12 @@
   }
 }
 
+/* A search-mode chip with no name yet (commands mode never has one) isn't
+   drawn: an empty capsule says nothing (media 3.5, page 10.2). */
+#urlbar-search-mode-indicator:has(#urlbar-search-mode-indicator-title:empty) {
+  display: none !important;
+}
+
 /* The floating bar's right side is the mic only: no VPN control, no engine chip. */
 #urlbar[zen-floating-urlbar="true"] {
   & #whimsy-vpn-urlbar,

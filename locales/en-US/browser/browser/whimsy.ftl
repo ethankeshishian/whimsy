@@ -6389,6 +6389,9 @@ whimsy-routine-builtin-meeting-follow-up-prompt = From Granola’s notes and the
 ## W23 commands: ⌘K, the context-aware menu. Group headings name what the
 ## commands act on; { $text } is the selected text, { $title } the page's.
 
+# The command bar's placeholder in commands mode ("/", or ⌘K on an image or a selection).
+whimsy-cmdk-type-command =
+    .placeholder = Type a command
 whimsy-cmdk-group-selection = “{ $text }” · Selection
 whimsy-cmdk-group-field = “{ $text }” · Text field
 whimsy-cmdk-group-verbs = Do with selection

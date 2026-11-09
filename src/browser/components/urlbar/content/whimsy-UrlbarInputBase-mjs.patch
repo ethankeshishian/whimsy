@@ -2,7 +2,7 @@ diff --git a/browser/components/urlbar/content/UrlbarInputBase.mjs b/browser/com
 index 3ca7b07..4857f97 100644
 --- a/browser/components/urlbar/content/UrlbarInputBase.mjs
 +++ b/browser/components/urlbar/content/UrlbarInputBase.mjs
-@@ -3361,6 +3361,12 @@ ${
+@@ -3361,6 +3361,12 @@
      } else if (!this._untrimmedValue || this.searchMode || this.window.gZenVerticalTabsManager._hasSetSingleToolbar) {
        // Restore the current page URL when the urlbar is empty on blur
        this.window.requestAnimationFrame(() => {
@@ -15,3 +15,34 @@ index 3ca7b07..4857f97 100644
          this.handleRevert();
        });
      }
+@@ -5226,16 +5232,25 @@
+           tabs: "urlbar-placeholder-search-mode-other-tabs",
+         };
+         let sourceName = UrlbarShared.getResultSourceName(source);
+-        if (this._searchModeIndicatorTitle) {
++        // Whimsy: Zen's commands mode (zen_actions) had no placeholder here,
++        // so the field got data-l10n-id="undefined", which threw in Fluent
++        // and left the indicator an empty capsule. Commands show only the
++        // magnifier and "Type a command"; the indicator stays empty, and an
++        // empty one is hidden (whimsy-cmdbar-ai.css).
++        if (sourceName == "zen_actions") {
++          messageIDs.zen_actions = "whimsy-cmdk-type-command";
++        } else if (this._searchModeIndicatorTitle) {
+           this.document.l10n.setAttributes(
+             this._searchModeIndicatorTitle,
+             `urlbar-search-mode-${sourceName}`
+           );
+         }
+-        this.document.l10n.setAttributes(
+-          this.inputField,
+-          messageIDs[sourceName]
+-        );
++        if (messageIDs[sourceName]) {
++          this.document.l10n.setAttributes(
++            this.inputField,
++            messageIDs[sourceName]
++          );
++        }
+       }
+     }
+ 
