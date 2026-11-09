@@ -128,18 +128,22 @@ add_task(async function hint_waits_for_real_toasts_and_surface() {
 // toast, or on screen) never holds up the hints of the windows still open.
 add_task(async function hint_in_closed_window_frees_the_line() {
   await resetHints();
-  for (const id of ["chat", "updates", "ask"]) {
-    WhimsyAIHints.register({ id, isVisible: () => true });
-  }
+  // A new window's surfaces register their own hints: these go in after.
+  const register = () => {
+    for (const id of ["chat", "updates", "ask"]) {
+      WhimsyAIHints.register({ id, isVisible: () => true });
+    }
+  };
 
   let win = await BrowserTestUtils.openNewBrowserWindow();
+  register();
   win.gZenUIManager.toasts.open("whimsy-ai-hint-got-it", { timeout: 0, key: "whimsy-test-real" });
   ok(WhimsyAIHints.request(win, "chat"), "Chat waits behind the other window's real toast");
   await BrowserTestUtils.closeWindow(win);
   await TestUtils.waitForCondition(() => !WhimsyAIHints.waiting, "Its window closed: it stops waiting");
 
   win = await BrowserTestUtils.openNewBrowserWindow();
-  info(`DIAG closed=${win.closed} toasts=${!!win.gZenUIManager?.toasts} private=${ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIContext.sys.mjs").WhimsyAIContext.isPrivate(win.gBrowser?.selectedTab)} waiting=${WhimsyAIHints.waiting} current=${WhimsyAIHints.current?.id} seen=${Services.prefs.getStringPref("whimsy.ai.hints.seen")} today=${Services.prefs.getStringPref("whimsy.ai.hints.today")} ai=${Services.prefs.getBoolPref("whimsy.ai.enabled")} feat=${Services.prefs.getBoolPref("whimsy.feature.ai-hints", true)} reg=${WhimsyAIHints._registeredIdsForTesting()}`); // DIAG
+  register();
   ok(WhimsyAIHints.request(win, "updates"), "Updates is taken in a second window");
   await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "updates", "and shows there");
   await BrowserTestUtils.closeWindow(win);
