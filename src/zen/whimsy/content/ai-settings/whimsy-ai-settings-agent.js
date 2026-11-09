@@ -350,7 +350,7 @@
       const days = S.el("div", "whimsy-ai-list", container);
       days.id = "whimsyAIActivityRuns";
       const settings = S.el("div", "whimsy-ai-list", container);
-      const keep = item(settings, { icon: `${ICONS}mask.svg`, name: "whimsy-ai-activity-keep", detail: "whimsy-ai-activity-keep-detail" });
+      const keep = item(settings, { icon: `${ZEN}screenshot.svg`, name: "whimsy-ai-activity-keep", detail: "whimsy-ai-activity-keep-detail" });
       const offKeep = prefToggle(keep, "whimsyAIActivityKeep", KEEP_PREF, true);
       const howLong = item(settings, { icon: `${ICONS}clock.svg`, name: "whimsy-ai-activity-days" });
       const current = () => String(lazy.WhimsyClaudeReplay.retentionDays);

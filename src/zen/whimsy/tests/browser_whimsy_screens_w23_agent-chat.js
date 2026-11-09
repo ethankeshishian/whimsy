@@ -392,6 +392,7 @@ add_task(async function shot_settings() {
     const row = await TestUtils.waitForCondition(() => page.doc.querySelectorAll("#whimsyAIActivityRuns [data-run]")[1], "Runs");
     EventUtils.synthesizeMouseAtCenter(row.querySelector("[data-action=delete]"), {}, page.win);
     await TestUtils.waitForCondition(() => row.nextElementSibling?.matches(".whimsy-ai-confirm"), "Confirm");
+    await whimsySettled(page.doc);
     ok(true, "Activity: Delete asks in place, under the run");
     return page.close;
   });
