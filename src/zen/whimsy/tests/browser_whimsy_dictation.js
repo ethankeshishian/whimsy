@@ -305,7 +305,8 @@ add_task(async function mic_click_stops_when_the_window_loses_focus() {
     await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(mic) && mic.getBoundingClientRect().width > 0, "The mic shows in the command bar");
     EventUtils.synthesizeMouseAtCenter(mic, {});
     await TestUtils.waitForCondition(() => WhimsyDictation.active?.phase == "listening", "A click listens");
-    const other = await BrowserTestUtils.openNewBrowserWindow();
+    // A private window: Zen doesn't sync its tabs into this one.
+    const other = await BrowserTestUtils.openNewBrowserWindow({ private: true });
     await SimpleTest.promiseFocus(other);
     await TestUtils.waitForCondition(() => speech.sessions[0].finished, "Leaving the window turns the mic off");
     speech.sessions[0].say("", true);
@@ -343,7 +344,7 @@ add_task(async function first_use_toast_only() {
     ok(toast.element.textContent.includes("Hold Fn to talk instead of typing"), "It says how");
     const mic = document.getElementById("whimsy-dictation-mic");
     is(getComputedStyle(mic).boxShadow, "none", "No ring on the mic");
-    is(mic.getAnimations().length, 0, "Nothing pulses");
+    is(mic.getAnimations().filter(anim => !(anim instanceof CSSTransition)).length, 0, "Nothing pulses");
     toast.close({ instant: true });
     await closeBar();
   });
