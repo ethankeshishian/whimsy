@@ -107,7 +107,12 @@ add_task(async function find_matches_inside_image() {
       await TestUtils.waitForCondition(() => findbar._findField.getAttribute("status") != "pending", "Find ran");
     };
     await search("daily");
-    await TestUtils.waitForCondition(() => count() == "1/1", "A word only in the image is found");
+    try {
+      await TestUtils.waitForCondition(() => count() == "1/1", "A word only in the image is found");
+    } catch (e) {
+      info(`Find count: ${count()}, status: ${findbar._findField.getAttribute("status")}`);
+      throw e;
+    }
     ok(!findbar.getElement("findbar-textbox-wrapper").hasAttribute("notfound"), "It isn't a miss");
     const found = await SpecialPowers.spawn(browser, [], () => content.getSelection().toString());
     is(found, "daily", "The match is selected on the picture, like page text");
@@ -147,7 +152,12 @@ add_task(async function translate_in_place_show_original() {
     ok(await WhimsyImageText.translate(window), "Translate text in image ran");
     let layer = await imageTextLayer(browser);
     Assert.deepEqual(layer.lines.map(l => l.text), Object.values(TRANSLATIONS), "Each line is covered by its translation");
-    ok(layer.lines.every(l => l.translated && l.background != "rgba(0, 0, 0, 0)" && l.color != "rgba(0, 0, 0, 0)"), "On a plate in the image's colours");
+    // The plates fade in (150ms, staggered).
+    await TestUtils.waitForCondition(async () => {
+      layer = await imageTextLayer(browser);
+      return layer.lines.every(l => l.translated && l.background != "rgba(0, 0, 0, 0)" && l.color != "rgba(0, 0, 0, 0)");
+    }, "The plates fade in");
+    ok(true, "On a plate in the image's colours");
     is(layer.pill?.text, "Translated from Japanese", "The pill says what happened");
     is(layer.pill?.button, "Show original", "and offers the original");
     const button = await SpecialPowers.spawn(browser, [], () => {

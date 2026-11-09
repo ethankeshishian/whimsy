@@ -289,7 +289,8 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     this.root.append(style);
     this.root.addEventListener("selectstart", () => this.onUsed());
     this.root.addEventListener("click", event => this.onClick(event));
-    doc.documentElement.append(this.host);
+    // In the body: find (⌘F and its count) searches only the body.
+    (doc.body ?? doc.documentElement).append(this.host);
   }
 
   build(img, info) {

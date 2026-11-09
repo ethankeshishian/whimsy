@@ -285,7 +285,9 @@ add_task(async function shots_command_bar_mic() {
     WhimsyAIHints._setTimingForTesting({ gapMs: 0, seenMs: 60000, timeoutMs: 60000, pollMs: 50 });
     WhimsyDictation.registerHint();
     await whimsyBothSchemes("w23-voice-image-fu-5.2", async () => {
+      // Each scheme shows the hint afresh: neither seen nor counted today.
       Services.prefs.setStringPref("whimsy.ai.hints.seen", "ask,context-commands,chat,updates,video-summary,image-text,agent-mode");
+      Services.prefs.setStringPref("whimsy.ai.hints.today", "");
       WhimsyDictation._barOpens = 2;
       await openBar("n");
       const toast = await TestUtils.waitForCondition(() => gZenUIManager.toasts.getToasts().find(t => t.element.getAttribute("whimsy-ai-hint") == "voice"), "The voice hint shows");
