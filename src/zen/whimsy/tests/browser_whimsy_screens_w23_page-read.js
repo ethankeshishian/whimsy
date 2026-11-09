@@ -292,11 +292,13 @@ async function openFind(text) {
     // Reopening preloads the last search (status already settled from it,
     // never "pending"), so "not pending" alone passes before this search
     // has even started: wait for a real status (found or notfound), not
-    // just an attribute that isn't literally "pending".
+    // just an attribute that isn't literally "pending". A heavier page
+    // (this file's PDF and chat tasks run first, in the same window) can
+    // leave the find round trip slower than the default poll allows.
     await TestUtils.waitForCondition(() => {
       const status = findbar._findField.getAttribute("status");
       return status && status != "pending";
-    }, "Find ran");
+    }, "Find ran", 100, 150);
     await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-find-count").getAttribute("value"), "The count shows");
   }
   return findbar;
@@ -338,13 +340,13 @@ add_task(async function find_card() {
     });
     await whimsyBothSchemes(NAME("find-nothing"), async () => {
       const findbar = await openFind("when is the offsite");
-      await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered");
+      await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered", 100, 150);
       return closeFind;
     });
     // page-1.8: the answer card under the bar.
     await whimsyBothSchemes(NAME("find-answer"), async () => {
       const findbar = await openFind("when is the offsite");
-      await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered");
+      await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered", 100, 150);
       EventUtils.synthesizeKey("KEY_Enter");
       await TestUtils.waitForCondition(() => {
         const p = document.getElementById("whimsy-ask-panel");
