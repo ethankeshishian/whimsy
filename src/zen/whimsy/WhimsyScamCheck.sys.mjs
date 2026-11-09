@@ -112,7 +112,7 @@ export const WhimsyScamCheck = {
   },
 
   async onSignals(browser, data) {
-    const win = browser.ownerGlobal;
+    const win = browser.documentGlobal;
     const tab = win?.gBrowser?.getTabForBrowser(browser);
     if (!this.enabled || !tab || lazy.WhimsyAIContext.isPrivate(tab) || this.isTrusted(data.host)) {
       return null;
@@ -125,12 +125,12 @@ export const WhimsyScamCheck = {
   },
 
   notificationFor(browser) {
-    const win = browser.ownerGlobal;
+    const win = browser.documentGlobal;
     return win.gBrowser.getNotificationBox(browser)?.getNotificationWithValue(VALUE) ?? null;
   },
 
   async show(browser, host, verdict) {
-    const win = browser.ownerGlobal;
+    const win = browser.documentGlobal;
     const box = win.gBrowser.getNotificationBox(browser);
     box.getNotificationWithValue(VALUE)?.remove();
     const notification = await box.appendNotification(

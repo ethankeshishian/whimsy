@@ -90,7 +90,7 @@ function table(doc, data) {
             onclick: event => {
               event.preventDefault();
               if (/^https:/.test(cell.url)) {
-                doc.ownerGlobal.openTrustedLinkIn(cell.url, "tab");
+                doc.defaultView.openTrustedLinkIn(cell.url, "tab");
               }
             },
           });
@@ -182,7 +182,7 @@ export const WhimsyAIPageActUI = {
           disabled: picked && msg.picked != b.id ? true : null,
           "aria-pressed": picked && msg.picked == b.id ? "true" : null,
           l10n: b.l10n,
-          onclick: () => this.press(ctx.win ?? doc.ownerGlobal, msg, b.id, ctx),
+          onclick: () => this.press(ctx.win ?? doc.defaultView, msg, b.id, ctx),
         });
         row.append(button);
       }

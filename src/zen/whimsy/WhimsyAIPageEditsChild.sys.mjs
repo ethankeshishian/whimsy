@@ -19,7 +19,7 @@ function visible(el) {
   if (r.width < 1 || r.height < 1) {
     return false;
   }
-  const style = el.ownerGlobal.getComputedStyle(el);
+  const style = el.ownerDocument.defaultView.getComputedStyle(el);
   return style.visibility != "hidden" && style.display != "none";
 }
 

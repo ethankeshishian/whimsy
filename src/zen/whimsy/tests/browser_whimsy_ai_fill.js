@@ -67,22 +67,6 @@ function boxState(browser) {
   });
 }
 
-add_task(async function diagnostic_actor() {
-  await BrowserTestUtils.withNewTab(REPLY, async browser => {
-    try {
-      const actor = browser.browsingContext.currentWindowGlobal.getActor("WhimsyAIFill");
-      info(`DIAG actor ${actor}`);
-      const r = await actor.sendQuery("WhimsyAIFill:FindReply");
-      info(`DIAG find ${JSON.stringify(r)}`);
-      const f = await actor.sendQuery("WhimsyAIFill:Fields");
-      info(`DIAG fields ${JSON.stringify(f).slice(0, 300)}`);
-    } catch (e) {
-      info(`DIAG error ${e} ${e?.stack}`);
-    }
-    ok(true, "diag");
-  });
-});
-
 add_task(async function draft_written_selected_never_sent() {
   requests = [];
   await BrowserTestUtils.withNewTab(REPLY, async browser => {

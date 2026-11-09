@@ -33,7 +33,7 @@ const TAG_CSS = `
 `;
 
 function visible(el) {
-  const win = el.ownerGlobal;
+  const win = el.ownerDocument?.defaultView;
   if (!win || el.disabled || el.readOnly || el.type == "hidden") {
     return false;
   }
