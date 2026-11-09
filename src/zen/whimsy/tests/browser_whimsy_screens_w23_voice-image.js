@@ -99,7 +99,7 @@ function useSpeech(options) {
   return speech;
 }
 
-// Fluent in the bar: dictation's own strings (other surfaces translate theirs).
+// Fluent in the bar, skipping an element with no message id (logged).
 async function translateBar() {
   for (const el of gURLBar.querySelectorAll("[data-l10n-id]")) {
     const id = el.getAttribute("data-l10n-id");
@@ -107,7 +107,7 @@ async function translateBar() {
       info(`An element in the bar has no message: ${el.outerHTML.slice(0, 200)}`);
     }
   }
-  await document.l10n.translateElements([...gURLBar.querySelectorAll("[data-l10n-id^='whimsy-dictation']")]);
+  await document.l10n.translateElements([...gURLBar.querySelectorAll("[data-l10n-id]")].filter(el => !["", "undefined"].includes(el.getAttribute("data-l10n-id"))));
 }
 
 async function frames(n = 2) {
