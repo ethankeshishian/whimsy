@@ -11,31 +11,22 @@ const FEATURE = "whimsy.feature.emoji-search";
 
 registerCleanupFunction(() => Services.prefs.clearUserPref(FEATURE));
 
+// The picker anchors on the selected tab, so it needs one that's drawn: a
+// lone blank New Tab (what earlier files can leave) has no box, and a
+// popup anchored on nothing closes before it shows.
+let pageTab;
+add_setup(async function () {
+  pageTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?emoji-search");
+  await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(pageTab), "The tab is drawn");
+  registerCleanupFunction(() => BrowserTestUtils.removeTab(pageTab));
+});
+
 async function openPicker() {
   const panel = document.getElementById("PanelUI-zen-emojis-picker");
   const shown = BrowserTestUtils.waitForEvent(panel, "popupshown");
   // Any visible element will do; the switcher hides with one space.
-  const anchor = gBrowser.selectedTab;
-  // DIAG (temporary): who closes the picker?
-  const realHide = panel.hidePopup;
-  panel.hidePopup = function (...args) {
-    info(`DIAG hidePopup ${new Error().stack}`);
-    return realHide.apply(this, args);
-  };
-  const log = e => info(`DIAG ${e.type} ${e.target.id || e.target.localName} state=${panel.state} active=${document.activeElement?.id || document.activeElement?.localName} focused=${Services.focus.focusedWindow == window}`);
-  const types = ["popupshowing", "popupshown", "popuphiding", "popuphidden", "deactivate", "blur"];
-  for (const type of types) {
-    window.addEventListener(type, log, true);
-  }
-  registerCleanupFunction(() => {
-    panel.hidePopup = realHide;
-    for (const type of types) {
-      window.removeEventListener(type, log, true);
-    }
-  });
-  const others = [...document.querySelectorAll("panel, menupopup")].filter(p => p.state != "closed").map(p => `${p.id}:${p.state}`);
-  info(`DIAG open popups ${others.join(",")} chat=${!document.getElementById("whimsy-chat")?.hidden}`);
-  info(`DIAG anchor ${anchor.label} visible=${BrowserTestUtils.isVisible(anchor)} rect=${JSON.stringify(anchor.getBoundingClientRect())} tabs=${gBrowser.tabs.length}`);
+  gBrowser.selectedTab = pageTab;
+  const anchor = pageTab;
   const picked = gZenEmojiPicker.open(anchor);
   await shown;
   return { panel, picked };
