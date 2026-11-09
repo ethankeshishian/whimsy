@@ -6278,3 +6278,212 @@ whimsy-ask-close =
 # $provider is the AI that answered, like Claude.
 whimsy-ask-using = Using { $provider }
 whimsy-ask-continue = Continue in chat
+
+## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
+
+whimsy-agent-chat-mode =
+    .aria-label = Agent mode
+whimsy-agent-chat-mode-drive = Drive
+whimsy-agent-chat-mode-background = Background
+whimsy-agent-chat-cmd-drive = Agent: Drive in Your Tab
+whimsy-agent-chat-cmd-background = Agent: Work in the Background
+whimsy-agent-chat-composer-background =
+    .placeholder = Give me something to do on the side…
+# $client is the app driving, like Claude Code.
+whimsy-agent-chat-outside-composer =
+    .placeholder = { $client } is driving. Take over to use this tab.
+whimsy-agent-chat-outside-from = Started by { $client }. You can watch, take over, or stop; you can’t type to it here.
+
+whimsy-agent-chat-plan = Plan
+whimsy-agent-chat-planning = Planning… reading the page
+whimsy-agent-chat-steps = { $count ->
+    [one] 1 step
+   *[other] { $count } steps
+}
+whimsy-agent-chat-start = Start
+whimsy-agent-chat-edit-plan = Edit plan
+whimsy-agent-chat-return-to-start = Return to start
+whimsy-agent-chat-tag-drive = Drive · this tab
+whimsy-agent-chat-tag-background = { $tabs ->
+    [0] Background
+    [one] Background · 1 tab
+   *[other] Background · { $tabs } tabs
+}
+whimsy-agent-chat-tag-reads-only = Reads only
+whimsy-agent-chat-tag-paused = Paused
+whimsy-agent-chat-tag-whimsy = From { -brand-short-name }
+whimsy-agent-chat-tag-approved = You approved
+whimsy-agent-chat-tag-pay = Pauses: pay
+whimsy-agent-chat-tag-send = Pauses: send
+whimsy-agent-chat-tag-delete = Pauses: delete
+whimsy-agent-chat-tag-account = Pauses: setting
+whimsy-agent-chat-tag-security = Pauses: yours to do
+whimsy-agent-chat-tag-submit = Pauses: submit
+whimsy-agent-chat-tag-new-site-data = Pauses: new site
+whimsy-agent-chat-tag-download = Pauses: download
+whimsy-agent-chat-tag-sign-in = Pauses: sign in
+whimsy-agent-chat-tag-unsure = Pauses: check
+
+whimsy-agent-chat-take-over = Take over
+whimsy-agent-chat-stop = Stop
+whimsy-agent-chat-show = Show
+whimsy-agent-chat-continue = Continue
+whimsy-agent-chat-end-task = End task
+whimsy-agent-chat-run-waiting = Waiting for you
+whimsy-agent-chat-run-nothing = Nothing happens until you choose
+# $client is the app driving, like Claude Code.
+whimsy-agent-chat-run-on-hold = { $client }’s request is on hold
+whimsy-agent-chat-run-took-over = Step { $step } of { $total } · you took over
+whimsy-agent-chat-run-step-drive = Step { $step } of { $total } · Drive
+whimsy-agent-chat-run-step-background = Step { $step } of { $total } · Background
+whimsy-agent-chat-run-step-outside = Step { $step } · { $client }
+whimsy-agent-chat-run-retry = The page is slow · trying again ({ $n } of 3)
+whimsy-agent-chat-strip-drive = Step { $step } of { $total } · Drive
+whimsy-agent-chat-strip-background = Step { $step } of { $total } · Background
+whimsy-agent-chat-strip-outside = { $client } is working
+whimsy-agent-chat-strip-waiting = Waiting for you
+
+whimsy-agent-chat-you-have-tab = You have the tab
+whimsy-agent-chat-you-have-tab-body = I’ll wait. Change anything you like; I’ll re-read the page before I carry on.
+whimsy-agent-chat-stopped-title = { $step ->
+    [0] Stopped before the first step
+    [one] Stopped after step 1
+   *[other] Stopped after step { $step }
+}
+whimsy-agent-chat-stopped-toast = Stopped
+whimsy-agent-chat-pick-up = Pick up again
+whimsy-agent-chat-replay = Replay
+
+whimsy-agent-chat-paused = Paused
+whimsy-agent-chat-will-press = It will press
+# $verb is the button that skips, like Don’t submit.
+whimsy-agent-chat-dont-skips = { $verb } skips this step; I’ll tell you what’s left.
+whimsy-agent-chat-verb-pay = Pay { $amount }
+whimsy-agent-chat-verb-pay-plain = Pay
+whimsy-agent-chat-verb-dont-pay = Don’t pay
+whimsy-agent-chat-verb-dont-pay-esc = Esc don’t pay
+whimsy-agent-chat-verb-send = Send
+whimsy-agent-chat-verb-dont-send = Don’t send
+whimsy-agent-chat-verb-dont-send-esc = Esc don’t send
+whimsy-agent-chat-verb-submit = Submit
+whimsy-agent-chat-verb-dont-submit = Don’t submit
+whimsy-agent-chat-verb-dont-submit-esc = Esc don’t submit
+whimsy-agent-chat-verb-delete = Delete
+whimsy-agent-chat-verb-keep = Keep it
+whimsy-agent-chat-verb-keep-esc = Esc keep it
+whimsy-agent-chat-verb-change = Change it
+whimsy-agent-chat-verb-dont-change = Don’t change
+whimsy-agent-chat-verb-dont-change-esc = Esc don’t change
+whimsy-agent-chat-verb-type = Type it
+whimsy-agent-chat-verb-download = Download
+whimsy-agent-chat-verb-dont-download = Don’t download
+whimsy-agent-chat-verb-dont-download-esc = Esc don’t download
+whimsy-agent-chat-verb-sign-in = Sign in
+whimsy-agent-chat-verb-sign-in-self = I’ll sign in
+whimsy-agent-chat-verb-dont-sign-in = Don’t sign in
+whimsy-agent-chat-verb-dont-sign-in-esc = Esc don’t sign in
+whimsy-agent-chat-verb-press = Press it
+whimsy-agent-chat-verb-check = I’ll check
+whimsy-agent-chat-verb-skip = Skip
+whimsy-agent-chat-verb-skip-esc = Esc skip
+whimsy-agent-chat-verb-skip-site = Skip this site
+whimsy-agent-chat-verb-skip-site-esc = Esc skip this site
+whimsy-agent-chat-verb-do-it = I’ll do it
+whimsy-agent-chat-verb-edit-it = I’ll edit it
+whimsy-agent-chat-verb-show-tab = Show the tab
+whimsy-agent-chat-verb-try-again = Try again
+whimsy-agent-chat-verb-continue = Continue
+whimsy-agent-chat-verb-reopen = Reopen and continue
+whimsy-agent-chat-verb-keep-tab = Keep this tab
+whimsy-agent-chat-allow-submit = Don’t ask again for forms on { $host } during this task
+whimsy-agent-chat-allow-new-site-data = Don’t ask again on { $host } during this task
+whimsy-agent-chat-allow-download = Don’t ask again for downloads on { $host } during this task
+whimsy-agent-chat-hand-over-card = Card details are always yours to fill. I’ve filled the rest; finish it and press Continue.
+whimsy-agent-chat-hand-over-password = Passwords are filled by { -brand-short-name } or your password manager, never by me.
+whimsy-agent-chat-hand-over-otp = Codes are always yours to type. I won’t read your texts or email for them.
+whimsy-agent-chat-hand-over-security = I never change passwords, two-factor, or recovery settings. Make this change yourself, then press Continue.
+whimsy-agent-chat-pause-yours = You have the tab: { $title }
+whimsy-agent-chat-pause-yours-body = Finish it in the tab, then press Continue. I’ll re-read the page first.
+# $time is when you approved, like 10:42 AM.
+whimsy-agent-chat-approved = You approved: { $title } · { $time }
+whimsy-agent-chat-approved-pay = You approved paying { $amount } · { $time }
+whimsy-agent-chat-pause-skipped = Skipped: { $title }
+whimsy-agent-chat-pause-stopped = Stopped at: { $title }
+whimsy-agent-chat-pause-yours-done = You did it: { $title }
+# $task is the task's name, like Coffee reorder.
+whimsy-agent-chat-needs-you = { $task } needs you
+whimsy-agent-chat-review = Review
+
+whimsy-agent-chat-injection-title = This page tried to give me instructions. I ignored them.
+# $host is the site, like alfamapatio.pt.
+whimsy-agent-chat-injection-body = { $count ->
+    [one] Hidden text on { $host }. I’ll judge it on what it shows, not on what it told me.
+   *[other] Hidden text on { $host }, { $count } times. I’ll judge it on what it shows, not on what it told me.
+}
+whimsy-agent-chat-show-where = Show where
+whimsy-agent-chat-unlock-title = { $space } is locked
+whimsy-agent-chat-unlock-body = Only you can unlock it, with Touch ID or your password. I’ll wait here and start once it’s open.
+whimsy-agent-chat-unlock-button = Unlock { $space }…
+whimsy-agent-chat-never-mind = Never mind
+whimsy-agent-chat-unlock-unlocked = { $space } is unlocked
+whimsy-agent-chat-unlock-never = Left { $space } locked
+whimsy-agent-chat-private-title = I can’t see or use private tabs
+whimsy-agent-chat-private-body = That’s a rule I can’t switch off, even when you ask. If you want, paste what you need here and I’ll use it.
+whimsy-agent-chat-skipped-title = Skipped { $host }
+whimsy-agent-chat-skipped-body = It didn’t load after 3 tries. I carried on with the other sites.
+whimsy-agent-chat-quit-title = { -brand-short-name } quit while I was on step { $step }
+whimsy-agent-chat-quit-body = Nothing resumes by itself. Look over the tab, then ask again if you still want it.
+
+whimsy-agent-chat-end-meta = { $steps ->
+    [one] 1 step
+   *[other] { $steps } steps
+} · { $notices ->
+    [0] no notices
+    [one] 1 notice
+   *[other] { $notices } notices
+} · { $minutes } min
+whimsy-agent-chat-kept = { $count ->
+    [one] 1 tab kept
+   *[other] { $count } tabs kept
+}
+whimsy-agent-chat-keep-question = { $count ->
+    [one] Keep this tab?
+   *[other] Keep these { $count } tabs?
+}
+whimsy-agent-chat-keep-question-body = I opened them, but I’m not sure you want them.
+whimsy-agent-chat-keep-all = { $count ->
+    [one] Keep it
+    [2] Keep both
+   *[other] Keep all
+}
+whimsy-agent-chat-archive-all = { $count ->
+    [one] Archive it
+    [2] Archive both
+   *[other] Archive all
+}
+# $sites is a list, like booking.com and expedia.com.
+whimsy-agent-chat-skipped-list = Skipped: { $sites }.
+whimsy-agent-chat-looked-at = { $count ->
+    [one] Looked at 1 page
+   *[other] Looked at { $count } pages
+}
+whimsy-agent-chat-reopen-all = Reopen all
+whimsy-agent-chat-save-as = Save as…
+whimsy-agent-chat-save-command = Save as command
+whimsy-agent-chat-save-command-detail = In ⌘K, chat, and routines
+whimsy-agent-chat-save-routine = Make it a routine…
+whimsy-agent-chat-save-routine-detail = Runs on a schedule or trigger
+
+whimsy-agent-chat-tool-tabs-list = Looked at your tabs
+whimsy-agent-chat-tool-tabs-create = Opened a tab
+whimsy-agent-chat-tool-tabs-close = Closed a tab
+whimsy-agent-chat-tool-navigate = Went to a page
+whimsy-agent-chat-tool-read-page = Read the page
+whimsy-agent-chat-tool-get-page-text = Read the page’s text
+whimsy-agent-chat-tool-find = Looked for something on the page
+whimsy-agent-chat-tool-click = Pressed a button or link
+whimsy-agent-chat-tool-type = Typed into a field
+whimsy-agent-chat-tool-key = Pressed a key
+whimsy-agent-chat-tool-form-input = Filled a field
+whimsy-agent-chat-tool-scroll = Scrolled
+whimsy-agent-chat-tool-screenshot = Took a snapshot

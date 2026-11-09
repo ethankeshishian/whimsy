@@ -558,6 +558,9 @@ class ChatPanel {
     }
     if ((opts.focus ?? "composer") == "composer" && this._open) {
       this.composer.focus();
+    } else if (opts.focus == "card" && this._open) {
+      // A card waiting on you takes focus (agent-5.10).
+      [...this.body.querySelectorAll("[data-focus]")].at(-1)?.focus();
     }
     return true;
   }
@@ -581,7 +584,9 @@ class ChatPanel {
       this.close({ reason: "key" });
       return false;
     }
-    return this.open();
+    // A task waiting on you: chat opens on its card, the oldest first.
+    const [waiting] = lazy.WhimsyChat.tasks(this.win).filter(t => t.waiting && t.threadId).sort((a, b) => (a.waitingSince ?? 0) - (b.waitingSince ?? 0));
+    return this.open(waiting ? { threadId: waiting.threadId, focus: "card" } : {});
   }
 
   // ⌘E: open or close; with AI off, the toast first and setup after.
@@ -841,6 +846,13 @@ class ChatPanel {
     }
     this.body.scrollTop = this.body.scrollHeight;
     this.autosize();
+    for (const view of lazy.WhimsyChat.threadViews()) {
+      try {
+        view.render(this);
+      } catch (e) {
+        console.error(`Whimsy chat: thread view ${view.id}`, e);
+      }
+    }
     this.ready = true;
   }
 
@@ -913,7 +925,7 @@ class ChatPanel {
     const { doc, win } = this;
     const ctx = { win, thread: this.thread, panel: this };
     if (msg.role == "card") {
-      const render = lazy.WhimsyChat.cardRenderer(msg.kind);
+      const render = lazy.WhimsyChat.cardRenderer(msg.card ?? msg.kind);
       try {
         return render?.(doc, msg, ctx) ?? null;
       } catch (e) {
@@ -1064,6 +1076,11 @@ class ChatPanel {
     }
     await this.doc.l10n.translateFragment(this.body);
     lazy.WhimsyChatContextUI.render(this);
+    for (const handler of lazy.WhimsyChat.sendHandlers()) {
+      if (await handler.handle(this, thread, text, context)) {
+        return;
+      }
+    }
     await this.answer(thread, { context });
   }
 

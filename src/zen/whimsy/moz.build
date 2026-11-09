@@ -270,6 +270,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFindCard.sys.mjs",
 ]
 
+# W23 agent-chat
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyChatAgent.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

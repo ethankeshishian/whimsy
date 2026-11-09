@@ -1,0 +1,645 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 agent-chat: the agent in chat (mockups 04-agent and fu-agent). One
+   agent colour (Claude terracotta) for every provider and outside app;
+   pauses are amber; errors use chat's error red. */
+
+#whimsy-chat {
+  --whimsy-agent: var(--whimsy-chat-agent, rgb(217, 119, 87));
+  --whimsy-agent-soft: color-mix(in srgb, var(--whimsy-agent) 12%, transparent);
+  --whimsy-agent-dialog: light-dark(#ffffff, #2a2a2c);
+}
+
+.whimsy-agent-icon {
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background-color: currentColor;
+  mask: var(--whimsy-agent-icon) center / contain no-repeat;
+}
+
+/* ---- Mode switch beside the model line (agent-1.1, 1.2) ---- */
+.whimsy-chat-model {
+  & > .whimsy-chat-model-start {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+}
+.whimsy-agent-mode {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 170px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--whimsy-chat-track);
+  font-size: 11px;
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: 2px;
+    inset-inline-start: 2px;
+    width: calc(50% - 2px);
+    border-radius: 6px;
+    background: light-dark(#fff, rgba(255, 255, 255, 0.14));
+    box-shadow:
+      0 0 0 0.5px var(--whimsy-chat-hairline),
+      0 1px 2px rgba(0, 0, 0, 0.08);
+    translate: calc(var(--index, 0) * 100%) 0;
+    transition: translate 200ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  &:dir(rtl)::before {
+    translate: calc(var(--index, 0) * -100%) 0;
+  }
+  @media (max-width: 999px) {
+    width: 150px;
+    & .whimsy-agent-icon {
+      display: none;
+    }
+  }
+}
+.whimsy-agent-segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 22px;
+  margin: 0;
+  padding: 0 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--whimsy-chat-muted);
+  font: inherit;
+  transition: color 200ms cubic-bezier(0.2, 0, 0, 1);
+  & > .whimsy-agent-icon {
+    width: 11px;
+    height: 11px;
+  }
+  &[aria-checked="true"] {
+    color: var(--whimsy-chat-text);
+    font-weight: 600;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+  }
+}
+
+/* ---- Cards in the thread ---- */
+.whimsy-agent-card {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-block: 4px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: inset 0 0 0 1px var(--whimsy-chat-hairline);
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: 2px;
+  }
+  &[data-kind="pause"] {
+    background: color-mix(in srgb, var(--whimsy-chat-warning) 10%, var(--whimsy-agent-dialog));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-chat-warning) 45%, transparent);
+    & .whimsy-agent-card-head > .whimsy-agent-icon {
+      color: color-mix(in srgb, var(--whimsy-chat-warning) 80%, var(--whimsy-chat-text));
+    }
+  }
+  &[data-kind="error"] {
+    background: color-mix(in srgb, var(--whimsy-chat-error) 7%, var(--whimsy-agent-dialog));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--whimsy-chat-error) 30%, transparent);
+    & .whimsy-agent-card-head > .whimsy-agent-icon {
+      color: var(--whimsy-chat-error);
+    }
+  }
+  &[data-kind="system"] {
+    background: var(--whimsy-agent-dialog);
+  }
+  &[data-collapsed] {
+    box-shadow: none;
+    background: none;
+    & .whimsy-agent-card-inner {
+      padding-block: 2px;
+    }
+    & .whimsy-agent-card-head {
+      font-weight: 500;
+      color: var(--whimsy-chat-muted);
+    }
+    & .whimsy-agent-card-head > .whimsy-agent-icon {
+      color: var(--whimsy-chat-success, rgb(52, 168, 83));
+    }
+  }
+}
+.whimsy-agent-card-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 10px 12px;
+  overflow: hidden;
+  & p {
+    margin: 0;
+  }
+}
+.whimsy-agent-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  & > .whimsy-agent-card-title {
+    flex: 1;
+    min-width: 0;
+  }
+}
+.whimsy-agent-tag {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--whimsy-chat-muted);
+}
+.whimsy-agent-muted {
+  color: var(--whimsy-chat-muted);
+  font-size: 12px;
+}
+.whimsy-agent-planline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  & > .whimsy-chat-spinner {
+    margin-top: 3px;
+    color: var(--whimsy-agent);
+  }
+}
+.whimsy-agent-skeleton {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  animation: whimsy-agent-shimmer 1.4s ease-in-out infinite alternate;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@keyframes whimsy-agent-shimmer {
+  to {
+    opacity: 0.45;
+  }
+}
+
+/* ---- Buttons ---- */
+.whimsy-agent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.whimsy-agent-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  margin: 0;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.1));
+  color: var(--whimsy-chat-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  transition:
+    background-color 100ms ease-out,
+    scale 100ms ease-out;
+  & > .whimsy-agent-icon {
+    width: 12px;
+    height: 12px;
+  }
+  &:hover {
+    background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
+  }
+  &:active {
+    scale: 0.96;
+  }
+  &.primary {
+    background: var(--whimsy-chat-accent-bg);
+    color: light-dark(white, #0f1720);
+  }
+  &.destructive {
+    background: var(--whimsy-chat-error);
+    color: white;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    outline-offset: 2px;
+  }
+}
+.whimsy-agent-keys {
+  margin-inline-start: auto;
+  font-size: 11px;
+  color: var(--whimsy-chat-muted);
+}
+.whimsy-agent-disclose {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--whimsy-chat-accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  & > .whimsy-agent-icon {
+    width: 10px;
+    height: 10px;
+    transition: rotate 150ms var(--whimsy-ease, ease);
+  }
+  &[aria-expanded="false"] > .whimsy-agent-icon {
+    rotate: -90deg;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    border-radius: 4px;
+  }
+}
+
+/* ---- Step list ---- */
+.whimsy-agent-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.whimsy-agent-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding-inline: 2px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  &[tabindex] {
+    cursor: pointer;
+    &:hover {
+      background: var(--whimsy-chat-hover);
+    }
+    &:focus-visible {
+      outline: var(--whimsy-chat-focus);
+    }
+  }
+  &[data-state="todo"] {
+    color: var(--whimsy-chat-muted);
+  }
+}
+.whimsy-agent-dot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--whimsy-chat-hairline);
+  color: white;
+  & > .whimsy-agent-icon {
+    width: 9px;
+    height: 9px;
+  }
+  [data-state="done"] > & {
+    background: var(--whimsy-chat-success, rgb(52, 168, 83));
+    box-shadow: none;
+  }
+  [data-state="fail"] > & {
+    background: var(--whimsy-chat-error);
+    box-shadow: none;
+  }
+  [data-state="now"] > & {
+    box-shadow: inset 0 0 0 1.5px var(--whimsy-agent);
+    &::after {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--whimsy-agent);
+    }
+  }
+}
+.whimsy-agent-steptext {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-agent-guardtag {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--whimsy-chat-warning) 18%, transparent);
+  color: color-mix(in srgb, var(--whimsy-chat-warning) 70%, var(--whimsy-chat-text));
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.whimsy-agent-thumb {
+  flex: none;
+  width: 38px;
+  height: 22px;
+  border-radius: 4px;
+  object-fit: cover;
+  object-position: top;
+  box-shadow: 0 0 0 0.5px var(--whimsy-chat-hairline);
+}
+
+/* ---- Popover beside chat (fu-agent 2.5) ---- */
+.whimsy-agent-popover {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 360px;
+  padding: 8px;
+  border-radius: 12px;
+  background: light-dark(#f5f5f7, #2a2a2c);
+  box-shadow:
+    0 0 0 0.5px var(--whimsy-chat-hairline),
+    0 12px 32px rgba(0, 0, 0, 0.18);
+  color: var(--whimsy-chat-text);
+  font-size: 12.5px;
+  pointer-events: none;
+}
+.whimsy-agent-popover-shot {
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 0 0 0.5px var(--whimsy-chat-hairline);
+}
+.whimsy-agent-popover-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 4px 2px;
+  & > span {
+    color: var(--whimsy-chat-muted);
+    font-size: 11.5px;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ---- Run card above the composer (agent-2.1) ---- */
+.whimsy-agent-run {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 7px 7px 10px;
+  border-radius: 12px;
+  background: var(--whimsy-agent-soft);
+  font-size: 12.5px;
+  &[paused] {
+    background: color-mix(in srgb, var(--whimsy-chat-warning) 14%, transparent);
+    & .whimsy-agent-progress > i {
+      background: var(--whimsy-chat-warning);
+    }
+  }
+  & .whimsy-agent-btn {
+    height: 26px;
+    padding: 2px 10px;
+  }
+  @media (max-width: 999px) {
+    flex-wrap: wrap;
+    & > .whimsy-agent-run-text {
+      flex: 1 0 100%;
+    }
+    & > .whimsy-agent-btn {
+      flex: 1;
+      justify-content: center;
+    }
+    & > .whimsy-agent-run-spinner {
+      display: none;
+    }
+  }
+}
+.whimsy-agent-run-spinner {
+  color: var(--whimsy-agent);
+}
+.whimsy-agent-run-paused {
+  display: inline-flex;
+  color: var(--whimsy-chat-warning);
+}
+.whimsy-agent-run-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+  & > b {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-weight: 600;
+  }
+  & > span:not(.whimsy-agent-progress) {
+    font-size: 11px;
+    color: var(--whimsy-chat-muted);
+  }
+}
+.whimsy-agent-progress {
+  height: 3px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: var(--whimsy-chat-track);
+  overflow: hidden;
+  & > i {
+    display: block;
+    width: var(--p, 0%);
+    height: 100%;
+    border-radius: 2px;
+    background: var(--whimsy-agent);
+    transition: width 240ms var(--whimsy-ease, ease);
+  }
+}
+
+/* ---- Pause preview ---- */
+.whimsy-agent-preview {
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--whimsy-agent-dialog);
+  box-shadow: inset 0 0 0 1px var(--whimsy-chat-hairline);
+  font-size: 12.5px;
+}
+.whimsy-agent-preview-row {
+  display: flex;
+  gap: 10px;
+  padding: 5px 10px;
+  border-top: 1px solid var(--whimsy-chat-hairline);
+  &:first-child {
+    border-top: 0;
+  }
+  & > span:first-child {
+    flex: none;
+    width: 78px;
+    color: var(--whimsy-chat-muted);
+  }
+  & > span:last-child {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  &[data-strong] {
+    font-weight: 700;
+  }
+}
+.whimsy-agent-redacted {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--whimsy-chat-muted);
+  & > .whimsy-agent-icon {
+    width: 11px;
+    height: 11px;
+  }
+}
+.whimsy-agent-crop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 46px;
+  border-top: 1px solid var(--whimsy-chat-hairline);
+  background: light-dark(#fafafa, #1f1f1f);
+  color: var(--whimsy-chat-muted);
+  font-size: 12px;
+}
+.whimsy-agent-fakebtn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  outline: 2px solid var(--whimsy-chat-warning);
+  outline-offset: 3px;
+  background: var(--whimsy-chat-track);
+  color: var(--whimsy-chat-text);
+  font-weight: 600;
+}
+.whimsy-agent-allow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  & > input {
+    margin: 0;
+  }
+}
+.whimsy-agent-quote {
+  margin: 0;
+  padding: 6px 10px;
+  border-inline-start: 2px solid var(--whimsy-chat-hairline);
+  color: var(--whimsy-chat-muted);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* ---- End of task (agent-7.1, 7.2; fu-agent 7.1) ---- */
+.whimsy-agent-end {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  & > .whimsy-agent-card {
+    margin: 0;
+  }
+}
+.whimsy-agent-meta {
+  margin-top: 6px;
+  color: var(--whimsy-chat-muted);
+  font-size: 11.5px;
+}
+.whimsy-agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--whimsy-agent-dialog);
+  box-shadow: inset 0 0 0 1px var(--whimsy-chat-hairline);
+}
+.whimsy-agent-li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.whimsy-agent-fav {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.whimsy-agent-li-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-agent-li-end {
+  flex: none;
+  color: var(--whimsy-chat-muted);
+  font-size: 11.5px;
+}
+.whimsy-agent-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.whimsy-agent-save-menu {
+  inset-inline-end: auto;
+  inset-block-end: auto;
+  width: 300px;
+  transform-origin: top left;
+  & .whimsy-chat-option {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    padding-block: 4px;
+  }
+}
+
+/* ---- Outside apps' threads (fu-agent 8.4) ---- */
+.whimsy-agent-outside {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.whimsy-agent-from {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--whimsy-chat-track);
+  color: var(--whimsy-chat-muted);
+  font-size: 12px;
+  & > .whimsy-agent-icon {
+    margin-top: 2px;
+    color: var(--whimsy-agent);
+  }
+}
+.whimsy-chat-foot[whimsy-agent-outside] > .whimsy-chat-model {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-agent-mode::before,
+  .whimsy-agent-progress > i,
+  .whimsy-agent-disclose > .whimsy-agent-icon {
+    transition: none;
+  }
+}
