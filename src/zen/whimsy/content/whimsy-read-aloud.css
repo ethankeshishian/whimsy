@@ -1,0 +1,184 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 voice-image: read aloud's mini player (media-4.2–4.9). The card is
+   Zen's (.zen-media-card, its icons and its stack motion are class-based);
+   these are the rules Zen scopes to #zen-media-controls-toolbar, for this
+   box beside it, plus the speed button and the busy and finished states. */
+
+#whimsy-read-aloud-player {
+  --progress-height: 4px;
+  --zen-media-stack-peek: 8px;
+  --zen-media-stack-gap: 6px;
+  --zen-media-stack-easing: cubic-bezier(0.25, 1, 0.5, 1);
+
+  display: flex;
+  flex-direction: column-reverse;
+  min-width: 0;
+  /* Like Zen's bar, the box keeps the collapsed card's height, so hover
+     unfolds the card upward over the sidebar. */
+  height: var(--whimsy-read-aloud-collapsed, auto);
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+  margin-block: 4px;
+  container-type: inline-size;
+
+  &[hidden] {
+    display: none;
+  }
+
+  .toolbarbutton-1 {
+    border-radius: 5px;
+  }
+
+  .zen-media-buttons-hbox {
+    align-items: start;
+    margin-top: -4px;
+    --toolbarbutton-padding-outer: 2px;
+  }
+
+  image.toolbarbutton-icon {
+    padding: 5px;
+    width: 26px;
+    height: 26px;
+  }
+
+  .zen-media-progress-bar {
+    appearance: none;
+    width: 100%;
+    height: var(--progress-height);
+    margin: 0 8px;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+
+    &::-moz-range-track {
+      background: var(--zen-toolbar-element-bg);
+      border-radius: 999px;
+      height: var(--progress-height);
+    }
+
+    &::-moz-range-progress {
+      background: color-mix(in srgb, var(--zen-primary-color) 70%, light-dark(black, white) 30%);
+      border-radius: 999px;
+      height: var(--progress-height);
+    }
+
+    &::-moz-range-thumb {
+      background: color-mix(in srgb, var(--zen-primary-color) 70%, light-dark(black, white) 30%);
+      border: none;
+      width: calc(var(--progress-height) * 2);
+      height: calc(var(--progress-height) * 2);
+      border-radius: 50%;
+      transform: scale(0);
+      transition: transform 0.15s ease-out;
+    }
+
+    &:hover::-moz-range-thumb {
+      transform: scale(1);
+    }
+  }
+
+  .show-on-hover {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(1rem);
+    padding: 0 6px;
+    pointer-events: none;
+    transition:
+      max-height 0.3s var(--zen-media-stack-easing),
+      opacity 0.3s var(--zen-media-stack-easing),
+      transform 0.3s var(--zen-media-stack-easing),
+      padding 0.3s var(--zen-media-stack-easing);
+  }
+
+  /* Hover unfolds title, site and voice, and progress (media-4.4); the
+     finished card keeps them out (media-4.9). */
+  &:hover .show-on-hover,
+  .zen-media-card[finished] .show-on-hover {
+    max-height: 50px;
+    padding: 5px;
+    margin-bottom: 0;
+    opacity: 1;
+    transform: translateY(0) !important;
+    pointer-events: auto;
+  }
+
+  .zen-media-current-time,
+  .zen-media-duration {
+    margin: 0 0 0 1px;
+    font-size: x-small;
+    opacity: 0.7;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .zen-media-controls-hbox {
+    align-items: center;
+  }
+
+  .zen-media-controls-hbox > :is(toolbarbutton, button):focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: -2px;
+  }
+
+  toolbarbutton[disabled] {
+    opacity: 0.4;
+  }
+}
+
+/* Starting: a spinner where play goes (media-4.2). */
+.whimsy-read-aloud-card[busy] .zen-media-playpause-button > .toolbarbutton-icon {
+  list-style-image: none;
+  width: 16px;
+  height: 16px;
+  margin: 5px;
+  padding: 0;
+  border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .whimsy-read-aloud-card[busy] .zen-media-playpause-button > .toolbarbutton-icon {
+    animation: whimsy-read-aloud-spin 0.8s linear infinite;
+  }
+}
+
+@keyframes whimsy-read-aloud-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* Finished: replay (media-4.9). */
+.whimsy-read-aloud-card[finished] .zen-media-playpause-button {
+  list-style-image: url("chrome://browser/skin/zen-icons/reload.svg");
+}
+
+/* Speed, at the end of the row (media-4.3, 4.5). */
+.whimsy-read-aloud-speed {
+  appearance: none;
+  flex: none;
+  min-width: 34px;
+  height: 22px;
+  margin: 0 0 2px;
+  padding: 0 5px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+
+  &:hover,
+  &[open] {
+    background-color: var(--toolbarbutton-hover-background);
+    opacity: 1;
+  }
+}

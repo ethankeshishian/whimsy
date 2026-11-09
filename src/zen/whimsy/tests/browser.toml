@@ -1097,3 +1097,10 @@ support-files = ["whimsy_chat_article.html", "whimsy_cmdk.html"]
 
 ["browser_whimsy_screens_w23_memory-fire.js"]
 support-files = ["whimsy_chat_article.html"]
+
+# W23 voice-image: ra (read aloud)
+["browser_whimsy_read_aloud.js"]
+support-files = ["head_read_aloud.js", "whimsy_read_aloud.html", "whimsy_read_aloud_app.html"]
+
+["browser_whimsy_screens_w23_voice-image_ra.js"]
+support-files = ["head_read_aloud.js", "whimsy_read_aloud.html", "whimsy_read_aloud_app.html"]

@@ -279,6 +279,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVideoSummary.sys.mjs",
 ]
 
+# W23 voice-image: read aloud
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyReadAloud.sys.mjs",
+    "WhimsyReadAloudChild.sys.mjs",
+]
+
 # W23 routines-engine
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyRoutineCards.sys.mjs",
