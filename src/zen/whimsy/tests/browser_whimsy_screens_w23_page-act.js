@@ -210,10 +210,8 @@ add_task(async function translate_and_edit_shots() {
     await TestUtils.waitForCondition(() => document.querySelector("[data-l10n-id=whimsy-edit-saved-toast]"), "page-6.6: saved toast");
     await whimsyBothSchemes(NAME("page-6.6"), async () => {});
     closeToasts();
-    await WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "expand every comment");
-    const script = await bar();
-    ok(script.querySelector("[data-button=keep]").disabled, "page-6.10: Keep unavailable");
-    await whimsyBothSchemes(NAME("page-6.10"), async () => {});
+    // W23 secfix M5: page edits never press page controls, so page-6.10
+    // (done once by clicking, never kept) is gone.
     await WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "hide the weather widget");
     await bar();
     await whimsyBothSchemes(NAME("page-6.11"), async () => {});

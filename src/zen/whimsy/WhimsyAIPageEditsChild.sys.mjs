@@ -4,15 +4,13 @@
 
 // W23 page-act: the page side of page edits by description and AI page
 // translation. Top frame only, messages only. It never runs code a model
-// wrote: a change is a sheet (hide rules and CSS the parent sanitized) or
-// clicks on disclosure controls the parent picked from this page's own
-// outline. Translation swaps the text of blocks and keeps the originals
-// for Show original.
+// wrote and never presses anything: a change is a sheet (hide rules, and
+// CSS the parent generated from allowlisted rules). Translation swaps the
+// text of blocks and keeps the originals for Show original.
 
 const BLOCKS = "p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption, dt, dd, td, th, summary, caption";
 const SECTION_CHARS = 1500;
 const MAX_OUTLINE = 160;
-const MAX_CLICKS = 200;
 
 function visible(el) {
   const r = el.getBoundingClientRect();
@@ -44,15 +42,6 @@ function selectorFor(el) {
     node = node.parentElement;
   }
   return steps.join(" > ");
-}
-
-// What a click may press: disclosure controls only. Never a link that
-// navigates, a submit button, or anything inside a form.
-function clickable(el) {
-  if (el.closest("form") || el.matches("a[href], input[type=submit], button[type=submit]")) {
-    return false;
-  }
-  return el.matches("summary, button, [role=button], [aria-expanded=false]");
 }
 
 export class WhimsyAIPageEditsChild extends JSWindowActorChild {
@@ -123,10 +112,10 @@ export class WhimsyAIPageEditsChild extends JSWindowActorChild {
   }
 
   /**
-   * hide: selectors to hide; css: sanitized CSS; click: selectors of
-   * disclosure controls. Returns how many elements each part matched.
+   * hide: selectors to hide; css: CSS the parent generated. Returns which
+   * hide selectors matched here (only those are ever kept).
    */
-  async apply({ hide = [], css = "", click = [] }) {
+  async apply({ hide = [], css = "" }) {
     const doc = this.document;
     const valid = s => {
       try {
@@ -135,22 +124,7 @@ export class WhimsyAIPageEditsChild extends JSWindowActorChild {
         return 0;
       }
     };
-    const hidden = hide.filter(s => valid(s) > 0);
-    let clicked = 0;
-    for (const s of click) {
-      if (!valid(s)) {
-        continue;
-      }
-      for (const el of doc.querySelectorAll(s)) {
-        if (clicked >= MAX_CLICKS) {
-          break;
-        }
-        if (clickable(el) && visible(el)) {
-          el.click();
-          clicked++;
-        }
-      }
-    }
+    const hidden = hide.filter(s => typeof s == "string" && valid(s) > 0);
     const rules = [hidden.length ? `${hidden.join(",\n")} { display: none !important; }` : "", css].filter(Boolean).join("\n");
     if (rules) {
       const uri = `data:text/css,${encodeURIComponent(rules)}`;
@@ -171,7 +145,7 @@ export class WhimsyAIPageEditsChild extends JSWindowActorChild {
       }
       load();
     }
-    return { hidden: hidden.length, missing: hide.length - hidden.length, clicked, styled: !!css };
+    return { hidden: hidden.length, matched: hidden, missing: hide.length - hidden.length, styled: !!css };
   }
 
   revert() {

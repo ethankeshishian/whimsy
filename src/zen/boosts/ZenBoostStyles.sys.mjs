@@ -71,6 +71,11 @@ export class nsZenBoostStyles {
     let zapBlocks = "";
     if (boostData.zapSelectors) {
       for (const selector of boostData.zapSelectors) {
+        // Whimsy (W23 secfix M1): a zap is one selector, never CSS; anything
+        // that could end the rule or start another is skipped.
+        if (/[{};@\\]|\/\*/.test(selector)) {
+          continue;
+        }
         zapBlocks += `${selector}:not([zen-zap-unhide]){ display: none !important; }\n`;
       }
 
