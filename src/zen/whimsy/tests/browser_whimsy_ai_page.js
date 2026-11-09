@@ -312,7 +312,8 @@ add_task(async function resting_is_public_only_anonymous() {
   }
 });
 
-// Shift on any link (a local one too) reads with the tab's own session.
+// Shift reads with the tab's own session only on the tab's own site
+// (W23 secfix L4): never an intranet page, and another site anonymously.
 add_task(async function shift_uses_signins() {
   const reads = [];
   WhimsyAIReader.setTestReader((url, options) => {
@@ -321,11 +322,15 @@ add_task(async function shift_uses_signins() {
   });
   try {
     await BrowserTestUtils.withNewTab(LINKS, async browser => {
-      is(await WhimsyAIPage.previewMode(browser, "http://192.168.1.1/admin", "shift"), "ready", "Shift reads a non-public page");
+      is(await WhimsyAIPage.previewMode(browser, "http://192.168.1.1/admin", "shift"), null, "Shift never reads a local page from another site (L4)");
       await WhimsyAIPage.showPreview(window, browser, { url: PAGE + "?shift", how: "shift", ...AT });
       await TestUtils.waitForCondition(() => reads.length == 1, "Shift reads the link");
-      ok(!reads[0].anonymous, "with the tab's session");
+      ok(!reads[0].anonymous, "with the tab's session, on the tab's own site");
       is(reads[0].userContextId, browser.getAttribute("usercontextid") | 0, "in the tab's own container");
+      WhimsyAIPage.hidePreview(window);
+      await WhimsyAIPage.showPreview(window, browser, { url: "https://example.org/browser/zen/whimsy/tests/?shift-other", how: "shift", ...AT });
+      await TestUtils.waitForCondition(() => reads.length == 2, "Shift reads another site's link");
+      ok(reads[1].anonymous, "without sign-ins (L4)");
       WhimsyAIPage.hidePreview(window);
     });
   } finally {

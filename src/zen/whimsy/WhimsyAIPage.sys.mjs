@@ -66,6 +66,11 @@ const PREVIEW_SYSTEM =
 
 // url -> { at, data }
 const previewCache = new Map();
+// W23 secfix L5: Fire (any AI data cleared) and Clear History drop the
+// preview summaries too, Shift's signed-in ones included.
+const clearPreviews = () => previewCache.clear();
+Services.obs.addObserver(clearPreviews, "browser:purge-session-history");
+Services.obs.addObserver(clearPreviews, "whimsy-ai-store-cleared");
 const windows = new WeakMap();
 
 export const WhimsyAIPage = {
@@ -776,15 +781,37 @@ export const WhimsyAIPage = {
     if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) || (tab && lazy.WhimsyAIContext.isPrivate(tab))) {
       return null;
     }
-    // Resting on a link reads public pages only, without sign-ins; Shift
-    // reads any page with the tab's session.
-    if (how != "shift" && !lazy.WhimsyAIReader.isPublicUrl(url)) {
+    // Public pages only, without sign-ins. W23 secfix L4: Shift reads with
+    // the tab's session only on the tab's own site, so a page can't make it
+    // fetch an intranet or another site signed in.
+    if (!lazy.WhimsyAIReader.isPublicUrl(url) && !(how == "shift" && this.sameSite(browser, url))) {
       return null;
     }
     if (await lazy.WhimsyAIProviders.isReady()) {
       return "ready";
     }
     return how == "shift" ? "not-ready" : null;
+  },
+
+  /** Whether `url` is on the same site (registrable domain) as the tab. */
+  sameSite(browser, url) {
+    try {
+      const here = browser?.currentURI;
+      const there = Services.io.newURI(String(url));
+      if (!here || !/^https?$/.test(here.scheme) || !/^https?$/.test(there.scheme)) {
+        return false;
+      }
+      const site = uri => {
+        try {
+          return Services.eTLD.getBaseDomain(uri);
+        } catch {
+          return uri.host;
+        }
+      };
+      return site(here) == site(there);
+    } catch {
+      return false;
+    }
   },
 
   /**
@@ -801,8 +828,8 @@ export const WhimsyAIPage = {
     }
     this.renderPreview(win, container, { url, loading: true });
     // wave7/security M5: cookieless (anonymous) unless this card was asked
-    // for with Shift, matching previewMode's own gate above.
-    const anonymous = how != "shift";
+    // for with Shift on the tab's own site (L4), matching previewMode above.
+    const anonymous = !(how == "shift" && this.sameSite(browser, url));
     try {
       const summary = await this.summarize(url, {
         userContextId: browser.getAttribute("usercontextid") | 0,
