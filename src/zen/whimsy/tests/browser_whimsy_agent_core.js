@@ -300,6 +300,9 @@ add_task(async function test_settings_connection_and_rotation() {
     ok(newKey.checkVisibility(), "New key shows under the connect details");
     EventUtils.synthesizeMouseAtCenter(newKey, {}, win);
     const confirm = await TestUtils.waitForCondition(() => section.querySelector(".whimsy-ai-confirm [data-action=confirm]"), "New key asks first");
+    // Click once the strip has unfolded, as a person would.
+    await Promise.all(doc.getAnimations().filter(a => a.effect?.getComputedTiming().iterations != Infinity).map(a => a.finished.catch(() => {})));
+    confirm.scrollIntoView({ block: "center" });
     EventUtils.synthesizeMouseAtCenter(confirm, {}, win);
     await TestUtils.waitForCondition(() => doc.getElementById("whimsyAIOutsideStatus").getAttribute("data-l10n-id") ==
       "whimsy-claude-new-token-note", "Settings confirms completed rotation");
