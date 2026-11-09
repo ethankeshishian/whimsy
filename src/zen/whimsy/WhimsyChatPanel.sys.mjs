@@ -1281,6 +1281,11 @@ class ChatPanel {
       } else if (opts.instruction) {
         history.push({ role: "user", content: opts.instruction });
       }
+      // W23 video: frames ride along with the last message.
+      const asker = opts.images?.length ? history.findLast(m => m.role == "user") : null;
+      if (asker) {
+        asker.content = [{ type: "text", text: asker.content }, ...opts.images];
+      }
       // Memory: never for a private tab, and only the facts worth this question.
       if (!opts.textOnly && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
         const lastUser = history.findLast(m => m.role == "user")?.content ?? "";

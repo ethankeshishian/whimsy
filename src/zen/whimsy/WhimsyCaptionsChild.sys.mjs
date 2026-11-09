@@ -119,8 +119,22 @@ export class VideoCaptions {
   offsets = new WeakMap();
   dragging = null;
 
-  constructor(actor) {
+  // W23 video: a silent instance listens for Summarize without drawing
+  // anything; each final stretch of speech goes to onHeard.
+  constructor(actor, { silent = false, onHeard = null } = {}) {
     this.actor = actor;
+    this.silent = silent;
+    this.onHeard = onHeard;
+  }
+
+  listen(video) {
+    this.stop();
+    this.video = video;
+    this.source = this.speechSource(video);
+    if (!this.source) {
+      this.video = null;
+    }
+    return !!this.source;
   }
 
   static get enabled() {
@@ -430,6 +444,12 @@ export class VideoCaptions {
     if (source?.kind != "speech" || source.id != id) {
       return;
     }
+    if (this.silent) {
+      if (final && text) {
+        this.onHeard?.(String(text));
+      }
+      return;
+    }
     source.text = speechTail(text);
     source.final = !!final;
     this.update();
@@ -688,6 +708,9 @@ export class VideoCaptions {
   }
 
   show(text, { pending = false, lang = null } = {}) {
+    if (this.silent) {
+      return;
+    }
     if (!this.els) {
       return;
     }
@@ -721,6 +744,9 @@ export class VideoCaptions {
 
   // A short note in the caption box (no captions, couldn't translate).
   notice(text, video = this.video) {
+    if (this.silent) {
+      return;
+    }
     const { note } = this.els;
     note.textContent = text;
     this.noticeVideo = video;

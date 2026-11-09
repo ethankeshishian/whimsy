@@ -16,7 +16,15 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
   WhimsyCaptions: "resource:///modules/whimsy/WhimsyCaptions.sys.mjs",
   WhimsyLiveSpeech: "resource:///modules/whimsy/WhimsyLiveSpeech.sys.mjs",
+  WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
 });
+
+// W23 video: Gecko plays media from 1/16× to 16×.
+const MIN_RATE = 1 / 16;
+const MAX_RATE = 16;
+const inRange = value => value >= MIN_RATE && value <= MAX_RATE;
+const DEFAULT_PREF = "whimsy.video.default-speed";
+const DEFAULT_FEATURE_PREF = "whimsy.feature.video-default-speed";
 
 const cps2 = () => Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
 
@@ -82,40 +90,86 @@ export const WhimsyVideoSpeed = {
     return { spec: uri.spec, loadContext };
   },
 
-  // The speed remembered for the frame's site (1 when none).
+  // W23 video: your default speed (Settings › Media); a site's beats it.
+  get defaultRate() {
+    if (!Services.prefs.getBoolPref(DEFAULT_FEATURE_PREF, true)) {
+      return 1;
+    }
+    const value = Number(Services.prefs.getStringPref(DEFAULT_PREF, "1"));
+    return Number.isFinite(value) && value > 0 ? (value <= MIN_RATE ? MIN_RATE : Math.round(Math.min(MAX_RATE, value) * 100) / 100) : 1;
+  },
+
+  // The speed remembered for the frame's site (your default when none).
   getRate(browsingContext) {
     const site = this.siteOf(browsingContext);
+    const fallback = this.defaultRate;
     if (!site || !this.enabled) {
-      return Promise.resolve(1);
+      return Promise.resolve(fallback);
     }
     return new Promise(resolve => {
-      let rate = 1;
+      let rate = fallback;
       cps2().getByDomainAndName(site.spec, CONTENT_PREF, site.loadContext, {
         handleResult(pref) {
           const value = Number(pref.value);
-          if (value >= 0.25 && value <= 4) {
+          if (inRange(value)) {
             rate = value;
           }
         },
         handleCompletion: () => resolve(rate),
-        handleError: () => resolve(1),
+        handleError: () => resolve(fallback),
       });
     });
   },
 
-  // Remembers the speed for the frame's site; 1× forgets it.
+  // Remembers the speed for the frame's site; your default forgets it.
   remember(browsingContext, rate) {
     const site = this.siteOf(browsingContext);
     if (!site || !this.enabled || !Number.isFinite(rate)) {
       return Promise.resolve();
     }
+    if (Math.abs(rate - this.defaultRate) < 0.001) {
+      return this.forget(browsingContext);
+    }
     return new Promise(resolve => {
       const callback = { handleCompletion: () => resolve(), handleError: () => resolve() };
-      if (rate == 1) {
-        cps2().removeByDomainAndName(site.spec, CONTENT_PREF, site.loadContext, callback);
-      } else {
-        cps2().set(site.spec, CONTENT_PREF, Math.min(4, Math.max(0.25, rate)), site.loadContext, callback);
-      }
+      cps2().set(site.spec, CONTENT_PREF, Math.min(MAX_RATE, Math.max(MIN_RATE, rate)), site.loadContext, callback);
+    });
+  },
+
+  // Forgets the frame's site's speed (Back to default).
+  forget(browsingContext) {
+    const site = this.siteOf(browsingContext);
+    if (!site) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      const callback = { handleCompletion: () => resolve(), handleError: () => resolve() };
+      cps2().removeByDomainAndName(site.spec, CONTENT_PREF, site.loadContext, callback);
+    });
+  },
+
+  // W23 video: the sites with their own speed (Settings › Media), most recent first.
+  savedSites() {
+    return new Promise(resolve => {
+      const sites = [];
+      cps2().getByName(CONTENT_PREF, Cu.createLoadContext(), {
+        handleResult(pref) {
+          const rate = Number(pref.value);
+          if (pref.domain && inRange(rate)) {
+            sites.push({ site: pref.domain, rate });
+          }
+        },
+        handleCompletion: () => resolve(sites.reverse()),
+        handleError: () => resolve(sites),
+      });
+    });
+  },
+
+  // Forget all: every site goes back to your default.
+  forgetAll() {
+    return new Promise(resolve => {
+      const callback = { handleCompletion: () => resolve(), handleError: () => resolve() };
+      cps2().removeByName(CONTENT_PREF, Cu.createLoadContext(), callback);
     });
   },
 };
@@ -127,6 +181,19 @@ export class WhimsyVideoSpeedParent extends JSWindowActorParent {
         return WhimsyVideoSpeed.getRate(this.browsingContext);
       case "WhimsyVideoSpeed:Set":
         return WhimsyVideoSpeed.remember(this.browsingContext, Number(message.data?.rate));
+      case "WhimsyVideoSpeed:Forget":
+        return WhimsyVideoSpeed.forget(this.browsingContext);
+      // W23 video: Summarize on the video, and what a press would do.
+      case "WhimsyVideoSpeed:Summarize":
+        return lazy.WhimsyVideoSummary.pressed(this, String(message.data?.videoId ?? ""));
+      case "WhimsyVideoSpeed:SummaryState":
+        return lazy.WhimsyVideoSummary.stateFor(this, String(message.data?.videoId ?? ""));
+      case "WhimsyVideoSpeed:Heard":
+        lazy.WhimsyVideoSummary.heard(this, message.data ?? {});
+        break;
+      case "WhimsyVideoSpeed:Time":
+        lazy.WhimsyVideoSummary.playing(this, message.data ?? {});
+        break;
       // wave5/captions: a cue to translate (CC in the speed control).
       case "WhimsyCaptions:Translate":
         return lazy.WhimsyCaptions.translate(message.data);

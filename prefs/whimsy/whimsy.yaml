@@ -827,3 +827,17 @@
 # Onboarding's "You're all set" has played (it plays once).
 - name: whimsy.ai.onboarding.celebrated
   value: false
+
+# W23 video
+# Firefox's own picture-in-picture toggle is hidden: the PiP plate at the
+# top right of videos calls PictureInPicture directly.
+- name: media.videocontrols.picture-in-picture.video-toggle.enabled
+  value: false
+
+# The speed videos start at (Settings › Media); a site's saved speed beats it.
+- name: whimsy.video.default-speed
+  value: "1.0"
+
+# Summarize and picture-in-picture at the top right of videos.
+- name: whimsy.video.top-buttons
+  value: true

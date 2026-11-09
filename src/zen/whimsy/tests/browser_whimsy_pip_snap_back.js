@@ -100,7 +100,7 @@ add_task(async function test_off() {
 });
 
 add_task(async function test_settings() {
-  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyMedia", async browser => {
     const doc = browser.contentDocument;
     const row = await TestUtils.waitForCondition(() => doc.getElementById("whimsyPipSnapBack"), "Snap-back row");
     await TestUtils.waitForCondition(() => row.checked, "reflects the pref");

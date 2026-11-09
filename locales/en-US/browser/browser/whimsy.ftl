@@ -6453,6 +6453,98 @@ whimsy-ai-card-replaced-toast = Replaced the selected text
 whimsy-ai-card-inserted-toast = Inserted after the selected text
 whimsy-ai-card-copied-toast = Copied
 
+## W23 video: the plates on videos (back to default, Summarize, and
+## picture-in-picture), the speed note, Summarize in chat, and Settings › Media.
+
+# $rate (String) - your default speed, like "1.5×"
+whimsy-video-back-to-default = Back to { $rate }
+# $rate (String) - the fastest speed, "16×"
+whimsy-video-speed-fastest = Set to { $rate }, as fast as videos go
+whimsy-video-summarize = Summarize
+whimsy-video-summarizing = Summarizing…
+whimsy-video-summarize-tip = Summarize this video
+whimsy-video-hide-summary = Hide summary
+whimsy-video-show-summary = Show summary
+whimsy-video-pip = Picture-in-Picture
+whimsy-video-pip-back = Back to the page
+whimsy-video-summarize-command = Summarize this video
+whimsy-video-summarize-prompt = Summarize this video
+whimsy-video-chip = This video
+# $from (String) - where the summary came from
+# $frames (Number) - how many frames the model saw
+whimsy-video-note =
+    { $from ->
+        [captions]
+            { $frames ->
+                [0] From the captions
+                [one] From the captions and 1 frame
+               *[other] From the captions and { $frames } frames
+            }
+        [subtitles] From the subtitle file the page loaded
+        [drawn] From the subtitles on the video and the page
+        [text-only] This model can’t look at frames, so this is from the captions and the description.
+        [drm-captions] From the subtitles and the page
+        [drm-subtitles] From the subtitles and the page
+        [drm-drawn] From the subtitles and the page
+        [drm-page] This video is copy-protected, so this is from the page.
+        [live] Times jump back only while the stream can rewind
+       *[page]
+            { $frames ->
+                [0] From the page, not the video
+               *[other] From frames and the description
+            }
+    }
+whimsy-video-live-badge = LIVE
+# $minutes (Number) - how long you've watched; $from (String) - where the words came from
+whimsy-video-live-watched =
+    { $from ->
+        [drawn]
+            { $minutes ->
+                [one] The minute you’ve watched, from the subtitles on the video
+               *[other] The { $minutes } minutes you’ve watched, from the subtitles on the video
+            }
+        [page] From the page; the stream had no captions while you watched
+       *[other]
+            { $minutes ->
+                [one] The minute you’ve watched, from its live captions
+               *[other] The { $minutes } minutes you’ve watched, from its live captions
+            }
+    }
+whimsy-video-heard-heading = What’s said so far
+# $time (String) - how much has been heard, like "0:41"
+whimsy-video-heard-listening = Listening as it plays · { $time } heard
+whimsy-video-chip-transcript = Transcript
+whimsy-video-chip-quotes = Key quotes
+whimsy-video-chip-update = Update
+whimsy-video-quotes-ask = Key quotes from this video
+whimsy-video-update-ask = What’s happened since?
+# $from (String) - where the lines came from
+whimsy-video-transcript-from =
+    { $from ->
+        [subtitles] From the subtitle file the page loaded
+        [drawn] From the subtitles on the video
+       *[other] From the video’s captions
+    }
+whimsy-pane-media-title = Media
+whimsy-pane-media-heading = Media
+whimsy-media-speed-heading = Speed
+whimsy-media-default-speed = Default speed for videos
+whimsy-media-default-speed-detail = Videos start at this speed. Sites where you picked a speed keep theirs.
+whimsy-media-default-speed-normal = Normal
+whimsy-media-default-speed-other = Other…
+whimsy-media-default-speed-other-detail = 0.06 to 16
+whimsy-media-default-speed-input =
+    .aria-label = Default speed for videos
+whimsy-media-sites = Sites with their own speed
+# $sites (String) - the first sites and their speeds, like "youtube.com 2×, vimeo.com 1.25×"; $more (Number) - how many others
+whimsy-media-sites-more = { $sites }, and { $more } more
+whimsy-media-forget-all =
+    .label = Forget all
+whimsy-media-videos-heading = On videos
+whimsy-media-top-buttons =
+    .label = Show Summarize and picture-in-picture at the top right of videos
+whimsy-media-new-badge = New
+whimsy-media-voice-heading = Read aloud and dictation
 ## W23 memory-fire: Memory (auto-saved facts, Settings › AI › Memory), the
 ## command bar's Related results by meaning, and the Fire button redesign
 ## (one row of settings: range, spaces, items, including AI data).

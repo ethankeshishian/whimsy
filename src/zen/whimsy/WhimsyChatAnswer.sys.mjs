@@ -11,6 +11,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
@@ -238,14 +239,28 @@ export function renderMarkdown(doc, text, ctx) {
     // "0:42 What it says" in a list: the time is a pill that plays the video from there.
     const item = line.match(/^\s*(?:[-*•]|(\d+)[.)])\s+(.*)$/);
     const time = item?.[2].match(/^((?:\d+:)?\d{1,2}:\d{2})\s+(.*)$/);
-    if (time) {
+    // A live chapter: "18 min ago What happened", relative to now rather than
+    // a fixed clock. It seeks only while the stream can still rewind there.
+    const ago = !time && item?.[2].match(/^(\d+)\s*min(?:ute)?s?\s+ago\s+(.*)$/i);
+    if (time || ago) {
       flushPara();
       if (!list || list.localName != "ul" || !list.classList.contains("whimsy-chat-times")) {
         flushList();
         list = h(doc, "ul", { class: "whimsy-chat-times" });
       }
-      const seconds = time[1].split(":").reduce((n, part) => n * 60 + Number(part), 0);
-      list.append(h(doc, "li", {}, h(doc, "button", { class: "whimsy-chat-time", "data-seconds": String(seconds), onclick: () => ctx?.seek?.(seconds) }, time[1]), " ", inline(doc, time[2], ctx)));
+      if (time) {
+        const seconds = time[1].split(":").reduce((n, part) => n * 60 + Number(part), 0);
+        list.append(h(doc, "li", {}, h(doc, "button", { class: "whimsy-chat-time", "data-seconds": String(seconds), onclick: () => ctx?.seek?.(seconds) }, time[1]), " ", inline(doc, time[2], ctx)));
+      } else {
+        const minutes = Number(ago[1]);
+        list.append(
+          h(doc, "li", {},
+            h(doc, "button", { class: "whimsy-chat-time", disabled: ctx?.canRewind ? null : "true", "data-minutes-ago": String(minutes), onclick: () => ctx?.seekAgo?.(minutes) }, `${minutes} min ago`),
+            " ",
+            inline(doc, ago[2], ctx)
+          )
+        );
+      }
       continue;
     }
     if (item) {
@@ -665,7 +680,11 @@ function renderSaved(doc, msg, ctx) {
   const { text } = marked(String(msg.text ?? ""), cites, true);
   const pill = n => citationPill(doc, win, thread, cites.find(c => c.n == n) ?? { n });
   const seek = seconds => WhimsyChatAnswer.seekVideo(win, thread, seconds);
-  node.append(h(doc, "div", { class: "whimsy-chat-text whimsy-chat-md" }, renderMarkdown(doc, text, { pill, seek })));
+  // A live chapter's "N min ago" pill seeks relative to now, only while the
+  // stream can still rewind there.
+  const seekAgo = minutes => lazy.WhimsyVideoSummary.seekAgo(win, thread, minutes);
+  const canRewind = lazy.WhimsyVideoSummary.owns(thread) && lazy.WhimsyVideoSummary.canRewind(thread);
+  node.append(h(doc, "div", { class: "whimsy-chat-text whimsy-chat-md" }, renderMarkdown(doc, text, { pill, seek, seekAgo, canRewind })));
   const cards = (msg.artifacts ?? []).map(a => artifactCard(doc, win, msg, a)).filter(Boolean);
   if (cards.length) {
     node.append(h(doc, "div", { class: "whimsy-chat-cards" }, cards));
@@ -1153,6 +1172,10 @@ export const WhimsyChatAnswer = {
 
   /** A time in a video summary plays the chat's video from there. */
   async seekVideo(win, thread, seconds) {
+    // W23 video: a summary's times seek the very video it summarized.
+    if (lazy.WhimsyVideoSummary.owns(thread)) {
+      return lazy.WhimsyVideoSummary.seek(win, thread, seconds);
+    }
     const tab = (thread ? lazy.WhimsyChatThreads.tabOf(thread) : null) ?? win.gBrowser.selectedTab;
     if (win.gBrowser.selectedTab != tab && !tab.splitView) {
       win.gBrowser.selectedTab = tab;

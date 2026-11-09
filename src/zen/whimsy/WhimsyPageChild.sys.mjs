@@ -759,12 +759,16 @@ export class WhimsyPageChild extends JSWindowActorChild {
     return rect.width * rect.height;
   }
 
-  setRate({ delta = 0, reset = false }) {
+  // W23 video: Reset goes to your default (`to`); steps stay in 0.25–4× but
+  // never pull a typed speed outside it back in.
+  setRate({ delta = 0, reset = false, to = 1 }) {
     const el = this.mainMedia();
     if (!el) {
       return null;
     }
-    const rate = reset ? 1 : Math.round(Math.min(4, Math.max(0.25, el.playbackRate + delta)) * 100) / 100;
+    const low = Math.min(0.25, el.playbackRate);
+    const high = Math.max(4, el.playbackRate);
+    const rate = reset ? Number(to) || 1 : Math.round(Math.min(high, Math.max(low, el.playbackRate + delta)) * 100) / 100;
     // wave3/speed: the user's speed; the speed control never puts it back.
     this.manager.getExistingActor("WhimsyVideoSpeed")?.userChanged(el, rate);
     el.playbackRate = rate;

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>How night trains came back to Europe</title>
+<meta property="og:title" content="How night trains came back to Europe">
+<meta name="description" content="Rail Stories rides Vienna to Paris on a Nightjet sleeper.">
+<style>
+  body { margin: 24px; font: 14px system-ui; background: #f4f4f5; }
+  .player { position: relative; width: 640px; height: 360px; background: #000; margin-bottom: 16px; }
+  .player video { width: 100%; height: 100%; display: block; }
+  #drawn { position: absolute; left: 0; right: 0; bottom: 24px; text-align: center; color: #fff; font: 20px system-ui; }
+  .row { display: flex; gap: 24px; align-items: flex-start; }
+  iframe { border: 0; width: 480px; height: 270px; }
+</style>
+<div class="player" id="player">
+  <video id="video" src="whimsy_video.mp4" loop muted preload="auto">
+    <track kind="subtitles" srclang="en" label="English" src="whimsy_video_vtt.vtt">
+  </video>
+</div>
+<div class="row">
+  <video id="small" src="whimsy_video.mp4" loop muted preload="auto" width="240" height="135"></video>
+  <video id="tiny" src="whimsy_video.mp4" loop muted preload="auto" width="110" height="62"></video>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const video = document.getElementById("video");
+  if (params.has("sniff") || params.has("bare") || params.has("drawn") || params.has("drm")) {
+    video.querySelector("track").remove();
+  }
+  // Like a streaming player: the subtitles come from a file it fetches.
+  if (params.has("sniff")) {
+    fetch("whimsy_video_vtt.ttml").then(r => r.text());
+  }
+  if (params.has("drawn")) {
+    const line = document.createElement("div");
+    line.id = "drawn";
+    line.textContent = "We're pulling out of Vienna right on time.";
+    document.getElementById("player").append(line);
+  }
+  // Protected video: Firefox's built-in Clear Key system needs no download.
+  if (params.has("drm")) {
+    navigator.requestMediaKeySystemAccess("org.w3.clearkey", [{ initDataTypes: ["cenc"], videoCapabilities: [{ contentType: 'video/mp4; codecs="avc1.42E01E"' }] }])
+      .then(access => access.createMediaKeys())
+      .then(keys => video.setMediaKeys(keys))
+      .then(() => (window.drmReady = true));
+  }
+  if (params.has("embed")) {
+    const frame = document.createElement("iframe");
+    frame.src = location.href.replace("https://example.com", "https://example.org").replace(/\?.*$/, "?inner");
+    document.body.prepend(frame);
+    document.getElementById("player").remove();
+  }
+</script>

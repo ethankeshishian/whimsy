@@ -124,7 +124,7 @@ add_task(async function test_turning_off_unmutes() {
 });
 
 add_task(async function test_settings() {
-  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyMedia", async browser => {
     const doc = browser.contentDocument;
     const menulist = await TestUtils.waitForCondition(() => doc.getElementById("whimsyBackgroundMute"), "Menu shown");
     await TestUtils.waitForCondition(() => menulist.value == "prioritize", "Shows the default mode");

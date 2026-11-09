@@ -909,4 +909,140 @@
   &:focus-visible {
     outline: var(--whimsy-chat-focus);
   }
+  /* A live chapter past the stream's rewindable window: a label, not a button. */
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  &:disabled:hover {
+    background: color-mix(in srgb, var(--whimsy-chat-accent-bg) 14%, transparent);
+  }
+}
+
+/* W23 video: the chapter that's playing, the transcript, and "What's said so far". */
+.whimsy-chat-times > li[now],
+.whimsy-video-transcript > li[now] {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 12%, transparent);
+  transition: background-color 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.whimsy-video-transcript {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+
+  & > li {
+    padding: 3px 4px;
+    cursor: pointer;
+  }
+}
+
+.whimsy-video-heard-head {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.whimsy-video-heard-text {
+  margin: 0;
+}
+
+.whimsy-video-heard-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-color-deemphasized, GrayText);
+}
+
+.whimsy-video-wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+  color: var(--zen-primary-color, AccentColor);
+
+  & > i {
+    width: 2px;
+    height: var(--h);
+    border-radius: 1px;
+    background: currentColor;
+  }
+}
+
+/* W23 video: the chips under a summary (Transcript, Key quotes; Update live). */
+.whimsy-video-actions-card {
+  margin-top: -2px;
+}
+
+.whimsy-video-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.whimsy-video-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  margin: 0;
+  padding: 0 10px 0 8px;
+  border: none;
+  border-radius: 13px;
+  background: var(--whimsy-chat-track);
+  box-shadow: inset 0 0 0 0.5px var(--whimsy-chat-hairline);
+  color: var(--whimsy-chat-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 100ms ease-out;
+
+  & > .whimsy-chat-icon {
+    width: 14px;
+    height: 14px;
+  }
+  &:hover:not(:disabled) {
+    background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
+  }
+  &:focus-visible {
+    outline: 2px solid var(--zen-primary-color, AccentColor);
+    outline-offset: 1px;
+  }
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+/* The line under a video summary that says what it read: quiet meta text. */
+.whimsy-chat-note[data-kind="video-source"] {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--whimsy-chat-muted);
+  font-size: 11px;
+}
+
+/* Live: the badge and what the summary covers, above it. */
+.whimsy-video-live {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  color: var(--whimsy-chat-muted);
+  font-size: 11.5px;
+}
+
+.whimsy-video-live-badge {
+  flex: none;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #e5484d;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }

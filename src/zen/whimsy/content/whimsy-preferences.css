@@ -791,3 +791,21 @@ mark.whimsy-search-mark {
 #zenLayoutList {
   flex-wrap: wrap;
 }
+
+/* W23 video: the "New" badge beside a just-added Media row. A quiet
+   neutral pill (the mockup's), not accent-tinted: it marks what's new, not
+   what's active. */
+.whimsy-media-new-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin-inline-start: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 68%, transparent));
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}

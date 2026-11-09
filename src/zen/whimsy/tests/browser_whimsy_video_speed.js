@@ -5,7 +5,7 @@
 
 // wave3/speed: pointing at a video shows its speed ("1×"); the arrow opens
 // quarter steps 0.25×–4×, clicking the number lets you type a speed (Enter
-// applies, clamped to 0.25–4×). The speed is remembered per site, the
+// applies, within 1/16×–16×). The speed is remembered per site, the
 // Cmd+Opt shortcuts remember theirs too, and the page's own player never
 // sees a click or key meant for the control.
 
@@ -126,10 +126,12 @@ add_task(async function test_type_a_speed() {
   await typeSpeed(browser, "1.7");
   is(await rate(browser), 1.7, "Any speed can be typed");
   is((await control(browser)).text, "1.7×", "and shows");
+  // W23 video: Gecko's range, 1/16× to 16×.
   await typeSpeed(browser, "9");
-  is(await rate(browser), 4, "Clamped to 4×");
+  is(await rate(browser), 9, "9× is fine now");
+  is((await control(browser)).note, null, "with no note");
   await typeSpeed(browser, "0.1");
-  is(await rate(browser), 0.25, "Clamped to 0.25×");
+  is(await rate(browser), 0.1, "and 0.1×");
   await typeSpeed(browser, "1,5x");
   is(await rate(browser), 1.5, "A comma and a trailing x are fine");
   await typeSpeed(browser, "fast");
@@ -242,4 +244,73 @@ add_task(async function test_skips_calls_and_live_streams() {
   is(eligible.normalEligible, true, "Standard video is eligible");
 
   BrowserTestUtils.removeTab(tab);
+});
+
+// W23 video: Gecko's range, your default, and back to it.
+
+add_task(async function typed_speed_up_to_16_note_above() {
+  const { tab, browser } = await openPage();
+  await typeSpeed(browser, "16");
+  is(await rate(browser), 16, "16× is fine");
+  is((await control(browser)).note, null, "with no note");
+  await typeSpeed(browser, "25");
+  is(await rate(browser), 16, "25 is set to 16×");
+  await TestUtils.waitForCondition(async () => (await control(browser)).note?.includes("as fast as videos go"), "One line says why");
+  await typeSpeed(browser, "1");
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function below_sixteenth_becomes_006() {
+  const { tab, browser } = await openPage();
+  await typeSpeed(browser, "0.01");
+  is(await rate(browser), 0.0625, "0.01 becomes 1/16×");
+  const state = await control(browser);
+  is(state.text, "0.06×", "shown as 0.06×");
+  is(state.note, null, "with no note");
+  await typeSpeed(browser, "1");
+  BrowserTestUtils.removeTab(tab);
+});
+
+async function forgetSite() {
+  const t = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  await WhimsyVideoSpeed.forget(t.linkedBrowser.browsingContext);
+  BrowserTestUtils.removeTab(t);
+}
+
+add_task(async function back_to_default_only_when_off_default_and_forgets_site() {
+  await forgetSite();
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.video.default-speed", "1.5"]] });
+  const { tab, browser } = await openPage();
+  await TestUtils.waitForCondition(async () => (await rate(browser)) == 1.5, "A site with no speed plays at your default");
+  await hover(browser);
+  let state = await waitShown(browser);
+  ok(!state.reset.shown, "At your default: no back-to-default button");
+  await typeSpeed(browser, "3");
+  await TestUtils.waitForCondition(async () => (await WhimsyVideoSpeed.getRate(browser.browsingContext)) == 3, "3× is saved for the site");
+  await hover(browser);
+  state = await waitShown(browser);
+  ok(state.reset.shown, "Off your default: the button shows");
+  is(state.reset.title, "Back to 1.5×", "It says where it goes");
+  ok(state.reset.x < state.value.x, "left of the number");
+  await clickAt(browser, state.reset);
+  await TestUtils.waitForCondition(async () => (await rate(browser)) == 1.5, "A click plays at your default");
+  await TestUtils.waitForCondition(async () => !(await control(browser)).reset.shown, "and the button goes");
+  await TestUtils.waitForCondition(async () => (await WhimsyVideoSpeed.getRate(browser.browsingContext)) == 1.5, "The site's speed is forgotten");
+  Assert.deepEqual(await page(browser), { keys: 0, clicks: 0 }, "The page never saw the click");
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
+});
+
+add_task(async function reset_command_goes_to_default() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.video.default-speed", "1.25"]] });
+  const { tab, browser } = await openPage();
+  await SpecialPowers.spawn(browser, [], () => {
+    const video = content.document.getElementById("video");
+    video.play();
+    video.playbackRate = 2;
+  });
+  is(await WhimsyMedia.changePlaybackRate(window, { reset: true }), 1.25, "Reset Video Speed goes to your default");
+  is(await rate(browser), 1.25, "and the video plays at it");
+  BrowserTestUtils.removeTab(tab);
+  await SpecialPowers.popPrefEnv();
 });

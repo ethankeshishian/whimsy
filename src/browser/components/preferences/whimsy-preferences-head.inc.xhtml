@@ -10,6 +10,7 @@
 <link rel="localization" href="browser/preferences/whimsy-fallbacks.ftl"/>
 <link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-preferences.css"/>
 <script src="chrome://browser/content/whimsy/whimsy-settings.js"/>
+<script src="chrome://browser/content/whimsy/whimsy-settings-media.js"/>
 # W23 settings-ai
 <link rel="stylesheet" href="chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings.css"/>
 <script src="chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings.js"/>
@@ -288,30 +289,6 @@
               data-l10n-id="whimsy-spaces-hide-switcher" preference="whimsy.spaces.hide-switcher"/>
     <checkbox id="whimsyTabBadges" data-whimsy-feature="tab-badges"
               data-l10n-id="whimsy-tabs-badges" preference="whimsy.tabs.badges"/>
-    <hbox align="center" data-whimsy-feature="background-mute">
-      <label id="whimsyBackgroundMuteLabel" control="whimsyBackgroundMute" data-l10n-id="whimsy-media-background-mute"/>
-      <menulist id="whimsyBackgroundMute" preference="whimsy.media.background-mute" data-pref-type="string">
-        <menupopup>
-          <menuitem value="prioritize" data-l10n-id="whimsy-media-background-mute-prioritize"/>
-          <menuitem value="background" data-l10n-id="whimsy-media-background-mute-background"/>
-          <menuitem value="off" data-l10n-id="whimsy-media-background-mute-off"/>
-        </menupopup>
-      </menulist>
-    </hbox>
-    <checkbox id="whimsyPipSnapBack" data-whimsy-feature="pip-snap-back"
-              data-l10n-id="whimsy-media-pip-snap-back" preference="whimsy.media.pip-snap-back"/>
-    <!-- wave3/private: floating calls -->
-    <checkbox id="whimsyCallPip" data-whimsy-feature="call-pip"
-              data-l10n-id="whimsy-media-call-pip" preference="whimsy.feature.call-pip"/>
-    <!-- wave3/speed: speed control on videos -->
-    <checkbox id="whimsyVideoSpeed" data-whimsy-feature="video-speed"
-              data-l10n-id="whimsy-media-video-speed" preference="whimsy.feature.video-speed"/>
-    <!-- wave5/captions: translated captions (CC in the speed control) -->
-    <checkbox id="whimsyVideoCaptions" data-whimsy-feature="video-captions" class="indent"
-              data-l10n-id="whimsy-media-video-captions" preference="whimsy.feature.video-captions"/>
-    <!-- w7native: live captions from speech when a video has none -->
-    <checkbox id="whimsyVideoSpeechCaptions" data-whimsy-feature="video-speech-captions" class="indent"
-              data-l10n-id="whimsy-media-video-speech-captions" preference="whimsy.feature.video-speech-captions"/>
 
     <!-- wave3: playlist -->
     <checkbox id="whimsyPlaylistOffline" data-whimsy-feature="playlist"
@@ -678,5 +655,69 @@
     <checkbox id="whimsyBatterySaverEnabled" data-l10n-id="whimsy-battery-saver-enable" preference="whimsy.battery-saver.enabled"
               aria-describedby="whimsyBatterySaverHelp"/>
     <description id="whimsyBatterySaverHelp" class="description-deemphasized indent" data-l10n-id="whimsy-battery-saver-help"/>
+  </groupbox>
+</html:template>
+
+# W23 video: Settings › Media (content/whimsy-settings-media.js moves these
+# in). The media rows that sat under Tabs, the default speed, and Summarize
+# and picture-in-picture. Read aloud and dictation mount in
+# #whimsyMediaReadAloud and #whimsyMediaDictation (lane voice-image).
+<html:template id="template-whimsyMedia" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <hbox id="whimsyMediaCategory" class="subcategory" hidden="true" data-category="paneWhimsyMedia">
+    <html:h1 data-l10n-id="whimsy-pane-media-heading"/>
+  </hbox>
+  <groupbox id="whimsyMediaSpeedGroup" data-category="paneWhimsyMedia" data-whimsy-feature="video-default-speed" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-media-speed-heading"/></label>
+    <hbox align="center" class="whimsy-media-row">
+      <vbox flex="1">
+        <label id="whimsyMediaDefaultSpeedLabel" data-l10n-id="whimsy-media-default-speed"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-media-default-speed-detail"/>
+      </vbox>
+      <html:div id="whimsyMediaDefaultSpeed"/>
+    </hbox>
+    <hbox id="whimsyMediaSitesRow" align="center" class="whimsy-media-row" hidden="true">
+      <vbox flex="1">
+        <label id="whimsyMediaSitesLabel" data-l10n-id="whimsy-media-sites"/>
+        <description id="whimsyMediaSitesList" class="description-deemphasized"/>
+      </vbox>
+      <button id="whimsyMediaForgetAll" data-l10n-id="whimsy-media-forget-all" aria-describedby="whimsyMediaSitesList"/>
+    </hbox>
+  </groupbox>
+  <groupbox id="whimsyMediaVideosGroup" data-category="paneWhimsyMedia" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-media-videos-heading"/></label>
+    <!-- wave3/speed: speed control on videos -->
+    <checkbox id="whimsyVideoSpeed" data-whimsy-feature="video-speed"
+              data-l10n-id="whimsy-media-video-speed" preference="whimsy.feature.video-speed"/>
+    <!-- wave5/captions: translated captions (CC in the speed control) -->
+    <checkbox id="whimsyVideoCaptions" data-whimsy-feature="video-captions" class="indent"
+              data-l10n-id="whimsy-media-video-captions" preference="whimsy.feature.video-captions"/>
+    <!-- w7native: live captions from speech when a video has none -->
+    <checkbox id="whimsyVideoSpeechCaptions" data-whimsy-feature="video-speech-captions" class="indent"
+              data-l10n-id="whimsy-media-video-speech-captions" preference="whimsy.feature.video-speech-captions"/>
+    <hbox align="center" class="whimsy-media-new-row" data-whimsy-feature="ai-video-summary">
+      <checkbox id="whimsyVideoTopButtons" flex="1"
+                data-l10n-id="whimsy-media-top-buttons" preference="whimsy.video.top-buttons"/>
+      <label class="whimsy-media-new-badge" data-l10n-id="whimsy-media-new-badge"/>
+    </hbox>
+    <checkbox id="whimsyPipSnapBack" data-whimsy-feature="pip-snap-back"
+              data-l10n-id="whimsy-media-pip-snap-back" preference="whimsy.media.pip-snap-back"/>
+    <!-- wave3/private: floating calls -->
+    <checkbox id="whimsyCallPip" data-whimsy-feature="call-pip"
+              data-l10n-id="whimsy-media-call-pip" preference="whimsy.feature.call-pip"/>
+    <hbox align="center" data-whimsy-feature="background-mute">
+      <label id="whimsyBackgroundMuteLabel" control="whimsyBackgroundMute" data-l10n-id="whimsy-media-background-mute"/>
+      <menulist id="whimsyBackgroundMute" preference="whimsy.media.background-mute" data-pref-type="string">
+        <menupopup>
+          <menuitem value="prioritize" data-l10n-id="whimsy-media-background-mute-prioritize"/>
+          <menuitem value="background" data-l10n-id="whimsy-media-background-mute-background"/>
+          <menuitem value="off" data-l10n-id="whimsy-media-background-mute-off"/>
+        </menupopup>
+      </menulist>
+    </hbox>
+  </groupbox>
+  <groupbox id="whimsyMediaVoiceGroup" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-media-voice-heading"/></label>
+    <vbox id="whimsyMediaReadAloud"/>
+    <vbox id="whimsyMediaDictation"/>
   </groupbox>
 </html:template>
