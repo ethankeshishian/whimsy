@@ -104,11 +104,14 @@
 
   async function exportMarkdown() {
     const all = await lazy.WhimsyAIMemory.list();
-    const lines = ["# Memory", "", ...all.map(m => `- ${m.text} _(${dateLabel(m.date ?? Date.now())})_`)];
+    const [heading, title, filter] = await document.l10n.formatValues([
+      "whimsy-memory-export-heading", "whimsy-memory-export-picker-title", "whimsy-memory-export-filter",
+    ]);
+    const lines = [`# ${heading}`, "", ...all.map(m => `- ${m.text} _(${dateLabel(m.date ?? Date.now())})_`)];
     const picker = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    picker.init(window.browsingContext, "Export memory", Ci.nsIFilePicker.modeSave);
+    picker.init(window.browsingContext, title, Ci.nsIFilePicker.modeSave);
     picker.defaultString = "whimsy-memory.md";
-    picker.appendFilter("Markdown", "*.md");
+    picker.appendFilter(filter, "*.md");
     const result = await new Promise(resolve => picker.open(resolve));
     if ((result == Ci.nsIFilePicker.returnOK || result == Ci.nsIFilePicker.returnReplace) && picker.file) {
       await IOUtils.writeUTF8(picker.file.path, lines.join("\n") + "\n");

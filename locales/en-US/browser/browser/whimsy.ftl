@@ -6481,6 +6481,10 @@ whimsy-memory-delete-button =
 whimsy-memory-deleted-toast = Deleted the memory
 whimsy-memory-empty = Nothing saved yet.
 whimsy-memory-export-button = Export Markdown…
+# The exported file's heading, the save dialog's title, and its file type.
+whimsy-memory-export-heading = Memory
+whimsy-memory-export-picker-title = Export Memory
+whimsy-memory-export-filter = Markdown
 whimsy-ai-jump-memory = Memory
 whimsy-ai-memory-heading = Memory
 whimsy-ai-memory-desc = Stable facts about you, saved automatically with Undo, used in answers. Never from private tabs.
