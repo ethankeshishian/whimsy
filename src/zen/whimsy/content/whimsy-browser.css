@@ -959,6 +959,8 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
 .whimsy-fire-check-detail {
   font-size: 11px;
   color: var(--whimsy-surface-muted);
+  /* "· files stay" moves to the next line whole, never split. */
+  white-space: nowrap;
 
   &::before {
     content: " · ";
