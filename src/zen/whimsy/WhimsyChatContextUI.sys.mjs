@@ -623,7 +623,7 @@ export const WhimsyChatContextUI = {
                 { class: "whimsy-chat-sees-row", "data-kind": k.id, onclick: () => show(drill(k.id)) },
                 icon(doc, k.id == "images" ? KIND_ICON.images : k.id == "videos" ? KIND_ICON.videos : k.id == "pages" ? KIND_ICON.tabs : KIND_ICON.text),
                 h(doc, "span", { class: "whimsy-chat-sees-row-text" }, h(doc, "span", { l10n: k.l10n }), h(doc, "span", { class: "whimsy-chat-sees-detail", l10n: k.detail })),
-                icon(doc, "chrome://browser/skin/zen-icons/chevron.svg", "whimsy-chat-sees-chevron")
+                icon(doc, "chrome://browser/content/whimsy/icons/chevron-down.svg", "whimsy-chat-sees-chevron")
               )
             )
           ),

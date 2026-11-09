@@ -145,7 +145,7 @@
 .whimsy-chat-icon[data-icon="lock"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/security.svg"); }
 .whimsy-chat-icon[data-icon="sparkle"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/sparkles.svg"); }
 .whimsy-chat-icon[data-icon="video"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/video-chip.svg"); }
-.whimsy-chat-icon[data-icon="chevron"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/chevron.svg"); }
+.whimsy-chat-icon[data-icon="chevron"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/chevron-down.svg"); }
 .whimsy-chat-icon[data-icon="clock"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/clock.svg"); }
 .whimsy-chat-icon[data-icon="chat"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/chat.svg"); }
 .whimsy-chat-icon[data-icon="agent"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/agent.svg"); }
@@ -340,6 +340,11 @@
     outline: var(--whimsy-chat-focus);
     outline-offset: 1px;
   }
+}
+
+/* The fold button's chevron points up (it closes the list). */
+.whimsy-chat-tasks-fold > .whimsy-chat-icon {
+  rotate: 180deg;
 }
 
 /* ---- Thread ---- */
