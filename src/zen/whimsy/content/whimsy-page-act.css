@@ -384,7 +384,7 @@ notification-message.whimsy-scam {
   max-width: 30rem;
   /* Light mode: a card's edge and lift, so it doesn't melt into a white page. */
   border: 1px solid light-dark(rgba(0, 0, 0, 0.1), transparent);
-  box-shadow: light-dark(0 4px 16px rgba(0, 0, 0, 0.1), none);
+  box-shadow: 0 4px 16px light-dark(rgba(0, 0, 0, 0.1), transparent);
 }
 /* 05-page 8.3: the title on its own line, then the why, then the reasons. */
 .whimsy-scam-body {
