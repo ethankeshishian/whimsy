@@ -225,6 +225,7 @@ export const WhimsyClaudeReplay = {
         client: task?.client == "whimsy" ? "whimsy" : "outside",
         clientName: clip(task?.clientName ?? "", 60),
         mode: task?.mode ?? "drive",
+        kind: task?.kind == "routine" ? "routine" : "",
         threadId: task?.threadId ?? null,
         title: clip(task?.title ?? "", 120),
         start: entry.t,
@@ -234,6 +235,7 @@ export const WhimsyClaudeReplay = {
       runs.unshift(run);
     }
     run.threadId ??= task?.threadId ?? null;
+    run.pauses = Math.max(run.pauses ?? 0, task?.approvals ?? 0);
     run.steps.push(entry);
     run.end = entry.t;
     if (run.steps.length > LIMITS.steps) {

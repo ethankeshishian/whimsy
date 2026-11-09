@@ -398,9 +398,16 @@
           }
           const outside = (run.client ?? "outside") != "whimsy";
           const row = item(group, {
-            ...(outside ? appIcon(/claude/i.test(run.clientName ?? "") ? "claude-code" : /codex/i.test(run.clientName ?? "") ? "codex" : "") : { icon: `${ZEN}sparkles.svg` }),
+            ...(outside
+              ? appIcon(/claude/i.test(run.clientName ?? "") ? "claude-code" : /codex/i.test(run.clientName ?? "") ? "codex" : "")
+              : { icon: run.kind == "routine" ? `${ICONS}routines.svg` : `${ZEN}sparkles.svg` }),
             detail: outside ? "whimsy-ai-activity-run-outside" : "whimsy-ai-activity-run-whimsy",
-            detailArgs: { app: run.clientName || "", count: run.steps.length, mode: run.mode == "background" ? "background" : "drive" },
+            detailArgs: {
+              app: run.clientName || "",
+              count: run.steps.length,
+              mode: run.kind == "routine" ? "routine" : run.mode == "background" ? "background" : "drive",
+              pauses: run.pauses ?? 0,
+            },
           });
           row.dataset.run = run.id;
           row.classList.add("is-button");

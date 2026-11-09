@@ -5664,7 +5664,7 @@ whimsy-ai-off-forget = Forget everything…
 whimsy-ai-limits-heading = Off limits to AI
 whimsy-ai-limits-desc = True for chat, commands, routines, Whimsy’s agent, and outside agents. These can’t be changed.
 whimsy-ai-limits-private = Private tabs and windows
-whimsy-ai-limits-private-detail = AI never sees, opens, or acts in them, even when you ask.
+whimsy-ai-limits-private-detail = AI never sees, opens, or acts in them, even when you ask, and agent runs never capture them.
 whimsy-ai-limits-hidden = Hidden spaces
 whimsy-ai-limits-hidden-detail = Used only when you ask. A locked one still needs your Touch ID or password.
 whimsy-ai-limits-cards = Cards and passwords
@@ -6942,18 +6942,19 @@ whimsy-ai-activity-whimsy = Whimsy
 whimsy-ai-activity-outside = Outside apps
 whimsy-ai-activity-empty = No runs yet
 whimsy-ai-activity-empty-detail = When the agent or an outside app works in your tabs, each run shows here with its steps.
+# $mode (string) - background, routine, or drive; $count (number) - steps; $pauses (number) - pauses the person approved
 whimsy-ai-activity-run-whimsy =
     { $mode ->
-        [background]
-            { $count ->
-                [one] Whimsy agent · Background · 1 step
-               *[other] Whimsy agent · Background · { $count } steps
-            }
-       *[drive]
-            { $count ->
-                [one] Whimsy agent · Drive · 1 step
-               *[other] Whimsy agent · Drive · { $count } steps
-            }
+        [background] Whimsy agent · Background
+        [routine] Routine · Background
+       *[drive] Whimsy agent · Drive
+    } · { $count ->
+        [one] 1 step
+       *[other] { $count } steps
+    }{ $pauses ->
+        [0] {""}
+        [one] {" · "}paused once, you approved
+       *[other] {" · "}paused { $pauses } times, you approved
     }
 whimsy-ai-activity-run-outside =
     { $count ->
@@ -6971,7 +6972,7 @@ whimsy-ai-activity-delete-all-title = Delete every run?
 whimsy-ai-activity-delete-all-text = All steps and screenshots are removed from this Mac. Anything the agents did on sites stays done.
 whimsy-ai-activity-delete-all-ok = Delete all
 whimsy-ai-activity-keep = Keep runs and step screenshots
-whimsy-ai-activity-keep-detail = Each run’s steps and small snapshots, kept on this Mac; off, nothing new is kept. Private tabs are never captured, and card numbers, passwords, and one-time codes are covered before a snapshot is taken, so AI never sees them.
+whimsy-ai-activity-keep-detail = Small snapshots of each step. Card and password fields are blurred.
 whimsy-ai-activity-days = Keep runs for
 whimsy-ai-activity-days-7 = 7 days
 whimsy-ai-activity-days-30 = 30 days

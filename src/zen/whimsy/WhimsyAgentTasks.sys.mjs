@@ -141,13 +141,17 @@ export const WhimsyAgentTasks = {
    *   title?: string, session?: string}} opts
    */
   start({ client = "whimsy", clientName = "", mode = "drive", threadId = null, spaceId = null, plan = null,
-    namedSpaceIds = [], title = "", session = null, sites = [] } = {}) {
+    namedSpaceIds = [], title = "", session = null, sites = [], kind = "" } = {}) {
     this.init();
     const task = {
       id: uuid(),
       client,
       clientName: clientName || client,
       mode: mode == "background" ? "background" : "drive",
+      // "routine" when a routine started it (Settings › Activity labels it so).
+      kind: kind == "routine" ? "routine" : "",
+      // Pauses the person approved, for Activity's "paused once, you approved".
+      approvals: 0,
       state: plan ? "planning" : "running",
       spaceId,
       threadId,
@@ -317,6 +321,9 @@ export const WhimsyAgentTasks = {
       this.updateCard(task, pause, "yours");
       notify(task);
       return true;
+    }
+    if (choice == "do") {
+      task.approvals++;
     }
     this.settle(task, choice);
     return true;
