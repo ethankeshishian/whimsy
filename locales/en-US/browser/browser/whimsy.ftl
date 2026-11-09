@@ -560,7 +560,19 @@ whimsy-tabs-tree-style-islands =
 ## batch8: tab lifecycle — command bar
 
 whimsy-action-show-archive = View Archive…
-whimsy-action-fire-button = Fire Button…
+# W23 memory-fire: what Fire will do with its last settings. $range is
+# hour, today, week, or all; $scope is all (every space and profile),
+# named (the profile called $profile), or this (an unnamed profile).
+whimsy-action-fire-button = Fire Button… ({ $range ->
+        [today] Today
+        [week] 7 days
+        [all] All time
+       *[hour] Last hour
+    }, { $scope ->
+        [all] all spaces
+        [named] { $profile }
+       *[this] this profile
+    })
 # wave7/fire: per-site forgetting, moved out of the Fire Button sheet.
 whimsy-action-forget-site = Forget About This Site…
 whimsy-action-heavy-tabs = Find Heavy Tabs
@@ -4671,7 +4683,8 @@ whimsy-fire-choice-everything-detail = { $count ->
     [one] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time, and closes 1 tab.
    *[other] Erases all history, sign-ins, site data, form and search history, the download list, closed tabs and the Archive in every profile, from all time, and closes { $count } tabs.
 }
-whimsy-fire-kept = Always kept: saved passwords, bookmarks, downloaded files, pinned tabs and Essentials.
+# W23 memory-fire (fire dec-10): AI settings join the always-kept list.
+whimsy-fire-kept = Always kept: saved passwords, bookmarks, downloaded files, pinned tabs, Essentials, and AI settings (providers, connectors, commands, and routines themselves).
 whimsy-fire-cancel =
     .label = Cancel
 whimsy-fire-run-profile =
@@ -6532,6 +6545,121 @@ whimsy-media-top-buttons =
     .label = Show Summarize and picture-in-picture at the top right of videos
 whimsy-media-new-badge = New
 whimsy-media-voice-heading = Read aloud and dictation
+## W23 memory-fire: Memory (auto-saved facts, Settings › AI › Memory), the
+## command bar's Related results by meaning, and the Fire button redesign
+## (one row of settings: range, spaces, items, including AI data).
+
+# Related results: the tag after a command-bar row found by meaning.
+whimsy-command-related-tag = Related
+
+# Memory
+whimsy-chat-note-memory-saved-one = Saved to memory: { $fact }
+whimsy-chat-note-memory-saved-many = Saved { $count } facts to memory
+whimsy-chat-note-memory-undo = Undo
+whimsy-chat-action-used-memories = { $count ->
+    [one] Used 1 memory
+   *[other] Used { $count } memories
+}
+whimsy-memory-switch =
+    .label = Use and save memories
+    .description = Off: saved ones are kept but not used, and nothing new is saved.
+whimsy-memory-date = Saved { $date }
+# $title (string) - the chat a memory was saved from; $date (string) - when.
+whimsy-memory-from-chat = From chat “{ $title }” · { $date }
+whimsy-memory-edit-button =
+    .aria-label = Edit “{ $fact }”
+whimsy-memory-delete-button =
+    .aria-label = Delete “{ $fact }”
+whimsy-memory-deleted-toast = Deleted the memory
+whimsy-memory-empty = Nothing saved yet.
+whimsy-memory-export-button = Export Markdown…
+# The exported file's heading, the save dialog's title, and its file type.
+whimsy-memory-export-heading = Memory
+whimsy-memory-export-picker-title = Export Memory
+whimsy-memory-export-filter = Markdown
+whimsy-ai-jump-memory = Memory
+whimsy-ai-memory-heading = Memory
+whimsy-ai-memory-desc = Stable facts about you, saved automatically with Undo, used in answers. Never from private tabs.
+
+# Fire button
+whimsy-fire-range-label = Range
+whimsy-fire-range-hour = Last hour
+whimsy-fire-range-today = Today
+whimsy-fire-range-week = 7 days
+whimsy-fire-range-all = All time
+whimsy-fire-all-spaces = All spaces, every profile
+whimsy-fire-partial-note = Cookies and site data clear per profile, so sites in a space you left ticked may still lose theirs.
+whimsy-fire-item-tabs = Open tabs (pinned tabs and Essentials stay)
+whimsy-fire-item-history = Browsing history
+whimsy-fire-item-aiChats = AI chats, including research reports
+whimsy-fire-item-agentActivity = Agent activity
+whimsy-fire-item-index = The meaning index
+whimsy-fire-item-memory = Memory
+whimsy-fire-item-routineResults = Routine and watch results
+whimsy-fire-item-downloads = The download list
+whimsy-fire-cant-undo = This can’t be undone.
+whimsy-fire-run =
+    .label = Fire
+whimsy-fire-confirm-title-2 = Can’t be undone
+whimsy-fire-confirm-body-2 = Everything you ticked is erased for good. Nothing comes back.
+whimsy-fire-confirm-accept-2 =
+    .label = Fire
+whimsy-fire-private-heading = Fire this window?
+whimsy-fire-private-body = Closes this private window’s tabs and starts it fresh. Other windows aren’t touched.
+whimsy-fire-private-run =
+    .label = Fire This Window
+# $site (string)
+whimsy-fire-site-heading = Forget { $site }?
+whimsy-fire-site-body = Erases { $site }’s history, sign-ins and saved data, from all time, in every profile, and closes its tabs.
+# $range, $scope, and $profile as in whimsy-action-fire-button.
+whimsy-fire-working-burn = { $range ->
+        [today] Clearing today…
+        [week] Clearing the last 7 days…
+        [all] Clearing everything…
+       *[hour] Clearing the last hour…
+    }
+whimsy-fire-working-private = Clearing this window…
+# $range, $scope, and $profile as in whimsy-action-fire-button.
+whimsy-fire-done-burn-title = { $scope ->
+        [all] { $range ->
+            [today] Fired today, everywhere
+            [week] Fired the last 7 days, everywhere
+            [all] Fired everything, everywhere
+           *[hour] Fired the last hour, everywhere
+        }
+        [named] { $range ->
+            [today] Fired today in { $profile }
+            [week] Fired the last 7 days in { $profile }
+            [all] Fired all of { $profile }
+           *[hour] Fired the last hour in { $profile }
+        }
+       *[this] { $range ->
+            [today] Fired today
+            [week] Fired the last 7 days
+            [all] Fired all time
+           *[hour] Fired the last hour
+        }
+    }
+whimsy-fire-done-private-title = Fired this window
+# $summary (string) - a locale-formatted list of what went, e.g. "3 tabs, 2 visits, and AI chats"
+whimsy-fire-done-detail = { $summary }
+# The words making up that $summary list (WhimsyFireButton.describe).
+whimsy-fire-done-tabs = { $count ->
+    [one] 1 tab
+   *[other] { $count } tabs
+}
+whimsy-fire-done-visits = { $count ->
+    [one] 1 visit
+   *[other] { $count } visits
+}
+whimsy-fire-done-history = history
+whimsy-fire-done-item-aiChats = AI chats
+whimsy-fire-done-item-agentActivity = agent activity
+whimsy-fire-done-item-index = the meaning index
+whimsy-fire-done-item-memory = memory
+whimsy-fire-done-item-routineResults = routine results
+whimsy-fire-done-item-downloads = the download list
+whimsy-fire-done-nothing = nothing
 ## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
 
 whimsy-agent-chat-mode =
@@ -6833,3 +6961,30 @@ whimsy-agent-chat-tool-key = Pressed a key
 whimsy-agent-chat-tool-form-input = Filled a field
 whimsy-agent-chat-tool-scroll = Scrolled
 whimsy-agent-chat-tool-screenshot = Took a snapshot
+
+## W23 agent-tabs: the working line under a tab an agent is using, the task
+## folder for Background tabs, and tabs the agent opened for you.
+
+# $client is the agent's name, like Claude; $doing is its current step, like Checking the total.
+whimsy-agent-tabs-working = { $client } · { $doing }
+whimsy-agent-tabs-working-plain = { $client } · Working
+whimsy-agent-tabs-needs-you = { $client } · Needs you
+# A click or key press in one of its tabs paused the task.
+whimsy-agent-tabs-paused = { $client } · Paused
+whimsy-agent-tabs-yours = { $client } · You have the tab
+# The task folder's row. $title is the task's name, like Lisbon hotels.
+whimsy-agent-tabs-folder =
+    .aria-label = { $count ->
+        [one] { $title }, 1 tab
+       *[other] { $title }, { $count } tabs
+    }
+whimsy-agent-tabs-cmd-folder = Agent: Open or Fold the Task Folder
+# When a task ends, the tabs it kept stay in your space. $space is the space's name, like Travel.
+whimsy-agent-tabs-moved = { $count ->
+    [one] Moved 1 tab to { $space }
+   *[other] Moved { $count } tabs to { $space }
+}
+whimsy-agent-tabs-undo = Undo
+# The chat card when your click or key press in an agent's tab paused it. $site is the page's site, like casaamora.pt.
+whimsy-agent-tabs-collision-title = Paused so you can use { $site }
+whimsy-agent-chat-hand-over-collision = Carry on when you’re done, or keep this tab and I’ll leave it out.

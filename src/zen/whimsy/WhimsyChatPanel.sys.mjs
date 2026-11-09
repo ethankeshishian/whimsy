@@ -16,6 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIHints: "resource:///modules/whimsy/WhimsyAIHints.sys.mjs",
+  WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
@@ -194,6 +195,8 @@ class ChatPanel {
     this._open = false;
     this.ready = false;
     this.thread = null;
+    // {controller, promise, threadId}: the background memory save, if any.
+    this._memoryNote = null;
     // tab -> {threadId} or {draft: true}: what the tab showed last.
     this.shown = new WeakMap();
     // threadId -> the answer streaming into it.
@@ -559,10 +562,51 @@ class ChatPanel {
     if ((opts.focus ?? "composer") == "composer" && this._open) {
       this.composer.focus();
     } else if (opts.focus == "card" && this._open) {
-      // A card waiting on you takes focus (agent-5.10).
-      [...this.body.querySelectorAll("[data-focus]")].at(-1)?.focus();
+      // A card waiting on you takes focus (agent-5.10): the pause asked
+      // for (opts.card, a pause id), else the last one.
+      const card = opts.card ? this.body.querySelector(`[data-pause-id="${CSS.escape(opts.card)}"][data-focus]`) : null;
+      (card ?? [...this.body.querySelectorAll("[data-focus]")].at(-1))?.focus();
     }
     return true;
+  }
+
+  /**
+   * Saves memories from a finished answer in the background. Tracked, so
+   * there's only ever one, it's cancelled when the panel closes or leaves
+   * the thread, and `memoryNote` can be awaited.
+   */
+  noteMemory(thread, saved) {
+    this.cancelMemoryNote();
+    const controller = new AbortController();
+    const { signal } = controller;
+    const promise = lazy.WhimsyAIStore.messages(thread.id).then(list => {
+      if (signal.aborted) {
+        return null;
+      }
+      const userText = list.findLast(m => m.role == "user" && m.id != saved.id)?.text ?? "";
+      return lazy.WhimsyAIMemory.noteAfterAnswer(this, thread, saved, userText, { signal });
+    }).catch(e => {
+      if (!signal.aborted) {
+        console.error("Whimsy: memory note", e);
+      }
+    }).finally(() => {
+      if (this._memoryNote?.controller == controller) {
+        this._memoryNote = null;
+      }
+    });
+    this._memoryNote = { controller, promise, threadId: thread.id };
+  }
+
+  cancelMemoryNote({ unlessThread = null } = {}) {
+    if (this._memoryNote && this._memoryNote.threadId != unlessThread) {
+      this._memoryNote.controller.abort();
+      this._memoryNote = null;
+    }
+  }
+
+  /** Settles once the background memory save (if any) is done. */
+  get memoryNote() {
+    return this._memoryNote?.promise ?? Promise.resolve();
   }
 
   close({ reason = "key" } = {}) {
@@ -570,6 +614,7 @@ class ChatPanel {
       return;
     }
     this._open = false;
+    this.cancelMemoryNote();
     this.reason = reason;
     this.closeList({ focus: false });
     const hadFocus = this.el.contains(this.doc.activeElement);
@@ -586,7 +631,7 @@ class ChatPanel {
     }
     // A task waiting on you: chat opens on its card, the oldest first.
     const [waiting] = lazy.WhimsyChat.tasks(this.win).filter(t => t.waiting && t.threadId).sort((a, b) => (a.waitingSince ?? 0) - (b.waitingSince ?? 0));
-    return this.open(waiting ? { threadId: waiting.threadId, focus: "card" } : {});
+    return this.open(waiting ? { threadId: waiting.threadId, focus: "card", card: waiting.pauseId ?? null } : {});
   }
 
   // ⌘E: open or close; with AI off, the toast first and setup after.
@@ -768,6 +813,7 @@ class ChatPanel {
   renderWall() {
     const { doc } = this;
     this.setPrivate(true);
+    this.cancelMemoryNote();
     this.thread = null;
     this.title.hidden = true;
     this.header.querySelector(".whimsy-chat-head-private").hidden = false;
@@ -798,6 +844,7 @@ class ChatPanel {
     this.panel.querySelector(".whimsy-chat-menu, .whimsy-chat-sheet")?.remove();
     this.ready = false;
     this.setPrivate(false);
+    this.cancelMemoryNote({ unlessThread: thread?.id ?? null });
     this.thread = thread;
     this.renderTasks();
     this.title.hidden = false;
@@ -1124,10 +1171,17 @@ class ChatPanel {
     return null;
   }
 
-  systemPrompt(page, extra = []) {
+  systemPrompt(page, extra = [], memories = []) {
     const lines = [
       "You are the chat in Whimsy, a web browser. Answer plainly and briefly, in the language the person writes in.",
     ];
+    if (memories.length) {
+      lines.push(
+        "",
+        "Stable facts you already know about this person (use only if relevant to the question; never list them unprompted):",
+        ...memories.map(m => `- ${m.text}`)
+      );
+    }
     if (page) {
       lines.push(
         'When the person says "this page" or "this tab", they mean the page below.',
@@ -1202,6 +1256,7 @@ class ChatPanel {
     let result = null;
     let failure = null;
     let needs = {};
+    let memories = [];
     let context = opts.context ?? null;
     try {
       if (!context && thread.kind == "tab") {
@@ -1231,7 +1286,12 @@ class ChatPanel {
       if (asker) {
         asker.content = [{ type: "text", text: asker.content }, ...opts.images];
       }
-      const system = this.systemPrompt(page, extra);
+      // Memory: never for a private tab, and only the facts worth this question.
+      if (!opts.textOnly && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
+        const lastUser = history.findLast(m => m.role == "user")?.content ?? "";
+        memories = await lazy.WhimsyAIMemory.forPrompt(typeof lastUser == "string" ? lastUser : "");
+      }
+      const system = this.systemPrompt(page, extra, memories);
       needs = opts.textOnly ? { chars: system.length } : { ...lazy.WhimsyChatContextUI.needsOf(context ?? {}, system), ...(opts.needs ?? {}) };
       const choice = lazy.WhimsyChatAnswer.choiceFor(thread);
       const provider = opts.provider ?? (choice.provider != "auto" ? choice.provider : undefined);
@@ -1286,6 +1346,7 @@ class ChatPanel {
           partial: !!result?.partial || aborted,
           stopped: result?.stopped ?? undefined,
           next: result?.partial ? result?.next ?? null : undefined,
+          usedMemories: memories.length ? memories.map(m => ({ id: m.id, text: m.text })) : undefined,
           ...fields,
         });
       }
@@ -1305,6 +1366,9 @@ class ChatPanel {
     let language = null;
     if (saved?.role == "ai" && !opts.continueFrom && !opts.instruction) {
       language = await this.languageOffer(thread, context);
+    }
+    if (saved?.role == "ai" && !saved.partial && !opts.continueFrom && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
+      this.noteMemory(thread, saved);
     }
     if (this.thread?.id == thread.id) {
       this.sendButton.removeAttribute("streaming");

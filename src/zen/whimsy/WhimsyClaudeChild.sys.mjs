@@ -858,7 +858,10 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       control.getAttribute("aria-checked") == "true" ? true : control.getAttribute("aria-checked") == "false" ? false : null;
     const title = `${this.doc.title} ${clip(this.doc.querySelector("h1")?.textContent, 80)}`;
     const payFrame = [...this.doc.querySelectorAll("iframe")].some(f => /stripe|braintree|adyen|checkout|payment|paypal|card/i.test(`${f.src} ${f.name} ${f.title}`));
+    // Where it is (viewport CSS pixels), for the Drive look's pointer.
+    const box = control.getBoundingClientRect?.();
     return {
+      rect: box && this.doc.defaultView.top == this.doc.defaultView ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
       role,
       tag: control.localName,
       text,

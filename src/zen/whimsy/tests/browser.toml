@@ -9,8 +9,16 @@ support-files = ["whimsy_slow_load.sjs"]
 # that opens something private; browser_whimsy_private_lock.js tests it.
 # W23 ai-core: AI is off until a provider connects; tests start with it on
 # (browser_whimsy_ai_kill_switch.js and _plans.js check the default).
+# W23 memory-fire: Memory and Related are on for people, but Memory asks
+# the provider a second, background "memory" question after every answer
+# and Related reads and indexes every public page a test loads; tests start
+# with both off so other features' provider stubs and command-bar rows only
+# see their own (browser_whimsy_ai_memory.js, _ai_index.js, and the
+# memory-fire screens turn them on).
 prefs = [
   "whimsy.ai.enabled=true",
+  "whimsy.ai.memory=false",
+  "whimsy.feature.ai-related=false",
   "whimsy.privateLock.askDismissals.tabs=2",
   "whimsy.privateLock.askDismissals.space=2",
   "whimsy.privateLock.askDismissals.windows=2",
@@ -1060,3 +1068,28 @@ support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
 
 ["browser_whimsy_screens_w23_agent-chat.js"]
 support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
+
+# W23 agent-tabs: the Drive look (glow, pointer, target, working line), the
+# unpinned task folder for background tabs (dissolves like Zap), collisions,
+# needs-you, and the agent badge; plus this lane's screenshots.
+["browser_whimsy_task_folder.js"]
+support-files = ["whimsy_claude.html"]
+
+["browser_whimsy_agent_tabs.js"]
+support-files = ["whimsy_claude.html"]
+
+["browser_whimsy_screens_w23_agent-tabs.js"]
+support-files = ["whimsy_claude.html", "whimsy_agent_checkout.html"]
+# W23 memory-fire: Memory (auto-save, Undo, Settings), the meaning index
+# and Related results, the Fire button redesign, and the AI-off-everywhere
+# audit.
+["browser_whimsy_ai_memory.js"]
+
+["browser_whimsy_ai_index.js"]
+support-files = ["whimsy_chat_article.html"]
+
+["browser_whimsy_ai_off_everywhere.js"]
+support-files = ["whimsy_chat_article.html", "whimsy_cmdk.html"]
+
+["browser_whimsy_screens_w23_memory-fire.js"]
+support-files = ["whimsy_chat_article.html"]

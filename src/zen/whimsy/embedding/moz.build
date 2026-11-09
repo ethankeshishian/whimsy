@@ -1,0 +1,30 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# W23 memory-fire: on-device sentence embeddings (NaturalLanguage framework)
+# for the meaning index. Only built on macOS (see ../moz.build).
+
+XPIDL_SOURCES += [
+    "nsIWhimsyEmbedding.idl",
+]
+
+XPIDL_MODULE = "whimsy_embedding"
+
+EXPORTS.mozilla += [
+    "nsWhimsyEmbedding.h",
+]
+
+SOURCES += [
+    "nsWhimsyEmbedding.mm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+OS_LIBS += [
+    "-framework NaturalLanguage",
+]
+
+FINAL_LIBRARY = "xul"

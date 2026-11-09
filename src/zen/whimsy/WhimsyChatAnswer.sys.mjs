@@ -13,6 +13,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReports: "resource:///modules/whimsy/WhimsyAIReports.sys.mjs",
@@ -701,8 +702,16 @@ function renderSaved(doc, msg, ctx) {
     );
   }
   const actions = h(doc, "div", { class: "whimsy-chat-actions" });
-  for (const action of lazy.WhimsyChat.answerActions(msg)) {
-    actions.append(h(doc, "button", { class: "whimsy-chat-btn", l10n: action.l10nId, "data-action": action.id, onclick: () => action.run(win, msg) }, icon(doc, action.icon)));
+  // Icon actions first; a labelled one (its words show, like "Used 2
+  // memories") is a quiet text button at the end of the row.
+  const all = lazy.WhimsyChat.answerActions(msg);
+  for (const action of [...all.filter(a => !a.labelled), ...all.filter(a => a.labelled)]) {
+    const l10n = action.l10nArgs ? [action.l10nId, action.l10nArgs(msg)] : action.l10nId;
+    const run = () => action.run(win, msg);
+    actions.append(action.labelled
+      ? h(doc, "button", { class: "whimsy-chat-btn whimsy-chat-btn-labelled", "data-action": action.id, onclick: run },
+        icon(doc, action.icon), h(doc, "span", { l10n }))
+      : h(doc, "button", { class: "whimsy-chat-btn", l10n, "data-action": action.id, onclick: run }, icon(doc, action.icon)));
   }
   node.append(actions);
   return node;
@@ -875,6 +884,7 @@ export const WhimsyChatAnswer = {
     C.registerCard("note:chip-removed", (doc, msg, ctx) => lazy.WhimsyChatContextUI.renderRemovedNote(doc, msg, ctx));
     C.registerCard("note:left-out", (doc, msg) => lazy.WhimsyChatContextUI.renderLeftOut(doc, msg));
     lazy.WhimsyAIReports.init();
+    lazy.WhimsyAIMemory.init();
     C.registerCard("note:language", (doc, msg, ctx) =>
       noteLine(doc, {
         kind: "language",

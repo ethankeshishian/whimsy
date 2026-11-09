@@ -308,6 +308,10 @@ export const WhimsyCtrlTab = {
     if (tab.hidden && !tab.selected) {
       return false;
     }
+    // W23 agent-tabs: an agent's running task-folder tabs aren't yours yet.
+    if (tab.hasAttribute("whimsy-task-tab") && !tab.selected) {
+      return false;
+    }
     const spaces = win.gZenWorkspaces;
     const id = tab.getAttribute("zen-workspace-id");
     if (id && spaces && !tab.hasAttribute("zen-essential") && id != spaces.activeWorkspace) {

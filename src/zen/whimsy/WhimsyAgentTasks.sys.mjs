@@ -23,6 +23,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyAIUpdates: "resource:///modules/whimsy/WhimsyAIUpdates.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -298,6 +299,13 @@ export const WhimsyAgentTasks = {
     if (allowForTask && pause.allowForTask && choice == "do") {
       task.allowed.add(`${pause.kind}|${pause.host}`);
     }
+    // A collision's "Keep this tab": the tab leaves the task (and its
+    // folder), the task skips that site, and carries on without asking.
+    if (choice == "self" && pause.kind == "collision") {
+      this.release(task, pause.tabRef?.deref?.() ?? null);
+      this.settle(task, "do");
+      return true;
+    }
     if (choice == "self") {
       pause.yours = true;
       this.updateCard(task, pause, "yours");
@@ -385,6 +393,27 @@ export const WhimsyAgentTasks = {
     task.tabs.add(tab);
     tab.setAttribute("whimsy-agent-task", task.id);
     notify(task);
+  },
+
+  /** The person keeps `tab`: it's theirs again, and off limits to this task. */
+  release(task, tab) {
+    if (!task || !tab) {
+      return;
+    }
+    (task.released ??= new WeakSet()).add(tab);
+    task.tabs.delete(tab);
+    tab.removeAttribute("whimsy-agent-task");
+    let host = "";
+    try {
+      host = tab.linkedBrowser?.currentURI?.host ?? "";
+    } catch {}
+    try {
+      lazy.WhimsyTaskFolder.release(tab);
+    } catch (e) {
+      console.error("Whimsy: task folder release", e);
+    }
+    this.skipSite(task, host);
+    notify(task, "released");
   },
 
   skipSite(task, host) {

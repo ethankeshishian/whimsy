@@ -236,5 +236,10 @@
         content/browser/whimsy/icons/pencil.svg (../../zen/whimsy/content/icons/pencil.svg)
 # W23 video: Settings › Media
         content/browser/whimsy/whimsy-settings-media.js (../../zen/whimsy/content/whimsy-settings-media.js)
+# W23 memory-fire: Settings › AI › Memory, and the related-results row icon
+        content/browser/whimsy/ai-settings/whimsy-ai-settings-memory.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-memory.js)
+        content/browser/whimsy/ai-settings/whimsy-ai-settings-memory.css (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-memory.css)
 # W23 agent-chat: the agent in chat, Settings › AI › Agent, Outside agents, and Activity
         content/browser/whimsy/whimsy-chat-agent.css (../../zen/whimsy/content/whimsy-chat-agent.css)
+# W23 agent-tabs: the Drive look and the task folder
+        content/browser/whimsy/whimsy-agent.css (../../zen/whimsy/content/whimsy-agent.css)
