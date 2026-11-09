@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A morning in the old tea district</title>
+<style>
+  body { margin: 0; background: #fff; color: #1d1d1f; font: 17px/1.65 Georgia, "Times New Roman", serif; }
+  main { width: 632px; margin: 0 auto; padding-top: 36px; }
+  .kicker { font: 600 12px/1 -apple-system, system-ui, sans-serif; letter-spacing: 1.5px; text-transform: uppercase; color: #a0451a; margin-bottom: 10px; }
+  h1 { font-size: 30px; line-height: 1.15; margin: 0 0 18px; }
+  p { margin: 0 0 18px; }
+  img { display: block; width: 632px; height: 360px; border-radius: 4px; }
+  figure { margin: 0; }
+  figcaption { font: 13px/1.4 -apple-system, system-ui, sans-serif; color: #6e6e73; margin-top: 8px; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1c1c1e; color: #e8e8ed; }
+    figcaption { color: #98989d; }
+    .kicker { color: #e2834f; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">Kyoto</div>
+  <h1>A morning in the old tea district</h1>
+  <p>Hoshino is the kind of tea house that never put up an English sign, and doesn’t need to. The queue starts before nine.</p>
+  <figure>
+    <img id="photo" alt="The sign outside">
+    <figcaption>The sign outside, on Teramachi Street.</figcaption>
+  </figure>
+  <p>Order the house sencha and a slice of yokan. If you want to take tea home, the staff will grind it while you wait.</p>
+</main>
+<script>
+  const kind = new URLSearchParams(location.search).get("img") || "en";
+  document.getElementById("photo").src = kind == "scene" ? "whimsy_image_text_scene.svg" : `whimsy_image_text_sign_${kind}.svg`;
+</script>
+</body>
+</html>

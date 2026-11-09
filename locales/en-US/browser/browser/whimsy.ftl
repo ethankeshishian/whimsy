@@ -7245,3 +7245,22 @@ whimsy-routine-chat-watch =
 whimsy-watch-note-updates = Only while Whimsy is open, with your sign-ins. The page’s text goes to your AI provider. Hits show in the command bar’s Updates.
 whimsy-watch-show-watches = Show watches
 whimsy-watch-undo = Undo
+
+## W23 voice-image: image text
+
+whimsy-image-text-copy-command = Copy text from image
+whimsy-image-text-translate-command = Translate text in image
+# $from and $to are language names, as in "Japanese to English".
+whimsy-image-text-pair = { $from } to { $to }
+whimsy-image-text-copied = Copied text from image
+whimsy-image-text-copied-lines =
+    { $count ->
+        [one] 1 line
+       *[other] { $count } lines
+    }
+# $language is a language name.
+whimsy-image-text-translated-from = Translated from { $language }
+whimsy-image-text-show-original = Show original
+whimsy-image-text-show-translation = Show translation
+whimsy-image-text-none = No text in the images on screen
+whimsy-image-text-translate-failed = Couldn’t translate the text in this image

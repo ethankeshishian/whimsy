@@ -1097,3 +1097,10 @@ support-files = ["whimsy_chat_article.html", "whimsy_cmdk.html"]
 
 ["browser_whimsy_screens_w23_memory-fire.js"]
 support-files = ["whimsy_chat_article.html"]
+
+# W23 voice-image: it
+["browser_whimsy_image_text.js"]
+support-files = ["head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
+
+["browser_whimsy_screens_w23_voice-image_it.js"]
+support-files = ["head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
