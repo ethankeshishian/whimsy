@@ -868,3 +868,8 @@
 # CSS-only Boost block.
 - name: whimsy.ai.page-edits
   value: ""
+
+# W23 polish: Firefox's "PDFs just got easier… Split, merge, and more"
+# promo isn't Whimsy's; the PDF viewer opens without it.
+- name: pdfjs.featuresNotificationDismissed
+  value: true
