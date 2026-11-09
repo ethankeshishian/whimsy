@@ -106,6 +106,7 @@ const state = {
   outsideOpened: new Set(),
   routineMaker: null,
   toasts: new Map(),
+  sheets: new WeakSet(),
 };
 
 function h(doc, tag, attrs = {}, ...children) {
@@ -268,7 +269,7 @@ export const WhimsyChatAgent = {
       return;
     }
     this.init();
-    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+    this.loadSheet(win);
     const ai = () => this.enabled;
     for (const mode of ["drive", "background"]) {
       lazy.WhimsyCommands.register(win, {
@@ -278,6 +279,13 @@ export const WhimsyChatAgent = {
         isAvailable: () => ai() && this.mode != mode,
         run: () => this.setMode(win, mode),
       });
+    }
+  },
+
+  loadSheet(win) {
+    if (!state.sheets.has(win)) {
+      state.sheets.add(win);
+      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
     }
   },
 
@@ -369,7 +377,7 @@ export const WhimsyChatAgent = {
       return;
     }
     const { doc, win } = panel;
-    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+    this.loadSheet(win);
     const thread = panel.thread;
     const end = panel.modelRow.querySelector(".whimsy-chat-model-end");
     const outside = thread?.kind == "outside";
@@ -545,7 +553,7 @@ export const WhimsyChatAgent = {
   },
 
   showTabs(win, task) {
-    const tab = [...task.tabs].find(t => !t.closing && t.ownerGlobal == win);
+    const tab = [...task.tabs].find(t => !t.closing && t.documentGlobal == win);
     if (tab) {
       win.gBrowser.selectedTab = tab;
     }

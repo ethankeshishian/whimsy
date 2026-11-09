@@ -54,7 +54,7 @@ async function openOn(url = ARTICLE) {
     EventUtils.synthesizeKey("e", { accelKey: true });
   }
   await TestUtils.waitForCondition(() => chat().isOpen && chat().ready, "Chat is open");
-  await TestUtils.waitForCondition(() => el().getAnimations({ subtree: true }).every(a => a.playState != "running"), "Chat settled");
+  await TestUtils.waitForCondition(() => el().getAnimations({ subtree: true }).every(a => a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity), "Chat settled");
   return tab;
 }
 

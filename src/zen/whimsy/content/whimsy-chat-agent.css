@@ -361,6 +361,7 @@
 /* ---- Popover beside chat (fu-agent 2.5) ---- */
 .whimsy-agent-popover {
   position: fixed;
+  box-sizing: border-box;
   z-index: 10;
   display: flex;
   flex-direction: column;
