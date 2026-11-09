@@ -297,6 +297,20 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyTaskFolder.sys.mjs",
 ]
 
+# W23 page-act
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAICompare.sys.mjs",
+    "WhimsyAIFill.sys.mjs",
+    "WhimsyAIFillChild.sys.mjs",
+    "WhimsyAIPageActUI.sys.mjs",
+    "WhimsyAIPageEdits.sys.mjs",
+    "WhimsyAIPageEditsChild.sys.mjs",
+    "WhimsyAITabRequests.sys.mjs",
+    "WhimsyAITranslate.sys.mjs",
+    "WhimsyScamCheck.sys.mjs",
+    "WhimsyScamCheckChild.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

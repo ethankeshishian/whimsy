@@ -240,3 +240,5 @@
         content/browser/whimsy/whimsy-chat-agent.css (../../zen/whimsy/content/whimsy-chat-agent.css)
 # W23 agent-tabs: the Drive look and the task folder
         content/browser/whimsy/whimsy-agent.css (../../zen/whimsy/content/whimsy-agent.css)
+# W23 page-act: the chat card, the page bar, the translation choice, and the scam warning
+        content/browser/whimsy/whimsy-page-act.css (../../zen/whimsy/content/whimsy-page-act.css)

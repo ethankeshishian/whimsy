@@ -1081,3 +1081,8 @@ support-files = ["whimsy_chat_article.html", "whimsy_cmdk.html"]
 
 ["browser_whimsy_screens_w23_memory-fire.js"]
 support-files = ["whimsy_chat_article.html"]
+
+# W23 page-act: Draft reply, Form fill, better translation, page edits,
+# the scam warning, Compare, tab requests, and this lane's screenshots.
+["browser_whimsy_ai_fill.js"]
+support-files = ["whimsy_ai_form.html", "whimsy_ai_reply.html", "whimsy_ai_product.html", "whimsy_ai_payment_frame.html"]

@@ -19,6 +19,8 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyAIPageEdits: "resource:///modules/whimsy/WhimsyAIPageEdits.sys.mjs",
+  WhimsyAITabRequests: "resource:///modules/whimsy/WhimsyAITabRequests.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
@@ -570,7 +572,8 @@ export const WhimsyChatAgent = {
 
   looksLikeTask(text) {
     const t = String(text ?? "").trim();
-    return ACT_VERBS.test(t) && !NOT_TASKS.test(t);
+    // W23 page-act: tab requests and page edits aren't agent tasks either.
+    return ACT_VERBS.test(t) && !NOT_TASKS.test(t) && !lazy.WhimsyAITabRequests.takes(t) && !lazy.WhimsyAIPageEdits.takes(t);
   },
 
   async onSend(panel, thread, text, context) {

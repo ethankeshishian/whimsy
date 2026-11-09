@@ -1,0 +1,377 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W23 page-act: the chat card (Draft reply, Form fill, Compare, tab
+   requests), the page bar (page edits, AI translation), the translation
+   choice in Firefox's panel, and the scam warning's body (05-page 3–10,
+   fu-page 9.4, 10.4, dec-13). Tokens follow the chat panel's. */
+
+:root {
+  --whimsy-pa-accent: light-dark(
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.35, l, 0.6) c h),
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.7, l, 0.85) c h)
+  );
+  --whimsy-pa-accent-bg: light-dark(
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.35, l, 0.6) c h),
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.55, l, 0.7) c h)
+  );
+  --whimsy-pa-warning: light-dark(rgb(217, 138, 0), rgb(240, 177, 60));
+  --whimsy-pa-success: light-dark(rgb(29, 138, 74), rgb(92, 207, 138));
+  --whimsy-pa-muted: color-mix(in srgb, currentColor 62%, transparent);
+  --whimsy-pa-hairline: color-mix(in srgb, currentColor 13%, transparent);
+  --whimsy-pa-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ---- Chat card ---- */
+.whimsy-pa-card {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.whimsy-pa-line {
+  margin: 0;
+}
+.whimsy-pa-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--whimsy-pa-muted);
+}
+.whimsy-pa-spinner {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--whimsy-pa-hairline);
+  border-top-color: currentColor;
+  animation: whimsy-pa-spin 0.9s linear infinite;
+}
+@keyframes whimsy-pa-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+.whimsy-pa-draft,
+.whimsy-pa-quote {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.06));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.whimsy-pa-quote {
+  padding: 0;
+  background: none;
+  color: var(--whimsy-pa-muted);
+}
+.whimsy-pa-notice {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--whimsy-pa-hairline);
+  & p {
+    margin: 0;
+  }
+}
+.whimsy-pa-notice-icon {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  background: currentColor;
+  mask: url("chrome://browser/skin/zen-icons/sparkles.svg") center / contain no-repeat;
+  opacity: 0.8;
+}
+.whimsy-pa-notice[data-icon="lock"] .whimsy-pa-notice-icon,
+.whimsy-pa-notice[data-icon="key"] .whimsy-pa-notice-icon {
+  mask-image: url("chrome://browser/skin/zen-icons/security.svg");
+}
+.whimsy-pa-notice[data-icon="tab"] .whimsy-pa-notice-icon {
+  mask-image: url("chrome://browser/skin/zen-icons/tab.svg");
+}
+.whimsy-pa-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.whimsy-pa-btn,
+.whimsy-page-bar-btn {
+  min-height: 26px;
+  margin: 0;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.1));
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition:
+    background-color 100ms ease-out,
+    scale 100ms ease-out;
+  &:hover:not(:disabled) {
+    background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
+  }
+  &:active:not(:disabled) {
+    scale: 0.96;
+  }
+  &.primary {
+    background: var(--whimsy-pa-accent-bg);
+    color: light-dark(white, #0f1720);
+  }
+  &:disabled {
+    opacity: 0.45;
+  }
+  &[aria-pressed="true"] {
+    box-shadow: inset 0 0 0 1.5px var(--whimsy-pa-accent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 2px;
+  }
+}
+.whimsy-pa-meta {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--whimsy-pa-muted);
+}
+.whimsy-pa-steps {
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+}
+.whimsy-pa-step {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  & small {
+    color: var(--whimsy-pa-muted);
+  }
+  &[data-state="wait"] {
+    color: var(--whimsy-pa-muted);
+  }
+}
+.whimsy-pa-step-mark {
+  width: 14px;
+  height: 14px;
+}
+.whimsy-pa-step[data-state="busy"] .whimsy-pa-step-mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--whimsy-pa-hairline);
+  border-top-color: currentColor;
+  animation: whimsy-pa-spin 0.9s linear infinite;
+}
+.whimsy-pa-step[data-state="done"] .whimsy-pa-step-mark {
+  background: var(--whimsy-pa-success);
+  mask: url("chrome://browser/skin/zen-icons/check.svg") center / contain no-repeat;
+  animation: whimsy-pa-pop 350ms var(--whimsy-pa-ease);
+}
+@keyframes whimsy-pa-pop {
+  from {
+    scale: 0.4;
+    opacity: 0;
+  }
+  70% {
+    scale: 1.12;
+  }
+}
+.whimsy-pa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  & th {
+    text-align: start;
+    font-weight: 600;
+    color: var(--whimsy-pa-muted);
+    padding: 4px 5px;
+    border-bottom: 1px solid var(--whimsy-pa-hairline);
+  }
+  & td {
+    padding: 6px 5px;
+    border-bottom: 1px solid var(--whimsy-pa-hairline);
+    vertical-align: top;
+  }
+  & td small {
+    display: block;
+    margin-top: 1px;
+    color: var(--whimsy-pa-muted);
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+  & td.is-off small {
+    color: var(--whimsy-pa-success);
+  }
+  & tr.is-best td {
+    background: color-mix(in srgb, var(--whimsy-pa-success) 10%, transparent);
+  }
+  & b {
+    font-weight: 600;
+  }
+}
+.whimsy-pa-store {
+  color: inherit;
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-pa-spinner,
+  .whimsy-pa-step-mark {
+    animation: none !important;
+  }
+}
+
+/* ---- The page bar (where Zen's Zap bar sits) ---- */
+.whimsy-page-bar {
+  grid-area: browserstack;
+  align-self: end;
+  justify-self: center;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 24px);
+  margin-bottom: 14px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 14px;
+  background: light-dark(rgba(255, 255, 255, 0.92), rgba(40, 40, 42, 0.92));
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.18)),
+    0 12px 32px -8px rgba(0, 0, 0, 0.35);
+  color: light-dark(#1d1d1f, #f5f5f7);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.whimsy-page-bar-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background: var(--whimsy-pa-accent);
+  mask: url("chrome://browser/skin/zen-icons/check.svg") center / contain no-repeat;
+}
+.whimsy-page-bar[data-icon="alert"] .whimsy-page-bar-icon {
+  background: var(--whimsy-pa-warning);
+  mask-image: url("chrome://browser/skin/zen-icons/security-warning.svg");
+}
+.whimsy-page-bar[data-icon="sparkle"] .whimsy-page-bar-icon {
+  mask-image: url("chrome://browser/skin/zen-icons/wand-sparkle.svg");
+}
+.whimsy-page-bar-text {
+  display: grid;
+  min-width: 0;
+  max-width: 360px;
+  margin-inline-end: 6px;
+  & > * {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  & small {
+    color: light-dark(#6e6e73, #98989d);
+    font-size: 11.5px;
+  }
+}
+.whimsy-page-bar-input {
+  width: 320px;
+  max-width: 100%;
+  margin: 0;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+/* Narrow windows (page-12.2): the words wrap to two lines, buttons stay. */
+@media (max-width: 640px) {
+  .whimsy-page-bar {
+    white-space: normal;
+    flex-wrap: wrap;
+  }
+  .whimsy-page-bar-text {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .whimsy-page-bar-input {
+    width: 100%;
+  }
+}
+
+/* ---- Translate better, inside Firefox's translations panel ---- */
+.whimsy-translate-choice {
+  display: grid;
+  grid-template-columns: 28px 1fr 16px;
+  align-items: center;
+  gap: 10px;
+  margin-block: 8px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--whimsy-pa-hairline);
+  cursor: default;
+  &[aria-checked="true"] {
+    border-color: var(--whimsy-pa-accent);
+    background: color-mix(in srgb, var(--whimsy-pa-accent) 8%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: 2px;
+  }
+}
+.whimsy-translate-logo {
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  background: light-dark(#fff, #2c2c2e);
+  box-shadow: 0 0 0 0.5px var(--whimsy-pa-hairline);
+}
+.whimsy-translate-words {
+  display: grid;
+}
+.whimsy-translate-name {
+  font-weight: 600;
+}
+.whimsy-translate-detail {
+  font-size: 0.9em;
+  color: var(--whimsy-pa-muted);
+}
+.whimsy-translate-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--whimsy-pa-hairline);
+}
+.whimsy-translate-choice[aria-checked="true"] .whimsy-translate-dot {
+  box-shadow: inset 0 0 0 4px var(--whimsy-pa-accent);
+}
+
+/* ---- The scam warning's words, inside Zen's notification ---- */
+notification-message.whimsy-scam {
+  max-width: 30rem;
+}
+.whimsy-scam-body {
+  & b {
+    font-weight: 600;
+  }
+  & ul {
+    margin: 4px 0 0;
+    padding-inline-start: 16px;
+    display: grid;
+    gap: 2px;
+    opacity: 0.85;
+  }
+}
+
+/* ---- Compare, after Watch price ---- */
+.whimsy-compare-action[hidden] {
+  display: none;
+}

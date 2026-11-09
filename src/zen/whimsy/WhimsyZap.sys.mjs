@@ -37,6 +37,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
   WhimsyStats: "resource:///modules/whimsy/WhimsyStats.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  WhimsyAIPageEdits: "resource:///modules/whimsy/WhimsyAIPageEdits.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
@@ -523,10 +524,18 @@ export const WhimsyZap = {
               elItem.className = "whimsy-site-zapped-item";
               // A readable name, never the raw CSS selector (review
               // design-full-4 L9). "Element 2" until the page describes it.
-              document.l10n.setAttributes(elItem, "whimsy-site-zap-restore-item-unnamed", {
-                kind: "other",
-                index: index + 1,
-              });
+              // W23 page-act: a zap kept from a sentence is named by it.
+              const sentence = lazy.WhimsyAIPageEdits.zapName(domain, sel);
+              if (sentence) {
+                elItem._whimsyName = sentence;
+                elItem._whimsyNamed = true;
+                document.l10n.setAttributes(elItem, "whimsy-site-zap-restore-item", { name: sentence });
+              } else {
+                document.l10n.setAttributes(elItem, "whimsy-site-zap-restore-item-unnamed", {
+                  kind: "other",
+                  index: index + 1,
+                });
+              }
               elItem.addEventListener("command", () => {
                 this.unzapSelector(win, sel, domain, elItem._whimsyName);
               });
@@ -543,7 +552,7 @@ export const WhimsyZap = {
             this.describeSelectors(win.gBrowser.selectedBrowser, selectors).then(names => {
               names.forEach((desc, index) => {
                 const elItem = items[index];
-                if (!desc || !elItem.isConnected) {
+                if (!desc || !elItem.isConnected || elItem._whimsyNamed) {
                   return;
                 }
                 if (desc.name) {
