@@ -148,9 +148,9 @@
   gap: 8px;
   min-height: 0;
   padding: 10px 12px;
-  /* clip, not hidden: a clipped box can't be scrolled, so focusing or
-     revealing a choice never shifts the card's contents. */
-  overflow: clip;
+  /* Hidden, so a choice can be scrolled to mid-unfold; unfold() puts it
+     back at the top once the card is full height. */
+  overflow: hidden;
   & p {
     margin: 0;
   }

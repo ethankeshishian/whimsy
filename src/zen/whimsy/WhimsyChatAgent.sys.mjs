@@ -1068,7 +1068,7 @@ export const WhimsyChatAgent = {
       reveal();
       // The card grows as it unfolds; once it's full height, its choices go
       // back in view.
-      unfolding?.finished.then(reveal, () => {});
+      unfolding?.finished.then(() => panel.win.requestAnimationFrame(reveal), () => {});
       if (added.matches(".whimsy-agent-card[data-focus]") && panel.isOpen) {
         (added.querySelector("[data-autofocus]") ?? added).focus({ preventScroll: true });
       }
@@ -1098,7 +1098,15 @@ export const WhimsyChatAgent = {
     if (reducedMotion(win)) {
       return;
     }
-    return node.animate({ gridTemplateRows: ["0fr", "1fr"], opacity: [0, 1] }, { duration: 300, easing: EXPAND });
+    const animation = node.animate({ gridTemplateRows: ["0fr", "1fr"], opacity: [0, 1] }, { duration: 300, easing: EXPAND });
+    // Focus or a click mid-unfold can scroll the clipped inner box; once the
+    // card is full height its top shows again.
+    animation.finished.then(() => {
+      for (const inner of node.querySelectorAll(".whimsy-agent-card-inner")) {
+        inner.scrollTop = 0;
+      }
+    }, () => {});
+    return animation;
   },
 
   sigOf(msg) {
