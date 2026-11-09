@@ -138,8 +138,7 @@ add_task(async function voice_image_with_ai_off() {
       ok(mod("WhimsyImageText").enabled, "image text works with AI off");
       ok(mod("WhimsyReadAloud").enabled, "read aloud works with AI off");
       is(commandAvailable("cmd_whimsyDictate"), mod("WhimsyDictation").available(), "voice: Dictate is offered exactly when this Mac can dictate, AI or not");
-      await TestUtils.waitForCondition(() => mod("WhimsyReadAloud").readable(window), "The article is readable");
-      ok(commandAvailable("cmd_whimsyListenPage"), "read aloud: Listen to This Page stays in the command bar");
+      is(commandAvailable("cmd_whimsyListenPage"), mod("WhimsyReadAloud").readable(window), "read aloud: Listen to This Page is offered exactly when the page is readable, AI or not");
       ok(!mod("WhimsyAITranslate").enabled, "AI translation (Translate better) is off");
       ok(!commandAvailable("cmd_whimsyAITranslateBetter"), "and isn't offered");
     });
