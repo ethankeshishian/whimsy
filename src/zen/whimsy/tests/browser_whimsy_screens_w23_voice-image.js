@@ -436,7 +436,15 @@ add_task(async function shots_image_cmdk() {
   await withImageText("jp", async () => {
     await whimsyBothSchemes("w23-voice-image-media-3.5", async () => {
       const close = await imageCmdK();
-      ok(true, "3.5: ⌘K with an image with text");
+      const ids = [];
+      for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+        ids.push((await UrlbarTestUtils.getDetailsOfResultAt(window, i)).result.payload.whimsyVerb);
+      }
+      info(`3.5 rows: ${ids.join(", ")}`);
+      ok(ids.includes("image:copy") && ids.includes("image:save"), "3.5: Copy Image and Save Image As… are listed");
+      is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-cmdk-type-command", "3.5: the field says Type a command");
+      ok(!BrowserTestUtils.isVisible(document.getElementById("urlbar-search-mode-indicator")), "3.5: no empty search-mode capsule");
+      await translateBar();
       return close;
     });
   });
