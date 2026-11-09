@@ -12,6 +12,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReports: "resource:///modules/whimsy/WhimsyAIReports.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
@@ -529,7 +530,7 @@ function citationPill(doc, win, thread, c) {
       e.currentTarget.setAttribute("active", "true");
       WhimsyChatAnswer.showCitation(win, thread, source);
     },
-  }, String(c?.n ?? ""));
+  }, source?.page ? h(doc, "span", { l10n: ["whimsy-summary-cite-page", { page: source.page }] }) : String(c?.n ?? ""));
 }
 
 function thinkingLine(doc, msg) {
@@ -1120,6 +1121,19 @@ export const WhimsyChatAnswer = {
     }
     if (win.gBrowser.selectedTab != tab && !tab.splitView) {
       win.gBrowser.selectedTab = tab;
+    }
+    // A summary's passage that has left the page: the thread says so.
+    if (source?.summary && !(await lazy.WhimsyAIPage.quoteOnPage(tab, quote))) {
+      await lazy.WhimsyAIPage.passageGone(win, thread);
+      return false;
+    }
+    // Scrolled a third of the way down and tinted until the next scroll (page-1.3).
+    if (await lazy.WhimsyAIPage.showPassage(win, tab, quote, source)) {
+      return true;
+    }
+    // The tab may have closed while the page looked for the passage.
+    if (!tab.linkedBrowser) {
+      return false;
     }
     const finder = tab.linkedBrowser.finder;
     finder.fastFind(quote, false, false);

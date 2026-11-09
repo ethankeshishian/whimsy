@@ -92,6 +92,7 @@ export const SETTINGS = [
   { name: "reading-time", setting: "whimsyReadingTime", pref: "whimsy.reader.reading-time", feature: ["reading-time"] },
   { name: "dark-pdf", setting: "whimsyDarkPdf", pref: "whimsy.pdf.dark", feature: ["dark-pdf"],
     command: ["cmd_whimsyToggleDarkPdf"] },
+  { name: "find-card", setting: "whimsyFindCard", pref: "whimsy.feature.find-card", feature: ["find-card"] },
   { name: "ui-font", setting: "whimsyUiFont", pref: "whimsy.look.ui-font", feature: ["ui-font"],
     // Any other font is picked from the list in Settings (every installed
     // font); the command goes back to the system font.

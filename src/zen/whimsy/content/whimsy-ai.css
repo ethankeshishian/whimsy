@@ -472,17 +472,13 @@ findbar .whimsy-ask-button {
     gap: 6px;
   }
 
-  & .whimsy-preview-icon,
-  & .whimsy-preview-host {
+  & .whimsy-preview-head {
     display: none;
   }
 }
 
-#whimsy-link-hover:not([whimsy-two-cards]) .whimsy-link-hover-ai {
-  & .whimsy-preview-icon,
-  & .whimsy-preview-host {
-    display: revert;
-  }
+#whimsy-link-hover:not([whimsy-two-cards]) .whimsy-link-hover-ai .whimsy-preview-head {
+  display: flex;
 }
 
 /* The People card (fix7/tabs' design) as card 1: it fills the shared width
@@ -493,5 +489,28 @@ findbar .whimsy-ask-button {
 
   & .whimsy-person {
     width: auto;
+  }
+}
+
+/* W23 page-read (page-1.1): under a summary, what was read, in the chat's muted small print. */
+.whimsy-summary-meta {
+  margin-block-start: 6px;
+  color: var(--whimsy-chat-muted, color-mix(in srgb, currentColor 62%, transparent));
+  font-size: 12px;
+}
+
+/* fu-page 1.6 f1: a long page's note offers Read the rest as a quiet button on its own line. */
+.whimsy-chat-note[data-kind="long-page"] .whimsy-chat-link {
+  display: block;
+  margin-block-start: 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background-color: color-mix(in srgb, currentColor 9%, transparent);
+  color: inherit;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover:not(:disabled) {
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
   }
 }

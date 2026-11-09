@@ -16,6 +16,7 @@ const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const PAGE = ROOT + "whimsy_ai_page.html";
 const LINKS = ROOT + "whimsy_ai_links.html";
+const AT = { x: 10, y: 10, width: 10, height: 10 };
 
 let requests = [];
 function fakeProvider({ prompt, system }) {
@@ -58,6 +59,12 @@ function askButton(findbar) {
   return findbar.querySelector(".whimsy-ask-button");
 }
 
+// The floating find card keeps Ask laid out and marks it askable; the old bar hides it.
+function askOffered(findbar) {
+  const ask = askButton(findbar);
+  return !!ask && !ask.hidden && (!findbar.hasAttribute("whimsy-find-card") || ask.hasAttribute("askable"));
+}
+
 add_task(async function test_ask_on_page() {
   ok(Services.prefs.getBoolPref("whimsy.feature.ask-on-page"), "The feature switch is on");
   await BrowserTestUtils.withNewTab(PAGE, async () => {
@@ -65,12 +72,12 @@ add_task(async function test_ask_on_page() {
     let findbar = await openFind("Lisbon");
     await TestUtils.waitForCondition(() => findbar._findField.getAttribute("status") != "pending", "Find ran");
     await new Promise(r => setTimeout(r, 300));
-    ok(askButton(findbar)?.hidden, "Found text doesn't offer Ask");
+    ok(!askOffered(findbar), "Found text doesn't offer Ask");
 
     // Not on the page: Ask appears, and Enter asks.
     requests = [];
     findbar = await openFind("where is the offsite");
-    await TestUtils.waitForCondition(() => !askButton(findbar).hidden, "The Ask button appears when nothing is found");
+    await TestUtils.waitForCondition(() => askOffered(findbar), "The Ask button appears when nothing is found");
     EventUtils.synthesizeKey("KEY_Enter");
     const panel = await TestUtils.waitForCondition(() => {
       const p = document.getElementById("whimsy-ask-panel");
@@ -90,7 +97,7 @@ add_task(async function test_ask_on_page() {
     // A made-up quote isn't offered.
     WhimsyAIProviders.setTestProvider(() => JSON.stringify({ answer: "Yes.", quote: "Something the page never says at all." }));
     findbar = await openFind("is there a quote");
-    await TestUtils.waitForCondition(() => !askButton(findbar).hidden, "Ask again");
+    await TestUtils.waitForCondition(() => askOffered(findbar), "Ask again");
     askButton(findbar).doCommand();
     await TestUtils.waitForCondition(() => panel.state == "open" && panel.querySelector(".whimsy-ask-answer"), "Answered");
     ok(!panel.querySelector(".whimsy-ask-quote"), "No quote that isn't on the page");
@@ -101,7 +108,7 @@ add_task(async function test_ask_on_page() {
     Services.prefs.setBoolPref("whimsy.ai.enabled", false);
     findbar = await openFind("still not here");
     await new Promise(r => setTimeout(r, 300));
-    ok(askButton(findbar).hidden, "No Ask with AI turned off");
+    ok(!askOffered(findbar), "No Ask with AI turned off");
     requests = [];
     EventUtils.synthesizeKey("KEY_Enter");
     await new Promise(r => setTimeout(r, 300));
@@ -261,9 +268,9 @@ add_task(async function hidden_reader_reads_coop_pages_still_blocked() {
   Assert.deepEqual((await list.getAll()).filter(item => !before.has(item)), [], "Hidden page cannot download");
 });
 
-// wave7/security M5: resting on a link (nobody asked) reads public pages
-// only, and without the person's cookies; Shift keeps the tab's session.
-add_task(async function hover_previews_are_anonymous_and_public_only() {
+// Resting on a link (nobody asked) reads public pages only, without the
+// person's cookies (wave7/security M5).
+add_task(async function resting_is_public_only_anonymous() {
   ok(WhimsyAIReader.isPublicUrl("https://example.com/a"), "A public page");
   for (const url of [
     "http://localhost:3000/admin/reset",
@@ -286,27 +293,176 @@ add_task(async function hover_previews_are_anonymous_and_public_only() {
     reads.push({ url, ...options });
     return "The offsite is on March 14 in Lisbon.";
   });
-  const at = { x: 10, y: 10, width: 10, height: 10 };
   try {
     await BrowserTestUtils.withNewTab(LINKS, async browser => {
-      await WhimsyAIPage.showPreview(window, browser, { url: "http://192.168.1.1/apply.cgi?reset=1", how: "hover", ...at });
+      await WhimsyAIPage.showPreview(window, browser, { url: "http://192.168.1.1/apply.cgi?reset=1", how: "hover", ...AT });
+      await new Promise(r => setTimeout(r, 700));
       is(reads.length, 0, "Resting on a local-network link reads nothing");
       WhimsyAIPage.hidePreview(window);
 
-      const url = PAGE + "?hover-anonymous";
-      await WhimsyAIPage.showPreview(window, browser, { url, how: "hover", ...at });
+      await WhimsyAIPage.showPreview(window, browser, { url: PAGE + "?hover-anonymous", how: "hover", ...AT });
       await TestUtils.waitForCondition(() => reads.length == 1, "A public link is read");
       ok(reads[0].anonymous, "anonymously");
       isnot(reads[0].userContextId, browser.getAttribute("usercontextid") | 0, "outside the tab's cookie jar");
       is(reads[0].userContextId, WhimsyAIReader.anonymousContextId(), "in Firefox's internal background container");
       WhimsyAIPage.hidePreview(window);
+    });
+  } finally {
+    WhimsyAIReader.setTestReader(null);
+  }
+});
 
-      await WhimsyAIPage.showPreview(window, browser, { url: url + "&shift", how: "shift", ...at });
-      await TestUtils.waitForCondition(() => reads.length == 2, "Shift reads too");
-      ok(!reads[1].anonymous, "Shift keeps the tab's session");
+// Shift on any link (a local one too) reads with the tab's own session.
+add_task(async function shift_uses_signins() {
+  const reads = [];
+  WhimsyAIReader.setTestReader((url, options) => {
+    reads.push({ url, ...options });
+    return "Signed-in dashboard text.";
+  });
+  try {
+    await BrowserTestUtils.withNewTab(LINKS, async browser => {
+      is(await WhimsyAIPage.previewMode(browser, "http://192.168.1.1/admin", "shift"), "ready", "Shift reads a non-public page");
+      await WhimsyAIPage.showPreview(window, browser, { url: PAGE + "?shift", how: "shift", ...AT });
+      await TestUtils.waitForCondition(() => reads.length == 1, "Shift reads the link");
+      ok(!reads[0].anonymous, "with the tab's session");
+      is(reads[0].userContextId, browser.getAttribute("usercontextid") | 0, "in the tab's own container");
       WhimsyAIPage.hidePreview(window);
     });
   } finally {
+    WhimsyAIReader.setTestReader(null);
+  }
+});
+
+// fu-page 7.1: the AI card opens on the same frame as the link card,
+// loading, then fills in place.
+add_task(async function ai_card_opens_with_link_card() {
+  let release;
+  const gate = new Promise(r => (release = r));
+  WhimsyAIReader.setTestReader(async () => {
+    await gate;
+    return "The offsite is on March 14 in Lisbon.";
+  });
+  try {
+    await BrowserTestUtils.withNewTab(LINKS, async browser => {
+      await WhimsyAIPage.showPreview(window, browser, { url: PAGE + "?together", how: "hover", ...AT });
+      const panel = await TestUtils.waitForCondition(() => {
+        const p = document.getElementById("whimsy-link-hover");
+        return p?.state == "open" && p;
+      }, "The cards open after the hover delay");
+      Assert.deepEqual([...panel.querySelectorAll(".whimsy-link-hover-card")].map(c => c.dataset.card), ["link", "ai"], "Both cards, together");
+      ok(panel.querySelector('[data-card="ai"] .whimsy-ai-shimmer'), "The summary is loading");
+      release();
+      await TestUtils.waitForCondition(() => panel.querySelector('[data-card="ai"] .whimsy-preview-points'), "then fills in place");
+      ok(!panel.querySelector('[data-card="ai"] .whimsy-ai-shimmer'), "The loading lines are gone");
+      WhimsyAIPage.hidePreview(window);
+    });
+  } finally {
+    WhimsyAIReader.setTestReader(null);
+  }
+});
+
+// Three bullets, never more, through the router's "preview" task.
+add_task(async function three_bullets() {
+  const tasks = [];
+  WhimsyAIReader.setTestReader(() => "A long page about trains.");
+  WhimsyAIProviders.setTestProvider(request => {
+    tasks.push(request.task);
+    return JSON.stringify({ title: "Trains", points: ["One", "Two", "Three", "Four", "Five"] });
+  });
+  try {
+    const summary = await WhimsyAIPage.summarize(PAGE + "?three", {});
+    Assert.deepEqual(summary.points, ["One", "Two", "Three"], "Three bullets");
+    Assert.deepEqual(tasks, ["preview"], "asked as a preview task");
+  } finally {
+    WhimsyAIReader.setTestReader(null);
+    WhimsyAIProviders.setTestProvider(fakeProvider);
+  }
+});
+
+// With AI off, the link card shows alone, and nothing is read.
+add_task(async function ai_off_link_card_only() {
+  const reads = [];
+  WhimsyAIReader.setTestReader(url => {
+    reads.push(url);
+    return "text";
+  });
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+  try {
+    await BrowserTestUtils.withNewTab(LINKS, async browser => {
+      is(await WhimsyAIPage.previewMode(browser, PAGE, "shift"), null, "No AI card, even on Shift");
+      await hoverLink(browser, true);
+      const panel = await TestUtils.waitForCondition(() => {
+        const p = document.getElementById("whimsy-link-hover");
+        return p?.state == "open" && p;
+      }, "The link card opens");
+      Assert.deepEqual([...panel.querySelectorAll(".whimsy-link-hover-card")].map(c => c.dataset.card), ["link"], "The link card alone");
+      is(reads.length, 0, "Nothing is read");
+      WhimsyAIPage.hidePreview(window);
+    });
+  } finally {
+    Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+    WhimsyAIReader.setTestReader(null);
+  }
+});
+
+// The Claude plan serves previews too (its user-started gate is gone).
+add_task(async function plan_now_allowed_for_previews() {
+  const plans = WhimsyAIProviders._plans;
+  const real = plans.claude;
+  const asked = [];
+  plans.claude = {
+    isReady: async () => true,
+    complete: async request => {
+      asked.push(request);
+      return JSON.stringify({ title: "Plan", points: ["A", "B", "C"] });
+    },
+  };
+  const testProvider = WhimsyAIProviders._testProvider;
+  WhimsyAIProviders.setTestProvider(null);
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["whimsy.feature.ai-claude-plan", true],
+      ["whimsy.ai.claude.auth", "plan"],
+      ["whimsy.ai.order", "claude"],
+    ],
+  });
+  WhimsyAIReader.setTestReader(() => "Public page text.");
+  try {
+    ok(WhimsyAIProviders._usesPlan("claude"), "Claude is connected through the plan");
+    await BrowserTestUtils.withNewTab(LINKS, async browser => {
+      is(await WhimsyAIPage.previewMode(browser, PAGE + "?plan", "hover"), "ready", "Resting on a link gets a summary on the plan");
+    });
+    const summary = await WhimsyAIPage.summarize(PAGE + "?plan", { anonymous: true });
+    Assert.deepEqual(summary.points, ["A", "B", "C"], "The plan wrote it");
+    is(asked.length, 1, "unattended");
+  } finally {
+    plans.claude = real;
+    await SpecialPowers.popPrefEnv();
+    WhimsyAIProviders.setTestProvider(testProvider);
+    WhimsyAIReader.setTestReader(null);
+  }
+});
+
+// Private is a wall per tab: a private tab inside a normal window gets no
+// preview and nothing is read.
+add_task(async function private_tab_no_preview() {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const reads = [];
+  WhimsyAIReader.setTestReader(url => {
+    reads.push(url);
+    return "text";
+  });
+  const tab = WhimsyPrivate.openPrivateTab(window, { url: LINKS, force: true });
+  try {
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, LINKS);
+    gBrowser.selectedTab = tab;
+    is(await WhimsyAIPage.previewMode(tab.linkedBrowser, PAGE, "shift"), null, "No AI card in a private tab");
+    await WhimsyAIPage.showPreview(window, tab.linkedBrowser, { url: PAGE, how: "shift", ...AT });
+    await new Promise(r => setTimeout(r, 700));
+    ok(document.getElementById("whimsy-link-hover")?.state != "open", "No card at all");
+    is(reads.length, 0, "and nothing is read");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
     WhimsyAIReader.setTestReader(null);
   }
 });
@@ -340,7 +496,7 @@ add_task(async function test_private_return_doesnt_ask_the_cloud() {
   };
   try {
     const findbar = await openFind("where is the offsite");
-    await TestUtils.waitForCondition(() => !askButton(findbar).hidden, "Nothing found: Ask is offered");
+    await TestUtils.waitForCondition(() => askOffered(findbar), "Nothing found: Ask is offered");
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
     await new Promise(r => setTimeout(r, 300));
     is(asked, 0, "Return in a private tab doesn't ask the cloud");

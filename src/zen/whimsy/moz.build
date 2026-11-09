@@ -265,6 +265,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAICommands.sys.mjs",
 ]
 
+# W23 page-read
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyFindCard.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

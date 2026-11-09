@@ -1019,3 +1019,11 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 # W23 commands: the store, Link commands, Settings › AI › Commands, and screenshots
 ["browser_whimsy_ai_commands.js"]
 ["browser_whimsy_screens_w23_commands.js"]
+
+# W23 page-read
+["browser_whimsy_ai_summary.js"]
+support-files = ["whimsy_ai_page.html", "whimsy_ai_long.html", "whimsy_ai_lease.pdf", "whimsy_ai_scanned.pdf"]
+["browser_whimsy_find_card.js"]
+support-files = ["whimsy_ai_page.html"]
+["browser_whimsy_screens_w23_page-read.js"]
+support-files = ["whimsy_ai_page.html", "whimsy_ai_long.html", "whimsy_ai_links.html", "whimsy_ai_lease.pdf", "whimsy_ai_scanned.pdf"]

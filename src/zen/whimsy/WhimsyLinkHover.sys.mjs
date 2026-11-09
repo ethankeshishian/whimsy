@@ -324,8 +324,30 @@ class LinkHover {
       this.overPanel = false;
       this.leave();
     });
+    // A native popup owns wheel input over its rect; forward it to the page (B3).
+    panel.addEventListener("wheel", event => this.#forwardWheel(event), { passive: true });
     doc.getElementById("mainPopupSet").append(panel);
     return panel;
+  }
+
+  #forwardWheel(event) {
+    const target = this.target;
+    if (!target?.shown) {
+      return;
+    }
+    try {
+      const actor = target.browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyAIPreview");
+      actor?.sendAsyncMessage("WhimsyAIPreview:Scroll", {
+        screenX: event.screenX,
+        screenY: event.screenY,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        deltaZ: event.deltaZ,
+        deltaMode: event.deltaMode,
+      });
+    } catch {
+      // The tab's process may already be gone.
+    }
   }
 
   #card(kind) {

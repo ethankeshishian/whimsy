@@ -1779,7 +1779,7 @@ whimsy-ai-feature-ask-on-page =
     .description = When Find on Page (⌘F) finds nothing, ask a question about the page instead.
 whimsy-ai-feature-link-previews =
     .label = 5-second previews
-    .description = Hold Shift on a link to see a summary of the page behind it. On search results, X, Threads and Hacker News, just rest on a link. Pages are read with your own sign-ins, never in private windows.
+    .description = Whenever a link card opens, a three-point summary of the page opens with it. Resting on a link reads public pages only, without your sign-ins; Shift reads any page with them. Never in private tabs.
 whimsy-ask-button =
     .label = Ask
     .tooltiptext = Ask about this page
@@ -6243,3 +6243,38 @@ whimsy-action-edit-commands = Edit commands…
 whimsy-chat-action-save-command =
     .title = Save as a command
     .aria-label = Save as a command
+## W23 page-read: page summaries in chat (⌘K Summarize), long pages, and
+## passages that changed. $words, $total, $read, and $skipped are counts.
+whimsy-summary-command = Summarize This Page
+whimsy-summary-ask = Sum up this page
+whimsy-summary-read-all = Read the whole page · { $words } words
+whimsy-summary-long = This page is too long to read in full at once. I skimmed all { $total } sections, then read the { $read } that answer it in full and skipped { $skipped }.
+whimsy-summary-long-done = I’ve read the rest of this page, all { $total } sections.
+whimsy-summary-read-rest = Read the rest
+whimsy-summary-passage-gone = That passage isn’t on the page anymore. It may have changed since I read it.
+whimsy-summary-again = Sum up again
+# A passage chip in a PDF names its page.
+whimsy-summary-cite-page = p. { $page }
+whimsy-summary-ocr = This PDF is scanned, so I read it with text recognition on this Mac. Small print may be off.
+# Find as a floating card at the top right (fu-page 1.7), with Ask.
+whimsy-find-options-command = Find Options
+whimsy-look-find-card =
+    .label = Find as a floating card at the top right of the page
+whimsy-setting-find-card = Floating Find
+    .keywords = find bar, find in page, search page, cmd f, find card
+whimsy-find-more =
+    .tooltiptext = More find options
+    .aria-label = More find options
+whimsy-find-menu =
+    .aria-label = Find options
+whimsy-find-highlight-all = Highlight All
+whimsy-find-match-case = Match Case
+whimsy-find-match-diacritics = Match Diacritics
+whimsy-find-whole-words = Whole Words
+whimsy-find-links-only = Find in Links Only
+whimsy-ask-close =
+    .title = Close
+    .aria-label = Close
+# $provider is the AI that answered, like Claude.
+whimsy-ask-using = Using { $provider }
+whimsy-ask-continue = Continue in chat
