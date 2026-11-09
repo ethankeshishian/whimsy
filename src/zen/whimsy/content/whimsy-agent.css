@@ -170,6 +170,12 @@
   }
 }
 
+/* Waiting on you (a pause or a collision): the tab's ring turns amber with
+   the page's glow (fu-agent 4.1). */
+.tabbrowser-tab[whimsy-agent-working="wait"] {
+  --whimsy-claude-accent: var(--whimsy-agent-wait);
+}
+
 /* Tabs opened for you keep a small mark until you use them (agent-3.5). */
 .tabbrowser-tab[whimsy-agent-opened] .tab-icon-stack::after {
   content: "";
@@ -324,7 +330,8 @@
   margin-inline: 2px 0;
   opacity: 0.6;
   background: currentColor;
-  mask: url("chrome://browser/skin/zen-icons/chevron.svg") center / contain no-repeat;
+  /* One chevron: down when open, turned to point right when folded. */
+  mask: url("chrome://global/skin/icons/arrow-down-12.svg") center / contain no-repeat;
   transition: rotate 150ms var(--whimsy-ease);
 }
 

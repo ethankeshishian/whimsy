@@ -6764,3 +6764,6 @@ whimsy-agent-tabs-moved = { $count ->
    *[other] Moved { $count } tabs to { $space }
 }
 whimsy-agent-tabs-undo = Undo
+# The chat card when your click or key press in an agent's tab paused it. $site is the page's site, like casaamora.pt.
+whimsy-agent-tabs-collision-title = Paused so you can use { $site }
+whimsy-agent-chat-hand-over-collision = Carry on when you’re done, or keep this tab and I’ll leave it out.

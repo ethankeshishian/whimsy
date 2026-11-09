@@ -610,7 +610,13 @@ export const WhimsyTaskFolder = {
       host,
       tabId: lazy.WhimsyClaude.tabId(tab),
       tabRef: new WeakRef(tab),
-      preview: { title: tab.label, host },
+      preview: {
+        title: tab.label,
+        host,
+        // "Paused so you can use casaamora.pt", then why and the two ways on (fu-agent 4.1).
+        titleL10n: { id: "whimsy-agent-tabs-collision-title", args: { site: host.replace(/^www\./, "") || tab.label } },
+        reason: "collision",
+      },
     });
     if (!pause || !task.threadId) {
       return pause;
