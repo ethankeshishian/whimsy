@@ -614,6 +614,8 @@ add_task(async function test_browsing_items_clear_only_their_own_for_the_range()
     downloads: { downloads: { new: false, old: true } },
     closed: { closed: false },
   };
+  // Whimsy turns form history off by default; the test seeds some.
+  await SpecialPowers.pushPrefEnv({ set: [["browser.formfill.enable", true]] });
   const originalTabs = WhimsyFireButton.tabsOfSpaces;
   WhimsyFireButton.tabsOfSpaces = () => [];
   try {
@@ -639,6 +641,7 @@ add_task(async function test_browsing_items_clear_only_their_own_for_the_range()
       await downloads.remove(d);
     }
     SiteDataTestUtils.clear();
+    await SpecialPowers.popPrefEnv();
   }
 });
 
