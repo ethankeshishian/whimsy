@@ -1050,10 +1050,25 @@ export const WhimsyChatAgent = {
       // A card that asks you something keeps its choices in view.
       const target = added.matches("[data-focus]") ? added.querySelector(".whimsy-agent-actions") ?? added : added;
       const behavior = reducedMotion(panel.win) ? "instant" : "smooth";
-      target.scrollIntoView({ block: "nearest", behavior });
+      // Scroll the thread only: scrollIntoView would also scroll the card's
+      // own clipped unfold wrapper, leaving its top cut off for good.
+      const reveal = () => {
+        if (!target.isConnected) {
+          return;
+        }
+        const box = body.getBoundingClientRect();
+        const rect = target.getBoundingClientRect();
+        const below = rect.bottom - box.bottom + 8;
+        const above = rect.top - box.top - 8;
+        const delta = below > 0 ? Math.min(below, above) : 0;
+        if (delta > 0) {
+          body.scrollBy({ top: delta, behavior });
+        }
+      };
+      reveal();
       // The card grows as it unfolds; once it's full height, its choices go
       // back in view.
-      unfolding?.finished.then(() => target.isConnected && target.scrollIntoView({ block: "nearest", behavior }), () => {});
+      unfolding?.finished.then(reveal, () => {});
       if (added.matches(".whimsy-agent-card[data-focus]") && panel.isOpen) {
         (added.querySelector("[data-autofocus]") ?? added).focus({ preventScroll: true });
       }

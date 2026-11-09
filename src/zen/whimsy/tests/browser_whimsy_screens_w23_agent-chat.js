@@ -186,10 +186,6 @@ async function pauseShot(name, kind, preview, extra = {}) {
     const card = await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-pause'][data-focus]"), "Paused");
     // Once it has unfolded to full height, not while it grows.
     await whimsySettled();
-    const b = part(".whimsy-chat-body");
-    const dbg = () => `DEBUG-PAUSE actions ${card.querySelector(".whimsy-agent-actions")?.getBoundingClientRect().bottom} body ${b.getBoundingClientRect().bottom} run ${part(".whimsy-agent-run")?.getBoundingClientRect().top} st ${b.scrollTop} sh ${b.scrollHeight} ch ${b.clientHeight} conn ${card.isConnected} same ${card == part(".whimsy-agent-card[data-card='agent-pause'][data-focus]")}`;
-    info(dbg());
-    setTimeout(() => info(dbg()), 2000);
     await TestUtils.waitForCondition(() => card.querySelector(".whimsy-agent-actions").getBoundingClientRect().bottom <=
       Math.min(part(".whimsy-chat-body").getBoundingClientRect().bottom, part(".whimsy-agent-run")?.getBoundingClientRect().top ?? Infinity) + 1, "Its choices are in view");
   });
@@ -271,16 +267,7 @@ add_task(async function shot_end() {
     // Click Start once the plan has unfolded, not while it moves.
     await whimsySettled();
     EventUtils.synthesizeMouseAtCenter(part("[data-choice='start']"), {});
-    try {
-      await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done");
-    } catch (e) {
-      // DEBUG: what the chat shows instead.
-      info(`DEBUG-END body: ${part(".whimsy-chat-body")?.textContent.replace(/\s+/g, " ").slice(-700)}`);
-      info(`DEBUG-END foot: ${el().querySelector(".whimsy-agent-run")?.textContent.replace(/\s+/g, " ")}`);
-      info(`DEBUG-END start: ${!!part("[data-choice='start']")} actions left ${actions.length}`);
-      await whimsyShot(`${P}debug-end`);
-      throw e;
-    }
+    await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done");
   };
   await whimsyBothSchemes(`${P}fu-agent-7.1-end`, async () => {
     await finishOnce();
