@@ -1118,3 +1118,5 @@ support-files = ["whimsy_ai_reply.html", "whimsy_ai_form.html", "whimsy_ai_payme
 # W23 secfix: the security review's fixes (REVIEW-W23-SECURITY.md).
 ["browser_whimsy_secfix_tools.js"]
 support-files = ["whimsy_secfix_inject.html"]
+["browser_whimsy_secfix_agent.js"]
+support-files = ["whimsy_secfix_inject.html"]

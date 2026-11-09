@@ -995,7 +995,53 @@ export const WhimsyClaude = {
   },
 
   inScope(tab, task = null) {
-    return !this.offLimits(tab, task);
+    return !this.offLimits(tab, task) && !this.notTasks(tab, task);
+  },
+
+  /**
+   * H2: Whimsy's own tasks use only their tabs: the ones they opened, the
+   * tab a Drive task started in, and tabs the person attached. Everything
+   * else is the person's. (Outside apps keep their own-space rule.)
+   */
+  notTasks(tab, task) {
+    if (!task || task.client != "whimsy" || task.tabs?.has(tab) || task.attached?.has(tab)) {
+      return false;
+    }
+    // A space the person named in their message ("in my Taxes space") is theirs to lend.
+    return !task.namedSpaceIds?.includes(tab.getAttribute?.("zen-workspace-id"));
+  },
+
+  // H2: going to a site the task hasn't been on (and the person didn't
+  // name) pauses with "Go to <site>?". Every site the task reaches counts
+  // as visited afterwards.
+  async guardNavigation(uri, ctx) {
+    const { task } = ctx;
+    task.sites ??= new Set();
+    const verdict = lazy.WhimsyAgentGuard.navigation(uri, task.sites);
+    if (!verdict) {
+      return;
+    }
+    let pause = task.pause?.sig == ctx.sig ? task.pause : null;
+    if (!pause) {
+      if (task.pause) {
+        lazy.WhimsyAgentTasks.clearPause(task);
+      }
+      pause = lazy.WhimsyAgentTasks.pause(task.id, { ...verdict, sig: ctx.sig, url: this.pageURL(uri) });
+    }
+    const choice = pause.choice ?? (await this.decision(ctx, pause));
+    lazy.WhimsyAgentTasks.clearPause(task, pause);
+    if (choice == "do") {
+      task.sites.add(verdict.host);
+      return;
+    }
+    throw new StepResult(`The person chose not to go to ${verdict.host}. Skip this step, carry on, and tell them what's left.`);
+  },
+
+  noteSite(task, tab) {
+    const uri = tab?.linkedBrowser?.currentURI;
+    if (task && uri && this.isWebURI(uri)) {
+      (task.sites ??= new Set()).add(lazy.WhimsyAgentGuard.siteOf(uri));
+    }
   },
 
   // The tab a call names, checked now. A named locked space that's covered
@@ -1018,6 +1064,9 @@ export const WhimsyClaude = {
     }
     if (reason) {
       throw new ToolError(`No tab ${tabId} that you may use. Call tabs_list.`);
+    }
+    if (this.notTasks(tab, task)) {
+      throw new ToolError(`Tab ${tabId} is the person's, not this task's: you may not read or use it. Open your own with tabs_create.`);
     }
     return tab;
   },
@@ -1265,6 +1314,7 @@ export const WhimsyClaude = {
     if (!ctx.task.tabs.has(tab)) {
       lazy.WhimsyAgentTasks.addTab(ctx.task, tab);
     }
+    this.noteSite(ctx.task, tab);
     this.markActive(tab, ctx.task);
     // The Drive look: the pointer glides to the control, which gets an
     // outline, before anything is pressed.
@@ -1513,6 +1563,10 @@ export const WhimsyClaude = {
 
     async tabs_create({ url }, ctx) {
       const uri = url ? this.parseWebURL(url) : null;
+      if (uri) {
+        await this.guardNavigation(uri, ctx);
+        this.assertLive(ctx);
+      }
       const tab = await this.openTab(null, ctx.task);
       this.assertLive(ctx);
       this.markActive(tab, ctx.task);
@@ -1522,6 +1576,7 @@ export const WhimsyClaude = {
             triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
           }), uri);
       }
+      this.noteSite(ctx.task, tab);
       return (await this.guardTabs([tab], ctx))[0];
     },
 
@@ -1537,6 +1592,12 @@ export const WhimsyClaude = {
     async navigate(args, ctx) {
       const where = String(args.url || "");
       const uri = ["back", "forward", "reload"].includes(where) ? null : this.parseWebURL(where);
+      if (uri) {
+        // The tab first (whose it is), then the address (where it goes).
+        await this.scopedTab(args.tabId, ctx);
+        await this.guardNavigation(uri, ctx);
+        this.assertLive(ctx);
+      }
       return this.withTab(args, "navigate", ctx, async tab => {
         const browser = tab.linkedBrowser;
         await this.loadWithRetries(tab, ctx, () => {
@@ -1552,6 +1613,7 @@ export const WhimsyClaude = {
             });
           }
         }, uri);
+        this.noteSite(ctx.task, tab);
         this.assertLive(ctx);
         return (await this.guardTabs([tab], ctx))[0];
       });

@@ -7504,3 +7504,17 @@ whimsy-tool-confirm-allow = Allow once
 whimsy-tool-confirm-deny = Don’t allow
 whimsy-tool-confirm-allowed = Allowed { $tool } on { $server }
 whimsy-tool-confirm-denied = Didn’t allow { $tool } on { $server }
+
+## W23 secfix: the agent's pause before going to a site the task hasn't
+## been on. $host (String) - the site, like "example.com"; $count (Number) -
+## how many characters of data the address carries.
+
+whimsy-agent-pause-navigate = Go to { $host }?
+whimsy-agent-field-address = Address
+whimsy-agent-field-carries = Carries
+whimsy-agent-carries-data =
+    { $count ->
+        [one] 1 character of data in the address
+       *[other] { $count } characters of data in the address
+    }
+whimsy-agent-chat-verb-go = Go there
