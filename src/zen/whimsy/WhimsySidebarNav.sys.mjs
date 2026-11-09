@@ -20,6 +20,13 @@ const focusedTabs = new WeakMap();
 
 const FEATURE_PREF = "whimsy.feature.sidebar-nav";
 
+// The sidebar-focus keys belong to a tab with keyboard focus, never to a
+// field in the tab strip (the New Space form's name, a folder being
+// renamed): there Space, Delete and the arrows edit text.
+function onTab(win, el) {
+  return el?.localName == "tab" && win.gBrowser.tabContainer.contains(el);
+}
+
 function visibleTabs(win) {
   return win.gBrowser.visibleTabs.filter(t => !t.collapsed && !t.hidden);
 }
@@ -84,8 +91,7 @@ export const WhimsySidebarNav = {
         return;
       }
       const tab = focusedTabs.get(win);
-      const focus = win.document.activeElement;
-      if (!tab || !win.gBrowser.tabContainer.contains(focus)) {
+      if (!tab || !onTab(win, win.document.activeElement)) {
         return;
       }
       const tabs = visibleTabs(win);
@@ -120,7 +126,7 @@ export const WhimsySidebarNav = {
     }, true);
 
     win.gBrowser.tabContainer.addEventListener("focusout", event => {
-      if (focusedTabs.has(win) && !win.gBrowser.tabContainer.contains(event.relatedTarget)) {
+      if (focusedTabs.has(win) && !onTab(win, event.relatedTarget)) {
         this.clearFocus(win);
       }
     });
@@ -128,7 +134,7 @@ export const WhimsySidebarNav = {
     win.gBrowser.tabContainer.addEventListener(
       "keypress",
       event => {
-        if (event.key != " " || !this.enabled) {
+        if (event.key != " " || !this.enabled || !onTab(win, event.target)) {
           return;
         }
         const tab = focusedTabs.get(win);
