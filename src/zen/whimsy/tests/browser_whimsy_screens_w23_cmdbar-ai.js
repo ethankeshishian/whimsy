@@ -6,6 +6,10 @@
 // W23 cmdbar-ai screenshots, light and dark: w23-cmdbar-ai-<state>-<scheme>.
 // Compare with docs/superpowers/mockups/ai/02-command-bar.html#<state>.
 
+// Some 25-35 shots, most in both schemes: 31-37s on its own, past 45s in the full
+// run, like the other W23 screens files.
+requestLongerTimeout(3);
+
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_cmdbar_ai.js", this);
 
 const { WhimsyVPN } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPN.sys.mjs");
