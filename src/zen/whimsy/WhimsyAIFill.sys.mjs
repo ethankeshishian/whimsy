@@ -337,7 +337,7 @@ export const WhimsyAIFill = {
    * @returns {Promise<{filled: string[], unsure: {field, reason}[], left: string[], empty: boolean, skipped: string[]}>}
    */
   async fillForm(win, tab, { instruction = "", signal } = {}) {
-    const out = { filled: [], unsure: [], left: [], skipped: [], empty: true, fields: 0 };
+    const out = { filled: [], unsure: [], left: [], skipped: [], empty: true, fields: 0, memories: 0 };
     if (!this.usable(tab)) {
       return out;
     }
@@ -395,6 +395,7 @@ export const WhimsyAIFill = {
         look: fromMessage ? "filled" : "unsure",
         tag: ftl(fromMessage ? "whimsy-fill-tag-message" : "whimsy-fill-tag-memory"),
         label: field.label,
+        memory: !fromMessage,
       });
     }
     for (const plan of plans) {
@@ -403,13 +404,14 @@ export const WhimsyAIFill = {
         continue;
       }
       const result = await plan.frame.actor
-        .sendQuery("WhimsyAIFill:Fill", { items: plan.items.map(({ label: _l, ...rest }) => rest), left: plan.left, skip: plan.skip })
+        .sendQuery("WhimsyAIFill:Fill", { items: plan.items.map(({ label: _l, memory: _m, ...rest }) => rest), left: plan.left, skip: plan.skip })
         .catch(() => ({ filled: [], skipped: plan.items.map(i => i.index) }));
       for (const item of plan.items) {
         if (!result.filled.includes(item.index)) {
           out.skipped.push(item.label);
         } else if (item.look == "unsure") {
           out.unsure.push({ field: item.label, reason: item.tag });
+          out.memories += item.memory ? 1 : 0;
         } else {
           out.filled.push(item.label);
         }
@@ -457,7 +459,7 @@ export const WhimsyAIFill = {
       await UI.patch(panel, thread.id, status.id, {
         status: null,
         lines: ["whimsy-draft-has-text"],
-        notice: { l10n: "whimsy-draft-your-text", quote: `“${result.existing}…”`, icon: "sparkle" },
+        notice: { l10n: "whimsy-draft-your-text", quote: `“${result.existing}…”`, icon: "sparkle", holdsButtons: true },
         draft: result.draft,
         tabKey: lazy.WhimsyAIContext.tabKey(tab),
         buttons: [
@@ -508,7 +510,12 @@ export const WhimsyAIFill = {
       lines.push("whimsy-fill-done-left");
     }
     lines.push("whimsy-fill-done-never");
-    await UI.patch(panel, thread.id, status.id, { status: null, lines });
+    await UI.patch(panel, thread.id, status.id, {
+      status: null,
+      lines,
+      flow: true,
+      meta: result.memories ? ["whimsy-chat-action-used-memories", { count: result.memories }] : null,
+    });
     return true;
   },
 

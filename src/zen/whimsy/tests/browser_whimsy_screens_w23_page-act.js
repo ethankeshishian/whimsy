@@ -186,7 +186,9 @@ add_task(async function translate_and_edit_shots() {
 
     // The prompt bar goes so the busy bar rises fresh; the model waits
     // at the gate while the rise is held at 120ms.
+    const old = WhimsyPageBar.current(window).el;
     WhimsyPageBar.hide(window);
+    await TestUtils.waitForCondition(() => !old.isConnected, "The prompt bar left");
     let go;
     gate = new Promise(r => (go = r));
     const apply = WhimsyAIPageEdits.apply(window, gBrowser.selectedTab, "hide the sidebar and make the text bigger");
@@ -225,6 +227,7 @@ add_task(async function scam_shots() {
       const notification = await TestUtils.waitForCondition(() => gBrowser.getNotificationBox(browser).getNotificationWithValue("whimsy-scam-warning"), "The warning shows");
       await document.l10n.translateFragment(notification);
       ok(notification, `${state}: the scam warning`);
+      ok(notification.messageImage?.getAttribute("src")?.endsWith("tracking-protection.svg"), `${state}: a shield, not the warning triangle`);
       await whimsyBothSchemes(NAME(state), async () => {});
     });
   }

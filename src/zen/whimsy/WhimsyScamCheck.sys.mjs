@@ -28,6 +28,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const FEATURE_PREF = "whimsy.feature.ai-scam-warning";
 const TRUST_PREF = "whimsy.ai.scam.trusted";
 const VALUE = "whimsy-scam-warning";
+const SHIELD_ICON = "chrome://browser/skin/zen-icons/tracking-protection.svg";
 const ICON = "chrome://browser/content/whimsy/icons/scam.svg";
 const WEIGHTS = { "account-elsewhere": 2, threat: 2, "card-new-site": 2, rush: 1, "from-email": 1, "new-site": 1 };
 const STRONG = new Set(["account-elsewhere", "threat"]);
@@ -162,6 +163,9 @@ export const WhimsyScamCheck = {
     }
     body.append(title, " ", sub, list);
     notification.append(body);
+    // A shield, not the generic warning triangle (05-page 8.3).
+    await notification.updateComplete;
+    notification.messageImage?.setAttribute("src", SHIELD_ICON);
     // Esc does nothing here: the warning stays until a choice is made.
     notification.addEventListener("keydown", event => event.key == "Escape" && event.preventDefault(), true);
     return notification;

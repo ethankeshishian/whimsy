@@ -38,6 +38,8 @@ ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whim
 const FEATURE_PREF = "whimsy.feature.ai-compare";
 const PILL_ID = "whimsy-compare-action";
 const ICON = "chrome://browser/content/whimsy/icons/compare.svg";
+// The pill is an AI action beside Watch price: sparkle, as in 05-page 9.1.
+const PILL_ICON = "chrome://browser/skin/zen-icons/sparkles.svg";
 const MAX_STORES = 5;
 const ASK = /^(?:please\s+)?compare(?:\s+(?:the\s+)?prices?)?\b/i;
 // Link parameters that only pay someone or track the click.
@@ -155,6 +157,7 @@ export const WhimsyAICompare = {
       return null;
     }
     if (!pill) {
+      lazy.WhimsyAIPageActUI.loadSheet(win);
       pill = doc.createXULElement("hbox");
       pill.id = PILL_ID;
       pill.className = "whimsy-page-action whimsy-compare-action";
@@ -163,7 +166,7 @@ export const WhimsyAICompare = {
       pill.setAttribute("tabindex", "0");
       const icon = doc.createXULElement("image");
       icon.className = "whimsy-page-action-icon";
-      icon.setAttribute("src", ICON);
+      icon.setAttribute("src", PILL_ICON);
       const label = doc.createXULElement("label");
       label.className = "whimsy-page-action-label";
       doc.l10n.setAttributes(label, "whimsy-compare-pill");
@@ -405,7 +408,7 @@ export const WhimsyAICompare = {
       lines,
       steps: [],
       table: best || signIns.length ? table : null,
-      notice: signIns.length ? { l10n: ["whimsy-compare-sign-in-notice", { store: signIns[0].store }], icon: "lock" } : null,
+      notice: signIns.length ? { l10n: ["whimsy-compare-sign-in-notice", { store: signIns[0].store }], icon: "lock", holdsButtons: true } : null,
       buttons: signIns.slice(0, 2).map(r => ({ id: `open:${r.url}`, l10n: ["whimsy-compare-open-store", { store: r.store }] })),
       meta: ["whimsy-compare-meta", { count: stores.length + 1, missing: notFound.join(", "), hasMissing: notFound.length ? "yes" : "no" }],
     });

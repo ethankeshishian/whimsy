@@ -29,6 +29,8 @@ ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whim
 
 const FEATURE_PREF = "whimsy.feature.ai-tab-requests";
 const ICON = "chrome://browser/skin/zen-icons/tab.svg";
+// The typed ⌘K row is the AI's reading of a sentence: sparkle (05-page 10.2).
+const ROW_ICON = "chrome://browser/skin/zen-icons/sparkles.svg";
 const ACTIONS = ["close", "group", "pin", "unpin", "mute", "unmute"];
 const ASKS = /^(?:please\s+|can you\s+|could you\s+)*(?:close|group|put|move|pin|unpin|mute|unmute|gather|collect|organi[sz]e|sort)\b[^?]*\btabs?\b/i;
 const TYPED = /^(close|pin|unpin|mute|unmute)\s+(?:all\s+)?(?:the\s+|my\s+)?(.{2,40}?)\s+tabs?$/i;
@@ -131,7 +133,7 @@ export const WhimsyAITabRequests = {
     return [
       {
         id: `typed:tabs-${action}`,
-        icon: ICON,
+        icon: ROW_ICON,
         label: lazy.l10n.formatValueSync(`whimsy-tabs-row-${action}`, { count: tabs.length, what: match[2].trim() }),
         tag: this.spaceName(win, tabs[0]),
         run: w => this.apply(w, { action, tabs }),
@@ -288,7 +290,7 @@ export const WhimsyAITabRequests = {
         owner: "tabs",
         kind: "tabs-ask",
         lines: ["whimsy-tabs-which"],
-        notice: { quote: plan.ask.map(o => `${o.label}: ${o.tabs.map(t => t.label).join(", ")}`).join(". "), icon: "tab" },
+        notice: { quote: plan.ask.map(o => `${o.label}: ${o.tabs.map(t => t.label).join(", ")}`).join(". "), icon: "tab", holdsButtons: true },
         buttons: [
           ...plan.ask.map((o, i) => ({ id: `option:${i}`, l10n: ["whimsy-tabs-choice", { label: o.label }], primary: i == 0 })),
           ...(plan.ask.length > 1 ? [{ id: "both", l10n: plan.ask.length == 2 ? "whimsy-tabs-choice-both" : "whimsy-tabs-choice-all" }] : []),

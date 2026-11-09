@@ -30,6 +30,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
+  WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   WhimsyZap: "resource:///modules/whimsy/WhimsyZap.sys.mjs",
 });
 
@@ -480,7 +481,9 @@ export const WhimsyAIPageEdits = {
     }
     const { domain, sentence, plan } = live;
     const store = readStore();
+    const before = store[domain] ? JSON.parse(JSON.stringify(store[domain])) : null;
     const site = (store[domain] ??= { boosts: [], zaps: {} });
+    const newZaps = live.kind == "zap" ? plan.hide.filter(selector => !(selector in site.zaps)) : [];
     if (live.kind == "zap") {
       lazy.WhimsyZap.ensureBoost(domain);
       for (const selector of plan.hide) {
@@ -504,12 +507,31 @@ export const WhimsyAIPageEdits = {
     live.kept = true;
     this._live.delete(win);
     WhimsyPageBar.hide(win, "edits");
-    win.gZenUIManager?.toasts?.open("whimsy-edit-saved-toast", {
-      l10nArgs: { host: domain },
-      descriptionId: live.kind == "zap" ? "whimsy-edit-saved-zap" : "whimsy-edit-saved-boost",
-      descriptionArgs: { name: sentence },
-    });
+    const detail = lazy.l10n.formatValueSync(live.kind == "zap" ? "whimsy-edit-saved-zap" : "whimsy-edit-saved-boost", { name: sentence });
+    lazy.WhimsyUndo.showToast(win, "whimsy-edit-saved-toast", { type: "page-edit-keep", undo: () => this.unkeep(live, before, newZaps) }, { host: domain }, { detail });
     return true;
+  },
+
+  // The saved toast's Undo: the site's saved changes go back to what they
+  // were, and the page loses this change.
+  unkeep(live, before, newZaps) {
+    const { domain, browser } = live;
+    const store = readStore();
+    if (before) {
+      store[domain] = before;
+    } else {
+      delete store[domain];
+    }
+    writeStore(store);
+    for (const selector of newZaps) {
+      lazy.gZenBoostsManager.removeZapSelectorToActive(selector, domain);
+    }
+    if (live.kind == "boost") {
+      this.writeBoostCSS(domain);
+    }
+    if (browser?.isConnected) {
+      this.actorFor(browser)?.sendQuery("WhimsyAIPageEdits:Revert").catch(() => {});
+    }
   },
 
   // The site's Boost CSS: everything outside Whimsy's block stays as is.

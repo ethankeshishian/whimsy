@@ -6946,11 +6946,19 @@ whimsy-translate-better-detail = Keeps tone and idioms. Slower, and the page goe
 whimsy-translate-with =
     .label = Translate with { $provider }
 whimsy-translate-busy = Translating with { $provider }…
-whimsy-translate-progress = { $done } of { $total } sections · { $from } to { $to }
+whimsy-translate-progress =
+    { $total ->
+        [one] { $done } of 1 section · { $from } to { $to }
+       *[other] { $done } of { $total } sections · { $from } to { $to }
+    }
 whimsy-translate-handoff = { $from } is out, so { $to } took over.
 whimsy-translate-stop = Stop
 whimsy-translate-by = Translated by { $provider }
-whimsy-translate-stopped = Stopped after { $done } of { $total } sections
+whimsy-translate-stopped =
+    { $total ->
+        [one] Stopped after { $done } of 1 section
+       *[other] Stopped after { $done } of { $total } sections
+    }
 whimsy-translate-from = From { $language }. { $provider } read this page to translate it.
 whimsy-translate-firefox = Firefox’s translation finished the page
 whimsy-translate-firefox-why = No AI provider could go on, so the rest was translated on this Mac.

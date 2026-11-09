@@ -43,8 +43,8 @@ function h(doc, tag, attrs = {}, ...children) {
   return el;
 }
 
-function text(doc, value, cls) {
-  const el = h(doc, "div", { class: cls });
+function text(doc, value, cls, tag = "div") {
+  const el = h(doc, tag, { class: cls });
   el.textContent = String(value ?? "");
   return el;
 }
@@ -146,10 +146,22 @@ export const WhimsyAIPageActUI = {
     if (msg.status) {
       node.append(h(doc, "div", { class: "whimsy-pa-status", role: "status" }, h(doc, "span", { class: "whimsy-pa-spinner", "aria-hidden": "true" }), h(doc, "span", { l10n: msg.status })));
     }
-    for (const entry of msg.lines ?? []) {
-      node.append(line(doc, entry));
+    if (msg.flow && msg.lines?.length) {
+      // Sentences that read as one reply share a paragraph.
+      const p = h(doc, "p", { class: "whimsy-pa-line" });
+      for (const [i, entry] of msg.lines.entries()) {
+        const [id, args] = Array.isArray(entry) ? entry : [entry];
+        p.append(i ? " " : "", h(doc, "span", { l10n: [id, args] }));
+      }
+      node.append(p);
+    } else {
+      for (const entry of msg.lines ?? []) {
+        node.append(line(doc, entry));
+      }
     }
-    if (msg.draft) {
+    // A draft that waits on a choice (the box already has your text) is
+    // kept for the buttons, not shown: the notice quotes your text.
+    if (msg.draft && !msg.notice?.holdsButtons) {
       node.append(text(doc, msg.draft, "whimsy-pa-draft"));
     }
     if (msg.steps?.length) {
@@ -158,16 +170,19 @@ export const WhimsyAIPageActUI = {
     if (msg.table) {
       node.append(table(doc, msg.table));
     }
+    let body = null;
     if (msg.notice) {
       const notice = h(doc, "div", { class: "whimsy-pa-notice", "data-icon": msg.notice.icon ?? "sparkle" });
       notice.append(h(doc, "span", { class: "whimsy-pa-notice-icon", "aria-hidden": "true" }));
-      const body = h(doc, "div", { class: "whimsy-pa-notice-body" });
+      body = h(doc, "div", { class: "whimsy-pa-notice-body" });
+      const words = h(doc, "p", {});
       if (msg.notice.l10n) {
-        body.append(h(doc, "p", { l10n: msg.notice.l10n }));
+        words.append(h(doc, "span", { l10n: msg.notice.l10n }));
       }
       if (msg.notice.quote) {
-        body.append(text(doc, msg.notice.quote, "whimsy-pa-quote"));
+        words.append(msg.notice.l10n ? " " : "", text(doc, msg.notice.quote, "whimsy-pa-quote", "span"));
       }
+      body.append(words);
       notice.append(body);
       node.append(notice);
     }
@@ -186,7 +201,7 @@ export const WhimsyAIPageActUI = {
         });
         row.append(button);
       }
-      node.append(row);
+      (msg.notice?.holdsButtons ? body : node).append(row);
     }
     if (msg.meta) {
       node.append(h(doc, "p", { class: "whimsy-pa-meta", l10n: msg.meta }));

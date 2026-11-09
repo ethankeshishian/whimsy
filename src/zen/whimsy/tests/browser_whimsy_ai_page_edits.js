@@ -72,6 +72,13 @@ add_task(async function hide_saves_named_zap() {
     ok(WhimsyZap.getZapSelectors(DOMAIN).includes("#sidebar"), "Saved as a zapped element");
     is(WhimsyAIPageEdits.zapName(DOMAIN, "#sidebar"), "hide the sidebar", "Named by the sentence");
     is(WhimsyAIPageEdits.edits(DOMAIN).boosts.length, 0, "Not a Boost");
+
+    // The saved toast's Undo takes it back off the site and the page.
+    const undo = await TestUtils.waitForCondition(() => document.getElementById("whimsy-undo-toast-button"), "The saved toast offers Undo");
+    undo.click();
+    await TestUtils.waitForCondition(() => !WhimsyZap.getZapSelectors(DOMAIN).includes("#sidebar"), "Undo unsaves the zap");
+    ok(!WhimsyAIPageEdits.zapName(DOMAIN, "#sidebar"), "And its name");
+    await TestUtils.waitForCondition(async () => (await display(browser, "#sidebar")) != "none", "The sidebar is back");
   });
   cleanBoosts();
   closeToasts();

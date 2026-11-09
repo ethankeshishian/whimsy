@@ -26,11 +26,17 @@ const LOOK_CSS = `
 const TAG_CSS = `
 :host { all: initial; position: absolute; z-index: 2147483646; pointer-events: none; }
 .tag { display: inline-flex; align-items: center; gap: 4px; font: 500 11px/1.3 -apple-system, system-ui, sans-serif; white-space: nowrap; }
-.tag::before { content: ""; width: 11px; height: 11px; background: currentColor; mask: var(--icon) center / contain no-repeat; }
-.tag[data-look="filled"] { color: light-dark(#0062cc, #4da3ff); --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1l1.6 4.4L14 7l-4.4 1.6L8 13l-1.6-4.4L2 7l4.4-1.6z'/%3E%3C/svg%3E"); }
-.tag[data-look="unsure"] { color: light-dark(#8a5a00, rgb(240, 177, 60)); --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1l7 13H1zM7.25 6v4h1.5V6zm0 5v1.5h1.5V11z'/%3E%3C/svg%3E"); }
-.tag[data-look="left"] { color: light-dark(#6e6e73, #98989d); --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 7V5a4 4 0 018 0v2h1v8H3V7zm2 0h4V5a2 2 0 00-4 0z'/%3E%3C/svg%3E"); }
+.tag svg { flex: none; width: 11px; height: 11px; fill: currentColor; }
+.tag[data-look="filled"] { color: light-dark(#0062cc, #4da3ff); }
+.tag[data-look="unsure"] { color: light-dark(#8a5a00, rgb(240, 177, 60)); }
+.tag[data-look="left"] { color: light-dark(#6e6e73, #98989d); }
 `;
+// Sparkle, alert, lock (the mockup's tag icons).
+const TAG_ICONS = {
+  filled: "M8 1l1.6 4.4L14 7l-4.4 1.6L8 13l-1.6-4.4L2 7l4.4-1.6z",
+  unsure: "M8 1a7 7 0 110 14A7 7 0 018 1zM7.25 4v5h1.5V4zm0 6v1.5h1.5V10z",
+  left: "M4 7V5a4 4 0 018 0v2h1v8H3V7zm2 0h4V5a2 2 0 00-4 0z",
+};
 
 function visible(el) {
   const win = el.ownerDocument?.defaultView;
@@ -324,16 +330,38 @@ export class WhimsyAIFillChild extends JSWindowActorChild {
     const span = doc.createElement("span");
     span.className = "tag";
     span.dataset.look = look;
-    span.textContent = text;
+    const SVG = "http://www.w3.org/2000/svg";
+    const icon = doc.createElementNS(SVG, "svg");
+    icon.setAttribute("viewBox", "0 0 16 16");
+    const path = doc.createElementNS(SVG, "path");
+    path.setAttribute("d", TAG_ICONS[look] ?? TAG_ICONS.filled);
+    path.setAttribute("fill-rule", "evenodd");
+    icon.append(path);
+    span.append(icon, doc.createTextNode(text));
     root.append(style, span);
-    const r = el.getBoundingClientRect();
-    const win = this.contentWindow;
     host.style.setProperty("position", "absolute", "important");
-    host.style.setProperty("left", `${r.left + win.scrollX}px`, "important");
-    host.style.setProperty("top", `${r.bottom + win.scrollY + 3}px`, "important");
     host.setAttribute("aria-hidden", "true");
     doc.documentElement.append(host);
     this.tags.push({ field: el, host });
+    this.placeTags();
+  }
+
+  // Tags sit under their fields; the page reflows when the window or
+  // chat panel changes width, so they follow.
+  placeTags() {
+    const win = this.contentWindow;
+    if (!win) {
+      return;
+    }
+    for (const { field, host } of this.tags) {
+      const r = field.getBoundingClientRect();
+      host.style.setProperty("left", `${r.left + win.scrollX}px`, "important");
+      host.style.setProperty("top", `${r.bottom + win.scrollY + 3}px`, "important");
+    }
+    if (!this.placing && this.tags.length) {
+      this.placing = () => this.placeTags();
+      win.addEventListener("resize", this.placing, { mozSystemGroup: true });
+    }
   }
 
   write(el, value) {
@@ -407,6 +435,10 @@ export class WhimsyAIFillChild extends JSWindowActorChild {
       host.remove();
     }
     this.tags = [];
+    if (this.placing) {
+      this.contentWindow?.removeEventListener("resize", this.placing, { mozSystemGroup: true });
+      this.placing = null;
+    }
     return true;
   }
 }

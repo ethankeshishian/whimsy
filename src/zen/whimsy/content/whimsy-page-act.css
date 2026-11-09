@@ -21,6 +21,8 @@
   --whimsy-pa-muted: color-mix(in srgb, currentColor 62%, transparent);
   --whimsy-pa-hairline: color-mix(in srgb, currentColor 13%, transparent);
   --whimsy-pa-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Zen's check.svg strokes with context-fill, which a mask can't use. */
+  --whimsy-pa-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
 }
 
 /* ---- Chat card ---- */
@@ -68,22 +70,34 @@
 }
 .whimsy-pa-notice {
   display: grid;
-  grid-template-columns: 16px 1fr;
+  grid-template-columns: 14px 1fr;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--whimsy-pa-hairline);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
+  font-size: 12.5px;
+  line-height: 1.4;
   & p {
     margin: 0;
+  }
+  & .whimsy-pa-quote {
+    color: inherit;
+  }
+  & .whimsy-pa-buttons {
+    margin-top: 6px;
+  }
+  & .whimsy-pa-btn {
+    min-height: 24px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 }
 .whimsy-pa-notice-icon {
   width: 14px;
   height: 14px;
-  margin-top: 2px;
-  background: currentColor;
+  margin-top: 1px;
+  background: var(--whimsy-pa-muted);
   mask: url("chrome://browser/skin/zen-icons/sparkles.svg") center / contain no-repeat;
-  opacity: 0.8;
 }
 .whimsy-pa-notice[data-icon="lock"] .whimsy-pa-notice-icon,
 .whimsy-pa-notice[data-icon="key"] .whimsy-pa-notice-icon {
@@ -169,7 +183,7 @@
 }
 .whimsy-pa-step[data-state="done"] .whimsy-pa-step-mark {
   background: var(--whimsy-pa-success);
-  mask: url("chrome://browser/skin/zen-icons/check.svg") center / contain no-repeat;
+  mask: var(--whimsy-pa-check) center / contain no-repeat;
   animation: whimsy-pa-pop 350ms var(--whimsy-pa-ease);
 }
 @keyframes whimsy-pa-pop {
@@ -185,7 +199,11 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  /* Chat messages wrap anywhere; table words break only between words. */
+  overflow-wrap: normal;
+  word-break: normal;
   & th {
+    white-space: nowrap;
     text-align: start;
     font-weight: 600;
     color: var(--whimsy-pa-muted);
@@ -242,7 +260,7 @@
   margin-bottom: 14px;
   padding: 8px 8px 8px 14px;
   border-radius: 14px;
-  background: light-dark(rgba(255, 255, 255, 0.92), rgba(40, 40, 42, 0.92));
+  background: light-dark(rgba(255, 255, 255, 0.97), rgba(40, 40, 42, 0.97));
   backdrop-filter: blur(10px);
   box-shadow:
     0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.18)),
@@ -256,11 +274,12 @@
   width: 14px;
   height: 14px;
   background: var(--whimsy-pa-accent);
-  mask: url("chrome://browser/skin/zen-icons/check.svg") center / contain no-repeat;
+  mask: var(--whimsy-pa-check) center / contain no-repeat;
 }
 .whimsy-page-bar[data-icon="alert"] .whimsy-page-bar-icon {
   background: var(--whimsy-pa-warning);
-  mask-image: url("chrome://browser/skin/zen-icons/security-warning.svg");
+  /* A filled circle with "!" (Zen's security-warning is a padlock). */
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 1a7 7 0 110 14A7 7 0 018 1zM7.25 4v5h1.5V4zm0 6v1.5h1.5V10z'/%3E%3C/svg%3E");
 }
 .whimsy-page-bar[data-icon="sparkle"] .whimsy-page-bar-icon {
   mask-image: url("chrome://browser/skin/zen-icons/wand-sparkle.svg");
@@ -290,15 +309,21 @@
   font: inherit;
   outline: none;
 }
-/* Narrow windows (page-12.2): the words wrap to two lines, buttons stay. */
+/* Narrow windows (page-12.2): the icon and words take the first row;
+   buttons share the rows under them, filling each row. */
 @media (max-width: 640px) {
   .whimsy-page-bar {
     white-space: normal;
     flex-wrap: wrap;
+    padding: 10px;
   }
   .whimsy-page-bar-text {
-    flex: 1 1 100%;
+    flex: 1 1 calc(100% - 22px);
     max-width: none;
+    margin-inline-end: 0;
+  }
+  .whimsy-page-bar-btn {
+    flex: 1 1 auto;
   }
   .whimsy-page-bar-input {
     width: 100%;
@@ -358,7 +383,10 @@
 notification-message.whimsy-scam {
   max-width: 30rem;
 }
+/* fu-page dec-13: Zen's floating card, title inline, 12.5px words. */
 .whimsy-scam-body {
+  font-size: 12.5px;
+  line-height: 1.4;
   & b {
     font-weight: 600;
   }
@@ -372,6 +400,31 @@ notification-message.whimsy-scam {
 }
 
 /* ---- Compare, after Watch price ---- */
-.whimsy-compare-action[hidden] {
-  display: none;
+/* The same pill as Watch price (whimsy-navigation.css), so the two read
+   as one row of page actions. */
+#whimsy-compare-action {
+  flex-shrink: 0;
+  gap: 4px;
+  margin-inline: 2px;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: var(--urlbar-icon-border-radius, 8px);
+  background-color: transparent;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background-color 100ms ease-out;
+  &:hover {
+    background-color: var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
+  }
+  &:hover:active {
+    background-color: var(--urlbar-box-active-bgcolor, color-mix(in srgb, currentColor 14%, transparent));
+  }
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: 1px;
+  }
+  &[hidden] {
+    display: none;
+  }
 }
