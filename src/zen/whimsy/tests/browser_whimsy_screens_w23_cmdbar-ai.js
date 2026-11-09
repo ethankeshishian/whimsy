@@ -248,7 +248,11 @@ add_task(async function shots_vpn_strip() {
 add_task(async function shots_first_use_and_way_back() {
   await whimsyBothSchemes(NAME("cmd-5.1"), async () => {
     await freshStore();
-    await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", true], ["whimsy.ai.hints.seen", ""], ["whimsy.ai.hints.today", ""]] });
+    // The dictation hint ("voice", W23 voice-image) offers itself on the
+    // bar's first focus and would take the one slot; seen already, so the
+    // Ask hint is the one that shows.
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", true], ["whimsy.ai.hints.seen", "voice"], ["whimsy.ai.hints.today", ""]] });
+    WhimsyAIHints._settleForTesting();
     WhimsyAIHints._setTimingForTesting({ gapMs: 0, seenMs: 600000, timeoutMs: 600000, pollMs: 50 });
     await typeInBar(Q);
     await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "ask", "The Ask row's hint");
