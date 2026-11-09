@@ -580,6 +580,13 @@ function languageName(tag) {
   }
 }
 
+// S3: a language as people say it, "English" rather than "American
+// English", unless the other side shares its base language (en-GB → en-US).
+function shownLanguage(tag, other = null) {
+  const baseOf = t => String(t ?? "").split("-")[0].toLowerCase();
+  return languageName(other && baseOf(other) == baseOf(tag) ? tag : baseOf(tag) || tag);
+}
+
 const base = tag => String(tag ?? "").split("-")[0].toLowerCase();
 
 // The AI rows each kind of content offers. `text` rows answer in the bar's
@@ -662,7 +669,7 @@ export const WhimsyContextCommands = {
       run: def.run ?? ((win, s) => this.runText(win, s, cmd ?? { name: lazy.l10n.formatValueSync(def.l10nId), prompt: def.prompt, result: "copy" })),
     };
     if (def.translate && subject.foreign) {
-      row.tag = lazy.l10n.formatValueSync("whimsy-cmdk-translate-pair", { from: languageName(subject.foreign.from), to: languageName(subject.foreign.to) });
+      row.tag = lazy.l10n.formatValueSync("whimsy-cmdk-translate-pair", { from: shownLanguage(subject.foreign.from, subject.foreign.to), to: shownLanguage(subject.foreign.to, subject.foreign.from) });
     } else if (subject.editable && subject.kind == "selection") {
       row.tag = lazy.l10n.formatValueSync("whimsy-commands-result-replace");
     }

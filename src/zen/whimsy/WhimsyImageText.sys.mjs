@@ -62,6 +62,13 @@ function languageName(tag) {
   }
 }
 
+// S3: a language as people say it, "English" rather than "American
+// English", unless the other side shares its base language (en-GB → en-US).
+function shownLanguage(tag, other = null) {
+  const baseOf = t => String(t ?? "").split("-")[0].toLowerCase();
+  return languageName(other && baseOf(other) == baseOf(tag) ? tag : baseOf(tag) || tag);
+}
+
 const primary = tag => String(tag ?? "").split("-")[0].toLowerCase();
 
 export class WhimsyImageTextParent extends JSWindowActorParent {
@@ -184,7 +191,7 @@ export const WhimsyImageText = {
       return undefined;
     }
     const to = this.testTargetLanguage ?? Services.locale.appLocaleAsBCP47;
-    return lazy.l10n.formatValueSync("whimsy-image-text-pair", { from: languageName(from), to: languageName(primary(to)) });
+    return lazy.l10n.formatValueSync("whimsy-image-text-pair", { from: shownLanguage(from, to), to: shownLanguage(to, from) });
   },
 
   receive(actor, { name, data }) {
@@ -317,7 +324,7 @@ export const WhimsyImageText = {
       return false;
     }
     const [label, showOriginal, showTranslation] = await lazy.l10n.formatValues([
-      { id: "whimsy-image-text-translated-from", args: { language: languageName(from) } },
+      { id: "whimsy-image-text-translated-from", args: { language: shownLanguage(from) } },
       { id: "whimsy-image-text-show-original" },
       { id: "whimsy-image-text-show-translation" },
     ]);
