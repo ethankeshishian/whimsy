@@ -55,11 +55,19 @@ const RANGES = ["hour", "today", "week", "all"];
 // "Today's browsing items plus that hour's AI chats..." (fire-2.1): the
 // first-time AI items use the same hour as the browsing default, not the
 // browsing range, which is why ranges are stored once and applied to both.
+// fire-2.1: Browsing in the mockup's order (open tabs, history, cookies and
+// sign-ins, cache, form and search history, closed tabs and the Archive,
+// the download list), then the AI's own.
 const DEFAULT_ITEMS = {
-  tabs: true, history: true, aiChats: true, agentActivity: true, index: true,
-  memory: false, routineResults: false, downloads: false,
+  tabs: true, history: true, cookies: true, cache: true, form: true, closed: true, downloads: false,
+  aiChats: true, agentActivity: true, index: true, memory: false, routineResults: false,
 };
 const ITEM_IDS = Object.keys(DEFAULT_ITEMS);
+// The small words after an item: what it keeps, or that it isn't per profile.
+const ITEM_DETAILS = {
+  downloads: "whimsy-fire-item-downloads-detail",
+  form: "whimsy-fire-item-form-detail",
+};
 // "Forget everything…" (Settings › AI, turned off) opens Fire with only
 // these ticked, range All time, this profile (fire dec-16).
 const AI_ITEM_IDS = ["aiChats", "agentActivity", "index", "memory", "routineResults"];
@@ -157,6 +165,12 @@ function saveSettings(settings) {
   Services.prefs.setStringPref(LAST_PREF, JSON.stringify(settings));
 }
 
+// Firefox's Sanitizer takes a range as [from, to] in microseconds; null
+// clears all time.
+function sanitizerRange(since) {
+  return since == null ? null : [since * 1000, Date.now() * 1000];
+}
+
 function anyItemOn(settings) {
   return ITEM_IDS.some(id => settings.items[id]);
 }
@@ -216,8 +230,53 @@ export const WhimsyFireButton = {
     if (settings.allSpaces) {
       return { range, scope: "all", profile: "" };
     }
-    const profile = lazy.WhimsyProfiles.nameOf(this.profileId(win)) || "";
+    const profile = this.scopeName(win, settings);
     return { range, scope: profile ? "named" : "this", profile };
+  },
+
+  // The spaces a burn acts on (fire-2.3): every visible space, the ones
+  // picked under Change (any profile's), or by default the current
+  // profile's.
+  scopeSpaces(win, settings) {
+    if (settings.allSpaces) {
+      return this.visibleSpaces(win);
+    }
+    if (settings.spaceIds?.length) {
+      const picked = this.visibleSpaces(win).filter(space => settings.spaceIds.includes(space.uuid));
+      if (picked.length) {
+        return picked;
+      }
+    }
+    return this.profileSpaces(win, this.profileId(win));
+  },
+
+  // The profiles (containers) the picked spaces use.
+  scopeProfiles(win, settings) {
+    const ids = [...new Set(this.scopeSpaces(win, settings).map(space => lazy.WhimsyProfiles.profileIdOfSpace(space)))];
+    return ids.length ? ids : [this.profileId(win)];
+  },
+
+  // How the scope reads: a whole profile by its name, else the spaces'
+  // names ("Work and Side Projects").
+  scopeName(win, settings) {
+    const spaces = this.scopeSpaces(win, settings);
+    const [id] = this.scopeProfiles(win, settings);
+    if (this.scopeProfiles(win, settings).length == 1 && spaces.length == this.profileSpaces(win, id).length) {
+      return lazy.WhimsyProfiles.nameOf(id) || "";
+    }
+    return new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" })
+      .format(spaces.map(space => space.name || "").filter(Boolean));
+  },
+
+  // Whether a picked space shares its profile with one left out: cookies
+  // and site data are per profile, so those spaces lose theirs too.
+  scopeIsPartial(win, settings) {
+    if (settings.allSpaces) {
+      return false;
+    }
+    const spaces = this.scopeSpaces(win, settings);
+    return this.scopeProfiles(win, settings).some(id =>
+      this.profileSpaces(win, id).some(space => !spaces.includes(space)));
   },
 
   closableTabs(win, tabs) {
@@ -335,9 +394,9 @@ export const WhimsyFireButton = {
 
   // Cookies, site data and cache for one site (base domain, subdomains and
   // its partitioned third-party data), in one container only.
-  clearSiteData(site, userContextId) {
+  clearSiteData(site, userContextId, flags = SITE_FLAGS) {
     return new Promise(resolve => {
-      Services.clearData.deleteDataFromSite(site, { userContextId, privateBrowsingId: 0 }, true, SITE_FLAGS, {
+      Services.clearData.deleteDataFromSite(site, { userContextId, privateBrowsingId: 0 }, true, flags, {
         onDataDeleted: resolve,
       });
     });
@@ -347,6 +406,21 @@ export const WhimsyFireButton = {
   // every space everywhere is in scope (it isn't per-container).
   clearFormHistory() {
     return lazy.Sanitizer.sanitize(["formdata"]);
+  },
+
+  // Firefox's Sanitizer items ("history", "cookies", "offlineApps",
+  // "cache", "formdata", "downloads"), each over `range` (see
+  // sanitizerRange). Gecko's cache can't clear by time, so with a range
+  // "cache" empties it, as Firefox's own Clear Recent History does.
+  sanitize(items, range) {
+    return lazy.Sanitizer.sanitize(items, { range });
+  },
+
+  // Every profile's history visits since `since` (ms; null for all time).
+  clearHistory(since) {
+    return since == null
+      ? lazy.PlacesUtils.history.clear()
+      : lazy.PlacesUtils.history.removeVisitsByFilter({ beginDate: new Date(since), endDate: new Date() });
   },
 
   allTabs() {
@@ -380,7 +454,7 @@ export const WhimsyFireButton = {
   // What settings would close, for the summary and the disabled state.
   async counts(win, settings) {
     const sum = groups => groups.reduce((n, [w, tabs]) => n + this.closableTabs(w, tabs).length, 0);
-    const spaces = settings.allSpaces ? this.visibleSpaces(win) : this.profileSpaces(win, this.profileId(win), settings.spaceIds);
+    const spaces = this.scopeSpaces(win, settings);
     return {
       tabs: settings.items.tabs ? sum(this.tabsOfSpaces(win, spaces)) : 0,
       spaces,
@@ -392,57 +466,95 @@ export const WhimsyFireButton = {
   // and are forgotten first; only then does anything else clear.
   async burn(win, settings) {
     const since = rangeMs(settings.range) == null ? null : Date.now() - rangeMs(settings.range);
-    const id = this.profileId(win);
-    const spaces = settings.allSpaces ? this.visibleSpaces(win) : this.profileSpaces(win, id, settings.spaceIds);
-    const groups = settings.items.tabs ? this.tabsOfSpaces(win, spaces) : [];
-    let tabCount = 0;
-    for (const [w, tabs] of groups) {
-      tabCount += this.burnTabs(w, tabs, "fire");
+    const range = sanitizerRange(since);
+    const items = settings.items;
+    const spaces = this.scopeSpaces(win, settings);
+    const profiles = settings.allSpaces ? [] : this.scopeProfiles(win, settings);
+    const scopeTabs = items.tabs || (!settings.allSpaces && (items.cookies || items.cache)) ? this.tabsOfSpaces(win, spaces) : [];
+    // Sites the scope's tabs used in the range, per profile, read before
+    // the tabs close.
+    const tabSites = new Map(profiles.map(id => [id, new Set()]));
+    if (!settings.allSpaces && (items.cookies || items.cache)) {
+      const profileOf = new Map(spaces.map(space => [space.uuid, lazy.WhimsyProfiles.profileIdOfSpace(space)]));
+      for (const [, tabs] of scopeTabs) {
+        for (const tab of tabs) {
+          const site = (since == null || (tab.lastAccessed || 0) >= since) ? siteOf(tab) : null;
+          tabSites.get(profileOf.get(tab.getAttribute("zen-workspace-id")))?.add(site);
+        }
+      }
     }
-    const burnedIds = settings.allSpaces ? null : id;
-    await this.purgeClosed((tab, closedAt) =>
-      (since == null || closedAt >= since) &&
-      (settings.allSpaces || (tab.userContextId || 0) == burnedIds));
+    let tabCount = 0;
+    if (items.tabs) {
+      for (const [w, tabs] of scopeTabs) {
+        tabCount += this.burnTabs(w, tabs, "fire");
+      }
+    }
+    if (items.closed) {
+      await this.purgeClosed((tab, closedAt) =>
+        (since == null || closedAt >= since) &&
+        (settings.allSpaces || profiles.includes(tab.userContextId || 0)));
+    }
 
     let visitCount = 0, siteCount = 0;
-    if (settings.items.history) {
-      if (settings.allSpaces) {
-        await clearData(since == null ? null : rangeMs(settings.range));
+    if (settings.allSpaces) {
+      // Every profile: Firefox's Sanitizer, one item per box, over the range.
+      // History goes through Places, not the Sanitizer's "history": Gecko's
+      // history flag also wipes every closed tab and window (session
+      // history), which is the Closed tabs and Archive box's job.
+      if (items.history) {
+        await this.clearHistory(since);
+      }
+      const names = [
+        ...(items.cookies ? ["cookies", "offlineApps"] : []),
+        ...(items.cache ? ["cache"] : []),
+        ...(items.form ? ["formdata"] : []),
+        ...(items.downloads ? ["downloads"] : []),
+      ];
+      if (names.length) {
+        await this.sanitize(names, range);
+      }
+      if (items.history) {
         visitCount = -1; // Unknown exactly; the toast says "history" generically.
-      } else {
-        const sites = new Set();
-        for (const [, tabs] of groups) {
-          for (const tab of tabs) {
-            const site = (since == null || (tab.lastAccessed || 0) >= since) ? siteOf(tab) : null;
+      }
+    } else {
+      // Cookies, site data and cache are per profile (container): cleared
+      // for the sites its spaces used in the range; history visit by visit.
+      const flags = (items.cookies ? Ci.nsIClearDataService.CLEAR_COOKIES_AND_SITE_DATA : 0) |
+        (items.cache ? Ci.nsIClearDataService.CLEAR_ALL_CACHES : 0);
+      for (const id of profiles) {
+        const visits = items.history || flags ? await this.profileVisits(id, since) : [];
+        const sites = new Set([...tabSites.get(id)].filter(Boolean));
+        if (flags) {
+          for (const visit of visits) {
+            const site = siteOfURL(visit.url);
             if (site) {
               sites.add(site);
             }
           }
-        }
-        const visits = await this.profileVisits(id, since);
-        for (const visit of visits) {
-          const site = siteOfURL(visit.url);
-          if (site) {
-            sites.add(site);
+          await Promise.all([...sites].map(site => this.clearSiteData(site, id, flags)));
+          if (items.cookies) {
+            siteCount += sites.size;
           }
         }
-        await Promise.all([...sites].map(site => this.clearSiteData(site, id)));
-        await Promise.all(visits.map(visit => this.removeVisit(visit)));
-        visitCount = visits.length;
-        siteCount = sites.size;
+        if (items.history) {
+          await Promise.all(visits.map(visit => this.removeVisit(visit)));
+          visitCount += visits.length;
+        }
+      }
+      // Form history and the download list aren't kept per profile; the
+      // rows say so (whimsy-fire-item-*-detail).
+      const shared = [...(items.form ? ["formdata"] : []), ...(items.downloads ? ["downloads"] : [])];
+      if (shared.length) {
+        await this.sanitize(shared, range);
       }
     }
-    if (settings.items.downloads) {
-      await new Promise(resolve => Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_DOWNLOADS, { onDataDeleted: resolve }));
-    }
-    if (settings.allSpaces && settings.items.history) {
-      await this.clearFormHistory();
-    }
-    if (settings.items.tabs) {
+    if (items.tabs) {
       if (settings.allSpaces) {
         await lazy.WhimsyFormDrafts.forgetAll();
       } else {
-        await lazy.WhimsyFormDrafts.forgetContainer(id);
+        for (const id of profiles) {
+          await lazy.WhimsyFormDrafts.forgetContainer(id);
+        }
       }
     }
     const kinds = [];
@@ -466,7 +578,7 @@ export const WhimsyFireButton = {
     }
     return {
       tabs: tabCount, visits: visitCount, sites: siteCount,
-      profile: settings.allSpaces ? null : lazy.WhimsyProfiles.nameOf(id),
+      profile: settings.allSpaces ? null : this.scopeName(win, settings),
       items: ITEM_IDS.filter(i => settings.items[i]),
     };
   },
@@ -613,35 +725,48 @@ export const WhimsyFireButton = {
     rangeSeg.group.setAttribute("aria-labelledby", rangeHead.h.id);
     rangeSeg.select(current.range);
 
-    // Scope: this profile's spaces (checked off one by one) or every space.
+    // Scope (fire-2.3): the picked spaces in one row, and Change opens a
+    // menu of every space by profile, which stays open while you tick.
     const scopeHead = heading("whimsy-fire-spaces-heading");
-    const scopeGroup = doc.createXULElement("vbox");
+    const scopeGroup = doc.createXULElement("hbox");
     scopeGroup.className = "whimsy-fire-scope-group whimsy-fire-box";
-    const allSpacesRow = this.checkRow(doc, "whimsy-fire-all-spaces", current.allSpaces, on => {
-      current.allSpaces = on;
-      refresh();
-    });
-    scopeGroup.append(allSpacesRow.row);
-    const spacesList = doc.createXULElement("vbox");
-    spacesList.className = "whimsy-fire-spaces-list";
-    const profileId = this.profileId(win);
-    for (const space of this.profileSpaces(win, profileId)) {
-      const checked = !current.spaceIds?.length || current.spaceIds.includes(space.uuid);
-      const r = this.checkRow(doc, null, checked, on => {
-        const all = this.profileSpaces(win, profileId).map(s => s.uuid);
-        const set = new Set(current.spaceIds?.length ? current.spaceIds : all);
-        if (on) {
-          set.add(space.uuid);
-        } else {
-          set.delete(space.uuid);
-        }
-        current.spaceIds = set.size == all.length ? null : [...set];
-        refresh();
+    scopeGroup.setAttribute("align", "center");
+    const scopeIcons = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    scopeIcons.className = "whimsy-fire-scope-icons";
+    scopeIcons.setAttribute("aria-hidden", "true");
+    const scopeText = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    scopeText.className = "whimsy-fire-scope-text";
+    scopeText.id = "whimsy-fire-scope-text";
+    const scopeName = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    scopeName.className = "whimsy-fire-scope-name";
+    const scopeDetail = doc.createElementNS("http://www.w3.org/1999/xhtml", "small");
+    scopeDetail.className = "whimsy-fire-scope-detail";
+    scopeText.append(scopeName, scopeDetail);
+    const change = doc.createElementNS("http://www.w3.org/1999/xhtml", "button");
+    change.type = "button";
+    change.id = "whimsy-fire-spaces-change";
+    change.className = "whimsy-surface-dropdown whimsy-fire-spaces-change";
+    change.setAttribute("aria-haspopup", "listbox");
+    change.setAttribute("aria-expanded", "false");
+    change.setAttribute("aria-describedby", scopeText.id);
+    const changeText = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    changeText.className = "whimsy-surface-dropdown-value";
+    doc.l10n.setAttributes(changeText, "whimsy-fire-spaces-change");
+    const chevron = doc.createXULElement("image");
+    chevron.className = "whimsy-surface-dropdown-chevron";
+    chevron.setAttribute("src", "chrome://global/skin/icons/arrow-down.svg");
+    change.append(changeText, chevron);
+    change.addEventListener("click", event => {
+      event.stopPropagation();
+      change.setAttribute("aria-expanded", "true");
+      this.openSpacesMenu(win, {
+        anchor: change,
+        current,
+        onChange: () => refresh(),
+        onHidden: () => change.setAttribute("aria-expanded", "false"),
       });
-      r.label.textContent = space.name || "";
-      spacesList.append(r.row);
-    }
-    scopeGroup.append(spacesList);
+    });
+    scopeGroup.append(scopeIcons, scopeText, change);
     const partialNote = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
     partialNote.className = "whimsy-fire-partial-note";
     doc.l10n.setAttributes(partialNote, "whimsy-fire-partial-note");
@@ -667,7 +792,7 @@ export const WhimsyFireButton = {
         const r = this.checkRow(doc, `whimsy-fire-item-${id}`, current.items[id], on => {
           current.items[id] = on;
           refresh();
-        });
+        }, ITEM_DETAILS[id]);
         box.append(r.row);
       }
       itemsList.append(head.row, box);
@@ -772,10 +897,23 @@ export const WhimsyFireButton = {
     panel._whimsyFireCurrent = () => current;
 
     const refresh = () => {
-      const fullProfile = this.profileSpaces(win, profileId).length;
-      spacesList.hidden = current.allSpaces;
-      const chosen = current.spaceIds?.length ?? fullProfile;
-      partialNote.hidden = current.allSpaces || chosen >= fullProfile;
+      const spaces = this.scopeSpaces(win, current);
+      scopeIcons.textContent = spaces.map(space => space.icon).filter(Boolean).slice(0, 4).join(" ");
+      if (current.allSpaces) {
+        doc.l10n.setAttributes(scopeName, "whimsy-fire-scope-all");
+        doc.l10n.setAttributes(scopeDetail, "whimsy-fire-scope-all-detail");
+      } else {
+        scopeName.removeAttribute("data-l10n-id");
+        scopeName.textContent = new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" })
+          .format(spaces.map(space => space.name || "").filter(Boolean));
+        const ids = this.scopeProfiles(win, current);
+        if (ids.length == 1) {
+          doc.l10n.setAttributes(scopeDetail, "whimsy-fire-scope-profile", { profile: lazy.WhimsyProfiles.nameOf(ids[0]) || "" });
+        } else {
+          doc.l10n.setAttributes(scopeDetail, "whimsy-fire-scope-profiles", { count: ids.length });
+        }
+      }
+      partialNote.hidden = !this.scopeIsPartial(win, current);
       const nothing = !anyItemOn(current);
       forget.disabled = nothing;
       // fire-2.7: the label gains an ellipsis when pressing it asks once more.
@@ -791,7 +929,7 @@ export const WhimsyFireButton = {
 
   // A labelled checkbox row (plain HTML, inside the Whimsy surface; not a
   // native popup list).
-  checkRow(doc, l10nId, checked, onChange) {
+  checkRow(doc, l10nId, checked, onChange, detailL10nId = null) {
     const row = doc.createElementNS("http://www.w3.org/1999/xhtml", "label");
     row.className = "whimsy-fire-check-row";
     const input = doc.createElementNS("http://www.w3.org/1999/xhtml", "input");
@@ -803,7 +941,139 @@ export const WhimsyFireButton = {
       doc.l10n.setAttributes(label, l10nId);
     }
     row.append(input, label);
+    if (detailL10nId) {
+      // "Form and search history · every profile": the words and their
+      // detail wrap as one line of text, each with its own Fluent id.
+      const text = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      text.className = "whimsy-fire-check-text";
+      const detail = doc.createElementNS("http://www.w3.org/1999/xhtml", "small");
+      detail.className = "whimsy-fire-check-detail";
+      doc.l10n.setAttributes(detail, detailL10nId);
+      text.append(label, detail);
+      row.append(text);
+    }
     return { row, input, label };
+  },
+
+  // fire-2.3: Change's menu. All spaces, then each profile's spaces with
+  // checks (hidden ones only while unlocked); it stays open while you
+  // tick, and Esc or a click outside closes it. Edits `current` in place.
+  openSpacesMenu(win, { anchor, current, onChange, onHidden = null }) {
+    const doc = win.document;
+    const XHTML = "http://www.w3.org/1999/xhtml";
+    const visible = this.visibleSpaces(win);
+    const activeUuid = win.gZenWorkspaces?.activeWorkspace;
+    const parts = lazy.WhimsySurface.create(win, {
+      id: "whimsyFireSpacesMenu",
+      width: 260,
+      className: "whimsy-surface-listbox-panel whimsy-fire-spaces-menu",
+      onHidden,
+      initialFocus: () => list.querySelector("[role=option]"),
+    });
+    const list = doc.createElementNS(XHTML, "div");
+    list.className = "whimsy-surface-listbox";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-multiselectable", "true");
+    doc.l10n.setAttributes(list, "whimsy-fire-spaces-menu");
+    const rows = [];
+    const option = (value, { l10nId = null, l10nArgs = null, text = null, detailL10nId = null, detailArgs = null }) => {
+      const row = doc.createElementNS(XHTML, "div");
+      row.className = "whimsy-surface-option";
+      row.setAttribute("role", "option");
+      row.dataset.value = value;
+      row.tabIndex = rows.length ? -1 : 0;
+      const check = doc.createXULElement("image");
+      check.className = "whimsy-surface-option-check";
+      check.setAttribute("src", "chrome://global/skin/icons/check.svg");
+      const label = doc.createElementNS(XHTML, "span");
+      label.className = "whimsy-surface-option-label";
+      if (l10nId) {
+        doc.l10n.setAttributes(label, l10nId, l10nArgs);
+      } else {
+        label.textContent = text;
+      }
+      row.append(check, label);
+      if (detailL10nId) {
+        const d = doc.createElementNS(XHTML, "span");
+        d.className = "whimsy-surface-option-detail";
+        doc.l10n.setAttributes(d, detailL10nId, detailArgs);
+        row.append(d);
+      }
+      const toggle = () => {
+        this.toggleSpace(win, current, value);
+        sync();
+        onChange();
+      };
+      row.addEventListener("click", toggle);
+      row.addEventListener("keydown", event => {
+        if (event.key == "Enter" || event.key == " ") {
+          event.preventDefault();
+          toggle();
+        } else if (event.key == "ArrowDown" || event.key == "ArrowUp") {
+          event.preventDefault();
+          const at = rows.indexOf(row) + (event.key == "ArrowDown" ? 1 : -1);
+          rows[Math.max(0, Math.min(rows.length - 1, at))]?.focus();
+        }
+      });
+      rows.push(row);
+      list.append(row);
+    };
+    option("all", { l10nId: "whimsy-fire-scope-all", detailL10nId: "whimsy-fire-spaces-menu-count", detailArgs: { count: visible.length } });
+    const profiles = [...new Set(visible.map(space => lazy.WhimsyProfiles.profileIdOfSpace(space)))];
+    for (const id of profiles) {
+      list.append(lazy.WhimsySurface.rule(doc));
+      const caption = doc.createElementNS(XHTML, "div");
+      caption.className = "whimsy-fire-spaces-menu-profile";
+      caption.setAttribute("role", "presentation");
+      doc.l10n.setAttributes(caption, "whimsy-fire-spaces-menu-profile", { profile: lazy.WhimsyProfiles.nameOf(id) || "" });
+      list.append(caption);
+      for (const space of visible.filter(sp => lazy.WhimsyProfiles.profileIdOfSpace(sp) === id)) {
+        option(space.uuid, {
+          text: [space.icon, space.name].filter(Boolean).join(" "),
+          detailL10nId: space.uuid == activeUuid ? "whimsy-fire-spaces-menu-current" : null,
+        });
+      }
+    }
+    list.append(lazy.WhimsySurface.rule(doc));
+    const foot = doc.createElementNS(XHTML, "p");
+    foot.className = "whimsy-fire-spaces-menu-note";
+    doc.l10n.setAttributes(foot, "whimsy-fire-spaces-menu-note");
+    list.append(foot);
+    const sync = () => {
+      const picked = new Set(this.scopeSpaces(win, current).map(space => space.uuid));
+      for (const row of rows) {
+        const on = row.dataset.value == "all" ? !!current.allSpaces : !current.allSpaces && picked.has(row.dataset.value);
+        row.setAttribute("aria-selected", on ? "true" : "false");
+      }
+    };
+    sync();
+    parts.view.append(list);
+    lazy.WhimsySurface.open(win, parts.panel, { anchor, position: "after_end", y: 4 });
+    return parts.panel;
+  },
+
+  // One tick in Change's menu. All spaces on covers everything; a space
+  // ticked off it leaves every other space. At least one space stays.
+  toggleSpace(win, current, value) {
+    const visible = this.visibleSpaces(win).map(space => space.uuid);
+    if (value == "all") {
+      current.allSpaces = !current.allSpaces;
+      current.spaceIds = null;
+      return;
+    }
+    const picked = new Set(current.allSpaces ? visible : this.scopeSpaces(win, current).map(space => space.uuid));
+    current.allSpaces = false;
+    if (picked.has(value)) {
+      if (picked.size == 1) {
+        return;
+      }
+      picked.delete(value);
+    } else {
+      picked.add(value);
+    }
+    const own = this.profileSpaces(win, this.profileId(win)).map(space => space.uuid);
+    const isOwn = picked.size == own.length && own.every(uuid => picked.has(uuid));
+    current.spaceIds = isOwn ? null : visible.filter(uuid => picked.has(uuid));
   },
 
   // A simplified surface for a private window: one question, one button.
@@ -906,8 +1176,14 @@ export const WhimsyFireButton = {
       aiChats: "whimsy-fire-done-item-aiChats", agentActivity: "whimsy-fire-done-item-agentActivity",
       index: "whimsy-fire-done-item-index", memory: "whimsy-fire-done-item-memory",
       routineResults: "whimsy-fire-done-item-routineResults", downloads: "whimsy-fire-done-item-downloads",
+      cookies: "whimsy-fire-done-item-cookies", cache: "whimsy-fire-done-item-cache",
+      form: "whimsy-fire-done-item-form", closed: "whimsy-fire-done-item-closed",
     };
     for (const id of result.items ?? []) {
+      // Counted sign-ins ("sign-ins on 18 sites") already say it.
+      if (id == "cookies" && result.sites > 0) {
+        continue;
+      }
       if (itemIds[id]) {
         requests.push({ id: itemIds[id] });
       }

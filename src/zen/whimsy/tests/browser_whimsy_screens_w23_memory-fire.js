@@ -40,6 +40,21 @@ async function closeFire(panel) {
   }
 }
 
+async function openSpacesMenu(panel) {
+  panel.querySelector("#whimsy-fire-spaces-change").click();
+  await TestUtils.waitForCondition(() => document.getElementById("whimsyFireSpacesMenu")?.state == "open", "The spaces menu opens");
+  const menu = document.getElementById("whimsyFireSpacesMenu");
+  await document.l10n.translateFragment(menu);
+  return menu;
+}
+async function closeSpacesMenu(menu) {
+  if (menu.state == "open") {
+    const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
+    menu.hidePopup();
+    await hidden;
+  }
+}
+
 // fire-2.1: first-time defaults (range, scope, items, kept, can't-undo).
 add_task(async function shots_fire_panel_defaults() {
   Services.prefs.clearUserPref(LAST_PREF);
@@ -60,13 +75,34 @@ add_task(async function shots_fire_panel_defaults() {
   });
 });
 
+// fire-2.3: Change's menu, every space by profile, open over the surface.
+add_task(async function shots_fire_spaces_menu() {
+  Services.prefs.clearUserPref(LAST_PREF);
+  await whimsyBothSchemes("w23-memory-fire-fire-2.3", async () => {
+    const panel = await openFire();
+    const menu = await openSpacesMenu(panel);
+    ok(menu.querySelector('[role="option"][data-value="all"]') && menu.querySelector(".whimsy-fire-spaces-menu-profile"),
+      "fire-2.3: All spaces, then spaces under their profile");
+    await whimsySettled();
+    const undo = whimsyStandInPopups();
+    return async () => {
+      undo();
+      await closeSpacesMenu(menu);
+      return closeFire(panel);
+    };
+  });
+});
+
 // fire-2.7: everything, all time, every space; Fire… because it asks once
 // more. fire-3.1: the press asks, in the same surface.
 add_task(async function shots_fire_panel_second_ask() {
   Services.prefs.clearUserPref(LAST_PREF);
-  const everything = panel => {
+  const everything = async panel => {
     panel.querySelector('#whimsy-fire-range [data-value="all"]').click();
-    for (const input of panel.querySelectorAll(".whimsy-fire-scope-group > label input, .whimsy-fire-items input")) {
+    const menu = await openSpacesMenu(panel);
+    menu.querySelector('[role="option"][data-value="all"]').click();
+    await closeSpacesMenu(menu);
+    for (const input of panel.querySelectorAll(".whimsy-fire-items input")) {
       if (!input.checked) {
         input.click();
       }
@@ -74,7 +110,7 @@ add_task(async function shots_fire_panel_second_ask() {
   };
   await whimsyBothSchemes("w23-memory-fire-fire-2.7", async () => {
     const panel = await openFire();
-    everything(panel);
+    await everything(panel);
     is(document.l10n.getAttributes(panel.querySelector("#whimsy-fire-forget")).id, "whimsy-fire-run-ask", "fire-2.7: Fire… says it asks once more");
     await whimsySettled();
     const undo = whimsyStandInPopups();
@@ -85,7 +121,7 @@ add_task(async function shots_fire_panel_second_ask() {
   });
   await whimsyBothSchemes("w23-memory-fire-fire-3.1", async () => {
     const panel = await openFire();
-    everything(panel);
+    await everything(panel);
     panel.querySelector("#whimsy-fire-forget").click();
     await TestUtils.waitForCondition(() => panel.dataset.step == "confirm", "The confirm step shows");
     ok(panel.dataset.step == "confirm", "fire-3.1: it asks once more, in the same surface");

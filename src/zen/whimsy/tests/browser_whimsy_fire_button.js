@@ -86,6 +86,27 @@ function itemInput(panel, id) {
   return panel.querySelector(`.whimsy-fire-items [data-l10n-id="whimsy-fire-item-${id}"]`)?.closest("label")?.querySelector("input");
 }
 
+// fire-2.3: Change opens the spaces menu; it stays open while you tick.
+async function openSpacesMenu(panel) {
+  panel.querySelector("#whimsy-fire-spaces-change").click();
+  await TestUtils.waitForCondition(() => document.getElementById("whimsyFireSpacesMenu")?.state == "open", "The spaces menu opens");
+  const menu = document.getElementById("whimsyFireSpacesMenu");
+  await document.l10n.translateFragment(menu);
+  return menu;
+}
+async function closeMenu(menu) {
+  if (menu.state == "open") {
+    const hidden = BrowserTestUtils.waitForEvent(menu, "popuphidden");
+    menu.hidePopup();
+    await hidden;
+  }
+}
+async function pickAllSpaces(panel) {
+  const menu = await openSpacesMenu(panel);
+  menu.querySelector('[role="option"][data-value="all"]').click();
+  await closeMenu(menu);
+}
+
 async function pickRange(panel, win, value) {
   const segment = panel.querySelector(`#whimsy-fire-range [role="radio"][data-value="${value}"]`);
   segment.click();
@@ -130,8 +151,11 @@ add_task(function test_first_time_defaults() {
   is(settings.allSpaces, false, "This profile, not every space");
   Assert.deepEqual(
     settings.items,
-    { tabs: true, history: true, aiChats: true, agentActivity: true, index: true, memory: false, routineResults: false, downloads: false },
-    "Today's browsing items plus that hour's AI chats, agent activity and the index; memory, routine results and downloads start off");
+    {
+      tabs: true, history: true, cookies: true, cache: true, form: true, closed: true, downloads: false,
+      aiChats: true, agentActivity: true, index: true, memory: false, routineResults: false,
+    },
+    "fire-2.1: every browsing item but the download list, plus that hour's AI chats, agent activity and the index; memory and routine results start off");
 });
 
 add_task(async function test_one_row_repeats_last_settings() {
@@ -155,7 +179,7 @@ add_task(async function test_fire_surface_shows_range_scope_and_items() {
     ok(panel.classList.contains("whimsy-surface"), "It is a Whimsy surface");
     ok(!panel.querySelector("menupopup, menuitem, toolbarseparator"), "and no native rows");
     ok(panel.querySelector('#whimsy-fire-range[role="radiogroup"] [data-value="hour"][aria-checked="true"]'), "A range control, on Last hour");
-    ok(panel.querySelector('[data-l10n-id="whimsy-fire-all-spaces"]'), "An all-spaces row");
+    ok(panel.querySelector("#whimsy-fire-spaces-change"), "fire-2.1: the Spaces row's Change button");
     for (const [id, on] of Object.entries(WhimsyFireButton.lastSettings().items)) {
       const input = itemInput(panel, id);
       ok(input, `An item row for ${id}`);
@@ -206,7 +230,7 @@ add_task(async function test_second_ask_only_for_all_time_all_spaces_memory() {
 
     // All spaces: asks once more.
     panel = await openFire();
-    panel.querySelector('[data-l10n-id="whimsy-fire-all-spaces"]')?.closest("label")?.querySelector("input")?.click();
+    await pickAllSpaces(panel);
     panel.querySelector("#whimsy-fire-forget").click();
     is(panel.dataset.step, "confirm", "All spaces asks again");
     panel.querySelector("#whimsy-fire-back").click();
@@ -459,4 +483,203 @@ add_task(async function test_fire_popup_opens_centred_on_the_window() {
     await assertCentred(panel, `Fire (${size})`);
     await closeFire(panel);
   });
+});
+
+// fire-2.3: Change lists All spaces, then each profile's spaces with
+// checks; ticking keeps the menu open and rewrites the Spaces row.
+add_task(async function test_spaces_change_menu() {
+  Services.prefs.clearUserPref(LAST_PREF);
+  const panel = await openFire();
+  try {
+    const name = panel.querySelector(".whimsy-fire-scope-name");
+    const own = WhimsyFireButton.profileSpaces(window, WhimsyFireButton.profileId(window));
+    ok(own.length, "This profile has spaces");
+    const menu = await openSpacesMenu(panel);
+    is(menu.querySelector('[role="listbox"]').getAttribute("aria-multiselectable"), "true", "A multi-select list");
+    ok(!menu.querySelector("menupopup, menuitem"), "A Whimsy surface, not a native list");
+    const options = [...menu.querySelectorAll('[role="option"]')];
+    is(options[0].dataset.value, "all", "All spaces first");
+    is(options[0].getAttribute("aria-selected"), "false", "...off by default");
+    ok(menu.querySelector(".whimsy-fire-spaces-menu-profile"), "Spaces are grouped under their profile");
+    for (const space of own) {
+      is(menu.querySelector(`[role="option"][data-value="${space.uuid}"]`)?.getAttribute("aria-selected"), "true", `${space.name || space.uuid}: ticked (the current profile)`);
+    }
+    ok(menu.querySelector(".whimsy-fire-spaces-menu-note"), "The note on shared sign-ins and hidden spaces");
+
+    options[0].click();
+    is(menu.state, "open", "It stays open while you tick");
+    is(options[0].getAttribute("aria-selected"), "true", "All spaces ticks");
+    ok(panel._whimsyFireCurrent().allSpaces, "...and the surface clears every space");
+    await TestUtils.waitForCondition(() => document.l10n.getAttributes(name).id == "whimsy-fire-scope-all", "The row says All spaces");
+    is(document.l10n.getAttributes(panel.querySelector("#whimsy-fire-forget")).id, "whimsy-fire-run-ask", "Every space asks once more");
+
+    // A space ticked off All spaces leaves every other space.
+    const visible = WhimsyFireButton.visibleSpaces(window);
+    if (visible.length > 1) {
+      const first = visible[0];
+      menu.querySelector(`[role="option"][data-value="${first.uuid}"]`).click();
+      ok(!panel._whimsyFireCurrent().allSpaces, "Unticking a space turns All spaces off");
+      is(menu.querySelector(`[role="option"][data-value="${first.uuid}"]`).getAttribute("aria-selected"), "false", "...that space is off");
+      is(WhimsyFireButton.scopeSpaces(window, panel._whimsyFireCurrent()).length, visible.length - 1, "...and every other space stays");
+    } else {
+      // The last space can't be ticked off: something is always in scope.
+      options[0].click();
+      menu.querySelector(`[role="option"][data-value="${visible[0].uuid}"]`).click();
+      is(WhimsyFireButton.scopeSpaces(window, panel._whimsyFireCurrent()).length, 1, "The one space stays ticked");
+    }
+    await closeMenu(menu);
+    is(panel.state, "open", "Closing the menu leaves Fire open");
+  } finally {
+    await closeFire(panel);
+  }
+});
+
+// fire-2.1: each browsing item clears only its own data, only from the
+// chosen range (real clearing through Firefox's Sanitizer, every space).
+add_task(async function test_browsing_items_clear_only_their_own_for_the_range() {
+  const { PlacesTestUtils } = ChromeUtils.importESModule("resource://testing-common/PlacesTestUtils.sys.mjs");
+  const { SiteDataTestUtils } = ChromeUtils.importESModule("resource://testing-common/SiteDataTestUtils.sys.mjs");
+  const { FormHistory } = ChromeUtils.importESModule("resource://gre/modules/FormHistory.sys.mjs");
+  const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+  const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+  const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
+  const HOUR = 3600000;
+  const now = Date.now();
+  const NEW = "https://example.com/?fire-range-new";
+  const OLD = "https://example.com/?fire-range-old";
+  const COOKIE_ORIGIN = "https://example.org";
+  const CACHE_URL = "https://example.net/fire-range-cache";
+  const FIELD = "whimsy-fire-range-field";
+  const downloads = await Downloads.getList(Downloads.PUBLIC);
+  const download = async (name, at) => {
+    const target = PathUtils.join(PathUtils.tempDir, `whimsy-fire-${name}.txt`);
+    const d = await Downloads.createDownload({ source: `https://example.com/${name}`, target, startTime: new Date(at) });
+    await downloads.add(d);
+    return d;
+  };
+  const closedTab = async () => {
+    const t = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?fire-range-closed");
+    await TabStateFlusher.flush(t.linkedBrowser);
+    BrowserTestUtils.removeTab(t);
+    await TestUtils.waitForCondition(() => SessionStore.getClosedTabDataForWindow(window).some(i => i.state?.entries?.[0]?.url?.includes("fire-range-closed")), "A closed tab is listed");
+  };
+
+  async function seed() {
+    await PlacesTestUtils.clearHistory();
+    await PlacesTestUtils.addVisits([
+      { uri: NEW, visitDate: now * 1000 },
+      { uri: OLD, visitDate: (now - 3 * HOUR) * 1000 },
+    ]);
+    SiteDataTestUtils.addToCookies({ origin: COOKIE_ORIGIN, name: "fire", value: "1" });
+    await SiteDataTestUtils.addCacheEntry(CACHE_URL, "disk");
+    await FormHistory.update({ op: "remove", fieldname: FIELD });
+    await FormHistory.update([
+      { op: "add", fieldname: FIELD, value: "new", firstUsed: now * 1000, lastUsed: now * 1000 },
+      { op: "add", fieldname: FIELD, value: "old", firstUsed: (now - 3 * HOUR) * 1000, lastUsed: (now - 3 * HOUR) * 1000 },
+    ]);
+    for (const d of await downloads.getAll()) {
+      await downloads.remove(d);
+    }
+    await download("new", now);
+    await download("old", now - 3 * HOUR);
+    await closedTab();
+  }
+  const state = async () => ({
+    history: { new: await PlacesTestUtils.isPageInDB(NEW), old: await PlacesTestUtils.isPageInDB(OLD) },
+    cookies: SiteDataTestUtils.hasCookies(COOKIE_ORIGIN),
+    cache: await SiteDataTestUtils.hasCacheEntry(CACHE_URL, "disk"),
+    form: {
+      new: (await FormHistory.count({ fieldname: FIELD, value: "new" })) > 0,
+      old: (await FormHistory.count({ fieldname: FIELD, value: "old" })) > 0,
+    },
+    downloads: {
+      new: (await downloads.getAll()).some(d => d.source.url.endsWith("/new")),
+      old: (await downloads.getAll()).some(d => d.source.url.endsWith("/old")),
+    },
+    closed: SessionStore.getClosedTabDataForWindow(window).some(i => i.state?.entries?.[0]?.url?.includes("fire-range-closed")),
+  });
+  const SEEDED = {
+    history: { new: true, old: true }, cookies: true, cache: true, form: { new: true, old: true },
+    downloads: { new: true, old: true }, closed: true,
+  };
+  // What each item, on its own over the last hour, takes. Cookies and the
+  // cache have no older entry Gecko can date: the cache can't clear by
+  // time at all, so it empties (as in Firefox's Clear Recent History).
+  const TAKES = {
+    history: { history: { new: false, old: true } },
+    cookies: { cookies: false },
+    cache: { cache: false },
+    form: { form: { new: false, old: true } },
+    downloads: { downloads: { new: false, old: true } },
+    closed: { closed: false },
+  };
+  const originalTabs = WhimsyFireButton.tabsOfSpaces;
+  WhimsyFireButton.tabsOfSpaces = () => [];
+  try {
+    await seed();
+    Assert.deepEqual(await state(), SEEDED, "Everything is seeded, in and out of the range");
+    for (const [item, takes] of Object.entries(TAKES)) {
+      await seed();
+      await WhimsyFireButton.burn(window, { range: "hour", allSpaces: true, spaceIds: null, items: { [item]: true } });
+      Assert.deepEqual(await state(), { ...SEEDED, ...takes }, `${item}: clears only its own, and only from the last hour`);
+    }
+    // All time: the older entries go too.
+    await seed();
+    await WhimsyFireButton.burn(window, { range: "all", allSpaces: true, spaceIds: null, items: { history: true, form: true, downloads: true } });
+    const all = await state();
+    Assert.deepEqual([all.history, all.form, all.downloads], [{ new: false, old: false }, { new: false, old: false }, { new: false, old: false }],
+      "All time: history, form history, and the download list go entirely");
+    ok(all.cookies && all.cache && all.closed, "...and nothing unticked");
+  } finally {
+    WhimsyFireButton.tabsOfSpaces = originalTabs;
+    await PlacesTestUtils.clearHistory();
+    await FormHistory.update({ op: "remove", fieldname: FIELD });
+    for (const d of await downloads.getAll()) {
+      await downloads.remove(d);
+    }
+    SiteDataTestUtils.clear();
+  }
+});
+
+// In one profile, cookies and cache clear per container, for the sites
+// the profile's spaces used in the range; history visit by visit.
+add_task(async function test_profile_scope_clears_per_item() {
+  const calls = { site: [], visits: 0, sanitize: [] };
+  const id = WhimsyFireButton.profileId(window);
+  const stubs = {
+    tabsOfSpaces: () => [],
+    profileVisits: async () => [{ url: "https://example.org/a", date: new Date() }],
+    clearSiteData: async (site, userContextId, flags) => calls.site.push({ site, userContextId, flags }),
+    removeVisit: async () => calls.visits++,
+    sanitize: async names => calls.sanitize.push(...names),
+    purgeClosed: async () => {},
+  };
+  const originals = {};
+  for (const [name, fn] of Object.entries(stubs)) {
+    originals[name] = WhimsyFireButton[name];
+    WhimsyFireButton[name] = fn;
+  }
+  const C = Ci.nsIClearDataService;
+  try {
+    const run = items => {
+      calls.site.length = calls.sanitize.length = 0;
+      calls.visits = 0;
+      return WhimsyFireButton.burn(window, { range: "hour", allSpaces: false, spaceIds: null, items });
+    };
+    let result = await run({ cookies: true });
+    Assert.deepEqual(calls.site, [{ site: "example.org", userContextId: id, flags: C.CLEAR_COOKIES_AND_SITE_DATA }], "Cookies: that profile's sign-ins and site data, nothing else");
+    is(calls.visits, 0, "...no history");
+    is(result.sites, 1, "...counted for the toast");
+    await run({ cache: true });
+    Assert.deepEqual(calls.site.map(c => c.flags), [C.CLEAR_ALL_CACHES], "Cache: that profile's cache for the site");
+    result = await run({ history: true });
+    is(calls.site.length, 0, "History alone keeps sign-ins");
+    is(calls.visits, 1, "...and erases the profile's visits");
+    is(result.visits, 1, "...counted");
+    await run({ form: true, downloads: true });
+    Assert.deepEqual(calls.sanitize, ["formdata", "downloads"], "Form history and the download list (not kept per profile) through the Sanitizer");
+    is(calls.site.length + calls.visits, 0, "...and nothing per site");
+  } finally {
+    Object.assign(WhimsyFireButton, originals);
+  }
 });

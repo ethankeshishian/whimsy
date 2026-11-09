@@ -956,6 +956,56 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     color: var(--whimsy-surface-muted);
   }
 }
+.whimsy-fire-check-detail {
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+
+  &::before {
+    content: " · ";
+  }
+}
+/* fire-2.3: the picked spaces in one row, Change at its end. */
+.whimsy-fire-scope-group {
+  gap: 8px;
+  min-height: 36px;
+  padding-inline: 8px 4px;
+}
+.whimsy-fire-scope-icons:not(:empty) {
+  flex-shrink: 0;
+  letter-spacing: 2px;
+}
+.whimsy-fire-scope-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whimsy-fire-scope-detail {
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+
+  &::before {
+    content: " · ";
+  }
+}
+.whimsy-fire-spaces-change {
+  flex-shrink: 0;
+}
+.whimsy-fire-spaces-menu-profile {
+  padding: 6px 8px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--whimsy-surface-muted);
+}
+.whimsy-fire-spaces-menu-note {
+  margin: 0;
+  padding: 4px 8px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--whimsy-surface-muted);
+  text-wrap: pretty;
+}
 .whimsy-fire-partial-note {
   margin: 0;
   padding-inline: 4px;

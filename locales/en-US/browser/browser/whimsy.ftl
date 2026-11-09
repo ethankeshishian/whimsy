@@ -6623,8 +6623,25 @@ whimsy-fire-range-hour = Last hour
 whimsy-fire-range-today = Today
 whimsy-fire-range-week = 7 days
 whimsy-fire-range-all = All time
-whimsy-fire-all-spaces = All spaces, every profile
 whimsy-fire-spaces-heading = Spaces
+# fire-2.3: the Spaces row (the picked spaces' names, then this small detail) and its Change menu.
+whimsy-fire-spaces-change = Change
+whimsy-fire-scope-all = All spaces
+whimsy-fire-scope-all-detail = every profile
+# $profile (string) - the profile the picked spaces use
+whimsy-fire-scope-profile = { $profile } profile
+# $count (number) - how many profiles the picked spaces use
+whimsy-fire-scope-profiles = { $count ->
+        [one] 1 profile
+       *[other] { $count } profiles
+    }
+whimsy-fire-spaces-menu =
+    .aria-label = Spaces to clear
+# $count (number) - every space Fire can clear
+whimsy-fire-spaces-menu-count = { $count }
+whimsy-fire-spaces-menu-profile = { $profile } profile
+whimsy-fire-spaces-menu-current = current
+whimsy-fire-spaces-menu-note = Spaces in one profile share sign-ins. Hidden spaces are listed only while unlocked.
 whimsy-fire-group-browsing = Browsing
 whimsy-fire-group-ai = AI
 # $on (number) - items ticked in the group; $total (number) - items in it
@@ -6632,12 +6649,18 @@ whimsy-fire-group-count = { $on } of { $total }
 whimsy-fire-partial-note = Cookies and site data clear per profile, so sites in a space you left ticked may still lose theirs.
 whimsy-fire-item-tabs = Open tabs (pinned tabs and Essentials stay)
 whimsy-fire-item-history = Browsing history
+whimsy-fire-item-cookies = Cookies and sign-ins
+whimsy-fire-item-cache = Cache
+whimsy-fire-item-form = Form and search history
+whimsy-fire-item-form-detail = every profile
+whimsy-fire-item-closed = Closed tabs and Archive
 whimsy-fire-item-aiChats = AI chats, including research reports
 whimsy-fire-item-agentActivity = Agent activity
 whimsy-fire-item-index = Related pages’ index
 whimsy-fire-item-memory = Memory
 whimsy-fire-item-routineResults = Routine and watch results
 whimsy-fire-item-downloads = The download list
+whimsy-fire-item-downloads-detail = files stay
 whimsy-fire-cant-undo = This can’t be undone.
 # fire-2.1's red note: what Fire is about to do. $tabs (number) - tabs it closes;
 # $list (string) - a locale-formatted list of what it erases (the whimsy-fire-done-* words);
@@ -6747,6 +6770,10 @@ whimsy-fire-done-item-index = the Related pages’ index
 whimsy-fire-done-item-memory = memory
 whimsy-fire-done-item-routineResults = routine results
 whimsy-fire-done-item-downloads = the download list
+whimsy-fire-done-item-cookies = sign-ins and site data
+whimsy-fire-done-item-cache = the cache
+whimsy-fire-done-item-form = form and search history
+whimsy-fire-done-item-closed = closed tabs and the Archive
 whimsy-fire-done-nothing = Nothing to erase
 ## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
 
