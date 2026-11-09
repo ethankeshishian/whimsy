@@ -14,15 +14,65 @@ const RUSH = /\b(?:only\s+\d{1,3}\s+(?:left|slots?|spots?|items?|seats?|remainin
 const ACCOUNT = /\byour\s+((?:[A-Z][\w&-]{1,20}\s?){1,2})\s+(?:account|ID|password|login|wallet)\b/;
 const MAX_TEXT = 20000;
 
+// W23 secfix M7: a form that arrives after the page shows (most phishing
+// kits render it late) is checked when it arrives: a watch limited to new
+// input elements, debounced, for a while after each page shows.
+const WATCH_DEBOUNCE_MS = 300;
+const WATCH_FOR_MS = 2 * 60 * 1000;
+
 export class WhimsyScamCheckChild extends JSWindowActorChild {
   handleEvent(event) {
+    if (event.type == "pagehide") {
+      this.unwatch();
+      return;
+    }
     if (event.type != "pageshow" || event.target != this.document) {
       return;
     }
+    if (!this.report()) {
+      this.watch();
+    }
+  }
+
+  // Sends the signals once there's a password or card field; true if sent.
+  report() {
     const signals = this.check();
     if (signals) {
+      this.unwatch();
       this.sendAsyncMessage("WhimsyScamCheck:Signals", signals);
+      return true;
     }
+    return false;
+  }
+
+  watch() {
+    const win = this.contentWindow;
+    if (this.observer || !win) {
+      return;
+    }
+    const isInput = node => node.nodeType == 1 && (node.localName == "input" || !!node.querySelector?.("input"));
+    this.observer = new win.MutationObserver(records => {
+      if (!records.some(r => r.type == "attributes" ? r.target.localName == "input" : [...r.addedNodes].some(isInput))) {
+        return;
+      }
+      win.clearTimeout(this.pending);
+      this.pending = win.setTimeout(() => this.report(), WATCH_DEBOUNCE_MS);
+    });
+    this.observer.observe(this.document, { childList: true, subtree: true, attributes: true, attributeFilter: ["type", "autocomplete"] });
+    this.stopAt = win.setTimeout(() => this.unwatch(), WATCH_FOR_MS);
+  }
+
+  unwatch() {
+    this.observer?.disconnect();
+    this.observer = null;
+    try {
+      this.contentWindow?.clearTimeout(this.pending);
+      this.contentWindow?.clearTimeout(this.stopAt);
+    } catch {}
+  }
+
+  didDestroy() {
+    this.unwatch();
   }
 
   receiveMessage(message) {
@@ -73,6 +123,8 @@ export class WhimsyScamCheckChild extends JSWindowActorChild {
     if (/(?:^|\.)mail\.|webmail|outlook\.(?:live|office)/i.test(referrer)) {
       signals.push({ id: "from-email" });
     }
-    return { host, password, card, signals };
+    // A form inside a frame reports from its own actor (allFrames); the
+    // parent judges it by the tab's site.
+    return { host, password, card, signals, frame: this.browsingContext.parent ? host : null };
   }
 }

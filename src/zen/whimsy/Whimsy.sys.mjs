@@ -518,8 +518,10 @@ export const Whimsy = {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyScamCheck.sys.mjs" },
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyScamCheckChild.sys.mjs",
-        events: { pageshow: {} },
+        events: { pageshow: {}, pagehide: {} },
       },
+      // W23 secfix M7: a login form in a frame (same site or not) is checked too.
+      allFrames: true,
       matches: ["https://*/*", "http://*/*"],
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
