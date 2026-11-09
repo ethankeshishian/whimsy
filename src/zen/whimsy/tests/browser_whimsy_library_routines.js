@@ -53,6 +53,7 @@ async function openRoutines() {
   await TestUtils.waitForCondition(() => lib().hasAttribute("open") || window.customElements.get("zen-library").isLibraryOpen, "The Library is open");
   await s.updateComplete;
   await document.l10n.translateFragment(s);
+  await visible(s, "The Library has slid in");
   return s;
 }
 
@@ -75,8 +76,17 @@ async function rowOf(s, id) {
   return TestUtils.waitForCondition(() => s.querySelector(`.whimsy-routine-row[data-id="${id}"]`), "The row is there");
 }
 
+// Laid out, shown, and still: the Library slides in and the form's panel
+// grows, so a node is clicked only once it stops moving.
 async function visible(node, what) {
-  await TestUtils.waitForCondition(() => node.checkVisibility?.({ visibilityProperty: true, opacityProperty: true }) && node.getBoundingClientRect().width > 0, what);
+  let last = "";
+  await TestUtils.waitForCondition(() => {
+    const r = node.getBoundingClientRect();
+    const where = `${r.left},${r.top},${r.width},${r.height}`;
+    const still = where == last;
+    last = where;
+    return still && r.width > 0 && node.checkVisibility?.({ visibilityProperty: true, opacityProperty: true });
+  }, what, 50, 100);
   return node;
 }
 
@@ -111,7 +121,9 @@ add_task(async function row_buttons_on_focus() {
   row.focus();
   await visible(acts, "Focus shows Run now, Pause, Edit, and Delete");
   Assert.deepEqual([...acts.querySelectorAll("button")].map(b => b.dataset.action), ["run", "pause", "edit", "delete"], "in that order");
-  is(getComputedStyle(row.querySelector(".whimsy-routine-time")).opacity, "0", "in place of the time");
+  const time = row.querySelector(".whimsy-routine-time");
+  await TestUtils.waitForCondition(() => getComputedStyle(time).opacity == "0", "The time fades out");
+  is(getComputedStyle(time).opacity, "0", "in place of the time");
   for (const button of acts.querySelectorAll("button")) {
     ok(button.getAttribute("aria-label"), `${button.dataset.action} has a label`);
   }
@@ -133,6 +145,7 @@ add_task(async function keyboard_map() {
   EventUtils.synthesizeKey(" ");
   await TestUtils.waitForCondition(async () => (await WhimsyRoutines.get(a.id)).paused, "Space pauses");
   const paused = await TestUtils.waitForCondition(() => s.querySelector(`.whimsy-routine-row[data-id="${a.id}"][paused]`), "The row shows paused");
+  await TestUtils.waitForCondition(() => getComputedStyle(paused).opacity == "0.55", "The row fades");
   is(getComputedStyle(paused).opacity, "0.55", "at 55%");
   paused.focus();
   EventUtils.synthesizeKey(" ");
@@ -210,6 +223,8 @@ add_task(async function sprite_plays_on_select() {
   lib().activeTab = "history";
   await TestUtils.waitForCondition(() => lib().activeTab == "history", "History is in front");
   const tab = document.querySelector(`zen-library .zen-library-tab[data-section="whimsy-routines"]`);
+  // Last in the rail, it may sit below the fold of a short window.
+  tab.scrollIntoView({ block: "nearest" });
   await visible(tab, "The Routines tab is laid out");
   EventUtils.synthesizeMouseAtCenter(tab, {});
   const image = tab.querySelector(".zen-library-tab-icon-image");

@@ -1040,6 +1040,8 @@ export const WhimsyRoutines = {
     WhimsyRoutineTriggers._resetForTesting();
     timer?.cancel();
     timer = null;
+    // Anything showing the list (Library › Routines) drops what it had.
+    changed();
   },
 
   async _launchForTesting() {

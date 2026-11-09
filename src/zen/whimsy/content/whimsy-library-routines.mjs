@@ -53,6 +53,8 @@ const TRIGGER_TILES = {
   download: `${ZEN}downloads.svg`,
 };
 
+const LIBRARY_WIDTH = 600;
+
 const STEP_L10N = {
   reconnect: "whimsy-routine-step-reconnect",
   "sign-in": "whimsy-routine-step-sign-in",
@@ -164,6 +166,7 @@ export class WhimsyRoutinesSection extends ZenLibrarySearchSection {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this.#dropWidth(document.querySelector("zen-library"));
     Services.obs.removeObserver(this.#observer, lazy.WhimsyRoutines.TOPIC);
     Services.obs.removeObserver(this.#observer, "whimsy-ai-updates-changed");
     Services.prefs.removeObserver("whimsy.ai.enabled", this.#observer);
@@ -231,9 +234,23 @@ export class WhimsyRoutinesSection extends ZenLibrarySearchSection {
 
   #refreshAgain = false;
 
+  // Rows carry a result line, so Routines uses a 600px Library (as Spaces
+  // widens it); Zen's clamp falls back to 418px in a narrow window.
   async onShown() {
+    this.closest("zen-library")?.style.setProperty("--zen-library-content-width", `${LIBRARY_WIDTH}px`);
     await super.onShown();
     lazy.WhimsyRoutinesUI.markSeen(window);
+  }
+
+  onHidden() {
+    this.#dropWidth(this.closest("zen-library"));
+  }
+
+  // Only our own width: the section shown next (Spaces) may have set its own.
+  #dropWidth(library) {
+    if (library?.style.getPropertyValue("--zen-library-content-width") == `${LIBRARY_WIDTH}px`) {
+      library.style.removeProperty("--zen-library-content-width");
+    }
   }
 
   get searchPlaceholderL10nId() {

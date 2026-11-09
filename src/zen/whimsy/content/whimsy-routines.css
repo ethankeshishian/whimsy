@@ -175,15 +175,14 @@ whimsy-library-routines-section[needs-opt-in] {
   }
 }
 
+/* The time (or spinner, or pill) keeps its own narrow column; the four
+   buttons sit over the row's end, centred, so they never widen it. */
 .whimsy-routine-end {
   flex: none;
+  align-self: center;
   display: grid;
   justify-items: end;
   min-width: 68px;
-  padding-top: 2px;
-  & > * {
-    grid-area: 1 / 1;
-  }
 }
 .whimsy-routine-time {
   font-size: 12px;
@@ -193,17 +192,24 @@ whimsy-library-routines-section[needs-opt-in] {
   transition: opacity 150ms ease;
 }
 .whimsy-routine-acts {
+  position: absolute;
+  inset-inline-end: 6px;
+  top: 50%;
+  translate: 0 -50%;
   display: flex;
   gap: 0;
   opacity: 0;
   visibility: hidden;
-  margin-top: -6px;
   transition: opacity 150ms ease;
 }
 .whimsy-routine-row:is(:hover, :focus-within) {
   & .whimsy-routine-acts {
     opacity: 1;
     visibility: visible;
+  }
+  /* The text ends before the buttons rather than under them. */
+  & > .zen-library-row-text {
+    padding-inline-end: calc(4 * 34px - 68px);
   }
   & :is(.whimsy-routine-time, .whimsy-routine-spinner) {
     opacity: 0;
