@@ -115,7 +115,7 @@
       S.el("h3", "whimsy-ai-agent-sublabel", container, "whimsy-ai-agent-pauses-label");
       const guard = S.el("div", "whimsy-ai-list", container);
       guard.id = "whimsyAIAgentPauses";
-      const head = item(guard, { icon: `${ZEN}tracking-protection.svg`, name: "whimsy-ai-agent-pauses-title", detail: "whimsy-ai-agent-pauses-detail", tone: "warn" });
+      const head = item(guard, { icon: `${ZEN}tracking-protection.svg`, name: "whimsy-ai-agent-pauses-title", detail: "whimsy-ai-agent-pauses-detail", tone: "warning" });
       head.classList.add("whimsy-ai-agent-guard");
       S.el("span", "whimsy-ai-pill", head, "whimsy-ai-agent-always-on");
       const bullets = S.el("ul", "whimsy-ai-agent-bullets", head.querySelector(".whimsy-ai-item-text"));
@@ -395,7 +395,7 @@
           const row = item(group, {
             icon: outside ? S.logo("claude") : `${ZEN}sparkles.svg`,
             detail: outside ? "whimsy-ai-activity-run-outside" : "whimsy-ai-activity-run-whimsy",
-            detailArgs: { app: run.clientName || "", count: run.steps.length },
+            detailArgs: { app: run.clientName || "", count: run.steps.length, mode: run.mode == "background" ? "background" : "drive" },
           });
           row.dataset.run = run.id;
           row.classList.add("is-button");

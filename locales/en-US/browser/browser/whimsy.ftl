@@ -6503,9 +6503,17 @@ whimsy-ai-activity-outside = Outside apps
 whimsy-ai-activity-empty = No runs yet
 whimsy-ai-activity-empty-detail = When the agent or an outside app works in your tabs, each run shows here with its steps.
 whimsy-ai-activity-run-whimsy =
-    { $count ->
-        [one] Whimsy agent · 1 step
-       *[other] Whimsy agent · { $count } steps
+    { $mode ->
+        [background]
+            { $count ->
+                [one] Whimsy agent · Background · 1 step
+               *[other] Whimsy agent · Background · { $count } steps
+            }
+       *[drive]
+            { $count ->
+                [one] Whimsy agent · Drive · 1 step
+               *[other] Whimsy agent · Drive · { $count } steps
+            }
     }
 whimsy-ai-activity-run-outside =
     { $count ->

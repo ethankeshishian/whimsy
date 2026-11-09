@@ -10,7 +10,7 @@
 }
 
 .whimsy-ai-agent-sublabel {
-  margin: 4px 2px -14px;
+  margin: 4px 2px -8px;
   font-size: 11.5px;
   font-weight: 600;
   color: var(--text-color-deemphasized);
@@ -137,4 +137,21 @@
 }
 .whimsy-ai-agent-bar > .whimsy-ai-confirm {
   margin-block: 8px 10px;
+}
+
+/* Activity with runs: a day label over each day's own list, not a list of lists. */
+#whimsyAIActivityRuns.is-grouped {
+  gap: 6px;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  & > * + * {
+    border-top: none;
+  }
+  & > .whimsy-ai-agent-sublabel {
+    margin: 6px 2px 0;
+  }
+  & > .whimsy-ai-agent-sublabel:first-child {
+    margin-top: 0;
+  }
 }

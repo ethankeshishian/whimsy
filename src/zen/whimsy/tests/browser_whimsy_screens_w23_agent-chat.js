@@ -262,7 +262,8 @@ add_task(async function shot_end() {
     ];
     await planned();
     EventUtils.synthesizeMouseAtCenter(part("[data-choice='start']"), {});
-    await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done");
+    // The step opens and loads a page first, which can take a while.
+    await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done", 100, 200);
   };
   await whimsyBothSchemes(`${P}fu-agent-7.1-end`, async () => {
     await finishOnce();
@@ -320,12 +321,19 @@ async function openSection(id) {
   const win = settingsTab.linkedBrowser.contentWindow;
   const doc = win.document;
   await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root && doc.getElementById(`whimsyAISection-${id}`), `The ${id} section shows`);
+  // Sections above fill in as they load; land on this one once they have.
   win.WhimsyAISettings.jumpTo(id);
-  await new Promise(r => win.setTimeout(r, 400));
+  await new Promise(r => win.setTimeout(r, 800));
+  await whimsySettled(doc);
+  doc.getElementById(`whimsyAISection-${id}`).scrollIntoView({ block: "start", behavior: "instant" });
+  await new Promise(r => win.setTimeout(r, 300));
   return { settingsTab, win, doc, $: x => doc.getElementById(x), close: () => BrowserTestUtils.removeTab(settingsTab) };
 }
 
 add_task(async function shot_settings() {
+  if (chat().isOpen) {
+    chat().close({ reason: "key" });
+  }
   Services.prefs.setBoolPref("whimsy.ai.outside-agents", true);
   Services.prefs.setBoolPref("whimsy.claude.replay", true);
   const home = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-shots-home");

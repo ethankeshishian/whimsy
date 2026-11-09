@@ -294,6 +294,10 @@ add_task(async function test_settings_connection_and_rotation() {
     is(command.textContent, WhimsyClaude.connectInfo().command, "Settings shows the safe command");
     const before = command.textContent;
     const newKey = doc.getElementById("whimsyAIOutsideNewKey");
+    // The connect details unfold; click once they're there.
+    newKey.scrollIntoView({ block: "center" });
+    await Promise.all(doc.getAnimations().filter(a => a.effect?.getComputedTiming().iterations != Infinity).map(a => a.finished.catch(() => {})));
+    ok(newKey.checkVisibility(), "New key shows under the connect details");
     EventUtils.synthesizeMouseAtCenter(newKey, {}, win);
     const confirm = await TestUtils.waitForCondition(() => section.querySelector(".whimsy-ai-confirm [data-action=confirm]"), "New key asks first");
     EventUtils.synthesizeMouseAtCenter(confirm, {}, win);
