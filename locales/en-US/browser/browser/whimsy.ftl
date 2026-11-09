@@ -2041,9 +2041,11 @@ whimsy-season-toast-summer-description = The balloon brought sunglasses
 
 whimsy-action-selection-verbs = Actions for Selection
 # The command bar's group label above the verbs: the selected text (cut short).
-whimsy-verbs-row-selection = “{ $text }”
+whimsy-verbs-row-selection =
+    .label = “{ $text }”
 # The same label when nothing is selected: the page's title.
-whimsy-verbs-row-page = { $text }
+whimsy-verbs-row-page =
+    .label = { $text }
 whimsy-verb-translate = Translate
 whimsy-verb-translate-page = Translate Page
 # $engine (String) - the default search engine, e.g. Google
@@ -6392,25 +6394,40 @@ whimsy-routine-builtin-meeting-follow-up-prompt = From Granola’s notes and the
 # The command bar's placeholder in commands mode ("/", or ⌘K on an image or a selection).
 whimsy-cmdk-type-command =
     .placeholder = Type a command
-whimsy-cmdk-group-selection = “{ $text }” · Selection
-whimsy-cmdk-group-field = “{ $text }” · Text field
-whimsy-cmdk-group-verbs = Do with selection
-whimsy-cmdk-group-yours = Your commands
-whimsy-cmdk-group-page = This page
-whimsy-cmdk-group-article-top = { $title } · Article
-whimsy-cmdk-group-video-top = { $title } · Video
-whimsy-cmdk-group-product-top = { $title } · Product
-whimsy-cmdk-group-article = Article
-whimsy-cmdk-group-video = Video on this page
-whimsy-cmdk-group-product = Product
+whimsy-cmdk-group-selection =
+    .label = “{ $text }” · Selection
+whimsy-cmdk-group-field =
+    .label = “{ $text }” · Text field
+whimsy-cmdk-group-verbs =
+    .label = Do with selection
+whimsy-cmdk-group-yours =
+    .label = Your commands
+whimsy-cmdk-group-page =
+    .label = This page
+whimsy-cmdk-group-article-top =
+    .label = { $title } · Article
+whimsy-cmdk-group-video-top =
+    .label = { $title } · Video
+whimsy-cmdk-group-product-top =
+    .label = { $title } · Product
+whimsy-cmdk-group-article =
+    .label = Article
+whimsy-cmdk-group-video =
+    .label = Video on this page
+whimsy-cmdk-group-product =
+    .label = Product
 whimsy-cmdk-group-image =
-    { $count ->
-        [one] This image
-       *[other] These { $count } images
-    }
-whimsy-cmdk-group-commands = Commands
-whimsy-cmdk-group-search = Search
-whimsy-cmdk-no-match = No actions match
+    .label =
+        { $count ->
+            [one] This image
+           *[other] These { $count } images
+        }
+whimsy-cmdk-group-commands =
+    .label = Commands
+whimsy-cmdk-group-search =
+    .label = Search
+whimsy-cmdk-no-match =
+    .label = No actions match
 whimsy-cmdk-explain = Explain
 whimsy-cmdk-ask-selection = Ask About This…
 whimsy-cmdk-summarize-page = Summarize This Page
@@ -7516,7 +7533,8 @@ whimsy-translate-done = Done
 whimsy-edit-cmd = Change This Page…
 whimsy-edit-cmdk-row = Change This Page…
 whimsy-edit-cmdk-typed = Change this page: { $text }
-whimsy-edit-cmdk-group = Change this page
+whimsy-edit-cmdk-group =
+    .label = Change this page
 whimsy-edit-cmdk-placeholder =
     .placeholder = Describe a change, like “hide the comments”
 whimsy-edit-suggest-comments = Hide the comments

@@ -444,6 +444,13 @@ add_task(async function shots_image_cmdk() {
       ok(ids.includes("image:copy") && ids.includes("image:save"), "3.5: Copy Image and Save Image As… are listed");
       is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-cmdk-type-command", "3.5: the field says Type a command");
       ok(!BrowserTestUtils.isVisible(document.getElementById("urlbar-search-mode-indicator")), "3.5: no empty search-mode capsule");
+      // Group headings: Firefox's row labels, shown for ⌘K's rows.
+      const labelled = () => [...gURLBar.view.panel.querySelectorAll(".urlbarView-row[label]")].filter(r => BrowserTestUtils.isVisible(r));
+      await TestUtils.waitForCondition(() => labelled().some(r => r.getAttribute("label") == "This image"), "3.5: the This image heading");
+      const first = labelled()[0];
+      is(first.getAttribute("label"), "This image", "3.5: the first group's heading is This image");
+      ok(first.querySelector(".urlbarView-title")?.textContent, "3.5: the headed row keeps its title (the label didn't wipe it)");
+      ok(labelled().some(r => r.getAttribute("label") == "This page"), "3.5: This page heads the page's commands");
       await translateBar();
       return close;
     });

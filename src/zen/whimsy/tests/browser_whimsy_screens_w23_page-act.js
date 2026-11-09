@@ -200,6 +200,10 @@ add_task(async function translate_and_edit_shots() {
       Assert.deepEqual(suggested, ["change-page:whimsy-edit-suggest-comments", "change-page:whimsy-edit-suggest-bigger", "change-page:whimsy-edit-suggest-article"], "page-6.2: ⌘K in Change this page, with three suggestions");
       is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-edit-cmdk-placeholder", "page-6.2: Describe a change");
       ok(!WhimsyPageBar.current(window), "page-6.2: no bottom bar");
+      await TestUtils.waitForCondition(() => gURLBar.view.panel.querySelector(".urlbarView-row[label]"), "page-6.2: a heading");
+      const heading = gURLBar.view.panel.querySelector(".urlbarView-row[label]");
+      is(heading?.getAttribute("label"), "Change this page", "page-6.2: the suggestions sit under Change this page");
+      ok(heading?.querySelector(".urlbarView-title")?.textContent, "page-6.2: the headed row keeps its title");
       return closeBar;
     });
     is((await changeMode("hide the sidebar"))[0], "typed:change-page", "page-6.2: typing makes Change this page: …");
