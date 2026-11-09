@@ -150,8 +150,24 @@
   color: color-mix(in srgb, currentColor 60%, transparent);
 }
 
-.tabbrowser-tab[whimsy-agent-working] .tab-label-container {
-  overflow: hidden;
+/* The tab grows to fit the line (like two-line titles in whimsy-browser.css)
+   rather than clipping it: 44px, the folder row's height (agent-2.1). */
+.tabbrowser-tab[whimsy-agent-working]:not([zen-essential]) {
+  &,
+  & .tab-stack,
+  & .tab-content {
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  & .tab-content {
+    min-height: max(var(--tab-min-height), 44px);
+  }
+
+  & .tab-label-container {
+    height: auto !important;
+    overflow: hidden;
+  }
 }
 
 /* Tabs opened for you keep a small mark until you use them (agent-3.5). */
