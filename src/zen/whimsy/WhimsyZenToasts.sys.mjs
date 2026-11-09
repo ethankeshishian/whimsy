@@ -771,6 +771,10 @@ export class ZenToastManager {
   // Reduce Motion).
   #layout() {
     const container = this.#toastContainer;
+    dump("WHIMSY-DIAG layout toasts=" + JSON.stringify(this.#toasts.map(t => ({
+      key: t.key, msg: t.messageId, persistent: t.persistent, closing: t.closing,
+      closed: t.closed, connected: t.element.isConnected, h: t.element.clientHeight,
+    }))) + " containerChildren=" + container.children.length + "\n");
     const transient = this.#toasts.filter(t => !t.persistent).reverse();
     const persistent = this.#toasts.filter(t => t.persistent).reverse();
     if (persistent.length <= MAX_PERSISTENT_TOASTS) {
