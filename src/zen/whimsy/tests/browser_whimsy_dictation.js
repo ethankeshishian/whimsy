@@ -296,6 +296,26 @@ add_task(async function works_with_ai_off() {
   await SpecialPowers.popPrefEnv();
 });
 
+add_task(async function mic_click_stops_when_the_window_loses_focus() {
+  await setup();
+  await BrowserTestUtils.withNewTab(PAGE, async () => {
+    gURLBar.focus();
+    gURLBar.select();
+    const mic = document.getElementById("whimsy-dictation-mic");
+    await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(mic) && mic.getBoundingClientRect().width > 0, "The mic shows in the command bar");
+    EventUtils.synthesizeMouseAtCenter(mic, {});
+    await TestUtils.waitForCondition(() => WhimsyDictation.active?.phase == "listening", "A click listens");
+    const other = await BrowserTestUtils.openNewBrowserWindow();
+    await SimpleTest.promiseFocus(other);
+    await TestUtils.waitForCondition(() => speech.sessions[0].finished, "Leaving the window turns the mic off");
+    speech.sessions[0].say("", true);
+    await TestUtils.waitForCondition(() => !WhimsyDictation.active, "Listening ends");
+    await BrowserTestUtils.closeWindow(other);
+    await SimpleTest.promiseFocus(window);
+    await closeBar();
+  });
+});
+
 add_task(async function first_use_toast_only() {
   await setup();
   // Only the voice hint is new here.

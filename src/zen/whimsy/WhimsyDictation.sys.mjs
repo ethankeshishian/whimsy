@@ -155,7 +155,13 @@ export const WhimsyDictation = {
       { once: true }
     );
     this.mountMic(win);
-    win.addEventListener("deactivate", () => this.onFn("blur"));
+    // Leaving the window turns the mic off, however it was started.
+    win.addEventListener("deactivate", () => {
+      this.onFn("blur");
+      if (this.active?.win == win) {
+        this.stop();
+      }
+    });
     win.gURLBar.controller?.addListener({
       onViewOpen: () => this.onBarOpen(win),
       onViewClose: () => {
