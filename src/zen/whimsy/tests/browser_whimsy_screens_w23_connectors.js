@@ -168,9 +168,6 @@ add_task(async function onboarding_states() {
       WhimsyAIOnboarding.session.providers.add("claude");
       const content = await renderPage(connect);
       EventUtils.synthesizeMouseAtCenter(content.querySelector('[data-id="microsoft"] [data-action="connect"]'), {}, window);
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const sh = content.querySelector(".whimsy-onb-sheet"), cd = content.querySelector('[data-id="microsoft"]');
-      info(`DIAG card=${cd.getBoundingClientRect().bottom} content=${content.getBoundingClientRect().top} st=${content.scrollTop} top=${sh?.style.top} sheet=${sh?.getBoundingClientRect().top} op=${sh?.offsetParent?.className} pos=${getComputedStyle(content).position} tr=${getComputedStyle(sh).translate}`);
     }],
     ["onb-5.1", async () => {
       WhimsyAIOnboarding.pages(window);
