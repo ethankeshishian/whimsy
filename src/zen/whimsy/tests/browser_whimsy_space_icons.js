@@ -162,6 +162,16 @@ add_task(async function test_skin_tones() {
 });
 
 add_task(async function test_tab_icon_picker_stays_open() {
+  const DIAGhide = e => e.target == panel() && info(`DIAG ${e.type} at ${Date.now()}: ${new Error().stack.split("\n").slice(0, 12).join(" <- ")}`);
+  for (const t of ["popupshowing", "popupshown", "popuphiding", "popuphidden"]) {
+    panel().addEventListener(t, DIAGhide, true);
+  }
+  const DIAGorig = panel().hidePopup;
+  panel().hidePopup = function (...a) {
+    info(`DIAG hidePopup called: ${new Error().stack.split("\n").slice(0, 12).join(" <- ")}`);
+    return DIAGorig.apply(this, a);
+  };
+  info(`DIAG focus ${Services.focus.activeWindow == window} selected ${gBrowser.selectedTab.label} visible ${gBrowser.selectedTab.checkVisibility()} rect ${JSON.stringify(gBrowser.selectedTab.getBoundingClientRect())}`);
   info(`DIAG before open: panel ${panel().state} svg ${gZenEmojiPicker.svgList.children.length} open-attr ${document.querySelectorAll("[zen-emoji-open]").length}`);
   const picked = gZenEmojiPicker.open(gBrowser.selectedTab, { closeOnSelect: false, onSelect: () => {} });
   info(`DIAG open returned ${picked}`);

@@ -340,14 +340,14 @@ add_task(async function test_new_space_from_empty_scratch_shows_one_form() {
       const DIAGbub = e => e.key == " " && DIAGlog.push(`bub-${e.type}:${e.defaultPrevented}:${e.target.localName}`);
       for (const t of ["keydown", "keypress", "beforeinput", "input"]) {
         window.addEventListener(t, DIAGcap, true);
-        Services.els.addSystemEventListener(window, t, DIAGbub, false);
+        window.addEventListener(t, DIAGbub, { mozSystemGroup: true });
       }
       const DIAGin = e => DIAGlog.push(`input-${e.type}:${JSON.stringify(e.data)}:${form.inputName.value}`);
       form.inputName.addEventListener("input", DIAGin);
       EventUtils.sendString("From Private", window);
       for (const t of ["keydown", "keypress", "beforeinput", "input"]) {
         window.removeEventListener(t, DIAGcap, true);
-        Services.els.removeSystemEventListener(window, t, DIAGbub, false);
+        window.removeEventListener(t, DIAGbub, { mozSystemGroup: true });
       }
       form.inputName.removeEventListener("input", DIAGin);
       info(`DIAG space: ${DIAGlog.join(" ")}`);
