@@ -1208,6 +1208,11 @@ class ChatPanel {
       } else if (opts.instruction) {
         history.push({ role: "user", content: opts.instruction });
       }
+      // W23 video: frames ride along with the last message.
+      const asker = opts.images?.length ? history.findLast(m => m.role == "user") : null;
+      if (asker) {
+        asker.content = [{ type: "text", text: asker.content }, ...opts.images];
+      }
       const system = this.systemPrompt(page, extra);
       needs = opts.textOnly ? { chars: system.length } : { ...lazy.WhimsyChatContextUI.needsOf(context ?? {}, system), ...(opts.needs ?? {}) };
       const choice = lazy.WhimsyChatAnswer.choiceFor(thread);

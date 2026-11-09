@@ -6451,3 +6451,57 @@ whimsy-ai-card-error-offline = You’re offline. Connect to the internet, then t
 whimsy-ai-card-replaced-toast = Replaced the selected text
 whimsy-ai-card-inserted-toast = Inserted after the selected text
 whimsy-ai-card-copied-toast = Copied
+
+## W23 video: the plates on videos (back to default, Summarize, and
+## picture-in-picture), the speed note, Summarize in chat, and Settings › Media.
+
+# $rate (String) - your default speed, like "1.5×"
+whimsy-video-back-to-default = Back to { $rate }
+# $rate (String) - the fastest speed, "16×"
+whimsy-video-speed-fastest = Set to { $rate }, as fast as videos go
+whimsy-video-summarize = Summarize
+whimsy-video-summarizing = Summarizing…
+whimsy-video-summarize-tip = Summarize this video
+whimsy-video-hide-summary = Hide summary
+whimsy-video-show-summary = Show summary
+whimsy-video-pip = Picture-in-Picture
+whimsy-video-pip-back = Back to the page
+whimsy-video-summarize-command = Summarize this video
+whimsy-video-summarize-prompt = Summarize this video
+whimsy-video-chip = This video
+# $from (String) - where the summary came from
+# $frames (Number) - how many frames the model saw
+whimsy-video-note =
+    { $from ->
+        [captions]
+            { $frames ->
+                [0] From the captions
+                [one] From the captions and 1 frame
+               *[other] From the captions and { $frames } frames
+            }
+        [subtitles] From the subtitle file the page loaded
+        [drawn] From the subtitles on the video and the page
+        [text-only] This model can’t look at frames, so this is from the captions and the description.
+        [drm-captions] From the subtitles and the page
+        [drm-subtitles] From the subtitles and the page
+        [drm-drawn] From the subtitles and the page
+        [drm-page] This video is copy-protected, so this is from the page.
+       *[page]
+            { $frames ->
+                [0] From the page, not the video
+               *[other] From frames and the description
+            }
+    }
+whimsy-video-heard-heading = What’s said so far
+# $time (String) - how much has been heard, like "0:41"
+whimsy-video-heard-listening = Listening as it plays · { $time } heard
+whimsy-video-transcript =
+    .title = Transcript
+    .aria-label = Transcript
+# $from (String) - where the lines came from
+whimsy-video-transcript-from =
+    { $from ->
+        [subtitles] From the subtitle file the page loaded
+        [drawn] From the subtitles on the video
+       *[other] From the video’s captions
+    }

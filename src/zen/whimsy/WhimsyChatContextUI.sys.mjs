@@ -13,6 +13,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
@@ -182,6 +183,10 @@ export const WhimsyChatContextUI = {
     if (desc.kind == "tabs") {
       const ctx = await lazy.WhimsyAIContext.allTabs(prompt ?? "", win);
       return { ...ctx, widened: [] };
+    }
+    // W23 video: "This video", what Summarize read.
+    if (desc.kind == "video") {
+      return lazy.WhimsyVideoSummary.contextFor(win, desc);
     }
     if (desc.kind == "file") {
       let text = "";

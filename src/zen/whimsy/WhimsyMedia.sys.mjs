@@ -64,7 +64,7 @@ const PIP_PREF = "whimsy.media.pip-snap-back";
 
 // Playback speed (the Video Speed Controller extension): Cmd+Opt+. speeds
 // up the video the page is about by 0.25×, Cmd+Opt+, slows it, Cmd+Opt+0
-// goes back to 1×, with a toast saying the speed. Also in the command bar.
+// goes back to your default speed, with a toast saying the speed. Also in the command bar.
 // Firefox's own speed control in the picture-in-picture player is turned
 // on (media.videocontrols.picture-in-picture.playback-speed.enabled).
 const SPEED_FEATURE_PREF = "whimsy.feature.playback-speed";
@@ -828,7 +828,9 @@ export const WhimsyMedia = {
         // A frame that went away.
       }
     }
-    const rate = best ? await best.actor.sendQuery("Whimsy:SetRate", change) : null;
+    // W23 video: Reset Video Speed goes to your default, not 1×.
+    const ask = change.reset ? { ...change, to: lazy.WhimsyVideoSpeed.defaultRate } : change;
+    const rate = best ? await best.actor.sendQuery("Whimsy:SetRate", ask) : null;
     if (rate === null) {
       win.gZenUIManager?.showToast?.("whimsy-speed-none-toast");
     } else {

@@ -273,6 +273,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFindCard.sys.mjs",
 ]
 
+# W23 video
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsySubtitleSniffer.sys.mjs",
+    "WhimsyVideoSummary.sys.mjs",
+]
+
 # W23 routines-engine
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyRoutineCards.sys.mjs",

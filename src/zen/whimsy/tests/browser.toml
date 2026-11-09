@@ -1041,3 +1041,10 @@ support-files = ["whimsy_cmdk.html", "whimsy_test_image.png"]
 
 ["browser_whimsy_ai_selection.js"]
 support-files = ["whimsy_ai_selection.html"]
+
+# W23 video: the plates on videos, Summarize, and what it reads.
+["browser_whimsy_video_overlay.js"]
+support-files = ["head_video_w23.js", "whimsy_video_vtt.html", "whimsy_video_vtt.vtt", "whimsy_video.mp4"]
+
+["browser_whimsy_video_summary.js"]
+support-files = ["head_video_w23.js", "whimsy_video_vtt.html", "whimsy_video_vtt.vtt", "whimsy_video_vtt.ttml", "whimsy_video.mp4"]

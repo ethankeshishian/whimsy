@@ -11,6 +11,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
@@ -1143,6 +1144,10 @@ export const WhimsyChatAnswer = {
 
   /** A time in a video summary plays the chat's video from there. */
   async seekVideo(win, thread, seconds) {
+    // W23 video: a summary's times seek the very video it summarized.
+    if (lazy.WhimsyVideoSummary.owns(thread)) {
+      return lazy.WhimsyVideoSummary.seek(win, thread, seconds);
+    }
     const tab = (thread ? lazy.WhimsyChatThreads.tabOf(thread) : null) ?? win.gBrowser.selectedTab;
     if (win.gBrowser.selectedTab != tab && !tab.splitView) {
       win.gBrowser.selectedTab = tab;

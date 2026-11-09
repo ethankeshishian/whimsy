@@ -134,6 +134,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave3/speed: speed control on videos.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyVideoSpeed: "resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs",
+  WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
 });
 
 
@@ -662,6 +663,8 @@ export const Whimsy = {
     run("ai-commands", () => lazy.WhimsyAICommands.initWindow(win));
     // W23 commands: AI rows on selected text and their result card; each checks its switch and AI on use.
     run("ai-selection-commands", () => lazy.WhimsyAISelectionCard.initWindow(win));
+    // W23 video: Summarize on videos, its ⌘K row, and the subtitle sniffer; checks AI and its switch on use.
+    run("ai-video-summary", () => lazy.WhimsyVideoSummary.initWindow(win));
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

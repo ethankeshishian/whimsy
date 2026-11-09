@@ -5,7 +5,7 @@
 
 // wave3/speed: pointing at a video shows its speed ("1×"); the arrow opens
 // quarter steps 0.25×–4×, clicking the number lets you type a speed (Enter
-// applies, clamped to 0.25–4×). The speed is remembered per site, the
+// applies, within 1/16×–16×). The speed is remembered per site, the
 // Cmd+Opt shortcuts remember theirs too, and the page's own player never
 // sees a click or key meant for the control.
 
@@ -126,10 +126,12 @@ add_task(async function test_type_a_speed() {
   await typeSpeed(browser, "1.7");
   is(await rate(browser), 1.7, "Any speed can be typed");
   is((await control(browser)).text, "1.7×", "and shows");
+  // W23 video: Gecko's range, 1/16× to 16×.
   await typeSpeed(browser, "9");
-  is(await rate(browser), 4, "Clamped to 4×");
+  is(await rate(browser), 9, "9× is fine now");
+  is((await control(browser)).note, null, "with no note");
   await typeSpeed(browser, "0.1");
-  is(await rate(browser), 0.25, "Clamped to 0.25×");
+  is(await rate(browser), 0.1, "and 0.1×");
   await typeSpeed(browser, "1,5x");
   is(await rate(browser), 1.5, "A comma and a trailing x are fine");
   await typeSpeed(browser, "fast");
