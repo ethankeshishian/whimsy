@@ -68,6 +68,8 @@ add_task(async function listen_page_and_from_here() {
 
     // To the end: Finished, replay, and the card leaves after its delay.
     WhimsyReadAloud.leaveDelay = 300;
+    // The pointer leaves the card, or it would stay (media-4.9).
+    EventUtils.synthesizeMouseAtCenter(document.getElementById("tabbrowser-tabpanels"), { type: "mousemove" });
     WhimsyReadAloud.goTo(WhimsyReadAloud.session.sentences.length - 1);
     synth.end();
     const done = WhimsyReadAloud.session.card;

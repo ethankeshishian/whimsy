@@ -170,7 +170,11 @@ add_task(async function shots_player() {
     await shoot("fu-media-4.5", async () => {
       Services.prefs.setStringPref("whimsy.read-aloud.rate", "1.25");
       const { card } = await reading(3);
-      const panel = await openSpeedMenu(card.querySelector(".whimsy-read-aloud-speed"));
+      // The click is covered by browser_whimsy_read_aloud.js; here only the look matters.
+      WhimsyReadAloud.openSpeedMenu(window, card.querySelector(".whimsy-read-aloud-speed"));
+      const panel = await TestUtils.waitForCondition(() => document.getElementById("whimsy-read-aloud-speed-menu"), "The speed menu opens");
+      await TestUtils.waitForCondition(() => panel.state == "open", "The speed menu is open");
+      await document.l10n.translateFragment(panel);
       ok(panel.querySelector("[aria-selected='true']")?.textContent.includes("1.25×"), "4.5: 1.25× is checked");
       await whimsySettled();
       const undo = standInPopups();
