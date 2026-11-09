@@ -349,7 +349,7 @@ add_task(async function first_use_toast_only() {
     toast.close({ instant: true });
     await closeBar();
   });
-  WhimsyAIHints._resetForTesting();
+  WhimsyAIHints._restoreForTesting();
   WhimsyAIHints._setTimingForTesting(null);
   await SpecialPowers.popPrefEnv();
 });

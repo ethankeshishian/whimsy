@@ -20,7 +20,7 @@ add_setup(async function () {
   ] });
   WhimsyAIHints._setTimingForTesting({ gapMs: 0, timeoutMs: 0 });
   registerCleanupFunction(() => {
-    WhimsyAIHints._resetForTesting();
+    WhimsyAIHints._restoreForTesting();
     WhimsyAIHints._setTimingForTesting(null);
   });
 });

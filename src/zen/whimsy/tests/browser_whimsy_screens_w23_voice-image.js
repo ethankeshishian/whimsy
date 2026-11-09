@@ -296,7 +296,7 @@ add_task(async function shots_command_bar_mic() {
       is(getComputedStyle(document.getElementById("whimsy-dictation-mic")).boxShadow, "none", "No ring on the mic");
       return async () => {
         toast.close({ instant: true });
-        WhimsyAIHints._resetForTesting();
+        WhimsyAIHints._restoreForTesting();
         await closeBar();
       };
     });
