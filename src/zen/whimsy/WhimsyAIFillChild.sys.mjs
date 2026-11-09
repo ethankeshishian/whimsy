@@ -55,6 +55,71 @@ function visible(el) {
   return style.visibility != "hidden" && style.display != "none" && Number(style.opacity) > 0.05;
 }
 
+// W23 secfix M6: form fill writes only into a field the person can see and
+// reach: focusable, not aria-hidden or inert, not clipped away or see-through
+// (its own opacity times its ancestors'), inside the page's scrollable area,
+// not cut off by an ancestor that hides overflow, and, when it's in view,
+// the topmost thing at its centre. Hidden fields are never filled.
+function fillable(el) {
+  if (!visible(el)) {
+    return false;
+  }
+  const win = el.ownerDocument.defaultView;
+  const doc = el.ownerDocument;
+  if (el.tabIndex < 0 || el.closest("[aria-hidden=true], [inert]")) {
+    return false;
+  }
+  if (typeof el.checkVisibility == "function" && !el.checkVisibility({ opacityProperty: true, visibilityProperty: true, contentVisibilityAuto: true })) {
+    return false;
+  }
+  const own = win.getComputedStyle(el);
+  if ((own.clipPath && own.clipPath != "none") || (own.clip && own.clip != "auto")) {
+    return false;
+  }
+  const rect = el.getBoundingClientRect();
+  let opacity = 1;
+  for (let node = el; node && node.nodeType == 1; node = node.parentElement) {
+    const style = win.getComputedStyle(node);
+    opacity *= Number(style.opacity);
+    if (node != el && ((style.clipPath && style.clipPath != "none") || (style.clip && style.clip != "auto"))) {
+      return false;
+    }
+    if (node != el && /hidden|clip|scroll|auto/.test(`${style.overflowX} ${style.overflowY}`)) {
+      const box = node.getBoundingClientRect();
+      const cut = Math.min(rect.right, box.right) - Math.max(rect.left, box.left) < 2 || Math.min(rect.bottom, box.bottom) - Math.max(rect.top, box.top) < 2;
+      if (cut && /hidden|clip/.test(`${style.overflowX} ${style.overflowY}`)) {
+        return false;
+      }
+    }
+  }
+  if (opacity < 0.2 || own.color == "transparent" || own.color == "rgba(0, 0, 0, 0)") {
+    return false;
+  }
+  // On screen across, and either in view or further down the page's own
+  // flow. A field placed out of view (absolute or fixed) is parked there.
+  if (rect.right <= 0 || rect.left >= win.innerWidth || rect.bottom + win.scrollY <= 0) {
+    return false;
+  }
+  const inView = rect.bottom > 0 && rect.top < win.innerHeight;
+  if (!inView) {
+    for (let node = el; node && node.nodeType == 1; node = node.parentElement) {
+      if (/absolute|fixed/.test(win.getComputedStyle(node).position)) {
+        return false;
+      }
+    }
+  }
+  // In view: nothing else covers its centre.
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  if (x >= 0 && y >= 0 && x < win.innerWidth && y < win.innerHeight) {
+    const hit = doc.elementFromPoint(x, y);
+    if (hit && hit != el && !el.contains(hit) && !hit.contains(el) && !(hit.localName == "label" && hit.control == el)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function isEditable(el) {
   if (el.localName == "textarea") {
     return true;
@@ -243,7 +308,7 @@ export class WhimsyAIFillChild extends JSWindowActorChild {
   collect() {
     const doc = this.document;
     const secretFrame = this.sensitiveFrame;
-    this.fields = [...doc.querySelectorAll(FIELD_SELECTOR)].filter(el => isEditable(el) && visible(el)).slice(0, MAX_FIELDS);
+    this.fields = [...doc.querySelectorAll(FIELD_SELECTOR)].filter(el => isEditable(el) && fillable(el)).slice(0, MAX_FIELDS);
     // From here on, a field the person types in is theirs.
     this.listen();
     this.snapshot = new Map(this.fields.map(el => [el, valueOf(el)]));
@@ -409,7 +474,8 @@ export class WhimsyAIFillChild extends JSWindowActorChild {
       }
       // Typing in a field skips it, and so does an open menu on it.
       const typed = this.touched.has(el) || (snapshot.has(el) && valueOf(el) != snapshot.get(el));
-      if (typed || skip.includes(item.index) || this.extensionMenuNear(el) || classifyField(el) || this.sensitiveFrame) {
+      // Checked again just before writing: a page can hide a field after it was listed (M6).
+      if (typed || skip.includes(item.index) || this.extensionMenuNear(el) || classifyField(el) || this.sensitiveFrame || !fillable(el)) {
         skipped.push(item.index);
         continue;
       }

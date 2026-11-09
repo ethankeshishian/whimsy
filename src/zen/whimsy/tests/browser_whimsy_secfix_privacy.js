@@ -64,3 +64,31 @@ add_task(async function fire_range_clears_only_that_range() {
   await WhimsyAIStore.clear({ kinds: ["index"] });
   is(await WhimsyAIIndex.count(), 0, "Everything clears everything");
 });
+
+// W23 secfix M6: form fill never writes into a field the person can't see.
+add_task(async function fill_never_writes_hidden_fields() {
+  const { WhimsyAIFill } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIFill.sys.mjs");
+  const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  WhimsyAIProviders.setTestProvider(async () => JSON.stringify({ fields: [] }));
+  WhimsyAIFill._testSources = {
+    addresses: [{ name: "Priya Nair", email: "priya@example.com", "street-address": "18 Harbour Lane", "address-level2": "Bristol", "postal-code": "BS1 4RN", tel: "07700 900123", organization: "Acme" }],
+    memories: [],
+  };
+  try {
+    await BrowserTestUtils.withNewTab(ROOT + "whimsy_secfix_form.html", async browser => {
+      await WhimsyAIFill.fillForm(window, gBrowser.selectedTab, {});
+      const values = await SpecialPowers.spawn(browser, [], () =>
+        Object.fromEntries([...content.document.querySelectorAll("input")].map(i => [i.id, { value: i.value, look: i.getAttribute("whimsy-ai-fill") }]))
+      );
+      is(values.name.value, "Priya Nair", "The visible field is filled");
+      is(values.name.look, "filled", "and tagged");
+      for (const id of ["clip", "clippath", "tabneg", "ariahidden", "faint", "zero", "offright", "covered", "ink"]) {
+        is(values[id].value, "", `${id}: a hidden field is never filled`);
+      }
+    });
+  } finally {
+    WhimsyAIProviders.setTestProvider(null);
+    WhimsyAIFill._testSources = null;
+    closeToasts();
+  }
+});
