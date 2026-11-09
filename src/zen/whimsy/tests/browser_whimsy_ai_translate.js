@@ -89,6 +89,14 @@ add_task(async function quota_falls_to_firefox_engine() {
       ok(result.done >= 1 && result.done == result.total, "Every section, top down");
       const text = await SpecialPowers.spawn(browser, [], () => content.document.querySelector("article p").textContent);
       ok(text.startsWith("[openai]"), "The page text was swapped in");
+      const link = await SpecialPowers.spawn(browser, [], () => {
+        const a = content.document.querySelector("#linked a");
+        return a && { href: a.href, cls: a.className, text: a.textContent, para: content.document.querySelector("#linked").textContent };
+      });
+      ok(link, "A translated paragraph keeps its link");
+      is(link?.href, "https://example.com/nuit", "with the same address");
+      is(link?.text, "doucement", "around the words it marked");
+      ok(!/⟨/.test(link?.para ?? ""), "and no marker is left in the text");
       is(firefoxCalls, 0, "Firefox's engine wasn't needed");
       const bar = WhimsyPageBar.current(window);
       ok(bar, "The done bar shows");

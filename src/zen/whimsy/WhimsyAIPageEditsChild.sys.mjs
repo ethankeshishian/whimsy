@@ -44,6 +44,48 @@ function selectorFor(el) {
   return steps.join(" > ");
 }
 
+// The block's words, each link's words between ⟨n⟩ and ⟨/n⟩ (1-based).
+function markLinks(el, links) {
+  if (!links.length) {
+    return el.textContent;
+  }
+  const walk = node => {
+    if (node.nodeType == node.TEXT_NODE) {
+      return node.data;
+    }
+    const k = links.indexOf(node);
+    if (k >= 0) {
+      return `⟨${k + 1}⟩${node.textContent}⟨/${k + 1}⟩`;
+    }
+    return [...node.childNodes].map(walk).join("");
+  };
+  return walk(el);
+}
+
+// The translated words as nodes: marked runs go back inside a copy of
+// their original link (its href and attributes, never the model's). Text
+// is only ever text; a stray or unmatched marker is dropped.
+function withLinks(doc, text, links) {
+  const nodes = [];
+  const re = /⟨(\d+)⟩([\s\S]*?)⟨\/\1⟩/g;
+  const clean = s => s.replace(/⟨\/?\d+⟩/g, "");
+  let at = 0;
+  for (const match of String(text).matchAll(re)) {
+    const link = links[Number(match[1]) - 1];
+    nodes.push(doc.createTextNode(clean(text.slice(at, match.index))));
+    if (link) {
+      const copy = link.cloneNode(false);
+      copy.textContent = clean(match[2]);
+      nodes.push(copy);
+    } else {
+      nodes.push(doc.createTextNode(clean(match[2])));
+    }
+    at = match.index + match[0].length;
+  }
+  nodes.push(doc.createTextNode(clean(text.slice(at))));
+  return nodes.filter(n => n.nodeType != n.TEXT_NODE || n.data);
+}
+
 export class WhimsyAIPageEditsChild extends JSWindowActorChild {
   constructor() {
     super();
@@ -164,12 +206,18 @@ export class WhimsyAIPageEditsChild extends JSWindowActorChild {
     const blocks = [...(doc.body?.querySelectorAll(BLOCKS) ?? [])].filter(
       el => !el.querySelector(BLOCKS) && el.textContent.trim().length > 1 && !el.closest("script, style, noscript, [contenteditable], textarea, pre, code")
     );
-    this.blocks = blocks.map(el => ({ el, original: [...el.childNodes].map(n => n.cloneNode(true)) }));
+    this.blocks = blocks.map(el => ({
+      el,
+      original: [...el.childNodes].map(n => n.cloneNode(true)),
+      // Links survive translation: each one's words go out between
+      // ⟨n⟩…⟨/n⟩ markers and come back inside a copy of the same link.
+      links: [...el.querySelectorAll("a[href]")].filter(a => !a.parentElement.closest("a")),
+    }));
     const sections = [];
     let current = [];
     let size = 0;
     for (const [i, b] of this.blocks.entries()) {
-      const text = b.el.textContent.replace(/\s+/g, " ").trim();
+      const text = markLinks(b.el, b.links).replace(/\s+/g, " ").trim();
       if (size + text.length > SECTION_CHARS && current.length) {
         sections.push(current);
         current = [];
@@ -191,7 +239,7 @@ export class WhimsyAIPageEditsChild extends JSWindowActorChild {
       if (!block?.el.isConnected || typeof text != "string") {
         continue;
       }
-      block.el.textContent = text;
+      block.el.replaceChildren(...withLinks(this.document, text, block.links));
       if (!reduce) {
         block.el.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 240, easing: "cubic-bezier(.2,.8,.2,1)" });
       }
