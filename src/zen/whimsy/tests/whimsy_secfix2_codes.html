@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Verify and pay</title></head>
+<body>
+<!-- Split code, siblings, the hint on the first box only (GitHub-, Stripe-style). -->
+<fieldset id="split-siblings"><legend>Enter the code we sent</legend>
+  <input data-expect="otp" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Digit 1">
+  <input data-expect="otp" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 2">
+  <input data-expect="otp" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 3">
+  <input data-expect="otp" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 4">
+  <input data-expect="otp" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 5">
+  <input data-expect="otp" type="text" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+</fieldset>
+<!-- Split code, each box in a wrapper, no words at all (tel boxes). -->
+<div id="split-wrapped" class="pin-row">
+  <div class="cell"><input data-expect="otp" type="tel" maxlength="1"></div>
+  <div class="cell"><input data-expect="otp" type="tel" maxlength="1"></div>
+  <div class="cell"><input data-expect="otp" type="tel" maxlength="1"></div>
+  <div class="cell"><input data-expect="otp" type="tel" maxlength="1"></div>
+</div>
+<!-- Split alphanumeric code: plain text boxes, one-time-code on the third. -->
+<div id="split-text">
+  <span><input data-expect="otp" type="text" maxlength="1" name="c0"></span>
+  <span><input data-expect="otp" type="text" maxlength="1" name="c1"></span>
+  <span><input data-expect="otp" type="text" maxlength="1" name="c2" autocomplete="one-time-code"></span>
+  <span><input data-expect="otp" type="text" maxlength="1" name="c3"></span>
+  <span><input data-expect="otp" type="text" maxlength="1" name="c4"></span>
+</div>
+<!-- Card names real checkouts use. -->
+<form id="card">
+  <input data-expect="card" name="cvv2" placeholder="CVV2">
+  <input data-expect="card" id="CVC2">
+  <input data-expect="card" name="csc">
+  <input data-expect="card" name="ccexpmonth">
+  <input data-expect="card" name="cardCvv">
+  <input data-expect="card" name="securityCode">
+  <input data-expect="card" aria-label="Card verification number">
+  <input data-expect="card" name="x_card_code">
+  <input data-expect="card" id="exp-month">
+</form>
+<!-- Not secrets. -->
+<form id="plain">
+  <input data-expect="" name="middle_initial" maxlength="1" aria-label="Middle initial">
+  <input data-expect="" name="pinCode" aria-label="PIN code (postal)">
+  <input data-expect="" name="discount_code" aria-label="Discount code">
+  <input data-expect="" name="expert_notes" aria-label="Notes">
+  <input data-expect="" name="first_name" aria-label="First name">
+</form>
+</body>
+</html>
