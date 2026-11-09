@@ -8,6 +8,10 @@
 // plus mid-animation frames (the find card opening, the passage tint fading,
 // the preview loading). WHIMSY_SHOTS=<dir> writes w23-page-read-*.png.
 
+// find_card's find round trips wait longer than the default poll under
+// this file's own load (PDF and chat tasks run first, same window).
+requestLongerTimeout(2);
+
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
 const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
