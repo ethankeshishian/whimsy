@@ -469,6 +469,10 @@ export const WhimsyChatAgent = {
       run?.remove();
       return;
     }
+    // Once a task starts, the header names it ("Coffee reorder"), not the tab.
+    if (task.title && panel.title) {
+      panel.title.textContent = task.title;
+    }
     const isNew = !run;
     if (isNew) {
       run = h(doc, "div", { class: "whimsy-agent-run", role: "status" });
