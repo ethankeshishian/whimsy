@@ -164,14 +164,18 @@
     show(0);
   }
 
-  async function load(keep) {
+  async function load(keep, link = null) {
     const enabled = WhimsyClaudeReplay.enabled;
     runs = await WhimsyClaudeReplay.runs();
     $("whimsy-replay-off").hidden = enabled || runs.length > 0;
     $("whimsy-replay-empty").hidden = !enabled || runs.length > 0;
     $("whimsy-replay-layout").hidden = !runs.length;
     $("whimsy-replay-clear").hidden = !runs.length;
-    if (runs.length) {
+    const linked = link && runs.find(r => r.id == link.run || (link.task && r.taskId == link.task));
+    if (linked) {
+      select(linked.id);
+      show(Math.max(0, Math.min(run.steps.length - 1, link.step || 0)));
+    } else if (runs.length) {
       select(keep && runs.some(r => r.id == keep) ? keep : runs[0].id);
     } else {
       run = null;
@@ -226,5 +230,7 @@
   Services.obs.addObserver(observer, "whimsy-claude-replay-changed");
   window.addEventListener("unload", () => Services.obs.removeObserver(observer, "whimsy-claude-replay-changed"));
 
-  await load();
+  // whimsy://replay?task=…&step=… (a chat's step list) or ?run=… (Settings › AI › Activity).
+  const params = new URLSearchParams(location.search);
+  await load(null, { run: params.get("run"), task: params.get("task"), step: Number(params.get("step")) || 0 });
 })();

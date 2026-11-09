@@ -1932,13 +1932,13 @@ whimsy-claude-replay =
     .description = Each run’s steps and small page snapshots stay on this device. Private tabs and the Private Space are never recorded; clearing history clears it.
 whimsy-claude-show-runs =
     .label = Show Claude’s Runs
-whimsy-replay-title = Claude runs
-whimsy-replay-heading = Claude runs
-whimsy-replay-intro = Every step Claude took in { -brand-short-name }, with a snapshot of the page. Kept only on this device.
+whimsy-replay-title = Agent runs
+whimsy-replay-heading = Agent runs
+whimsy-replay-intro = Every step Whimsy’s agent and outside apps took in your tabs, with a snapshot of the page. Kept only on this Mac.
 whimsy-replay-clear = Clear All
 whimsy-replay-empty-title = No runs yet
 whimsy-replay-empty = When an agent uses your tabs, each run shows up here, step by step.
-whimsy-replay-off = Replay is off. Turn it on in Settings → Privacy & Security → Claude.
+whimsy-replay-off = Step screenshots are off. Turn them on in Settings › AI › Activity.
 whimsy-replay-runs-label =
     .aria-label = Runs
 # $count (Number) - steps in a run
@@ -6469,6 +6469,84 @@ whimsy-agent-chat-looked-at = { $count ->
 }
 whimsy-agent-chat-reopen-all = Reopen all
 whimsy-agent-chat-reopen = Reopen
+
+## W23 agent-chat: Settings › AI › Agent, Outside agents, and Activity
+
+whimsy-ai-jump-agent = Agent
+whimsy-ai-jump-activity = Activity
+whimsy-ai-agent-heading = Agent
+whimsy-ai-agent-desc = How the agent works in your tabs. The pauses below can’t be turned off.
+whimsy-ai-agent-mode = New chats start in
+whimsy-ai-agent-mode-detail = You can flip it beside the composer, even mid-task. Whimsy remembers your last choice.
+whimsy-ai-agent-mode-drive = Drive
+whimsy-ai-agent-mode-background = Background
+whimsy-ai-agent-pauses-label = Pauses
+whimsy-ai-agent-pauses-title = The agent stops and shows you first
+whimsy-ai-agent-pauses-detail = It works on its own, and pauses with an exact preview before it:
+whimsy-ai-agent-always-on = Always on
+whimsy-ai-agent-pause-money = Moves money
+whimsy-ai-agent-pause-send = Sends or posts to people
+whimsy-ai-agent-pause-delete = Deletes something
+whimsy-ai-agent-pause-settings = Changes account, security, or privacy settings
+whimsy-ai-agent-pause-submit = Submits a form
+whimsy-ai-agent-pause-new-site = Enters your data on a new site
+whimsy-ai-agent-pause-download = Downloads or installs
+whimsy-ai-agent-pause-sign-in = Signs in
+whimsy-ai-agent-unsure = When it can’t tell, it pauses
+whimsy-ai-agent-unsure-detail = There’s no always-allow for paying or sending, and no way to skip the pause.
+whimsy-ai-outside-heading = Outside agents
+whimsy-ai-outside-desc = Other apps that use your tabs. Connect writes the app’s own MCP setting for you; Remove takes it out again.
+whimsy-ai-outside-enable = Let apps on this Mac use Whimsy
+whimsy-ai-outside-enable-detail = Agents like Claude Code and Codex can read and use your tabs through Whimsy’s MCP server. They follow the same rules as Whimsy’s agent, and their runs show in Activity.
+whimsy-ai-outside-last-used = Connected · last used { $when }
+whimsy-ai-outside-connected = Connected
+whimsy-ai-outside-found = On this Mac · not connected
+whimsy-ai-outside-connect = Connect
+whimsy-ai-outside-remove = Remove
+whimsy-ai-outside-connected-toast = { $app } is connected
+whimsy-ai-outside-connect-failed = Couldn’t connect { $app }
+whimsy-ai-outside-another = Another app…
+whimsy-ai-outside-another-detail = Cursor, VS Code, Claude Desktop, or anything that speaks MCP
+whimsy-ai-outside-another-intro = Run this in Terminal. It adds Whimsy’s small connector, which reads the key from your profile, so no key is ever copied.
+whimsy-ai-outside-json-intro = Or add this to the app’s MCP settings:
+whimsy-ai-outside-copy-command = Copy command
+whimsy-ai-outside-copy-json = Copy JSON
+whimsy-ai-outside-copied = Copied
+whimsy-ai-outside-new-key = New key
+whimsy-ai-outside-new-key-confirm = Make a new key?
+whimsy-ai-outside-new-key-note = A new key disconnects every app until it reconnects on its own.
+whimsy-ai-outside-own-space = Keep apps in their own space
+whimsy-ai-outside-own-space-detail = Tabs that outside apps open go to a space of their own, out of your way.
+whimsy-ai-activity-heading = Activity
+whimsy-ai-activity-desc = Every agent run, Whimsy’s own and outside apps’, with its steps. Kept on this Mac; the Fire button clears it.
+whimsy-ai-activity-all = All
+whimsy-ai-activity-whimsy = Whimsy
+whimsy-ai-activity-outside = Outside apps
+whimsy-ai-activity-empty = No runs yet
+whimsy-ai-activity-empty-detail = When the agent or an outside app works in your tabs, each run shows here with its steps.
+whimsy-ai-activity-run-whimsy =
+    { $count ->
+        [one] Whimsy agent · 1 step
+       *[other] Whimsy agent · { $count } steps
+    }
+whimsy-ai-activity-run-outside =
+    { $count ->
+        [one] { $app } (outside app) · 1 step
+       *[other] { $app } (outside app) · { $count } steps
+    }
+whimsy-ai-activity-delete =
+    .aria-label = Delete run
+    .title = Delete run
+whimsy-ai-activity-delete-title = Delete this run?
+whimsy-ai-activity-delete-text = Its steps and screenshots are removed from this Mac. Anything it did on sites stays done.
+whimsy-ai-activity-delete-ok = Delete
+whimsy-ai-activity-keep = Keep step screenshots
+whimsy-ai-activity-keep-detail = Small snapshots of each step, kept on this Mac. Private tabs are never captured, and card numbers, passwords, and one-time codes are covered before a snapshot is taken, so AI never sees them.
+whimsy-ai-activity-days = Keep runs for
+whimsy-ai-activity-days-7 = 7 days
+whimsy-ai-activity-days-30 = 30 days
+whimsy-ai-activity-days-90 = 90 days
+whimsy-ai-activity-days-forever = Forever
 whimsy-agent-chat-save-as = Save as…
 whimsy-agent-chat-save-menu =
     .aria-label = Save as
