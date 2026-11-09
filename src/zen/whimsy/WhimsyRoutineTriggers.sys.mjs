@@ -254,7 +254,7 @@ export const WhimsyRoutineTriggers = {
         if (!webProgress?.isTopLevel || flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) {
           return;
         }
-        const tab = browser.ownerGlobal?.gBrowser?.getTabForBrowser(browser);
+        const tab = browser.documentGlobal?.gBrowser?.getTabForBrowser(browser);
         this._visited(tab, location?.spec ?? "");
       },
     };

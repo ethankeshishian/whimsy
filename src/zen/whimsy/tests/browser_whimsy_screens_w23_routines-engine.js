@@ -13,7 +13,6 @@ const { WhimsyRoutines } = ChromeUtils.importESModule("resource:///modules/whims
 const { WhimsyRoutineTriggers } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyRoutineTriggers.sys.mjs");
 const { WhimsyAIError } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyChatPanel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatPanel.sys.mjs");
-const { WhimsyChat } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChat.sys.mjs");
 const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
 const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
 
