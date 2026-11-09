@@ -94,7 +94,22 @@ add_task(async function shots_drive_look() {
 add_task(async function shots_task_folder() {
   await fresh();
   const notes = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?notes");
+  const diag = [];
+  const origRelease = WhimsyAgentTasks.release;
+  WhimsyAgentTasks.release = function (...args) {
+    diag.push(new Error().stack.split("\n").slice(0, 12).join(" | "));
+    return origRelease.apply(this, args);
+  };
+  const origFolderRelease = WhimsyTaskFolder.release;
+  WhimsyTaskFolder.release = function (...args) {
+    diag.push("folder " + new Error().stack.split("\n").slice(0, 12).join(" | "));
+    return origFolderRelease.apply(this, args);
+  };
   const { task, tabs, folder } = await folderTask(3);
+  await new Promise(r => setTimeout(r, 500));
+  WhimsyAgentTasks.release = origRelease;
+  WhimsyTaskFolder.release = origFolderRelease;
+  info(`DIAG releases: ${diag.join(" ### ")}`);
   await whimsyBothSchemes("w23-agent-tabs-folder-folded", async () => {
     WhimsyTaskFolder.setCollapsed(folder, true);
     await document.l10n.translateRoots();
@@ -148,7 +163,22 @@ add_task(async function shots_collision() {
 add_task(async function shots_dissolve() {
   await fresh();
   const notes = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?notes");
+  const diag = [];
+  const origRelease = WhimsyAgentTasks.release;
+  WhimsyAgentTasks.release = function (...args) {
+    diag.push(new Error().stack.split("\n").slice(0, 12).join(" | "));
+    return origRelease.apply(this, args);
+  };
+  const origFolderRelease = WhimsyTaskFolder.release;
+  WhimsyTaskFolder.release = function (...args) {
+    diag.push("folder " + new Error().stack.split("\n").slice(0, 12).join(" | "));
+    return origFolderRelease.apply(this, args);
+  };
   const { task, tabs, folder } = await folderTask(3);
+  await new Promise(r => setTimeout(r, 500));
+  WhimsyAgentTasks.release = origRelease;
+  WhimsyTaskFolder.release = origFolderRelease;
+  info(`DIAG releases: ${diag.join(" ### ")}`);
   try {
     await document.l10n.translateRoots();
     await whimsySettled();

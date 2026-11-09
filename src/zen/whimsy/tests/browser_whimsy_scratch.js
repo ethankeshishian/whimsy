@@ -336,9 +336,13 @@ add_task(async function test_new_space_from_empty_scratch_shows_one_form() {
       form.inputName.select();
       EventUtils.sendString("From Private", window);
       ok(!form.createButton.disabled, "Typing a name allows Create");
+      info(`DIAG typed "${form.inputName.value}" active ${gZenWorkspaces.activeWorkspace} form ${form.workspaceId} focused ${document.activeElement?.localName}`);
       EventUtils.synthesizeKey("KEY_Enter", {}, window);
       await TestUtils.waitForCondition(() => !document.querySelector("zen-workspace-creation"), "The form is gone");
       const made = gZenWorkspaces.getWorkspaces().find(space => space.name == "From Private");
+      if (!made) {
+        info(`DIAG spaces ${JSON.stringify(gZenWorkspaces.getWorkspaces().map(w => [w.uuid, w.name, !!w.whimsyScratch]))} active ${gZenWorkspaces.activeWorkspace}`);
+      }
       ok(made, "The new space was made");
       await TestUtils.waitForCondition(() => !WhimsyPrivate.getScratch(window), "Then the empty Private Space it left closes");
       await gZenWorkspaces.changeWorkspaceWithID(startSpace);
