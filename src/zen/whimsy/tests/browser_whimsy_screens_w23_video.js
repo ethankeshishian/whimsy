@@ -3,9 +3,11 @@
 
 "use strict";
 
-// W23 video: screenshots of the plates (fu-media dec-1, media-1.3, 1.5,
-// dec-3), the summary (media-1.7, fu-media 1.14), the speed note (media-2.3),
-// back to default (fu-media 2.5), and Settings › Media (media-2.8, 2.9).
+// W23 video: screenshots of the plates (fu-media dec-1 with its fade-in
+// frame, media-1.3 focus, 1.5, dec-3), the summary (media-1.6 opening frame,
+// 1.7 with its chips, 1.9 transcript, key quotes, 1.12 live with Update), the
+// speed note (media-2.3), back to default (fu-media 2.5 with its frame), and
+// Settings › Media (media-2.8 with sites, 2.9 menu open).
 
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_video_w23.js", this);
 
@@ -34,10 +36,63 @@ add_setup(async function () {
   });
 });
 
+// In the page: replays the plates' fade-in (or the back-to-default button's
+// arrival) and holds it `ms` in, for a mid-animation frame.
+function holdContent(browser, which, ms) {
+  return SpecialPowers.spawn(browser, [which, ms], async (part, at) => {
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+    const video = content.document.getElementById("video");
+    const frame = () => new Promise(r => content.requestAnimationFrame(() => content.requestAnimationFrame(r)));
+    if (part == "plates") {
+      actor.hide();
+      await frame();
+      actor.show(video);
+      await frame();
+      for (const a of [...actor.els.bar.getAnimations(), ...actor.els.right.getAnimations()]) {
+        a.pause();
+        a.currentTime = at;
+      }
+    } else {
+      video.playbackRate = 1;
+      actor.show(video);
+      await frame();
+      video.playbackRate = 2;
+      await ContentTaskUtils.waitForCondition(() => actor.els.reset.getAnimations().length, "The button arrives");
+      for (const a of actor.els.reset.getAnimations()) {
+        a.pause();
+        a.currentTime = at;
+      }
+    }
+    await frame();
+  });
+}
+
+function releaseContent(browser) {
+  return SpecialPowers.spawn(browser, [], () => {
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
+    for (const el of [actor.els.bar, actor.els.right, actor.els.reset]) {
+      for (const a of el.getAnimations()) {
+        a.finish();
+      }
+    }
+  });
+}
+
 add_task(async function shots_plates() {
   const { tab, browser } = await openVideo();
   await shootPage("w23-video-dec-1", browser, () => hoverVideo(browser).then(() => shownControl(browser)));
-  ok(true, "dec-1 shot");
+  await shootPage("w23-video-dec-1-mid-60", browser, async () => {
+    await hoverVideo(browser);
+    await shownControl(browser);
+    await holdContent(browser, "plates", 60);
+    return () => releaseContent(browser);
+  });
+  // media-1.3: the keyboard ring on the number.
+  await shootPage("w23-video-media-1.3", browser, async () => {
+    await hoverVideo(browser);
+    await shownControl(browser);
+    await SpecialPowers.spawn(browser, [], () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").els.summ.focus({ focusVisible: true }));
+  });
   BrowserTestUtils.removeTab(tab);
   const small = await openVideo("", "#small");
   await shootPage("w23-video-media-1.5", small.browser, () => hoverVideo(small.browser, "#small").then(() => shownControl(small.browser)));
@@ -51,6 +106,19 @@ add_task(async function shots_speed() {
     await hoverVideo(browser);
     await TestUtils.waitForCondition(async () => (await videoControl(browser)).reset.shown, "Back to default shows");
   });
+  await shootPage("w23-video-2.5-mid-75", browser, async () => {
+    await hoverVideo(browser);
+    await shownControl(browser);
+    await holdContent(browser, "reset", 75);
+    return () => releaseContent(browser);
+  });
+  // media-2.3: past 16×, the one-line note.
+  await shootPage("w23-video-media-2.3", browser, async () => {
+    await hoverVideo(browser);
+    await shownControl(browser);
+    await SpecialPowers.spawn(browser, [], () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").setRate(20));
+  });
+  await SpecialPowers.spawn(browser, [], () => (content.document.getElementById("video").playbackRate = 1));
   BrowserTestUtils.removeTab(tab);
 });
 
@@ -58,20 +126,81 @@ add_task(async function shots_summary() {
   await freshChatStore();
   stubProvider("Night trains nearly vanished from Europe by 2016, then came back as flying got pricier.\n\nChapters\n- 0:00 Why they disappeared\n- 0:01 ÖBB’s bet on Nightjet\n- 0:02 Riding Vienna to Paris");
   const { tab, browser } = await openVideo();
+  // media-1.6: the chat panel half open as the summary starts.
+  await whimsySetScheme(false);
   await pressSummarize(browser);
+  await whimsyShotMid("w23-video-media-1.6", () => chatPanel().el?.getAnimations()[0], 120);
+  await SpecialPowers.popPrefEnv();
   await summaryAnswered();
+  const body = chatPanel().body;
+  await TestUtils.waitForCondition(() => body.querySelector(".whimsy-video-chip[data-chip='quotes']"), "The chips are in");
   await shootPage("w23-video-media-1.7", browser, () => hoverVideo(browser));
+  // fu-media dec-3: pressed again, the summary hides and Summarize says it'll show it.
+  await shootPage("w23-video-dec-3", browser, async () => {
+    await hoverVideo(browser);
+    const state = await shownControl(browser);
+    await clickPoint(browser, state.summ);
+    await TestUtils.waitForCondition(async () => (await videoControl(browser)).summ.state == "hidden", "Summarize would show it again");
+    return async () => {
+      const again = await videoControl(browser);
+      await hoverVideo(browser);
+      await clickPoint(browser, again.summ);
+      await TestUtils.waitForCondition(() => chatPanel().isOpen, "The summary is back");
+    };
+  });
+  EventUtils.synthesizeMouseAtCenter(body.querySelector(".whimsy-video-chip[data-chip='transcript']"), {});
+  await TestUtils.waitForCondition(() => body.querySelector(".whimsy-video-transcript > li"), "The transcript is in");
+  await shootPage("w23-video-media-1.9", browser, () => hoverVideo(browser));
+  stubProvider("- 0:00 “Night trains nearly vanished from Europe.”\n- 0:01 “Then Austria bought the sleepers.”");
+  EventUtils.synthesizeMouseAtCenter(body.querySelector(".whimsy-video-chip[data-chip='quotes']"), {});
+  await TestUtils.waitForCondition(() => body.querySelectorAll(".whimsy-chat-msg[data-role='ai']:not([busy])").length == 2, "The quotes are in");
+  await shootPage("w23-video-key-quotes", browser, () => hoverVideo(browser));
+  await closeChat();
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function shots_live() {
+  await freshChatStore();
+  stubProvider("Spain lead 1–0 after a header from a corner. England have had more of the ball since.\n\nChapters\n- 0:00 Spain score\n- 0:01 Yellow card for Walsh");
+  const { tab, browser } = await openVideo("?drawn");
+  await SpecialPowers.spawn(browser, [], () => {
+    content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").isLive = el => el.id == "video";
+  });
+  await hoverVideo(browser);
+  const state = await TestUtils.waitForCondition(async () => {
+    const s = await videoControl(browser);
+    return s?.right.shown && s;
+  }, "The live plates show");
+  await clickPoint(browser, state.summ);
+  await summaryAnswered();
+  await TestUtils.waitForCondition(() => chatPanel().body.querySelector(".whimsy-video-chip[data-chip='update']"), "Update is in");
+  await shootPage("w23-video-media-1.12", browser, () => hoverVideo(browser));
   await closeChat();
   BrowserTestUtils.removeTab(tab);
 });
 
 add_task(async function shots_settings() {
+  const { WhimsyVideoSpeed } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs");
+  const cps = Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
+  for (const [site, rate] of [["youtube.com", 2], ["vimeo.com", 1.25], ["example.com", 1.5], ["example.org", 3]].reverse()) {
+    await new Promise(resolve => cps.set(`https://${site}/`, "whimsy.video-speed", rate, Cu.createLoadContext(), { handleCompletion: resolve, handleError: resolve }));
+  }
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.video.default-speed", "1.5"]] });
   await BrowserTestUtils.withNewTab("about:preferences#whimsyMedia", async browser => {
     const doc = browser.contentDocument;
-    await TestUtils.waitForCondition(() => doc.getElementById("whimsyMediaVideosGroup") && !doc.getElementById("whimsyMediaVideosGroup").hidden, "Media shows");
+    await TestUtils.waitForCondition(() => doc.getElementById("whimsyMediaSitesRow") && !doc.getElementById("whimsyMediaSitesRow").hidden, "Media shows with its sites");
     await whimsyBothSchemes("w23-video-media-2.8", async () => {
       await new Promise(r => setTimeout(r, 200));
     });
     ok(true, "media-2.8 shot");
+    await whimsyBothSchemes("w23-video-media-2.9", async () => {
+      const button = doc.getElementById("whimsyMediaDefaultSpeedMenu");
+      EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
+      await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='1.5']") ?? window.document.querySelector("[role=option][data-value='1.5']"), "The menu opens");
+      return () => EventUtils.synthesizeKey("KEY_Escape", {}, browser.contentWindow);
+    });
+    ok(true, "media-2.9 shot");
   });
+  await WhimsyVideoSpeed.forgetAll();
+  await SpecialPowers.popPrefEnv();
 });

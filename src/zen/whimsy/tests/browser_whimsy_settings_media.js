@@ -51,3 +51,32 @@ add_task(async function tabs_page_lost_the_media_rows() {
     ok(!doc.getElementById("whimsyTabsGroup").querySelector("#whimsyVideoSpeed, #whimsyPipSnapBack"), "No media rows under Tabs");
   });
 });
+
+add_task(async function sites_with_their_own_speed_forget_all() {
+  const { WhimsyVideoSpeed } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs");
+  const cps = Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
+  const set = (site, rate) =>
+    new Promise(resolve => cps.set(`https://${site}/`, "whimsy.video-speed", rate, Cu.createLoadContext(), { handleCompletion: resolve, handleError: resolve }));
+  await WhimsyVideoSpeed.forgetAll();
+  await set("www.youtube.com", 2);
+  await set("vimeo.com", 1.25);
+  await set("example.com", 1.5);
+  await set("example.org", 3);
+  is((await WhimsyVideoSpeed.savedSites()).length, 4, "Four sites have their own speed");
+  await BrowserTestUtils.withNewTab("about:preferences#whimsyMedia", async browser => {
+    const doc = browser.contentDocument;
+    const row = await TestUtils.waitForCondition(() => {
+      const r = doc.getElementById("whimsyMediaSitesRow");
+      return r && !r.hidden && r;
+    }, "Sites with their own speed shows");
+    const list = doc.getElementById("whimsyMediaSitesList");
+    await TestUtils.waitForCondition(() => list.textContent.endsWith(", and 2 more"), "Two by name, and the rest counted");
+    ok(!list.textContent.includes("www."), "Sites are named without www.");
+    ok(/\d×/.test(list.textContent), "with their speeds");
+    const button = doc.getElementById("whimsyMediaForgetAll");
+    button.scrollIntoView();
+    EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
+    await TestUtils.waitForCondition(() => row.hidden, "Forget all empties the row, so it goes");
+  });
+  is((await WhimsyVideoSpeed.savedSites()).length, 0, "Every site is back on your default");
+});

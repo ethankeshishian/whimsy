@@ -147,6 +147,31 @@ export const WhimsyVideoSpeed = {
       cps2().removeByDomainAndName(site.spec, CONTENT_PREF, site.loadContext, callback);
     });
   },
+
+  // W23 video: the sites with their own speed (Settings › Media), most recent first.
+  savedSites() {
+    return new Promise(resolve => {
+      const sites = [];
+      cps2().getByName(CONTENT_PREF, Cu.createLoadContext(), {
+        handleResult(pref) {
+          const rate = Number(pref.value);
+          if (pref.domain && inRange(rate)) {
+            sites.push({ site: pref.domain, rate });
+          }
+        },
+        handleCompletion: () => resolve(sites.reverse()),
+        handleError: () => resolve(sites),
+      });
+    });
+  },
+
+  // Forget all: every site goes back to your default.
+  forgetAll() {
+    return new Promise(resolve => {
+      const callback = { handleCompletion: () => resolve(), handleError: () => resolve() };
+      cps2().removeByName(CONTENT_PREF, Cu.createLoadContext(), callback);
+    });
+  },
 };
 
 export class WhimsyVideoSpeedParent extends JSWindowActorParent {

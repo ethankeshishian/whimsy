@@ -134,6 +134,8 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   // What a Summarize press does for the current video: "none", "shown", or "hidden".
   summaryState = "none";
   summarizing = false;
+  // Drawn subtitles kept per video while it plays: how often, and how many.
+  drawnLimits = { every: 1000, cues: 2000, chars: 60000 };
 
   idOf(video) {
     if (!this.videoIds.has(video)) {
@@ -256,7 +258,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     const doc = this.document;
     const meta = name => doc.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.content?.trim() || "";
     const rect = video.getBoundingClientRect();
-    const live = video.duration === Infinity;
+    const live = this.isLive(video);
     this.followTime(video);
     return {
       title: meta("og:title") || doc.title || "",
@@ -269,7 +271,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       drm: !!video.mediaKeys,
       rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
       cues: await this.trackCues(video),
-      drawn: this.drawnText(video).map(text => ({ start: video.currentTime, end: video.currentTime, text })),
+      drawn: this.drawnSoFar(video),
     };
   }
 
@@ -341,6 +343,70 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       }
     }
     return out.length ? [out.join("\n")] : [];
+  }
+
+  // Subtitles drawn over the video, collected while it plays (a second at a
+  // time, when it has no text track), so Summarize reads more than the line
+  // on screen. Bounded, and never in a private window or with Summarize off.
+  collectDrawn(video) {
+    this.drawnCues ??= new WeakMap();
+    if (this.drawnCues.has(video) || !this.summaryAllowed || !this.hasOverlay(video)) {
+      return;
+    }
+    const cues = [];
+    this.drawnCues.set(video, cues);
+    let chars = 0;
+    let last = 0;
+    const sample = () => {
+      const now = ChromeUtils.now();
+      if (video.paused || now - last < this.drawnLimits.every) {
+        return;
+      }
+      last = now;
+      if (!this.summaryAllowed) {
+        video.removeEventListener("timeupdate", sample);
+        this.drawnCues.delete(video);
+        return;
+      }
+      if (this.hasTextTrack(video)) {
+        return;
+      }
+      const text = this.drawnText(video)[0];
+      const prev = cues.at(-1);
+      if (!text) {
+        return;
+      }
+      if (prev?.text == text) {
+        prev.end = video.currentTime;
+        return;
+      }
+      cues.push({ start: video.currentTime, end: video.currentTime, text });
+      chars += text.length;
+      while (cues.length > this.drawnLimits.cues || chars > this.drawnLimits.chars) {
+        chars -= cues.shift().text.length;
+      }
+    };
+    video.addEventListener("timeupdate", sample);
+  }
+
+  hasTextTrack(video) {
+    const list = video.textTracks;
+    for (let i = 0; i < (list?.length ?? 0); i++) {
+      if (["subtitles", "captions"].includes(list[i].kind)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // What was collected, plus the line on screen now.
+  drawnSoFar(video) {
+    const cues = [...(this.drawnCues?.get(video) ?? [])].sort((a, b) => a.start - b.start);
+    const text = this.drawnText(video)[0];
+    if (text && !cues.some(c => c.text == text)) {
+      cues.push({ start: video.currentTime, end: video.currentTime, text });
+    }
+    return cues;
   }
 
   // A subtitle file the tab loaded, with the page's own credentials.
@@ -449,6 +515,9 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       }
     }
     this.applySiteRate(el);
+    if (event.type == "play") {
+      this.collectDrawn(el);
+    }
   }
 
   // Calls (Google Meet, WebRTC) and live streams (unbounded duration) cannot
@@ -462,10 +531,20 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       return false;
     }
     // Live streams (unbounded duration / live stream sources)
-    if (el.duration === Infinity || (el.readyState >= 1 && !Number.isFinite(el.duration))) {
+    if (this.isLive(el)) {
       return false;
     }
     return true;
+  }
+
+  isLive(el) {
+    return el.duration === Infinity || (el.readyState >= 1 && !Number.isFinite(el.duration));
+  }
+
+  // W23 video: a live stream (never a call) gets the top-right plates only,
+  // Summarize and picture-in-picture; its speed can't run ahead.
+  hasOverlay(el) {
+    return this.isEligible(el) || (!!el && HTMLVideoElement.isInstance(el) && !el.srcObject && !el.currentSrc?.startsWith("mediastream:") && this.isLive(el) && Services.prefs.getBoolPref(TOP_BUTTONS_PREF, true));
   }
 
   // The site's speed goes to each new source once, never over a speed the
@@ -505,7 +584,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   // The user picked a speed: play at it and remember it for the site.
   setRate(rate) {
     const el = this.current;
-    if (!el || !Number.isFinite(rate)) {
+    if (!el || !this.isEligible(el) || !Number.isFinite(rate)) {
       return;
     }
     const typed = rate;
@@ -538,7 +617,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   mainVideo() {
     let best = null;
     for (const el of this.videos) {
-      if (el.isConnected && this.isEligible(el) && (!best || (best.paused && !el.paused))) {
+      if (el.isConnected && this.hasOverlay(el) && (!best || (best.paused && !el.paused))) {
         best = el;
       }
     }
@@ -613,7 +692,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       return;
     }
     if (point.inControl) {
-      if (this.current && this.isEligible(this.current)) {
+      if (this.current && this.hasOverlay(this.current)) {
         this.show(this.current);
       } else {
         this.hide();
@@ -639,7 +718,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         this.videos.delete(el);
         continue;
       }
-      if (!this.isEligible(el)) {
+      if (!this.hasOverlay(el)) {
         continue;
       }
       if (fullscreen && fullscreen != el && !fullscreen.contains(el)) {
@@ -658,7 +737,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   }
 
   show(video) {
-    if (!video || !this.isEligible(video) || !this.ensureControl()) {
+    if (!video || !this.hasOverlay(video) || !this.ensureControl()) {
       return;
     }
     clearTimeout(this.hideTimer);
@@ -769,6 +848,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     }
     const rate = this.current.playbackRate;
     const { value, menu } = this.els;
+    this.els.bar.hidden = !this.sheetReady || !this.isEligible(this.current);
     value.textContent = this.format(rate);
     value.setAttribute("aria-label", this.strings.value.replace("{rate}", this.format(rate)));
     for (const item of menu.children) {

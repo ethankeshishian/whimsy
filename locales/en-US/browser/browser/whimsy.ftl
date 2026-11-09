@@ -6483,9 +6483,11 @@ whimsy-video-note =
 whimsy-video-heard-heading = What’s said so far
 # $time (String) - how much has been heard, like "0:41"
 whimsy-video-heard-listening = Listening as it plays · { $time } heard
-whimsy-video-transcript =
-    .title = Transcript
-    .aria-label = Transcript
+whimsy-video-chip-transcript = Transcript
+whimsy-video-chip-quotes = Key quotes
+whimsy-video-chip-update = Update
+whimsy-video-quotes-ask = Key quotes from this video
+whimsy-video-update-ask = What’s happened since?
 # $from (String) - where the lines came from
 whimsy-video-transcript-from =
     { $from ->
@@ -6503,6 +6505,11 @@ whimsy-media-default-speed-other = Other…
 whimsy-media-default-speed-other-detail = 0.06 to 16
 whimsy-media-default-speed-input =
     .aria-label = Default speed for videos
+whimsy-media-sites = Sites with their own speed
+# $sites (String) - the first sites and their speeds, like "youtube.com 2×, vimeo.com 1.25×"; $more (Number) - how many others
+whimsy-media-sites-more = { $sites }, and { $more } more
+whimsy-media-forget-all =
+    .label = Forget all
 whimsy-media-videos-heading = On videos
 whimsy-media-top-buttons =
     .label = Show Summarize and picture-in-picture at the top right of videos

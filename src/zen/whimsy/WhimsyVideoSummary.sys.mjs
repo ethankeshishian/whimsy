@@ -48,6 +48,10 @@ const PROMPT = [
 ].join(" ");
 const LIVE_PROMPT =
   "This is a live stream. Summarize what was captioned while the person watched, then a line \"Chapters\" with one line per moment as \"- m:ss Title\" using the times given.";
+const QUOTES_PROMPT =
+  "List the three to five most telling quotes from the transcript, word for word, each as \"- m:ss “quote”\" with the time it's said. No preamble.";
+const UPDATE_PROMPT =
+  "This is a live stream. Here's what was captioned since your last summary. Say what's happened since, then a line \"Chapters\" with one line per new moment as \"- m:ss Title\" using the times given. Don't repeat the earlier summary.";
 const HEARD_PROMPT = "In one or two sentences, say what has been said so far in this video, from the speech below. No preamble.";
 
 const formatTime = seconds => {
@@ -196,13 +200,7 @@ export const WhimsyVideoSummary = {
     );
     lazy.WhimsyChat.registerCard("video-heard", (doc, msg) => this.renderHeard(doc, msg));
     lazy.WhimsyChat.registerCard("video-transcript", (doc, msg, ctx) => this.renderTranscript(doc, msg, ctx));
-    lazy.WhimsyChat.registerAnswerAction({
-      id: "video-transcript",
-      l10nId: "whimsy-video-transcript",
-      icon: "chrome://browser/content/whimsy/icons/text-chip.svg",
-      isAvailable: msg => [...threads.values()].some(t => t.summaryId == msg.id && t.source?.cues?.length),
-      run: (w, msg) => this.showTranscript(w, msg),
-    });
+    lazy.WhimsyChat.registerCard("video-actions", (doc, msg, ctx) => this.renderActions(doc, msg, ctx));
   },
 
   tabOfActor(actor) {
@@ -334,6 +332,12 @@ export const WhimsyVideoSummary = {
       needs: frames.length ? { images: true } : {},
     });
     record.summaryId = saved?.id ?? null;
+    record.cueCount = source.cues.length;
+    const chips = source.live ? ["update"] : source.cues.length ? ["transcript", "quotes"] : [];
+    const actions = chips.length && saved ? await lazy.WhimsyAIStore.append(thread.id, { role: "card", kind: "video-actions", chips }) : null;
+    if (actions && panel.thread?.id == thread.id) {
+      panel.body.append(this.renderActions(panel.doc, actions, { win, thread: panel.thread }));
+    }
     const note = await lazy.WhimsyAIStore.append(thread.id, {
       role: "note",
       kind: "video-source",
@@ -496,11 +500,88 @@ export const WhimsyVideoSummary = {
     }
   },
 
-  async showTranscript(win, msg) {
+  // ---- The chips under the summary: Transcript and Key quotes, or Update live ----
+
+  renderActions(doc, msg, { win, thread } = {}) {
+    const chips = {
+      transcript: { l10n: "whimsy-video-chip-transcript", icon: "chrome://browser/content/whimsy/icons/text-chip.svg", run: () => this.showTranscript(win) },
+      quotes: { l10n: "whimsy-video-chip-quotes", icon: "chrome://browser/content/whimsy/icons/listen.svg", run: () => this.keyQuotes(win) },
+      update: { l10n: "whimsy-video-chip-update", icon: "chrome://browser/skin/zen-icons/reload.svg", run: () => this.update(win) },
+    };
+    // Chips need the video, which lives as long as its tab this session.
+    const usable = !!thread?.id && threads.has(thread.id);
+    return h(
+      doc,
+      "div",
+      { class: "whimsy-chat-msg whimsy-video-actions-card", "data-role": "card", "data-msg-id": msg.id },
+      h(
+        doc,
+        "div",
+        { class: "whimsy-video-actions" },
+        (msg.chips ?? [])
+          .filter(id => chips[id])
+          .map(id =>
+            h(
+              doc,
+              "button",
+              { class: "whimsy-video-chip", "data-chip": id, disabled: usable ? null : "true", onclick: () => chips[id].run() },
+              h(doc, "span", { class: "whimsy-chat-icon", style: `--whimsy-chat-icon: url("${chips[id].icon}")`, "aria-hidden": "true" }),
+              h(doc, "span", { l10n: chips[id].l10n })
+            )
+          )
+      )
+    );
+  },
+
+  // A chip's question shows as yours, then the answer streams under it.
+  async ask(win, l10nId, instruction) {
+    const panel = lazy.WhimsyChatPanel.forWindow(win);
+    const thread = panel.thread;
+    if (!thread || !threads.has(thread.id) || panel.streams?.has(thread.id)) {
+      return null;
+    }
+    const [text] = lazy.l10n.formatValuesSync([{ id: l10nId }]);
+    const user = await lazy.WhimsyAIStore.append(thread.id, { role: "user", text });
+    panel.body.append(panel.renderMessage(user));
+    return panel.answer(thread, { instruction });
+  },
+
+  keyQuotes(win) {
+    return this.ask(win, "whimsy-video-quotes-ask", QUOTES_PROMPT);
+  },
+
+  /** Live: what was captioned since the last summary. */
+  async update(win) {
+    const panel = lazy.WhimsyChatPanel.forWindow(win);
+    const record = panel.thread && threads.get(panel.thread.id);
+    if (!record || panel.streams?.has(panel.thread.id)) {
+      return null;
+    }
+    const fresh = record.actor && !Cu.isDeadWrapper(record.actor) ? await record.actor.sendQuery("WhimsyVideoSpeed:SummarySource", { videoId: record.videoId }).catch(() => null) : null;
+    if (fresh) {
+      const cues = record.from == "drawn" || !fresh.cues?.length ? fresh.drawn ?? [] : fresh.cues;
+      const seen = new Set(record.source.cues.map(c => `${c.start}|${c.text}`));
+      record.source.cues = [...record.source.cues, ...cues.filter(c => !seen.has(`${c.start}|${c.text}`))].slice(-2000);
+      record.source.currentTime = fresh.currentTime;
+      record.source.seekable = fresh.seekable;
+    }
+    const since = record.source.cues.slice(record.cueCount ?? 0);
+    record.cueCount = record.source.cues.length;
+    const described = this.describe({ ...record.source, cues: since }, record.from);
+    return this.ask(win, "whimsy-video-update-ask", `${UPDATE_PROMPT}\n\n${described}`);
+  },
+
+  async showTranscript(win) {
     const panel = lazy.WhimsyChatPanel.forWindow(win);
     const thread = panel.thread;
     const record = thread && threads.get(thread.id);
     if (!record) {
+      return;
+    }
+    // A second press goes back to the transcript that's there.
+    const shown = panel.body.querySelector(".whimsy-video-transcript")?.closest(".whimsy-chat-msg");
+    if (shown) {
+      shown.scrollIntoView({ block: "nearest" });
       return;
     }
     const lines = record.source.cues.slice(0, 2000).map(c => ({ t: c.start, text: c.text }));

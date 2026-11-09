@@ -75,6 +75,7 @@ Object.assign(gWhimsySettings, {
       }
     }
     this.buildDefaultSpeed();
+    this.buildSavedSites();
     Preferences.queueUpdateOfAllElements();
   },
 
@@ -118,6 +119,38 @@ Object.assign(gWhimsySettings, {
       return dropdown;
     };
     build();
+  },
+
+  // Sites with their own speed: the first few by name, and Forget all.
+  async buildSavedSites() {
+    const row = document.getElementById("whimsyMediaSitesRow");
+    if (!row) {
+      return;
+    }
+    const { WhimsyVideoSpeed } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs");
+    const button = document.getElementById("whimsyMediaForgetAll");
+    if (!button.whimsyWired) {
+      button.whimsyWired = true;
+      button.addEventListener("command", async () => {
+        await WhimsyVideoSpeed.forgetAll();
+        await this.buildSavedSites();
+      });
+    }
+    const sites = await WhimsyVideoSpeed.savedSites();
+    row.hidden = !sites.length;
+    const list = document.getElementById("whimsyMediaSitesList");
+    if (!sites.length) {
+      return;
+    }
+    const format = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+    const names = sites.map(({ site, rate }) => `${site.replace(/^www\./, "")} ${format.format(rate)}×`);
+    if (names.length <= 3) {
+      list.removeAttribute("data-l10n-id");
+      list.removeAttribute("data-l10n-args");
+      list.textContent = new Intl.ListFormat(undefined, { type: "conjunction" }).format(names);
+    } else {
+      document.l10n.setAttributes(list, "whimsy-media-sites-more", { sites: names.slice(0, 2).join(", "), more: names.length - 2 });
+    }
   },
 
   // Other…: the field takes any speed; past 16× it's 16× with a note.

@@ -963,3 +963,48 @@
     background: currentColor;
   }
 }
+
+/* W23 video: the chips under a summary (Transcript, Key quotes; Update live). */
+.whimsy-video-actions-card {
+  margin-top: -2px;
+}
+
+.whimsy-video-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.whimsy-video-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  margin: 0;
+  padding: 0 10px 0 8px;
+  border: none;
+  border-radius: 13px;
+  background: var(--whimsy-chat-track);
+  box-shadow: inset 0 0 0 0.5px var(--whimsy-chat-hairline);
+  color: var(--whimsy-chat-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 100ms ease-out;
+
+  & > .whimsy-chat-icon {
+    width: 14px;
+    height: 14px;
+  }
+  &:hover:not(:disabled) {
+    background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
+  }
+  &:focus-visible {
+    outline: 2px solid var(--zen-primary-color, AccentColor);
+    outline-offset: 1px;
+  }
+  &:disabled {
+    opacity: 0.5;
+  }
+}
