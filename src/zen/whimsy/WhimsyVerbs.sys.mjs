@@ -31,6 +31,7 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   WhimsyCopy: "resource:///modules/whimsy/WhimsyCopy.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
@@ -747,6 +748,10 @@ export const WhimsyContextCommands = {
     }
     for (const [i, kind] of kinds.entries()) {
       const rows = [...registered(kind).map(v => this.verbRow(win, v, subject, view)), ...AI_ROWS[kind].map(def => this.aiRow(def, subject, view))];
+      if (kind == "image") {
+        // Ask about this image leads (media 3.5); Firefox's own rows follow.
+        rows.sort((a, b) => (b?.id == "ai:ask-image" ? 1 : 0) - (a?.id == "ai:ask-image" ? 1 : 0));
+      }
       if (kind == "product") {
         // Compare and Watch price (the page's chips) lead.
         rows.sort((a, b) => (/compare|watch-price/.test(b.id) ? 1 : 0) - (/compare|watch-price/.test(a.id) ? 1 : 0));
@@ -1640,3 +1645,47 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
     WhimsyVerbs.runVerb(win, whimsyVerb, subject);
   }
 }
+
+// ⌘K on an image: Firefox's Copy Image and Save Image As… (media 3.5), with
+// AI on or off. They act on the image ⌘K picked (the one under the pointer,
+// or the biggest in view).
+function pickedImage(view) {
+  const src = lazy.WhimsyAIViewShare.pickImages(view)[0]?.src ?? "";
+  return /^(?:https?|data|blob):/i.test(src) ? src : "";
+}
+
+WhimsyVerbs.registerVerb({
+  id: "image:copy",
+  group: "image",
+  l10nId: "whimsy-cmdk-copy-image",
+  icon: `${ICONS}edit-copy.svg`,
+  isAvailable: (win, subject, view) => lazy.WhimsyAIViewShare.pickImages(view).length == 1 && !!pickedImage(view),
+  run: async (win, subject) => {
+    win.gURLBar.view.close();
+    const src = pickedImage(subject?.view);
+    try {
+      const response = await win.fetch(src, { credentials: "omit" });
+      lazy.BrowserUtils.copyImageToClipboard(await response.arrayBuffer());
+      win.gZenUIManager?.toasts?.open("whimsy-cmdk-copied-image", { key: "whimsy-cmdk-copied-image", icon: "chrome://browser/skin/zen-icons/check.svg" });
+    } catch (e) {
+      console.error("Whimsy: copy image", e);
+    }
+  },
+});
+
+WhimsyVerbs.registerVerb({
+  id: "image:save",
+  group: "image",
+  l10nId: "whimsy-cmdk-save-image",
+  icon: `${ICONS}downloads.svg`,
+  isAvailable: (win, subject, view) => lazy.WhimsyAIViewShare.pickImages(view).length == 1 && !!pickedImage(view),
+  run: (win, subject) => {
+    win.gURLBar.view.close();
+    const src = pickedImage(subject?.view);
+    const browser = win.gBrowser.selectedBrowser;
+    const principal = browser.contentPrincipal;
+    win.urlSecurityCheck(src, principal);
+    win.internalSave(src, null, null, null, null, null, false, "SaveImageTitle", null, null, browser.cookieJarSettings ?? null, null, false, null,
+      lazy.PrivateBrowsingUtils.isBrowserPrivate(browser), principal);
+  },
+});
