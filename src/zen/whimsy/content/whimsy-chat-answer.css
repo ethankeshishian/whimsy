@@ -249,7 +249,7 @@
   width: 10px;
   height: 10px;
   rotate: -90deg;
-  transition: rotate 150ms;
+  transition: rotate 150ms var(--whimsy-ease, cubic-bezier(0.2, 0, 0, 1));
   .whimsy-chat-thinking[open] & {
     rotate: 0deg;
   }

@@ -11,14 +11,23 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 export class WhimsyAIPreviewParent extends JSWindowActorParent {
   receiveMessage({ name, data }) {
+    // Asked for the tab being summarized, which a summary in the background
+    // (its owning tab not the one on screen) keeps reading. Not gated on
+    // the selected tab below, unlike the hover-preview messages.
+    if (name == "WhimsyAIPreview:RecognizeText") {
+      // Tests: a stand-in for the real (slow, platform) OCR call, asked
+      // before the child does it for real. null means "no stand-in, do it".
+      const fn = lazy.WhimsyAIPage._testOcrRecognizer;
+      return { text: fn ? String(fn(data?.page) ?? "") : null };
+    }
     const browser = this.browsingContext.top.embedderElement;
     const win = browser?.ownerDocument.defaultView;
     if (!win?.gBrowser || win.closed) {
-      return;
+      return undefined;
     }
     // Only the tab you're looking at.
     if (browser != win.gBrowser.selectedBrowser) {
-      return;
+      return undefined;
     }
     if (name == "WhimsyAIPreview:Show") {
       lazy.WhimsyAIPage.showPreview(win, browser, data).catch(error =>
@@ -27,5 +36,6 @@ export class WhimsyAIPreviewParent extends JSWindowActorParent {
     } else if (name == "WhimsyAIPreview:Leave") {
       lazy.WhimsyAIPage.leavePreview(win, data?.url);
     }
+    return undefined;
   }
 }

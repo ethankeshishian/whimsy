@@ -79,8 +79,8 @@ function whenText(ms) {
   const now = new Date();
   const diff = now - d;
   if (diff >= 0 && diff < 60 * 60 * 1000) {
-    const minutes = Math.max(1, Math.round(diff / 60000));
-    return new Intl.RelativeTimeFormat(undefined, { numeric: "auto", style: "short" }).format(-minutes, "minute");
+    // The run thread's "1 min ago", not Intl's abbreviated "1 min. ago".
+    return { l10nId: "whimsy-cmdbar-minutes-ago", minutes: Math.max(1, Math.round(diff / 60000)) };
   }
   if (d.toDateString() == now.toDateString()) {
     return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -492,7 +492,12 @@ export class WhimsyRoutinesSection extends ZenLibrarySearchSection {
     if (r.paused) {
       return html`<span class="whimsy-routine-time" data-l10n-id="whimsy-library-routines-paused"></span>`;
     }
-    return html`<span class="whimsy-routine-time">${whenText(r.lastRun)}</span>`;
+    const when = whenText(r.lastRun);
+    if (when.l10nId) {
+      return html`<span class="whimsy-routine-time" data-l10n-id=${when.l10nId}
+        data-l10n-args=${JSON.stringify({ minutes: when.minutes })}></span>`;
+    }
+    return html`<span class="whimsy-routine-time">${when}</span>`;
   }
 
   #act(event, fn) {

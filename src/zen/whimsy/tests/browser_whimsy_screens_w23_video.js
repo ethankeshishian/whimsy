@@ -228,7 +228,15 @@ add_task(async function shots_settings() {
       const button = doc.getElementById("whimsyMediaDefaultSpeedMenu");
       EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
       await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='1.5']") ?? window.document.querySelector("[role=option][data-value='1.5']"), "The menu opens");
-      return () => EventUtils.synthesizeKey("KEY_Escape", {}, browser.contentWindow);
+      // MUST 6: the menu is a panel of its own; copy it in for the shot.
+      await whimsySettled();
+      // Settings opens it in its own document, not the window's.
+      const undo = whimsyStandInPopups(doc);
+      ok(doc.querySelector("div.whimsy-surface-tokens [role=option][data-value='1.5']"), "media-2.9: the speed menu is in the shot");
+      return () => {
+        undo();
+        EventUtils.synthesizeKey("KEY_Escape", {}, browser.contentWindow);
+      };
     });
     ok(true, "media-2.9 shot");
   });

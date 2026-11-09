@@ -286,7 +286,7 @@ export class WhimsyUpdatesProvider extends UrlbarProvider {
     }
     if (target.more) {
       return {
-        iconImg: { attributes: { src: "chrome://browser/skin/zen-icons/chevron.svg" } },
+        iconImg: { attributes: { src: "chrome://browser/content/whimsy/icons/chevron-down.svg" } },
         title: { l10n: { id: "whimsy-cmdbar-show-more", args: { count: target.more } } },
       };
     }

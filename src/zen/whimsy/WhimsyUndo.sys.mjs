@@ -208,7 +208,8 @@ export const WhimsyUndo = {
    * @param {string} messageId - the toast's Fluent id
    * @param {object} entry - an undo entry, as for push()
    * @param {object} [l10nArgs]
-   * @param {object} [options] - { detail } a plain-text second line
+   * @param {object} [options] - { detail } a plain-text second line, { icon }
+   *   a leading mark (a ✓ on a confirmation)
    */
   showToast(win, messageId, entry, l10nArgs = undefined, options = {}) {
     this.push(win, entry);
@@ -220,6 +221,7 @@ export const WhimsyUndo = {
       key: "whimsy-undo",
       l10nArgs,
       description: options.detail,
+      ...(options.icon && { icon: options.icon }),
       ...(this.enabled
         ? {
             buttons: [

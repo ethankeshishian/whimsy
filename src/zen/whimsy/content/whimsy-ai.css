@@ -455,10 +455,23 @@ findbar .whimsy-ask-button {
 /* The AI card: a quiet label, then the summary. Card 1 already names the
    page, so the summary drops its own icon and host. */
 .whimsy-link-hover-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: var(--text-color-deemphasized, GrayText);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
+
+  /* fu-page 7.1: the AI's sparkle marks the summary as written by it. */
+  &::before {
+    content: "";
+    flex: none;
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    mask: url("chrome://browser/skin/zen-icons/sparkles.svg") center / contain no-repeat;
+  }
 }
 
 .whimsy-link-hover-ai {

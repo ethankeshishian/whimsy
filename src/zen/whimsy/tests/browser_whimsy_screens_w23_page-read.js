@@ -8,6 +8,10 @@
 // plus mid-animation frames (the find card opening, the passage tint fading,
 // the preview loading). WHIMSY_SHOTS=<dir> writes w23-page-read-*.png.
 
+// find_card's find round trips wait longer than the default poll under
+// this file's own load (PDF and chat tasks run first, same window).
+requestLongerTimeout(2);
+
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
 const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
@@ -21,7 +25,6 @@ const LINKS = ROOT + "whimsy_ai_links.html";
 const PDF = ROOT + "whimsy_ai_lease.pdf";
 const SCANNED = ROOT + "whimsy_ai_scanned.pdf";
 const NAME = state => `w23-page-read-${state}`;
-const AT = { x: 10, y: 10, width: 10, height: 10 };
 
 function lines({ lead, points }) {
   return [lead, ...points.map(([text, quote]) => `- ${text} || ${quote ?? ""}`)].join("\n");
@@ -68,11 +71,16 @@ add_setup(async () => {
     ["findbar.entireword", branch.getBoolPref("findbar.entireword", false)],
     ["findbar.matchdiacritics", branch.getIntPref("findbar.matchdiacritics", 0)],
     ["accessibility.typeaheadfind.flashBar", branch.getIntPref("accessibility.typeaheadfind.flashBar", 0)],
-    ["pdfjs.featuresNotificationImpressionCount", branch.getIntPref("pdfjs.featuresNotificationImpressionCount", 0)],
   ] });
   WhimsyAIProviders.setTestProvider(provider);
+  // page-11.3: the scanned PDF has no text layer, so pdfPages would
+  // otherwise call the real on-device text recognition (slow, and this
+  // Mac's OS service can stall well past a test's timeout). A stand-in
+  // answers instead, same as a real page's: text naming the monthly rent.
+  WhimsyAIPage.setTestOcrRecognizer(() => "Rent is due on the first of the month, the monthly rent.");
   registerCleanupFunction(async () => {
     WhimsyAIProviders.setTestProvider(null);
+    WhimsyAIPage.setTestOcrRecognizer(null);
     WhimsyAIReader.setTestReader(null);
     WhimsyChat.close(window, { reason: "hide" });
     await WhimsyAIStore.clear?.({ kinds: ["chats"] });
@@ -89,6 +97,40 @@ async function waitForPdf(browser) {
   await TestUtils.waitForCondition(
     () => SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.PDFViewerApplication?.pdfDocument),
     "The viewer has the document"
+  );
+  // W23 polish (MUST 4): the toolbar's icons are mask images. Wait until
+  // they've loaded (an unloaded mask paints nothing), and check they can:
+  // a blank toolbar must be the snapshot's timing, never a blocked load.
+  const icons = await SpecialPowers.spawn(browser, [], async () => {
+    const doc = content.document;
+    const buttons = [...doc.querySelectorAll("#toolbarContainer button")].filter(b => b.getClientRects().length);
+    const urls = new Set();
+    for (const button of buttons) {
+      const mask = content.getComputedStyle(button, "::before").maskImage;
+      const url = /url\("?([^")]+)"?\)/.exec(mask)?.[1];
+      if (url) {
+        urls.add(url);
+      }
+    }
+    const loads = [...urls].map(
+      url =>
+        new Promise(resolve => {
+          const img = new content.Image();
+          img.onload = () => resolve({ url, ok: true });
+          img.onerror = () => resolve({ url, ok: false });
+          img.src = url;
+          content.setTimeout(() => resolve({ url, ok: false, late: true }), 5000);
+        })
+    );
+    return { count: buttons.length, results: await Promise.all(loads) };
+  });
+  Assert.greater(icons.results.length, 0, `The toolbar's ${icons.count} buttons have mask icons`);
+  for (const { url, ok: loaded } of icons.results) {
+    ok(loaded, `Toolbar icon ${url} loads`);
+  }
+  ok(
+    await SpecialPowers.spawn(browser, [], () => content.document.getElementById("pdfFeaturesNotification")?.hidden ?? true),
+    "Firefox's split/merge promo stays hidden"
   );
 }
 
@@ -215,17 +257,29 @@ add_task(async function link_preview() {
     await whimsyBothSchemes(NAME("preview"), async dark => {
       const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINKS);
       release = null;
-      await WhimsyAIPage.showPreview(window, tab.linkedBrowser, { url: PAGE + `?shot-${dark}`, how: "hover", ...AT });
+      // Under the page's link, where a hover would put the cards (fu-page 7.1).
+      const link = await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+        const r = content.document.querySelector("a").getBoundingClientRect();
+        return { x: r.left, y: r.top, width: r.width, height: r.height };
+      });
+      await WhimsyAIPage.showPreview(window, tab.linkedBrowser, { url: PAGE + `?shot-${dark}`, how: "hover", ...link });
       const panel = await TestUtils.waitForCondition(() => {
         const p = document.getElementById("whimsy-link-hover");
         return p?.state == "open" && p;
       }, "The cards open");
       await TestUtils.waitForCondition(() => release && panel.querySelector('[data-card="ai"] .whimsy-ai-shimmer'), "The summary is loading");
       await whimsySettled();
+      // MUST 6: the cards are a panel of their own; copy them in for the shot.
+      let undo = whimsyStandInPopups();
       await whimsyShot(NAME(`preview-loading-${dark ? "dark" : "light"}`));
+      undo();
       release();
       await TestUtils.waitForCondition(() => panel.querySelector('[data-card="ai"] .whimsy-preview-points'), "then fills in place");
+      await whimsySettled();
+      undo = whimsyStandInPopups();
+      ok(document.querySelector('div#whimsy-link-hover [data-card="ai"] .whimsy-preview-points'), "The filled cards are in the shot");
       return async () => {
+        undo();
         WhimsyAIPage.hidePreview(window);
         BrowserTestUtils.removeTab(tab);
       };
@@ -242,10 +296,41 @@ async function openFind(text) {
   if (text) {
     findbar._findField.select();
     EventUtils.sendString(text);
-    await TestUtils.waitForCondition(() => findbar._findField.getAttribute("status") != "pending", "Find ran");
-    await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-find-count").getAttribute("value"), "The count shows");
+    await findExactly(findbar, text);
   }
   return findbar;
+}
+
+// Typing over the last search races it: findbar.js skips any longer string
+// once a shorter prefix has failed (_findFailedString), and a search issued
+// while the bar reopens can be dropped. Asks for exactly `text` until the
+// finder answers for it, so the bar's status (only ever "notfound" or
+// absent) is this text's.
+async function findExactly(findbar, text) {
+  const finder = findbar.browser.finder;
+  let answered = false;
+  const cancelled = event => event.defaultPrevented && info(`A find event for "${event.detail?.query}" was cancelled`);
+  findbar.addEventListener("find", cancelled);
+  const listener = {
+    onFindResult: data => (answered ||= data.searchString == text),
+    onMatchesCountResult() {},
+    onCurrentSelection() {},
+    onHighlightFinished() {},
+  };
+  finder.addResultListener(listener);
+  try {
+    await TestUtils.waitForCondition(() => {
+      if (!answered) {
+        findbar._findFailedString = null;
+        findbar._find(text);
+      }
+      return answered;
+    }, `The finder answers for "${text}"`, 200, 50);
+  } finally {
+    finder.removeResultListener(listener);
+    findbar.removeEventListener("find", cancelled);
+  }
+  await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-find-count").getAttribute("value"), "The count shows");
 }
 
 async function closeFind() {
@@ -284,13 +369,13 @@ add_task(async function find_card() {
     });
     await whimsyBothSchemes(NAME("find-nothing"), async () => {
       const findbar = await openFind("when is the offsite");
-      await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered");
+      await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered", 100, 150);
       return closeFind;
     });
     // page-1.8: the answer card under the bar.
     await whimsyBothSchemes(NAME("find-answer"), async () => {
       const findbar = await openFind("when is the offsite");
-      await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered");
+      await TestUtils.waitForCondition(() => findbar.querySelector(".whimsy-ask-button").hasAttribute("askable"), "Ask is offered", 100, 150);
       EventUtils.synthesizeKey("KEY_Enter");
       await TestUtils.waitForCondition(() => {
         const p = document.getElementById("whimsy-ask-panel");

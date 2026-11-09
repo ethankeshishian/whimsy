@@ -827,14 +827,29 @@ export const WhimsyCommandBarAI = {
     const { ghost, from } = flight;
     await new Promise(r => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
     const panel = win.document.getElementById("whimsy-chat");
-    const msgs = panel && !panel.hidden ? [...panel.querySelectorAll(".whimsy-chat-msg")] : [];
-    const to = (msgs[1] ?? msgs[0] ?? panel)?.getBoundingClientRect();
+    const open = panel && !panel.hidden;
+    const msgs = open ? [...panel.querySelectorAll(".whimsy-chat-msg")] : [];
+    const dest = msgs[1] ?? msgs[0] ?? null;
+    // The answer shows once: its place in the thread stays empty until the
+    // copy lands on it.
+    dest?.style.setProperty("opacity", "0");
+    // Measured once the panel has finished opening (its slide and width),
+    // so the copy lands exactly; endless motion (a caret, a spinner) and a
+    // stuck animation don't hold it.
+    if (open) {
+      const settling = panel
+        .getAnimations({ subtree: true })
+        .filter(a => Number.isFinite(a.effect?.getComputedTiming?.().endTime))
+        .map(a => a.finished.catch(() => {}));
+      await Promise.race([Promise.all(settling), new Promise(r => win.setTimeout(r, 800))]);
+    }
+    const to = (dest ?? (open ? panel : null))?.getBoundingClientRect();
     const travel = !win.matchMedia(REDUCED).matches && to?.width > 0;
     const scale = travel ? Math.min(1, to.width / from.width) : 1;
     const move = travel ? `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${scale})` : "none";
     this._flight = ghost.animate(
       travel
-        ? [{ transform: "none", opacity: 1 }, { opacity: 1, offset: 0.6 }, { transform: move, opacity: 0 }]
+        ? [{ transform: "none" }, { transform: move }]
         : [{ opacity: 1 }, { opacity: 0 }],
       { duration: travel ? 300 : 100, easing: travel ? "cubic-bezier(0.2, 0, 0, 1)" : "linear", fill: "forwards" }
     );
@@ -843,7 +858,9 @@ export const WhimsyCommandBarAI = {
     } catch {
       // Cancelled: the window closed or a test held it.
     } finally {
+      // The same frame: the copy goes as the answer shows.
       ghost.remove();
+      dest?.style.removeProperty("opacity");
     }
   },
 
@@ -912,7 +929,7 @@ export const WhimsyCommandBarAI = {
       key: "whimsy-cmdbar-answer-saved",
       descriptionId: "whimsy-cmdbar-answer-saved-body",
       descriptionArgs: { keys },
-      icon: SPARKLE,
+      icon: "chrome://browser/skin/zen-icons/check.svg",
       buttons: [{ id: "whimsy-cmdbar-show-answer", l10nId: "whimsy-cmdbar-show-answer", keys, command: () => this.showRecent(win) }],
     });
   },

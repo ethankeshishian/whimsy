@@ -501,6 +501,7 @@ export const WhimsyTaskFolder = {
       toasts.open("whimsy-agent-tabs-moved", {
         key: `whimsy-agent-moved-${task?.id ?? ""}`,
         l10nArgs: { count: tabs.length, space: space?.name ?? "" },
+        icon: "chrome://browser/skin/zen-icons/check.svg",
         ...(task?.title && { description: task.title }),
         buttons: [{
           id: "whimsy-agent-tabs-undo",

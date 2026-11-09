@@ -30,7 +30,7 @@ ChromeUtils.defineLazyGetter(lazy, "clipboard", () => Cc["@mozilla.org/widget/cl
 const FEATURE = "image-text";
 const ICON = "chrome://browser/content/whimsy/icons/image-text.svg";
 const TRANSLATE_ICON = "chrome://browser/skin/zen-icons/translations.svg";
-const COPY_ICON = "chrome://browser/skin/zen-icons/edit-copy.svg";
+const CHECK_ICON = "chrome://browser/skin/zen-icons/check.svg";
 const MAX_KNOWN = 300;
 const TRANSLATE_SYSTEM =
   "Translate each line of text found in an image into the target language. Reply with only a JSON array of strings, one per line, in the same order. Keep numbers, times, and names as they are.";
@@ -272,7 +272,7 @@ export const WhimsyImageText = {
   toastCopied(win, count) {
     win?.gZenUIManager?.toasts?.open("whimsy-image-text-copied", {
       key: "whimsy-image-text-copied",
-      icon: COPY_ICON,
+      icon: CHECK_ICON,
       descriptionId: "whimsy-image-text-copied-lines",
       descriptionArgs: { count },
     });

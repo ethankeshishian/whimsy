@@ -600,7 +600,7 @@ function thinkingLine(doc, msg) {
       },
     },
     h(doc, "span", { l10n: ["whimsy-chat-thought-for", { seconds }] }),
-    icon(doc, "chrome://browser/skin/zen-icons/chevron.svg", "whimsy-chat-thinking-chevron")
+    icon(doc, "chrome://browser/content/whimsy/icons/chevron-down.svg", "whimsy-chat-thinking-chevron")
   );
   return h(doc, "div", { class: "whimsy-chat-thinking", folded: true }, button, fold);
 }
@@ -1015,7 +1015,7 @@ export const WhimsyChatAnswer = {
       },
       provider ? brand(doc, provider) : null,
       h(doc, "span", { class: "whimsy-chat-model-name" }, provider ? whoLabel(provider, model) : ""),
-      icon(doc, "chrome://browser/skin/zen-icons/chevron.svg", "whimsy-chat-model-chevron")
+      icon(doc, "chrome://browser/content/whimsy/icons/chevron-down.svg", "whimsy-chat-model-chevron")
     );
     const extra = levels && choice.thinking != "normal" ? h(doc, "span", { class: "whimsy-chat-model-thinking", l10n: `whimsy-chat-model-thinking-${choice.thinking}` }) : null;
     start.replaceChildren(button, extra ?? "");

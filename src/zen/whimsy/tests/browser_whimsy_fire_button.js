@@ -87,13 +87,9 @@ function itemInput(panel, id) {
 }
 
 async function pickRange(panel, win, value) {
-  const button = panel.querySelector("#whimsy-fire-range");
-  const shown = BrowserTestUtils.waitForEvent(win.document, "popupshown", true, e => e.target.id == "whimsy-fire-range-list");
-  button.click();
-  await shown;
-  const list = win.document.getElementById("whimsy-fire-range-list");
-  list.querySelector(`[role="option"][data-value="${value}"]`).click();
-  await TestUtils.waitForCondition(() => !list.isConnected, "The range picker closes on a pick");
+  const segment = panel.querySelector(`#whimsy-fire-range [role="radio"][data-value="${value}"]`);
+  segment.click();
+  await TestUtils.waitForCondition(() => segment.getAttribute("aria-checked") == "true", "The range segment is picked");
 }
 
 add_task(function test_closable_tabs_excludes_pinned_and_essentials() {
@@ -158,7 +154,7 @@ add_task(async function test_fire_surface_shows_range_scope_and_items() {
   try {
     ok(panel.classList.contains("whimsy-surface"), "It is a Whimsy surface");
     ok(!panel.querySelector("menupopup, menuitem, toolbarseparator"), "and no native rows");
-    ok(panel.querySelector("#whimsy-fire-range"), "A range dropdown");
+    ok(panel.querySelector('#whimsy-fire-range[role="radiogroup"] [data-value="hour"][aria-checked="true"]'), "A range control, on Last hour");
     ok(panel.querySelector('[data-l10n-id="whimsy-fire-all-spaces"]'), "An all-spaces row");
     for (const [id, on] of Object.entries(WhimsyFireButton.lastSettings().items)) {
       const input = itemInput(panel, id);
@@ -201,6 +197,7 @@ add_task(async function test_second_ask_only_for_all_time_all_spaces_memory() {
     // All time: asks once more.
     panel = await openFire();
     await pickRange(panel, window, "all");
+    is(document.l10n.getAttributes(panel.querySelector("#whimsy-fire-forget")).id, "whimsy-fire-run-ask", "Fire… gains an ellipsis, since it asks once more");
     panel.querySelector("#whimsy-fire-forget").click();
     is(panel.dataset.step, "confirm", "All time asks again, in the same surface");
     is(panel.state, "open", "...without closing");

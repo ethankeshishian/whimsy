@@ -220,7 +220,13 @@ async function whimsyShot(name, windowGlobal = window.browsingContext.currentWin
   const embedder = windowGlobal.browsingContext.embedderElement;
   const rect = embedder?.localName == "browser" ?
     new DOMRect(0, 0, embedder.clientWidth, embedder.clientHeight) : null;
-  const bitmap = await whimsySnapshot(windowGlobal, rect);
+  // W23 polish (MUST 5): the window's see-through parts (the Library sheet,
+  // the sidebar) sit on macOS's window material, which a snapshot can't
+  // paint; it paints them on this colour instead. White made every dark
+  // shot of them a light grey with light text, so dark shots use the dark
+  // material's colour.
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const bitmap = await whimsySnapshot(windowGlobal, rect, 1, dark ? "rgb(30, 30, 32)" : "white");
   const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
@@ -255,6 +261,78 @@ async function whimsySettled(doc = document) {
     doc.getAnimations().every(a =>
       a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity),
   "Animations have settled").catch(() => info("Some animation kept running"));
+}
+
+// drawSnapshot paints the window's own widget, and an open panel is a
+// widget of its own, so it never shows in a shot. For the shot, each open
+// panel is copied into the window where it sits, with its content box's
+// look and its custom properties, and taken out again afterwards (W23
+// routines-ui; shared for every popup shot since the W23 polish pass).
+// Call it just before the shot; it returns the function that undoes it.
+function whimsyStandInPopups(doc = document) {
+  const win = doc.defaultView;
+  const made = [];
+  for (const panel of doc.querySelectorAll("panel")) {
+    if (panel.state != "open") {
+      continue;
+    }
+    const box = panel.shadowRoot?.querySelector("[part~='content']") ?? panel;
+    const outer = panel.getOuterScreenRect();
+    const inPanel = panel.getBoundingClientRect();
+    const rect = box.getBoundingClientRect();
+    const stand = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    stand.id = panel.id;
+    stand.className = `${panel.className} whimsy-surface-tokens`;
+    // The panel's state attributes ([whimsy-open], [side], data-*) drive its look.
+    for (const { name, value } of panel.attributes) {
+      if (!["id", "class", "style", "hidden"].includes(name)) {
+        stand.setAttribute(name, value);
+      }
+    }
+    const look = win.getComputedStyle(panel);
+    for (let i = 0; i < look.length; i++) {
+      const name = look.item(i);
+      if (name.startsWith("--")) {
+        stand.style.setProperty(name, look.getPropertyValue(name));
+      }
+    }
+    const boxLook = win.getComputedStyle(box);
+    for (const name of ["background-color", "background-image", "border-top", "border-right", "border-bottom", "border-left", "border-radius", "box-shadow", "padding", "color", "font-family", "font-size", "font-weight", "line-height"]) {
+      stand.style.setProperty(name, boxLook.getPropertyValue(name));
+    }
+    // A panel with no surface of its own (the link preview's cards) gets none.
+    const bare = look.getPropertyValue("--panel-background").trim() == "transparent";
+    // The OS draws a real panel's shadow; the stand-in draws its own.
+    if (boxLook.boxShadow == "none" && !bare) {
+      stand.style.boxShadow = "0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.16)";
+    }
+    if (/rgba\(.*, 0\)|transparent/.test(boxLook.backgroundColor) && !bare) {
+      stand.style.backgroundColor = "var(--zen-dialog-background, var(--arrowpanel-background, Canvas))";
+    }
+    Object.assign(stand.style, {
+      position: "fixed",
+      zIndex: "2147483647",
+      boxSizing: "border-box",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      left: `${outer.left - win.mozInnerScreenX + rect.left - inPanel.left}px`,
+      top: `${outer.top - win.mozInnerScreenY + rect.top - inPanel.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+    });
+    for (const child of panel.children) {
+      const copy = child.cloneNode(true);
+      const from = child.querySelectorAll("input, textarea");
+      copy.querySelectorAll("input, textarea").forEach((field, i) => {
+        field.value = from[i]?.value ?? field.value;
+      });
+      stand.append(copy);
+    }
+    doc.documentElement.append(stand);
+    made.push(stand);
+  }
+  return () => made.forEach(s => s.remove());
 }
 
 // Shoots `<name>-light` and `<name>-dark`. `prepare(dark)` shows the state

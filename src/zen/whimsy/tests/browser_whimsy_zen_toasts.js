@@ -20,7 +20,12 @@ const heightOf = toast => toast.element.clientHeight;
 
 registerCleanupFunction(() => closeToasts());
 
+// W23 polish: the AI discovery hints (WhimsyAIHints) show as a toast with
+// the same key on a timer tied to the shared window, not this file, so one
+// can land mid-test (left waiting by an earlier file's chat/ask surface)
+// and throw off every exact pixel this file checks. Off for the file.
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", false]] });
   closeToasts();
   await TestUtils.waitForCondition(
     () => !document.querySelector("#zen-toast-container > *"),
@@ -473,4 +478,41 @@ add_task(async function zen_callers_unchanged() {
   ok(!toast.paused, "with Zen's rules");
   window.dispatchEvent(new Event("activate"));
   toast.close({ instant: true });
+});
+
+// W23 polish (MUST 2): white text on the space colour, 4.5:1 or better on
+// any space colour, a pale yellow one included, with the second line legible.
+add_task(async function white_text_on_any_space_colour() {
+  const luminance = ({ r, g, b }) => {
+    const lin = c => {
+      c /= 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  };
+  const toast = toasts().open("whimsy-archive-toast", {
+    descriptionId: "whimsy-archive-toast-detail",
+    timeout: 0,
+  });
+  try {
+    await document.l10n.translateFragment(toast.element);
+    for (const primary of ["#1573DE", "#FFE066", "#9FE7F5", "#2B2A33"]) {
+      toast.element.style.setProperty("--zen-primary-color", primary);
+      const style = getComputedStyle(toast.element);
+      is(style.color, "rgb(255, 255, 255)", `White text on ${primary}`);
+      const stops = style.backgroundImage.match(/(?:oklch|oklab|rgba?|color)\([^()]*\)/g) ?? [];
+      ok(stops.length >= 2, `The gradient resolves on ${primary}: ${style.backgroundImage}`);
+      for (const stop of stops) {
+        const rgba = InspectorUtils.colorToRGBA(stop);
+        ok(rgba, `${stop} parses`);
+        const ratio = 1.05 / (luminance(rgba) + 0.05);
+        Assert.greaterOrEqual(ratio, 4.5, `${stop} on ${primary}: ${ratio.toFixed(2)}:1`);
+      }
+    }
+    const description = toast.element.querySelector(".description");
+    is(getComputedStyle(description).color, "rgba(255, 255, 255, 0.8)", "The second line is 80% white");
+  } finally {
+    toast.element.style.removeProperty("--zen-primary-color");
+    closeToasts();
+  }
 });

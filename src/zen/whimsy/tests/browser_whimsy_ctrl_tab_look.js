@@ -445,7 +445,11 @@ add_task(async function test_private_space_selection_shows() {
     EventUtils.synthesizeKey("n", { accelKey: true, shiftKey: true });
     await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(window), "The Private Space shows");
     await settle();
-    for (const n of [1, 2]) {
+    // Three tabs: Firefox's card only opens with more than two. The Private
+    // Space opens empty (W10-09), and when the window was on Zen's empty
+    // tab (a file before this one closed every tab) nothing else is made in
+    // it, so the test brings all three itself.
+    for (const n of [1, 2, 3]) {
       const tab = WhimsyPrivate.openPrivateTab(window, { url: "https://example.com/browser/?look" + n });
       await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
       gBrowser.selectedTab = tab;

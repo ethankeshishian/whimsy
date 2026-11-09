@@ -315,15 +315,37 @@ add_task(async function open_in_chat_card_travels() {
   await TestUtils.waitForCondition(() => WhimsyCommandBarAI._flight, "The card travels into chat");
   const ghost = document.querySelector(".whimsy-ask-ghost");
   ok(ghost?.inert && ghost.getAttribute("aria-hidden") == "true", "as an inert copy");
+  // W23 polish (MUST 3): the answer shows once, and the copy lands on it.
+  const msgs = [...document.querySelectorAll("#whimsy-chat .whimsy-chat-msg")];
+  const dest = msgs[1] ?? msgs[0];
+  ok(dest, "The answer is in the thread");
+  is(getComputedStyle(dest).opacity, "0", "but stays hidden while the copy travels");
+  const panelMotion = document
+    .getElementById("whimsy-chat")
+    .getAnimations({ subtree: true })
+    .filter(a => Number.isFinite(a.effect.getComputedTiming().endTime) && a.playState == "running");
+  is(panelMotion.length, 0, "The panel had finished opening before the copy set off");
+  const flight = WhimsyCommandBarAI._flight;
+  flight.pause();
+  flight.currentTime = flight.effect.getComputedTiming().endTime;
+  const landed = ghost.getBoundingClientRect();
+  const target = dest.getBoundingClientRect();
+  Assert.lessOrEqual(Math.abs(landed.left - target.left), 2, `It lands on the answer's left edge (${landed.left} vs ${target.left})`);
+  Assert.lessOrEqual(Math.abs(landed.top - target.top), 2, `and its top (${landed.top} vs ${target.top})`);
+  Assert.lessOrEqual(landed.right, target.right + 2, "without overhanging it");
+  flight.play();
   await WhimsyCommandBarAI._flight.finished;
   await TestUtils.waitForCondition(() => !document.querySelector(".whimsy-ask-ghost"), "and is gone once it lands");
+  is(dest.style.opacity, "", "The answer shows as the copy goes");
   WhimsyChat.close(window, { reason: "key" });
 });
 
 add_task(async function ask_hint_shows_with_the_first_ask_row() {
   const { WhimsyAIHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIHints.sys.mjs");
   await freshStore();
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", true], ["whimsy.ai.hints.seen", ""], ["whimsy.ai.hints.today", ""]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", true], ["whimsy.ai.hints.seen", "voice"], ["whimsy.ai.hints.today", ""]] });
+  // The dictation hint ("voice") also offers itself on the bar's first
+  // focus; seen already, so the Ask hint is the one that shows.
   WhimsyAIHints._setTimingForTesting({ gapMs: 0, seenMs: 600000, timeoutMs: 600000, pollMs: 50 });
   await typeInBar(Q);
   await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "ask", "The Ask row's one-time hint shows with the row");

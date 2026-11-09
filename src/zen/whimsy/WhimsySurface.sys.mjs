@@ -1109,6 +1109,10 @@ export const WhimsySurface = {
     for (const option of options) {
       if (option.rule) {
         list.append(this.rule(doc));
+        // A bare { rule: true } is only the line, not a blank option under it.
+        if (option.value === undefined) {
+          continue;
+        }
       }
       const row = html(doc, "div", "whimsy-surface-option");
       row.setAttribute("role", "option");

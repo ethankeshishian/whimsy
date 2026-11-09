@@ -98,7 +98,7 @@ const ICON_URLS = {
   close: `${ZEN_ICONS}close.svg`, stop: `${ICONS}stop.svg`, play: `${ZEN_ICONS}media-play.svg`,
   drive: `${ICONS}drive.svg`, background: `${ICONS}background.svg`, sparkle: `${ZEN_ICONS}sparkles.svg`,
   check: `${ZEN_ICONS}check.svg`, shield: `${ZEN_ICONS}tracking-protection.svg`, mask: `${ICONS}mask.svg`,
-  chevron: `${ZEN_ICONS}chevron.svg`, layers: `${ICONS}task-folder.svg`, alert: `${ZEN_ICONS}security-warning.svg`,
+  chevron: `${ICONS}chevron-down.svg`, layers: `${ICONS}task-folder.svg`, alert: `${ZEN_ICONS}security-warning.svg`,
   save: `${ZEN_ICONS}save.svg`, agent: `${ICONS}agent.svg`,
 };
 
