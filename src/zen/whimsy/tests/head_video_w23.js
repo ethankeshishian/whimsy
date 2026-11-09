@@ -57,7 +57,6 @@ async function pressSummarize(browser) {
   await hoverVideo(browser);
   const state = await shownControl(browser);
   ok(state.summ.shown, "Summarize shows");
-  info(`DIAG pressSummarize t=${Date.now()} at ${JSON.stringify(state.summ)}`); // DIAG
   await clickPoint(browser, state.summ);
 }
 
@@ -65,7 +64,6 @@ function stubProvider(reply = "Night trains came back.\n\nChapters\n- 0:00 Why t
   providerCalls = [];
   WhimsyAIProviders.setTestProvider(async function* (provider, request) {
     providerCalls.push({ provider, request });
-    info(`DIAG provider call t=${Date.now()} n=${providerCalls.length}`); // DIAG
     yield { type: "text", delta: reply };
   });
 }
@@ -84,18 +82,9 @@ async function closeChat() {
   }
 }
 
-function diagChat(label) { // DIAG
-  const p = chatPanel(); // DIAG
-  const msgs = [...(p.body?.querySelectorAll(".whimsy-chat-msg, .whimsy-chat-note") ?? [])].map(m => `${m.dataset.role ?? m.dataset.kind}${m.hasAttribute("busy") ? "(busy)" : ""}:${m.textContent.slice(0, 120)}`); // DIAG
-  info(`DIAG ${label} t=${Date.now()} open=${p.isOpen} thread=${p.thread?.id} video=${!!p.thread?.video} calls=${providerCalls.length} aiEnabled=${Services.prefs.getBoolPref("whimsy.ai.enabled", false)} restore=${Services.prefs.prefHasUserValue("whimsy.ai.restore")} msgs=${JSON.stringify(msgs)}`); // DIAG
-} // DIAG
-
 async function summaryAnswered() {
-  try { // DIAG
   await TestUtils.waitForCondition(
     () => chatPanel().isOpen && chatPanel().thread?.video && chatPanel().body.querySelector(".whimsy-chat-msg[data-role='ai']:not([busy])"),
     "The summary is in"
   );
-  } catch (e) { diagChat("summaryAnswered timeout"); throw e; } // DIAG
-  diagChat("summaryAnswered ok"); // DIAG
 }

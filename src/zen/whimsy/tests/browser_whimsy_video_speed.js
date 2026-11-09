@@ -253,19 +253,9 @@ add_task(async function typed_speed_up_to_16_note_above() {
   await typeSpeed(browser, "16");
   is(await rate(browser), 16, "16× is fine");
   is((await control(browser)).note, null, "with no note");
-  await SpecialPowers.spawn(browser, [], () => { // DIAG
-    const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed"); // DIAG
-    const orig = actor.showNote; // DIAG
-    actor.showNote = function (t) { dump(`DIAG showNote t=${Date.now()} ${t}\n`); const r = orig.call(this, t); const el = this.els.speednote; dump(`DIAG note hidden=${el.hidden}\n`); return r; }; // DIAG
-    const origRender = actor.render; // DIAG
-    actor.render = function (...a) { const before = this.els?.speednote?.hidden; const r = origRender.apply(this, a); const after = this.els?.speednote?.hidden; if (before !== after) { dump(`DIAG render changed note hidden ${before}->${after} t=${Date.now()} ${new Error().stack}\n`); } return r; }; // DIAG
-  }); // DIAG
-  info(`DIAG before typing 25 t=${Date.now()}`); // DIAG
   await typeSpeed(browser, "25");
-  info(`DIAG after typing 25 t=${Date.now()}`); // DIAG
   is(await rate(browser), 16, "25 is set to 16×");
-  info(`DIAG after rate t=${Date.now()}`); // DIAG
-  await TestUtils.waitForCondition(async () => { const c = await control(browser); info(`DIAG poll t=${Date.now()} note=${c?.note} shown=${c?.shown} editing=${c?.editing}`); return c.note?.includes("as fast as videos go"); }, "One line says why");
+  await TestUtils.waitForCondition(async () => (await control(browser)).note?.includes("as fast as videos go"), "One line says why");
   await typeSpeed(browser, "1");
   BrowserTestUtils.removeTab(tab);
 });

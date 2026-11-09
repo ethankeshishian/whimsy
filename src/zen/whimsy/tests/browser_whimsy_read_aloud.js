@@ -185,39 +185,13 @@ add_task(async function mute_pauses() {
     is(synth.current.text, "night train was supposed to be dead.", "from the word it stopped at");
 
     // The card's mute is the tab's.
-    const diag = label => { // DIAG
-      const b = card.querySelector(".zen-media-mute-button"); // DIAG
-      const r = b.getBoundingClientRect(); // DIAG
-      const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); // DIAG
-      const s = WhimsyReadAloud.session; // DIAG
-      const mc = tab.linkedBrowser.browsingContext?.mediaController; // DIAG
-      const popups = [...document.querySelectorAll("panel, menupopup, tooltip")].filter(p => p.state && p.state != "closed").map(p => `${p.localName}#${p.id}:${p.state}`); // DIAG
-      info(`DIAG ${label} t=${Date.now()} rect=${r.x},${r.y},${r.width}x${r.height} top=${top?.localName}.${top?.className} sameBtn=${top == b || b.contains(top)} tabMuted=${tab.hasAttribute("muted")} audioMuted=${tab.linkedBrowser.audioMuted} mc=${!!mc} mcMuted=${mc?.isMuted} state=${s?.state} mutePaused=${s?.mutePaused} soundplaying=${tab.hasAttribute("soundplaying")} popups=${popups}`); // DIAG
-    }; // DIAG
-    const evs = []; // DIAG
-    const logEv = e => evs.push(`${e.type}:${e.target?.localName}.${e.target?.className}:d${e.detail}:t${Date.now()}`); // DIAG
-    for (const type of ["mousedown", "mouseup", "click", "command", "dblclick"]) { // DIAG
-      window.addEventListener(type, logEv, true); // DIAG
-    } // DIAG
-    const onAttr = e => e.target == tab && evs.push(`TabAttrModified:${e.detail?.changed}:muted=${tab.hasAttribute("muted")}:state=${WhimsyReadAloud.session?.state}:t${Date.now()}`); // DIAG
-    gBrowser.tabContainer.addEventListener("TabAttrModified", onAttr); // DIAG
-    diag("before card mute 1"); // DIAG
     await click(card.querySelector(".zen-media-mute-button"));
-    diag("after card mute 1"); // DIAG
     ok(tab.hasAttribute("muted") && WhimsyReadAloud.session.state == "paused", "The card's mute mutes the tab and pauses");
-    diag("before card mute 2"); // DIAG
     await click(card.querySelector(".zen-media-mute-button"));
-    diag("after card mute 2"); // DIAG
     ok(!tab.hasAttribute("muted") && WhimsyReadAloud.session.state == "playing", "and unmutes it");
 
     // A plain pause takes the speaker away (media-4.7).
     await click(card.querySelector(".zen-media-playpause-button"));
-    diag("after playpause"); // DIAG
-    info(`DIAG events ${JSON.stringify(evs)}`); // DIAG
-    for (const type of ["mousedown", "mouseup", "click", "command", "dblclick"]) { // DIAG
-      window.removeEventListener(type, logEv, true); // DIAG
-    } // DIAG
-    gBrowser.tabContainer.removeEventListener("TabAttrModified", onAttr); // DIAG
     ok(!tab.hasAttribute("soundplaying") && !tab.hasAttribute("muted"), "Paused: no speaker");
     WhimsyReadAloud.stop({ animate: false });
   });
