@@ -23,9 +23,18 @@ async function openPicker() {
     return realHide.apply(this, args);
   };
   const log = e => info(`DIAG ${e.type} ${e.target.id || e.target.localName} state=${panel.state} active=${document.activeElement?.id || document.activeElement?.localName} focused=${Services.focus.focusedWindow == window}`);
-  for (const type of ["popupshowing", "popupshown", "popuphiding", "popuphidden", "deactivate", "blur"]) {
+  const types = ["popupshowing", "popupshown", "popuphiding", "popuphidden", "deactivate", "blur"];
+  for (const type of types) {
     window.addEventListener(type, log, true);
   }
+  registerCleanupFunction(() => {
+    panel.hidePopup = realHide;
+    for (const type of types) {
+      window.removeEventListener(type, log, true);
+    }
+  });
+  const others = [...document.querySelectorAll("panel, menupopup")].filter(p => p.state != "closed").map(p => `${p.id}:${p.state}`);
+  info(`DIAG open popups ${others.join(",")} chat=${!document.getElementById("whimsy-chat")?.hidden}`);
   info(`DIAG anchor ${anchor.label} visible=${BrowserTestUtils.isVisible(anchor)} rect=${JSON.stringify(anchor.getBoundingClientRect())} tabs=${gBrowser.tabs.length}`);
   const picked = gZenEmojiPicker.open(anchor);
   await shown;
