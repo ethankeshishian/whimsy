@@ -111,7 +111,7 @@ add_task(async function shots_related_row() {
   WhimsyAIIndex.initWindow(window);
   try {
     await whimsyBothSchemes("w23-memory-fire-cmd-4.1", async () => {
-      const provider = ProvidersManager.getProvider("WhimsyRelated");
+      const provider = ProvidersManager.getInstanceForSap("urlbar").getProvider("WhimsyRelated");
       const added = [];
       await provider.startQuery({ searchString: "coffee" }, (p, result) => added.push(result));
       ok(added.length, "A Related row was produced for the shot (rendered by the urlbar view itself)");

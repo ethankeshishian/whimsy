@@ -208,9 +208,12 @@ export const WhimsyAIIndex = {
   initWindow(win) {
     this.init();
     if (!this.provider) {
-      const manager = lazy.ProvidersManager;
-      this.provider = manager.getProvider("WhimsyRelated") ?? new WhimsyRelatedProvider();
-      manager.registerProvider(this.provider);
+      const manager = lazy.ProvidersManager.getInstanceForSap("urlbar");
+      this.provider = manager.getProvider("WhimsyRelated");
+      if (!this.provider) {
+        this.provider = new WhimsyRelatedProvider();
+        manager.registerProvider(this.provider);
+      }
     }
     this._initCapture(win);
   },

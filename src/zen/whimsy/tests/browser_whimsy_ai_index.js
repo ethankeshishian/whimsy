@@ -63,7 +63,7 @@ add_task(async function related_after_matches_max_three() {
 
   // The urlbar provider: tagged Related, capped the same way.
   WhimsyAIIndex.initWindow(window);
-  const provider = ProvidersManager.getProvider("WhimsyRelated");
+  const provider = ProvidersManager.getInstanceForSap("urlbar").getProvider("WhimsyRelated");
   ok(provider, "The Related provider registers");
   const context = { searchString: "coffee", searchMode: null, restrictSource: null, isPrivate: false };
   ok(await provider.isActive(context), "Active for a plain query with AI and the index on, outside private");

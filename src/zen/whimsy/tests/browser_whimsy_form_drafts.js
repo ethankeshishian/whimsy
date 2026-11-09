@@ -235,20 +235,17 @@ add_task(async function test_fire_burns_clear_matching_drafts_only() {
   }
   await WhimsyFormDrafts.forgetAll();
 
-  // ---- burnProfile: clears only `mine`'s container, on every site ----
+  // ---- burn(), profile-scoped: clears only `mine`'s container, every site ----
   await seedFour();
-  const originalProfileTabs = WhimsyFireButton.profileTabs;
-  const originalProfileVisits = WhimsyFireButton.profileVisits;
-  const originalClearSiteData = WhimsyFireButton.clearSiteData;
-  const originalRemoveVisit = WhimsyFireButton.removeVisit;
-  WhimsyFireButton.profileTabs = () => [];
-  WhimsyFireButton.profileVisits = async () => [];
-  WhimsyFireButton.clearSiteData = async () => {};
-  WhimsyFireButton.removeVisit = async () => {};
+  const originalTabsOfSpaces = WhimsyFireButton.tabsOfSpaces;
+  WhimsyFireButton.tabsOfSpaces = () => [];
   try {
-    await WhimsyFireButton.burnProfile(window);
+    await WhimsyFireButton.burn(window, {
+      range: "all", allSpaces: false, spaceIds: null,
+      items: { tabs: true, history: false, aiChats: false, agentActivity: false, index: false, memory: false, routineResults: false, downloads: false },
+    });
     is(await WhimsyFormDrafts.get({ url: SITE1, userContextId: mine }), null,
-      "burnProfile: this container's draft is gone");
+      "burn(), this profile: this container's draft is gone");
     is(await WhimsyFormDrafts.get({ url: SITE2, userContextId: mine }), null,
       "...on every site it was on");
     ok(await WhimsyFormDrafts.get({ url: SITE1, userContextId: other }),
@@ -256,35 +253,35 @@ add_task(async function test_fire_burns_clear_matching_drafts_only() {
     ok(await WhimsyFormDrafts.get({ url: SITE2, userContextId: other }),
       "...and on a different site");
   } finally {
-    WhimsyFireButton.profileTabs = originalProfileTabs;
-    WhimsyFireButton.profileVisits = originalProfileVisits;
-    WhimsyFireButton.clearSiteData = originalClearSiteData;
-    WhimsyFireButton.removeVisit = originalRemoveVisit;
+    WhimsyFireButton.tabsOfSpaces = originalTabsOfSpaces;
   }
   await WhimsyFormDrafts.forgetAll();
 
-  // ---- burnEverything: clears every draft, private ones included ----
+  // ---- burn(), all spaces: clears every draft, private ones included ----
   await seedFour();
   await WhimsyFormDrafts.put({ url: SITE1, data: draft(), userContextId: mine, isPrivate: true });
-  const originalAllTabs2 = WhimsyFireButton.allTabs;
+  const originalTabsOfSpaces2 = WhimsyFireButton.tabsOfSpaces;
   const originalClearData = WhimsyFireButton.clearData;
   const originalClearFormHistory = WhimsyFireButton.clearFormHistory;
-  WhimsyFireButton.allTabs = () => [];
+  WhimsyFireButton.tabsOfSpaces = () => [];
   WhimsyFireButton.clearData = async () => {};
   WhimsyFireButton.clearFormHistory = async () => {};
   try {
-    await WhimsyFireButton.burnEverything(window);
+    await WhimsyFireButton.burn(window, {
+      range: "all", allSpaces: true, spaceIds: null,
+      items: { tabs: true, history: true, aiChats: false, agentActivity: false, index: false, memory: false, routineResults: false, downloads: false },
+    });
     for (const userContextId of [mine, other]) {
       for (const url of [SITE1, SITE2]) {
         is(await WhimsyFormDrafts.get({ url, userContextId }), null,
-          `burnEverything: ${url} is gone for container ${userContextId}`);
+          `burn(), all spaces: ${url} is gone for container ${userContextId}`);
       }
     }
     is(await WhimsyFormDrafts.get({ url: SITE1, userContextId: mine, isPrivate: true }), null,
       "...the private one too");
     ok(!(await IOUtils.exists(WhimsyFormDrafts.path)), "The drafts file is gone");
   } finally {
-    WhimsyFireButton.allTabs = originalAllTabs2;
+    WhimsyFireButton.tabsOfSpaces = originalTabsOfSpaces2;
     WhimsyFireButton.clearData = originalClearData;
     WhimsyFireButton.clearFormHistory = originalClearFormHistory;
   }
