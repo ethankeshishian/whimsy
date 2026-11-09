@@ -74,6 +74,15 @@ Services.obs.addObserver(clearPreviews, "whimsy-ai-store-cleared");
 const windows = new WeakMap();
 
 export const WhimsyAIPage = {
+  // Tests: a stand-in for a scanned PDF page's on-device text recognition
+  // (recognizeCurrentImageText, real and slow, platform-dependent). Set,
+  // it answers every page that needs it instead of the child actor
+  // rendering and recognizing the page for real.
+  _testOcrRecognizer: null,
+  setTestOcrRecognizer(fn) {
+    this._testOcrRecognizer = fn || null;
+  },
+
   get askEnabled() {
     return Services.prefs.getBoolPref(ASK_PREF, true) && lazy.WhimsyAIProviders.enabled;
   },

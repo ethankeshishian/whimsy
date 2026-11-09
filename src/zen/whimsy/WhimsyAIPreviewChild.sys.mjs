@@ -247,7 +247,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       const content = await page.getTextContent();
       let text = [...Cu.waiveXrays(content).items].map(item => String(item?.str ?? "")).join(" ").replace(/\s+/g, " ").trim();
       if (!text && ocr) {
-        text = await this.recognizePage(page);
+        text = await this.recognizePage(page, n);
         if (text) {
           recognized++;
         }
@@ -257,7 +257,21 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     return { pages, total: Number(pdf.numPages) || count, recognized };
   }
 
-  async recognizePage(page) {
+  // Tests: a stand-in answers instead of the real (slow, platform) call.
+  async testRecognizedText(n) {
+    try {
+      const { text } = await this.sendQuery("WhimsyAIPreview:RecognizeText", { page: n });
+      return text;
+    } catch {
+      return null;
+    }
+  }
+
+  async recognizePage(page, n) {
+    const stood = await this.testRecognizedText(n);
+    if (stood != null) {
+      return stood;
+    }
     const win = this.contentWindow;
     const doc = win.document;
     try {
@@ -275,7 +289,13 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       const img = doc.createElement("img");
       img.src = canvas.toDataURL("image/png");
       await img.decode();
-      const lines = await img.recognizeCurrentImageText();
+      // The OS text-recognition service can stall; a page that never
+      // answers reads as text-free rather than hanging the summary (and
+      // the test suite) forever.
+      const lines = await Promise.race([
+        img.recognizeCurrentImageText(),
+        new Promise(resolve => win.setTimeout(() => resolve([]), 10000)),
+      ]);
       return [...lines].map(line => String(line.string ?? "")).join(" ").replace(/\s+/g, " ").trim();
     } catch (e) {
       console.error("Whimsy: PDF text recognition", e);

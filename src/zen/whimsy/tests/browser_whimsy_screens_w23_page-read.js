@@ -70,8 +70,14 @@ add_setup(async () => {
     ["accessibility.typeaheadfind.flashBar", branch.getIntPref("accessibility.typeaheadfind.flashBar", 0)],
   ] });
   WhimsyAIProviders.setTestProvider(provider);
+  // page-11.3: the scanned PDF has no text layer, so pdfPages would
+  // otherwise call the real on-device text recognition (slow, and this
+  // Mac's OS service can stall well past a test's timeout). A stand-in
+  // answers instead, same as a real page's: text naming the monthly rent.
+  WhimsyAIPage.setTestOcrRecognizer(() => "Rent is due on the first of the month, the monthly rent.");
   registerCleanupFunction(async () => {
     WhimsyAIProviders.setTestProvider(null);
+    WhimsyAIPage.setTestOcrRecognizer(null);
     WhimsyAIReader.setTestReader(null);
     WhimsyChat.close(window, { reason: "hide" });
     await WhimsyAIStore.clear?.({ kinds: ["chats"] });
