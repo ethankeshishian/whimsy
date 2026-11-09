@@ -205,11 +205,14 @@ add_task(async function stop_a_running_routine_from_its_thread() {
   answer = () => new Promise(() => started());
   const run = WhimsyRoutines.runNow(r.id);
   await begun;
+  info("The run started");
   const panel = await openThread((await WhimsyRoutines.get(r.id)).threadId);
   const stop = await TestUtils.waitForCondition(() => panel.el.querySelector('.whimsy-routine-bar button[data-action="stop"]'), "Stop is in the bar, in Run now's place");
   ok(!panel.el.querySelector('.whimsy-routine-bar button[data-action="run"]'), "with no Run now beside it");
   await TestUtils.waitForCondition(() => stop.textContent == "Stop", "labelled Stop");
+  info(`Stop is connected: ${stop.isConnected}`);
   EventUtils.synthesizeMouseAtCenter(stop, {}, window);
+  info(`Clicked; status ${(await WhimsyRoutines.get(r.id)).status}`);
   await run;
   const [card] = await runCards((await WhimsyRoutines.get(r.id)).threadId);
   ok(card.stopped && !card.running && !card.failed, "The run says it was stopped, not failed");

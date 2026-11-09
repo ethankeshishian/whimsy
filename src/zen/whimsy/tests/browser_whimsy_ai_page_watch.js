@@ -133,7 +133,6 @@ add_task(async function test_watch_flow() {
 
   // Hits notify only when the page isn't in front of you.
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
-  const before = new Set(gBrowser.tabs);
 
   // no_change_folds: unchanged text, no AI call, one folded line.
   await TestUtils.waitForCondition(async () => watch.threadId && (await threadCards(watch)).length, "The watch has a thread");
@@ -248,6 +247,7 @@ add_task(async function unreadable_page_needs_you_after_two_checks() {
 
   // Open page: the page, in front.
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const before = new Set(gBrowser.tabs);
   ok(await WhimsyAIUpdates.handle(window, row, {}), "The watch handles its Open page");
   await TestUtils.waitForCondition(() => gBrowser.selectedBrowser.currentURI.spec == PAGE, "The page opens");
   ok(!(await failRow()), "and the row is cleared");
