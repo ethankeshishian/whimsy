@@ -695,3 +695,11 @@
     transition: none;
   }
 }
+
+/* Kept tabs: the same filled check-circle as a done step (fu-agent 7.1). */
+.whimsy-agent-card[data-card="agent-kept"] .whimsy-agent-card-head > .whimsy-agent-icon {
+  border-radius: 50%;
+  background: var(--whimsy-agent-icon) center / 9px no-repeat, var(--whimsy-chat-success, rgb(52, 168, 83));
+  color: white;
+  fill: white;
+}
