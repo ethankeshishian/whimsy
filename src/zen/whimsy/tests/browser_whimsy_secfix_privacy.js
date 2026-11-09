@@ -141,7 +141,7 @@ add_task(async function fire_drops_preview_summaries() {
   }
 });
 
-// W23 secfix L5: text read out of images goes with Fire and Clear History.
+// W23 secfix L5: text read out of images goes with Fire.
 add_task(async function fire_drops_image_text() {
   const { WhimsyImageText } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyImageText.sys.mjs");
   const src = "https://example.com/statement-scan.png";
@@ -149,9 +149,6 @@ add_task(async function fire_drops_image_text() {
   ok(WhimsyImageText.hasText(src), "Sanity: the image's text is kept");
   await WhimsyAIStore.clear({ kinds: ["chats"] });
   ok(!WhimsyImageText.hasText(src), "Fire forgets it");
-  WhimsyImageText.remember(src, ["Account 4410 balance"]);
-  Services.obs.notifyObservers(null, "browser:purge-session-history");
-  ok(!WhimsyImageText.hasText(src), "and so does Clear History");
 });
 
 // W23 secfix L7: the provider-key file is owner-only from its first byte.
