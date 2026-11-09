@@ -40,8 +40,15 @@ const BRIDGE_PATH = "/mcp";
 const GUARD_PATH = "/guard";
 export const GUARD_SERVER = "whimsy_guard";
 export const GUARD_TOOL = "confirm";
-// A tool may run without a press only when its server says it only reads.
-const readOnlyOf = tools => tools.filter(t => t?.annotations?.readOnlyHint === true).map(t => t.name);
+// A tool may run without a press only when its server says it only reads
+// AND reaches nothing outside the server (P2-M1: a read-only fetch or web
+// search can still carry data out in its arguments). Everything else needs
+// a press in chat and Ask, and routines (no guard) never get it.
+const readOnlyOf = tools => tools
+  .filter(t => t?.annotations?.readOnlyHint === true && t?.annotations?.openWorldHint === false)
+  .map(t => t.name);
+// Saved `readOnly` lists made by an older rule aren't trusted.
+const READ_ONLY_RULE = 2;
 
 export const CONNECTOR_GROUPS = [
   { id: "schedule", l10nId: "whimsy-connectors-group-schedule", ids: ["google", "microsoft", "apple-calendar"] },
@@ -397,7 +404,7 @@ export const WhimsyConnectors = {
       result = { ...found, name: listed.name, tools: listed.tools.map(t => t.name), readOnly: readOnlyOf(listed.tools) };
     }
     await this._update(async file => {
-      file.connectors[id] = { url: found.url, name: fixedId ? "" : result.name, tools: result.tools, readOnly: result.readOnly ?? [], status: "ok", account: "", at: Date.now() };
+      file.connectors[id] = { url: found.url, name: fixedId ? "" : result.name, tools: result.tools, readOnly: result.readOnly ?? [], readOnlyRule: READ_ONLY_RULE, status: "ok", account: "", at: Date.now() };
       if (tokens) {
         await this._saveTokens(file, id, tokens);
       }
@@ -543,9 +550,9 @@ export const WhimsyConnectors = {
 
   /**
    * The connectors' tools for one run, as MCP servers (router `tools`).
-   * Each server says which of its tools only read (`readOnlyTools`, from
-   * the server's own annotations when it was added; the built-in tools all
-   * read). Every other tool needs the person's press (H1).
+   * Each server says which of its tools only read and stay inside the
+   * server (`readOnlyTools`, from the server's own annotations when it was
+   * added; the built-in tools all read). Every other tool needs the person's press (H1).
    */
   async tools() {
     if (!this.enabled) {
@@ -563,7 +570,9 @@ export const WhimsyConnectors = {
         servers.push({
           name: id == "granola" ? "granola" : entry.name || hostOf(entry.url),
           url: entry.url,
-          readOnlyTools: Array.isArray(entry.readOnly) ? entry.readOnly.filter(n => typeof n == "string") : [],
+          readOnlyTools: entry.readOnlyRule === READ_ONLY_RULE && Array.isArray(entry.readOnly)
+            ? entry.readOnly.filter(n => typeof n == "string")
+            : [],
           ...(headers ? { headers } : {}),
         });
       }

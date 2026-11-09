@@ -54,7 +54,13 @@ function body(request) {
 }
 
 // A tiny MCP server: `tools` by name, each answering with its text.
-function mcp(path, { name, tools, auth = false, readOnly = [] }) {
+// `readOnly` tools say they only read and stay inside the server;
+// `openWorld` maps a tool to the annotations of one that reads but may
+// reach elsewhere (P2-M1).
+function mcp(path, { name, tools, auth = false, readOnly = [], openWorld = {} }) {
+  const annotations = t => readOnly.includes(t)
+    ? { annotations: { readOnlyHint: true, openWorldHint: false } }
+    : openWorld[t] ? { annotations: openWorld[t] } : {};
   server.registerPathHandler(path, (request, response) => {
     if (auth && !(request.hasHeader("Authorization") && request.getHeader("Authorization").startsWith(`Bearer ${TOKEN}`))) {
       response.setStatusLine("1.1", 401, "Unauthorized");
@@ -68,7 +74,7 @@ function mcp(path, { name, tools, auth = false, readOnly = [] }) {
     }
     const result = {
       initialize: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name } },
-      "tools/list": { tools: Object.keys(tools).map(t => ({ name: t, description: t, inputSchema: { type: "object" }, ...(readOnly.includes(t) ? { annotations: { readOnlyHint: true } } : {}) })) },
+      "tools/list": { tools: Object.keys(tools).map(t => ({ name: t, description: t, inputSchema: { type: "object" }, ...annotations(t) })) },
       "tools/call": { content: [{ type: "text", text: tools[message.params?.name] ?? "" }] },
     }[message.method];
     json(response, { jsonrpc: "2.0", id: message.id, result });
@@ -101,7 +107,12 @@ add_setup(async function () {
     response.setHeader("Content-Type", "text/html");
     response.write("<p>workspace</p>");
   });
-  mcp("/notes-mcp", { name: "Notes", tools: { search_pages: "found", read_page: "page", delete_page: "gone" }, readOnly: ["search_pages", "read_page"] });
+  mcp("/notes-mcp", {
+    name: "Notes",
+    tools: { search_pages: "found", read_page: "page", delete_page: "gone", fetch_url: "fetched", web_search: "results" },
+    readOnly: ["search_pages", "read_page"],
+    openWorld: { fetch_url: { readOnlyHint: true }, web_search: { readOnlyHint: true, openWorldHint: true } },
+  });
   mcp("/granola", { name: "Granola", tools: { search_meetings: "Last week: shipped the beta; Ana owns the launch post." }, auth: true });
   WhimsyConnectorOAuth.setTestEndpoints({
     google: { authorize: `${base}/authorize`, token: `${base}/token`, userinfo: `${base}/userinfo`, revoke: `${base}/revoke`, api: `${base}/api` },
@@ -224,13 +235,21 @@ add_task(async function mcp_add_lists_tools() {
   EventUtils.sendString(`${base}/notes-mcp`, page.win);
   click(page, page.$("whimsyConnectorsMcpGo"));
   const found = await TestUtils.waitForCondition(() => page.$("whimsyConnectorsMcpFound"), "The server answers (set-5.8)");
-  await TestUtils.waitForCondition(() => found.textContent.includes("Notes") && found.textContent.includes("3 tools"), "Its name and tool count show");
+  await TestUtils.waitForCondition(() => found.textContent.includes("Notes") && found.textContent.includes("5 tools"), "Its name and tool count show");
   click(page, page.$("whimsyConnectorsMcpGo"));
   const id = `mcp:127.0.0.1:${server.identity.primaryPort}`;
   await TestUtils.waitForCondition(() => page.row(id)?.dataset.status == "ok", "The server is listed");
-  Assert.deepEqual((await WhimsyConnectors.list()).find(c => c.id == id).toolNames, ["search_pages", "read_page", "delete_page"], "Its tools are kept");
+  Assert.deepEqual((await WhimsyConnectors.list()).find(c => c.id == id).toolNames, ["search_pages", "read_page", "delete_page", "fetch_url", "web_search"], "Its tools are kept");
   const notes = (await WhimsyConnectors.tools()).find(t => t.url == `${base}/notes-mcp`);
-  Assert.deepEqual(notes.readOnlyTools, ["search_pages", "read_page"], "Only the tools the server marks read-only may run without a press (H1)");
+  Assert.deepEqual(notes.readOnlyTools, ["search_pages", "read_page"],
+    "Only tools marked read-only AND openWorldHint:false run without a press; a read-only fetch or search asks (H1, P2-M1)");
+  // A list saved under the old rule (readOnlyHint alone) isn't trusted.
+  await WhimsyConnectors._update(file => {
+    file.connectors[id].readOnly = ["search_pages", "read_page", "fetch_url"];
+    delete file.connectors[id].readOnlyRule;
+  });
+  Assert.deepEqual((await WhimsyConnectors.tools()).find(t => t.url == `${base}/notes-mcp`).readOnlyTools, [],
+    "An older saved list pre-approves nothing");
   is(await WhimsyConnectors.call(id, "search_pages", { query: "x" }), "found", "Whimsy calls its tools");
   BrowserTestUtils.removeTab(page.tab);
 });
