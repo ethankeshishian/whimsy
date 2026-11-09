@@ -163,6 +163,18 @@ add_setup(function whimsySnapshotLeakedPrefs() {
     // end state doesn't depend on when the hint happened to fire.
     Services.prefs.clearUserPref("whimsy.ai.hints.seen");
     Services.prefs.clearUserPref("whimsy.ai.hints.today");
+    // W23 commands: Enable AI (whimsy.ai.enabled) is off by default, but the
+    // manifest's own per-file default pushes it on, and several AI files set
+    // it straight with Services.prefs.setBoolPref rather than through a
+    // pushPrefEnv the harness pops on its own. A file's own saved/restore
+    // snapshot is taken at load time, which is already after that ambient
+    // "on" state, so restoring it just writes "on" back instead of really
+    // clearing it - the same kind of leak as the hint prefs above, and it
+    // snowballs into whichever file runs next (browser_whimsy_selection_verbs.js
+    // then finds AI on and opens the context command bar instead of a plain
+    // web search). Clearing it unconditionally here, after every file's own
+    // cleanup has run, keeps it from ever carrying over.
+    Services.prefs.clearUserPref("whimsy.ai.enabled");
     const { WhimsySyncedMap } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfileSync.sys.mjs");
     for (const pref of snapshot) {
       // A synced map (whimsy.profiles.*) would merge its cache straight back.
