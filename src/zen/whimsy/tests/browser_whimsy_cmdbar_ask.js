@@ -346,6 +346,7 @@ add_task(async function ask_hint_shows_with_the_first_ask_row() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", true], ["whimsy.ai.hints.seen", ""], ["whimsy.ai.hints.today", ""]] });
   WhimsyAIHints._setTimingForTesting({ gapMs: 0, seenMs: 600000, timeoutMs: 600000, pollMs: 50 });
   await typeInBar(Q);
+  info("DIAG toasts: " + JSON.stringify(gZenUIManager.toasts.getToasts().map(t => [t.key, t.element.getAttribute("whimsy-ai-hint")])));
   await TestUtils.waitForCondition(() => WhimsyAIHints.current?.id == "ask", "The Ask row's one-time hint shows with the row");
   WhimsyAIHints.current.toast.close({ instant: true });
   WhimsyAIHints._setTimingForTesting(null);
