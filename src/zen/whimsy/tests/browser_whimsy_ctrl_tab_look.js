@@ -454,6 +454,14 @@ add_task(async function test_private_space_selection_shows() {
     ok(root.hasAttribute("whimsy-scratch-active"), "The Private Space is active");
     is(accentOf(), "rgb(152, 110, 255)", "The Private Space wears the private violet accent");
 
+    {
+      const ae = document.activeElement;
+      console.error("DEBUG before holdCtrlTab: activeElement=" + (ae ? `${ae.tagName}#${ae.id}.${ae.className}` : "null")
+        + " windowFocused=" + Services.focus.activeWindow?.document?.title
+        + " openPopups=" + JSON.stringify([...document.querySelectorAll("panel,menupopup")].filter(p => p.state == "open" || p.hasAttribute("open")).map(p => p.id || p.tagName))
+        + " ctrlTabEnabled=" + Services.prefs.getBoolPref("whimsy.feature.ctrl-tab", true)
+        + " isChangingWorkspace=" + gZenWorkspaces.isChangingWorkspace);
+    }
     await holdCtrlTab();
     await pressTab();
     const focused = document.activeElement;
