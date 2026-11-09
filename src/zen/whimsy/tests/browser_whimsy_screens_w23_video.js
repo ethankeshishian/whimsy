@@ -16,10 +16,12 @@ async function shootPage(name, browser, prepare) {
     // Forward prepare's own cleanup (dec-3's reopen) so whimsyBothSchemes
     // actually runs it between rounds; dropping it silently left the light
     // round's "hide" never undone, so the dark round's press reopened
-    // instead of hiding (never reaching "hidden").
+    // instead of hiding (never reaching "hidden"). Most prepare functions
+    // return something else incidentally (state objects, etc.); only a
+    // real function is a cleanup.
     const cleanup = await prepare?.(dark);
     await new Promise(r => setTimeout(r, 200));
-    return cleanup;
+    return typeof cleanup == "function" ? cleanup : undefined;
   });
   ok(true, `Shot ${name}`);
 }
