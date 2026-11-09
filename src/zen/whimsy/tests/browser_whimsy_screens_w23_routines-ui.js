@@ -398,12 +398,14 @@ add_task(async function shots_watch_panel() {
       await openWatch();
       const dropdown = watchPanel().querySelector(".whimsy-watch-interval");
       await TestUtils.waitForCondition(() => dropdown.getBoundingClientRect().width > 0, "laid out");
-      await openPopup("whimsy-watch-interval-list", () => EventUtils.synthesizeMouseAtCenter(dropdown, {}));
+      const list = await openPopup("whimsy-watch-interval-list", () => EventUtils.synthesizeMouseAtCenter(dropdown, {}));
+      const picked = (list ?? document.getElementById("whimsy-watch-interval-list")).querySelector('.whimsy-surface-option[aria-selected="true"]');
+      isnot(getComputedStyle(picked).backgroundColor, "rgba(0, 0, 0, 0)", "rout-5.3: the picked interval's row is filled, not only checked");
     }, () => document.getElementById("whimsy-watch-interval-list")?.state == "open");
     await popupShots("w23-routines-ui-rout-5.9", () => openWatch({ condition: "tickets go on sale", interval: 15, outlined: true }),
       () => watchPanel().querySelector(".whimsy-watch-condition.is-filled"));
     const realList = WhimsyPageWatch.list;
-    WhimsyPageWatch.list = async () => Array.from({ length: MAX_WATCHES }, (_, i) => ({ id: `w${i}`, url: `https://example.org/${i}`, userContextId: 0 }));
+    WhimsyPageWatch.list = async () => Array.from({ length: MAX_WATCHES }, (_, i) => ({ id: `w${i}`, url: `https://example.org/${i}`, condition: "the price drops", interval: 60, userContextId: 0 }));
     try {
       await popupShots("w23-routines-ui-rout-5.8", () => openWatch(), () => !watchPanel().querySelector(".whimsy-watch-error").hidden);
     } finally {

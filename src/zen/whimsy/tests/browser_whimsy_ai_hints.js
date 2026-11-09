@@ -20,7 +20,7 @@ add_setup(async function () {
   WhimsyAIHints._resetForTesting();
   WhimsyAIHints._setTimingForTesting(FAST);
   registerCleanupFunction(() => {
-    WhimsyAIHints._resetForTesting();
+    WhimsyAIHints._restoreForTesting();
     WhimsyAIHints._setTimingForTesting(null);
     WhimsyAIHints._setTodayForTesting(null);
   });

@@ -557,7 +557,9 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
   border-radius: 6px;
   cursor: default;
 
-  &:hover {
+  /* The picked row is filled as well as checked (N3, rout-5.3). */
+  &:hover,
+  &[aria-selected="true"] {
     background-color: var(--whimsy-surface-hover);
   }
   &:focus-visible {

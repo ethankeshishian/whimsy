@@ -296,7 +296,7 @@ add_task(async function shots_command_bar_mic() {
       is(getComputedStyle(document.getElementById("whimsy-dictation-mic")).boxShadow, "none", "No ring on the mic");
       return async () => {
         toast.close({ instant: true });
-        WhimsyAIHints._resetForTesting();
+        WhimsyAIHints._restoreForTesting();
         await closeBar();
       };
     });
@@ -443,7 +443,8 @@ add_task(async function shots_image_cmdk() {
       info(`3.5 rows: ${ids.join(", ")}`);
       ok(ids.includes("image:copy") && ids.includes("image:save"), "3.5: Copy Image and Save Image As… are listed");
       is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-cmdk-type-command", "3.5: the field says Type a command");
-      ok(!BrowserTestUtils.isVisible(document.getElementById("urlbar-search-mode-indicator")), "3.5: no empty search-mode capsule");
+      await TestUtils.waitForCondition(() => document.getElementById("urlbar-search-mode-indicator-title").textContent == "Actions", "3.5: the mode chip says Actions (S4)");
+      ok(BrowserTestUtils.isVisible(document.getElementById("urlbar-search-mode-indicator")), "and shows");
       // Group headings: Firefox's row labels, shown for ⌘K's rows.
       const labelled = () => [...gURLBar.view.panel.querySelectorAll(".urlbarView-row[label]")].filter(r => BrowserTestUtils.isVisible(r));
       await TestUtils.waitForCondition(() => labelled().some(r => r.getAttribute("label") == "This image"), "3.5: the This image heading");

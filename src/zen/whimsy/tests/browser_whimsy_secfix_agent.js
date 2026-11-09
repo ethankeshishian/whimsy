@@ -49,7 +49,7 @@ add_task(async function new_site_pauses_before_any_request() {
   WhimsyAgentTasks.decide(task.id, "do");
   const { tabId } = JSON.parse(textOf(await pending));
   ok(task.sites.has("example.com"), "Once there, the site counts as visited");
-  const again = await own(task, "navigate", { tabId, url: PAGE + "?page=2" });
+  const again = await own(task, "navigate", { tabId, url: ROOT + "whimsy_secfix_frame.html" });
   ok(!again.isError && !task.pause, "Moving around a visited site doesn't ask");
 
   // The exfiltration shape: what it read, in the address of a new site.

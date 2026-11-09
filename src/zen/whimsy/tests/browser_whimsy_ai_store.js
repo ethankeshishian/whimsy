@@ -215,8 +215,10 @@ add_task(async function chat_facade_queues_until_attach() {
     id: "testCopy", l10nId: "whimsy-ai-hint-got-it", icon: "chrome://browser/content/whimsy/icons/eye.svg",
     isAvailable: msg => msg.role == "ai", run() {},
   });
-  is(WhimsyChat.answerActions({ role: "ai" }).length, 1, "An answer action applies to answers");
-  is(WhimsyChat.answerActions({ role: "user" }).length, 0, "Not to your own messages");
+  // The chat's own actions (Retry) apply too once its panel has loaded.
+  const ours = msg => WhimsyChat.answerActions(msg).filter(a => a.id == "testCopy");
+  is(ours({ role: "ai" }).length, 1, "An answer action applies to answers");
+  is(ours({ role: "user" }).length, 0, "Not to your own messages");
   const offTasks = WhimsyChat.registerTaskSource({ id: "testAgent", list: () => [{ id: "t1", title: "Booking" }], show() {}, stop() {} });
   Assert.deepEqual(WhimsyChat.tasks(win).map(t => [t.id, t.source]), [["t1", "testAgent"]], "Tasks come with their source");
   offCard();

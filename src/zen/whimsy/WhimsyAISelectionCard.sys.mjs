@@ -41,6 +41,13 @@ function languageName(tag) {
   }
 }
 
+// S3: a language as people say it, "English" rather than "American
+// English", unless the other side shares its base language (en-GB → en-US).
+function shownLanguage(tag, other = null) {
+  const baseOf = t => String(t ?? "").split("-")[0].toLowerCase();
+  return languageName(other && baseOf(other) == baseOf(tag) ? tag : baseOf(tag) || tag);
+}
+
 const base = tag => String(tag ?? "").split("-")[0].toLowerCase();
 
 function h(doc, tag, className, text) {
@@ -233,7 +240,9 @@ export const WhimsyAISelectionCard = {
       ...tags.map((tag, i) => {
         const row = doc.createXULElement("menuitem");
         row.id = `context-whimsy-ai-translate-${i}`;
-        doc.l10n.setAttributes(row, "whimsy-ai-menu-translate-to", { language: languageName(tag) });
+        // Two variants of one language in the list keep their full names.
+        const twin = tags.find(t => t != tag && base(t) == base(tag));
+        doc.l10n.setAttributes(row, "whimsy-ai-menu-translate-to", { language: shownLanguage(tag, twin) });
         row.addEventListener("command", () => this.runOnSelection(win, "translate", { language: tag }).catch(console.error));
         return row;
       }),

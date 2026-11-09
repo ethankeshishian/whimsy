@@ -459,6 +459,29 @@ add_task(async function outside_agent_cannot_list_private_tab() {
   BrowserTestUtils.removeTab(normal);
 });
 
+// W23 secfix2 P2-M4: "Keep apps in their own space" stays opt-in, so an
+// outside agent may read the person's tabs. Every tab it reads shows
+// "<app> is using this tab" and gets an Activity entry, and card values
+// stay hidden from it.
+add_task(async function outside_reads_are_shown_and_logged() {
+  await turnOn();
+  ok(!Services.prefs.getBoolPref(OWN), "Own space is still off by default");
+  const mine = await BrowserTestUtils.openNewForegroundTab(gBrowser, SENSITIVE);
+  await SpecialPowers.spawn(mine.linkedBrowser, [], () => {
+    content.document.getElementById("cc").value = "4242 4242 4242 4242";
+  });
+  const tabId = WhimsyClaude.tabId(mine);
+  const read = await ok_result(outside("get_page_text", { tabId }, "m4-session"), "an outside app reads the person's tab");
+  ok(!textOf(read).includes("4242"), "A card value never reaches it");
+  ok(mine.hasAttribute("whimsy-claude-active"), "The tab shows the using-this-tab bar");
+  is(mine.getAttribute("whimsy-agent-client"), "test-app", "naming the app");
+  await WhimsyClaudeReplay.flush();
+  const run = (await WhimsyClaudeReplay.runs({ client: "outside" })).find(r => r.steps?.some(s => s.tool == "get_page_text"));
+  ok(run, "Activity has the read");
+  WhimsyAgentTasks.finish(run?.taskId);
+  BrowserTestUtils.removeTab(mine);
+});
+
 add_task(async function hidden_space_only_when_named_in_task() {
   await turnOn();
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?taxes");

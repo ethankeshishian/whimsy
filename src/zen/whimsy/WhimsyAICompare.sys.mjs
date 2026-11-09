@@ -42,6 +42,7 @@ const ICON = "chrome://browser/content/whimsy/icons/compare.svg";
 const PILL_ICON = "chrome://browser/skin/zen-icons/sparkles.svg";
 const MAX_STORES = 5;
 const ASK = /^(?:please\s+)?compare(?:\s+(?:the\s+)?prices?)?\b/i;
+const PRICE = /\bprices?\b/i;
 // Link parameters that only pay someone or track the click.
 const TRACKING = /^(?:utm_|aff|affiliate|ref$|ref_|tag$|cjevent|irclickid|clickid|gclid|fbclid|mc_|campaign|partner|sid$|subid)/i;
 // Coupon, cashback, and deal aggregators are never stores.
@@ -110,7 +111,7 @@ export const WhimsyAICompare = {
     }
     this._initialized = true;
     lazy.WhimsyAIPageActUI.registerOwner({ id: "compare", onButton: (win, msg, id) => this.onButton(win, msg, id) });
-    lazy.WhimsyChat.registerSendHandler({ id: "page-act-compare", handle: (panel, thread, text) => this.onSend(panel, thread, text) });
+    lazy.WhimsyChat.registerSendHandler({ id: "page-act-compare", handle: (panel, thread, text, context) => this.onSend(panel, thread, text, context) });
     lazy.WhimsyVerbs.registerVerb({
       id: "compare",
       group: "product",
@@ -337,12 +338,19 @@ export const WhimsyAICompare = {
 
   // --- Chat ---
 
-  async onSend(panel, thread, text) {
-    if (!this.enabled || !ASK.test(String(text ?? "").trim())) {
+  async onSend(panel, thread, text, context = null) {
+    const ask = String(text ?? "").trim();
+    if (!this.enabled || !ASK.test(ask)) {
       return false;
     }
     const tab = lazy.WhimsyChatThreads.tabOf(thread) ?? panel.win.gBrowser.selectedTab;
-    if (!tab || lazy.WhimsyAIContext.isOffLimits(tab)) {
+    // Only a product page's prices: "Compare these" on two articles (split
+    // panes, a dropped tab) is a question for the chat.
+    if (!this.available(panel.win, tab)) {
+      return false;
+    }
+    const tabs = (context?.chips ?? []).filter(c => c.kind == "tab" || c.kind == "pane" || c.kind == "tabs");
+    if (tabs.length > 1 && !PRICE.test(ask)) {
       return false;
     }
     await this.run(panel, thread, tab);

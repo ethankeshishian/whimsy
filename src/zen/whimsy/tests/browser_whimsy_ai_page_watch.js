@@ -379,7 +379,9 @@ add_task(async function undo_toast() {
 
 add_task(async function cap_shown_in_place() {
   const real = WhimsyPageWatch.list;
-  WhimsyPageWatch.list = async () => Array.from({ length: MAX_WATCHES }, (_, i) => ({ id: `w${i}`, url: `https://example.org/${i}`, userContextId: 0 }));
+  // Whole watches: the routines list (Library, chat's routine bar) shows each
+  // stand-in with its condition and how often.
+  WhimsyPageWatch.list = async () => Array.from({ length: MAX_WATCHES }, (_, i) => ({ id: `w${i}`, url: `https://example.org/${i}`, condition: "the price drops", interval: 60, userContextId: 0 }));
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   try {
     const panel = await openPanel(tab);

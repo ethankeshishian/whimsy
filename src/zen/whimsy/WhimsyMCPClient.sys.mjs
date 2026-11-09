@@ -12,7 +12,9 @@ import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const PROTOCOL = "2025-06-18";
 const TIMEOUT_MS = 20000;
-const MAX_BYTES = 4 * 1024 * 1024;
+// P2-L1: a reply is read with a cap and an idle limit after its headers,
+// so a server that streams forever can't hang a call or grow memory.
+const timing = { maxBytes: 5 * 1024 * 1024, idleMs: 60 * 1000 };
 
 export class WhimsyMCPError extends Error {
   constructor(code, message = code, extra = {}) {
@@ -42,6 +44,58 @@ export function mcpUrl(input) {
   return url;
 }
 
+/**
+ * P2-L1: the reply's body, at most `timing.maxBytes`, failing when nothing
+ * arrives for `timing.idleMs`. `done(text)` may end the read early (an
+ * SSE stream that already holds the reply). Cancels the stream when it
+ * stops reading.
+ */
+async function readBody(response, controller, done = null) {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return "";
+  }
+  const decoder = new TextDecoder();
+  let text = "";
+  let bytes = 0;
+  let idle = false;
+  let timer = null;
+  const arm = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      idle = true;
+      controller.abort();
+    }, timing.idleMs);
+  };
+  try {
+    arm();
+    for (;;) {
+      let chunk;
+      try {
+        chunk = await reader.read();
+      } catch (e) {
+        throw new WhimsyMCPError(idle ? "failed" : "aborted", idle ? "The server stopped answering" : String(e?.message ?? e));
+      }
+      if (chunk.done) {
+        break;
+      }
+      bytes += chunk.value.byteLength;
+      if (bytes > timing.maxBytes) {
+        throw new WhimsyMCPError("failed", "The reply was too large");
+      }
+      text += decoder.decode(chunk.value, { stream: true });
+      if (done?.(text)) {
+        return text;
+      }
+      arm();
+    }
+    return text + decoder.decode();
+  } finally {
+    clearTimeout(timer);
+    reader.cancel().catch(() => {});
+  }
+}
+
 function sseMessages(text) {
   const out = [];
   for (const block of text.split(/\r?\n\r?\n/)) {
@@ -56,6 +110,11 @@ function sseMessages(text) {
 }
 
 export const WhimsyMCPClient = {
+  // Tests: the reply cap and idle limit ({maxBytes, idleMs}); null resets.
+  _setTimingForTesting(values) {
+    Object.assign(timing, values ?? { maxBytes: 5 * 1024 * 1024, idleMs: 60 * 1000 });
+  },
+
   /**
    * One JSON-RPC exchange. Returns the matching response's result.
    * @param {object} session {url, headers, sessionId}
@@ -103,12 +162,26 @@ export const WhimsyMCPClient = {
       throw new WhimsyMCPError(response.status == 404 || response.status == 405 ? "not-mcp" : "failed", `HTTP ${response.status}`);
     }
     const type = response.headers.get("Content-Type") ?? "";
-    const text = await response.text();
-    if (text.length > MAX_BYTES) {
-      throw new WhimsyMCPError("failed", "The reply was too large");
+    const sse = type.includes("text/event-stream");
+    if (!sse && !type.includes("json")) {
+      throw new WhimsyMCPError("not-mcp", "Not an MCP reply");
     }
+    // An SSE stream may stay open: stop once it holds this call's reply.
+    // Only events not yet seen are parsed, so a long stream stays linear.
+    let seen = 0;
+    const text = await readBody(response, controller, sse
+      ? body => {
+          const end = Math.max(body.lastIndexOf("\n\n"), body.lastIndexOf("\r\n\r\n"));
+          if (end < seen) {
+            return false;
+          }
+          const fresh = body.slice(seen, end);
+          seen = end;
+          return sseMessages(fresh).some(m => m?.jsonrpc == "2.0" && m.id === id);
+        }
+      : null);
     let messages;
-    if (type.includes("text/event-stream")) {
+    if (sse) {
       messages = sseMessages(text);
     } else if (type.includes("json")) {
       try {
@@ -117,8 +190,6 @@ export const WhimsyMCPClient = {
       } catch {
         messages = [];
       }
-    } else {
-      throw new WhimsyMCPError("not-mcp", "Not an MCP reply");
     }
     const reply = messages.find(m => m?.jsonrpc == "2.0" && m.id === id);
     if (!reply) {

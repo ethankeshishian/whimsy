@@ -36,8 +36,8 @@ export const WAITING_TEXT = "Waiting for the person to approve; call again to ke
 const HOLD_MS = 100 * 1000;
 
 const KINDS = ["pay", "send", "delete", "account", "security", "submit", "new-site-data", "download", "sign-in", "unsure", "captcha", "navigate"];
-// H2: query and fragment data longer than this, to a new site, is a way to
-// carry what the agent read out in an address.
+// H2: query and fragment data longer than this is clipped from the
+// address in a pause and named in a strong "Carries" row instead.
 const URL_DATA_CHARS = 100;
 
 const SECURITY = /\b(passwords?|pass ?codes?|2fa|two[- ]factor|2[- ]step|two[- ]step|multi[- ]factor|mfa|authenticator( app)?|recovery (e-?mail|phone|codes?|keys?|options?)|security (keys?|questions?|codes?)|passkeys?|backup codes?|app passwords?)\b/i;
@@ -325,6 +325,11 @@ export const WhimsyAgentGuard = {
       handOver = !!target.frame.crossOrigin;
     } else if (action == "click" || (action == "key" && target.submits)) {
       kind = pressKind(target);
+      // P2-M3: on a site the person approved mid-task, every form submit
+      // or send pauses with what was filled in (typing itself doesn't).
+      if (!kind && target.approvedSite && (target.submits || (target.form && target.role != "link"))) {
+        kind = "submit";
+      }
     } else if (action == "type" || action == "form_input") {
       if (target.captcha) {
         kind = "captcha";
@@ -348,6 +353,10 @@ export const WhimsyAgentGuard = {
     const amount = kind == "pay" || kind == "unsure" ? amountOf(target) : null;
     const file = kind == "download" ? fileName(target.href, target.download) : null;
     const result = { kind, host, preview: preview(kind, target, host, { amount, file }) };
+    if (target.approvedSite && (kind == "submit" || kind == "send")) {
+      // Every one, so no "don't ask again" here.
+      result.everyTime = true;
+    }
     if (handOver) {
       result.handOver = true;
       result.preview.reason = target.frame?.crossOrigin ? "frame" : target.sensitive ?? "security";
@@ -367,23 +376,47 @@ export const WhimsyAgentGuard = {
     }
   },
 
-  /**
-   * H2: whether going to `uri` pauses ("Go to <site>?"): any site the task
-   * hasn't been on and the person didn't name. Returns the pause reason, or
-   * null. `data` says the address carries a lot of query or fragment text.
-   */
-  navigation(uri, sites) {
+  /** Whether `uri`'s site counts as visited in this task (H2, P2-H1). */
+  visited(uri, sites) {
     const site = this.siteOf(uri);
-    if (!site || sites?.has(site) || trustedForTesting?.includes(site)) {
+    return !!site && (!!sites?.has(site) || !!trustedForTesting?.includes(site));
+  },
+
+  /**
+   * H2 and P2-H1: whether going to `uri` pauses ("Go to <site>?"). It goes
+   * ahead only when the task has visited the site (it started there, or
+   * the person approved it) AND the address carries no query or fragment
+   * data the task's pages didn't supply: an address with any query or
+   * fragment needs that exact address (fragment aside) among the links or
+   * form actions on a page the task read. Returns the pause, or null.
+   *
+   * @param {nsIURI} uri
+   * @param {Set<string>} sites visited sites (registrable domains)
+   * @param {object} [opts]
+   * @param {Set<string>} [opts.links] page-supplied addresses, no fragment
+   * @param {boolean} [opts.knownSite] the person used the host before today
+   */
+  navigation(uri, sites, { links = null, knownSite = false } = {}) {
+    const site = this.siteOf(uri);
+    if (!site || trustedForTesting?.includes(site)) {
       return null;
     }
-    const data = (uri.query?.length ?? 0) + (uri.ref?.length ?? 0) > URL_DATA_CHARS;
+    const visited = this.visited(uri, sites);
+    const extra = (uri.query?.length ?? 0) + (uri.ref?.length ?? 0);
+    const hasData = !!(uri.query || uri.ref);
+    const supplied = hasData && !!links?.has(uri.specIgnoringRef);
+    if (visited && (!hasData || supplied)) {
+      return null;
+    }
+    const data = hasData && !supplied;
     const bundle = l10n();
     const address = uri.prePath + uri.filePath;
-    const fields = [field("whimsy-agent-field-site", site, { note: bundle.formatValueSync("whimsy-agent-new-site") })];
-    fields.push(field("whimsy-agent-field-address", data ? `${clip(address, 120)}?…` : clip(uri.spec, 200)));
+    // "new to you" only when the person has no visit there before today.
+    const note = !visited && !knownSite ? { note: bundle.formatValueSync("whimsy-agent-new-site") } : {};
+    const fields = [field("whimsy-agent-field-site", site, note)];
+    fields.push(field("whimsy-agent-field-address", data && extra > URL_DATA_CHARS ? `${clip(address, 120)}?…` : clip(uri.spec, 200)));
     if (data) {
-      fields.push(field("whimsy-agent-field-carries", bundle.formatValueSync("whimsy-agent-carries-data", { count: (uri.query?.length ?? 0) + (uri.ref?.length ?? 0) }), { strong: true }));
+      fields.push(field("whimsy-agent-field-carries", bundle.formatValueSync("whimsy-agent-carries-data", { count: extra }), { strong: true }));
     }
     const args = { host: site };
     return {

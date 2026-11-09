@@ -236,6 +236,10 @@ add_task(async function foreign_selection_translate_first() {
     const rows = await shown();
     is(rows[0].id, "ai:translate", "Text not in your language: Translate jumps to the top");
     ok(/→/.test(rows[0].tag), `It says which way (${rows[0].tag})`);
+    ok(/→ English$/.test(rows[0].tag), "naming the language, not the variant (\"English\", not \"American English\")");
+    const title = document.getElementById("urlbar-search-mode-indicator-title");
+    await TestUtils.waitForCondition(() => title.textContent == "Actions", "Commands mode has its Actions chip (S4)");
+    ok(BrowserTestUtils.isVisible(document.getElementById("urlbar-search-mode-indicator")), "and it shows");
     await closeBar();
   });
 });

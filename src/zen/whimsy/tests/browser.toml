@@ -1138,3 +1138,8 @@ support-files = ["whimsy_secfix_inject.html", "whimsy_secfix_frame.html"]
 support-files = ["whimsy_secfix_inject.html", "whimsy_secfix_account.html", "whimsy_secfix_form.html"]
 ["browser_whimsy_secfix_page.js"]
 support-files = ["whimsy_secfix_late_scam.html", "whimsy_secfix_scam_frame.html", "whimsy_ai_scam.html", "whimsy_secfix_inject.html"]
+# W23 secfix2: the second review's fixes (REVIEW-W23-PASS2.md).
+["browser_whimsy_secfix2_agent.js"]
+support-files = ["whimsy_secfix_inject.html", "whimsy_secfix2_links.html", "whimsy_secfix2_redirect.sjs"]
+["browser_whimsy_secfix2_page.js"]
+support-files = ["whimsy_secfix2_codes.html"]

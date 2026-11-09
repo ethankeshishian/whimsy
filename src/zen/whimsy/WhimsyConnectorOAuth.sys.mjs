@@ -70,6 +70,36 @@ async function challengeOf(verifier) {
 
 const escapeHTML = text => String(text).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
+// P2-L2: loopback, private, link-local, and .localhost hosts.
+function isLocalHost(hostname) {
+  const host = String(hostname ?? "").toLowerCase().replace(/^\[|\]$/g, "");
+  if (host == "localhost" || host.endsWith(".localhost") || host == "0.0.0.0" || host == "::" || host == "::1") {
+    return true;
+  }
+  const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(host);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a == 0 || a == 10 || a == 127 || (a == 169 && b == 254) || (a == 172 && b >= 16 && b <= 31) ||
+      (a == 192 && b == 168) || (a == 100 && b >= 64 && b <= 127);
+  }
+  if (host.includes(":")) {
+    // fc00::/7 (unique local), fe80::/10 (link-local), and IPv4-mapped.
+    return /^f[cd]/.test(host) || /^fe[89ab]/.test(host) || host.startsWith("::ffff:");
+  }
+  return false;
+}
+
+// RFC 9728 §3.3: the metadata's resource is the server's address.
+function sameResource(resource, server) {
+  try {
+    const url = new URL(String(resource));
+    const trim = path => path.replace(/\/+$/, "");
+    return url.origin == server.origin && trim(url.pathname) == trim(server.pathname);
+  } catch {
+    return false;
+  }
+}
+
 export const WhimsyConnectorOAuth = {
   _test: null,
 
@@ -160,16 +190,31 @@ export const WhimsyConnectorOAuth = {
    */
   async signInMcp(win, serverUrl, { resourceMetadata = null, pending = {}, saved = null } = {}) {
     const server = new URL(serverUrl);
-    let metaUrl = resourceMetadata;
+    // P2-L2: the server's metadata lives on the server's own origin.
+    let metaUrl = resourceMetadata && this._endpointOk(resourceMetadata, server, [server.origin]) ? resourceMetadata : null;
     if (!metaUrl) {
       metaUrl = `${server.origin}/.well-known/oauth-protected-resource${server.pathname == "/" ? "" : server.pathname}`;
     }
     let issuer = server.origin;
     try {
       const meta = await (await this._fetch(metaUrl, { headers: { Accept: "application/json" } })).json();
-      issuer = meta.authorization_servers?.[0] ?? issuer;
-    } catch {}
-    const as = await this._discover(issuer);
+      // RFC 9728: metadata for another resource isn't this server's.
+      if (meta.resource && !sameResource(meta.resource, server)) {
+        throw error("failed", "The server's sign-in is for another address");
+      }
+      const named = meta.authorization_servers?.[0];
+      if (named) {
+        if (!this._endpointOk(named, server)) {
+          throw error("failed", "The server names a sign-in Whimsy won't use");
+        }
+        issuer = named;
+      }
+    } catch (e) {
+      if (e?.code == "failed") {
+        throw e;
+      }
+    }
+    const as = await this._discover(issuer, server);
     let clientId = saved?.clientId ?? "";
     if (!clientId) {
       if (!as.registration_endpoint) {
@@ -189,15 +234,48 @@ export const WhimsyConnectorOAuth = {
     return { ...tokens, clientId, tokenUrl: as.token_endpoint, resource: server.href };
   },
 
-  async _discover(issuer) {
+  /**
+   * P2-L2: whether an address from a server's sign-in metadata is one
+   * Whimsy will use. The server's own origin always is (https, or plain
+   * http for a server on this Mac). Anything else must be https on a
+   * public host (never loopback, a private address, file:, or chrome:)
+   * and, when `origins` is given, on one of them.
+   *
+   * @param {string} url
+   * @param {URL} server the MCP server
+   * @param {string[]} [origins]
+   */
+  _endpointOk(url, server, origins = null) {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return false;
+    }
+    if (parsed.username || parsed.password) {
+      return false;
+    }
+    if (parsed.origin == server.origin) {
+      return this._trusted(parsed.href);
+    }
+    if (parsed.protocol != "https:" || isLocalHost(parsed.hostname)) {
+      return false;
+    }
+    return !origins || origins.includes(parsed.origin);
+  },
+
+  async _discover(issuer, server = new URL(issuer)) {
     const url = new URL(issuer);
+    // Endpoints live on the server's origin or the issuer's.
+    const origins = [server.origin, url.origin];
     const path = url.pathname == "/" ? "" : url.pathname;
     for (const candidate of [`${url.origin}/.well-known/oauth-authorization-server${path}`, `${url.origin}/.well-known/openid-configuration${path}`]) {
       try {
         const response = await this._fetch(candidate, { headers: { Accept: "application/json" } });
         if (response.ok) {
           const meta = await response.json();
-          if (this._trusted(meta.authorization_endpoint) && this._trusted(meta.token_endpoint)) {
+          const endpoints = [meta.authorization_endpoint, meta.token_endpoint, meta.registration_endpoint].filter(e => e !== undefined && e !== null);
+          if (meta.authorization_endpoint && meta.token_endpoint && endpoints.every(e => this._endpointOk(String(e), server, origins))) {
             return meta;
           }
         }

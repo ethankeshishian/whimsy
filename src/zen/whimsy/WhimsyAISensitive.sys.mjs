@@ -16,10 +16,17 @@ export const CARD_LABEL = "[card number]";
 export const SECRET_LABEL = "[secret]";
 export const HIDDEN_LABEL = "[hidden]";
 
-const PASSWORD_WORDS = /\b(pass(word|code|phrase)?|pwd|pin)\b/i;
-const CARD_WORDS = /\b(card ?(number|no)|cc[ -]?(num|number|csc|exp)|cardnumber|cvv|cvc|csc|security code|expir\w*)\b/i;
+// "pin code" is India's postal code, not a PIN.
+const PASSWORD_WORDS = /\b(pass(word|code|phrase)?|pwd|pin(?! ?code))\b/i;
+// P2-M5: names like cvv2, cvc2, ccexpmonth, cardCvv, and "Card verification
+// number" too (words() splits camelCase and _ or -).
+const CARD_WORDS = /\b(card ?(number|no|num)|cc ?(num|number|csc|cvv|cvc|exp\w*)|cardnumber|cardnum|cvv ?\d?|cvc ?\d?|csc ?\d?|ccv|cvn|cv2|security code|card (verification|security|validation|code)\w*|verification value|expir\w*|exp ?(month|year|date|mm|yy))\b/i;
 const OTP_WORDS = /\b(otp|one[- ]time|verification code|confirmation code|2fa|mfa|totp|(auth|authentication|sms|login|sign[- ]?in|access) code)\b/i;
 const NOT_OTP_WORDS = /\b(postal|zip|post|promo|coupon|discount|gift|referral|area|country|invite)\b/i;
+// P2-M5: a one-character box in a row of 4 to 8 (a split one-time code).
+const SPLIT_CODE_MIN = 4;
+const SPLIT_CODE_MAX = 8;
+const SPLIT_CODE_HINT = /\b(code|digit|otp|pin|one[- ]time|verification|verify|passcode)\b/i;
 const CARD_SHAPED = /^\s*\d(?:[ -]?\d){12,18}\s*$/;
 const FIELD_SELECTOR = "input, textarea, select, [contenteditable]:not([contenteditable=false])";
 
@@ -54,7 +61,42 @@ function words(el) {
       parts.push(el.ownerDocument?.getElementById(id)?.textContent ?? "");
     }
   }
-  return parts.join(" ").replace(/[_-]+/g, " ");
+  return parts.join(" ").replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+function oneCharBox(el) {
+  return el.localName == "input" && el.maxLength == 1 && ["text", "tel", "number", "password", "search"].includes(el.type);
+}
+
+function numericBox(el) {
+  return el.getAttribute("inputmode") == "numeric" || el.type == "tel" || el.type == "number" || /\\d|\[0-9\]/.test(el.getAttribute("pattern") ?? "");
+}
+
+/**
+ * P2-M5: one box of a split one-time code: 4 to 8 one-character inputs
+ * side by side (siblings, or each in its own wrapper), all numeric, or
+ * with a code hint on any of them (autocomplete=one-time-code, "Digit 2",
+ * "code"). A lone one-character box (a middle initial) isn't.
+ *
+ * @param {Element} el
+ * @returns {boolean}
+ */
+export function isSplitCodeBox(el) {
+  if (!oneCharBox(el)) {
+    return false;
+  }
+  let node = el.parentElement;
+  for (let depth = 0; node && depth < 3; depth++, node = node.parentElement) {
+    const boxes = [...node.querySelectorAll("input")].filter(oneCharBox);
+    if (boxes.length > SPLIT_CODE_MAX) {
+      return false;
+    }
+    if (boxes.length >= SPLIT_CODE_MIN) {
+      return boxes.every(numericBox) || boxes.some(box =>
+        /\bone-time-code\b/i.test(box.getAttribute("autocomplete") ?? "") || SPLIT_CODE_HINT.test(words(box)));
+    }
+  }
+  return false;
 }
 
 export function fieldValue(el) {
@@ -130,6 +172,9 @@ export function classifyField(el) {
   }
   if (CARD_WORDS.test(text) || isCardPlaceholder(el.getAttribute("placeholder"))) {
     return "card";
+  }
+  if (isSplitCodeBox(el)) {
+    return "otp";
   }
   if (OTP_WORDS.test(text) || el.getAttribute("inputmode") == "numeric" && /\bcode\b/i.test(text) && !NOT_OTP_WORDS.test(text)) {
     return "otp";

@@ -274,7 +274,7 @@ export const WhimsyAgentTasks = {
       taskId: id,
       kind,
       choices: reason.choices ?? (reason.handOver ? ["self", "skip"] : CHOICES[kind] ?? DEFAULT_CHOICES),
-      allowForTask: ALLOW_KINDS.has(kind) && !!reason.host,
+      allowForTask: ALLOW_KINDS.has(kind) && !!reason.host && !reason.everyTime,
       created: Date.now(),
       choice: null,
       yours: false,

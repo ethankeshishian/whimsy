@@ -45,6 +45,8 @@ let timing = { ...DEFAULT_TIMING };
 let today = () => new Date().toLocaleDateString("en-CA");
 
 const registered = new Map();
+// Tests: the surfaces' hints before the first _resetForTesting.
+let productHints = null;
 // The hint on screen: {id, win, toast, shownAt, seenTimer, poll}.
 let current = null;
 // The one hint waiting: {id, win}.
@@ -273,11 +275,24 @@ export const WhimsyAIHints = {
     current?.toast.close({ instant: true });
   },
 
+  // Empties the registry for a test. The surfaces register once at startup,
+  // so the first reset keeps their hints for _restoreForTesting: a later
+  // file (the AI-off audit) sees every surface's hint again.
   _resetForTesting() {
     current?.toast.close({ instant: true });
     current = null;
     waiting = null;
     lastClosedAt = -Infinity;
+    productHints ??= new Map(registered);
     registered.clear();
+  },
+
+  // A file's last cleanup: the state is reset, and the surfaces' own hints
+  // are back as they were before the file's first reset.
+  _restoreForTesting() {
+    this._resetForTesting();
+    for (const [id, hint] of productHints) {
+      registered.set(id, hint);
+    }
   },
 };

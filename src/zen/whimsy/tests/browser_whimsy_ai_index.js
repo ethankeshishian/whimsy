@@ -51,6 +51,19 @@ add_task(function bounded_size() {
   is(WhimsyAIIndex.MAX_ENTRIES, 20000, "The index is bounded (oldest dropped first)");
 });
 
+// W23 secfix2 P2-L3: a huge page title never reaches the main-thread embedder.
+add_task(async function embedder_input_is_capped() {
+  const seen = [];
+  WhimsyAIIndex._setTestEmbedder(text => (seen.push(text.length), vectorFor(text)));
+  try {
+    await WhimsyAIIndex.add({ url: "https://example.com/huge-title", title: "coffee ".repeat(400000), text: "espresso ".repeat(1000) });
+    ok(seen.length && seen.every(n => n <= 512 + 1 + 2000), `The embedder got at most 2,513 characters (${seen})`);
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+    WhimsyAIIndex._resetForTesting();
+  }
+});
+
 add_task(async function related_after_matches_max_three() {
   await WhimsyAIIndex.clear({});
   await WhimsyAIIndex.add({ url: "https://example.com/1", title: "Espresso machines", text: "coffee espresso beans" });

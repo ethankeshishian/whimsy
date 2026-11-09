@@ -40,6 +40,13 @@ function languageName(tag) {
   }
 }
 
+// S3: a language as people say it, "English" rather than "American
+// English", unless the other side shares its base language (en-GB → en-US).
+function shownLanguage(tag, other = null) {
+  const baseOf = t => String(t ?? "").split("-")[0].toLowerCase();
+  return languageName(other && baseOf(other) == baseOf(tag) ? tag : baseOf(tag) || tag);
+}
+
 function pairs() {
   try {
     const list = JSON.parse(Services.prefs.getStringPref(PAIRS_PREF, "") || "[]");
@@ -254,7 +261,7 @@ export const WhimsyAITranslate = {
         owner: "translate",
         icon: "busy",
         title: { l10n: ["whimsy-translate-busy", { provider: this.providerName(run.provider) }] },
-        sub: run.note ?? { l10n: ["whimsy-translate-progress", { done: run.done, total: run.total, from: languageName(from), to: languageName(to) }] },
+        sub: run.note ?? { l10n: ["whimsy-translate-progress", { done: run.done, total: run.total, from: shownLanguage(from, to), to: shownLanguage(to, from) }] },
         buttons: [{ id: "stop", l10n: "whimsy-translate-stop" }],
         onButton: () => abort.abort(),
         onEscape: () => abort.abort(),
@@ -292,7 +299,7 @@ export const WhimsyAITranslate = {
   },
 
   showDone(win, run, by, stopped) {
-    const { browser, from } = run;
+    const { browser, from, to } = run;
     if (by == "firefox") {
       lazy.WhimsyPageBar.show(win, browser, {
         owner: "translate",
@@ -309,7 +316,7 @@ export const WhimsyAITranslate = {
       owner: "translate",
       icon: "check",
       title: { l10n: [stopped ? "whimsy-translate-stopped" : "whimsy-translate-by", { provider: this.providerName(run.provider), done: run.done, total: run.total }] },
-      sub: { l10n: ["whimsy-translate-from", { language: languageName(from), provider: this.providerName(run.provider) }] },
+      sub: { l10n: ["whimsy-translate-from", { language: shownLanguage(from, to), provider: this.providerName(run.provider) }] },
       buttons: [
         { id: "firefox", l10n: "whimsy-translate-use-firefox" },
         { id: "original", l10n: "whimsy-translate-original" },

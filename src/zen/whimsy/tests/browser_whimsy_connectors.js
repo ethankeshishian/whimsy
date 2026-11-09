@@ -54,7 +54,13 @@ function body(request) {
 }
 
 // A tiny MCP server: `tools` by name, each answering with its text.
-function mcp(path, { name, tools, auth = false, readOnly = [] }) {
+// `readOnly` tools say they only read and stay inside the server;
+// `openWorld` maps a tool to the annotations of one that reads but may
+// reach elsewhere (P2-M1).
+function mcp(path, { name, tools, auth = false, readOnly = [], openWorld = {} }) {
+  const annotations = t => readOnly.includes(t)
+    ? { annotations: { readOnlyHint: true, openWorldHint: false } }
+    : openWorld[t] ? { annotations: openWorld[t] } : {};
   server.registerPathHandler(path, (request, response) => {
     if (auth && !(request.hasHeader("Authorization") && request.getHeader("Authorization").startsWith(`Bearer ${TOKEN}`))) {
       response.setStatusLine("1.1", 401, "Unauthorized");
@@ -68,7 +74,7 @@ function mcp(path, { name, tools, auth = false, readOnly = [] }) {
     }
     const result = {
       initialize: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name } },
-      "tools/list": { tools: Object.keys(tools).map(t => ({ name: t, description: t, inputSchema: { type: "object" }, ...(readOnly.includes(t) ? { annotations: { readOnlyHint: true } } : {}) })) },
+      "tools/list": { tools: Object.keys(tools).map(t => ({ name: t, description: t, inputSchema: { type: "object" }, ...annotations(t) })) },
       "tools/call": { content: [{ type: "text", text: tools[message.params?.name] ?? "" }] },
     }[message.method];
     json(response, { jsonrpc: "2.0", id: message.id, result });
@@ -101,7 +107,12 @@ add_setup(async function () {
     response.setHeader("Content-Type", "text/html");
     response.write("<p>workspace</p>");
   });
-  mcp("/notes-mcp", { name: "Notes", tools: { search_pages: "found", read_page: "page", delete_page: "gone" }, readOnly: ["search_pages", "read_page"] });
+  mcp("/notes-mcp", {
+    name: "Notes",
+    tools: { search_pages: "found", read_page: "page", delete_page: "gone", fetch_url: "fetched", web_search: "results" },
+    readOnly: ["search_pages", "read_page"],
+    openWorld: { fetch_url: { readOnlyHint: true }, web_search: { readOnlyHint: true, openWorldHint: true } },
+  });
   mcp("/granola", { name: "Granola", tools: { search_meetings: "Last week: shipped the beta; Ana owns the launch post." }, auth: true });
   WhimsyConnectorOAuth.setTestEndpoints({
     google: { authorize: `${base}/authorize`, token: `${base}/token`, userinfo: `${base}/userinfo`, revoke: `${base}/revoke`, api: `${base}/api` },
@@ -224,13 +235,21 @@ add_task(async function mcp_add_lists_tools() {
   EventUtils.sendString(`${base}/notes-mcp`, page.win);
   click(page, page.$("whimsyConnectorsMcpGo"));
   const found = await TestUtils.waitForCondition(() => page.$("whimsyConnectorsMcpFound"), "The server answers (set-5.8)");
-  await TestUtils.waitForCondition(() => found.textContent.includes("Notes") && found.textContent.includes("3 tools"), "Its name and tool count show");
+  await TestUtils.waitForCondition(() => found.textContent.includes("Notes") && found.textContent.includes("5 tools"), "Its name and tool count show");
   click(page, page.$("whimsyConnectorsMcpGo"));
   const id = `mcp:127.0.0.1:${server.identity.primaryPort}`;
   await TestUtils.waitForCondition(() => page.row(id)?.dataset.status == "ok", "The server is listed");
-  Assert.deepEqual((await WhimsyConnectors.list()).find(c => c.id == id).toolNames, ["search_pages", "read_page", "delete_page"], "Its tools are kept");
+  Assert.deepEqual((await WhimsyConnectors.list()).find(c => c.id == id).toolNames, ["search_pages", "read_page", "delete_page", "fetch_url", "web_search"], "Its tools are kept");
   const notes = (await WhimsyConnectors.tools()).find(t => t.url == `${base}/notes-mcp`);
-  Assert.deepEqual(notes.readOnlyTools, ["search_pages", "read_page"], "Only the tools the server marks read-only may run without a press (H1)");
+  Assert.deepEqual(notes.readOnlyTools, ["search_pages", "read_page"],
+    "Only tools marked read-only AND openWorldHint:false run without a press; a read-only fetch or search asks (H1, P2-M1)");
+  // A list saved under the old rule (readOnlyHint alone) isn't trusted.
+  await WhimsyConnectors._update(file => {
+    file.connectors[id].readOnly = ["search_pages", "read_page", "fetch_url"];
+    delete file.connectors[id].readOnlyRule;
+  });
+  Assert.deepEqual((await WhimsyConnectors.tools()).find(t => t.url == `${base}/notes-mcp`).readOnlyTools, [],
+    "An older saved list pre-approves nothing");
   is(await WhimsyConnectors.call(id, "search_pages", { query: "x" }), "found", "Whimsy calls its tools");
   BrowserTestUtils.removeTab(page.tab);
 });
@@ -382,4 +401,115 @@ add_task(async function next_meeting_calendar_rows_gone() {
     ok(!group.querySelector(".whimsy-calendar-row, #whimsyMeetingGoogleForm, #whimsyMeetingApple"), "No calendar rows in General");
     ok(doc.getElementById("whimsyMeetingOpenConnectors").checkVisibility(), "It points to Connectors instead");
   });
+});
+
+// P2-L1: a reply is read with a cap and an idle limit once its headers are
+// in, and an SSE stream left open ends as soon as it holds the reply.
+add_task(async function mcp_reply_capped_and_idle_limited() {
+  const open = [];
+  const idOf = request => JSON.parse(body(request)).id;
+  server.registerPathHandler("/huge-mcp", (request, response) => {
+    idOf(request);
+    response.setHeader("Content-Type", "application/json");
+    response.write(`{"jsonrpc":"2.0","result":{"pad":"${"x".repeat(5 * 1024 * 1024 + 16)}"}}`);
+  });
+  server.registerPathHandler("/stall-mcp", (request, response) => {
+    idOf(request);
+    response.processAsync();
+    response.setHeader("Content-Type", "text/event-stream");
+    response.write(`event: message\ndata: {"jsonrpc":"2.0","method":"notifications/progress"}\n\n`);
+    open.push(response);
+  });
+  server.registerPathHandler("/open-sse-mcp", (request, response) => {
+    const id = idOf(request);
+    response.processAsync();
+    response.setHeader("Content-Type", "text/event-stream");
+    response.write(`event: message\ndata: {"jsonrpc":"2.0","method":"notifications/progress"}\n\n`);
+    response.write(`event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id, result: { tools: [{ name: "kept_open" }] } })}\n\n`);
+    open.push(response);
+  });
+  const session = path => ({ url: `${base}${path}`, headers: {}, sessionId: null });
+  try {
+    // The real limits: a reply over 5 MB stops at the cap.
+    WhimsyMCPClient._setTimingForTesting(null);
+    await Assert.rejects(WhimsyMCPClient.request(session("/huge-mcp"), "tools/list"), e => e.code == "failed" && /too large/.test(e.message), "A reply over 5 MB is refused while it streams");
+    // A stream that goes quiet fails after the idle limit (60s, shortened here).
+    WhimsyMCPClient._setTimingForTesting({ idleMs: 400 });
+    const started = Date.now();
+    await Assert.rejects(WhimsyMCPClient.request(session("/stall-mcp"), "tools/list"), e => e.code == "failed" && /stopped answering/.test(e.message), "A stream that never sends the reply ends at the idle limit");
+    ok(Date.now() - started < 10000, "well before the 20-second connect timeout");
+    const result = await WhimsyMCPClient.request(session("/open-sse-mcp"), "tools/list");
+    Assert.deepEqual(result.tools.map(t => t.name), ["kept_open"], "An SSE stream left open answers once it holds the reply");
+  } finally {
+    WhimsyMCPClient._setTimingForTesting(null);
+    for (const response of open) {
+      try {
+        response.finish();
+      } catch {}
+    }
+  }
+});
+
+// P2-L2: a server's sign-in metadata is bound to the server. Its
+// resource_metadata link is used only on its own origin, the metadata must
+// name this server (RFC 9728), and the authorization server and its
+// endpoints are https on a public host (loopback and private addresses
+// only when they're the MCP server's own origin).
+add_task(async function mcp_sign_in_metadata_bound_to_server() {
+  const remote = new URL("https://mcp.example.com/mcp");
+  const allowed = url => WhimsyConnectorOAuth._endpointOk(url, remote);
+  ok(allowed("https://mcp.example.com/.well-known/oauth-protected-resource"), "The server's own origin is fine");
+  ok(allowed("https://auth.example.net/"), "So is an https authorization server on a public host");
+  for (const url of [
+    "http://127.0.0.1:8080/register",
+    "https://127.0.0.1/register",
+    "https://localhost:3000/token",
+    "https://app.localhost/token",
+    "https://10.0.0.2/token",
+    "https://192.168.1.1/token",
+    "https://172.20.0.1/token",
+    "https://169.254.169.254/latest",
+    "https://[::1]/token",
+    "https://[fd00::1]/token",
+    "http://auth.example.net/token",
+    "https://user:pw@auth.example.net/token",
+    "file:///etc/passwd",
+    "chrome://browser/content/browser.xhtml",
+  ]) {
+    ok(!allowed(url), `A remote server can't send sign-in to ${url}`);
+  }
+  ok(!WhimsyConnectorOAuth._endpointOk("https://evil.example/token", remote, ["https://mcp.example.com", "https://auth.example.net"]),
+    "Endpoints sit on the server's or the issuer's origin");
+
+  // A second server on this Mac stands in for a loopback target: it must
+  // never be asked for anything.
+  const other = new HttpServer();
+  other.start(-1);
+  const otherBase = `http://127.0.0.1:${other.identity.primaryPort}`;
+  let hits = 0;
+  other.registerPrefixHandler("/", (request, response) => {
+    hits++;
+    json(response, { authorization_servers: [otherBase], authorization_endpoint: `${otherBase}/authorize`, token_endpoint: `${otherBase}/token`, registration_endpoint: `${otherBase}/register` });
+  });
+  const meta = (path, value) => server.registerPathHandler(`/.well-known/oauth-protected-resource${path}`, (request, response) => json(response, value));
+  meta("/wrong-mcp", { resource: `${base}/elsewhere`, authorization_servers: [base] });
+  meta("/loop-as-mcp", { resource: `${base}/loop-as-mcp`, authorization_servers: [otherBase] });
+  meta("/split-as-mcp", { resource: `${base}/split-as-mcp`, authorization_servers: [`${base}/as2`] });
+  server.registerPathHandler("/.well-known/oauth-authorization-server/as2", (request, response) =>
+    json(response, { authorization_endpoint: `${base}/authorize`, token_endpoint: `${base}/token`, registration_endpoint: `${otherBase}/register` }));
+  try {
+    const failed = e => e.code == "failed";
+    await Assert.rejects(WhimsyConnectorOAuth.signInMcp(window, `${base}/wrong-mcp`), failed, "Metadata for another resource is refused");
+    await Assert.rejects(WhimsyConnectorOAuth.signInMcp(window, `${base}/loop-as-mcp`), failed, "An authorization server on another loopback port is refused");
+    await Assert.rejects(WhimsyConnectorOAuth.signInMcp(window, `${base}/split-as-mcp`), failed, "So is a registration endpoint on another loopback port");
+    // The WWW-Authenticate link points off the server's origin: it's
+    // ignored, and the server's own well-known metadata is read instead.
+    signIns.length = 0;
+    const tokens = await WhimsyConnectorOAuth.signInMcp(window, `${base}/bound-mcp`, { resourceMetadata: `${otherBase}/.well-known/oauth-protected-resource` });
+    is(tokens.tokenUrl, `${base}/token`, "A resource_metadata link on another origin is ignored");
+    is(signIns.length, 1, "and sign-in goes to the server's own authorization server");
+    is(hits, 0, "Nothing was asked of the other loopback server");
+  } finally {
+    await new Promise(resolve => other.stop(resolve));
+  }
 });

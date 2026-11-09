@@ -43,6 +43,10 @@ const FILE_NAME = "index.bin";
 const FEATURE = "ai-related";
 const MAX_ENTRIES = 20000;
 const TEXT_CHARS = 2000;
+// P2-L3: the native embedder runs on the main thread; a page title is
+// capped, and so is anything else handed to it.
+const TITLE_CHARS = 512;
+const EMBED_CHARS = TITLE_CHARS + 1 + TEXT_CHARS;
 const VECTOR_DIM_GUARD = 4; // Below this a "vector" is treated as unusable.
 
 let embedder = null;
@@ -67,7 +71,8 @@ function locale() {
   return Services.locale.appLocalesAsBCP47[0] ?? "en-US";
 }
 
-function embed(text) {
+function embed(input) {
+  const text = String(input ?? "").slice(0, EMBED_CHARS);
   if (testEmbedder) {
     return testEmbedder(text);
   }
@@ -150,7 +155,7 @@ export const WhimsyAIIndex = {
     if (!this.on || !url) {
       return false;
     }
-    const vector = embed(`${title}\n${String(text).slice(0, TEXT_CHARS)}`.trim());
+    const vector = embed(`${String(title ?? "").slice(0, TITLE_CHARS)}\n${String(text).slice(0, TEXT_CHARS)}`.trim());
     if (!vector) {
       return false;
     }

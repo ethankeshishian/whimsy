@@ -11,11 +11,22 @@ const FEATURE = "whimsy.feature.emoji-search";
 
 registerCleanupFunction(() => Services.prefs.clearUserPref(FEATURE));
 
+// The picker anchors on the selected tab, so it needs one that's drawn: a
+// lone blank New Tab (what earlier files can leave) has no box, and a
+// popup anchored on nothing closes before it shows.
+let pageTab;
+add_setup(async function () {
+  pageTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?emoji-search");
+  await TestUtils.waitForCondition(() => BrowserTestUtils.isVisible(pageTab), "The tab is drawn");
+  registerCleanupFunction(() => BrowserTestUtils.removeTab(pageTab));
+});
+
 async function openPicker() {
   const panel = document.getElementById("PanelUI-zen-emojis-picker");
   const shown = BrowserTestUtils.waitForEvent(panel, "popupshown");
   // Any visible element will do; the switcher hides with one space.
-  const anchor = gBrowser.selectedTab;
+  gBrowser.selectedTab = pageTab;
+  const anchor = pageTab;
   const picked = gZenEmojiPicker.open(anchor);
   await shown;
   return { panel, picked };
