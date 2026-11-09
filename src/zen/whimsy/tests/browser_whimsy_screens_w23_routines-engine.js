@@ -68,15 +68,32 @@ async function openThread(threadId) {
 }
 
 add_task(async function shots_threads() {
-  // rout-4.2: a routine's thread, the older run folded, the newest open.
+  // rout-4.2: a routine's thread, a day line above each day's runs, the older run folded, the newest open.
   await fresh();
   const r = await WhimsyRoutines.save(BRIEF, { confirmed: true });
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(8, 0, 0, 0);
+  WhimsyRoutines.setTestClock(() => yesterday.getTime());
   reply = () => "2 meetings, 4 emails need a reply\n\nQuiet day.";
   await WhimsyRoutines.runNow(r.id);
+  WhimsyRoutines.setTestClock(null);
   reply = () => RESULT;
   await WhimsyRoutines.runNow(r.id);
   const { threadId } = await WhimsyRoutines.get(r.id);
   await whimsyBothSchemes(NAME("4.2"), () => openThread(threadId));
+
+  // rout-4.2 motion: the folded run opens downward (mid-frame).
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    const close = await openThread(threadId);
+    await whimsySettled();
+    const head = WhimsyChatPanel.forWindow(window).el.querySelector(".whimsy-routine-run[folded] .whimsy-routine-run-head");
+    EventUtils.synthesizeMouseAtCenter(head, {}, window);
+    await whimsyShotMid(`${NAME("4.2-open")}-${dark ? "dark" : "light"}`, () => head.parentNode.querySelector(".whimsy-chat-msg")?.getAnimations()[0], 80);
+    await close();
+    await SpecialPowers.popPrefEnv();
+  }
 
   // rout-4.3: running, in its thread.
   let release;
@@ -155,6 +172,30 @@ add_task(async function shots_watch() {
   text = "MacBook Air 13-inch: $899.";
   await WhimsyPageWatch.checkNow(watch.id);
   await whimsyBothSchemes(NAME("5.7"), () => openThread(watch.threadId));
+
+  // fu-routines 5.7 motion: chat slides in from the right (mid-frame).
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    const chat = document.getElementById("whimsy-chat");
+    const opening = WhimsyChat.open(window, { threadId: watch.threadId });
+    await whimsyShotMid(`${NAME("5.7-open")}-${dark ? "dark" : "light"}`, () => chat?.getAnimations({ subtree: true }).find(a => a.effect?.getComputedTiming().iterations != Infinity), 120);
+    await opening;
+    WhimsyChatPanel.forWindow(window).close({ reason: "key" });
+    await whimsySettled();
+    await SpecialPowers.popPrefEnv();
+  }
+
+  // A watch that can't read its page, twice: its thread and the row in Updates.
+  WhimsyAIReader.setTestReader(() => {
+    throw new Error("The page didn't load");
+  });
+  await WhimsyPageWatch.checkNow(watch.id);
+  await WhimsyPageWatch.checkNow(watch.id);
+  await whimsyBothSchemes(NAME("watch-fail-thread"), () => openThread(watch.threadId));
+  await whimsyBothSchemes(NAME("watch-fail-updates"), async () => {
+    await openEmptyBar();
+    return () => closeBar();
+  });
   await whimsyBothSchemes(NAME("5.6"), async () => {
     await openEmptyBar();
     return () => closeBar();

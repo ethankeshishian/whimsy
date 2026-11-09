@@ -145,8 +145,15 @@ function renderRun(doc, msg, ctx) {
       head.removeAttribute("tabindex");
       head.removeAttribute("aria-expanded");
       head.lastChild.replaceWith(h(doc, "span", { l10n: runMeta({ ...msg, folded: false }) }));
-      node.append(body(doc, msg, ctx));
+      const opened = body(doc, msg, ctx);
+      node.append(opened);
       doc.l10n.translateFragment(node);
+      // Zen's expand: the run opens downward; reduced motion fades only.
+      const still = doc.defaultView.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      opened.animate(
+        still ? { opacity: [0, 1] } : { opacity: [0, 1], transform: ["translateY(-4px)", "none"] },
+        { duration: 200, easing: "cubic-bezier(0.34, 1.2, 0.64, 1)" }
+      );
     };
     head.addEventListener("click", open, { once: true });
     head.addEventListener("keydown", e => (e.key == "Enter" || e.key == " ") && (e.preventDefault(), open()));
