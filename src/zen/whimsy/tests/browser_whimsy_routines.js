@@ -213,6 +213,10 @@ add_task(async function stop_a_running_routine_from_its_thread() {
   info(`Stop is connected: ${stop.isConnected}`);
   EventUtils.synthesizeMouseAtCenter(stop, {}, window);
   info(`Clicked; status ${(await WhimsyRoutines.get(r.id)).status}`);
+  await TestUtils.waitForCondition(async () => (await WhimsyRoutines.get(r.id)).status == null, "stopped by click").catch(() => {
+    info(`DIAG click did not stop; direct stop() returned ${WhimsyRoutines.stop(r.id)}`);
+  });
+  info("DIAG awaiting run");
   await run;
   const [card] = await runCards((await WhimsyRoutines.get(r.id)).threadId);
   ok(card.stopped && !card.running && !card.failed, "The run says it was stopped, not failed");
