@@ -55,9 +55,17 @@ function holdContent(browser, which, ms) {
       // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
       await new Promise(r => content.setTimeout(r, 400));
       actor.show(video);
-      // Flush styles so the fade-in transitions exist to hold.
+      // Flush styles so the fade-in transitions exist to hold, then wait a
+      // frame and for the CSS transitions to actually start (same pattern
+      // as the "reset" branch's WAAPI animation below) before pausing them
+      // — pausing before they start left the plates fully invisible.
       actor.els.bar.getBoundingClientRect();
       actor.els.right.getBoundingClientRect();
+      await frame();
+      await ContentTaskUtils.waitForCondition(
+        () => actor.els.bar.getAnimations().length && actor.els.right.getAnimations().length,
+        "The plates' fade-in starts"
+      );
       for (const a of [...actor.els.bar.getAnimations(), ...actor.els.right.getAnimations()]) {
         a.pause();
         a.currentTime = at;
