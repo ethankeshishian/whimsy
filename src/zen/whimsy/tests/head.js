@@ -220,7 +220,13 @@ async function whimsyShot(name, windowGlobal = window.browsingContext.currentWin
   const embedder = windowGlobal.browsingContext.embedderElement;
   const rect = embedder?.localName == "browser" ?
     new DOMRect(0, 0, embedder.clientWidth, embedder.clientHeight) : null;
-  const bitmap = await whimsySnapshot(windowGlobal, rect);
+  // W23 polish (MUST 5): the window's see-through parts (the Library sheet,
+  // the sidebar) sit on macOS's window material, which a snapshot can't
+  // paint; it paints them on this colour instead. White made every dark
+  // shot of them a light grey with light text, so dark shots use the dark
+  // material's colour.
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const bitmap = await whimsySnapshot(windowGlobal, rect, 1, dark ? "rgb(30, 30, 32)" : "white");
   const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
