@@ -309,6 +309,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
 });
 
+// W24 emoji: emoji from the command bar (":" or the Emoji command).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEmoji: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs",
+});
+
 // wave7/small: Move to ▸ New Space… (tab menu, split row menu, command bar).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNewSpaceMove: "resource:///modules/whimsy/WhimsyNewSpaceMove.sys.mjs",
@@ -472,6 +477,15 @@ export const Whimsy = {
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
+    // W24 emoji: inserting a picked emoji into the page's focused field
+    // (WhimsyEmojiChild.sys.mjs). Top frame only: good enough for the
+    // common case (a same-document editor), not a cross-origin iframe's.
+    ChromeUtils.registerWindowActor("WhimsyEmoji", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyEmojiChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
       safeForUntrustedWebProcess: true,
     });
 
@@ -713,6 +727,8 @@ export const Whimsy = {
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).
     run("command-bar", () => lazy.WhimsyCommandBar.initWindow(win));
+    // W24 emoji: emoji from the command bar (":" or the Emoji command).
+    run("command-bar-emoji", () => lazy.WhimsyEmoji.initWindow(win));
     // W23 chat-shell: the chat panel (⌘E). Installed only with its switch
     // on; the panel itself is built the first time it opens.
     run("ai-chat", () => lazy.WhimsyChatPanel.initWindow(win));

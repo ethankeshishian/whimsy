@@ -7830,3 +7830,19 @@ whimsy-agent-chat-verb-go = Go there
 
 whimsy-agent-chat-hand-over-frame = This is another site’s box inside the page, like a sign-in, payment, or post button. If you want it, press it yourself, then press Continue.
 whimsy-agent-field-frame = Inside
+
+## W24 emoji: emoji from the command bar (":" or the Emoji command). Mockup:
+## docs/superpowers/mockups/w24/05-emoji.html.
+
+whimsy-action-emoji = Emoji
+whimsy-emoji-section-frequent = Frequently used
+whimsy-emoji-section-smileys = Smileys
+whimsy-emoji-section-results = Results
+whimsy-emoji-footer-type = Type into the comment
+whimsy-emoji-footer-copy = Copy
+# $name (string) - the emoji's name, e.g. "party popper"
+whimsy-emoji-copied-toast = Copied { $name } · ⌘V to paste
+# $query (string) - what was typed
+whimsy-emoji-no-match = No emoji for “{ $query }”
+# $query (string) - what was typed
+whimsy-emoji-search-web = Search the web for “{ $query }”

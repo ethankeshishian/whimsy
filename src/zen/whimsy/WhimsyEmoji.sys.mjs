@@ -1,0 +1,423 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+// W24 emoji: emoji from the command bar (Raycast/Yab style). Typing ":" as
+// the bar's first character (or running the "Emoji" command) switches to a
+// searchable 8-across grid, drawn as a single dynamic urlbar row — the
+// text keeps being typed into the real urlbar input, exactly like
+// WhimsyBangs's "!bang" and WhimsyCommandBarAI's Ask card. Arrow keys move
+// the grid's own selection (not the urlbar's row selection, which this
+// turns off while the grid is up); Enter types the selected emoji into
+// whatever was focused when the bar opened (via the WhimsyEmoji actor, so
+// it's undoable), or copies it when nothing was focused or it was a
+// password field; ⌘↵ always copies. Tab shows the skin tones of a
+// tone-capable emoji (the same choice and pref as the space icon picker,
+// WhimsySpaceIcons). Picks are remembered as frequent emoji
+// (WhimsyEmojiFrequent), never from a private window. A query with no
+// match offers a web search, like any other command bar search.
+import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
+import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
+  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyEmojiFrequent: "resource:///modules/whimsy/WhimsyEmojiFrequent.sys.mjs",
+  WhimsyEmojiIndex: "resource:///modules/whimsy/WhimsyEmojiIndex.sys.mjs",
+  WhimsySpaceIcons: "resource:///modules/whimsy/WhimsySpaceIcons.sys.mjs",
+});
+
+const HTML_NS = "http://www.w3.org/1999/xhtml";
+const FEATURE = "whimsy.feature.command-bar-emoji";
+const TONE_PREF = "whimsy.spaces.emoji-skin-tone";
+const SHEET = "chrome://browser/content/whimsy/whimsy-emoji.css";
+const GRID_TYPE = "whimsy-emoji-grid";
+const COLUMNS = 8;
+const MAX_TONE = 5;
+const TOAST_MS = 4000;
+
+// A small, fixed seed shown under "Smileys" with nothing typed yet (the
+// same eight, in the same order, every time — not computed from Zen's
+// order field, which drifts as Zen's data changes).
+// prettier-ignore
+const SMILEYS_DEFAULT = ["😀", "😃", "😄", "😁", "😆", "🥹", "😅", "🤣"];
+
+let nextQuery = 0;
+// Per-window grid state, set by startQuery and read by the keyboard
+// handler and renderer. Never put in the UrlbarResult payload: like
+// WhimsyCommandBarAI's Ask card, the grid is drawn straight into the row's
+// element rather than through the view's Fluent-attribute diffing.
+const states = new WeakMap();
+
+function topWindow() {
+  return lazy.BrowserWindowTracker.getTopWindow();
+}
+
+function featureOn() {
+  return Services.prefs.getBoolPref(FEATURE, true);
+}
+
+function tonePref() {
+  const tone = Services.prefs.getIntPref(TONE_PREF, 0);
+  return tone >= 0 && tone <= MAX_TONE ? tone : 0;
+}
+
+function hasTone(emoji) {
+  return lazy.WhimsySpaceIcons.withTone(emoji, 1) != emoji;
+}
+
+function h(doc, tag, attrs = {}, ...kids) {
+  const el = doc.createElementNS(HTML_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) {
+      continue;
+    }
+    if (k == "l10n") {
+      const [id, args] = Array.isArray(v) ? v : [v];
+      doc.l10n.setAttributes(el, id, args);
+    } else if (k.startsWith("on")) {
+      el.addEventListener(k.slice(2), v);
+    } else if (k == "class") {
+      el.className = v;
+    } else {
+      el.setAttribute(k, v === true ? "" : v);
+    }
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid != null && kid !== false) {
+      el.append(kid);
+    }
+  }
+  return el;
+}
+
+// Computed fresh from the query text each time it changes (never kept
+// across keystrokes): the grid's sections, its flattened emoji in display
+// order, and whether nothing matched.
+function computeState(query) {
+  const text = query.trim();
+  if (!text) {
+    const frequent = lazy.WhimsyEmojiFrequent.top(COLUMNS * 2);
+    const sections = [];
+    if (frequent.length) {
+      sections.push({ labelId: "whimsy-emoji-section-frequent", items: frequent });
+    }
+    sections.push({ labelId: "whimsy-emoji-section-smileys", items: SMILEYS_DEFAULT });
+    return { query: text, sections, flat: sections.flatMap(s => s.items), selected: 0, tones: false, toneIndex: tonePref(), noMatch: false };
+  }
+  const results = lazy.WhimsyEmojiIndex.search(text);
+  const sections = results.length ? [{ labelId: "whimsy-emoji-section-results", items: results }] : [];
+  return { query: text, sections, flat: results, selected: 0, tones: false, toneIndex: tonePref(), noMatch: !results.length };
+}
+
+export class WhimsyEmojiProvider extends UrlbarProvider {
+  get name() {
+    return "WhimsyEmoji";
+  }
+
+  get type() {
+    return UrlbarShared.PROVIDER_TYPE.HEURISTIC;
+  }
+
+  // Above everything else while active, like WhimsyBangs: ":" is an
+  // explicit switch into the emoji surface, not a normal search term.
+  getPriority() {
+    return 100;
+  }
+
+  async isActive(context) {
+    return (
+      featureOn() &&
+      !context.searchMode &&
+      !context.restrictSource &&
+      typeof context.searchString == "string" &&
+      context.searchString.startsWith(":")
+    );
+  }
+
+  async startQuery(context, addCallback) {
+    const win = topWindow();
+    const state = computeState(context.searchString.slice(1));
+    if (win) {
+      states.set(win, state);
+      WhimsyEmoji.scheduleRender(win);
+    }
+    addCallback(
+      this,
+      new lazy.UrlbarResult({
+        type: UrlbarShared.RESULT_TYPE.DYNAMIC,
+        source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
+        heuristic: true,
+        payload: { dynamicType: GRID_TYPE, query: ++nextQuery },
+      })
+    );
+  }
+
+  getViewTemplate() {
+    return { attributes: { role: "presentation" }, children: [{ name: "card", tag: "div", classList: ["whimsy-emoji-card"] }] };
+  }
+
+  getViewUpdate() {
+    // The grid is drawn straight into the card element (WhimsyEmoji.render),
+    // not through the view's attribute diffing.
+    return {};
+  }
+}
+
+export const WhimsyEmoji = {
+  FEATURE,
+  provider: null,
+
+  init() {
+    if (this.provider) {
+      return;
+    }
+    const manager = lazy.ProvidersManager.getInstanceForSap("urlbar");
+    this.provider = manager.getProvider("WhimsyEmoji");
+    if (!this.provider) {
+      this.provider = new WhimsyEmojiProvider();
+      manager.registerProvider(this.provider);
+    }
+  },
+
+  initWindow(win) {
+    this.init();
+    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+    const urlbar = win.gURLBar;
+    if (urlbar?.inputField && !urlbar.inputField._whimsyEmojiKeys) {
+      urlbar.inputField._whimsyEmojiKeys = true;
+      urlbar.inputField.addEventListener("keydown", event => this.onInputKey(win, event), true);
+    }
+    const panel = urlbar?.view?.panel;
+    if (panel && !panel._whimsyEmojiObserver) {
+      panel._whimsyEmojiObserver = new win.MutationObserver(() => {
+        const card = panel.querySelector(".whimsy-emoji-card");
+        if (card && card != win._whimsyEmojiEl) {
+          this.mountGrid(win, card);
+        }
+      });
+      panel._whimsyEmojiObserver.observe(panel, { childList: true, subtree: true });
+      panel.addEventListener("popuphidden", event => {
+        if (event.target == panel) {
+          states.delete(win);
+          win._whimsyEmojiEl = null;
+        }
+      });
+    }
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyEmoji",
+      l10nId: "whimsy-action-emoji",
+      icon: "chrome://browser/skin/zen-icons/face-sun.svg",
+      run: w => this.openForEmoji(w),
+      isAvailable: () => featureOn(),
+    });
+  },
+
+  openForEmoji(win) {
+    const urlbar = win.gURLBar;
+    if (!urlbar) {
+      return;
+    }
+    urlbar.searchMode = null;
+    urlbar.focus();
+    urlbar.value = ":";
+    urlbar.startQuery({ allowAutofill: false });
+  },
+
+  mountGrid(win, el) {
+    win._whimsyEmojiEl = el;
+    const state = states.get(win);
+    if (state) {
+      this.render(win, state);
+    }
+  },
+
+  scheduleRender(win) {
+    if (win._whimsyEmojiRaf) {
+      return;
+    }
+    win._whimsyEmojiRaf = win.requestAnimationFrame(() => {
+      win._whimsyEmojiRaf = 0;
+      const state = states.get(win);
+      const el = win._whimsyEmojiEl;
+      if (state && el?.isConnected) {
+        this.render(win, state);
+      }
+    });
+  },
+
+  render(win, state) {
+    const el = win._whimsyEmojiEl;
+    if (!el?.isConnected) {
+      return;
+    }
+    const doc = el.ownerDocument;
+    el.replaceChildren();
+    el.setAttribute("role", "group");
+    if (state.noMatch) {
+      el.append(
+        h(doc, "div", { class: "whimsy-emoji-empty", l10n: ["whimsy-emoji-no-match", { query: state.query }] }),
+        h(doc, "div", {
+          class: "whimsy-emoji-search-web",
+          onclick: () => this.runWebSearch(win, state.query),
+          l10n: ["whimsy-emoji-search-web", { query: state.query }],
+        })
+      );
+      return;
+    }
+    let index = 0;
+    for (const section of state.sections) {
+      el.append(h(doc, "div", { class: "whimsy-emoji-sec", l10n: section.labelId }));
+      const grid = h(doc, "div", { class: "whimsy-emoji-grid", role: "listbox" });
+      for (const emoji of section.items) {
+        const at = index++;
+        grid.append(
+          h(doc, "span", {
+            class: "whimsy-emoji-cell" + (at == state.selected ? " on" : ""),
+            role: "option",
+            "aria-selected": at == state.selected,
+            onclick: () => this.pick(win, state, emoji, { copy: false }),
+          }, emoji)
+        );
+      }
+      el.append(grid);
+    }
+    const selected = state.flat[state.selected];
+    if (!selected) {
+      return;
+    }
+    if (state.tones) {
+      const tones = h(doc, "div", { class: "whimsy-emoji-tones" });
+      for (let tone = 0; tone <= MAX_TONE; tone++) {
+        tones.append(
+          h(doc, "span", {
+            class: "whimsy-emoji-tone" + (tone == state.toneIndex ? " on" : ""),
+            onclick: () => this.pickTone(win, state, selected, tone),
+          }, lazy.WhimsySpaceIcons.withTone(selected, tone))
+        );
+      }
+      el.append(tones);
+    }
+    const shown = state.tones ? lazy.WhimsySpaceIcons.withTone(selected, state.toneIndex) : selected;
+    el.append(
+      h(doc, "div", { class: "whimsy-emoji-footer" },
+        h(doc, "span", { class: "whimsy-emoji-footer-icon" }, shown),
+        h(doc, "b", {}, lazy.WhimsyEmojiIndex.nameOf(selected)),
+        h(doc, "span", { class: "whimsy-emoji-footer-keys" },
+          h(doc, "span", {}, h(doc, "kbd", {}, "↵"), h(doc, "span", { l10n: "whimsy-emoji-footer-type" })),
+          h(doc, "span", {}, h(doc, "kbd", {}, "⌘↵"), h(doc, "span", { l10n: "whimsy-emoji-footer-copy" }))
+        )
+      )
+    );
+  },
+
+  onInputKey(win, event) {
+    const state = states.get(win);
+    if (!state) {
+      return;
+    }
+    if (event.key == "Tab" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
+      const selected = state.flat[state.selected];
+      if (selected && hasTone(selected)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        state.tones = !state.tones;
+        this.render(win, state);
+      }
+      return;
+    }
+    if (state.tones && (event.key == "ArrowLeft" || event.key == "ArrowRight")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const dir = event.key == "ArrowRight" ? 1 : -1;
+      state.toneIndex = Math.max(0, Math.min(MAX_TONE, state.toneIndex + dir));
+      this.render(win, state);
+      return;
+    }
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      if (!state.flat.length) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      let next = state.selected;
+      if (event.key == "ArrowRight") {
+        next++;
+      } else if (event.key == "ArrowLeft") {
+        next--;
+      } else if (event.key == "ArrowDown") {
+        next += COLUMNS;
+      } else {
+        next -= COLUMNS;
+      }
+      state.selected = Math.max(0, Math.min(state.flat.length - 1, next));
+      state.tones = false;
+      this.render(win, state);
+      return;
+    }
+    if (event.key == "Enter") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (state.noMatch) {
+        this.runWebSearch(win, state.query);
+        return;
+      }
+      const selected = state.flat[state.selected];
+      if (!selected) {
+        return;
+      }
+      this.pick(win, state, selected, { copy: event.metaKey || event.ctrlKey });
+    }
+  },
+
+  pickTone(win, state, baseEmoji, tone) {
+    state.toneIndex = tone;
+    Services.prefs.setIntPref(TONE_PREF, tone);
+    this.pick(win, state, baseEmoji, { copy: false });
+  },
+
+  async pick(win, state, baseEmoji, { copy }) {
+    const toned = state.tones ? lazy.WhimsySpaceIcons.withTone(baseEmoji, state.toneIndex) : baseEmoji;
+    lazy.WhimsyEmojiFrequent.record(win, baseEmoji);
+    states.delete(win);
+    win.gURLBar?.view.close();
+    win.gURLBar?.handleRevert();
+    if (!copy && (await this.insertInPage(win, toned))) {
+      return;
+    }
+    this.copyAndToast(win, toned);
+  },
+
+  async insertInPage(win, emoji) {
+    try {
+      const actor = win.gBrowser?.selectedBrowser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyEmoji");
+      const result = await actor?.sendQuery("WhimsyEmoji:Insert", { emoji });
+      return !!result?.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  copyAndToast(win, emoji) {
+    Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(emoji);
+    const name = lazy.WhimsyEmojiIndex.nameOf(emoji);
+    win.gZenUIManager?.showToast?.("whimsy-emoji-copied-toast", { l10nArgs: { name }, timeout: TOAST_MS });
+  },
+
+  runWebSearch(win, query) {
+    states.delete(win);
+    win.gURLBar?.view.close();
+    win.gURLBar?.handleRevert();
+    const engine = Services.search.defaultEngine;
+    const submission = engine?.getSubmission(query);
+    if (submission) {
+      win.openTrustedLinkIn(submission.uri.spec, "current");
+    }
+  },
+};
+
+// The parent side of inserting into the page (WhimsyEmojiChild.sys.mjs).
+export class WhimsyEmojiParent extends JSWindowActorParent {}
