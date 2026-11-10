@@ -4,11 +4,29 @@
 
 /* W24/tabsearch (BUGS.md #16): a "Switch to Tab" row for a tab in another
    space (or profile) shows that space's icon and name where the url would
-   otherwise go (WhimsyAlreadyOpen.decorateSpaceRows). Firefox hides the url
-   line for every [type="switchtab"] row by default (view-proton.css: "no
-   url for switch-to-tab action text") — reveal it only for the rows
-   decorateSpaceRows actually labelled, so a current-space row, and any
-   switchtab row this feature doesn't touch, keep Firefox's normal look. */
+   otherwise go (WhimsyAlreadyOpen.decorateSpaceRows). Firefox collapses
+   that slot for switchtab rows, and Zen gives their non-shrinking
+   title/action wrapper the whole row width. Visibility alone therefore
+   leaves a zero-width label. Reserve the same space for secondary text
+   that Firefox reserves on ordinary URL rows. Keep Zen's existing URL
+   font, muted colour, overflow handling, and selected-row treatment. */
 .urlbarView-row[type="switchtab"] > .urlbarView-row-inner > .urlbarView-url[data-whimsy-space-badge] {
   visibility: visible !important;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.urlbarView-row[type="switchtab"]:has(.urlbarView-url[data-whimsy-space-badge]) > .urlbarView-row-inner > .urlbarView-no-wrap {
+  width: auto;
+  max-width: calc(70% - 2 * (var(--urlbarview-favicon-size) + (6px + 2px)));
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/* Firefox makes this separator transparent and gives it a negative margin
+   on switchtab rows. Restore ordinary secondary-text separation whenever
+   our label is present; the existing action stays in its native wrapper. */
+.urlbarView-row[type="switchtab"]:has(.urlbarView-url[data-whimsy-space-badge]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator::before {
+  opacity: 0.6;
+  margin-inline-end: 0.4em;
 }
