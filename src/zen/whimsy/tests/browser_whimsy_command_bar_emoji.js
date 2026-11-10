@@ -253,13 +253,9 @@ add_task(async function test_stale_state_does_not_hijack_a_later_enter() {
   const el = await openEmoji("party");
   ok(el.querySelector(".whimsy-emoji-cell"), "The grid was showing");
   const url = "https://example.com/";
-  dump(`WDIAG5 test BEFORE-reinput t=${Date.now()} value=${JSON.stringify(window.gURLBar.value)}\n`);
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: url });
-  dump(`WDIAG5 test AFTER-reinput t=${Date.now()} value=${JSON.stringify(window.gURLBar.value)} isOpen=${window.gURLBar.view.isOpen} selIdx=${window.gURLBar.view.selectedRowIndex}\n`);
   const newTab = BrowserTestUtils.waitForNewTab(gBrowser, url, true);
-  dump(`WDIAG5 test BEFORE-enter t=${Date.now()} value=${JSON.stringify(window.gURLBar.value)}\n`);
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
-  dump(`WDIAG5 test AFTER-enter-sync t=${Date.now()}\n`);
   const tab = await newTab;
   is(gBrowser.selectedTab, tab, "Enter loaded the URL instead of being hijacked by stale grid state");
   BrowserTestUtils.removeTab(tab);
