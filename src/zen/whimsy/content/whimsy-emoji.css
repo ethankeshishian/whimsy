@@ -15,6 +15,15 @@
   --whimsy-emoji-hairline: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
 }
 
+/* The real identity box (the loaded page's favicon) can keep showing next
+   to the floating bar's input while the grid is open, since this is a
+   DYNAMIC heuristic result rather than a recognized search/URL type that
+   Firefox's own urlbar.css knows to hide on typing (urlbar.css:1578, gated
+   behind prefs this build may not have). The mockup never shows it. */
+#urlbar:has(.urlbarView-row[dynamicType="whimsy-emoji-grid"]) #identity-box {
+  visibility: hidden;
+}
+
 .urlbarView-row[dynamicType="whimsy-emoji-grid"] {
   padding: 0 !important;
   background: none !important;
@@ -47,8 +56,12 @@
 
 .whimsy-emoji-grid {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 2px;
+  /* Fixed-size columns (mockup: docs/superpowers/mockups/w24/05-emoji.html,
+     .w-emo-grid), not 1fr: stretching 8 columns across the full urlbar
+     width made every cell ~100px with a tiny emoji lost in the middle, and
+     the resulting tall row looked like an empty band under the grid. */
+  grid-template-columns: repeat(8, 44px);
+  gap: 4px;
 }
 
 .whimsy-emoji-cell {
@@ -56,8 +69,8 @@
   align-items: center;
   justify-content: center;
   aspect-ratio: 1;
-  border-radius: 8px;
-  font-size: 20px;
+  border-radius: 10px;
+  font-size: 28px;
   line-height: 1;
   cursor: pointer;
 
@@ -84,10 +97,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  font-size: 17px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 24px;
   cursor: pointer;
 
   &:hover {

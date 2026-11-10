@@ -14,6 +14,9 @@ ChromeUtils.defineESModuleGetters(this, {
 const FEATURE = "whimsy.feature.command-bar-emoji";
 const TONE_PREF = "whimsy.spaces.emoji-skin-tone";
 const PARTY = "\u{1F389}"; // 🎉
+const DANCERS = "\u{1F46F}"; // 👯 (base of the 👯/👯‍♂️/👯‍♀️ gender-variant family)
+const TONGUE = "\u{1F61B}"; // 😛
+const WINK_TONGUE = "\u{1F61C}"; // 😜
 
 function card() {
   return window.gURLBar.view.panel.querySelector(".whimsy-emoji-card");
@@ -51,6 +54,15 @@ async function fieldValue(tab, id) {
   return SpecialPowers.spawn(tab.linkedBrowser, [id], elId => content.document.getElementById(elId).value);
 }
 
+// Seeds the frequent list so it sorts to this exact order (most to least
+// recent breaks the tie at count 1; see WhimsyEmojiFrequent.record/top).
+function seedFrequent(order) {
+  WhimsyEmojiFrequent.clear();
+  for (const emoji of [...order].reverse()) {
+    WhimsyEmojiFrequent.record(window, emoji);
+  }
+}
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [[FEATURE, true]] });
   WhimsyEmojiFrequent.clear();
@@ -74,9 +86,64 @@ add_task(async function test_grid_geometry_and_footer() {
   const columns = window.getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/);
   is(columns.length, 8, "Eight columns");
   is(new Set(columns).size, 1, "The columns are equal");
+  const cellRect = el.querySelector(".whimsy-emoji-cell").getBoundingClientRect();
+  ok(Math.abs(cellRect.width - cellRect.height) < 1, "Cells are square");
+  ok(cellRect.width < 60, "Cells are sized to the emoji, not stretched to the bar's full width");
+
   const footer = el.querySelector(".whimsy-emoji-footer");
   ok(footer, "A footer is shown, naming the selected emoji");
   ok(window.gURLBar.contains(footer), "The footer is inside the command bar, not a separate popup");
+
+  // Visible, not just present: a real size, and not clipped by any
+  // ancestor's overflow (the bug this regresses: a huge, stretched grid
+  // pushed the footer below the panel's clipped bounds).
+  const rect = footer.getBoundingClientRect();
+  ok(rect.width > 0 && rect.height > 0, "The footer has a non-zero size");
+  let clippedBy = null;
+  for (let anc = footer.parentElement; anc && anc != window.gURLBar.parentElement; anc = anc.parentElement) {
+    const ancRect = anc.getBoundingClientRect();
+    const overflow = window.getComputedStyle(anc).overflow;
+    if (/hidden|clip/.test(overflow) && (rect.bottom > ancRect.bottom + 0.5 || rect.top < ancRect.top - 0.5)) {
+      clippedBy = anc;
+      break;
+    }
+  }
+  ok(!clippedBy, `The footer isn't clipped by an ancestor's overflow${clippedBy ? ` (${clippedBy.className})` : ""}`);
+  await document.l10n.translateFragment(footer);
+  ok(footer.textContent.trim().length > 0, "The footer has visible text");
+  ok(footer.textContent.includes("↵") && footer.textContent.includes("⌘↵"), "Shows both the Enter and Copy shortcuts");
+  closeBar();
+});
+
+add_task(async function test_footer_label_reflects_insert_target() {
+  const typeLabel = () => card().querySelector(".whimsy-emoji-footer-keys > span:first-child > span")?.getAttribute("data-l10n-id");
+
+  const tab = await openFieldTab("<textarea id=t></textarea>", "t");
+  try {
+    await openEmoji("party");
+    await TestUtils.waitForCondition(() => typeLabel() == "whimsy-emoji-footer-type", "↵ says Type into the page when a field is focused");
+    closeBar();
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+
+  const tab2 = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/html,<body></body>");
+  try {
+    await openEmoji("party");
+    await TestUtils.waitForCondition(() => typeLabel() == "whimsy-emoji-footer-copy", "↵ says Copy when nothing is focused");
+    closeBar();
+  } finally {
+    BrowserTestUtils.removeTab(tab2);
+  }
+});
+
+add_task(async function test_party_dedupes_variants_and_demotes_tongue_faces() {
+  const el = await openEmoji("party");
+  const cells = [...el.querySelectorAll(".whimsy-emoji-cell")].map(c => c.textContent);
+  is(cells[0], PARTY, "The party popper is first");
+  is(cells.filter(e => e.startsWith(DANCERS)).length, 1, "The dancer twins' gender variants collapse into one cell");
+  const firstRow = cells.slice(0, 8);
+  ok(!firstRow.includes(TONGUE) && !firstRow.includes(WINK_TONGUE), "Tongue-out faces (Zen's loose 'party' tag) don't crowd the first row");
   closeBar();
 });
 
@@ -124,6 +191,23 @@ add_task(async function test_no_focus_copies_and_toasts() {
   } finally {
     BrowserTestUtils.removeTab(tab);
   }
+});
+
+add_task(async function test_stale_state_does_not_hijack_a_later_enter() {
+  // Open the grid, then change the bar to a plain URL without ever
+  // closing the popup (isActive() goes false, but nothing fires
+  // popuphidden) — the capture-phase keydown listener used to keep acting
+  // on the now-stale grid state and swallow this Enter instead of letting
+  // it load.
+  const el = await openEmoji("party");
+  ok(el.querySelector(".whimsy-emoji-cell"), "The grid was showing");
+  const url = "https://example.com/";
+  await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: url });
+  const newTab = BrowserTestUtils.waitForNewTab(gBrowser, url, true);
+  EventUtils.synthesizeKey("KEY_Enter", {}, window);
+  const tab = await newTab;
+  is(gBrowser.selectedTab, tab, "Enter loaded the URL instead of being hijacked by stale grid state");
+  BrowserTestUtils.removeTab(tab);
 });
 
 add_task(async function test_nonsense_offers_web_search() {
@@ -176,13 +260,65 @@ add_task(async function test_skin_tone_applied() {
   }
 });
 
+add_task(async function test_skin_tone_applied_without_opening_tone_row() {
+  WhimsyEmojiFrequent.clear();
+  await SpecialPowers.pushPrefEnv({ set: [[TONE_PREF, 3]] });
+  const tab = await openFieldTab("<textarea id=t></textarea>", "t");
+  try {
+    await openEmoji("thumb up");
+    EventUtils.synthesizeKey("KEY_Enter", {}, window); // no Tab: the tone still comes from the pref
+    await TestUtils.waitForCondition(
+      async () => (await fieldValue(tab, "t")).includes("\u{1F3FD}"), // medium skin tone modifier
+      "Enter alone (no tone row) still applied the skin-tone pref"
+    );
+  } finally {
+    await SpecialPowers.popPrefEnv();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// 5.1, 5.2, 5.4 and 5.5 of the mockup, light and dark. Every shot closes
+// its own toasts first, so an earlier task's "Copied …" can never linger
+// into one (the bug this regresses).
 add_task(async function test_screenshots() {
-  await openEmoji("party");
-  await whimsySetScheme(false);
-  await whimsyShot("w24-emoji-light");
-  await whimsySetScheme(true);
-  await whimsyShot("w24-emoji-dark");
-  await SpecialPowers.popPrefEnv();
-  await SpecialPowers.popPrefEnv();
+  closeToasts();
+
+  // 5.1 — a query with results ("party").
+  await whimsyBothSchemes("w24-emoji-5.1", async () => {
+    closeToasts();
+    await openEmoji("party");
+    return () => closeBar();
+  });
+
+  // 5.2 — just ":": frequent emoji, then Smileys.
+  await whimsyBothSchemes("w24-emoji-5.2", async () => {
+    closeToasts();
+    seedFrequent(["\u{1F44D}", PARTY, "\u{1F64F}", "✅", "\u{1F440}", "\u{1F525}", "\u{1F602}", "❤️"]);
+    await openEmoji("");
+    return () => {
+      closeBar();
+      WhimsyEmojiFrequent.clear();
+    };
+  });
+
+  // 5.4 — nothing focused: Enter copies and toasts (the bar itself closes).
+  await whimsyBothSchemes("w24-emoji-5.4", async () => {
+    closeToasts();
+    await openEmoji("party");
+    EventUtils.synthesizeKey("KEY_Enter", {}, window);
+    await TestUtils.waitForCondition(() => window.gZenUIManager.toasts.getToasts().length > 0, "A toast showed");
+    return () => closeToasts();
+  });
+
+  // 5.5 — the tone row, open on a tone-capable emoji.
+  await whimsyBothSchemes("w24-emoji-5.5", async () => {
+    closeToasts();
+    await openEmoji("thumb up");
+    EventUtils.synthesizeKey("KEY_Tab", {}, window);
+    await TestUtils.waitForCondition(() => card().querySelector(".whimsy-emoji-tone.on"), "The tone row opened");
+    return () => closeBar();
+  });
+
   closeBar();
+  WhimsyEmojiFrequent.clear();
 });

@@ -51,15 +51,26 @@ export class WhimsyEmojiChild extends JSWindowActorChild {
     if (message.name == "WhimsyEmoji:Insert") {
       return this.insert(message.data.emoji);
     }
+    if (message.name == "WhimsyEmoji:CanInsert") {
+      return this.canInsert();
+    }
     return null;
   }
 
+  // The same target `insert` would use: whatever's focused, if it's an
+  // editable text field and not a password. Asked ahead of time (by
+  // WhimsyEmoji.checkCanInsert) so the footer can say "Type into the page"
+  // vs. "Copy" before Enter is even pressed.
+  canInsert() {
+    const el = deepActiveElement(this.document);
+    return { ok: !!el && !isPassword(el) && isEditableText(el) };
+  }
+
   insert(emoji) {
-    const doc = this.document;
-    const el = deepActiveElement(doc);
-    if (!el || isPassword(el) || !isEditableText(el)) {
+    if (!this.canInsert().ok) {
       return { ok: false };
     }
+    const el = deepActiveElement(this.document);
     const win = el.documentGlobal ?? this.contentWindow;
     try {
       el.focus();

@@ -7838,7 +7838,7 @@ whimsy-action-emoji = Emoji
 whimsy-emoji-section-frequent = Frequently used
 whimsy-emoji-section-smileys = Smileys
 whimsy-emoji-section-results = Results
-whimsy-emoji-footer-type = Type into the comment
+whimsy-emoji-footer-type = Type into the page
 whimsy-emoji-footer-copy = Copy
 # $name (string) - the emoji's name, e.g. "party popper"
 whimsy-emoji-copied-toast = Copied { $name } · ⌘V to paste

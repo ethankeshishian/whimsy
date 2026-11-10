@@ -55,6 +55,11 @@ const states = new WeakMap();
 // rather than properties on the chrome window, which a test's leak check
 // flags as left behind.
 const mounts = new WeakMap();
+// Whether Enter will type into the page (vs. copy), per window: checked
+// once per bar session (whatever was focused when the bar opened, like the
+// actual insert), not per keystroke, and used only to pick the footer's ↵
+// label. Defaults to true (optimistic) until the actor answers.
+const insertTargets = new WeakMap();
 
 // options.private, when given, is exact: `"private" in options` alone (even
 // undefined) would stop BrowserWindowTracker from matching any window, so
@@ -151,6 +156,19 @@ export class WhimsyEmojiProvider extends UrlbarProvider {
     if (win) {
       states.set(win, state);
       WhimsyEmoji.scheduleRender(win);
+      // Checked once per bar session, not per keystroke: `has` is already
+      // true after the first call, win (no await) before the promise below
+      // settles.
+      if (!insertTargets.has(win)) {
+        insertTargets.set(win, true);
+        WhimsyEmoji.checkCanInsert(win).then(canInsert => {
+          insertTargets.set(win, canInsert);
+          const current = states.get(win);
+          if (current) {
+            WhimsyEmoji.render(win, current);
+          }
+        });
+      }
     }
     addCallback(
       this,
@@ -211,6 +229,7 @@ export const WhimsyEmoji = {
         if (event.target == panel) {
           states.delete(win);
           mounts.delete(win);
+          insertTargets.delete(win);
         }
       });
     }
@@ -310,12 +329,17 @@ export const WhimsyEmoji = {
       el.append(tones);
     }
     const shown = state.tones ? lazy.WhimsySpaceIcons.withTone(selected, state.toneIndex) : selected;
+    // ↵ either types into whatever was focused when the bar opened, or
+    // copies when there's no field to type into (a password field, or
+    // nothing focused at all) — insertTargets reflects that same check
+    // (WhimsyEmoji.checkCanInsert), not just a generic label.
+    const canType = insertTargets.get(win) ?? true;
     el.append(
       h(doc, "div", { class: "whimsy-emoji-footer" },
         h(doc, "span", { class: "whimsy-emoji-footer-icon" }, shown),
         h(doc, "b", {}, lazy.WhimsyEmojiIndex.nameOf(selected)),
         h(doc, "span", { class: "whimsy-emoji-footer-keys" },
-          h(doc, "span", {}, h(doc, "kbd", {}, "↵"), h(doc, "span", { l10n: "whimsy-emoji-footer-type" })),
+          h(doc, "span", {}, h(doc, "kbd", {}, "↵"), h(doc, "span", { l10n: canType ? "whimsy-emoji-footer-type" : "whimsy-emoji-footer-copy" })),
           h(doc, "span", {}, h(doc, "kbd", {}, "⌘↵"), h(doc, "span", { l10n: "whimsy-emoji-footer-copy" }))
         )
       )
@@ -325,6 +349,17 @@ export const WhimsyEmoji = {
   onInputKey(win, event) {
     const state = states.get(win);
     if (!state) {
+      return;
+    }
+    // `states` is only cleared on pick/runWebSearch and on popuphidden —
+    // neither fires when the query simply stops matching isActive() (e.g.
+    // backspacing past the ":" to a plain search, or Zen reusing the same
+    // input for the private bar). Without this check, this capture-phase
+    // listener keeps firing on every keystroke in the window and would
+    // hijack a later, unrelated Enter (e.g. loading a typed URL) with a
+    // stale grid. Never act on state that isn't the bar's current query.
+    if (!win.gURLBar?.value?.startsWith(":")) {
+      states.delete(win);
       return;
     }
     if (event.key == "Tab" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
@@ -388,7 +423,11 @@ export const WhimsyEmoji = {
   },
 
   async pick(win, state, baseEmoji, { copy }) {
-    const toned = state.tones ? lazy.WhimsySpaceIcons.withTone(baseEmoji, state.toneIndex) : baseEmoji;
+    // state.toneIndex always starts from the skin-tone pref (computeState),
+    // so a deduped cell picked straight from the grid — without opening the
+    // tone row — still inserts the preferred tone, not the bare default.
+    // withTone no-ops for tone 0 or an emoji that has no tone variants.
+    const toned = lazy.WhimsySpaceIcons.withTone(baseEmoji, state.toneIndex);
     lazy.WhimsyEmojiFrequent.record(win, baseEmoji);
     states.delete(win);
     win.gURLBar?.view.close();
@@ -403,6 +442,19 @@ export const WhimsyEmoji = {
     try {
       const actor = win.gBrowser?.selectedBrowser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyEmoji");
       const result = await actor?.sendQuery("WhimsyEmoji:Insert", { emoji });
+      return !!result?.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  // Whether Enter would type into the page right now (vs. copy): the same
+  // check WhimsyEmojiChild.insert makes, asked ahead of time so the footer
+  // can say the right thing. Defaults to false (copy) on any failure.
+  async checkCanInsert(win) {
+    try {
+      const actor = win.gBrowser?.selectedBrowser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyEmoji");
+      const result = await actor?.sendQuery("WhimsyEmoji:CanInsert");
       return !!result?.ok;
     } catch {
       return false;
