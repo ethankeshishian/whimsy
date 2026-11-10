@@ -922,8 +922,9 @@ class ChatPanel {
     this.ready = true;
   }
 
-  // Three suggestions from what dominates the page; they fill the
-  // composer and never send.
+  // Three suggestions from what dominates the page. A complete question
+  // sends immediately; one that still needs the person's own input (it
+  // ends in "…", a template to fill in) only fills the composer.
   async suggestionsFor(tab) {
     if (!isWebTab(tab)) {
       return null;
@@ -974,9 +975,17 @@ class ChatPanel {
               {
                 class: "whimsy-chat-suggestion",
                 onclick: e => {
-                  this.composer.value = e.currentTarget.textContent;
+                  const text = e.currentTarget.textContent;
+                  this.composer.value = text;
                   this.autosize();
-                  this.composer.focus();
+                  // A chip ending in "…" is a template that still needs the
+                  // person's own input (none of today's do, but a future
+                  // one might); only fill the composer for those.
+                  if (text.endsWith("…")) {
+                    this.composer.focus();
+                  } else {
+                    this.send();
+                  }
                 },
               },
               icon(doc, ICON_FOR[id] ?? "sparkle"),

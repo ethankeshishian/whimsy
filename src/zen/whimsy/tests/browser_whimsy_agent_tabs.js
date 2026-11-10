@@ -125,18 +125,18 @@ add_task(async function working_line_names_client() {
   await closeAll(tab);
 });
 
-// W24 uipolish #7: a long status ("whimsy · clicking search button") used
-// to wrap onto a second line and spill out of the tab row. The text now
-// lives in its own child span (like whimsy-task-folder's working line),
-// instead of a XUL label's crop="end" fighting the flex layout that lays
-// out the dot and the text, so it no longer wraps.
+// W24 uipolish #7 / smallbugs follow-up: a long status ("whimsy · clicking
+// search button") used to wrap onto a second line and spill out of the tab
+// row. The text lives in its own child span (like whimsy-task-folder's
+// working line), instead of a XUL label's crop="end" fighting the flex
+// layout that lays out the dot and the text, so it no longer wraps.
 //
-// KNOWN GAP (not yet fixed): with a very long status, the one-line text
-// can still render past the tab's right edge instead of being ellipsized
-// there — .tab-label-container isn't consistently handing the working
-// line a bounded width to clip against. Tracked for a follow-up lane;
-// only the no-longer-wraps behaviour is asserted here so the suite ships
-// green. See HANDOFF-w24-uipolish.md.
+// The "fits inside the tab's bounds" half was left open in uipolish: a XUL
+// tab's .tab-label-container didn't reliably hand the line a bounded width
+// to clip against, so a very long status could still render past the
+// tab's right edge. Fixed at the source instead of chasing that XUL flex
+// width (WhimsyAgentPointer.working() bounds "doing" to a fixed length),
+// so the one-line text is never wider than a tab can realistically be.
 add_task(async function working_line_stays_one_line() {
   await fresh();
   const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { skipAnimation: true });
@@ -151,9 +151,15 @@ add_task(async function working_line_stays_one_line() {
     await SpecialPowers.popPrefEnv();
   }
   const lineRect = line.getBoundingClientRect();
+  const tabRect = tab.getBoundingClientRect();
   // font-size:11px, line-height:1.2 (whimsy-agent.css): one line is ~13px.
   // A wrapped second line would roughly double that.
   Assert.lessOrEqual(lineRect.height, 18, `The status line is one line tall, not wrapped (${lineRect.height}px): ${line.textContent}`);
+  Assert.lessOrEqual(
+    lineRect.right,
+    tabRect.right + 0.5,
+    `The status line fits inside the tab, not past its right edge (line right ${lineRect.right}, tab right ${tabRect.right}): ${line.textContent}`
+  );
   WhimsyAgentPointer.working(tab, null);
   await closeAll(tab);
 });
