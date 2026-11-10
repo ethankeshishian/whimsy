@@ -43,6 +43,8 @@
   -moz-context-properties: fill;
   fill: var(--whimsy-emoji-muted);
   padding-inline-start: 2px;
+  align-self: center;
+  display: block;
 }
 
 .urlbarView-row[dynamicType="whimsy-emoji-grid"] {
