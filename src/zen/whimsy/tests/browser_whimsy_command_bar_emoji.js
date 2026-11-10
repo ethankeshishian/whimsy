@@ -254,28 +254,9 @@ add_task(async function test_stale_state_does_not_hijack_a_later_enter() {
   ok(el.querySelector(".whimsy-emoji-cell"), "The grid was showing");
   const url = "https://example.com/";
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: url });
-  dump(`WDIAG7 pre-enter t=${Date.now()} value=${JSON.stringify(window.gURLBar.value)} selIdx=${window.gURLBar.view.selectedRowIndex} tabCount=${gBrowser.tabs.length} curURI=${gBrowser.selectedBrowser.currentURI.spec}\n`);
-  try {
-    const detail = await UrlbarTestUtils.getDetailsOfResultAt(window, window.gURLBar.view.selectedRowIndex ?? 0);
-    dump(`WDIAG7 heuristic-result t=${Date.now()} type=${detail.type} url=${detail.url} isHeuristic=${detail.heuristic}\n`);
-  } catch (e) {
-    dump(`WDIAG7 heuristic-result ERROR ${e}\n`);
-  }
-  const onTabOpen = e => dump(`WDIAG7 TabOpen t=${Date.now()} uri=${e.target.linkedBrowser?.currentURI?.spec}\n`);
-  gBrowser.tabContainer.addEventListener("TabOpen", onTabOpen);
-  const onLocChange = () => dump(`WDIAG7 selectedBrowser-locationchange t=${Date.now()} uri=${gBrowser.selectedBrowser.currentURI.spec}\n`);
-  gBrowser.addEventListener("pagehide", onLocChange, true);
   const newTab = BrowserTestUtils.waitForNewTab(gBrowser, url, true);
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
-  dump(`WDIAG7 post-enter-sync t=${Date.now()} tabCount=${gBrowser.tabs.length} curURI=${gBrowser.selectedBrowser.currentURI.spec}\n`);
-  const sawNavOrTimeout = await Promise.race([
-    newTab.then(t => ({ tab: t })),
-    new Promise(resolve => setTimeout(() => resolve({ timedOut: true }), 8000)),
-  ]);
-  gBrowser.tabContainer.removeEventListener("TabOpen", onTabOpen);
-  gBrowser.removeEventListener("pagehide", onLocChange, true);
-  dump(`WDIAG7 after-race t=${Date.now()} timedOut=${!!sawNavOrTimeout.timedOut} tabCount=${gBrowser.tabs.length} curURI=${gBrowser.selectedBrowser.currentURI.spec}\n`);
-  const tab = sawNavOrTimeout.timedOut ? await newTab : sawNavOrTimeout.tab;
+  const tab = await newTab;
   is(gBrowser.selectedTab, tab, "Enter loaded the URL instead of being hijacked by stale grid state");
   BrowserTestUtils.removeTab(tab);
 });
