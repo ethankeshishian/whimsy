@@ -64,6 +64,26 @@ function whenAborted(signal) {
   });
 }
 
+/**
+ * A conversation as one prompt, for providers that take a single message.
+ * W24 memory: the new message is set apart and named as the one to answer;
+ * as one more "User:" line at the end of the transcript, Apple's small
+ * model often repeated its last answer instead ("Google", twice).
+ */
+function oneShotPrompt(messages) {
+  if (messages.length == 1) {
+    return textOf(messages[0].content);
+  }
+  const lastIndex = messages.at(-1)?.role == "user" ? messages.length - 1 : -1;
+  const earlier = (lastIndex < 0 ? messages : messages.slice(0, lastIndex))
+    .map(m => `${m.role == "assistant" ? "Assistant" : "User"}: ${textOf(m.content)}`)
+    .join("\n\n");
+  if (lastIndex < 0) {
+    return earlier;
+  }
+  return `The conversation so far, for context:\n\n${earlier}\n\nThe person's new message, the one to answer now:\n${textOf(messages[lastIndex].content)}`;
+}
+
 export const WhimsyAIRouter = {
   CONTINUE_PROMPT,
 
@@ -115,10 +135,7 @@ export const WhimsyAIRouter = {
       task,
       messages,
       // One-shot providers (Apple, Claude Code) and older callers read this.
-      prompt:
-        messages.length == 1
-          ? textOf(messages[0].content)
-          : messages.map(m => `${m.role == "assistant" ? "Assistant" : "User"}: ${textOf(m.content)}`).join("\n\n"),
+      prompt: oneShotPrompt(messages),
       lastUserText: textOf(last?.content ?? ""),
       system: String(req.system ?? ""),
       maxTokens: Number(req.maxTokens) || (DEEP_TASKS.has(task) ? 8192 : 1024),

@@ -30,15 +30,73 @@ const MAX_MEMORIES = 500;
 const ICONS = "chrome://browser/content/whimsy/icons/";
 const SYSTEM_PROMPT =
   "From this one message the person wrote, pull stable facts worth remembering about them for future conversations: " +
-  "their name, role, preferences, ongoing projects, people, and places they mention. Skip anything one-off, " +
-  "sensitive (health, finances, political or religious views), or already obvious from the question itself. " +
+  "their name, role, preferences, ongoing projects, people, and places they mention. Most messages hold none: a question " +
+  "about a page, a tab, the browser, or the world says nothing about the person, so answer [] for it. Skip anything one-off, " +
+  "sensitive (health, finances, political or religious views), or already obvious from the question itself. Never guess, " +
+  "never fill in a category the message doesn't mention, and never write placeholders like \"none\". " +
   "Answer with nothing but a JSON array of short strings, one per fact, in the person's own words where " +
   "possible. Only what the person says about themselves counts. Answer [] when nothing in this message is worth saving.";
+
+// W24 memory: words that carry no fact on their own, for matching a
+// fact back to the message and a memory to a question.
+const STOP_WORDS = new Set(
+  ("the and for are but not you your yours with this that these those what which who whom whose when where why how " +
+    "was were has have had does did done can could should would will shall may might must from into onto about " +
+    "than then them they their there here its it's i'm i've i'd i'll im ive me my mine myself we we're our ours " +
+    "is am be been being do just also very really any some all one tell show give get got let make please " +
+    "tab tabs page pages site website web browser whimsy on in at to of a an or so if").split(" ")
+);
+// Words a model writes when it fills in a category instead of quoting the
+// person ("Name: Sam", "Places: none mentioned"); they never ground a fact.
+const LABEL_WORDS = new Set(
+  "name names role roles preference preferences project projects ongoing people person place places mentioned none fact facts".split(" ")
+);
+// Question inversions ("am I on", "do I have") aren't the person saying
+// something about themselves.
+const INVERSION = /\b(?:am|are|do|does|did|can|could|should|would|will|was|were|have|has|had|shall|may|might|must)\s+(?:i|we)\b/g;
+const SELF_STATEMENT = /\b(?:i|i'm|im|i've|i'd|i'll|my|mine|myself|we|we're|we've|our|ours|call me|remember)\b/;
+const PLACEHOLDER = /\b(?:none|n\/a|unknown|not (?:mentioned|specified|provided|given)|no \w+(?: \w+)? (?:is |are )?mentioned)\b|\b(?:an ai|ai assistant|language model|foundation model)\b/i;
 
 let inited = false;
 
 function normalize(text) {
-  return String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  return String(text ?? "").trim().toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, " ");
+}
+
+// "lives" and "live", "cats" and "cat" count as the same word.
+function stem(word) {
+  return word.length > 3 ? word.replace(/(?:ies|es|s)$/, "") : word;
+}
+
+function contentWords(text, extra = null) {
+  return normalize(text)
+    .split(/[^\p{L}\p{N}']+/u)
+    .map(w => w.replace(/^'+|'+$/g, ""))
+    .filter(w => w.length > 2 && !STOP_WORDS.has(w) && !extra?.has(w))
+    .map(stem);
+}
+
+/**
+ * W24 memory: whether a message says anything about the person at all.
+ * Questions about a page, a tab, or the world ("what's on this tab",
+ * "what website am I on") don't, so they never cost a model call.
+ */
+export function mentionsSelf(text) {
+  return SELF_STATEMENT.test(normalize(text).replace(INVERSION, " "));
+}
+
+/**
+ * W24 memory: a fact the model returned is kept only when it's grounded in
+ * the person's words (shares a real word with them) and isn't a filled-in
+ * category or placeholder. Small models answer every category in the
+ * prompt with invented facts ("Name: Sam", "Places: none mentioned").
+ */
+function grounded(fact, userText) {
+  if (PLACEHOLDER.test(fact)) {
+    return false;
+  }
+  const said = new Set(contentWords(userText));
+  return contentWords(fact, LABEL_WORDS).some(w => said.has(w));
 }
 
 function uid() {
@@ -210,7 +268,11 @@ export const WhimsyAIMemory = {
     return entry;
   },
 
-  /** Facts worth offering a prompt about `text`; most relevant first, capped. */
+  /**
+   * Facts worth offering a prompt about `text`; most relevant first,
+   * capped. A question about memory itself gets the newest ones, since
+   * every memory is relevant to it.
+   */
   async forPrompt(text, { limit = 8 } = {}) {
     if (!this.on) {
       return [];
@@ -219,10 +281,35 @@ export const WhimsyAIMemory = {
     if (!all.length) {
       return [];
     }
-    const words = normalize(text).split(/\W+/).filter(w => w.length > 2);
-    const scored = all.map(m => ({ m, score: words.filter(w => normalize(m.text).includes(w)).length }));
+    if (this.isAboutMemory(text)) {
+      return all.slice(0, limit);
+    }
+    const words = new Set(contentWords(text));
+    const scored = all.map(m => ({ m, score: contentWords(m.text).filter(w => words.has(w)).length }));
     const matched = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score).map(s => s.m);
     return (matched.length ? matched : all).slice(0, limit);
+  },
+
+  /** Whether a message asks about memory itself ("what have you saved"). */
+  isAboutMemory(text) {
+    return /\b(?:memor(?:y|ies)|remember(?:ed|s)?|saved?|forget|forgot)\b/.test(normalize(text));
+  },
+
+  /**
+   * What memory saved from this thread and still keeps (not undone or
+   * deleted), oldest first: [{id, text}].
+   */
+  async savedIn(threadId) {
+    if (!threadId) {
+      return [];
+    }
+    const notes = (await lazy.WhimsyAIStore.messages(threadId).catch(() => []))
+      .filter(m => m.role == "note" && m.kind == "memory-saved" && !m.undone);
+    if (!notes.length) {
+      return [];
+    }
+    const kept = new Map((await this.list()).map(m => [m.id, m]));
+    return notes.flatMap(n => n.memoryIds ?? []).filter(id => kept.has(id)).map(id => ({ id, text: kept.get(id).text }));
   },
 
   /**
@@ -239,7 +326,7 @@ export const WhimsyAIMemory = {
     // L1: only the person's own words. The answer can echo a page's text
     // (or an injection in it), so it's never a source of facts.
     const userText = String(exchange?.userText ?? "").trim();
-    if (!userText) {
+    if (!userText || !mentionsSelf(userText)) {
       return [];
     }
     let facts;
@@ -260,8 +347,16 @@ export const WhimsyAIMemory = {
     if (signal?.aborted) {
       return [];
     }
+    // Only facts the person said, each once: one already kept isn't saved
+    // (or announced) again.
+    const known = new Set((await entries()).map(m => normalize(m.text)));
     const saved = [];
     for (const fact of facts) {
+      const key = normalize(fact);
+      if (known.has(key) || !grounded(fact, userText)) {
+        continue;
+      }
+      known.add(key);
       const entry = await this.save(fact, { source: threadId });
       if (entry) {
         saved.push(entry);

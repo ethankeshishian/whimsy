@@ -1168,15 +1168,33 @@ class ChatPanel {
     return null;
   }
 
-  systemPrompt(page, extra = [], memories = []) {
+  /**
+   * The chat's instructions. `memory` ({saved}, when memory is on for this
+   * answer) explains Whimsy's memory and lists what this conversation
+   * saved, so questions about memory get a real answer; `tab` ({title,
+   * url}) names a tab whose text can't be read (a browser page).
+   */
+  systemPrompt(page, extra = [], memories = [], { memory = null, tab = null } = {}) {
     const lines = [
       "You are the chat in Whimsy, a web browser. Answer plainly and briefly, in the language the person writes in.",
     ];
-    if (memories.length) {
+    if (memory) {
+      const saved = memory.saved ?? [];
       lines.push(
         "",
-        "Stable facts you already know about this person (use only if relevant to the question; never list them unprompted):",
-        ...memories.map(m => `- ${m.text}`)
+        "Whimsy has a memory: after a chat answer it saves short, stable facts the person tells you about themselves, and it gives you the ones relevant to each question. The person can see, edit, and delete them in Settings > AI > Memory. When they ask what you remember, saved, or used, answer from the two lists below, and say so plainly when a list is empty.",
+        memories.length ? "Memories given to you for this answer (use them only when they help; don't bring them up otherwise):" : "Memories given to you for this answer: none.",
+        ...memories.map(m => `- ${m.text}`),
+        saved.length ? "Saved to memory earlier in this conversation:" : "Saved to memory earlier in this conversation: nothing.",
+        ...saved.map(m => `- ${m.text}`)
+      );
+    }
+    if (!page && tab) {
+      lines.push(
+        "",
+        `The person's tab is a browser page whose text you can't read. Page title: ${tab.title || "(none)"}`,
+        `Address: ${tab.url}`,
+        'When they ask about "this page" or "this tab", say which page it is from its title and address, and that you can\'t read browser pages.'
       );
     }
     if (page) {
@@ -1286,11 +1304,20 @@ class ChatPanel {
         asker.content = [{ type: "text", text: asker.content }, ...opts.images];
       }
       // Memory: never for a private tab, and only the facts worth this question.
-      if (!opts.textOnly && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
+      const ownTab = thread.kind == "tab" ? lazy.WhimsyChatThreads.tabOf(thread) : null;
+      let memory = null;
+      if (!opts.textOnly && !lazy.WhimsyAIContext.isPrivate(ownTab ?? this.currentTab) && lazy.WhimsyAIMemory.on) {
         const lastUser = history.findLast(m => m.role == "user")?.content ?? "";
         memories = await lazy.WhimsyAIMemory.forPrompt(typeof lastUser == "string" ? lastUser : "");
+        memory = { saved: await lazy.WhimsyAIMemory.savedIn(thread.id) };
       }
-      const system = this.systemPrompt(page, extra, memories);
+      // A browser page (about:, the Library) has no readable text, but the
+      // model still hears which page it is, so "what's on this tab" isn't
+      // answered "nothing".
+      const tab = !page && ownTab && !isWebTab(ownTab) && !lazy.WhimsyAIContext.isOffLimits(ownTab) && !lazy.WhimsyAIContext.isPrivate(ownTab)
+        ? { title: ownTab.label, url: ownTab.linkedBrowser?.currentURI?.spec ?? "" }
+        : null;
+      const system = this.systemPrompt(page, extra, memories, { memory, tab });
       needs = opts.textOnly ? { chars: system.length } : { ...lazy.WhimsyChatContextUI.needsOf(context ?? {}, system), ...(opts.needs ?? {}) };
       const choice = lazy.WhimsyChatAnswer.choiceFor(thread);
       const provider = opts.provider ?? (choice.provider != "auto" ? choice.provider : undefined);
@@ -1367,7 +1394,10 @@ class ChatPanel {
     if (saved?.role == "ai" && !opts.continueFrom && !opts.instruction) {
       language = await this.languageOffer(thread, context);
     }
-    if (saved?.role == "ai" && !saved.partial && !opts.continueFrom && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
+    // Memory never reads a private tab's chat: the thread's own tab decides,
+    // not whichever tab is selected by the time the answer lands.
+    const answeredTab = thread.kind == "tab" ? lazy.WhimsyChatThreads.tabOf(thread) : null;
+    if (saved?.role == "ai" && !saved.partial && !opts.continueFrom && !lazy.WhimsyAIContext.isPrivate(answeredTab ?? this.currentTab)) {
       this.noteMemory(thread, saved);
     }
     if (this.thread?.id == thread.id) {
