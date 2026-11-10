@@ -51,9 +51,16 @@ let nextQuery = 0;
 // WhimsyCommandBarAI's Ask card, the grid is drawn straight into the row's
 // element rather than through the view's Fluent-attribute diffing.
 const states = new WeakMap();
+// The mounted card element and pending render, per window — a WeakMap
+// rather than properties on the chrome window, which a test's leak check
+// flags as left behind.
+const mounts = new WeakMap();
 
-function topWindow() {
-  return lazy.BrowserWindowTracker.getTopWindow();
+// options.private, when given, is exact: `"private" in options` alone (even
+// undefined) would stop BrowserWindowTracker from matching any window, so
+// the key is only present when the caller actually knows which side.
+function topWindow(isPrivate) {
+  return lazy.BrowserWindowTracker.getTopWindow(typeof isPrivate == "boolean" ? { private: isPrivate } : {});
 }
 
 function featureOn() {
@@ -139,7 +146,7 @@ export class WhimsyEmojiProvider extends UrlbarProvider {
   }
 
   async startQuery(context, addCallback) {
-    const win = topWindow();
+    const win = topWindow(context.isPrivate);
     const state = computeState(context.searchString.slice(1));
     if (win) {
       states.set(win, state);
@@ -195,7 +202,7 @@ export const WhimsyEmoji = {
     if (panel && !panel._whimsyEmojiObserver) {
       panel._whimsyEmojiObserver = new win.MutationObserver(() => {
         const card = panel.querySelector(".whimsy-emoji-card");
-        if (card && card != win._whimsyEmojiEl) {
+        if (card && card != mounts.get(win)?.el) {
           this.mountGrid(win, card);
         }
       });
@@ -203,7 +210,7 @@ export const WhimsyEmoji = {
       panel.addEventListener("popuphidden", event => {
         if (event.target == panel) {
           states.delete(win);
-          win._whimsyEmojiEl = null;
+          mounts.delete(win);
         }
       });
     }
@@ -228,7 +235,7 @@ export const WhimsyEmoji = {
   },
 
   mountGrid(win, el) {
-    win._whimsyEmojiEl = el;
+    mounts.set(win, { ...mounts.get(win), el });
     const state = states.get(win);
     if (state) {
       this.render(win, state);
@@ -236,21 +243,22 @@ export const WhimsyEmoji = {
   },
 
   scheduleRender(win) {
-    if (win._whimsyEmojiRaf) {
+    if (mounts.get(win)?.raf) {
       return;
     }
-    win._whimsyEmojiRaf = win.requestAnimationFrame(() => {
-      win._whimsyEmojiRaf = 0;
+    const raf = win.requestAnimationFrame(() => {
+      mounts.set(win, { ...mounts.get(win), raf: 0 });
       const state = states.get(win);
-      const el = win._whimsyEmojiEl;
+      const el = mounts.get(win)?.el;
       if (state && el?.isConnected) {
         this.render(win, state);
       }
     });
+    mounts.set(win, { ...mounts.get(win), raf });
   },
 
   render(win, state) {
-    const el = win._whimsyEmojiEl;
+    const el = mounts.get(win)?.el;
     if (!el?.isConnected) {
       return;
     }

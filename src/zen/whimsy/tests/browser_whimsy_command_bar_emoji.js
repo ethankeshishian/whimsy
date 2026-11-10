@@ -36,6 +36,21 @@ function closeBar(win = window) {
   win.gURLBar.handleRevert();
 }
 
+// On https (matching the WhimsyEmoji actor's registration; a data: URL
+// doesn't), with one focused element already in it.
+async function openFieldTab(tagHtml, id) {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  await SpecialPowers.spawn(tab.linkedBrowser, [tagHtml, id], (html, elId) => {
+    content.document.body.insertAdjacentHTML("beforeend", html);
+    content.document.getElementById(elId).focus();
+  });
+  return tab;
+}
+
+async function fieldValue(tab, id) {
+  return SpecialPowers.spawn(tab.linkedBrowser, [id], elId => content.document.getElementById(elId).value);
+}
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [[FEATURE, true]] });
   WhimsyEmojiFrequent.clear();
@@ -66,45 +81,39 @@ add_task(async function test_grid_geometry_and_footer() {
 });
 
 add_task(async function test_insert_into_focused_textarea_and_undo() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/html,<textarea id=t></textarea>");
+  WhimsyEmojiFrequent.clear();
+  const tab = await openFieldTab("<textarea id=t></textarea>", "t");
   try {
-    await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("t").focus());
     await openEmoji("party");
     EventUtils.synthesizeKey("KEY_ArrowRight", {}, window);
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
-    await TestUtils.waitForCondition(
-      async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("t").value)) == PARTY,
-      "Enter typed the emoji into the focused textarea"
-    );
+    await TestUtils.waitForCondition(async () => (await fieldValue(tab, "t")) == PARTY, "Enter typed the emoji into the focused textarea");
     await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
       content.document.getElementById("t").focus();
       content.document.execCommand("undo");
     });
-    await TestUtils.waitForCondition(
-      async () => (await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("t").value)) == "",
-      "Undo removed it"
-    );
+    await TestUtils.waitForCondition(async () => (await fieldValue(tab, "t")) == "", "Undo removed it");
   } finally {
     BrowserTestUtils.removeTab(tab);
   }
 });
 
 add_task(async function test_password_field_copies_instead() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/html,<input id=p type=password>");
+  WhimsyEmojiFrequent.clear();
+  const tab = await openFieldTab("<input id=p type=password>", "p");
   try {
-    await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("p").focus());
     await openEmoji("party");
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
     await TestUtils.waitForCondition(() => SpecialPowers.getClipboardData("text/plain") == PARTY, "Copied instead of typed");
-    const value = await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("p").value);
-    is(value, "", "Never typed into the password field");
+    is(await fieldValue(tab, "p"), "", "Never typed into the password field");
   } finally {
     BrowserTestUtils.removeTab(tab);
   }
 });
 
 add_task(async function test_no_focus_copies_and_toasts() {
+  WhimsyEmojiFrequent.clear();
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/html,<body></body>");
   try {
     await openEmoji("party");
@@ -125,6 +134,7 @@ add_task(async function test_nonsense_offers_web_search() {
 });
 
 add_task(async function test_frequent_first_and_not_from_private() {
+  WhimsyEmojiFrequent.clear();
   const privWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
   try {
     await openEmoji("rocket", privWin);
@@ -147,20 +157,17 @@ add_task(async function test_frequent_first_and_not_from_private() {
 });
 
 add_task(async function test_skin_tone_applied() {
+  WhimsyEmojiFrequent.clear();
   await SpecialPowers.pushPrefEnv({ set: [[TONE_PREF, 3]] });
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/html,<textarea id=t></textarea>");
+  const tab = await openFieldTab("<textarea id=t></textarea>", "t");
   try {
-    await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("t").focus());
     await openEmoji("thumb up");
     ok(window.gURLBar.view.panel.querySelector(".whimsy-emoji-cell"), "Thumbs up is found");
     EventUtils.synthesizeKey("KEY_Tab", {}, window);
     await TestUtils.waitForCondition(() => card().querySelector(".whimsy-emoji-tone.on"), "The tone row opened on the saved tone");
     EventUtils.synthesizeKey("KEY_Enter", {}, window);
     await TestUtils.waitForCondition(
-      async () => {
-        const value = await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("t").value);
-        return value.includes("\u{1F3FD}"); // medium skin tone modifier
-      },
+      async () => (await fieldValue(tab, "t")).includes("\u{1F3FD}"), // medium skin tone modifier
       "The chosen skin tone was typed"
     );
   } finally {
