@@ -1,0 +1,17 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+/* Imported inside Firefox's VPN content shadow root. The panel view owns
+ * the shared inset and bottom padding; its content owns the section gaps. */
+:host([whimsy-vpn-layout]) #ipprotection-content-wrapper {
+  --whimsy-vpn-section-gap: var(--space-small);
+  margin: 0;
+  padding: 0;
+  gap: var(--whimsy-vpn-section-gap);
+}
+
+:host([whimsy-vpn-layout]) #ipprotection-content-wrapper > ipprotection-status-card,
+:host([whimsy-vpn-layout]) #ipprotection-content-wrapper > .vpn-bottom-content {
+  margin-block: 0;
+}

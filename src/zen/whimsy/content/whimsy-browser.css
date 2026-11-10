@@ -1906,7 +1906,8 @@ tab[whimsy-devmode][selected] {
 .whimsy-vpn-panel-section {
   display: flex;
   flex-direction: column;
-  padding: var(--arrowpanel-padding, 8px);
+  /* The native panel view owns the inset; its wrapper owns section gaps. */
+  padding: 0;
 }
 .whimsy-vpn-scope-heading {
   margin-bottom: 4px;

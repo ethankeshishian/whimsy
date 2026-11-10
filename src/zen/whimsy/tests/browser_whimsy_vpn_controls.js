@@ -317,6 +317,57 @@ add_task(async function test_panel_section() {
   }
 });
 
+add_task(async function test_panel_shared_inset_and_spacing() {
+  const { WhimsyVPNScope } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPNScope.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["browser.ipProtection.features.siteInclusions", false],
+    [WhimsyVPNScope.FEATURE, true],
+    [WhimsyVPNScope.PREF, ""],
+  ] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  let popup;
+  try {
+    WhimsyVPN.endHold();
+    setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+    await whimsyBothSchemes("w24-uifix2-vpn-panel", async () => {
+      popup = await openVpnPanel();
+      const content = popup.querySelector("ipprotection-content");
+      await content.updateComplete;
+      const root = content.shadowRoot;
+      const card = root.querySelector("ipprotection-status-card");
+      const settings = root.querySelector("#vpn-settings-button");
+      await Promise.all([card.updateComplete, settings.updateComplete]);
+      await document.l10n.translateFragment(content);
+      const group = content.querySelector(".whimsy-vpn-panel-group");
+      const view = document.getElementById("PanelUI-ipprotection");
+      ok(card.checkVisibility() && group.checkVisibility() && settings.checkVisibility(),
+        "All three sections are visible in the open panel");
+      const cardRect = card.getBoundingClientRect();
+      const groupRect = group.getBoundingClientRect();
+      const settingsRect = settings.getBoundingClientRect();
+      is(groupRect.left, cardRect.left, "Scope group shares the status card's left inset");
+      is(settingsRect.left, cardRect.left, "Settings shares the status card's left inset");
+      const gap = groupRect.top - cardRect.bottom;
+      Assert.greater(gap, 0, "Sections have a visible gap");
+      is(settingsRect.top - groupRect.bottom, gap, "Both section gaps are equal");
+      is(view.getBoundingClientRect().bottom - settingsRect.bottom, gap,
+        "Bottom padding equals the section gap");
+
+      const removeStandIn = whimsyStandInPopups();
+      return async () => {
+        removeStandIn();
+        await closeVpnPanel(popup);
+      };
+    });
+  } finally {
+    if (popup) {
+      await closeVpnPanel(popup);
+    }
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // A long profile name has room: it wraps before anything is cut off, and
 // the tooltip carries the full name.
 add_task(async function test_panel_section_long_profile_name() {
