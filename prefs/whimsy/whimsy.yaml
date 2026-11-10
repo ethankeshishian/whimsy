@@ -879,3 +879,8 @@
 # isn't read), so the limit is 0.
 - name: pdfjs.featuresNotificationImpressionLimit
   value: 0
+
+# W24 annotations: last highlight color chosen ("yellow", "green", "blue", "pink").
+- name: whimsy.annotations.color
+  value: "yellow"
+

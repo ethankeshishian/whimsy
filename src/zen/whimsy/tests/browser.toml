@@ -1159,3 +1159,7 @@ support-files = ["whimsy_secfix_late_scam.html", "whimsy_secfix_scam_frame.html"
 support-files = ["whimsy_secfix_inject.html", "whimsy_secfix2_links.html", "whimsy_secfix2_redirect.sjs"]
 ["browser_whimsy_secfix2_page.js"]
 support-files = ["whimsy_secfix2_codes.html"]
+
+# W24 annotations: page highlights in four colors, passage notes, one note per page, revisit cue, Fire, private browsing.
+["browser_whimsy_annotations.js"]
+

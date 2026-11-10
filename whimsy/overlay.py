@@ -1850,6 +1850,9 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r"(?i)(accel|cmd)[-_]?digit[-_]?row|row[-_]?numbers")]},
     {"id": "command-bar-vpn-strip", "title": "VPN status strip along the bottom of the command bar's results while the VPN is on",
      "detect": [("src/zen", r"(?i)zen[-_.]?vpn[-_.]?(status|strip)")]},
+    # W24 annotations
+    {"id": "annotations", "title": "Annotations: highlight passages in four colors and keep a note on any page",
+     "detect": [("src/zen", r"(?i)zen[-_.]?annotations?\b")]},
 ]
 
 

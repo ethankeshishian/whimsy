@@ -377,6 +377,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave5: Easel.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
+  WhimsyAnnotations: "resource:///modules/whimsy/WhimsyAnnotations.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -486,6 +487,18 @@ export const Whimsy = {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs" },
       child: { esModuleURI: "resource:///modules/whimsy/WhimsyEmojiChild.sys.mjs" },
       matches: ["https://*/*", "http://*/*", "file:///*"],
+      safeForUntrustedWebProcess: true,
+    });
+
+    // W24 annotations: page highlights and notes.
+    ChromeUtils.registerWindowActor("WhimsyAnnotations", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAnnotations.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyAnnotationsChild.sys.mjs",
+        events: { DOMContentLoaded: {}, pageshow: {} },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*", "data:*"],
+      messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
 
@@ -1200,6 +1213,12 @@ export const Whimsy = {
     // wave5: Easel (Arc's Easels). Always installed: the command, the
     // capture button and the page each check whimsy.feature.easel on use.
     run("easel", () => lazy.WhimsyEasel.initWindow(win));
+
+    // W24 annotations: page highlights and notes.
+    run("annotations", () => {
+      lazy.WhimsyAnnotations.init();
+      lazy.WhimsyAnnotations.initWindow(win);
+    });
 
     this.runDeferred(win, deferred, run);
   },
