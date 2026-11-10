@@ -1073,6 +1073,12 @@ support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
 ["browser_whimsy_screens_w23_agent-chat.js"]
 support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
 
+# W24 agentdone: the agent never reports success for an unmet goal (the
+# outcome check, a named open tab over a new one, the repeat guard, the run
+# card's step, the disclosure chevron, the provider-sized history).
+["browser_whimsy_agent_done.js"]
+support-files = ["whimsy_agent_search.html"]
+
 # W23 agent-tabs: the Drive look (glow, pointer, target, working line), the
 # unpinned task folder for background tabs (dissolves like Zap), collisions,
 # needs-you, and the agent badge; plus this lane's screenshots.

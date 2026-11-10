@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Search</title>
+<style>body { font: 14px sans-serif; margin: 20px; } form { margin: 12px 0; }</style>
+</head>
+<body>
+<!-- W24 agentdone: a local search engine. ?engine= names it (the tab's
+     title); the form submits to this page with ?q=, which shows results.
+     The lone box outside the form has nothing to submit to. -->
+<h1 id="engine">Search</h1>
+<form id="search" role="search" method="get">
+  <input id="engine-field" type="hidden" name="engine">
+  <label>Search <input id="q" type="search" name="q" autocomplete="off"></label>
+  <button type="submit">Search</button>
+</form>
+<label>Notes <input id="notes" type="text" autocomplete="off"></label>
+<p id="results"></p>
+<script>
+  const params = new URLSearchParams(location.search);
+  const engine = params.get("engine") || "Search";
+  document.title = engine;
+  document.getElementById("engine").textContent = engine;
+  document.getElementById("engine-field").value = engine;
+  if (params.get("q")) {
+    document.getElementById("results").textContent = `Results for ${params.get("q")}`;
+  }
+</script>
+</body>
+</html>
