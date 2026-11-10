@@ -526,6 +526,9 @@ export const WhimsyCommandBarAI = {
     lazy.WhimsyAIUpdates.setRecentAnswer(null);
     lazy.WhimsyAIHints.used("ask");
     const card = new Card(win, question, { scope: scope ?? (prompt ? null : scopeOf(question)), provider, prompt });
+    // A fast stream can finish before the first text render. It is still a
+    // new answer; only restored cards should skip the initial word fade.
+    card.drawn = 0;
     cards.set(win, card);
     this.enterMode(win);
     this.requery(win);
