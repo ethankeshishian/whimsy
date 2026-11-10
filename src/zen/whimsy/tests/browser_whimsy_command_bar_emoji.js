@@ -153,6 +153,22 @@ add_task(async function test_identity_icon_hidden_behind_grid() {
   await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes");
 });
 
+add_task(async function test_late_card_after_close_does_not_leave_marker() {
+  // A card that lands in the view after the bar has closed (a query that
+  // finished late) must not leave #urlbar marked as open, which would keep
+  // the page's identity icon hidden.
+  await openEmoji("party");
+  const urlbar = window.document.getElementById("urlbar");
+  const card = window.gURLBar.view.panel.querySelector(".whimsy-emoji-card");
+  closeBar();
+  await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off on close");
+  const late = card.cloneNode(false);
+  window.gURLBar.view.panel.append(late);
+  await new Promise(r => window.requestAnimationFrame(() => window.requestAnimationFrame(r)));
+  ok(!urlbar.hasAttribute("whimsy-emoji-open"), "A late card in a closed view doesn't mark the bar open");
+  late.remove();
+});
+
 add_task(async function test_footer_label_reflects_insert_target() {
   const typeLabel = () => card().querySelector(".whimsy-emoji-footer-keys > span:first-child > span")?.getAttribute("data-l10n-id");
   const shortcutSpans = () => card().querySelectorAll(".whimsy-emoji-footer-keys > span").length;

@@ -294,6 +294,16 @@ export const WhimsyEmoji = {
     // the input and the view panel separately), so that :has() selector
     // never actually matched and never hid the page's real identity icon.
     win.document.getElementById("urlbar")?.setAttribute("whimsy-emoji-open", "");
+    // A query that finishes after the bar closed can still insert the card
+    // into the (closed) view, and the observer then mounts it here. Results
+    // and the panel opening land in the same task, so by the next frame a
+    // live session's view is open; a stale mount is undone, or the identity
+    // icon would stay hidden on the page after the bar is gone.
+    win.requestAnimationFrame(() => {
+      if (!win.gURLBar?.view.isOpen && mounts.get(win)?.el == el) {
+        this.unmountGrid(win);
+      }
+    });
     const state = states.get(win);
     if (state) {
       this.render(win, state);
