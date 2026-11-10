@@ -153,33 +153,6 @@ add_task(async function test_identity_icon_hidden_behind_grid() {
   await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes");
 });
 
-// TEMPORARY DIAGNOSTIC — W24 emoji4, reverted before this lane finishes.
-add_task(async function test_zzz_temp_diag_identity_icon() {
-  await openEmoji("party");
-  const win = window;
-  const identityBox = win.document.getElementById("identity-box");
-  const icon = win.document.getElementById("identity-icon");
-  const iconBox = win.document.getElementById("identity-icon-box");
-  const boxRect = identityBox.getBoundingClientRect();
-  const topEl = win.document.elementFromPoint(boxRect.left + boxRect.width / 2, boxRect.top + boxRect.height / 2);
-  info("WDIAG class=" + identityBox.className + " pageproxystate=" + identityBox.getAttribute("pageproxystate"));
-  info("WDIAG boxRect=" + JSON.stringify(boxRect));
-  info("WDIAG topEl=" + (topEl ? `${topEl.tagName}#${topEl.id} .${topEl.className}` : "null"));
-  info("WDIAG icon display=" + win.getComputedStyle(icon).display + " rect=" + JSON.stringify(icon.getBoundingClientRect()));
-  info("WDIAG iconBox display=" + win.getComputedStyle(iconBox).display + " rect=" + JSON.stringify(iconBox.getBoundingClientRect()));
-  for (const [name, el] of [["icon", icon], ["iconBox", iconBox], ["box", identityBox]]) {
-    const rules = InspectorUtils.getCSSStyleRules(el);
-    for (const rule of rules) {
-      const href = rule.parentStyleSheet && rule.parentStyleSheet.href;
-      const disp = rule.style.getPropertyValue("display");
-      if (disp) {
-        info(`WDIAG ${name} rule="${rule.selectorText}" display=${disp} prio=${rule.style.getPropertyPriority("display")} href=${href}`);
-      }
-    }
-  }
-  closeBar();
-});
-
 add_task(async function test_footer_label_reflects_insert_target() {
   const typeLabel = () => card().querySelector(".whimsy-emoji-footer-keys > span:first-child > span")?.getAttribute("data-l10n-id");
   const shortcutSpans = () => card().querySelectorAll(".whimsy-emoji-footer-keys > span").length;
