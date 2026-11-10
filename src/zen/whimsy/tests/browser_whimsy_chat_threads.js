@@ -272,9 +272,11 @@ add_task(async function new_chat_and_title() {
   is(parts(".whimsy-chat-suggest button").length, 3, "with three suggestions");
   const suggestion = parts(".whimsy-chat-suggest button")[0];
   EventUtils.synthesizeMouseAtCenter(suggestion, {});
-  is(chat().composer.value, suggestion.textContent, "A suggestion fills the composer");
-  is(calls.filter(c => c.request.lastUserText == suggestion.textContent).length, 0, "and doesn't send");
-  chat().composer.value = "";
+  // W24 item 12: a starter suggestion sends straight away.
+  const text = suggestion.textContent;
+  await TestUtils.waitForCondition(() => calls.some(c => c.request.lastUserText == text), "A suggestion sends at once");
+  await TestUtils.waitForCondition(() => parts(".whimsy-chat-msg[data-role='ai']:not([busy])").length, "and is answered");
+  is(chat().composer.value, "", "leaving the composer empty");
   await send("first");
   EventUtils.synthesizeMouseAtCenter(part("#whimsy-chat-new-button"), {});
   await TestUtils.waitForCondition(() => !parts(".whimsy-chat-msg").length, "New chat starts empty");
