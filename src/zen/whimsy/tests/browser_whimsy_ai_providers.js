@@ -519,7 +519,10 @@ add_task(async function test_settings_card() {
   const addButton = await TestUtils.waitForCondition(() => $("whimsyAISetUp") ?? $("whimsyAIAddProvider"), "Add a provider is offered");
   click(addButton);
   const add = await sheetFor("add-provider");
-  await TestUtils.waitForCondition(() => add.querySelector(".whimsy-ai-choice"), "the choices are populated");
+  // The four non-Apple choices paint right away; Apple's needs an async
+  // eligibility check (W24 uipolish #1), so wait for all five rather than
+  // just the first choice to exist.
+  await TestUtils.waitForCondition(() => add.querySelectorAll(".whimsy-ai-choice").length == 5, "the choices are populated, Apple included once its check resolves");
   await settled();
   // Five providers, in order, each a packaged SVG.
   const choices = [...add.querySelectorAll(".whimsy-ai-choice")];
@@ -649,7 +652,8 @@ add_task(async function test_settings_actions_and_plan_rows() {
   // Connect a provider: the sheet lists every provider not yet connected.
   WhimsyAIProviders.openSettings(null, "add-provider");
   const add = await sheetFor("add-provider");
-  await TestUtils.waitForCondition(() => add.querySelector(".whimsy-ai-choice"), "the choices are populated");
+  // Same wait as above: Apple's choice lands after an async check.
+  await TestUtils.waitForCondition(() => add.querySelectorAll(".whimsy-ai-choice").length == 5, "the choices are populated, Apple included once its check resolves");
   await settled();
   Assert.deepEqual([...add.querySelectorAll(".whimsy-ai-choice:not([aria-disabled])")].map(c => c.dataset.provider), ["apple", "claude", "openai", "gemini", "ollama"], "all of them, nothing connected yet");
   click(add.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
