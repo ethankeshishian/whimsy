@@ -36,6 +36,7 @@ const FEATURE_PREF = "whimsy.feature.ai-chat";
 const AI_PREF = "whimsy.ai.enabled";
 const SIDE_PREF = "whimsy.chat.side";
 const WIDTH_PREF = "whimsy.chat.width";
+const HOVER_PREF = "whimsy.ai.chat.edge-hover";
 const OFF_TOAST_PREF = "whimsy.chat.ai-off-toast-seen";
 const SETUP_URL = "about:preferences?sheet=add-provider#whimsyAI";
 
@@ -347,6 +348,9 @@ class ChatPanel {
       this.panel
     );
     this.el.setAttribute("role", "complementary");
+    for (const type of ["focusin", "input", "click", "contextmenu", "dragenter", "drop"]) {
+      this.el.addEventListener(type, () => this.engage(), true);
+    }
     this.buildHeadMenu();
     this.layout();
   }
@@ -444,7 +448,7 @@ class ChatPanel {
     this.el.toggleAttribute("lead", side == "left" && doc.documentElement.getAttribute("zen-right-side") == "true");
     const width = this.width();
     this.el.style.setProperty("--whimsy-chat-width", `${width}px`);
-    this.el.toggleAttribute("overlay", wrapper.getBoundingClientRect().width - width - GAP < MIN_PAGE);
+    this.el.toggleAttribute("overlay", this.peeking || wrapper.getBoundingClientRect().width - width - GAP < MIN_PAGE);
   }
 
   startDrag(event) {
@@ -529,6 +533,229 @@ class ChatPanel {
     this.layout();
   }
 
+  // ---- Window-edge peek ----
+
+  clearHoverTimers() {
+    this.win.clearTimeout(this.hoverEnter);
+    this.win.clearTimeout(this.hoverLeave);
+    this.hoverEnter = this.hoverLeave = null;
+  }
+
+  engage() {
+    if (!this.peeking || !this._open) {
+      return;
+    }
+    this.clearHoverTimers();
+    this.peeking = false;
+    this.el.removeAttribute("peek");
+    for (const a of this.animations()) {
+      a.cancel();
+    }
+    this.layout();
+  }
+
+  hoverBlocked() {
+    const compact = this.win.gZenCompactModeManager;
+    return !featureOn() || !lazy.WhimsyAI.enabled ||
+      !Services.prefs.getBoolPref(HOVER_PREF, true) ||
+      this.pointerDown || this.draggingOutside ||
+      this.doc.documentElement.hasAttribute("inDOMFullscreen") ||
+      Services.focus.activeWindow != this.win ||
+      this.doc.querySelector("menupopup[open], panel[open], dialog[open], #urlbar[open], [popover]:popover-open, .whimsy-chat-menu, .whimsy-chat-sheet") ||
+      // XUL panels (e.g. tabgroup-preview-panel) can have role=menu with
+      // no hidden attribute even while closed. Their popup state below,
+      // rather than their ARIA role, determines whether they block a peek.
+      [...this.doc.querySelectorAll("[role='menu']")].some(p =>
+        p.namespaceURI == HTML_NS && p.checkVisibility({ checkVisibilityCSS: true })) ||
+      [...this.doc.querySelectorAll("menupopup, panel")].some(p => p.state == "open" || p.state == "showing") ||
+      (compact?.sidebarIsOnRight ? this.side == "right" : this.side == "left");
+  }
+
+  onHoverMove(event) {
+    const compact = this.win.gZenCompactModeManager;
+    if (!compact || (this._open && !this.peeking)) {
+      return;
+    }
+    const edge = compact._getCrossedEdge(event.clientX, event.clientY) == this.side;
+    const inside = this._open && this.el.contains(event.target);
+    if (!edge && !this._open) {
+      this.win.clearTimeout(this.hoverEnter);
+      this.hoverEnter = null;
+      return;
+    }
+    if (event.buttons || this.hoverBlocked()) {
+      this.clearHoverTimers();
+      if (this.peeking && this._open) {
+        this.close({ reason: "hover" });
+      }
+      return;
+    }
+    if (edge || inside) {
+      this.win.clearTimeout(this.hoverLeave);
+      this.hoverLeave = null;
+      if (!this._open && !this.hoverEnter) {
+        this.hoverEnter = this.win.setTimeout(() => {
+          this.hoverEnter = null;
+          if (!this.hoverBlocked()) {
+            this.open({ peek: true, focus: false }).catch(console.error);
+          }
+        }, compact.HOVER_HACK_DELAY);
+      }
+    } else {
+      this.win.clearTimeout(this.hoverEnter);
+      this.hoverEnter = null;
+      this.scheduleHoverClose();
+    }
+  }
+
+  scheduleHoverClose() {
+    if (!this.peeking || !this._open || this.hoverLeave) {
+      return;
+    }
+    const compact = this.win.gZenCompactModeManager;
+    const sidebar = compact.hoverableElements.find(entry => entry.element == compact.sidebar);
+    this.hoverLeave = this.win.setTimeout(() => {
+      this.hoverLeave = null;
+      if (this.peeking) {
+        this.close({ reason: "hover" });
+      }
+    }, compact.HOVER_HACK_DELAY + (sidebar?.keepHoverDuration ?? 0));
+  }
+
+  // Read Zen's sidebar animation from its loaded rules, including its spring
+  // curve. Keeping the source there lets upstream tune both peeks together.
+  peekMotion() {
+    if (!this._peekMotion) {
+      const motion = {};
+      const visit = (rules, compact = false) => {
+        for (const rule of rules ?? []) {
+          const style = rule.style;
+          if (compact && style?.getPropertyValue("--zen-compact-mode-func")) {
+            motion.enter = {
+              duration: parseFloat(style.getPropertyValue("--zen-compact-mode-time")) * 1000,
+              easing: style.getPropertyValue("--zen-compact-mode-func").trim(),
+            };
+          }
+          if (compact && style?.translate.includes("--zen-compact-hidden-translate")) {
+            motion.exit = {
+              duration: parseFloat(style.transitionDuration) * 1000,
+              easing: style.transitionTimingFunction.split(",")[0],
+            };
+          }
+          if (rule.styleSheet) {
+            visitSheet(rule.styleSheet, compact);
+          } else if (rule.cssRules) {
+            visit(rule.cssRules, compact);
+          }
+        }
+      };
+      const visitSheet = (sheet, compact = false) => {
+        try {
+          visit(sheet.cssRules, compact || sheet.href?.endsWith("/zen-compact-mode.css"));
+        } catch {
+          // An extension's sheet may not expose its rules to this document.
+        }
+      };
+      for (const sheet of this.doc.styleSheets) {
+        visitSheet(sheet);
+      }
+      this._peekMotion = motion;
+    }
+    return this._peekMotion;
+  }
+
+  animatePeek(enter) {
+    for (const a of this.animations()) {
+      a.cancel();
+    }
+    const off = `${this.side == "right" ? 100 : -100}% 0`;
+    const motion = this.peekMotion()[enter ? "enter" : "exit"];
+    const anim = this.panel.animate(
+      reducedMotion(this.win) ? { opacity: enter ? [0, 1] : [1, 0] } : { translate: enter ? [off, "0 0"] : ["0 0", off] },
+      { duration: motion?.duration || 0, easing: motion?.easing || "linear", fill: "forwards" }
+    );
+    anim.finished.then(() => {
+      if (!enter && !this._open) {
+        this.el.hidden = true;
+        this.peeking = false;
+        this.el.removeAttribute("peek");
+      }
+      anim.cancel();
+    }, () => {});
+  }
+
+  watchForHover() {
+    const { win } = this;
+    const listeners = {
+      mousemove: e => this.onHoverMove(e),
+      mouseout: e => {
+        if (!e.relatedTarget) {
+          this.win.clearTimeout(this.hoverEnter);
+          this.hoverEnter = null;
+          this.scheduleHoverClose();
+        }
+      },
+      mousedown: e => {
+        this.pointerDown = true;
+        this.clearHoverTimers();
+        if (this.peeking && !this.el.contains(e.target)) {
+          this.close({ reason: "hover" });
+        }
+      },
+      mouseup: () => { this.pointerDown = false; },
+      dragstart: e => {
+        this.pointerDown = false;
+        this.draggingOutside = !this.el?.contains(e.target);
+        this.clearHoverTimers();
+        if (this.peeking && this.draggingOutside) {
+          this.close({ reason: "hover" });
+        }
+      },
+      dragover: e => {
+        this.draggingOutside = !this.el?.contains(e.target);
+        if (!this.draggingOutside) {
+          this.engage();
+        }
+        this.clearHoverTimers();
+      },
+      dragleave: e => {
+        if (!e.relatedTarget) {
+          this.draggingOutside = false;
+        }
+      },
+      dragend: () => { this.pointerDown = this.draggingOutside = false; },
+      drop: () => { this.pointerDown = this.draggingOutside = false; },
+      popupshowing: e => {
+        this.clearHoverTimers();
+        if (this.peeking) {
+          if (this.el?.contains(e.target.triggerNode) || e.target == this.headMenu) {
+            this.engage();
+          } else {
+            this.close({ reason: "hover" });
+          }
+        }
+      },
+      blur: e => {
+        if (e.target == win) {
+          this.pointerDown = this.draggingOutside = false;
+          this.clearHoverTimers();
+          if (this.peeking) {
+            this.close({ reason: "hover" });
+          }
+        }
+      },
+    };
+    for (const [type, fn] of Object.entries(listeners)) {
+      win.addEventListener(type, fn, true);
+    }
+    win.addEventListener("unload", () => {
+      this.clearHoverTimers();
+      for (const [type, fn] of Object.entries(listeners)) {
+        win.removeEventListener(type, fn, true);
+      }
+    }, { once: true });
+  }
+
   // ---- Open and close ----
 
   async open(opts = {}) {
@@ -536,8 +763,13 @@ class ChatPanel {
       return false;
     }
     this.build();
+    if (!opts.peek) {
+      this.engage();
+    }
     const wasOpen = this._open;
     if (!wasOpen) {
+      this.peeking = !!opts.peek;
+      this.el.toggleAttribute("peek", this.peeking);
       this._open = true;
       this.el.hidden = false;
       this.layout();
@@ -556,7 +788,7 @@ class ChatPanel {
     if (opts.send) {
       await this.send();
     }
-    if ((opts.focus ?? "composer") == "composer" && this._open) {
+    if (!opts.peek && (opts.focus ?? "composer") == "composer" && this._open) {
       this.composer.focus();
     } else if (opts.focus == "card" && this._open) {
       // A card waiting on you takes focus (agent-5.10): the pause asked
@@ -610,6 +842,7 @@ class ChatPanel {
     if (!this._open) {
       return;
     }
+    this.clearHoverTimers();
     this._open = false;
     this.cancelMemoryNote();
     this.reason = reason;
@@ -665,6 +898,10 @@ class ChatPanel {
     for (const a of this.animations()) {
       a.cancel();
     }
+    if (this.peeking) {
+      this.animatePeek(true);
+      return;
+    }
     const dir = this.side == "right" ? 1 : -1;
     if (reducedMotion(this.win)) {
       this.panel.animate({ opacity: [0, 1] }, { duration: DUR_IN, easing: "linear" });
@@ -681,6 +918,10 @@ class ChatPanel {
   }
 
   animateOut() {
+    if (this.peeking) {
+      this.animatePeek(false);
+      return;
+    }
     for (const a of this.animations()) {
       a.cancel();
     }
@@ -1114,6 +1355,7 @@ class ChatPanel {
   }
 
   async send() {
+    this.engage();
     const { win } = this;
     const tab = this.currentTab;
     const text = this.composer.value.trim();
@@ -1516,6 +1758,7 @@ class ChatPanel {
   // ---- Conversation list ----
 
   async openList() {
+    this.engage();
     if (lazy.WhimsyAIContext.isPrivate(this.win.gBrowser.selectedTab)) {
       return;
     }
@@ -1776,7 +2019,19 @@ class ChatPanel {
     const onResize = () => this._open && this.layout();
     win.addEventListener("resize", onResize);
     const prefs = {
-      [SIDE_PREF]: () => this.layout(),
+      [SIDE_PREF]: () => {
+        this.clearHoverTimers();
+        if (this.peeking) {
+          this.close({ reason: "side" });
+        }
+        this.layout();
+      },
+      [HOVER_PREF]: () => {
+        this.clearHoverTimers();
+        if (this.peeking && !Services.prefs.getBoolPref(HOVER_PREF, true)) {
+          this.close({ reason: "pref" });
+        }
+      },
       [WIDTH_PREF]: () => this.layout(),
       [AI_PREF]: () => {
         if (lazy.WhimsyAI.enabled) {
@@ -1802,6 +2057,7 @@ class ChatPanel {
     Services.obs.addObserver(observer, lazy.WhimsyChat.TOPIC);
     Services.obs.addObserver(observer, lazy.WhimsyAIStore.TOPIC);
     this.watchForHint();
+    this.watchForHover();
     win.addEventListener(
       "unload",
       () => {
@@ -1865,7 +2121,10 @@ export const WhimsyChatPanel = {
         { l10nId: "whimsy-chat-cmd-hide", isAvailable: () => ai() && panel.isOpen },
       ],
     });
-    const open = async () => (panel.isOpen || (await panel.open({ focus: "card" }))) && panel.thread && !panel.private;
+    const open = async () => {
+      panel.engage();
+      return (panel.isOpen || (await panel.open({ focus: "card" }))) && panel.thread && !panel.private;
+    };
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyChatWhatAISees",
       l10nId: "whimsy-chat-cmd-what-ai-sees",
