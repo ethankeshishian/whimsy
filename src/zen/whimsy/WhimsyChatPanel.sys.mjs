@@ -561,7 +561,12 @@ class ChatPanel {
       this.pointerDown || this.draggingOutside ||
       this.doc.documentElement.hasAttribute("inDOMFullscreen") ||
       Services.focus.activeWindow != this.win ||
-      this.doc.querySelector("menupopup[open], panel[open], dialog[open], #urlbar[open], [popover]:popover-open, [role='menu']:not([hidden]), .whimsy-chat-menu, .whimsy-chat-sheet") ||
+      this.doc.querySelector("menupopup[open], panel[open], dialog[open], #urlbar[open], [popover]:popover-open, .whimsy-chat-menu, .whimsy-chat-sheet") ||
+      // XUL panels (e.g. tabgroup-preview-panel) can have role=menu with
+      // no hidden attribute even while closed. Their popup state below,
+      // rather than their ARIA role, determines whether they block a peek.
+      [...this.doc.querySelectorAll("[role='menu']")].some(p =>
+        p.namespaceURI == HTML_NS && p.checkVisibility({ checkVisibilityCSS: true })) ||
       [...this.doc.querySelectorAll("menupopup, panel")].some(p => p.state == "open" || p.state == "showing") ||
       (compact?.sidebarIsOnRight ? this.side == "right" : this.side == "left");
   }

@@ -17,7 +17,7 @@ async function settle() {
 
 function edge(side = "right", options = {}) {
   const box = root.getBoundingClientRect();
-  EventUtils.synthesizeMouse(root, side == "right" ? box.width - 1 : 1, box.height / 2, { type: "mousemove", ...options });
+  EventUtils.synthesizeMouseAtPoint(side == "right" ? box.right - 1 : box.left + 1, box.top + box.height / 2, { type: "mousemove", ...options }, window);
 }
 
 function away() {
@@ -81,6 +81,22 @@ add_setup(async function () {
 });
 
 add_task(async function edge_reveals_away_collapses_without_focus() {
+  // A closed XUL panel need not have [hidden], even with role=menu.
+  const preview = document.getElementById("tabgroup-preview-panel");
+  ok(preview && preview.getAttribute("role") == "menu" && preview.state == "closed", "The native menu-role panel is closed");
+  ok(!chat().hoverBlocked(), "A closed native menu-role panel does not block peeking");
+  let move;
+  const record = event => { move = event; };
+  window.addEventListener("mousemove", record, { capture: true, once: true });
+  try {
+    edge();
+    ok(move && move.target.ownerDocument == document, "The edge move reaches the browser chrome window");
+    is(gZenCompactModeManager._getCrossedEdge(move.clientX, move.clientY), "right", "The synthesized coordinates hit the right edge");
+    ok(chat().hoverEnter, "The installed listener schedules a reveal while chat is closed");
+  } finally {
+    window.removeEventListener("mousemove", record, true);
+    await closeChat();
+  }
   gBrowser.selectedBrowser.focus();
   await peek();
   is(document.activeElement, gBrowser.selectedBrowser, "Peeking preserves page focus");
@@ -173,18 +189,27 @@ add_task(async function suppressed_by_popup_press_drag_fullscreen_and_pref() {
 
 add_task(async function follows_dock_side_and_tabs_win_shared_edge() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.chat.side", "left"]] });
-  await noPeek("Tabs win the left edge", "left");
-  await SpecialPowers.pushPrefEnv({ set: [["zen.tabs.vertical.right-side", true]] });
-  await TestUtils.waitForCondition(() => gZenCompactModeManager.sidebarIsOnRight, "Tabs moved right");
-  await peek("left");
-  away();
-  await TestUtils.waitForCondition(() => chat().el.hidden, "Left peek collapses");
-  await SpecialPowers.popPrefEnv();
-  await SpecialPowers.popPrefEnv();
+  try {
+    await noPeek("Tabs win the left edge", "left");
+    await SpecialPowers.pushPrefEnv({ set: [["zen.tabs.vertical.right-side", true]] });
+    try {
+      await TestUtils.waitForCondition(() => gZenCompactModeManager.sidebarIsOnRight, "Tabs moved right");
+      await peek("left");
+      away();
+      await TestUtils.waitForCondition(() => chat().el.hidden, "Left peek collapses");
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    await SpecialPowers.popPrefEnv();
+    await closeChat();
+  }
   await TestUtils.waitForCondition(() => !gZenCompactModeManager.sidebarIsOnRight, "Tabs moved back");
 });
 
 add_task(async function equal_outer_gaps_default_and_minimum_width_light_dark() {
+  is(chat().side, "right", "Gap measurements use a right-docked chat");
+  ok(!gZenCompactModeManager.sidebarIsOnRight, "Gap measurements use tabs on the left");
   for (const dark of [false, true]) {
     await whimsySetScheme(dark);
     for (const width of [380, 320]) {
@@ -202,6 +227,8 @@ add_task(async function equal_outer_gaps_default_and_minimum_width_light_dark() 
         const content = gBrowser.selectedBrowser.closest(".browserSidebarContainer").getBoundingClientRect();
         const frame = root.getBoundingClientRect();
         const gap = parseFloat(getComputedStyle(root).getPropertyValue("--zen-element-separation"));
+        ok(chat().isOpen && !chat().el.hidden && panel.width > 0, "The measured card is open and laid out");
+        info(`Chat geometry: side=${chat().side}, tabsRight=${gZenCompactModeManager.sidebarIsOnRight}, panel=${JSON.stringify(panel.toJSON())}, frame=${JSON.stringify(frame.toJSON())}, gap=${gap}`);
         Assert.lessOrEqual(Math.abs(frame.right - panel.right - gap), 1, "The right gap matches the standard content gap");
         Assert.lessOrEqual(Math.abs(panel.top - frame.top - gap), 1, "The top gap matches the standard content gap");
         Assert.lessOrEqual(Math.abs(content.top - panel.top), 1, "Chat and the web content card share their top gap");
