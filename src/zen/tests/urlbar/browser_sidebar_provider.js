@@ -6,6 +6,7 @@
 ChromeUtils.defineESModuleGetters(this, {
   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.sys.mjs",
+  getSpaceBadge: "resource:///modules/ZenUBSidebarProvider.sys.mjs",
   SessionSaver:
     "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   TabStateFlusher:
@@ -112,8 +113,13 @@ add_task(async function test_stale_sidebar_url_is_not_suggested() {
   BrowserTestUtils.removeTab(tab);
 });
 
-add_task(async function test_only_active_space_tabs() {
+// W24/tabsearch (BUGS.md #16): a tab's space no longer excludes it; a tab in
+// another space is still matched, labelled with that space's name (see
+// browser_whimsy_tab_search_spaces.js for icons, profiles, ordering and
+// dedup against Firefox's own row).
+add_task(async function test_other_space_tabs_are_matched_and_labelled() {
   const originalSpace = gZenWorkspaces.activeWorkspace;
+  const originalSpaceName = gZenWorkspaces.getWorkspaceFromId(originalSpace).name;
   const tab = await addLabelledTab("zenotherspace");
   await gZenWorkspaces.createAndSaveWorkspace("Sidebar Provider Space");
   Assert.notEqual(
@@ -123,10 +129,11 @@ add_task(async function test_only_active_space_tabs() {
   );
   await collectSidebarData();
 
-  Assert.deepEqual(
-    await searchSidebarRows("zenotherspace"),
-    [],
-    "Tabs from other spaces are not matched"
+  let rows = await searchSidebarRows("zenotherspace");
+  Assert.equal(rows.length, 1, "The tab in the other space is still matched");
+  ok(
+    getSpaceBadge(rows[0].result)?.includes(originalSpaceName),
+    "...labelled with its own space, since it isn't the active one"
   );
   await UrlbarTestUtils.promisePopupClose(window);
 
@@ -134,8 +141,12 @@ add_task(async function test_only_active_space_tabs() {
   Assert.equal(gZenWorkspaces.activeWorkspace, originalSpace);
   await collectSidebarData();
 
-  const rows = await searchSidebarRows("zenotherspace");
-  Assert.equal(rows.length, 1, "The tab is matched again in its own space");
+  const rows2 = await searchSidebarRows("zenotherspace");
+  Assert.equal(rows2.length, 1, "The tab is matched again in its own space");
+  ok(
+    !getSpaceBadge(rows2[0].result),
+    "...now unlabelled, since it's the active space"
+  );
 
   await UrlbarTestUtils.promisePopupClose(window);
   BrowserTestUtils.removeTab(tab);

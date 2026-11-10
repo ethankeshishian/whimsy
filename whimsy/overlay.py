@@ -170,6 +170,19 @@ HOTFIXES = [
                "            isEssential: isEssential ? \"true\" : \"false\", // Whimsy hotfix\n"
                "          });",
     },
+    {
+        "id": "pinned-tab-essentials-private-window",
+        "file": "src/zen/tabs/ZenPinnedTabManager.mjs",
+        "why": "canEssentialBeAdded() dereferences getActiveWorkspaceFromCache() "
+               "unguarded; in a private window (no active workspace) that's "
+               "undefined, and the urlbar's global-actions provider calls "
+               "canEssentialBeAdded() on every query in every window, "
+               "crashing any search typed into a private window.",
+        "old": "        (tab.getAttribute(\"usercontextid\") || 0) !=\n"
+               "          (gZenWorkspaces.getActiveWorkspaceFromCache().containerTabId || 0) &&",
+        "new": "        (tab.getAttribute(\"usercontextid\") || 0) !=\n"
+               "          (gZenWorkspaces.getActiveWorkspaceFromCache()?.containerTabId || 0) && // Whimsy hotfix",
+    },
     # home: Zen links the homepage task replaces (see docs/whimsy/BUILD-PLAN.md).
     {
         "id": "library-footer-donate-to-feedback",

@@ -126,17 +126,24 @@ add_task(async function test_editing_current_page_navigates() {
   BrowserTestUtils.removeTab(original);
 });
 
-add_task(async function test_containers_and_private_never_match() {
+add_task(async function test_cross_profile_jump_and_private_never_match() {
   const home = gZenWorkspaces.getActiveWorkspace();
-  await gZenWorkspaces.changeWorkspace(await containerSpace(1));
+  const otherProfile = await containerSpace(1);
+  await gZenWorkspaces.changeWorkspace(otherProfile);
   const contained = BrowserTestUtils.addTab(gBrowser, URL, { userContextId: 1 });
   await BrowserTestUtils.browserLoaded(contained.linkedBrowser, false, URL);
   await gZenWorkspaces.changeWorkspace(home);
+  // W24/tabsearch: typing an exact address open in another profile's space
+  // jumps there, switching space (and so profile) and selecting the tab,
+  // the same way an other-space, same-container match already did.
   const blank = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
-  const loaded = BrowserTestUtils.browserLoaded(blank.linkedBrowser, false, URL);
   await typeAndEnter(window, URL);
-  await loaded;
-  is(gBrowser.selectedTab, blank, "A tab in another container is not this page");
+  await TestUtils.waitForCondition(
+    () => gBrowser.selectedTab == contained && gZenWorkspaces.activeWorkspace == otherProfile.uuid,
+    "A tab open in another profile's space is found and switched to"
+  );
+  is(WhimsyAlreadyOpen.userContextOf(contained), 1, "The tab stays in its own container, never moved");
+  await gZenWorkspaces.changeWorkspace(home);
   BrowserTestUtils.removeTab(blank);
 
   const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, URL);

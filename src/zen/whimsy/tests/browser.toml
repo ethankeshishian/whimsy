@@ -592,6 +592,11 @@ support-files = ["whimsy_search_results.html", "whimsy_search_results_coop.html"
 # wave6: Already open (Arc): Return on an open address goes to its tab and space.
 ["browser_whimsy_already_open.js"]
 
+# W24/tabsearch (BUGS.md #16): ⌘T/⌘L find a tab by title or custom label in
+# every space and every Whimsy profile, labelled with the other space's icon
+# and name; no duplicate row; private windows unchanged.
+["browser_whimsy_tab_search_spaces.js"]
+
 # wave6: Trails: pages cut from Forward stay as branch rows in the Back/Forward menu.
 ["browser_whimsy_trails.js"]
 
