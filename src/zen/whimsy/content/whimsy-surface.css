@@ -179,6 +179,8 @@ panel.whimsy-surface {
 }
 .whimsy-surface-segment {
   position: relative;
+  display: grid;
+  place-items: center;
   min-width: 0;
   min-height: 28px;
   margin: 0;
@@ -191,8 +193,6 @@ panel.whimsy-surface {
   font: inherit;
   font-size: 12px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transition: transform 100ms ease-out, background-color 100ms ease-out;
 
   &:hover:not([aria-checked="true"], [aria-selected="true"], :disabled) {
@@ -201,13 +201,27 @@ panel.whimsy-surface {
   &:active:not(:disabled) {
     transform: scale(0.96);
   }
-  &:is([aria-checked="true"], [aria-selected="true"]) {
-    font-weight: 600;
-  }
   &:focus-visible {
     outline: var(--whimsy-surface-focus);
     outline-offset: -1px;
   }
+}
+/* The visible label and a hidden bold twin share the same cell, so a
+   segment's own width always reserves its bold rendering. The control's
+   width then stays put when the selection (and so which label goes
+   bold) changes. */
+.whimsy-surface-segment-label,
+.whimsy-surface-segment-ghost {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.whimsy-surface-segment-ghost {
+  visibility: hidden;
+  font-weight: 600;
+}
+.whimsy-surface-segment:is([aria-checked="true"], [aria-selected="true"]) .whimsy-surface-segment-label {
+  font-weight: 600;
 }
 .whimsy-surface-seg-small {
   width: 132px;

@@ -25,6 +25,12 @@
     oklch(from var(--zen-primary-color, AccentColor) clamp(0.35, l, 0.6) c h),
     oklch(from var(--zen-primary-color, AccentColor) clamp(0.55, l, 0.7) c h)
   );
+  /* A solid primary-button fill: dark enough, in both themes, to read
+     white text at 4.5:1+ (W24 uipolish #10). --whimsy-chat-accent-bg
+     stays lighter in dark mode for the washes and tinted text it's
+     also used for (citations, the time pill); this one is only ever a
+     full, opaque fill. */
+  --whimsy-chat-primary-bg: oklch(from var(--zen-primary-color, AccentColor) clamp(0.38, l, 0.52) c h);
   --whimsy-chat-agent: rgb(217, 119, 87);
   --whimsy-chat-warning: light-dark(rgb(217, 138, 0), rgb(240, 177, 60));
   --whimsy-chat-error: light-dark(rgb(200, 55, 45), rgb(255, 122, 110));
@@ -639,7 +645,7 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: var(--whimsy-chat-accent-bg);
+  background: var(--whimsy-chat-primary-bg);
   color: #fff;
   transition: background-color 100ms ease-out, scale 100ms ease-out;
   & > .whimsy-chat-icon {

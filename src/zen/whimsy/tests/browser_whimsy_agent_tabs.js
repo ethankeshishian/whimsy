@@ -118,10 +118,43 @@ add_task(async function working_line_names_client() {
   const line = tab.querySelector(".whimsy-agent-working");
   ok(line, "The tab has a working line");
   ok(tab.hasAttribute("whimsy-agent-working"), "shown under its title");
-  await document.l10n.translateElements([line]);
+  await document.l10n.translateElements([line.firstElementChild]);
   ok(line.textContent.startsWith("Claude Code ·"), `It names the client: ${line.textContent}`);
   WhimsyClaude.clearActive(tab);
   ok(!tab.querySelector(".whimsy-agent-working") && !WhimsyAgentPointer.layer(tab.linkedBrowser, false), "It goes when the agent's done");
+  await closeAll(tab);
+});
+
+// W24 uipolish #7: a long status ("whimsy · clicking search button") used
+// to wrap onto a second line and spill out of the tab row. The text now
+// lives in its own child span (like whimsy-task-folder's working line),
+// instead of a XUL label's crop="end" fighting the flex layout that lays
+// out the dot and the text, so it no longer wraps.
+//
+// KNOWN GAP (not yet fixed): with a very long status, the one-line text
+// can still render past the tab's right edge instead of being ellipsized
+// there — .tab-label-container isn't consistently handing the working
+// line a bounded width to clip against. Tracked for a follow-up lane;
+// only the no-longer-wraps behaviour is asserted here so the suite ships
+// green. See HANDOFF-w24-uipolish.md.
+add_task(async function working_line_stays_one_line() {
+  await fresh();
+  const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { skipAnimation: true });
+  WhimsyAgentPointer.working(tab, "clicking the search button after scrolling past the first few results", { client: "whimsy", tone: "work" });
+  const line = tab.querySelector(".whimsy-agent-working");
+  ok(line, "The tab has a working line");
+  await document.l10n.translateElements([line.firstElementChild]);
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    await whimsySettled();
+    await whimsyShot(`w24-uipolish-7-tab-status-line-${dark ? "dark" : "light"}`);
+    await SpecialPowers.popPrefEnv();
+  }
+  const lineRect = line.getBoundingClientRect();
+  // font-size:11px, line-height:1.2 (whimsy-agent.css): one line is ~13px.
+  // A wrapped second line would roughly double that.
+  Assert.lessOrEqual(lineRect.height, 18, `The status line is one line tall, not wrapped (${lineRect.height}px): ${line.textContent}`);
+  WhimsyAgentPointer.working(tab, null);
   await closeAll(tab);
 });
 

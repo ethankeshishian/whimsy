@@ -4185,6 +4185,8 @@ panel.whimsy-look-picker {
 }
 .whimsy-look-segment {
   position: relative;
+  display: grid;
+  place-items: center;
   min-width: 0;
   min-height: 28px;
   margin: 0;
@@ -4197,8 +4199,6 @@ panel.whimsy-look-picker {
   font: inherit;
   font-size: 12px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   transition: transform 100ms ease-out, background-color 100ms ease-out;
 
   &:hover:not([aria-checked="true"]) {
@@ -4207,13 +4207,27 @@ panel.whimsy-look-picker {
   &:active {
     transform: scale(0.96);
   }
-  &[aria-checked="true"] {
-    font-weight: 600;
-  }
   &:focus-visible {
     outline: 2px solid var(--focus-outline-color, AccentColor);
     outline-offset: -1px;
   }
+}
+/* The visible label and a hidden bold twin share the same cell, so a
+   segment's own width always reserves its bold rendering. The control's
+   width then stays put when the selection (and so which label goes
+   bold) changes. */
+.whimsy-look-segment-label,
+.whimsy-look-segment-ghost {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.whimsy-look-segment-ghost {
+  visibility: hidden;
+  font-weight: 600;
+}
+.whimsy-look-segment[aria-checked="true"] .whimsy-look-segment-label {
+  font-weight: 600;
 }
 
 .whimsy-look-footer {

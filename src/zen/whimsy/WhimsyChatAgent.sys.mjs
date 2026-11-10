@@ -453,7 +453,16 @@ export const WhimsyChatAgent = {
             onclick: () => this.setMode(win, mode),
           },
           icon(doc, mode),
-          h(doc, "span", { l10n: `whimsy-agent-chat-mode-${mode}` })
+          // A hidden bold twin reserves the label's width, so the
+          // switch doesn't jostle when the selection (and so which
+          // label goes bold) changes.
+          h(
+            doc,
+            "span",
+            { class: "whimsy-agent-segment-text" },
+            h(doc, "span", { class: "whimsy-agent-segment-label", l10n: `whimsy-agent-chat-mode-${mode}` }),
+            h(doc, "span", { class: "whimsy-agent-segment-ghost", "aria-hidden": "true", l10n: `whimsy-agent-chat-mode-${mode}` })
+          )
         )
       );
     }
