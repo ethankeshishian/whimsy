@@ -21,15 +21,6 @@ const SHEET = "chrome://browser/content/whimsy/whimsy-agent.css";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const TRAVEL_MS = 240;
 const EASE = "cubic-bezier(0.075, 0.82, 0.165, 1)";
-// W24 smallbugs #7: the working line sits in a sidebar tab, which can be
-// narrower than a horizontal tab strip's tabs ever are. CSS text-overflow
-// ellipsis still clips it, but a long "doing" string (agents narrate their
-// own steps, with no length of their own choosing) can be wide enough that
-// the one-line text renders past the tab's right edge before the clip
-// takes effect. Bounding it here, at the source, means the line is never
-// wider than a tab can realistically be, instead of chasing where a XUL
-// tab's flex width does or doesn't get handed down.
-const WORKING_TEXT_MAX = 28;
 
 const sheets = new WeakSet();
 // browser -> {x, y} where the pointer sits (page CSS pixels).
@@ -41,17 +32,6 @@ function reducedMotion(win) {
 
 function stackOf(browser) {
   return browser?.closest?.(".browserStack") ?? browser?.parentNode ?? null;
-}
-
-// Trims on a word boundary where there's room to, so the cut doesn't land
-// mid-word more than it has to.
-function truncateWorking(text) {
-  if (!text || text.length <= WORKING_TEXT_MAX) {
-    return text;
-  }
-  const cut = text.slice(0, WORKING_TEXT_MAX);
-  const lastSpace = cut.lastIndexOf(" ");
-  return (lastSpace > WORKING_TEXT_MAX / 2 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…";
 }
 
 export const WhimsyAgentPointer = {
@@ -200,7 +180,7 @@ export const WhimsyAgentPointer = {
       container.append(line);
     }
     tab.setAttribute("whimsy-agent-working", tone);
-    doc.l10n.setAttributes(line.firstElementChild, "whimsy-agent-tabs-working", { client, doing: truncateWorking(text) });
+    doc.l10n.setAttributes(line.firstElementChild, "whimsy-agent-tabs-working", { client, doing: text });
   },
 
   /** The line for where a task is: doing, waiting on you, or yours. */

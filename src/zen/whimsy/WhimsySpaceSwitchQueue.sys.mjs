@@ -46,6 +46,9 @@ const GESTURE_EVENTS = [
 ];
 
 const states = new WeakMap();
+// win -> { inSidebar } - tracked from the target of the last real pointer
+// move (W24 smallbugs #13), not re-derived from live :hover each time.
+const hoverStates = new WeakMap();
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -106,6 +109,8 @@ export const WhimsySpaceSwitchQueue = {
     this.initEdges(win, state);
     this.initSwitcherArrows(win, state);
     this.wrapEdgeSwipes(win);
+    this.initSidebarHoverTracking(win);
+    this.initAppCommandFallback(win);
     const onGesture = event => this.handleGesture(win, state, event);
     for (const type of GESTURE_EVENTS) {
       win.addEventListener(type, onGesture, true);
@@ -181,6 +186,62 @@ export const WhimsySpaceSwitchQueue = {
     };
     wrapped._whimsySwitchQueue = true;
     spaces.changeWorkspaceShortcut = wrapped;
+  },
+
+  // W24 smallbugs #13: tracks whether the pointer is over the sidebar from
+  // the *target* of the last real pointer move, instead of asking the
+  // live `:hover` pseudo-class at some later instant. Mouse hardware
+  // back/forward buttons don't move the pointer themselves, and opening
+  // the Library animates/fades gNavToolbox (ZenLibrary's openProgress
+  // setter) under a pointer that's sitting still — if that repaint shifts
+  // what's actually under the stationary cursor, a live `:hover` re-check
+  // can go stale and read false even though the mouse never left. The
+  // target of the last move it actually received doesn't have that
+  // problem: it was decided once, at the time of a real pointer event,
+  // not re-derived from whatever layout happens to be painted right now.
+  initSidebarHoverTracking(win) {
+    if (hoverStates.has(win)) {
+      return;
+    }
+    const tracked = { inSidebar: false };
+    hoverStates.set(win, tracked);
+    const onMove = event => {
+      tracked.inSidebar = !!win.gNavToolbox?.contains(event.target);
+    };
+    win.addEventListener("mousemove", onMove, true);
+    win.addEventListener("unload", () => win.removeEventListener("mousemove", onMove, true), { once: true });
+  },
+
+  // W24 smallbugs #13: Zen's own _handleAppCommand (ZenSpaceManager, never
+  // edited) only calls changeWorkspaceShortcut while gNavToolbox matches
+  // `:hover` at the moment the mouse back/forward event fires; when that
+  // check goes stale (see initSidebarHoverTracking above) it returns
+  // without calling changeWorkspaceShortcut at all, so nothing we do
+  // *inside* that function can help — it's just never reached. This is a
+  // second, independent AppCommand listener that steps in only for that
+  // case: when Zen's own live check already says :hover (it will succeed
+  // on its own, same as before this lane) this does nothing, and when
+  // neither this nor Zen's sidebar/toolbox checks pass, the event is left
+  // alone for the default handler to do a normal page back/forward.
+  initAppCommandFallback(win) {
+    const spaces = win.gZenWorkspaces;
+    const onAppCommand = event => {
+      if (event.command != "Forward" && event.command != "Back") {
+        return;
+      }
+      if (!spaces?.workspaceEnabled || win.gNavToolbox?.matches(":hover")) {
+        return;
+      }
+      if (!hoverStates.get(win)?.inSidebar) {
+        return;
+      }
+      const direction = (spaces.naturalScroll ? -1 : 1) * (event.command == "Forward" ? 1 : -1);
+      spaces.changeWorkspaceShortcut(direction);
+      event.stopImmediatePropagation();
+      event.preventDefault();
+    };
+    win.addEventListener("AppCommand", onAppCommand, true);
+    win.addEventListener("unload", () => win.removeEventListener("AppCommand", onAppCommand, true), { once: true });
   },
 
   get edgesEnabled() {
@@ -267,12 +328,18 @@ export const WhimsySpaceSwitchQueue = {
     // already does there (wrapEdgeSwipes, below) — and once the Library is
     // open, stepping back the other way should just close it and land on
     // the space you were already on, like history, instead of stepping
-    // again from there. Gated on the same gNavToolbox:hover Zen's handler
-    // requires, so it only changes mouse/swipe behavior at the sidebar: the
+    // again from there. Checked both ways: live `:hover` covers the normal
+    // case (and the wheel path above, which can only fire while the mouse
+    // is actually over the toolbox already), and initSidebarHoverTracking's
+    // sticky, event-target-based read covers a press that arrives through
+    // initAppCommandFallback because Zen's own live check went stale (the
+    // Library's open animation moving/fading gNavToolbox under a
+    // stationary pointer — mouse hardware buttons don't move it). Either
+    // way this only changes mouse/swipe behavior at the sidebar: the
     // keyboard Next/Previous Space commands and the Spaces menu (invoked
     // without the mouse over the sidebar) keep their own edge behavior
     // (W10-03: stop at the first space, open New Space past the last).
-    const hoveringSidebar = !!win.gNavToolbox?.matches(":hover");
+    const hoveringSidebar = !!win.gNavToolbox?.matches(":hover") || !!hoverStates.get(win)?.inSidebar;
     const library = hoveringSidebar ? this.getZenLibrary(win) : null;
     const libraryEnabled = !!library && Services.prefs.getBoolPref("zen.library.enabled", false);
     if (libraryEnabled && library.isLibraryOpen) {

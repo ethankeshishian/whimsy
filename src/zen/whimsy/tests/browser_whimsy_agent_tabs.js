@@ -132,11 +132,13 @@ add_task(async function working_line_names_client() {
 // layout that lays out the dot and the text, so it no longer wraps.
 //
 // The "fits inside the tab's bounds" half was left open in uipolish: a XUL
-// tab's .tab-label-container didn't reliably hand the line a bounded width
-// to clip against, so a very long status could still render past the
-// tab's right edge. Fixed at the source instead of chasing that XUL flex
-// width (WhimsyAgentPointer.working() bounds "doing" to a fixed length),
-// so the one-line text is never wider than a tab can realistically be.
+// tab's .tab-label-container, .tab-content, and .tab-stack never had an
+// explicit width, so each one's own box defaulted to a content-based size
+// and the line's long, unwrapped text could balloon them outward instead
+// of being clipped by them. Pinning every level to the tab's actual width
+// (whimsy-agent.css) fixes it at the layout level, not by capping
+// characters, so it holds at any sidebar width instead of just the one a
+// fixed character count happened to fit.
 add_task(async function working_line_stays_one_line() {
   await fresh();
   const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { skipAnimation: true });
@@ -150,16 +152,29 @@ add_task(async function working_line_stays_one_line() {
     await whimsyShot(`w24-uipolish-7-tab-status-line-${dark ? "dark" : "light"}`);
     await SpecialPowers.popPrefEnv();
   }
-  const lineRect = line.getBoundingClientRect();
-  const tabRect = tab.getBoundingClientRect();
-  // font-size:11px, line-height:1.2 (whimsy-agent.css): one line is ~13px.
-  // A wrapped second line would roughly double that.
-  Assert.lessOrEqual(lineRect.height, 18, `The status line is one line tall, not wrapped (${lineRect.height}px): ${line.textContent}`);
-  Assert.lessOrEqual(
-    lineRect.right,
-    tabRect.right + 0.5,
-    `The status line fits inside the tab, not past its right edge (line right ${lineRect.right}, tab right ${tabRect.right}): ${line.textContent}`
-  );
+
+  const narrowest = gZenVerticalTabsManager.getSidebarMinWidth();
+  for (const width of [null, narrowest]) {
+    if (width) {
+      gNavToolbox.style.width = `${width}px`;
+    } else {
+      gNavToolbox.style.removeProperty("width");
+    }
+    await whimsySettled();
+    const label = width ? `at the narrowest sidebar width (${width}px)` : "at the default sidebar width";
+    const lineRect = line.getBoundingClientRect();
+    const tabRect = tab.getBoundingClientRect();
+    // font-size:11px, line-height:1.2 (whimsy-agent.css): one line is ~13px.
+    // A wrapped second line would roughly double that.
+    Assert.lessOrEqual(lineRect.height, 18, `The status line is one line tall, not wrapped, ${label} (${lineRect.height}px): ${line.textContent}`);
+    Assert.lessOrEqual(
+      lineRect.right,
+      tabRect.right + 0.5,
+      `The status line fits inside the tab, not past its right edge, ${label} (line right ${lineRect.right}, tab right ${tabRect.right}): ${line.textContent}`
+    );
+  }
+  gNavToolbox.style.removeProperty("width");
+
   WhimsyAgentPointer.working(tab, null);
   await closeAll(tab);
 });
