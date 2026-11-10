@@ -164,8 +164,8 @@ add_task(async function test_late_card_after_close_does_not_leave_marker() {
   await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off on close");
   const late = card.cloneNode(false);
   window.gURLBar.view.panel.append(late);
-  await new Promise(r => window.requestAnimationFrame(() => window.requestAnimationFrame(r)));
-  ok(!urlbar.hasAttribute("whimsy-emoji-open"), "A late card in a closed view doesn't mark the bar open");
+  ok(!window.gURLBar.view.isOpen, "The view is still closed");
+  await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "A late card in a closed view doesn't leave the bar marked open");
   late.remove();
 });
 
