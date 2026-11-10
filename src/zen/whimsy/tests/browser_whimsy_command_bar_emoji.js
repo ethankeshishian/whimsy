@@ -153,6 +153,34 @@ add_task(async function test_identity_icon_hidden_behind_grid() {
   await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes");
 });
 
+// TEMPORARY DIAGNOSTIC — W24 emoji4, reverted before this lane finishes.
+add_task(async function test_zzz_temp_diag_trust_icon() {
+  await openEmoji("party");
+  const win = window;
+  const identityBox = win.document.getElementById("identity-box");
+  const boxRect = identityBox.getBoundingClientRect();
+  const probeX = boxRect.left - 10;
+  const probeY = boxRect.top + boxRect.height / 2;
+  const topEl = win.document.elementFromPoint(probeX, probeY);
+  info("WDIAG2 probe=" + probeX + "," + probeY + " topEl=" + (topEl ? `${topEl.tagName}#${topEl.id}.${topEl.className}` : "null"));
+  let chain = "";
+  for (let el = topEl; el; el = el.parentElement) {
+    chain += `${el.tagName}#${el.id || ""} `;
+  }
+  info("WDIAG2 chain=" + chain);
+  for (const id of ["trust-icon-container", "tracking-protection-icon-container", "remote-control-box"]) {
+    const el = win.document.getElementById(id);
+    if (!el) {
+      info(`WDIAG2 ${id}=missing`);
+      continue;
+    }
+    const rect = el.getBoundingClientRect();
+    const disp = win.getComputedStyle(el).display;
+    info(`WDIAG2 ${id} display=${disp} rect=${JSON.stringify(rect)}`);
+  }
+  closeBar();
+});
+
 add_task(async function test_footer_label_reflects_insert_target() {
   const typeLabel = () => card().querySelector(".whimsy-emoji-footer-keys > span:first-child > span")?.getAttribute("data-l10n-id");
   const shortcutSpans = () => card().querySelectorAll(".whimsy-emoji-footer-keys > span").length;
