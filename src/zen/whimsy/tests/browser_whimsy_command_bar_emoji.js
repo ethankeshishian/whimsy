@@ -149,16 +149,6 @@ add_task(async function test_identity_icon_hidden_behind_grid() {
   }
   const beforeContent = identityBox && window.getComputedStyle(identityBox, "::before").content;
   ok(beforeContent && beforeContent != "none", "A replacement search icon is drawn in its place");
-  // DIAGNOSTIC (temporary): identify whatever's actually drawing the
-  // robot-like glyph still showing in the screenshots.
-  const ibRect = identityBox.getBoundingClientRect();
-  const px = ibRect.left + 4;
-  const py = ibRect.top + ibRect.height / 2;
-  const hit = window.document.elementFromPoint(px, py);
-  info(`DIAG elementFromPoint(${px},${py}) = ${hit?.localName}#${hit?.id}.${hit?.className} text=${JSON.stringify(hit?.textContent)}`);
-  info(`DIAG identityBox.outerHTML = ${identityBox.outerHTML.slice(0, 800)}`);
-  let anc = identityBox.previousElementSibling;
-  info(`DIAG identityBox.previousElementSibling = ${anc?.localName}#${anc?.id}.${anc?.className}`);
   closeBar();
   await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes");
 });
