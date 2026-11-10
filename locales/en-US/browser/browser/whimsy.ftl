@@ -6967,6 +6967,19 @@ whimsy-agent-chat-kept = { $count ->
     [one] 1 tab kept
    *[other] { $count } tabs kept
 }
+# W24 agentdone: the end of a run whose goal wasn't met. Never a check.
+whimsy-agent-chat-left-open = { $count ->
+    [one] 1 tab left open
+   *[other] { $count } tabs left open
+}
+whimsy-agent-chat-unmet-typed = Didn’t finish: I typed into the page but couldn’t submit it.
+whimsy-agent-chat-unmet-typed-search = Didn’t finish: I typed the search but couldn’t submit it.
+whimsy-agent-chat-unmet-no-search = Didn’t finish: the search never ran.
+whimsy-agent-chat-unmet-repeat = Didn’t finish: I couldn’t get past one step, so I stopped instead of repeating it.
+whimsy-agent-chat-unmet-error = Didn’t finish: the AI stopped answering partway through.
+whimsy-agent-chat-unmet-turns = Didn’t finish: I ran out of steps.
+# $name is the tab the person named, like Yahoo.
+whimsy-agent-chat-opened-new = No { $name } tab was open, so I opened one.
 whimsy-agent-chat-keep-question = { $count ->
     [one] Keep this tab?
    *[other] Keep these { $count } tabs?
