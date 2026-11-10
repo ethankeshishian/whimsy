@@ -149,36 +149,15 @@ add_task(async function test_identity_icon_hidden_behind_grid() {
   }
   const beforeContent = identityBox && window.getComputedStyle(identityBox, "::before").content;
   ok(beforeContent && beforeContent != "none", "A replacement search icon is drawn in its place");
+  info("WDIAG3 pre-close isOpen=" + window.gURLBar.view.isOpen + " openAttr=" + urlbar.hasAttribute("open") + " closePatched=" + window.gURLBar.view._whimsyEmojiClosePatched);
   closeBar();
-  await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes");
-});
-
-// TEMPORARY DIAGNOSTIC — W24 emoji4, reverted before this lane finishes.
-add_task(async function test_zzz_temp_diag_trust_icon() {
-  await openEmoji("party");
-  const win = window;
-  const identityBox = win.document.getElementById("identity-box");
-  const boxRect = identityBox.getBoundingClientRect();
-  const probeX = boxRect.left - 10;
-  const probeY = boxRect.top + boxRect.height / 2;
-  const topEl = win.document.elementFromPoint(probeX, probeY);
-  info("WDIAG2 probe=" + probeX + "," + probeY + " topEl=" + (topEl ? `${topEl.tagName}#${topEl.id}.${topEl.className}` : "null"));
-  let chain = "";
-  for (let el = topEl; el; el = el.parentElement) {
-    chain += `${el.tagName}#${el.id || ""} `;
+  info("WDIAG3 post-closeBar isOpen=" + window.gURLBar.view.isOpen + " openAttr=" + urlbar.hasAttribute("open") + " emojiOpenAttr=" + urlbar.hasAttribute("whimsy-emoji-open"));
+  try {
+    await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes", 100, 10);
+  } catch (e) {
+    info("WDIAG3 timeout: isOpen=" + window.gURLBar.view.isOpen + " openAttr=" + urlbar.hasAttribute("open") + " emojiOpenAttr=" + urlbar.hasAttribute("whimsy-emoji-open") + " panelHasCard=" + !!window.gURLBar.view.panel.querySelector(".whimsy-emoji-card"));
+    throw e;
   }
-  info("WDIAG2 chain=" + chain);
-  for (const id of ["trust-icon-container", "tracking-protection-icon-container", "remote-control-box"]) {
-    const el = win.document.getElementById(id);
-    if (!el) {
-      info(`WDIAG2 ${id}=missing`);
-      continue;
-    }
-    const rect = el.getBoundingClientRect();
-    const disp = win.getComputedStyle(el).display;
-    info(`WDIAG2 ${id} display=${disp} rect=${JSON.stringify(rect)}`);
-  }
-  closeBar();
 });
 
 add_task(async function test_footer_label_reflects_insert_target() {
