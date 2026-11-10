@@ -6590,14 +6590,20 @@ whimsy-media-voice-heading = Read aloud and dictation
 whimsy-command-related-tag = Related
 
 # Memory
-whimsy-chat-note-memory-saved-one = Saved to memory: { $fact }
-whimsy-chat-note-memory-saved-many = Saved { $count } facts to memory
+# W24 memexpand: a disclosure, like "Used N memories" below, so it can
+# expand to list the facts it saved.
+whimsy-chat-note-memory-saved = { $count ->
+    [one] Saved 1 fact to memory
+   *[other] Saved { $count } facts to memory
+}
 whimsy-chat-note-memory-undo = Undo
 whimsy-chat-action-used-memories = { $count ->
     [one] Used 1 memory
    *[other] Used { $count } memories
 }
 whimsy-chat-used-memories-manage = Manage memory…
+whimsy-chat-memory-remove =
+    .aria-label = Remove “{ $fact }” from memory
 whimsy-memory-switch =
     .label = Use and save memories
     .description = Off: saved ones are kept but not used, and nothing new is saved.

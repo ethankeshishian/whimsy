@@ -741,9 +741,16 @@ function renderSaved(doc, msg, ctx) {
   for (const action of [...all.filter(a => !a.labelled), ...all.filter(a => a.labelled)]) {
     const l10n = action.l10nArgs ? [action.l10nId, action.l10nArgs(msg)] : action.l10nId;
     const run = () => action.run(win, msg);
+    // W24 memexpand: a labelled action that opens a list in place (so far
+    // only "Used N memories") gets the shared disclosure chevron, and
+    // starts collapsed.
     actions.append(action.labelled
-      ? h(doc, "button", { class: "whimsy-chat-btn whimsy-chat-btn-labelled", "data-action": action.id, onclick: run },
-        icon(doc, action.icon), h(doc, "span", { l10n }))
+      ? h(doc, "button", {
+        class: `whimsy-chat-btn whimsy-chat-btn-labelled${action.disclosure ? " whimsy-chat-disclosure" : ""}`,
+        "data-action": action.id,
+        "aria-expanded": action.disclosure ? "false" : null,
+        onclick: run,
+      }, icon(doc, action.icon), h(doc, "span", { l10n }))
       : h(doc, "button", { class: "whimsy-chat-btn", l10n, "data-action": action.id, onclick: run }, icon(doc, action.icon)));
   }
   node.append(actions);
