@@ -254,11 +254,19 @@ add_task(async function test_stale_state_does_not_hijack_a_later_enter() {
   ok(el.querySelector(".whimsy-emoji-cell"), "The grid was showing");
   const url = "https://example.com/";
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: url });
-  const newTab = BrowserTestUtils.waitForNewTab(gBrowser, url, true);
+  // Whether Enter loads in a new tab or in place depends on the selected
+  // tab (a blank one is reused), which in turn depends on what earlier
+  // files left open. What matters here is that the URL loads at all.
+  const tabsBefore = new Set(gBrowser.tabs);
+  const loaded = BrowserTestUtils.waitForLocationChange(gBrowser, url);
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
-  const tab = await newTab;
-  is(gBrowser.selectedTab, tab, "Enter loaded the URL instead of being hijacked by stale grid state");
-  BrowserTestUtils.removeTab(tab);
+  await loaded;
+  is(gBrowser.selectedBrowser.currentURI.spec, url, "Enter loaded the URL instead of being hijacked by stale grid state");
+  for (const tab of [...gBrowser.tabs]) {
+    if (!tabsBefore.has(tab)) {
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
 });
 
 add_task(async function test_nonsense_offers_web_search() {
