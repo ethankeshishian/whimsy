@@ -234,6 +234,17 @@ add_task(async function shots_memory_note_and_used_line() {
     await TestUtils.waitForCondition(() => chat.isOpen && chat.ready, "Chat is open");
     await ask("I live in Austin, any taco tips?");
     await TestUtils.waitForCondition(() => chat.body.querySelector("[data-kind='memory-saved']"), "The memory note shows");
+    // W24 item 14: "Saved 1 fact" opens to show the fact, with its remove.
+    const savedNote = chat.body.querySelector("[data-kind='memory-saved']");
+    const savedToggle = savedNote.querySelector(".whimsy-chat-disclosure");
+    ok(savedToggle, "The saved note has a disclosure");
+    await whimsyBothSchemes("w24-memexpand-saved-open", async () => {
+      savedToggle.click();
+      await TestUtils.waitForCondition(() => savedToggle.getAttribute("aria-expanded") == "true" &&
+        chat.body.querySelector(".whimsy-chat-memory-list .whimsy-chat-chip-x"), "The saved list opens with a remove");
+      await document.l10n.translateFragment(chat.body);
+      return () => savedToggle.click();
+    });
     await ask("Where should I eat in Austin tonight?");
     const used = await TestUtils.waitForCondition(() => chat.body.querySelector("[data-action='used-memories']"), "The used-memories action shows");
     ok(used, "fu-chat 4.5 / chat-4.4: the note line and the Used 1 memory action are both in the chat");
@@ -250,6 +261,17 @@ add_task(async function shots_memory_note_and_used_line() {
       return () => used.click();
     });
     ok(!used.closest(".whimsy-chat-actions").nextElementSibling?.matches(".whimsy-chat-memory-list"), "Pressing it again folds the list");
+    // W24 item 14: removing the only saved fact hides its note.
+    await whimsyBothSchemes("w24-memexpand-after-remove", async () => {
+      if (savedToggle.getAttribute("aria-expanded") != "true") {
+        savedToggle.click();
+      }
+      const x = await TestUtils.waitForCondition(() => chat.body.querySelector("[data-kind='memory-saved'] ~ .whimsy-chat-memory-list .whimsy-chat-chip-x, [data-kind='memory-saved'] .whimsy-chat-chip-x"), "The remove control is there");
+      x.click();
+      await TestUtils.waitForCondition(async () => (await WhimsyAIMemory.list()).length == 0, "The fact is gone from memory");
+      await document.l10n.translateFragment(chat.body);
+      return null;
+    });
   } finally {
     if (chat.isOpen) {
       chat.close({ reason: "key" });
