@@ -7852,3 +7852,6 @@ whimsy-emoji-copied-toast = Copied { $name } · ⌘V to paste
 whimsy-emoji-no-match = No emoji for “{ $query }”
 # $query (string) - what was typed
 whimsy-emoji-search-web = Search the web for “{ $query }”
+
+whimsy-ai-chat-edge-hover =
+    .label = Show chat when the pointer reaches the window edge

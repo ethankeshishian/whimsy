@@ -979,6 +979,8 @@ support-files = ["whimsy_ai_sensitive.html"]
 # W23 chat-shell: the chat panel (⌘E, Esc, side, resize, narrow windows),
 # per-tab threads, the conversation list, the private wall, the Tasks strip,
 # and this lane's screenshots.
+["browser_whimsy_chat_hover.js"]
+
 ["browser_whimsy_chat_shell.js"]
 
 ["browser_whimsy_chat_threads.js"]

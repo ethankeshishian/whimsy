@@ -527,6 +527,7 @@ add_task(async function features_rows_toggle_prefs() {
   for (const [id, pref] of [
     ["whimsyAITidyTabs", "whimsy.feature.tidy-tabs"],
     ["whimsyAITidyTitles", "whimsy.feature.tidy-titles"],
+    ["whimsyAIChatHover", "whimsy.ai.chat.edge-hover"],
     ["whimsyAIAskOnPage", "whimsy.feature.ask-on-page"],
     ["whimsyAILinkPreviews", "whimsy.feature.link-previews"],
     ["whimsyAIPageWatch", "whimsy.feature.page-watch"],

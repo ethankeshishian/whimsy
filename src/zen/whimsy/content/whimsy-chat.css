@@ -38,6 +38,7 @@
   --whimsy-chat-radius: var(--zen-native-inner-radius, 10px);
   --whimsy-chat-focus: 2px solid var(--focus-outline-color, AccentColor);
 
+  box-sizing: border-box;
   position: relative;
   display: flex;
   flex: none;
@@ -64,6 +65,14 @@
     padding-inline-end: var(--whimsy-chat-gap);
     justify-content: flex-end;
   }
+}
+
+/* Zen removes the wrapper gap beside its tabs; chat needs it on either side. */
+:root[zen-right-side="true"] #zen-tabbox-wrapper:has(> #whimsy-chat[side="right"]:not([hidden])) {
+  margin-right: var(--zen-element-separation);
+}
+:root:not([zen-right-side="true"]) #zen-tabbox-wrapper:has(> #whimsy-chat[side="left"]:not([hidden])) {
+  margin-left: var(--zen-element-separation);
 }
 
 #zen-tabbox-wrapper:has(> #whimsy-chat[overlay]:not([hidden])) {

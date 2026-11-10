@@ -775,6 +775,10 @@
 - name: whimsy.ai.hints.today
   value: ""
 
+# Show chat at its window edge until the person engages with it.
+- name: whimsy.ai.chat.edge-hover
+  value: true
+
 # W23 chat-shell
 # Which side chat sits on ("right" or "left"), for every window.
 - name: whimsy.chat.side
