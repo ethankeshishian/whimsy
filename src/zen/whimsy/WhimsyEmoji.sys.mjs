@@ -231,15 +231,22 @@ export const WhimsyEmoji = {
         const card = panel.querySelector(".whimsy-emoji-card");
         if (card && card != mounts.get(win)?.el) {
           this.mountGrid(win, card);
+        } else if (!card && mounts.get(win)?.el) {
+          // The DOM, not "popuphidden", is the reliable signal here: this
+          // floating-bar view isn't a real XUL popup, so popuphidden (kept
+          // below too, belt-and-suspenders) isn't guaranteed to fire —
+          // without this, the grid's card is removed from the results but
+          // `states`/`insertTargets` never clear, so the NEXT bar session
+          // reads them as "still resuming" and skips re-checking canInsert,
+          // permanently wedging the footer's label on whatever the very
+          // first session ever found.
+          this.unmountGrid(win);
         }
       });
       panel._whimsyEmojiObserver.observe(panel, { childList: true, subtree: true });
       panel.addEventListener("popuphidden", event => {
         if (event.target == panel) {
-          states.delete(win);
-          mounts.delete(win);
-          insertTargets.delete(win);
-          win.document.getElementById("urlbar")?.removeAttribute("whimsy-emoji-open");
+          this.unmountGrid(win);
         }
       });
     }
@@ -275,6 +282,16 @@ export const WhimsyEmoji = {
     if (state) {
       this.render(win, state);
     }
+  },
+
+  // The end of a bar session, however it ends: picked, reverted, backspaced
+  // past ":", or the panel genuinely closed. Idempotent (every caller is
+  // fine running this more than once for the same session).
+  unmountGrid(win) {
+    states.delete(win);
+    mounts.delete(win);
+    insertTargets.delete(win);
+    win.document.getElementById("urlbar")?.removeAttribute("whimsy-emoji-open");
   },
 
   scheduleRender(win) {
@@ -379,15 +396,12 @@ export const WhimsyEmoji = {
     // hijack a later, unrelated Enter (e.g. loading a typed URL) with a
     // stale grid. Never act on state that isn't the bar's current query.
     if (!win.gURLBar?.value?.startsWith(":")) {
-      states.delete(win);
-      mounts.delete(win);
-      insertTargets.delete(win);
       // Also undoes mountGrid's identity-icon hiding (whimsy-emoji.css):
       // without this, backspacing past ":" into some other active row
       // (bangs, a plain search) would leave the real page's identity icon
       // hidden — and our stand-in search glyph showing — behind a row that
       // isn't ours anymore.
-      win.document.getElementById("urlbar")?.removeAttribute("whimsy-emoji-open");
+      this.unmountGrid(win);
       return;
     }
     if (event.key == "Tab" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
@@ -457,7 +471,7 @@ export const WhimsyEmoji = {
     // withTone no-ops for tone 0 or an emoji that has no tone variants.
     const toned = lazy.WhimsySpaceIcons.withTone(baseEmoji, state.toneIndex);
     lazy.WhimsyEmojiFrequent.record(win, baseEmoji);
-    states.delete(win);
+    this.unmountGrid(win);
     win.gURLBar?.view.close();
     win.gURLBar?.handleRevert();
     if (!copy && (await this.insertInPage(win, toned))) {
@@ -496,7 +510,7 @@ export const WhimsyEmoji = {
   },
 
   runWebSearch(win, query) {
-    states.delete(win);
+    this.unmountGrid(win);
     win.gURLBar?.view.close();
     win.gURLBar?.handleRevert();
     const engine = Services.search.defaultEngine;

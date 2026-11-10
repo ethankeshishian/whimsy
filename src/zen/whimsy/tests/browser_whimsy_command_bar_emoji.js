@@ -95,7 +95,10 @@ add_task(async function test_grid_geometry_and_footer() {
   const cardRect = el.getBoundingClientRect();
   ok(Math.abs(cellRect.height - 48) < 2, "Cells have a fixed ~48px row height");
   ok(cellRect.width > cellRect.height, "Cells aren't square: the column is wider than the fixed row height");
-  ok(gridRect.width > cardRect.width - 4, "The grid spans the full results width, not just the left ~55%");
+  // Not `cardRect.width` itself: the card has its own horizontal padding
+  // (whimsy-emoji.css, .whimsy-emoji-card), so the grid is inset a bit —
+  // just nowhere near the ~55%-wide bug this regresses.
+  ok(gridRect.width > cardRect.width * 0.85, "The grid spans the full results width, not just the left ~55%");
   const emojiSize = parseFloat(window.getComputedStyle(el.querySelector(".whimsy-emoji-cell")).fontSize);
   ok(Math.abs(emojiSize - 30) < 2, "The emoji glyph itself is about 30px, not lost in an oversized cell");
 
