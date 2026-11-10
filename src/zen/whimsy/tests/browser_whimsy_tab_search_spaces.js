@@ -211,6 +211,35 @@ add_task(async function test_current_space_ranks_above_other_space_no_duplicate(
   await gZenWorkspaces.changeWorkspace(homeSpace);
 });
 
+// The bar with a current-space row (no label) above an other-space row
+// (its space's icon and name, muted, after the title), light and dark.
+add_task(async function shots_tabsearch_rows() {
+  const here = await addTab("https://example.com/");
+  labelTab(here, "Tabsearch shot match");
+  const spaceShot = await containerSpace("Tabsearch shot space", "🌈");
+  await gZenWorkspaces.changeWorkspace(spaceShot);
+  const elsewhere = await addTab("https://example.org/");
+  labelTab(elsewhere, "Tabsearch shot match");
+  await gZenWorkspaces.changeWorkspace(homeSpace);
+  await collectSidebarData();
+
+  await whimsyBothSchemes("tabsearch-rows", async () => {
+    const rows = await searchSidebarRows("tabsearch shot match");
+    Assert.equal(rows.length, 2, "The current-space and other-space rows are both showing");
+    await whimsySettled();
+    const undo = whimsyStandInPopups();
+    return async () => {
+      undo();
+      await UrlbarTestUtils.promisePopupClose(window);
+    };
+  });
+
+  BrowserTestUtils.removeTab(here);
+  await gZenWorkspaces.changeWorkspace(spaceShot);
+  BrowserTestUtils.removeTab(elsewhere);
+  await gZenWorkspaces.changeWorkspace(homeSpace);
+});
+
 add_task(async function test_dedup_drops_firefoxs_own_row_for_the_same_tab() {
   const TAB_SWITCH = UrlbarShared.RESULT_TYPE.TAB_SWITCH;
   const ours = {
