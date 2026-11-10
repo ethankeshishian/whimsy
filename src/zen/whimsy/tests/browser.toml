@@ -372,6 +372,9 @@ support-files = ["whimsy_call.html"]
 
 # wave3/cmdbar: offline bangs and the Settings editor.
 ["browser_whimsy_bangs.js"]
+
+# W24 emoji: emoji from the command bar (":" or the Emoji command).
+["browser_whimsy_command_bar_emoji.js"]
 # wave3/tree: Cmd+1-9 skip hidden spaces
 ["browser_whimsy_space_shortcuts.js"]
 

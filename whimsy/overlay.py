@@ -1253,6 +1253,8 @@ FEATURES = [
      "detect": [("src/zen/spaces", r"lastSelectedWorkspaceTabs\[[^\]]+\]\s*=\s*[^;]*lastAccessed")]},
     {"id": "emoji-search", "title": "Emoji search: every word must match, Enter picks the first result, empty state",
      "detect": [("src/zen/common/emojis", r"split\(/\\s\+/\)|no-results|emojis-picker-empty")]},
+    {"id": "command-bar-emoji", "title": "Emoji from the command bar: \":\" or the Emoji command opens an 8-across searchable grid (frequent, skin tones, insert or copy)",
+     "detect": [("src/zen", r"UrlbarProviderEmoji|urlbar-emoji-grid")]},
     {"id": "hide-switcher", "title": "Hide the space switcher (toggle, off by default)",
      "detect": [("prefs", r"name:\s*zen\.[\w.-]*(hide|show)[\w.-]*(workspace|space)[\w.-]*(switcher|icons|button)")]},
     {"id": "open-link-in-space", "title": "Open Link in Space (link context menu, Arc)",
