@@ -1050,7 +1050,7 @@ class nsZenPinnedTabManager extends nsZenDOMOperatedFeature {
     return (
       !(
         (tab.getAttribute("usercontextid") || 0) !=
-          (gZenWorkspaces.getActiveWorkspaceFromCache().containerTabId || 0) &&
+          (gZenWorkspaces.getActiveWorkspaceFromCache()?.containerTabId || 0) && // Whimsy hotfix
         gZenWorkspaces.containerSpecificEssentials
       ) &&
       (isExistingEssentialTab ||

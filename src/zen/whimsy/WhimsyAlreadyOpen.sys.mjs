@@ -34,6 +34,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  getSpaceBadge: "resource:///modules/ZenUBSidebarProvider.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.already-open";
@@ -127,17 +128,19 @@ export const WhimsyAlreadyOpen = {
   // W24/tabsearch: after the view renders a query's rows, a "Switch to Tab"
   // row for a tab in another space (or profile) shows that space's icon and
   // name where the url would otherwise go: same slot, same muted size as
-  // Firefox's own url line, no new colour. ZenUrlbarProviderSidebar sets
-  // payload.zenSpaceBadge only for those rows (never for the current
-  // space, never for an essential); this only changes what's displayed,
-  // never result.payload.url itself, so picking the row is unaffected.
+  // Firefox's own url line, no new colour. ZenUrlbarProviderSidebar keeps
+  // the badge out of band (a WeakMap keyed by the result, read here via
+  // getSpaceBadge — TAB_SWITCH's payload schema rejects unknown
+  // properties) only for those rows (never for the current space, never
+  // for an essential); this only changes what's displayed, never
+  // result.payload.url itself, so picking the row is unaffected.
   decorateSpaceRows(win) {
     const rows = win.gURLBar?.view?.panel?.querySelector(".urlbarView-results");
     if (!rows) {
       return;
     }
     for (const row of rows.children) {
-      const badge = row.result?.type == TAB_SWITCH_RESULT ? row.result.payload?.zenSpaceBadge : null;
+      const badge = row.result?.type == TAB_SWITCH_RESULT ? lazy.getSpaceBadge(row.result) : null;
       if (!badge) {
         continue;
       }

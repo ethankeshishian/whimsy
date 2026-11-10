@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(this, {
   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.sys.mjs",
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
+  getSpaceBadge: "resource:///modules/ZenUBSidebarProvider.sys.mjs",
   SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   TabStateFlusher: "moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs",
 });
@@ -110,18 +111,18 @@ add_task(async function test_other_space_same_profile_by_title_and_label() {
   let rows = await searchSidebarRows("tabsearch report alpha");
   Assert.equal(rows.length, 1, "The other-space tab is found by its real title");
   ok(
-    rows[0].result.payload.zenSpaceBadge?.includes(homeSpace.name),
+    getSpaceBadge(rows[0].result)?.includes(homeSpace.name),
     "Labelled with the tab's own space name"
   );
   if (homeSpace.icon && !homeSpace.icon.endsWith(".svg")) {
     ok(
-      rows[0].result.payload.zenSpaceBadge.includes(homeSpace.icon),
+      getSpaceBadge(rows[0].result).includes(homeSpace.icon),
       "...and its icon"
     );
   }
   is(
     rows[0].row.querySelector(".urlbarView-url").textContent,
-    rows[0].result.payload.zenSpaceBadge,
+    getSpaceBadge(rows[0].result),
     "The row shows the space badge where the url would otherwise go"
   );
   await pickRow(rows[0]);
@@ -139,7 +140,7 @@ add_task(async function test_other_space_same_profile_by_title_and_label() {
   rows = await searchSidebarRows("tabsearch custom beta");
   Assert.equal(rows.length, 1, "The other-space tab is also found by its custom label");
   ok(
-    rows[0].result.payload.zenSpaceBadge?.includes(homeSpace.name),
+    getSpaceBadge(rows[0].result)?.includes(homeSpace.name),
     "Labelled the same way"
   );
   await UrlbarTestUtils.promisePopupClose(window);
@@ -160,7 +161,7 @@ add_task(async function test_other_profile_space_found_labelled_and_container_ke
   const rows = await searchSidebarRows("tabsearch custom gamma");
   Assert.equal(rows.length, 1, "A tab in another profile's space is found");
   ok(
-    rows[0].result.payload.zenSpaceBadge?.includes(spaceC.name),
+    getSpaceBadge(rows[0].result)?.includes(spaceC.name),
     "Labelled with that profile's space"
   );
   is(
@@ -200,9 +201,9 @@ add_task(async function test_current_space_ranks_above_other_space_no_duplicate(
   const rows = await searchSidebarRows("tabsearch tie match");
   Assert.equal(rows.length, 2, "Both tabs match once each; no duplicate for either");
   is(rows[0].result.payload.url, "https://example.com/", "Current-space tab ranks first");
-  ok(!rows[0].result.payload.zenSpaceBadge, "...with no space label");
+  ok(!getSpaceBadge(rows[0].result), "...with no space label");
   is(rows[1].result.payload.url, "https://example.org/", "Other-space tab ranks second");
-  ok(rows[1].result.payload.zenSpaceBadge, "...labelled with its space");
+  ok(getSpaceBadge(rows[1].result), "...labelled with its space");
 
   await UrlbarTestUtils.promisePopupClose(window);
   BrowserTestUtils.removeTab(here);

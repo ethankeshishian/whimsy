@@ -6,6 +6,7 @@
 ChromeUtils.defineESModuleGetters(this, {
   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
   UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.sys.mjs",
+  getSpaceBadge: "resource:///modules/ZenUBSidebarProvider.sys.mjs",
   SessionSaver:
     "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   TabStateFlusher:
@@ -131,7 +132,7 @@ add_task(async function test_other_space_tabs_are_matched_and_labelled() {
   let rows = await searchSidebarRows("zenotherspace");
   Assert.equal(rows.length, 1, "The tab in the other space is still matched");
   ok(
-    rows[0].result.payload.zenSpaceBadge?.includes(originalSpaceName),
+    getSpaceBadge(rows[0].result)?.includes(originalSpaceName),
     "...labelled with its own space, since it isn't the active one"
   );
   await UrlbarTestUtils.promisePopupClose(window);
@@ -143,7 +144,7 @@ add_task(async function test_other_space_tabs_are_matched_and_labelled() {
   const rows2 = await searchSidebarRows("zenotherspace");
   Assert.equal(rows2.length, 1, "The tab is matched again in its own space");
   ok(
-    !rows2[0].result.payload.zenSpaceBadge,
+    !getSpaceBadge(rows2[0].result),
     "...now unlabelled, since it's the active space"
   );
 

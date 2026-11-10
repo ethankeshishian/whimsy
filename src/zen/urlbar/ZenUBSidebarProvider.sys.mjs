@@ -22,6 +22,17 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const DYNAMIC_TYPE_NAME = "zen-folders";
 
+// W24/tabsearch: the other-space label a "Switch to Tab" row shows isn't
+// part of TAB_SWITCH's schema-validated payload (UrlbarUtils.sys.mjs,
+// RESULT_PAYLOAD_SCHEMA), so it's kept out of band here, keyed by the
+// UrlbarResult instance, and read back by WhimsyAlreadyOpen's
+// decorateSpaceRows via getSpaceBadge.
+const spaceBadges = new WeakMap();
+
+export function getSpaceBadge(result) {
+  return spaceBadges.get(result) || null;
+}
+
 export class ZenUrlbarProviderSidebar extends UrlbarProvider {
   get name() {
     return "ZenUrlbarProviderSidebar";
@@ -116,28 +127,28 @@ export class ZenUrlbarProviderSidebar extends UrlbarProvider {
         // Current-space rows show no label; an essential has no space of
         // its own either way.
         const badge = sameSpace ? null : this.#spaceBadge(sidebar, tabData);
-        addCallback(
-          this,
-          new lazy.UrlbarResult({
-            type: UrlbarShared.RESULT_TYPE.TAB_SWITCH,
-            source: UrlbarShared.RESULT_SOURCE.TABS,
-            payload: {
-              url,
-              title: label,
-              icon: UrlbarShared.getIconForUrl(url),
-              userContext: UrlbarUtils.getUserContextData(userContextId),
-              tabGroup: openTab[1],
-              action: lazy.UrlbarPrefs.get("secondaryActions.switchToTab")
-                ? UrlbarUtils.createTabSwitchSecondaryAction(userContextId)
-                : undefined,
-              ...(badge ? { zenSpaceBadge: badge } : {}),
-            },
-            highlights: {
-              url: UrlbarShared.HIGHLIGHT.TYPED,
-              title: UrlbarShared.HIGHLIGHT.TYPED,
-            },
-          })
-        );
+        const result = new lazy.UrlbarResult({
+          type: UrlbarShared.RESULT_TYPE.TAB_SWITCH,
+          source: UrlbarShared.RESULT_SOURCE.TABS,
+          payload: {
+            url,
+            title: label,
+            icon: UrlbarShared.getIconForUrl(url),
+            userContext: UrlbarUtils.getUserContextData(userContextId),
+            tabGroup: openTab[1],
+            action: lazy.UrlbarPrefs.get("secondaryActions.switchToTab")
+              ? UrlbarUtils.createTabSwitchSecondaryAction(userContextId)
+              : undefined,
+          },
+          highlights: {
+            url: UrlbarShared.HIGHLIGHT.TYPED,
+            title: UrlbarShared.HIGHLIGHT.TYPED,
+          },
+        });
+        if (badge) {
+          spaceBadges.set(result, badge);
+        }
+        addCallback(this, result);
         if (++resultsAdded == queryContext.maxResults) {
           return;
         }
