@@ -8,6 +8,7 @@
 
 ChromeUtils.defineESModuleGetters(this, {
   UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.sys.mjs",
+  WhimsyEmoji: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs",
   WhimsyEmojiFrequent: "resource:///modules/whimsy/WhimsyEmojiFrequent.sys.mjs",
 });
 
@@ -253,10 +254,16 @@ add_task(async function test_stale_state_does_not_hijack_a_later_enter() {
   const el = await openEmoji("party");
   ok(el.querySelector(".whimsy-emoji-cell"), "The grid was showing");
   const url = "https://example.com/";
+  WhimsyEmoji._wdiag = true;
+  dump(`WDIAG6 test BEFORE-reinput t=${Date.now()}\n`);
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: url });
+  dump(`WDIAG6 test AFTER-reinput t=${Date.now()} value=${JSON.stringify(window.gURLBar.value)}\n`);
   const newTab = BrowserTestUtils.waitForNewTab(gBrowser, url, true);
+  dump(`WDIAG6 test BEFORE-enter t=${Date.now()}\n`);
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
+  dump(`WDIAG6 test AFTER-enter-sync t=${Date.now()}\n`);
   const tab = await newTab;
+  WhimsyEmoji._wdiag = false;
   is(gBrowser.selectedTab, tab, "Enter loaded the URL instead of being hijacked by stale grid state");
   BrowserTestUtils.removeTab(tab);
 });

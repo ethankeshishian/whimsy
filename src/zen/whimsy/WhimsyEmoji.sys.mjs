@@ -170,7 +170,9 @@ export class WhimsyEmojiProvider extends UrlbarProvider {
       // promise below settles.
       if (!resuming) {
         insertTargets.set(win, true);
+        if (WhimsyEmoji._wdiag) dump(`WDIAG6 checkCanInsert START t=${Date.now()}\n`);
         WhimsyEmoji.checkCanInsert(win).then(canInsert => {
+          if (WhimsyEmoji._wdiag) dump(`WDIAG6 checkCanInsert DONE t=${Date.now()} hasState=${states.has(win)} elConnected=${mounts.get(win)?.el?.isConnected}\n`);
           insertTargets.set(win, canInsert);
           const current = states.get(win);
           if (current) {
@@ -245,6 +247,7 @@ export const WhimsyEmoji = {
     if (panel && !panel._whimsyEmojiObserver) {
       panel._whimsyEmojiObserver = new win.MutationObserver(() => {
         const card = panel.querySelector(".whimsy-emoji-card");
+        if (WhimsyEmoji._wdiag) dump(`WDIAG6 observer t=${Date.now()} card=${!!card} mountedEl=${!!mounts.get(win)?.el}\n`);
         if (card && card != mounts.get(win)?.el) {
           this.mountGrid(win, card);
         } else if (!card && mounts.get(win)?.el) {
@@ -304,6 +307,7 @@ export const WhimsyEmoji = {
   // past ":", or the panel genuinely closed. Idempotent (every caller is
   // fine running this more than once for the same session).
   unmountGrid(win) {
+    if (WhimsyEmoji._wdiag) dump(`WDIAG6 unmountGrid t=${Date.now()}\n`);
     states.delete(win);
     mounts.delete(win);
     insertTargets.delete(win);
@@ -401,6 +405,7 @@ export const WhimsyEmoji = {
 
   onInputKey(win, event) {
     const state = states.get(win);
+    if (WhimsyEmoji._wdiag) dump(`WDIAG6 onInputKey t=${Date.now()} key=${event.key} hasState=${!!state} value=${JSON.stringify(win.gURLBar?.value)}\n`);
     if (!state) {
       return;
     }
@@ -417,6 +422,7 @@ export const WhimsyEmoji = {
       // (bangs, a plain search) would leave the real page's identity icon
       // hidden — and our stand-in search glyph showing — behind a row that
       // isn't ours anymore.
+      if (WhimsyEmoji._wdiag) dump(`WDIAG6 onInputKey BAIL-unmount t=${Date.now()} key=${event.key}\n`);
       this.unmountGrid(win);
       return;
     }
