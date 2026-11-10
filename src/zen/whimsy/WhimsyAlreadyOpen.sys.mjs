@@ -143,11 +143,23 @@ export const WhimsyAlreadyOpen = {
   // data-whimsy-space-badge attribute set here); rows are reused across
   // queries, so a row that no longer has a badge must have the attribute
   // cleared, not just left stale from an earlier query.
+  //
+  // UrlbarView (a private class; its per-row render method can't be
+  // monkey-patched) clears a TAB_SWITCH row's url text and `has-url`
+  // whenever it re-renders that row — not only from the query that first
+  // built it, but again afterwards (confirmed: the badge is correct right
+  // after onQueryResults, gone again by the time the popup's opening
+  // animation has settled and the next paint happens). Calling this only
+  // from onQueryResults loses that race. observeSpaceRows below watches
+  // the rendered rows and calls this again the moment anything changes
+  // them; writing only when something is actually wrong keeps the two from
+  // looping.
   decorateSpaceRows(win) {
     const rows = win.gURLBar?.view?.panel?.querySelector(".urlbarView-results");
     if (!rows) {
       return;
     }
+    this.observeSpaceRows(win, rows);
     for (const row of rows.children) {
       const badge = row.result?.type == TAB_SWITCH_RESULT ? lazy.getSpaceBadge(row.result) : null;
       const url = row.querySelector(".urlbarView-url");
@@ -155,12 +167,34 @@ export const WhimsyAlreadyOpen = {
         continue;
       }
       if (badge) {
-        url.textContent = badge;
-        url.setAttribute("data-whimsy-space-badge", "true");
-      } else {
+        if (url.textContent != badge || !url.hasAttribute("data-whimsy-space-badge")) {
+          url.textContent = badge;
+          url.setAttribute("data-whimsy-space-badge", "true");
+        }
+      } else if (url.hasAttribute("data-whimsy-space-badge")) {
         url.removeAttribute("data-whimsy-space-badge");
       }
     }
+  },
+
+  // Firefox renders rows outside onQueryResults too (at least once more,
+  // after the popup's opening transition finishes); this re-applies the
+  // badge whenever that happens. One observer per results list, kept for
+  // the window's life; decorateSpaceRows's own writes are idempotent
+  // no-ops once correct, so this never triggers itself in a loop.
+  observeSpaceRows(win, rows) {
+    if (rows._whimsySpaceObserver) {
+      return;
+    }
+    const observer = new win.MutationObserver(() => this.decorateSpaceRows(win));
+    observer.observe(rows, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["data-whimsy-space-badge", "has-url"],
+    });
+    rows._whimsySpaceObserver = observer;
   },
 
   // Whether this address bar is the command bar for a new tab: Zen's Cmd+T

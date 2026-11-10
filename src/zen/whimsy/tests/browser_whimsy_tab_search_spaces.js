@@ -228,28 +228,12 @@ add_task(async function test_current_space_ranks_above_other_space_no_duplicate(
   await gZenWorkspaces.changeWorkspace(homeSpace);
 });
 
-// TEMP (W24/tabsearch diagnostic, reverted before this lane ships): every
-// row actually in the popup, not just ZenUrlbarProviderSidebar's, with the
-// provider, badge and url-slot state the screenshot would show.
-function dumpRows(label) {
-  const rowsEl = window.gURLBar.view.panel.querySelector(".urlbarView-results");
-  let i = 0;
-  for (const row of rowsEl.children) {
-    const r = row.result;
-    const url = row.querySelector(".urlbarView-url");
-    info(
-      `TABSEARCH-DEBUG ${label} [${i++}] provider=${r?.providerName} ` +
-      `type=${r?.type} url=${r?.payload?.url} ` +
-      `userContext=${JSON.stringify(r?.payload?.userContext)} ` +
-      `badge=${getSpaceBadge(r)} urlText=${JSON.stringify(url?.textContent)} ` +
-      `vis=${url ? window.getComputedStyle(url).visibility : "n/a"} ` +
-      `attr=${url?.getAttribute("data-whimsy-space-badge")}`
-    );
-  }
-}
-
 // The bar with a current-space row (no label) above an other-space row
 // (its space's icon and name, muted, after the title), light and dark.
+// Two tabs share a title, one per space, matching exactly what a person
+// sees: this caught a real bug (UrlbarView re-renders a TAB_SWITCH row
+// after it's first drawn, wiping the badge text decorateSpaceRows wrote;
+// see WhimsyAlreadyOpen.observeSpaceRows) that rows.length alone didn't.
 add_task(async function shots_tabsearch_rows() {
   const here = await addTab("https://example.com/");
   labelTab(here, "Tabsearch shot match");
@@ -263,11 +247,18 @@ add_task(async function shots_tabsearch_rows() {
   await whimsyBothSchemes("tabsearch-rows", async () => {
     const rows = await searchSidebarRows("tabsearch shot match");
     Assert.equal(rows.length, 2, "The current-space and other-space rows are both showing");
-    dumpRows("after-search");
+    const labelled = rows.filter(r => getSpaceBadge(r.result));
+    Assert.equal(labelled.length, 1, "Exactly one of the two rows carries a space label");
+    const urlEl = labelled[0].row.querySelector(".urlbarView-url");
+    is(
+      window.getComputedStyle(urlEl).visibility,
+      "visible",
+      "...and it's actually visible, not hidden behind Firefox's switch-to-tab url collapse"
+    );
+    const rect = urlEl.getBoundingClientRect();
+    ok(rect.width > 0 && rect.height > 0, "...with real on-screen size, not a collapsed box");
     await whimsySettled();
-    dumpRows("after-settle");
     const undo = whimsyStandInPopups();
-    dumpRows("after-standin");
     return async () => {
       undo();
       await UrlbarTestUtils.promisePopupClose(window);
