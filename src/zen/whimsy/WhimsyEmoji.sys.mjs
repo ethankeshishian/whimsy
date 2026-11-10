@@ -152,14 +152,23 @@ export class WhimsyEmojiProvider extends UrlbarProvider {
 
   async startQuery(context, addCallback) {
     const win = topWindow(context.isPrivate);
+    // A session boundary is "states didn't already have this window" —
+    // checked before the `states.set` below, not via `insertTargets.has`:
+    // that WeakMap is only cleared on popuphidden, and if that event is
+    // ever late or missed (it's not a real XUL popup in this floating-bar
+    // UI), a stale `false` left over from an earlier, field-less session
+    // would permanently skip re-checking and wedge the footer on "Copy".
+    // `states` is set unconditionally below every call, so it can't go
+    // stale the same way.
+    const resuming = win && states.has(win);
     const state = computeState(context.searchString.slice(1));
     if (win) {
       states.set(win, state);
       WhimsyEmoji.scheduleRender(win);
-      // Checked once per bar session, not per keystroke: `has` is already
-      // true after the first call, win (no await) before the promise below
-      // settles.
-      if (!insertTargets.has(win)) {
+      // Checked once per bar session, not per keystroke: `resuming` is
+      // already true after the first call, win (no await) before the
+      // promise below settles.
+      if (!resuming) {
         insertTargets.set(win, true);
         WhimsyEmoji.checkCanInsert(win).then(canInsert => {
           insertTargets.set(win, canInsert);
@@ -230,6 +239,7 @@ export const WhimsyEmoji = {
           states.delete(win);
           mounts.delete(win);
           insertTargets.delete(win);
+          win.document.getElementById("urlbar")?.removeAttribute("whimsy-emoji-open");
         }
       });
     }
@@ -255,6 +265,12 @@ export const WhimsyEmoji = {
 
   mountGrid(win, el) {
     mounts.set(win, { ...mounts.get(win), el });
+    // Marks #urlbar itself (whimsy-emoji.css), rather than relying on
+    // `#urlbar:has(.urlbarView-row[dynamicType=...])`: the urlbarView's
+    // panel isn't a DOM descendant of #urlbar (gURLBar.contains() checks
+    // the input and the view panel separately), so that :has() selector
+    // never actually matched and never hid the page's real identity icon.
+    win.document.getElementById("urlbar")?.setAttribute("whimsy-emoji-open", "");
     const state = states.get(win);
     if (state) {
       this.render(win, state);
@@ -334,13 +350,17 @@ export const WhimsyEmoji = {
     // nothing focused at all) — insertTargets reflects that same check
     // (WhimsyEmoji.checkCanInsert), not just a generic label.
     const canType = insertTargets.get(win) ?? true;
+    // With no field to type into, ⌘↵ would copy exactly what ↵ already
+    // does — a duplicate control — so it's left out entirely rather than
+    // shown twice; ⌘↵ only appears alongside ↵'s "Type into the page" when
+    // there's actually a field to bypass it for.
     el.append(
       h(doc, "div", { class: "whimsy-emoji-footer" },
         h(doc, "span", { class: "whimsy-emoji-footer-icon" }, shown),
         h(doc, "b", {}, lazy.WhimsyEmojiIndex.nameOf(selected)),
         h(doc, "span", { class: "whimsy-emoji-footer-keys" },
           h(doc, "span", {}, h(doc, "kbd", {}, "↵"), h(doc, "span", { l10n: canType ? "whimsy-emoji-footer-type" : "whimsy-emoji-footer-copy" })),
-          h(doc, "span", {}, h(doc, "kbd", {}, "⌘↵"), h(doc, "span", { l10n: "whimsy-emoji-footer-copy" }))
+          canType ? h(doc, "span", {}, h(doc, "kbd", {}, "⌘↵"), h(doc, "span", { l10n: "whimsy-emoji-footer-copy" })) : null
         )
       )
     );
@@ -360,6 +380,14 @@ export const WhimsyEmoji = {
     // stale grid. Never act on state that isn't the bar's current query.
     if (!win.gURLBar?.value?.startsWith(":")) {
       states.delete(win);
+      mounts.delete(win);
+      insertTargets.delete(win);
+      // Also undoes mountGrid's identity-icon hiding (whimsy-emoji.css):
+      // without this, backspacing past ":" into some other active row
+      // (bangs, a plain search) would leave the real page's identity icon
+      // hidden — and our stand-in search glyph showing — behind a row that
+      // isn't ours anymore.
+      win.document.getElementById("urlbar")?.removeAttribute("whimsy-emoji-open");
       return;
     }
     if (event.key == "Tab" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {

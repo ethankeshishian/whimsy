@@ -19,9 +19,24 @@
    to the floating bar's input while the grid is open, since this is a
    DYNAMIC heuristic result rather than a recognized search/URL type that
    Firefox's own urlbar.css knows to hide on typing (urlbar.css:1578, gated
-   behind prefs this build may not have). The mockup never shows it. */
-#urlbar:has(.urlbarView-row[dynamicType="whimsy-emoji-grid"]) #identity-box {
-  visibility: hidden;
+   behind prefs this build may not have). The mockup never shows it — just
+   the normal search icon instead.
+   [whimsy-emoji-open] (WhimsyEmoji.mountGrid/popuphidden), not
+   `#urlbar:has(.urlbarView-row[dynamicType=...])`: the urlbarView's panel
+   isn't a DOM descendant of #urlbar (gURLBar.contains() checks the input
+   and the view panel as two separate places), so that :has() never
+   actually matched — the identity icon stayed visible and no replacement
+   search icon ever showed in its place. display: none, not visibility:
+   hidden, so the icon's box collapses instead of leaving a blank gap. */
+#urlbar[whimsy-emoji-open] #identity-box #identity-icon-box,
+#urlbar[whimsy-emoji-open] #identity-box #identity-icon {
+  display: none !important;
+}
+#urlbar[whimsy-emoji-open] #identity-box::before {
+  content: "🔍";
+  font-size: 13px;
+  opacity: 0.6;
+  padding-inline-start: 2px;
 }
 
 .urlbarView-row[dynamicType="whimsy-emoji-grid"] {
@@ -56,11 +71,15 @@
 
 .whimsy-emoji-grid {
   display: grid;
-  /* Fixed-size columns (mockup: docs/superpowers/mockups/w24/05-emoji.html,
-     .w-emo-grid), not 1fr: stretching 8 columns across the full urlbar
-     width made every cell ~100px with a tiny emoji lost in the middle, and
-     the resulting tall row looked like an empty band under the grid. */
-  grid-template-columns: repeat(8, 44px);
+  /* 1fr columns so the 8 columns span the results' full width (mockup:
+     docs/superpowers/mockups/w24/05-emoji.html, .w-emo-grid) — fixed 44px
+     columns left a big empty area right of the grid on a normal-width bar.
+     What made 1fr look broken before wasn't the column width, it was
+     `aspect-ratio: 1` on the cell (removed below) stretching each cell's
+     HEIGHT to match that wide column, into a ~100px tall row with a tiny
+     emoji lost in the middle. A fixed row height sidesteps both bugs. */
+  grid-template-columns: repeat(8, 1fr);
+  grid-auto-rows: 48px;
   gap: 4px;
 }
 
@@ -68,9 +87,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1;
   border-radius: 10px;
-  font-size: 28px;
+  font-size: 30px;
   line-height: 1;
   cursor: pointer;
 

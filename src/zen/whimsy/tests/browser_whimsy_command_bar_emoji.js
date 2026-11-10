@@ -86,9 +86,18 @@ add_task(async function test_grid_geometry_and_footer() {
   const columns = window.getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/);
   is(columns.length, 8, "Eight columns");
   is(new Set(columns).size, 1, "The columns are equal");
+  // The 8 columns span the results' full width (1fr each) — not fixed-size
+  // columns that left a big empty area to the right of the grid — while a
+  // fixed row height keeps cells from stretching tall the way 1fr columns
+  // used to (aspect-ratio: 1, now removed, was what made them tall).
   const cellRect = el.querySelector(".whimsy-emoji-cell").getBoundingClientRect();
-  ok(Math.abs(cellRect.width - cellRect.height) < 1, "Cells are square");
-  ok(cellRect.width < 60, "Cells are sized to the emoji, not stretched to the bar's full width");
+  const gridRect = grid.getBoundingClientRect();
+  const cardRect = el.getBoundingClientRect();
+  ok(Math.abs(cellRect.height - 48) < 2, "Cells have a fixed ~48px row height");
+  ok(cellRect.width > cellRect.height, "Cells aren't square: the column is wider than the fixed row height");
+  ok(gridRect.width > cardRect.width - 4, "The grid spans the full results width, not just the left ~55%");
+  const emojiSize = parseFloat(window.getComputedStyle(el.querySelector(".whimsy-emoji-cell")).fontSize);
+  ok(Math.abs(emojiSize - 30) < 2, "The emoji glyph itself is about 30px, not lost in an oversized cell");
 
   const footer = el.querySelector(".whimsy-emoji-footer");
   ok(footer, "A footer is shown, naming the selected emoji");
@@ -111,17 +120,45 @@ add_task(async function test_grid_geometry_and_footer() {
   ok(!clippedBy, `The footer isn't clipped by an ancestor's overflow${clippedBy ? ` (${clippedBy.className})` : ""}`);
   await document.l10n.translateFragment(footer);
   ok(footer.textContent.trim().length > 0, "The footer has visible text");
-  ok(footer.textContent.includes("↵") && footer.textContent.includes("⌘↵"), "Shows both the Enter and Copy shortcuts");
+  ok(footer.textContent.includes("↵"), "Shows the Enter shortcut");
+  // Whether ⌘↵ also shows (and isn't a duplicate of ↵) depends on whether a
+  // field is focused — covered by test_footer_label_reflects_insert_target.
   closeBar();
+});
+
+// The real page's identity icon (here, the "no site" state's search-glass
+// placeholder) must not show through the grid, and the mockup's own search
+// icon takes its place — not just a blank gap (the bug this regresses: a
+// `#urlbar:has(.urlbarView-row[...])` selector that never matched, because
+// the urlbarView's panel isn't a DOM descendant of #urlbar).
+add_task(async function test_identity_icon_hidden_behind_grid() {
+  await openEmoji("party");
+  ok(window.gURLBar.view.isOpen, "The grid is open");
+  const urlbar = window.document.getElementById("urlbar");
+  ok(urlbar.hasAttribute("whimsy-emoji-open"), "The urlbar is marked as having the grid open");
+  const identityBox = window.document.getElementById("identity-box");
+  ok(identityBox, "#identity-box exists");
+  const icon = identityBox?.querySelector("#identity-icon, image, .identity-icon");
+  if (icon) {
+    const rect = icon.getBoundingClientRect();
+    is(rect.width, 0, "The real identity icon has no width while the grid is open");
+    is(rect.height, 0, "The real identity icon has no height while the grid is open");
+  }
+  const beforeContent = identityBox && window.getComputedStyle(identityBox, "::before").content;
+  ok(beforeContent && beforeContent != "none", "A replacement search icon is drawn in its place");
+  closeBar();
+  await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes");
 });
 
 add_task(async function test_footer_label_reflects_insert_target() {
   const typeLabel = () => card().querySelector(".whimsy-emoji-footer-keys > span:first-child > span")?.getAttribute("data-l10n-id");
+  const shortcutSpans = () => card().querySelectorAll(".whimsy-emoji-footer-keys > span").length;
 
   const tab = await openFieldTab("<textarea id=t></textarea>", "t");
   try {
     await openEmoji("party");
     await TestUtils.waitForCondition(() => typeLabel() == "whimsy-emoji-footer-type", "↵ says Type into the page when a field is focused");
+    is(shortcutSpans(), 2, "With a field, both ↵ Type into the page and ⌘↵ Copy show");
     closeBar();
   } finally {
     BrowserTestUtils.removeTab(tab);
@@ -131,19 +168,30 @@ add_task(async function test_footer_label_reflects_insert_target() {
   try {
     await openEmoji("party");
     await TestUtils.waitForCondition(() => typeLabel() == "whimsy-emoji-footer-copy", "↵ says Copy when nothing is focused");
+    // Not also ⌘↵ Copy: that would be the same action shown twice.
+    is(shortcutSpans(), 1, "With no field, only ↵ Copy shows — no duplicate ⌘↵ Copy");
     closeBar();
   } finally {
     BrowserTestUtils.removeTab(tab2);
   }
 });
 
-add_task(async function test_party_dedupes_variants_and_demotes_tongue_faces() {
+add_task(async function test_party_dedupes_variants_and_drops_tongue_faces() {
   const el = await openEmoji("party");
   const cells = [...el.querySelectorAll(".whimsy-emoji-cell")].map(c => c.textContent);
   is(cells[0], PARTY, "The party popper is first");
   is(cells.filter(e => e.startsWith(DANCERS)).length, 1, "The dancer twins' gender variants collapse into one cell");
-  const firstRow = cells.slice(0, 8);
-  ok(!firstRow.includes(TONGUE) && !firstRow.includes(WINK_TONGUE), "Tongue-out faces (Zen's loose 'party' tag) don't crowd the first row");
+  // 😛/😜 are curated (a name and keywords, neither mentioning "party") —
+  // Zen's loose "party" keyboard-category tag no longer counts as a match
+  // for a curated emoji, so they're dropped from "party" results entirely,
+  // not just demoted out of the first row.
+  ok(!cells.includes(TONGUE) && !cells.includes(WINK_TONGUE), "Tongue-out faces (Zen's loose 'party' tag) don't match 'party' at all");
+  closeBar();
+
+  // But they're still findable by their own curated name/keywords.
+  const tongueEl = await openEmoji("tongue");
+  const tongueCells = [...tongueEl.querySelectorAll(".whimsy-emoji-cell")].map(c => c.textContent);
+  ok(tongueCells.includes(TONGUE), "😛 still matches its own curated name");
   closeBar();
 });
 

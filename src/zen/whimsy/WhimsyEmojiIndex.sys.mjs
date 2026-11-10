@@ -83,12 +83,32 @@ function loadZenEmojis() {
 // party). So a query like "party" puts 🎉 ("party popper") and 🥳 (curated
 // with the "party" keyword) ahead of anything that only matches on a raw
 // tag, tongue faces included.
+//
+// For a CURATED emoji (one with a CLDR_ANNOTATIONS entry: `name` and/or
+// `keywords` set), a bare Zen tag no longer counts as a match AT ALL, not
+// just a worse-ranked one: once there's a real name/keyword for an emoji,
+// that's the authoritative description of what it means, and a loose
+// keyboard-category tag the curation doesn't mention (e.g. 😛/😜'd still be
+// tagged "party") shouldn't surface it for that query — it isn't demoted,
+// it's dropped. A non-curated emoji (the other ~99%, `name`/`keywords` both
+// null) has no such description to fall back on, so its tags are still the
+// whole search surface, exactly as before.
 function wordScore(entry, word) {
+  const curated = entry.name != null || entry.keywords != null;
   if (entry.name?.split(/\s+/).includes(word)) {
     return 0;
   }
   if (entry.keywords?.includes(word)) {
     return 1;
+  }
+  if (entry.name?.includes(word)) {
+    return 4;
+  }
+  if (entry.keywords?.some(k => k.includes(word))) {
+    return 4;
+  }
+  if (curated) {
+    return null;
   }
   for (const tag of entry.tags) {
     if (tag == word) {
@@ -100,15 +120,9 @@ function wordScore(entry, word) {
       return 3;
     }
   }
-  if (entry.name?.includes(word)) {
-    return 4;
-  }
-  if (entry.keywords?.some(k => k.includes(word))) {
-    return 4;
-  }
   for (const tag of entry.tags) {
     if (tag.includes(word)) {
-      return 4;
+      return 5;
     }
   }
   return null;
