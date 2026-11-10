@@ -225,6 +225,22 @@ export const WhimsyEmoji = {
       urlbar.inputField._whimsyEmojiKeys = true;
       urlbar.inputField.addEventListener("keydown", event => this.onInputKey(win, event), true);
     }
+    // The most reliable close signal of all: wrap view.close() itself, the
+    // one method every close path funnels through (Escape, clicking away,
+    // our own pick/runWebSearch/closeBar) — not "popuphidden", which
+    // doesn't fire for this floating-bar view (it isn't a real XUL popup),
+    // and not a MutationObserver on the panel, which only catches a close
+    // that happens to remove DOM nodes (e.g. a later query replacing the
+    // row), not one that doesn't.
+    if (urlbar?.view && !urlbar.view._whimsyEmojiClosePatched) {
+      urlbar.view._whimsyEmojiClosePatched = true;
+      const origClose = urlbar.view.close.bind(urlbar.view);
+      urlbar.view.close = (...args) => {
+        const result = origClose(...args);
+        this.unmountGrid(win);
+        return result;
+      };
+    }
     const panel = urlbar?.view?.panel;
     if (panel && !panel._whimsyEmojiObserver) {
       panel._whimsyEmojiObserver = new win.MutationObserver(() => {
