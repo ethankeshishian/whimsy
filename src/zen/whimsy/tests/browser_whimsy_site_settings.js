@@ -720,23 +720,34 @@ add_task(async function test_reader_switch_disabled_when_not_readerable() {
 // Always Open in Reader View and in Full Screen on (their bolder weight).
 add_task(async function test_rows_fit_on_one_line() {
   clearAll();
+  // The row only needs the flag on: opening the site must not put the test
+  // window itself in full screen, which outlives this file (and a --repeat
+  // run's next pass, where test_open_in_full_screen then sees a full-screen
+  // window and never enters it).
+  const enterFullscreen = WhimsySiteSettings.enterFullscreen;
+  WhimsySiteSettings.enterFullscreen = () => {};
   WhimsySiteSettings.setFlag("reader", HOST, NORMAL, true);
   WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, true);
-  await BrowserTestUtils.withNewTab(PAGE, async () => {
-    await openPanel();
-    is(rowOf("reader").getAttribute("state"), "allow", "Reader View row is on (weight 500)");
-    is(rowOf("fullscreen").getAttribute("state"), "allow", "Full Screen row is on");
-    const labels = [...section().querySelectorAll(".whimsy-surface-row-label")].filter(l => l.getClientRects().length);
-    ok(labels.length >= 4, `${labels.length} row names showing`);
-    for (const label of labels) {
-      const lineHeight = parseFloat(getComputedStyle(label).lineHeight) || 18;
-      ok(label.scrollWidth <= label.clientWidth, `"${label.textContent}" isn't cut off (${label.scrollWidth} <= ${label.clientWidth})`);
-      ok(label.getBoundingClientRect().height < lineHeight * 1.5, `"${label.textContent}" is one line`);
-    }
-    const width = panel().getBoundingClientRect().width;
-    ok(width >= 270, `The panel is wider (${width}px)`);
-    await closePanel();
-  });
-  WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, false);
-  clearAll();
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async () => {
+      await openPanel();
+      is(rowOf("reader").getAttribute("state"), "allow", "Reader View row is on (weight 500)");
+      is(rowOf("fullscreen").getAttribute("state"), "allow", "Full Screen row is on");
+      const labels = [...section().querySelectorAll(".whimsy-surface-row-label")].filter(l => l.getClientRects().length);
+      ok(labels.length >= 4, `${labels.length} row names showing`);
+      for (const label of labels) {
+        const lineHeight = parseFloat(getComputedStyle(label).lineHeight) || 18;
+        ok(label.scrollWidth <= label.clientWidth, `"${label.textContent}" isn't cut off (${label.scrollWidth} <= ${label.clientWidth})`);
+        ok(label.getBoundingClientRect().height < lineHeight * 1.5, `"${label.textContent}" is one line`);
+      }
+      const width = panel().getBoundingClientRect().width;
+      ok(width >= 270, `The panel is wider (${width}px)`);
+      await closePanel();
+    });
+  } finally {
+    WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, false);
+    WhimsySiteSettings.enterFullscreen = enterFullscreen;
+    clearAll();
+  }
+  ok(!window.fullScreen, "The test window never went full screen");
 });
