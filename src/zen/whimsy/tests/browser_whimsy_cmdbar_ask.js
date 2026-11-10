@@ -286,6 +286,27 @@ add_task(async function second_source_no_toast() {
   Services.prefs.clearUserPref("whimsy.ai.cmdbar.answer-saved-shown");
 });
 
+// Record inserted bodies, including ones replaced again before the next poll.
+// Observe the panel because the urlbar view can replace the card itself too.
+function recordFreshWords() {
+  const chunks = [];
+  const observer = new MutationObserver(records => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node.nodeType != Node.ELEMENT_NODE) {
+          continue;
+        }
+        const fresh = [...node.querySelectorAll(".whimsy-ask-body .whimsy-ask-fresh")].map(e => e.textContent).join("");
+        if (fresh) {
+          chunks.push(fresh);
+        }
+      }
+    }
+  });
+  observer.observe(gURLBar.view.panel, { childList: true, subtree: true });
+  return { chunks, disconnect: () => observer.disconnect() };
+}
+
 add_task(async function words_fade_in_as_they_arrive() {
   await freshStore();
   const g = gate();
@@ -294,15 +315,37 @@ add_task(async function words_fade_in_as_they_arrive() {
     await g.promise;
     yield { type: "text", delta: " The 15-inch is heavier." };
   };
-  await askWithKeys();
-  await TestUtils.waitForCondition(() => cardEl().querySelector(".whimsy-ask-body .whimsy-ask-fresh"), "The first words fade in");
-  g.open();
-  await TestUtils.waitForCondition(() => {
-    const fresh = [...cardEl().querySelectorAll(".whimsy-ask-body .whimsy-ask-fresh")].map(e => e.textContent).join("");
-    return fresh.includes("heavier") && !fresh.includes("lightest");
-  }, "Only the new chunk fades; what was there stays put");
-  await answered();
-  await closeBar();
+  const recorded = recordFreshWords();
+  try {
+    await askWithKeys();
+    await TestUtils.waitForCondition(() => recorded.chunks.some(text => text.includes("lightest")), "The first words fade in");
+    recorded.chunks.length = 0;
+    g.open();
+    await TestUtils.waitForCondition(() => recorded.chunks.some(text => text.includes("heavier")), "The new chunk fades in");
+    ok(recorded.chunks.every(text => !text.includes("lightest")), "What was there stays put");
+    await answered();
+  } finally {
+    recorded.disconnect();
+    g.open();
+    await closeBar();
+  }
+});
+
+add_task(async function single_chunk_answer_fades_in() {
+  await freshStore();
+  // No gate: completion can render the answer before the scheduled stream rAF.
+  script = async function* () {
+    yield { type: "text", delta: "The 13-inch is the lightest." };
+  };
+  const recorded = recordFreshWords();
+  try {
+    await askWithKeys();
+    await answered();
+    await TestUtils.waitForCondition(() => recorded.chunks.some(text => text.includes("lightest")), "A complete answer also fades on its first draw");
+  } finally {
+    recorded.disconnect();
+    await closeBar();
+  }
 });
 
 add_task(async function open_in_chat_card_travels() {
