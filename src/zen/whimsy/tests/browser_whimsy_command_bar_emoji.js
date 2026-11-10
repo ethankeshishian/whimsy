@@ -149,15 +149,8 @@ add_task(async function test_identity_icon_hidden_behind_grid() {
   }
   const beforeContent = identityBox && window.getComputedStyle(identityBox, "::before").content;
   ok(beforeContent && beforeContent != "none", "A replacement search icon is drawn in its place");
-  info("WDIAG3 pre-close isOpen=" + window.gURLBar.view.isOpen + " openAttr=" + urlbar.hasAttribute("open") + " closePatched=" + window.gURLBar.view._whimsyEmojiClosePatched);
   closeBar();
-  info("WDIAG3 post-closeBar isOpen=" + window.gURLBar.view.isOpen + " openAttr=" + urlbar.hasAttribute("open") + " emojiOpenAttr=" + urlbar.hasAttribute("whimsy-emoji-open"));
-  try {
-    await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes", 100, 10);
-  } catch (e) {
-    info("WDIAG3 timeout: isOpen=" + window.gURLBar.view.isOpen + " openAttr=" + urlbar.hasAttribute("open") + " emojiOpenAttr=" + urlbar.hasAttribute("whimsy-emoji-open") + " panelHasCard=" + !!window.gURLBar.view.panel.querySelector(".whimsy-emoji-card"));
-    throw e;
-  }
+  await TestUtils.waitForCondition(() => !urlbar.hasAttribute("whimsy-emoji-open"), "The marker comes off once the bar closes");
 });
 
 add_task(async function test_footer_label_reflects_insert_target() {
