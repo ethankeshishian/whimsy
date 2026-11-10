@@ -120,10 +120,16 @@ add_task(async function test_other_space_same_profile_by_title_and_label() {
       "...and its icon"
     );
   }
+  let urlEl = rows[0].row.querySelector(".urlbarView-url");
   is(
-    rows[0].row.querySelector(".urlbarView-url").textContent,
+    urlEl.textContent,
     getSpaceBadge(rows[0].result),
     "The row shows the space badge where the url would otherwise go"
+  );
+  is(
+    window.getComputedStyle(urlEl).visibility,
+    "visible",
+    "...and it's actually visible, not hidden behind Firefox's switch-to-tab url collapse"
   );
   await pickRow(rows[0]);
   await TestUtils.waitForCondition(
@@ -202,8 +208,18 @@ add_task(async function test_current_space_ranks_above_other_space_no_duplicate(
   Assert.equal(rows.length, 2, "Both tabs match once each; no duplicate for either");
   is(rows[0].result.payload.url, "https://example.com/", "Current-space tab ranks first");
   ok(!getSpaceBadge(rows[0].result), "...with no space label");
+  is(
+    window.getComputedStyle(rows[0].row.querySelector(".urlbarView-url")).visibility,
+    "collapse",
+    "...and no visible url/label slot either, same as any other switch-to-tab row"
+  );
   is(rows[1].result.payload.url, "https://example.org/", "Other-space tab ranks second");
   ok(getSpaceBadge(rows[1].result), "...labelled with its space");
+  is(
+    window.getComputedStyle(rows[1].row.querySelector(".urlbarView-url")).visibility,
+    "visible",
+    "...and the label is actually visible"
+  );
 
   await UrlbarTestUtils.promisePopupClose(window);
   BrowserTestUtils.removeTab(here);

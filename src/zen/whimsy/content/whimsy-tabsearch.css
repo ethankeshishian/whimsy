@@ -1,0 +1,14 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W24/tabsearch (BUGS.md #16): a "Switch to Tab" row for a tab in another
+   space (or profile) shows that space's icon and name where the url would
+   otherwise go (WhimsyAlreadyOpen.decorateSpaceRows). Firefox hides the url
+   line for every [type="switchtab"] row by default (view-proton.css: "no
+   url for switch-to-tab action text") — reveal it only for the rows
+   decorateSpaceRows actually labelled, so a current-space row, and any
+   switchtab row this feature doesn't touch, keep Firefox's normal look. */
+.urlbarView-row[type="switchtab"] > .urlbarView-row-inner > .urlbarView-url[data-whimsy-space-badge] {
+  visibility: visible !important;
+}

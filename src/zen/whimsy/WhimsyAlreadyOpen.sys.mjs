@@ -38,6 +38,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const FEATURE_PREF = "whimsy.feature.already-open";
+// W24/tabsearch: reveals the other-space label decorateSpaceRows writes into
+// a switch-to-tab row's url slot — Firefox hides that slot for every
+// [type="switchtab"] row by default.
+const TABSEARCH_SHEET = "chrome://browser/content/whimsy/whimsy-tabsearch.css";
 const TAB_SWITCH_RESULT = 1; // UrlbarShared.RESULT_TYPE.TAB_SWITCH
 const URL_RESULT = 3; // UrlbarShared.RESULT_TYPE.URL
 const TABS_SOURCE = 4; // UrlbarShared.RESULT_SOURCE.TABS
@@ -133,7 +137,12 @@ export const WhimsyAlreadyOpen = {
   // getSpaceBadge — TAB_SWITCH's payload schema rejects unknown
   // properties) only for those rows (never for the current space, never
   // for an essential); this only changes what's displayed, never
-  // result.payload.url itself, so picking the row is unaffected.
+  // result.payload.url itself, so picking the row is unaffected. Firefox
+  // hides the url slot for every [type="switchtab"] row by default
+  // (whimsy-tabsearch.css reveals it, but only for a row carrying the
+  // data-whimsy-space-badge attribute set here); rows are reused across
+  // queries, so a row that no longer has a badge must have the attribute
+  // cleared, not just left stale from an earlier query.
   decorateSpaceRows(win) {
     const rows = win.gURLBar?.view?.panel?.querySelector(".urlbarView-results");
     if (!rows) {
@@ -141,12 +150,15 @@ export const WhimsyAlreadyOpen = {
     }
     for (const row of rows.children) {
       const badge = row.result?.type == TAB_SWITCH_RESULT ? lazy.getSpaceBadge(row.result) : null;
-      if (!badge) {
+      const url = row.querySelector(".urlbarView-url");
+      if (!url) {
         continue;
       }
-      const url = row.querySelector(".urlbarView-url");
-      if (url) {
+      if (badge) {
         url.textContent = badge;
+        url.setAttribute("data-whimsy-space-badge", "true");
+      } else {
+        url.removeAttribute("data-whimsy-space-badge");
       }
     }
   },
@@ -386,6 +398,11 @@ export const WhimsyAlreadyOpen = {
       return;
     }
     urlbar._whimsyAlreadyOpen = true;
+    try {
+      win.windowUtils.loadSheetUsingURIString(TABSEARCH_SHEET, win.windowUtils.AUTHOR_SHEET);
+    } catch (e) {
+      console.error("Whimsy: tabsearch sheet", e);
+    }
     const original = urlbar.pickResult;
     urlbar.pickResult = function (params = {}) {
       try {
