@@ -1227,7 +1227,18 @@ export const WhimsySpaceLook = {
       button.className = "whimsy-look-segment";
       button.setAttribute("role", "radio");
       button.dataset.value = option.value;
-      doc.l10n.setAttributes(button, option.l10nId, option.l10nArgs);
+      // A hidden bold twin reserves the button's width, so the control
+      // doesn't resize when the selection (and so which label goes
+      // bold) changes.
+      for (const part of ["label", "ghost"]) {
+        const span = doc.createElementNS(HTML_NS, "span");
+        span.className = `whimsy-look-segment-${part}`;
+        doc.l10n.setAttributes(span, option.l10nId, option.l10nArgs);
+        if (part == "ghost") {
+          span.setAttribute("aria-hidden", "true");
+        }
+        button.append(span);
+      }
       button.addEventListener("click", () => onPick(option.value));
       group.append(button);
       return button;

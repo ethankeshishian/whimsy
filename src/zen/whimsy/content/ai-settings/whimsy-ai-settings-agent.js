@@ -62,10 +62,15 @@
     seg.style.setProperty("--count", String(choices.length));
     S.el("span", "whimsy-ai-seg-thumb", seg);
     const buttons = choices.map(([value, l10nId]) => {
-      const b = S.el("button", "", seg, l10nId);
+      const b = S.el("button", "", seg);
       b.type = "button";
       b.dataset.value = value;
       b.setAttribute("role", "radio");
+      // A hidden bold twin reserves the button's width, so the control
+      // doesn't resize when the selection (and so which label goes
+      // bold) changes.
+      S.el("span", "whimsy-ai-seg-label", b, l10nId);
+      S.el("span", "whimsy-ai-seg-ghost", b, l10nId).setAttribute("aria-hidden", "true");
       b.addEventListener("click", () => onPick(value));
       return b;
     });

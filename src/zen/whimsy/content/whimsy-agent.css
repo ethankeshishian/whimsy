@@ -131,6 +131,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
 }
 
 .whimsy-agent-working::before {
@@ -140,6 +141,14 @@
   height: 5px;
   border-radius: 50%;
   background: currentColor;
+}
+
+/* The text is its own child (not the line's own value), so it can shrink
+   and ellipsize inside the flex row instead of overflowing the tab. */
+.whimsy-agent-working > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :is(.tabbrowser-tab, .whimsy-task-folder)[whimsy-agent-working="wait"] .whimsy-agent-working {
@@ -306,12 +315,6 @@
 
 .whimsy-task-folder .whimsy-agent-working {
   font-weight: 400;
-}
-
-.whimsy-task-folder .whimsy-agent-working > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .whimsy-task-folder-count {

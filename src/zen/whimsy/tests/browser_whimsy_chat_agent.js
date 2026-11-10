@@ -465,3 +465,87 @@ add_task(async function outside_pause_toast_cmd_e() {
   closeToasts();
   await closeAll(tab);
 });
+
+// ---- W24 uipolish ----
+
+function resolvedRGB(win, value) {
+  const canvas = win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, 1, 1);
+  ctx.fillStyle = value;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+}
+function luminance([r, g, b]) {
+  const lin = c => (c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+function contrastRatio(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+function saturation([r, g, b]) {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max == min) {
+    return 0;
+  }
+  const l = (max + min) / 2;
+  const d = max - min;
+  return l > 0.5 ? d / (2 - max - min) : d / (max + min);
+}
+
+// #6: the shared segmented control (WhimsySurface.seg) reserved the bold
+// label's width, so a control's size no longer depends on the selection.
+// ⌘E's Drive/Background switch is the one the owner saw change size.
+add_task(async function agent_mode_switch_width_is_stable() {
+  await fresh();
+  const tab = await openOn();
+  const seg = () => part(".whimsy-chat-model-end .whimsy-agent-mode");
+  ok(seg(), "The switch sits at the end of the model line");
+  for (const dark of [false, true]) {
+    const scheme = dark ? "dark" : "light";
+    await whimsySetScheme(dark);
+    is(seg().querySelector("[aria-checked='true']").dataset.mode, "drive", "Drive is the default");
+    const driveWidth = seg().getBoundingClientRect().width;
+    await whimsySettled();
+    await whimsyShot(`w24-uipolish-6-cmde-mode-before-${scheme}`);
+    click(seg().querySelector("[data-mode='background']"));
+    const backgroundWidth = seg().getBoundingClientRect().width;
+    is(Math.round(backgroundWidth), Math.round(driveWidth), `The switch's width doesn't change (${scheme})`);
+    await whimsySettled();
+    await whimsyShot(`w24-uipolish-6-cmde-mode-after-${scheme}`);
+    click(seg().querySelector("[data-mode='drive']"));
+    await SpecialPowers.popPrefEnv();
+  }
+  Services.prefs.clearUserPref(MODE);
+  await closeAll(tab);
+});
+
+// #10: primary buttons use a dedicated, darker fill (--whimsy-chat-primary-bg)
+// with white text in both themes, instead of a washed-out accent with
+// near-black text that was unreadable in dark mode.
+add_task(async function primary_buttons_readable_light_and_dark() {
+  await fresh();
+  const tab = await openOn();
+  type("Order two more bags of the coffee I got last time");
+  await readyPlan();
+  const start = part("[data-choice='start']");
+  const send = chat().sendButton;
+  await whimsyBothSchemes("w24-uipolish-10-primary-buttons", async dark => {
+    const scheme = dark ? "dark" : "light";
+    for (const [name, button] of [["Start", start], ["Send", send]]) {
+      const style = window.getComputedStyle(button);
+      const fill = resolvedRGB(window, style.backgroundColor);
+      const text = resolvedRGB(window, style.color);
+      Assert.greaterOrEqual(contrastRatio(fill, text), 4.5, `${name}'s text is readable in ${scheme} mode`);
+      Assert.greaterOrEqual(saturation(fill), 0.2, `${name}'s fill reads as the full accent, not washed out, in ${scheme} mode`);
+    }
+  });
+  await closeAll(tab);
+});

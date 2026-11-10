@@ -92,14 +92,34 @@
   & > .whimsy-agent-icon {
     width: 11px;
     height: 11px;
+    flex: none;
   }
   &[aria-checked="true"] {
     color: var(--whimsy-chat-text);
-    font-weight: 600;
   }
   &:focus-visible {
     outline: var(--whimsy-chat-focus);
   }
+}
+/* The visible label and a hidden bold twin stack in the same cell, so
+   the segment's own width always reserves its bold rendering. */
+.whimsy-agent-segment-text {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+.whimsy-agent-segment-label,
+.whimsy-agent-segment-ghost {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.whimsy-agent-segment-ghost {
+  visibility: hidden;
+  font-weight: 600;
+}
+.whimsy-agent-segment[aria-checked="true"] .whimsy-agent-segment-label {
+  font-weight: 600;
 }
 
 /* ---- Cards in the thread ---- */
@@ -240,8 +260,8 @@
     scale: 0.96;
   }
   &.primary {
-    background: var(--whimsy-chat-accent-bg);
-    color: light-dark(white, #0f1720);
+    background: var(--whimsy-chat-primary-bg);
+    color: #fff;
   }
   &.destructive {
     background: var(--whimsy-chat-error);

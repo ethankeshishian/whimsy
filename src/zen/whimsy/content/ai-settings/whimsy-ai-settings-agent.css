@@ -89,12 +89,12 @@
 .whimsy-ai-agent-bar {
   display: flex;
   align-items: center;
-  margin-block-end: -10px;
   & > .whimsy-ai-seg {
     min-width: 300px;
   }
   & > #whimsyAIActivityDeleteAll {
-    margin-inline-start: auto;
+    /* Lines its text up with the 14px inset of the card rows below. */
+    margin-inline: auto 6px;
   }
 }
 
