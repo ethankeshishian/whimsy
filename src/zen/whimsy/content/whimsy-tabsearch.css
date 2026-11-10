@@ -4,29 +4,52 @@
 
 /* W24/tabsearch (BUGS.md #16): a "Switch to Tab" row for a tab in another
    space (or profile) shows that space's icon and name where the url would
-   otherwise go (WhimsyAlreadyOpen.decorateSpaceRows). Firefox collapses
-   that slot for switchtab rows, and Zen gives their non-shrinking
-   title/action wrapper the whole row width. Visibility alone therefore
-   leaves a zero-width label. Reserve the same space for secondary text
-   that Firefox reserves on ordinary URL rows. Keep Zen's existing URL
-   font, muted colour, overflow handling, and selected-row treatment. */
-.urlbarView-row[type="switchtab"] > .urlbarView-row-inner > .urlbarView-url[data-whimsy-space-badge] {
-  visibility: visible !important;
-  flex: 1 1 auto;
-  min-width: 0;
-}
+   otherwise go (WhimsyAlreadyOpen.decorateSpaceRows). Flatten the native
+   title/action wrapper so its action can follow the sibling space label.
+   Keep Zen's action margins, scale and arrow, giving it the same right
+   edge as current-space rows. Only decorated switchtab rows are affected. */
+.urlbarView-row[type="switchtab"]:has(.urlbarView-url[data-whimsy-space-badge]) > .urlbarView-row-inner {
+  flex-wrap: nowrap;
 
-.urlbarView-row[type="switchtab"]:has(.urlbarView-url[data-whimsy-space-badge]) > .urlbarView-row-inner > .urlbarView-no-wrap {
-  width: auto;
-  max-width: calc(70% - 2 * (var(--urlbarview-favicon-size) + (6px + 2px)));
-  flex-shrink: 1;
-  min-width: 0;
-}
+  > .urlbarView-no-wrap {
+    display: contents;
 
-/* Firefox makes this separator transparent and gives it a negative margin
-   on switchtab rows. Restore ordinary secondary-text separation whenever
-   our label is present; the existing action stays in its native wrapper. */
-.urlbarView-row[type="switchtab"]:has(.urlbarView-url[data-whimsy-space-badge]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator::before {
-  opacity: 0.6;
-  margin-inline-end: 0.4em;
+    > .urlbarView-title {
+      flex: 0 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      mask-image: none;
+    }
+
+    > .urlbarView-title-separator {
+      flex: 0 0 auto;
+
+      /* Restore the ordinary separator instead of the transparent,
+         negative-margin separator used before switchtab actions. */
+      &::before {
+        opacity: 0.6;
+        margin-inline-end: 0.4em;
+      }
+    }
+
+    > .urlbarView-action {
+      order: 2;
+      flex: 0 0 auto;
+    }
+  }
+
+  > .urlbarView-url[data-whimsy-space-badge] {
+    visibility: visible !important;
+    order: 1;
+    /* The title yields first. Cap unusually long space names so they can
+       ellipsize too, leaving room for the fixed-size action and favicon. */
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: 40%;
+    margin-inline: 0;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    mask-image: none;
+  }
 }
