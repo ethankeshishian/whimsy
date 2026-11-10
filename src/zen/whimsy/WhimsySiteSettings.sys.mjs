@@ -65,6 +65,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ReaderMode: "moz-src:///toolkit/components/reader/ReaderMode.sys.mjs",
   SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
   WhimsyPanels: "resource:///modules/whimsy/WhimsyPanels.sys.mjs",
+  WhimsyDarkPages: "resource:///modules/whimsy/WhimsyDarkPages.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
@@ -488,6 +489,11 @@ export const WhimsySiteSettings = {
     section._site = site;
     let remembered = 0;
 
+    const darkRow = lazy.WhimsyDarkPages.siteRow(win, browser);
+    if (darkRow) {
+      list.append(darkRow);
+      remembered += lazy.WhimsyDarkPages.choice(browser) != "automatic" ? 1 : 0;
+    }
     list.append(this.zoomRow(win, browser, section));
 
     // Autoplay (Firefox's permission).
@@ -1010,6 +1016,7 @@ export const WhimsySiteSettings = {
       return false;
     }
     const before = this.snapshot(win, browser, site);
+    before.darkPages = lazy.WhimsyDarkPages.choice(browser);
     const reload = this.clear(win, browser, site, before);
     await this.resetZoom(win, browser);
     await this.hidePanel(win);
@@ -1032,6 +1039,7 @@ export const WhimsySiteSettings = {
   // Clears everything but zoom (async, done by the caller). Returns
   // whether the page needs a reload to drop what it loaded with.
   clear(win, browser, site, before) {
+    lazy.WhimsyDarkPages.setChoice(browser, "automatic");
     let reload = false;
     if (before.autoplay != null) {
       lazy.SitePermissions.removeFromPrincipal(this.originPrincipal(site), AUTOPLAY, browser);
@@ -1050,6 +1058,7 @@ export const WhimsySiteSettings = {
   },
 
   restore(win, browser, site, before) {
+    lazy.WhimsyDarkPages.setChoice(browser, before.darkPages || "automatic");
     let reload = false;
     if (before.autoplay != null) {
       lazy.SitePermissions.setForPrincipal(

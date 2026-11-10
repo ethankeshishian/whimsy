@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Fieldnotes — Dark pages</title>
+<style>
+  :root { --paper: #ffffff; --ink: #202126; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 18px/1.65 system-ui; }
+  header { padding: 20px 8%; border-bottom: 1px solid #dddddd; }
+  main { max-width: 660px; margin: 44px auto; }
+  h1 { font-size: 38px; line-height: 1.15; }
+  img { width: 100%; height: 190px; object-fit: cover; }
+  pre { background: #f0f0f0; color: #343438; border: 1px solid #dddddd; padding: 16px; }
+  a { color: #154cad; }
+  @media (prefers-color-scheme: dark) {
+    html.native { --paper: #181a20; --ink: #e9e6e1; color-scheme: dark; }
+  }
+  html.already { --paper: #181a20; --ink: #e9e6e1; }
+</style>
+<script>
+  globalThis.whimsySchemeAtStart = matchMedia("(prefers-color-scheme: dark)").matches;
+  globalThis.whimsyCanvasAtStart = getComputedStyle(document.documentElement).backgroundColor;
+  document.documentElement.className = new URLSearchParams(location.search).get("theme") || "light";
+</script>
+<header><b>Fieldnotes</b> · Guides · Gear · Subscribe</header>
+<main>
+  <small>GUIDE</small>
+  <h1>How to read a topographic map</h1>
+  <p>Contour lines join points of equal height. Where they bunch together, the ground is steep; where they spread apart, it flattens out.</p>
+  <img alt="A lake between green mountains" src="whimsy_test_image.png">
+  <p>Start with the index lines, which are drawn thicker and labelled every fifth line.</p>
+  <pre>contour interval = 20 m</pre>
+  <a href="#map">Read the map</a>
+</main>

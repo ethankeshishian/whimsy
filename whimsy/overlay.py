@@ -77,6 +77,21 @@ HOOKS = [
 ]
 
 HOTFIXES = [
+    # W24: share Zen's existing native color inversion with adaptive pages.
+    # An async boost lookup must preserve adaptation and track the user's
+    # own Smart Invert so disabling Dark pages restores their boost.
+    {
+        "id": "dark-pages-boost-inversion",
+        "file": "src/zen/boosts/actors/ZenBoostsChild.sys.mjs",
+        "why": "Dark pages reuses Boosts' paint-time color path without competing setters.",
+        "old": "  #setSyncedField(browsingContext, field, value) {\n"
+               "    if (browsingContext[field] !== value) {",
+        "new": "  #setSyncedField(browsingContext, field, value) {\n"
+               '    if (field === "isZenBoostsInverted") { // Whimsy hotfix\n'
+               '      value = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDarkPagesConfig.sys.mjs").darkPagesInversion(browsingContext, value);\n'
+               "    }\n"
+               "    if (browsingContext[field] !== value) {",
+    },
     {
         "id": "spaces-recreate-missing-empty-tab",
         "file": "src/zen/spaces/ZenSpaceManager.mjs",
@@ -1316,6 +1331,8 @@ FEATURES = [
     {"id": "reading-time", "title": "Reading time next to the Reader View button (setting)",
      "detect": [("src/zen/urlbar", r"(?i)reading-?time"),
                 ("src/browser/base/content", r"(?i)id=\"[\w-]*reading-?time")]},
+    {"id": "dark-pages", "title": "Dark pages: native dark themes, then generated colors",
+     "detect": [("src/zen", r"(?i)(darkreader|adaptiveDarkMode|forceDarkPages)")]},
     {"id": "dark-pdf", "title": "Dark PDFs: a Settings toggle for pdf.js page colours (off by default)",
      "detect": [("prefs", r"name:\s*pdfjs\.(forcePageColors|viewerCssTheme)"),
                 ("src/browser/components/preferences", r"pdfjs\.forcePageColors")]},

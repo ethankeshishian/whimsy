@@ -7481,3 +7481,10 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     outline: 1px solid currentColor;
   }
 }
+
+/* W24: Dark page lives in the existing site panel, immediately above Zoom. */
+[whimsy-site-setting="dark-pages"] {
+  .whimsy-surface-seg {
+    margin: 0 10px 10px;
+  }
+}

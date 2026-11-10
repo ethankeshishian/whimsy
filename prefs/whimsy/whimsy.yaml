@@ -879,3 +879,17 @@
 # isn't read), so the limit is 0.
 - name: pdfjs.featuresNotificationImpressionLimit
   value: 0
+
+# W24: use authored dark themes first, then generate colors for light pages.
+# match follows Whimsy; always also darkens pages in a light window.
+- name: whimsy.dark-pages.mode
+  value: "match"
+
+- name: whimsy.dark-pages.dim-images
+  value: false
+
+- name: whimsy.dark-pages.sites
+  value: "{}"
+
+- name: whimsy.dark-pages.offered
+  value: false

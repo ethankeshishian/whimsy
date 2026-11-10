@@ -419,11 +419,11 @@ export const WhimsyAccessCommands = {
     register({
       id: "cmd_whimsyToggleDarkPdf",
       l10nId: "whimsy-action-dark-pdf-toggle",
-      run: () => feature("dark-pdf") && this.toggleDarkPdf(),
+      run: () => feature("dark-pdf") && !feature("dark-pages") && this.toggleDarkPdf(),
       icon: ICONS.pdf,
       variants: [
-        { l10nId: "whimsy-action-dark-pdf-on", isAvailable: () => feature("dark-pdf") && !this.darkPdf() },
-        { l10nId: "whimsy-action-dark-pdf-off", isAvailable: () => feature("dark-pdf") && this.darkPdf() },
+        { l10nId: "whimsy-action-dark-pdf-on", isAvailable: () => feature("dark-pdf") && !feature("dark-pages") && !this.darkPdf() },
+        { l10nId: "whimsy-action-dark-pdf-off", isAvailable: () => feature("dark-pdf") && !feature("dark-pages") && this.darkPdf() },
       ],
     });
     register({

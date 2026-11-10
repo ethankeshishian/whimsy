@@ -7855,3 +7855,33 @@ whimsy-emoji-search-web = Search the web for “{ $query }”
 
 whimsy-ai-chat-edge-hover =
     .label = Show chat when the pointer reaches the window edge
+
+# W24 dark pages
+whimsy-dark-pages-heading = Web pages
+whimsy-dark-pages-title = Dark pages
+whimsy-dark-pages-description = Uses a site’s own dark theme when it has one, otherwise makes one. PDFs too.
+whimsy-dark-pages-off = Off
+whimsy-dark-pages-match = Match Whimsy
+whimsy-dark-pages-always = Always
+whimsy-dark-pages-dim = Dim images
+whimsy-dark-pages-dim-description = Photos a little darker on dark pages
+whimsy-dark-pages-sites = Sites you changed
+whimsy-dark-pages-reset = Reset
+whimsy-dark-pages-site-title = Dark page
+whimsy-dark-pages-automatic = Automatic
+whimsy-dark-pages-dark = Dark
+whimsy-dark-pages-original = Original
+whimsy-dark-pages-state-generated = Generated; this site has no dark theme
+whimsy-dark-pages-state-native = This site’s own dark theme
+whimsy-dark-pages-state-original = This site’s original appearance
+whimsy-dark-pages-button =
+    .tooltiptext = Dark page
+    .aria-label = Dark page
+whimsy-action-toggle-dark-page = Toggle Dark Page
+whimsy-dark-pages-toast = Whimsy made this page dark.
+whimsy-dark-pages-turn-off = Turn off
+whimsy-dark-pages-site-settings = Site settings
+whimsy-setting-dark-pages = Dark Pages
+    .keywords = dark theme, night, appearance, PDFs
+whimsy-setting-dim-images = Dim Images
+    .keywords = photos, brightness, dark pages
