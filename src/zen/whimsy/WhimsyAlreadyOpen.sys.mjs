@@ -90,6 +90,64 @@ export const WhimsyAlreadyOpen = {
     }
   },
 
+  // W24/tabsearch: ZenUrlbarProviderSidebar now matches a tab's title or
+  // custom label in every space and every Whimsy profile, the same ground
+  // Firefox's own "Switch to Tab" (UrlbarProviderOpenTabs) already covers.
+  // When both match the same open tab, keep only the sidebar provider's row
+  // (it carries the other-space label; see decorateSpaceRows) and drop
+  // Firefox's, so the tab never shows twice.
+  dropDuplicateSidebarRows(win, queryContext) {
+    const results = queryContext?.results;
+    if (!results?.length) {
+      return;
+    }
+    const tabKey = result =>
+      this.key(result.payload?.url) + "\u0000" + (result.payload?.userContext?.id ?? 0);
+    const ours = new Set();
+    for (const result of results) {
+      if (result.providerName == "ZenUrlbarProviderSidebar" && result.type == TAB_SWITCH_RESULT) {
+        ours.add(tabKey(result));
+      }
+    }
+    if (!ours.size) {
+      return;
+    }
+    for (let i = results.length - 1; i >= 0; i--) {
+      const result = results[i];
+      if (
+        result.providerName != "ZenUrlbarProviderSidebar" &&
+        result.type == TAB_SWITCH_RESULT &&
+        ours.has(tabKey(result))
+      ) {
+        results.splice(i, 1);
+      }
+    }
+  },
+
+  // W24/tabsearch: after the view renders a query's rows, a "Switch to Tab"
+  // row for a tab in another space (or profile) shows that space's icon and
+  // name where the url would otherwise go: same slot, same muted size as
+  // Firefox's own url line, no new colour. ZenUrlbarProviderSidebar sets
+  // payload.zenSpaceBadge only for those rows (never for the current
+  // space, never for an essential); this only changes what's displayed,
+  // never result.payload.url itself, so picking the row is unaffected.
+  decorateSpaceRows(win) {
+    const rows = win.gURLBar?.view?.panel?.querySelector(".urlbarView-results");
+    if (!rows) {
+      return;
+    }
+    for (const row of rows.children) {
+      const badge = row.result?.type == TAB_SWITCH_RESULT ? row.result.payload?.zenSpaceBadge : null;
+      if (!badge) {
+        continue;
+      }
+      const url = row.querySelector(".urlbarView-url");
+      if (url) {
+        url.textContent = badge;
+      }
+    }
+  },
+
   // Whether this address bar is the command bar for a new tab: Zen's Cmd+T
   // bar or an empty tab (where Return on an open address switches to it).
   inNewTabBar(win) {
@@ -168,7 +226,13 @@ export const WhimsyAlreadyOpen = {
   },
 
   // The open tab showing `url` for this window's address bar, or null. The
-  // current window first (its selected tab last), then the others.
+  // current window first (its selected tab last), then the others. Same
+  // container first (today's common case); a second pass without that
+  // restriction finds the tab in another Whimsy profile, so typing an
+  // address already open elsewhere jumps there too. Privacy still never
+  // crosses (a private tab never matches a normal search, either way): this
+  // only picks an existing tab, it shares no cookies or history between
+  // profiles.
   findTab(win, url, { userContextId, isPrivate }) {
     const wanted = this.key(url);
     if (!wanted) {
@@ -180,25 +244,27 @@ export const WhimsyAlreadyOpen = {
         windows.push(other);
       }
     }
-    for (const w of windows) {
-      if (w.document.documentElement.hasAttribute("whimsy-quick-window")) {
-        continue;
-      }
-      const tabs = w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs;
-      const candidates = [...tabs].sort((a, b) => (a.selected ? 1 : 0) - (b.selected ? 1 : 0));
-      for (const tab of candidates) {
-        if (
-          !tab?.linkedBrowser ||
-          tab.closing ||
-          tab.hasAttribute("zen-glance-tab") ||
-          !w.gBrowser.isTab?.(tab) ||
-          this.userContextOf(tab) != userContextId ||
-          lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) != isPrivate
-        ) {
+    for (const crossProfile of [false, true]) {
+      for (const w of windows) {
+        if (w.document.documentElement.hasAttribute("whimsy-quick-window")) {
           continue;
         }
-        if (this.key(this.tabUrl(tab)) == wanted) {
-          return { win: w, tab };
+        const tabs = w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs;
+        const candidates = [...tabs].sort((a, b) => (a.selected ? 1 : 0) - (b.selected ? 1 : 0));
+        for (const tab of candidates) {
+          if (
+            !tab?.linkedBrowser ||
+            tab.closing ||
+            tab.hasAttribute("zen-glance-tab") ||
+            !w.gBrowser.isTab?.(tab) ||
+            (!crossProfile && this.userContextOf(tab) != userContextId) ||
+            lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) != isPrivate
+          ) {
+            continue;
+          }
+          if (this.key(this.tabUrl(tab)) == wanted) {
+            return { win: w, tab };
+          }
         }
       }
     }
@@ -367,10 +433,17 @@ export const WhimsyAlreadyOpen = {
       urlbar.view.onQueryResults = function (queryContext) {
         try {
           WhimsyAlreadyOpen.dropDuplicateTabRows(win, queryContext);
+          WhimsyAlreadyOpen.dropDuplicateSidebarRows(win, queryContext);
         } catch (e) {
           console.error("Whimsy: open tab rows", e);
         }
-        return origOnQueryResults.apply(this, arguments);
+        const result = origOnQueryResults.apply(this, arguments);
+        try {
+          WhimsyAlreadyOpen.decorateSpaceRows(win);
+        } catch (e) {
+          console.error("Whimsy: space rows", e);
+        }
+        return result;
       };
     }
   },
