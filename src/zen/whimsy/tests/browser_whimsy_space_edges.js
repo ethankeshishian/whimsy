@@ -265,6 +265,50 @@ add_task(async function test_edge_actions_count_visible_spaces() {
   }
 });
 
+// W24 smallbugs #13: mouse back/forward buttons on the sidebar fire the
+// same "AppCommand" event a swipe/Zen's own _handleAppCommand react to
+// (only while the mouse hovers the sidebar). Back on the space at the
+// Library's edge should open it instead of just stopping there, and
+// Forward while it's open should close it and land back on the space you
+// came from (like history) rather than stepping past it.
+function appCommand(command) {
+  document.documentElement.dispatchEvent(new CommandEvent("AppCommand", { bubbles: true, cancelable: true, command }));
+}
+
+async function hoverSidebar() {
+  EventUtils.synthesizeMouseAtCenter(gNavToolbox, { type: "mousemove" }, window);
+  await TestUtils.waitForCondition(() => gNavToolbox.matches(":hover"), "The mouse is over the sidebar");
+}
+
+add_task(async function test_mouse_back_forward_opens_and_returns_from_library() {
+  await SpecialPowers.pushPrefEnv({ set: [["zen.library.enabled", true]] });
+  const { ZenLibrary } = window.ChromeUtils.importESModule("moz-src:///zen/library/ZenLibrary.mjs", { global: "current" });
+  const all = gZenWorkspaces.getWorkspaces();
+  // The Library sits past whichever end Settings puts it on; start there.
+  const edgeSpace = ZenLibrary.libraryOnRight ? all.at(-1) : all[0];
+  const backCommand = ZenLibrary.libraryOnRight ? "Forward" : "Back";
+  const forwardCommand = ZenLibrary.libraryOnRight ? "Back" : "Forward";
+  await goTo(edgeSpace);
+  ok(!ZenLibrary.isLibraryOpen, "The Library starts closed");
+  await hoverSidebar();
+  try {
+    appCommand(backCommand);
+    await TestUtils.waitForCondition(() => ZenLibrary.isLibraryOpen, "The mouse button at the Library's edge opens it");
+    is(gZenWorkspaces.activeWorkspace, edgeSpace.uuid, "The active space didn't change");
+
+    appCommand(forwardCommand);
+    await TestUtils.waitForCondition(() => !ZenLibrary.isLibraryOpen, "The other mouse button closes the Library");
+    is(gZenWorkspaces.activeWorkspace, edgeSpace.uuid, "...landing back on the space you came from, not the next one over");
+  } finally {
+    if (ZenLibrary.isLibraryOpen) {
+      ZenLibrary.close();
+      await TestUtils.waitForCondition(() => !ZenLibrary.isLibraryOpen, "Library closed for cleanup");
+    }
+    EventUtils.synthesizeMouseAtCenter(document.documentElement, { type: "mousemove" }, window);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // W14-17: a hidden space takes no slot on the strip. A drag never shows it,
 // a slide never passes it, a swipe from a hidden space that's showing goes
 // to its neighbour that way, and a swipe that switches nothing puts the

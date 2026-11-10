@@ -46,6 +46,9 @@ const GESTURE_EVENTS = [
 ];
 
 const states = new WeakMap();
+// win -> { inSidebar } - tracked from the target of the last real pointer
+// move (W24 smallbugs #13), not re-derived from live :hover each time.
+const hoverStates = new WeakMap();
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -106,6 +109,8 @@ export const WhimsySpaceSwitchQueue = {
     this.initEdges(win, state);
     this.initSwitcherArrows(win, state);
     this.wrapEdgeSwipes(win);
+    this.initSidebarHoverTracking(win);
+    this.initAppCommandFallback(win);
     const onGesture = event => this.handleGesture(win, state, event);
     for (const type of GESTURE_EVENTS) {
       win.addEventListener(type, onGesture, true);
@@ -183,6 +188,62 @@ export const WhimsySpaceSwitchQueue = {
     spaces.changeWorkspaceShortcut = wrapped;
   },
 
+  // W24 smallbugs #13: tracks whether the pointer is over the sidebar from
+  // the *target* of the last real pointer move, instead of asking the
+  // live `:hover` pseudo-class at some later instant. Mouse hardware
+  // back/forward buttons don't move the pointer themselves, and opening
+  // the Library animates/fades gNavToolbox (ZenLibrary's openProgress
+  // setter) under a pointer that's sitting still — if that repaint shifts
+  // what's actually under the stationary cursor, a live `:hover` re-check
+  // can go stale and read false even though the mouse never left. The
+  // target of the last move it actually received doesn't have that
+  // problem: it was decided once, at the time of a real pointer event,
+  // not re-derived from whatever layout happens to be painted right now.
+  initSidebarHoverTracking(win) {
+    if (hoverStates.has(win)) {
+      return;
+    }
+    const tracked = { inSidebar: false };
+    hoverStates.set(win, tracked);
+    const onMove = event => {
+      tracked.inSidebar = !!win.gNavToolbox?.contains(event.target);
+    };
+    win.addEventListener("mousemove", onMove, true);
+    win.addEventListener("unload", () => win.removeEventListener("mousemove", onMove, true), { once: true });
+  },
+
+  // W24 smallbugs #13: Zen's own _handleAppCommand (ZenSpaceManager, never
+  // edited) only calls changeWorkspaceShortcut while gNavToolbox matches
+  // `:hover` at the moment the mouse back/forward event fires; when that
+  // check goes stale (see initSidebarHoverTracking above) it returns
+  // without calling changeWorkspaceShortcut at all, so nothing we do
+  // *inside* that function can help — it's just never reached. This is a
+  // second, independent AppCommand listener that steps in only for that
+  // case: when Zen's own live check already says :hover (it will succeed
+  // on its own, same as before this lane) this does nothing, and when
+  // neither this nor Zen's sidebar/toolbox checks pass, the event is left
+  // alone for the default handler to do a normal page back/forward.
+  initAppCommandFallback(win) {
+    const spaces = win.gZenWorkspaces;
+    const onAppCommand = event => {
+      if (event.command != "Forward" && event.command != "Back") {
+        return;
+      }
+      if (!spaces?.workspaceEnabled || win.gNavToolbox?.matches(":hover")) {
+        return;
+      }
+      if (!hoverStates.get(win)?.inSidebar) {
+        return;
+      }
+      const direction = (spaces.naturalScroll ? -1 : 1) * (event.command == "Forward" ? 1 : -1);
+      spaces.changeWorkspaceShortcut(direction);
+      event.stopImmediatePropagation();
+      event.preventDefault();
+    };
+    win.addEventListener("AppCommand", onAppCommand, true);
+    win.addEventListener("unload", () => win.removeEventListener("AppCommand", onAppCommand, true), { once: true });
+  },
+
   get edgesEnabled() {
     return Services.prefs.getBoolPref(EDGES_PREF, true);
   },
@@ -230,6 +291,18 @@ export const WhimsySpaceSwitchQueue = {
    *   stops at the last space in the middle of a burst (never wraps).
    * - When edgesEnabled is false, wraps across visible spaces.
    */
+  // Zen loads ZenLibrary per window (global "current"), so this has to go
+  // through the window's own ChromeUtils to get back the same instance
+  // wrapEdgeSwipes (and Zen itself) talk to, not a separate module copy.
+  getZenLibrary(win) {
+    try {
+      return win.ChromeUtils.importESModule("moz-src:///zen/library/ZenLibrary.mjs", { global: "current" })?.ZenLibrary ?? null;
+    } catch (e) {
+      console.error("Whimsy: space edges", e);
+      return null;
+    }
+  },
+
   stepRelative(win, state, offset = 1, options = {}) {
     const spaces = win.gZenWorkspaces;
     if (!spaces?.workspaceEnabled || spaces.privateWindowOrDisabled) {
@@ -238,6 +311,46 @@ export const WhimsySpaceSwitchQueue = {
     const workspaces = spaces.getWorkspaces?.() ?? [];
     if (!workspaces.length) {
       return null;
+    }
+    // W14-17: a step that switches nothing still puts a dragged strip back
+    // (Zen's own step always called changeWorkspace, which does).
+    const stay = result => {
+      if (!state?.running && !spaces._animatingChange) {
+        spaces._cancelSwipeAnimation?.();
+      }
+      return result;
+    };
+
+    // W24 smallbugs #13: mouse back/forward on the sidebar (Zen's own
+    // _handleAppCommand, which only reacts while the mouse hovers the
+    // sidebar) steps spaces through this same function. At the edge the
+    // sidebar hovers past, it should reach the Library the way a swipe
+    // already does there (wrapEdgeSwipes, below) — and once the Library is
+    // open, stepping back the other way should just close it and land on
+    // the space you were already on, like history, instead of stepping
+    // again from there. Checked both ways: live `:hover` covers the normal
+    // case (and the wheel path above, which can only fire while the mouse
+    // is actually over the toolbox already), and initSidebarHoverTracking's
+    // sticky, event-target-based read covers a press that arrives through
+    // initAppCommandFallback because Zen's own live check went stale (the
+    // Library's open animation moving/fading gNavToolbox under a
+    // stationary pointer — mouse hardware buttons don't move it). Either
+    // way this only changes mouse/swipe behavior at the sidebar: the
+    // keyboard Next/Previous Space commands and the Spaces menu (invoked
+    // without the mouse over the sidebar) keep their own edge behavior
+    // (W10-03: stop at the first space, open New Space past the last).
+    const hoveringSidebar = !!win.gNavToolbox?.matches(":hover") || !!hoverStates.get(win)?.inSidebar;
+    const library = hoveringSidebar ? this.getZenLibrary(win) : null;
+    const libraryEnabled = !!library && Services.prefs.getBoolPref("zen.library.enabled", false);
+    if (libraryEnabled && library.isLibraryOpen) {
+      const towardLibrary = library.libraryOnRight ? 1 : -1;
+      const direction = Math.sign(offset);
+      if (direction && direction != towardLibrary) {
+        library.close();
+      }
+      // Either way, nothing to switch to: the Library never moved the
+      // active space, so "forward" just returns to it as it already is.
+      return stay(state?.running ? Promise.resolve(spaces.getActiveWorkspace()) : null);
     }
     // Skip hidden spaces (W11-16). W14-17: a hidden space being shown keeps
     // its place, so a step from it goes to its neighbour that way.
@@ -252,14 +365,6 @@ export const WhimsySpaceSwitchQueue = {
     if (from < 0) {
       from = Math.max(0, visible.findIndex(space => space.uuid == spaces.activeWorkspace));
     }
-    // W14-17: a step that switches nothing still puts a dragged strip back
-    // (Zen's own step always called changeWorkspace, which does).
-    const stay = result => {
-      if (!state?.running && !spaces._animatingChange) {
-        spaces._cancelSwipeAnimation?.();
-      }
-      return result;
-    };
 
     // When the edges feature is disabled, wrap across visible spaces.
     if (!this.edgesEnabled) {
@@ -276,8 +381,15 @@ export const WhimsySpaceSwitchQueue = {
     }
 
     const to = from + offset;
-    // Left edge rule: stops at the first visible space, never wraps.
+    // Left edge rule: stops at the first visible space, never wraps —
+    // unless (hovering the sidebar) the Library sits there, in which case
+    // settling past the first space opens it instead (W24 smallbugs #13).
+    // A burst mid-slide still just clamps, like the New Space edge below.
     if (to < 0) {
+      if (libraryEnabled && !library.libraryOnRight && !state?.running) {
+        library.toggle();
+        return stay(null);
+      }
       if (options.isSwitcherArrow) {
         const icons = win.document.getElementById("zen-workspaces-button");
         icons?.querySelector(`toolbarbutton[zen-workspace-id="${visible[0].uuid}"]`)?.focus();
@@ -286,9 +398,14 @@ export const WhimsySpaceSwitchQueue = {
     }
 
     // Right edge rule: past the last space makes a new space if settled,
-    // or stops at the last space in the middle of a burst. Never wraps.
+    // or stops at the last space in the middle of a burst. Never wraps —
+    // unless (hovering the sidebar) the Library sits on this side instead.
     if (to >= visible.length) {
       const creating = win.document.documentElement.hasAttribute("zen-creating-workspace");
+      if (libraryEnabled && library.libraryOnRight && !state?.running && !creating && !spaces.creatingWorkspaceId && !spaces.privateWindowOrDisabled) {
+        library.toggle();
+        return stay(null);
+      }
       if (state?.running || creating || spaces.creatingWorkspaceId || spaces.privateWindowOrDisabled) {
         return stay(state?.running ? Promise.resolve(visible.at(-1)) : null);
       }
@@ -373,7 +490,7 @@ export const WhimsySpaceSwitchQueue = {
         return {};
       }
     };
-    const { ZenLibrary } = load("moz-src:///zen/library/ZenLibrary.mjs");
+    const ZenLibrary = this.getZenLibrary(win);
     const { ZenSpaceAddSwipe } = load("resource:///modules/zen/ZenSpaceAddSwipe.mjs");
     const library = () => {
       try {
