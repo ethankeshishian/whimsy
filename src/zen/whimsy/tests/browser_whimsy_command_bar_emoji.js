@@ -250,12 +250,11 @@ add_task(async function test_stale_state_does_not_hijack_a_later_enter() {
   // popuphidden) — the capture-phase keydown listener used to keep acting
   // on the now-stale grid state and swallow this Enter instead of letting
   // it load.
-  dump(`WDIAG7 task-start t=${Date.now()} tabs=${gBrowser.tabs.map(t => `${t.linkedBrowser?.currentURI?.spec}:closing=${t.closing}`).join(",")}\n`);
   const el = await openEmoji("party");
   ok(el.querySelector(".whimsy-emoji-cell"), "The grid was showing");
   const url = "https://example.com/";
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: url });
-  dump(`WDIAG7 pre-enter t=${Date.now()} value=${JSON.stringify(window.gURLBar.value)} selIdx=${window.gURLBar.view.selectedRowIndex} curURI=${gBrowser.selectedBrowser.currentURI.spec} selIsCur=${gBrowser.selectedTab == gBrowser.tabs[0]} tabs=${gBrowser.tabs.map(t => `${t.linkedBrowser?.currentURI?.spec}:closing=${t.closing}:selected=${t.selected}`).join(",")}\n`);
+  dump(`WDIAG7 pre-enter t=${Date.now()} value=${JSON.stringify(window.gURLBar.value)} selIdx=${window.gURLBar.view.selectedRowIndex} tabCount=${gBrowser.tabs.length} curURI=${gBrowser.selectedBrowser.currentURI.spec}\n`);
   try {
     const detail = await UrlbarTestUtils.getDetailsOfResultAt(window, window.gURLBar.view.selectedRowIndex ?? 0);
     dump(`WDIAG7 heuristic-result t=${Date.now()} type=${detail.type} url=${detail.url} isHeuristic=${detail.heuristic}\n`);
