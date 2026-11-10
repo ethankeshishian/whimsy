@@ -106,6 +106,17 @@ add_task(async function test_switch_to_tab_stays_on_its_side() {
 });
 
 add_task(async function test_downloads_follow_the_selected_tab() {
+  // The download below saves a real file: keep it in a temp folder, never
+  // the person's Downloads folder, and remove it afterwards.
+  const dir = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-dl");
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.download.folderList", 2],
+      ["browser.download.dir", dir],
+      ["browser.download.useDownloadDir", true],
+    ],
+  });
+  registerCleanupFunction(() => IOUtils.remove(dir, { recursive: true, ignoreAbsent: true }));
   const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?dl-normal");
   const publicIndicator = DownloadsCommon.getIndicatorData(window);
   const publicData = DownloadsCommon.getData(window);
