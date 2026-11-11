@@ -109,6 +109,7 @@ async function assertPersisted(tab, expected, path) {
   is(JSON.parse(state).zenStaticLabel, expected, `${path}: session serializes the name`);
   const restored = BrowserTestUtils.addTab(gBrowser, "about:blank");
   try {
+    ok(!restored.selected, `${path}: restoration displays the name in a background tab`);
     const restoring = BrowserTestUtils.waitForEvent(restored, "SSTabRestoring");
     SessionStore.setTabState(restored, state);
     await restoring;
@@ -152,19 +153,25 @@ add_task(async function test_no_provider_offline_and_ai_disabled_fallback() {
   const ready = WhimsyAIProviders.isReady;
   try {
     for (const mode of ["no-provider", "offline", "empty", "ai-disabled"]) {
+      let requests = 0;
       WhimsyAIProviders.isReady = async () => mode != "no-provider";
       WhimsyAIProviders.setTestProvider(() => {
+        requests++;
         if (mode == "offline") {
           throw new Error("Stub provider offline");
         }
         return "";
       });
       await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", mode != "ai-disabled"]] });
-      const tab = await page();
+      // Each case must miss the title cache, including results from the
+      // pinning-path task, so it exercises its own provider/fallback path.
+      const tab = await page(`${TITLE} (${mode})`);
       try {
         gBrowser.pinTab(tab);
         await TestUtils.waitForCondition(() => tab.zenStaticLabel == "Project planning notes for", `${mode}: general fallback works`);
         is(tab.label, "Project planning notes for", `${mode}: useful local name is visible`);
+        is(requests, ["offline", "empty"].includes(mode) ? 1 : 0,
+          `${mode}: exercises the expected provider path`);
       } finally {
         await closeTab(tab);
         await SpecialPowers.popPrefEnv();
