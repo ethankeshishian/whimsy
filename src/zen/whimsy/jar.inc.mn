@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
         content/browser/whimsy/whimsy-browser.css                               (../../zen/whimsy/content/whimsy-browser.css)
+        content/browser/whimsy/whimsy-vpn-panel.css                             (../../zen/whimsy/content/whimsy-vpn-panel.css)
         content/browser/whimsy/whimsy-surface.css                               (../../zen/whimsy/content/whimsy-surface.css)
         content/browser/whimsy/whimsy-preferences.css                           (../../zen/whimsy/content/whimsy-preferences.css)
         content/browser/whimsy/whimsy-settings.js                               (../../zen/whimsy/content/whimsy-settings.js)
