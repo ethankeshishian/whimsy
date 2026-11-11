@@ -216,7 +216,7 @@ add_task(async function test_readme_rebranded_to_whimsy() {
   ok(readmePath, "README.md found in the repository");
   const content = await IOUtils.readUTF8(readmePath);
   ok(content.includes("### `Whimsy`"), "README heading is Whimsy");
-  ok(content.includes("whimsy-berry-desktop.svg"), "README references Whimsy icon");
+  ok(content.includes("configs/branding/release/logo128.png"), "README references Whimsy icon");
   ok(content.includes("https://github.com/ethankeshishian/whimsy"), "README links to Whimsy repository");
   ok(content.includes("Mozilla Public License 2.0"), "README preserves MPL 2.0 license notice");
   ok(content.includes("Zen Browser"), "README credits Zen Browser");
