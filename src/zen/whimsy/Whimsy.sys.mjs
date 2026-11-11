@@ -47,6 +47,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   // batch6: split view extras.
   WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
+  WhimsyCmdTabNumbers: "resource:///modules/whimsy/WhimsyCmdTabNumbers.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
   // batch8: tab lifecycle
@@ -739,6 +740,7 @@ export const Whimsy = {
     // as Settings → Home and startup says.
     run("home", () => lazy.WhimsyHome.init());
     // Watches its prefs and switches, so options apply without a restart.
+    run("cmd-tab-numbers", () => lazy.WhimsyCmdTabNumbers.initWindow(win));
     run("tabs", () => lazy.WhimsyTabs.initWindow(win));
     run("folder-colors", () => lazy.WhimsyFolderColors.initWindow(win));
     // batch12: follower tabs. Checks its own switch on each use (the tab

@@ -1238,6 +1238,8 @@ FEATURES = [
     {"id": "image-drop", "title": "Dropped images open next to the page in a foreground tab",
      "detect": [("src/zen", r"(?i)zen[-_.]?image[-_.]?drop|openDroppedImageInTab"),
                 ("src/browser/components/tabbrowser", r"imageDrop|openDroppedImageInTab")]},
+    {"id": "cmd-tab-numbers", "title": "Show tab numbers while holding Command",
+     "detect": [("src/zen", r"(?i)tab-?(number|shortcut)-?(badge|hint)s?|hold-?command-?tabs")]},
     {"id": "ctrl-tab", "title": "Arc-style Ctrl+Tab: recently used order, one rounded card with rows of four, up to 12 tabs, other spaces' tabs badged",
      "detect": [("prefs", r"name:\s*browser\.ctrlTab\.sortByRecentlyUsed")]},
     {"id": "ui-zoom", "title": "Interface zoom",

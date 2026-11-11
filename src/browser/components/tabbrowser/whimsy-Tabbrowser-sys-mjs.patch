@@ -94,6 +94,15 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete otherBrowser.registeredOpenURI;
      }
+@@ -7832,7 +7858,7 @@
+    *   The context for the operation for telemetry purposes.
+    */
+   selectTabAtIndex(aIndex, { event, metricsContext } = {}) {
+-    let tabs = this.visibleTabs;
++    let tabs = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCmdTabNumbers.sys.mjs").WhimsyCmdTabNumbers.tabsForShortcut(this.documentGlobal);
+ 
+     // count backwards for aIndex < 0
+     if (aIndex < 0) {
 @@ -9511,13 +9537,13 @@
          uri.spec,
          tab.userContextId,

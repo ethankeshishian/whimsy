@@ -7945,3 +7945,6 @@ whimsy-annotations-toast-note-saved = Note saved
 whimsy-annotations-toast-removed = Highlight removed
 whimsy-annotations-toast-note-deleted = Note deleted
 
+whimsy-tabs-cmd-numbers =
+    .label = Show tab numbers while holding ⌘
+    .accesskey = S

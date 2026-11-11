@@ -1204,3 +1204,5 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 # W24 annotations: page highlights in four colors, passage notes, one note per page, revisit cue, Fire, private browsing.
 ["browser_whimsy_annotations.js"]
 
+["browser_whimsy_cmd_tab_numbers.js"]
+skip-if = ["os != 'mac'"]
