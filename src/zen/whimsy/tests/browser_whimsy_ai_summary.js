@@ -100,7 +100,9 @@ add_task(async function chip_scrolls_and_tints_until_scroll() {
     const panel = document.getElementById("whimsy-chat");
     const chip = await TestUtils.waitForCondition(() => panel?.querySelector('.whimsy-chat-cite[data-n="1"]'), "The chip shows");
     is(await SpecialPowers.spawn(browser, [], () => content.scrollY), 0, "Starts at the top");
-    EventUtils.synthesizeMouseAtCenter(chip, {}, window);
+    // Exercise the chip's click handler independently of the animated chat's
+    // screen position and the OS-active Firefox instance.
+    chip.click();
     let tint = await TestUtils.waitForCondition(() => passageTint(browser), "Pressing the chip tints the passage");
     ok(tint.text.includes("12.30"), "the quoted passage");
     ok(await SpecialPowers.spawn(browser, [], () => content.scrollY > 0), "and scrolls to it");
@@ -108,10 +110,53 @@ add_task(async function chip_scrolls_and_tints_until_scroll() {
     ok(Math.abs(tint.top - tint.height / 3) < 40 || atEnd, `a third of the way down, or as far as the page goes (${Math.round(tint.top)} of ${tint.height})`);
     ok(chip.hasAttribute("active"), "The chip shows it's the one pressed");
     await TestUtils.waitForCondition(async () => (tint = await passageTint(browser))?.level == 18, "The tint eases to 18%");
-    await new Promise(r => setTimeout(r, 300));
-    ok(await passageTint(browser), "and stays while nothing scrolls");
+    await SpecialPowers.spawn(browser, [], () => {
+      // A queued event from the arrival can be delivered after the tint.
+      content.document.dispatchEvent(new content.Event("scroll", { bubbles: true }));
+    });
+    ok(await passageTint(browser), "and stays while the scroll position is unchanged");
     await SpecialPowers.spawn(browser, [], () => content.scrollBy(0, -120));
     await TestUtils.waitForCondition(async () => !(await passageTint(browser)), "The next scroll clears it");
+  });
+});
+
+// Simulate a background document that receives no animation frames. This
+// exercises the real painter, highlight registry, timer, and scroll listener.
+add_task(async function passage_tint_without_animation_frames() {
+  await BrowserTestUtils.withNewTab(LONG, async browser => {
+    await SpecialPowers.spawn(browser, [], () => {
+      const actor = content.windowGlobalChild.getActor("WhimsyAIPreview");
+      actor.clearPassage();
+      const range = actor.findPassage(content,
+        "Article 12 sentence 30 explains slot rule 12.30 for cross-border freight.");
+      ok(range, "The passage exists");
+      const unframed = {
+        document: content.document,
+        windowUtils: content.windowUtils,
+        CSS: content.CSS,
+        Highlight: content.Highlight,
+        performance: content.performance,
+        get scrollX() { return content.scrollX; },
+        get scrollY() { return content.scrollY; },
+        requestAnimationFrame: () => 0,
+        cancelAnimationFrame: () => {},
+        addEventListener: content.addEventListener.bind(content),
+        removeEventListener: content.removeEventListener.bind(content),
+      };
+      actor.paintPassage(unframed, range, "#0062cc", false);
+      ok(content.CSS.highlights.has("whimsy-passage-32"), "Tint is published without a frame");
+      content.document.dispatchEvent(new content.Event("scroll", { bubbles: true }));
+      ok(content.CSS.highlights.has("whimsy-passage-32"), "A queued arrival event preserves the tint");
+    });
+    await TestUtils.waitForCondition(async () => (await passageTint(browser))?.level == 18,
+      "Tint reaches its final level without a frame");
+    await SpecialPowers.spawn(browser, [], () => {
+      // No frame is needed to arm dismissal, even immediately after painting.
+      content.scrollTo({ top: content.scrollY > 0 ? 0 : 120, behavior: "instant" });
+      content.document.dispatchEvent(new content.Event("scroll", { bubbles: true }));
+      ok(!content.CSS.highlights.has("whimsy-passage-18"), "The next changed scroll position clears the tint without a frame");
+      content.windowGlobalChild.getActor("WhimsyAIPreview").clearPassage();
+    });
   });
 });
 
@@ -162,7 +207,9 @@ add_task(async function pdf_chip_turns_page() {
     const panel = document.getElementById("whimsy-chat");
     const chip = await TestUtils.waitForCondition(() => panel.querySelector('.whimsy-chat-cite[data-n="1"]'), "The chip shows");
     await TestUtils.waitForCondition(() => chip.textContent.trim() == "p. 3", "and names the page");
-    EventUtils.synthesizeMouseAtCenter(chip, {}, window);
+    // Exercise the chip's click handler independently of the animated chat's
+    // screen position and the OS-active Firefox instance.
+    chip.click();
     await TestUtils.waitForCondition(
       () => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.PDFViewerApplication.page == 3),
       "Pressing it turns to that page"

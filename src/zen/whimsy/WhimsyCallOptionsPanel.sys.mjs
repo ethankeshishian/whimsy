@@ -186,7 +186,11 @@ export const WhimsyCallOptionsPanel = {
     const update = () => {
       const args = appArgs(browser);
       seg.select(pip.buttonsDefault);
-      setL10n(doc, seg.buttons[0], "whimsy-call-options-default-call", args);
+      // Surface segments localize their visible label and hidden bold sizing
+      // twin. Localizing the button itself would let Fluent erase both.
+      for (const label of seg.buttons[0].children) {
+        setL10n(doc, label, "whimsy-call-options-default-call", args);
+      }
       const missing = KINDS.filter(kind => !pip.displayState(browser, kind).inCallAvailable);
       const fallback = missing.length > 0;
       warn.hidden = !fallback;

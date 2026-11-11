@@ -11,6 +11,7 @@
 
 const { WhimsyClaude } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaude.sys.mjs");
 const { WhimsyClaudeReplay } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs");
+const { WhimsyAgentGuard } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAgentGuard.sys.mjs");
 const { WhimsyAgentTasks } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAgentTasks.sys.mjs");
 const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
 const { WhimsyProtocol } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProtocol.sys.mjs");
@@ -270,33 +271,42 @@ add_task(async function test_no_tokens_or_codes_on_disk() {
   const url = PAGE + "?token=SECRET-TOKEN-123#frag";
   const { tabId } = JSON.parse(textOf(await okCall("tabs_create", { url })));
   const tab = WhimsyClaude.tabById(tabId);
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
-    content.document.getElementById("q").setAttribute("autocomplete", "one-time-code");
+  // Release only the transport hold. The approval deadline must remain
+  // pending so the person can still skip the sign-in request.
+  const restoreTimer = WhimsyAgentTasks._setTimerForTesting((ms, fn) => {
+    if (ms == WhimsyAgentGuard.holdMs) {
+      Promise.resolve().then(fn);
+    }
+    return () => {};
   });
-  const tree = textOf(await okCall("read_page", { tabId }));
-  const ref = tree
-    .split("\n")
-    .find(l => l.includes("Type a sandwich"))
-    ?.match(/\[(ref_\d+)\]/)?.[1];
-  ok(ref, "The code field has a ref");
-  // Hold timers fire at once: the held calls come straight back.
-  WhimsyAgentTasks._setTimerForTesting((ms, fn) => (Promise.resolve().then(fn), () => {}));
-  const typed = await WhimsyClaude.callTool("type", { tabId, ref, text: "482913" }, { session });
-  ok(textOf(typed).startsWith("Waiting for the person"), "A code field waits for the person");
-  is(WhimsyAgentTasks.forSession(session).pause?.kind, "sign-in", "who types the code themselves");
-  WhimsyAgentTasks._setTimerForTesting(null);
-  WhimsyAgentTasks.decide(WhimsyAgentTasks.forSession(session).id, "skip");
-  ok(textOf(await WhimsyClaude.callTool("type", { tabId, ref, text: "482913" }, { session })).includes("chose not to"), "Skipped");
-  is(await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("q").value), "", "Nothing typed");
-  await okCall("navigate", { tabId, url: PAGE + "?magic=SECRET-MAGIC-456" });
-  await WhimsyClaudeReplay.flush();
-  const saved = await IOUtils.readUTF8(FILE);
-  ok(!saved.includes("SECRET-TOKEN-123") && !saved.includes("SECRET-MAGIC-456"), "No query strings on disk");
-  ok(!saved.includes("482913") && !saved.includes("771204"), "No one-time codes on disk");
-  const [run] = await WhimsyClaudeReplay.runs();
-  ok(run.steps.some(s => s.tool == "type"), "The step itself is kept");
-  ok(run.steps.some(s => s.url == PAGE), "with the page's address");
-  BrowserTestUtils.removeTab(tab);
+  try {
+    await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      content.document.getElementById("q").setAttribute("autocomplete", "one-time-code");
+    });
+    const tree = textOf(await okCall("read_page", { tabId }));
+    const ref = tree
+      .split("\n")
+      .find(l => l.includes("Type a sandwich"))
+      ?.match(/\[(ref_\d+)\]/)?.[1];
+    ok(ref, "The code field has a ref");
+    const typed = await WhimsyClaude.callTool("type", { tabId, ref, text: "482913" }, { session });
+    ok(textOf(typed).startsWith("Waiting for the person"), "A code field waits for the person");
+    is(WhimsyAgentTasks.forSession(session).pause?.kind, "sign-in", "who types the code themselves");
+    WhimsyAgentTasks.decide(WhimsyAgentTasks.forSession(session).id, "skip");
+    ok(textOf(await WhimsyClaude.callTool("type", { tabId, ref, text: "482913" }, { session })).includes("chose not to"), "Skipped");
+    is(await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("q").value), "", "Nothing typed");
+    await okCall("navigate", { tabId, url: PAGE + "?magic=SECRET-MAGIC-456" });
+    await WhimsyClaudeReplay.flush();
+    const saved = await IOUtils.readUTF8(FILE);
+    ok(!saved.includes("SECRET-TOKEN-123") && !saved.includes("SECRET-MAGIC-456"), "No query strings on disk");
+    ok(!saved.includes("482913") && !saved.includes("771204"), "No one-time codes on disk");
+    const [run] = await WhimsyClaudeReplay.runs();
+    ok(run.steps.some(s => s.tool == "type"), "The step itself is kept");
+    ok(run.steps.some(s => s.url == PAGE), "with the page's address");
+  } finally {
+    restoreTimer();
+    BrowserTestUtils.removeTab(tab);
+  }
 });
 
 add_task(async function test_view_claude_replays_command() {
