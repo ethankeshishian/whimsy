@@ -986,6 +986,8 @@ support-files = ["whimsy_ai_sensitive.html"]
 # and this lane's screenshots.
 ["browser_whimsy_chat_hover.js"]
 
+["browser_whimsy_chat_motion.js"]
+
 ["browser_whimsy_chat_shell.js"]
 
 ["browser_whimsy_chat_threads.js"]
