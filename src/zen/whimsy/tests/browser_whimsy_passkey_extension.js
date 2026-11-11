@@ -27,6 +27,9 @@ async function installPasskeyExtension(privateAllowed = false) {
     // harness defaults. Model the user's default explicitly.
     incognitoOverride: privateAllowed ? "spanning" : "not_allowed",
     manifest: {
+      // MockExtension sets the private permission before AddonManager installs
+      // the XPI, so it needs an ID on the input manifest before installation.
+      browser_specific_settings: { gecko: { id: "passkey-interception@whimsy.test" } },
       content_scripts: [{
         matches: ["https://example.com/*", "https://example.org/*"],
         js: ["passkey.js"],
@@ -53,6 +56,9 @@ async function installPasskeyExtension(privateAllowed = false) {
     },
   });
   await ext.startup();
+  const policy = WebExtensionPolicy.getByID(ext.id);
+  ok(policy?.active, "Passkey extension policy is active before opening fixtures");
+  is(policy?.privateBrowsingAllowed, privateAllowed, "Private permission matches the requested install");
   is(WhimsySpaceExtensions.getAllowedProfiles(ext.id), null, "User install defaults to All Profiles");
   return ext;
 }
@@ -107,10 +113,18 @@ async function credential(browserOrContext, method = "get", conditional = false)
   });
 }
 
-async function intercepted(browser, label, conditional = false) {
-  const win = browser.ownerGlobal;
+async function focusCredentialPage(browser) {
+  const win = browser.documentGlobal;
   await SimpleTest.promiseFocus(win);
   browser.focus();
+  // Remote content focus follows chrome focus asynchronously. Native WebAuthn
+  // rejects an unfocused document before it can open an authenticator prompt.
+  await SpecialPowers.spawn(browser, [], () => ContentTaskUtils.waitForCondition(
+    () => content.document.hasFocus(), "Credential document has focus"));
+}
+
+async function intercepted(browser, label, conditional = false) {
+  await focusCredentialPage(browser);
   const observed = await watchNative(async () => {
     const get = await credential(browser, "get", conditional);
     is(get.id, "extension-get", `${label}: get resolves through extension`);
@@ -217,6 +231,9 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
   const [a, b] = accountSpaces;
   const httpAccount = PAGE.replace("https:", "http:") + "?account=one";
   const mock = ExtensionTestUtils.loadExtension({
+    // tabs.create updates ExtensionSettingsStore, which reads installDate from
+    // AddonManager. A bare in-memory Extension has no corresponding add-on.
+    useAddonManager: "temporary",
     manifest: {
       permissions: ["tabs", "cookies", "contextualIdentities"],
       content_scripts: [{
@@ -266,7 +283,12 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
   // last case supplies a rule through the real routing matcher/dispatcher.
   let rules = [];
   gZenSpaceRoutingManager.getAllRoutes = () => rules;
-  await SpecialPowers.pushPrefEnv({ set: [["zen.workspaces.force-container-workspace", true]] });
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["zen.workspaces.force-container-workspace", true],
+    // This case explicitly tests an HTTP content script. Keep HTTPS-First
+    // from upgrading its URL out of both the matcher and the load assertion.
+    ["dom.security.https_first", false],
+  ] });
   async function request(operation, properties) {
     mock.sendMessage(operation, properties);
     const result = await mock.awaitMessage("account-result");
@@ -491,8 +513,7 @@ add_task(async function cross_origin_frame_csp_early_and_conditional() {
 });
 
 async function privateNativeResult(browser) {
-  await SimpleTest.promiseFocus(browser.ownerGlobal);
-  browser.focus();
+  await focusCredentialPage(browser);
   const observed = await watchNative(() => credential(browser));
   is(observed.value.calls.length, 0, "No private permission: extension never handles get");
   is(observed.value.id, null, "No synthetic extension result in private document");
