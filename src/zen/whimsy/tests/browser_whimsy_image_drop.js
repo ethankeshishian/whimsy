@@ -109,18 +109,27 @@ async function dragWebImage(imageAsFile) {
   await SpecialPowers.pushPrefEnv({
     set: [["dom.events.dataTransfer.imageAsFile.enabled", imageAsFile]],
   });
-  const original = await BrowserTestUtils.openNewForegroundTab(
-    gBrowser, DROP_WEB_ROOT + "whimsy_image_drop.html"
-  );
-  const state = originalState(original);
-  // Two visible widgets allow a real cross-document drag with the existing
-  // Firefox mock-DND helper, rather than calling droppedLinkHandler directly.
-  const sourceWindow = await BrowserTestUtils.openNewBrowserWindow();
+  const startTabs = new Set(gBrowser.tabs);
+  let sourceWindow;
   try {
-    const sourceBrowser = sourceWindow.gBrowser.selectedBrowser;
-    const sourceLoaded = BrowserTestUtils.browserLoaded(sourceBrowser);
-    BrowserTestUtils.loadURIString(sourceBrowser, DROP_WEB_ROOT + "whimsy_image_drop.html");
-    await sourceLoaded;
+    const original = await BrowserTestUtils.openNewForegroundTab(
+      gBrowser, DROP_WEB_ROOT + "whimsy_image_drop.html"
+    );
+    const state = originalState(original);
+    // Two visible widgets allow a real cross-document drag with the existing
+    // Firefox mock-DND helper, rather than calling droppedLinkHandler directly.
+    // Keep the source window unsynced so its tabs and teardown stay separate
+    // from the destination window (the option toggles the configured default).
+    sourceWindow = await BrowserTestUtils.openNewBrowserWindow({
+      zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false),
+    });
+    await sourceWindow.gZenWorkspaces.promiseInitialized;
+    // Zen's empty/startup selection need not have a browser. Open and load an
+    // explicit source tab instead of passing selectedBrowser to loadURIString.
+    const sourceTab = await BrowserTestUtils.openNewForegroundTab(
+      sourceWindow.gBrowser, DROP_WEB_ROOT + "whimsy_image_drop.html"
+    );
+    const sourceBrowser = sourceTab.linkedBrowser;
     await SpecialPowers.spawn(sourceBrowser, [DROP_IMAGE], async url => {
       const img = content.document.createElement("img");
       img.id = "dragImage";
@@ -144,11 +153,22 @@ async function dragWebImage(imageAsFile) {
     });
     const imageTab = await opened;
     await assertImageTab(original, imageTab, DROP_IMAGE, count, state);
-    await BrowserTestUtils.removeTab(imageTab);
   } finally {
-    await BrowserTestUtils.closeWindow(sourceWindow);
-    await BrowserTestUtils.removeTab(original);
-    await SpecialPowers.popPrefEnv();
+    try {
+      if (sourceWindow && !sourceWindow.closed) {
+        await BrowserTestUtils.closeWindow(sourceWindow);
+      }
+    } finally {
+      try {
+        // Include an image tab opened before a drag/assertion failure, and the
+        // original tab even if opening the source window failed.
+        for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
+          await BrowserTestUtils.removeTab(tab);
+        }
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
   }
 }
 
