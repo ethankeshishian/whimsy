@@ -6,6 +6,7 @@
 const { WhimsyAITabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAITabs.sys.mjs");
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { SessionStore } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/SessionStore.sys.mjs");
+const { TabStateFlusher } = ChromeUtils.importESModule("moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs");
 const TITLE = "(7) Project planning notes for the autumn launch | Example";
 const SHORT = "Launch Plan";
 const initialTabs = new Set(gBrowser.tabs);
@@ -105,8 +106,14 @@ const paths = {
 };
 
 async function assertPersisted(tab, expected, path) {
+  // A painted title/busy=false does not mean SessionStore has received the
+  // content process's history update. getTabState reads that cache synchronously.
+  await TabStateFlusher.flush(tab.linkedBrowser);
   const state = SessionStore.getTabState(tab);
-  is(JSON.parse(state).zenStaticLabel, expected, `${path}: session serializes the name`);
+  const saved = JSON.parse(state);
+  Assert.equal(saved.entries[saved.index - 1]?.url, tab.linkedBrowser.currentURI.spec,
+    `${path}: session includes the loaded page before restoring`);
+  is(saved.zenStaticLabel, expected, `${path}: session serializes the name`);
   const restored = BrowserTestUtils.addTab(gBrowser, "about:blank");
   try {
     ok(!restored.selected, `${path}: restoration displays the name in a background tab`);
