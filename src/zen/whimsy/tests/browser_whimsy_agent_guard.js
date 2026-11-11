@@ -241,6 +241,9 @@ add_task(async function mcp_hold_returns_waiting_before_120s() {
   const holds = [];
   // A fake clock: the hold's timer fires at once, recording how long it was.
   const restore = WhimsyAgentTasks._setTimerForTesting((ms, fn) => {
+    if (ms == WhimsyAgentTasks.approvalTimeoutMs) {
+      return () => {};
+    }
     holds.push(ms);
     Promise.resolve().then(fn);
     return () => {};

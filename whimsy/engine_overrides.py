@@ -181,6 +181,12 @@ ENGINE_TEXT_FIXES = [
      "      ${this.statusCardTemplate()} ${this.exclusionToggleTemplate()}",
      "      ${this.statusCardTemplate()} <slot name=\"whimsy-after-status\"></slot> ${this.exclusionToggleTemplate()}",
      "Place Whimsy scope after the status card, before native panel actions."),
+    ("vpn-panel-shared-spacing",
+     "browser/components/ipprotection/content/ipprotection-content.css",
+     '@import "chrome://global/skin/global.css";',
+     '@import "chrome://global/skin/global.css";\n'
+     '@import "chrome://browser/content/whimsy/whimsy-vpn-panel.css";',
+     "Load Whimsy's layout rules inside the native VPN content shadow root."),
 ]
 
 # fix7 settings: Firefox's VPN (IP Protection) is Mozilla's service, but its

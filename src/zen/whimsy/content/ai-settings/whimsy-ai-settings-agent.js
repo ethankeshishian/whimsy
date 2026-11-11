@@ -23,6 +23,7 @@
 
   const lazy = {};
   ChromeUtils.defineESModuleGetters(lazy, {
+    WhimsyAgentTasks: "resource:///modules/whimsy/WhimsyAgentTasks.sys.mjs",
     WhimsyClaude: "resource:///modules/whimsy/WhimsyClaude.sys.mjs",
     WhimsyClaudeReplay: "resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs",
     WhimsyOutsideAgents: "resource:///modules/whimsy/WhimsyOutsideAgents.sys.mjs",
@@ -165,6 +166,35 @@
       const apps = S.el("div", "whimsy-ai-agent-apps", list);
       apps.id = "whimsyAIOutsideApps";
       const connected = new Set();
+      const pending = S.el("div", "whimsy-ai-list", list);
+      pending.id = "whimsyMCPPendingApprovals";
+      const renderPending = () => {
+        pending.replaceChildren();
+        S.el("h3", "", pending, "whimsy-mcp-pending");
+        const tasks = lazy.WhimsyAgentTasks.pendingApprovals();
+        if (!tasks.length) {
+          S.el("p", "whimsy-ai-item-detail", pending, "whimsy-mcp-pending-empty");
+        }
+        for (const task of tasks) {
+          const pause = task.pause;
+          const row = S.el("div", "whimsy-ai-item", pending);
+          const title = S.el("p", "", row);
+          title.textContent = `${task.clientName}: ${pause.preview?.title || pause.kind}`;
+          for (const [choice, label] of [["do", "approve"], ["skip", "deny"]]) {
+            if (!pause.choices.includes(choice) || pause.yours) {
+              continue;
+            }
+            S.button(row, `whimsy-mcp-${label}`, { small: true, onClick: () => {
+              if (task.pause == pause) {
+                lazy.WhimsyAgentTasks.decide(task.id, choice);
+              }
+            } });
+          }
+        }
+      };
+      Services.obs.addObserver(renderPending, lazy.WhimsyAgentTasks.TOPIC);
+      cleanups.push(() => Services.obs.removeObserver(renderPending, lazy.WhimsyAgentTasks.TOPIC));
+      renderPending();
 
       // Another app…: the command and JSON to add Whimsy by hand.
       const another = item(list, { icon: `${ZEN}plus.svg`, name: "whimsy-ai-outside-another", detail: "whimsy-ai-outside-another-detail" });

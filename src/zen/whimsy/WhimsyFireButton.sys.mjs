@@ -34,6 +34,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
+  WhimsyAnnotations: "resource:///modules/whimsy/WhimsyAnnotations.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
   WhimsyFormDrafts: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
@@ -61,7 +62,7 @@ const RANGES = ["hour", "today", "week", "all"];
 // sign-ins, cache, form and search history, closed tabs and the Archive,
 // the download list), then the AI's own.
 const DEFAULT_ITEMS = {
-  tabs: true, history: true, cookies: true, cache: true, form: true, closed: true, downloads: false,
+  tabs: true, history: true, cookies: true, cache: true, form: true, closed: true, notes: false, downloads: false,
   aiChats: true, agentActivity: true, index: true, memory: false, routineResults: false,
 };
 const ITEM_IDS = Object.keys(DEFAULT_ITEMS);
@@ -607,6 +608,19 @@ export const WhimsyFireButton = {
     if (kinds.length) {
       await lazy.WhimsyAIStore.clear({ since, kinds });
     }
+    if (settings.items.notes) {
+      const spaceUuids = spaces.map(sp => sp.uuid).filter(Boolean);
+      const profileKeys = [
+        ...spaceUuids,
+        ...profiles.map(id => lazy.WhimsyProfiles.keyFor(id)),
+        "default",
+      ];
+      await lazy.WhimsyAnnotations.clearForFire({
+        since: since ?? 0,
+        allSpaces: !!settings.allSpaces,
+        profileIds: profileKeys,
+      });
+    }
     return {
       tabs: tabCount, visits: visitCount, sites: siteCount,
       profile: settings.allSpaces ? null : this.scopeName(win, settings),
@@ -628,6 +642,11 @@ export const WhimsyFireButton = {
     await this.purgeClosed(tab => (tab.entries ?? []).some(entry => siteOfURL(entry.url) == site));
     await lazy.ForgetAboutSite.removeDataFromBaseDomain(site);
     await lazy.WhimsyFormDrafts.forgetSite(site);
+    await lazy.WhimsyAnnotations.clearForFire({
+      since: 0,
+      allSpaces: true,
+      baseDomain: site,
+    });
     return { tabs: count };
   },
 
@@ -824,6 +843,8 @@ export const WhimsyFireButton = {
           current.items[id] = on;
           refresh();
         }, ITEM_DETAILS[id]);
+        r.row.dataset.item = id;
+        r.input.dataset.item = id;
         box.append(r.row);
       }
       itemsList.append(head.row, box);
@@ -1209,6 +1230,7 @@ export const WhimsyFireButton = {
       routineResults: "whimsy-fire-done-item-routineResults", downloads: "whimsy-fire-done-item-downloads",
       cookies: "whimsy-fire-done-item-cookies", cache: "whimsy-fire-done-item-cache",
       form: "whimsy-fire-done-item-form", closed: "whimsy-fire-done-item-closed",
+      notes: "whimsy-fire-done-item-notes",
     };
     for (const id of result.items ?? []) {
       // Counted sign-ins ("sign-ins on 18 sites") already say it.

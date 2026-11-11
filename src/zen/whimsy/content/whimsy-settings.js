@@ -92,6 +92,7 @@ var gWhimsySettings = {
       this.initAppIcons();
     }
     this.initLookGroup();
+    WhimsyDarkPagesSettings.init(document);
   },
 
   // Whimsy's version and updates live in Firefox's own Updates group (the

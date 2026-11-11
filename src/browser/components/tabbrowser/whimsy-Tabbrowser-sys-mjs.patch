@@ -1,7 +1,56 @@
 diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/components/tabbrowser/Tabbrowser.sys.mjs
 --- a/browser/components/tabbrowser/Tabbrowser.sys.mjs
 +++ b/browser/components/tabbrowser/Tabbrowser.sys.mjs
-@@ -2661,7 +2661,7 @@
+@@ -152,6 +152,26 @@
+     links = [{ url: urlOrLinks, nameOrTriggeringPrincipal, type: "" }];
+   }
+ 
++  // The first dropped item is the one that would replace this page. Keep
++  // other drops on the native path, including mixed drops led by a non-image.
++  let imageDrop = false;
++  if (
++    Services.prefs.getBoolPref("whimsy.feature.image-drop", true) &&
++    links.length
++  ) {
++    imageDrop = links[0].type?.startsWith("image/") || false;
++    if (!imageDrop) {
++      try {
++        const mime = Cc["@mozilla.org/mime;1"].getService(Ci.nsIMIMEService);
++        imageDrop = mime
++          .getTypeFromURI(Services.io.newURI(links[0].url))
++          .startsWith("image/");
++      } catch {
++        // Unknown extensions and non-URI text keep Firefox's normal behavior.
++      }
++    }
++  }
++
+   let lastLocationChange = browser.lastLocationChange;
+ 
+   let userContextId = browser.getAttribute("usercontextid");
+@@ -187,13 +207,18 @@
+     postDatas.push(data.postData);
+   }
+   if (lastLocationChange == browser.lastLocationChange) {
++    const targetTab = tabbrowser.getTabForBrowser(browser);
++    if (imageDrop && !targetTab) {
++      return;
++    }
+     tabbrowser.loadTabs(urls, {
+-      inBackground,
+-      replace: true,
++      inBackground: imageDrop ? false : inBackground,
++      replace: !imageDrop,
++      newIndex: imageDrop ? targetTab.index + 1 : undefined,
+       allowThirdPartyFixup: false,
+       postDatas,
+       userContextId,
+-      targetTab: tabbrowser.getTabForBrowser(browser),
++      targetTab,
+       triggeringPrincipal,
+     });
+   }
+@@ -2543,7 +2568,7 @@
    setInitialTabTitle(
      aTab,
      aTitle,
@@ -10,7 +59,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
    ) {
      // Convert some non-content title (actually a url) to human readable title
      if (!isContentTitle && this.documentGlobal.isBlankPageURL(aTitle)) {
-@@ -2677,6 +2677,7 @@
+@@ -2559,6 +2584,7 @@
          beforeTabOpen,
          isContentTitle,
          isURL,
@@ -18,7 +67,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        });
      }
    }
-@@ -4149,7 +4149,7 @@
+@@ -3984,7 +4010,7 @@
              lazyBrowserURI.spec,
              t.userContextId,
              tabGroup?.id,
@@ -27,7 +76,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
            );
            b.registeredOpenURI = lazyBrowserURI;
          }
-@@ -7160,7 +7160,7 @@
+@@ -6899,7 +6925,7 @@
          browser.registeredOpenURI.spec,
          userContextId,
          aTab.group?.id,
@@ -36,7 +85,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete browser.registeredOpenURI;
      }
-@@ -7776,7 +7776,7 @@
+@@ -7504,7 +7530,7 @@
          otherBrowser.registeredOpenURI.spec,
          userContextId,
          aOtherTab.group?.id,
@@ -45,16 +94,16 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete otherBrowser.registeredOpenURI;
      }
-@@ -8133,7 +8133,7 @@
+@@ -7832,7 +7858,7 @@
+    *   The context for the operation for telemetry purposes.
+    */
    selectTabAtIndex(aIndex, { event, metricsContext } = {}) {
 -    let tabs = this.visibleTabs;
 +    let tabs = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCmdTabNumbers.sys.mjs").WhimsyCmdTabNumbers.tabsForShortcut(this.documentGlobal);
  
      // count backwards for aIndex < 0
      if (aIndex < 0) {
-       aIndex += tabs.length;
-       // clamp at index 0 if still negative.
-@@ -9878,13 +9878,13 @@
+@@ -9511,13 +9537,13 @@
          uri.spec,
          tab.userContextId,
          null,
@@ -70,7 +119,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
      }
    }
-@@ -9902,13 +9902,13 @@
+@@ -9535,13 +9561,13 @@
          uri.spec,
          tab.userContextId,
          originalGroup.id,
@@ -86,7 +135,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
      }
    }
-@@ -10202,7 +10202,7 @@
+@@ -9835,7 +9861,7 @@
            browser.registeredOpenURI.spec,
            userContextId,
            tab.group?.id,
@@ -95,7 +144,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
          );
          delete browser.registeredOpenURI;
        }
-@@ -11273,7 +11273,7 @@
+@@ -10909,7 +10935,7 @@
            uri.spec,
            userContextId,
            this._tab.group?.id,
@@ -104,7 +153,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
          );
          delete this._browser.registeredOpenURI;
        }
-@@ -11282,7 +11282,7 @@
+@@ -10918,7 +10944,7 @@
            aLocation.spec,
            userContextId,
            this._tab.group?.id,

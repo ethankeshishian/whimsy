@@ -152,10 +152,10 @@ add_task(function test_first_time_defaults() {
   Assert.deepEqual(
     settings.items,
     {
-      tabs: true, history: true, cookies: true, cache: true, form: true, closed: true, downloads: false,
+      tabs: true, history: true, cookies: true, cache: true, form: true, closed: true, notes: false, downloads: false,
       aiChats: true, agentActivity: true, index: true, memory: false, routineResults: false,
     },
-    "fire-2.1: every browsing item but the download list, plus that hour's AI chats, agent activity and the index; memory and routine results start off");
+    "fire-2.1: every browsing item but notes and the download list, plus that hour's AI chats, agent activity and the index; memory and routine results start off");
 });
 
 add_task(async function test_one_row_repeats_last_settings() {

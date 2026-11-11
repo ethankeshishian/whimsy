@@ -185,7 +185,13 @@ class StepResult extends Error {}
 // An outside app's call held as long as it can wait.
 class HoldError extends Error {}
 
+function approvalText(id, args = {}) {
+  return new Localization(["browser/whimsy.ftl"], true).formatValueSync(`whimsy-mcp-${id}`, args);
+}
+
 // Session state (object literals can't have private fields).
+const outsideCalls = new Map();
+
 const state = {
   server: null,
   bridgeReady: false,
@@ -215,8 +221,8 @@ function delay(ms) {
 
 // A call's identity, so a held call that comes back finds its pause.
 function sigOf(name, args) {
-  const { tabId, ref, coordinate, text: typed, value, keys, url } = args ?? {};
-  return JSON.stringify([name, tabId ?? null, ref ?? null, coordinate ?? null, typed ?? null, value ?? null, keys ?? null, url ?? null]);
+  const { tabId, ref, coordinate, text: typed, value, keys, url, limit, cursor, query, windowId } = args ?? {};
+  return JSON.stringify([name, tabId ?? null, ref ?? null, coordinate ?? null, typed ?? null, value ?? null, keys ?? null, url ?? null, limit ?? null, cursor ?? null, query ?? null, windowId ?? null]);
 }
 
 const tabArg = { tabId: { type: "integer", description: "A tabId from tabs_list or tabs_create." } };
@@ -224,8 +230,8 @@ const TOOLS = [
   {
     name: "tabs_list",
     description:
-      "List the tabs you may use: the person's normal tabs (never private tabs, and hidden or locked spaces only when the person asked for them). Call this first; each result has a tabId for the other tools.",
-    inputSchema: { type: "object", properties: {} },
+      "List the tabs you may use: the person's normal tabs (never private tabs, and hidden or locked spaces only when the person asked for them). Call this first; each result has a tabId for the other tools. Returns {tabs, nextCursor}; defaults to 25 tabs, at most 100. Pass nextCursor as cursor for the next page, or filter by query and windowId.",
+    inputSchema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 100 }, cursor: { type: "integer", minimum: 0 }, query: { type: "string" }, windowId: { type: "integer" } } },
   },
   {
     name: "tabs_create",
@@ -769,7 +775,24 @@ export const WhimsyClaude = {
    * agent can read them. Whimsy's own agent passes `taskId`; outside apps'
    * calls come with their session (one task each).
    */
-  async callTool(name, args = {}, { taskId = null, session = null, clientName = "" } = {}) {
+  callTool(name, args = {}, options = {}) {
+    if (options.taskId) {
+      return this.runTool(name, args, options);
+    }
+    const key = JSON.stringify([options.session || `client:${options.clientName || ""}`, sigOf(name, args)]);
+    if (outsideCalls.has(key)) {
+      const task = lazy.WhimsyAgentTasks.forSession(options.session, options.clientName, "outside");
+      if (task.pause && !task.pause.choice) {
+        lazy.WhimsyAgentTasks.showApproval(task, task.pause);
+      }
+      return outsideCalls.get(key);
+    }
+    const pending = this.runTool(name, args, options).finally(() => outsideCalls.delete(key));
+    outsideCalls.set(key, pending);
+    return pending;
+  },
+
+  async runTool(name, args = {}, { taskId = null, session = null, clientName = "" } = {}) {
     const outside = !taskId;
     if (outside ? !this.enabled || !state.server : !this.agentOn) {
       return { content: [text(outside ? "Outside agents are turned off in Whimsy's Settings." : "AI is off in Whimsy.")], isError: true };
@@ -832,6 +855,10 @@ export const WhimsyClaude = {
     const { task } = ctx;
     while (task.pause && !task.pause.choice && task.pause.sig != ctx.sig) {
       const pause = task.pause;
+      if (ctx.outside) {
+        lazy.WhimsyAgentTasks.showApproval(task, pause);
+        throw new ToolError(approvalText("busy"));
+      }
       await this.decision(ctx, pause);
       if (task.pause == pause && !pause.sig) {
         lazy.WhimsyAgentTasks.clearPause(task, pause);
@@ -842,9 +869,18 @@ export const WhimsyClaude = {
 
   // The person's choice, or the hold ends (outside apps) or the task stops.
   async decision(ctx, pause) {
+    if (ctx.outside && !pause.choice) {
+      lazy.WhimsyAgentTasks.showApproval(ctx.task, pause);
+    }
     const choice = await lazy.WhimsyAgentGuard.awaitDecision(ctx.task, pause, {
       holdMs: ctx.outside ? lazy.WhimsyAgentGuard.holdMs : 0,
     });
+    if (choice == "expired" || choice == "unavailable") {
+      lazy.WhimsyAgentTasks.clearPause(ctx.task, pause);
+      throw new ToolError(choice == "expired"
+        ? approvalText("expired")
+        : approvalText("unavailable"));
+    }
     if (choice == "waiting") {
       throw new HoldError();
     }
@@ -1040,12 +1076,15 @@ export const WhimsyClaude = {
         ...verdict, sig: ctx.sig, url: this.pageURL(uri), ...(tab ? { tabId: this.tabId(tab) } : {}),
       });
     }
-    const choice = pause.choice ?? (await this.decision(ctx, pause));
+    const choice = await this.decision(ctx, pause);
     lazy.WhimsyAgentTasks.clearPause(task, pause);
     if (choice == "do") {
       task.sites.add(verdict.host);
       (task.approvedSites ??= new Set()).add(verdict.host);
       return;
+    }
+    if (ctx.outside) {
+      throw new ToolError(approvalText("denied", { host: verdict.host }));
     }
     throw new StepResult(`The person chose not to go to ${verdict.host}. Skip this step, carry on, and tell them what's left.`);
   },
@@ -1105,7 +1144,7 @@ export const WhimsyClaude = {
       const space = lazy.WhimsySpaceLock.space(locked);
       let pause = task.pause?.kind == "unlock" && task.pause.spaceId == locked ? task.pause : null;
       pause ??= lazy.WhimsyAgentTasks.pause(task.id, { kind: "unlock", spaceId: locked, spaceName: space?.name ?? "", sig: null });
-      const choice = pause.choice ?? (await this.decision(ctx, pause));
+      const choice = await this.decision(ctx, pause);
       lazy.WhimsyAgentTasks.clearPause(task, pause);
       if (choice != "do") {
         throw new ToolError(`The person chose not to unlock ${space?.name ?? "that space"}. Carry on without it.`);
@@ -1153,6 +1192,7 @@ export const WhimsyClaude = {
     const browser = tab.linkedBrowser;
     return {
       tabId: this.tabId(tab),
+      windowId: tab.documentGlobal.windowUtils.outerWindowID,
       title: tab.label,
       url: browser?.currentURI?.spec ?? "",
       active: tab.selected && tab.documentGlobal == this.topWindow(),
@@ -1287,7 +1327,7 @@ export const WhimsyClaude = {
       }
       let pause = task.pause?.kind == "timeout" && task.pause.sig == ctx.sig ? task.pause : null;
       pause ??= lazy.WhimsyAgentTasks.pause(task.id, { kind: "timeout", host, sig: ctx.sig, tabId: this.tabId(tab) });
-      const choice = pause.choice ?? (await this.decision(ctx, pause));
+      const choice = await this.decision(ctx, pause);
       lazy.WhimsyAgentTasks.clearPause(task, pause);
       if (choice == "skip") {
         lazy.WhimsyAgentTasks.skipSite(task, host);
@@ -1424,7 +1464,7 @@ export const WhimsyClaude = {
     if (verdict.kind == "captcha" && !pause.choice) {
       this.watchCaptcha(tab, task, pause);
     }
-    const choice = pause.choice ?? (await this.decision(ctx, pause));
+    const choice = await this.decision(ctx, pause);
     lazy.WhimsyAgentTasks.clearPause(task, pause);
     if (choice == "do" && !verdict.handOver && verdict.kind != "captcha") {
       return;
@@ -1608,12 +1648,19 @@ export const WhimsyClaude = {
 
   handlers: {
     async tabs_list(args, ctx) {
-      const tabs = await this.guardTabs([...this.allTabs()].filter(tab => this.inScope(tab, ctx.task)), ctx);
-      if (!tabs.length) {
-        return "No tabs you may use. Use tabs_create to open one.";
+      const limit = args.limit ?? 25;
+      const cursor = args.cursor ?? 0;
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(cursor) || cursor < 0 ||
+          (args.query !== undefined && typeof args.query != "string") ||
+          (args.windowId !== undefined && !Number.isInteger(args.windowId))) {
+        throw new ToolError(approvalText("invalid-page"));
       }
-      // An array result is content blocks; the list goes out as JSON text.
-      return [text(tabs)];
+      const query = (args.query ?? "").toLowerCase();
+      const matching = [...this.allTabs()].filter(tab => this.inScope(tab, ctx.task) &&
+        (args.windowId === undefined || tab.documentGlobal.windowUtils.outerWindowID == args.windowId) &&
+        (!query || `${tab.label} ${tab.linkedBrowser.currentURI?.spec ?? ""}`.toLowerCase().includes(query)));
+      const tabs = await this.guardTabs(matching.slice(cursor, cursor + limit), ctx);
+      return [text({ tabs, nextCursor: cursor + limit < matching.length ? cursor + limit : null })];
     },
 
     async tabs_create({ url }, ctx) {

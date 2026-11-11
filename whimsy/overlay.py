@@ -77,6 +77,21 @@ HOOKS = [
 ]
 
 HOTFIXES = [
+    # W24: share Zen's existing native color inversion with adaptive pages.
+    # An async boost lookup must preserve adaptation and track the user's
+    # own Smart Invert so disabling Dark pages restores their boost.
+    {
+        "id": "dark-pages-boost-inversion",
+        "file": "src/zen/boosts/actors/ZenBoostsChild.sys.mjs",
+        "why": "Dark pages reuses Boosts' paint-time color path without competing setters.",
+        "old": "  #setSyncedField(browsingContext, field, value) {\n"
+               "    if (browsingContext[field] !== value) {",
+        "new": "  #setSyncedField(browsingContext, field, value) {\n"
+               '    if (field === "isZenBoostsInverted") { // Whimsy hotfix\n'
+               '      value = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDarkPagesConfig.sys.mjs").darkPagesInversion(browsingContext, value);\n'
+               "    }\n"
+               "    if (browsingContext[field] !== value) {",
+    },
     {
         "id": "spaces-recreate-missing-empty-tab",
         "file": "src/zen/spaces/ZenSpaceManager.mjs",
@@ -1220,6 +1235,9 @@ FALLBACK_FILE = "locales/en-US/browser/browser/preferences/whimsy-fallbacks.ftl"
 
 # Whimsy features, and signs that Zen now ships its own version.
 FEATURES = [
+    {"id": "image-drop", "title": "Dropped images open next to the page in a foreground tab",
+     "detect": [("src/zen", r"(?i)zen[-_.]?image[-_.]?drop|openDroppedImageInTab"),
+                ("src/browser/components/tabbrowser", r"imageDrop|openDroppedImageInTab")]},
     {"id": "cmd-tab-numbers", "title": "Show tab numbers while holding Command",
      "detect": [("src/zen", r"(?i)tab-?(number|shortcut)-?(badge|hint)s?|hold-?command-?tabs")]},
     {"id": "ctrl-tab", "title": "Arc-style Ctrl+Tab: recently used order, one rounded card with rows of four, up to 12 tabs, other spaces' tabs badged",
@@ -1318,6 +1336,8 @@ FEATURES = [
     {"id": "reading-time", "title": "Reading time next to the Reader View button (setting)",
      "detect": [("src/zen/urlbar", r"(?i)reading-?time"),
                 ("src/browser/base/content", r"(?i)id=\"[\w-]*reading-?time")]},
+    {"id": "dark-pages", "title": "Dark pages: native dark themes, then generated colors",
+     "detect": [("src/zen", r"(?i)(darkreader|adaptiveDarkMode|forceDarkPages)")]},
     {"id": "dark-pdf", "title": "Dark PDFs: a Settings toggle for pdf.js page colours (off by default)",
      "detect": [("prefs", r"name:\s*pdfjs\.(forcePageColors|viewerCssTheme)"),
                 ("src/browser/components/preferences", r"pdfjs\.forcePageColors")]},
@@ -1852,6 +1872,9 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r"(?i)(accel|cmd)[-_]?digit[-_]?row|row[-_]?numbers")]},
     {"id": "command-bar-vpn-strip", "title": "VPN status strip along the bottom of the command bar's results while the VPN is on",
      "detect": [("src/zen", r"(?i)zen[-_.]?vpn[-_.]?(status|strip)")]},
+    # W24 annotations
+    {"id": "annotations", "title": "Annotations: highlight passages in four colors and keep a note on any page",
+     "detect": [("src/zen", r"(?i)zen[-_.]?annotations?\b")]},
 ]
 
 
