@@ -90,7 +90,11 @@ export const WhimsyIsolation = {
       return false;
     }
     const expected = this.containerOf(win, tab.getAttribute(ATTR));
-    return expected != null && own != expected;
+    const result = expected != null && own != expected;
+    if (result) {
+      console.error(`WHIMSYDEBUG violates: own=${own} expected=${expected} ws=${tab.getAttribute(ATTR)} url=${tab.linkedBrowser?.currentURI?.spec}`);
+    }
+    return result;
   },
 
   // -- the watch ----------------------------------------------------------
@@ -255,6 +259,7 @@ export const WhimsyIsolation = {
   // `inPlace`: the tab didn't move, its space changed profile (or an older
   // session saved it crossed): it reopens where it is.
   repair(win, tabs, { interactive = false, inPlace = false } = {}) {
+    console.error(`WHIMSYDEBUG repair called: ${tabs.size} tab(s), interactive=${interactive} inPlace=${inPlace}`);
     const moves = new Map();
     const homeless = [];
     let sorted = 0;
