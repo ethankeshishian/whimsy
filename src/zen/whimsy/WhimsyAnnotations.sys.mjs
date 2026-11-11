@@ -915,11 +915,8 @@ export const WhimsyAnnotations = {
       return null;
     }
     const data = gStore.dataSync;
-    const record = data.pages[normUrl] || null;
-    if (record) {
-      this._syncRecordFromNotesStore(record);
-    }
-    return record;
+    // Async restore/panel entry points refresh this cached record from Notes.
+    return data.pages[normUrl] || null;
   },
 
   getHighlights(rawUrl, opts = {}) {
@@ -976,18 +973,22 @@ export const WhimsyAnnotations = {
     }
   },
 
-  _syncRecordFromNotesStore(rec) {
+  async _syncRecordFromNotesStore(rec) {
     if (!rec?.noteId) {
       return;
     }
     try {
-      const store = lazy.gWhimsyNotesStore;
-      if (!store?._loaded) {
+      const noteId = rec.noteId;
+      const noteText = rec.note;
+      const notes = await lazy.gWhimsyNotesStore.list(rec.profileKey || "default");
+      // Do not replace a page edit made while the Notes store was loading.
+      if (rec.noteId !== noteId || rec.note !== noteText) {
         return;
       }
-      const existing = store.get(rec.noteId);
+      const existing = notes.find(note => note.id === noteId);
       if (existing && typeof existing.text === "string" && existing.text !== rec.note) {
         rec.note = existing.text;
+        gStore.saveSoon();
       }
     } catch {}
   },
@@ -998,20 +999,15 @@ export const WhimsyAnnotations = {
     }
     try {
       const store = lazy.gWhimsyNotesStore;
-      await store.ensureLoaded();
       const noteText = String(rec.note || "").trim();
-      const pageNotes = store
-        .list({ profileKey: rec.profileKey })
-        .filter(
-          n =>
-            n.id === rec.noteId ||
-            (n.pageAttached && this.normalizeURL(n.url) === rec.url)
-        );
-      const existing = pageNotes[0] || (rec.noteId ? store.get(rec.noteId) : null);
+      const notes = await store.list(rec.profileKey || "default");
+      const existing = notes.find(n => n.id === rec.noteId) || notes.find(
+        n => n.pageAttached && this.normalizeURL(n.url) === rec.url
+      );
 
       if (!noteText) {
         if (existing) {
-          await store.delete(existing.id);
+          await store.remove(existing.id);
         }
         rec.noteId = null;
         return;
@@ -1302,6 +1298,7 @@ export const WhimsyAnnotations = {
     }
 
     const rec = this.getPageRecord(normUrl, { win, browser });
+    await this._syncRecordFromNotesStore(rec);
     if (rec && pageData?.title && (!rec.title || rec.title === normUrl)) {
       rec.title = pageData.title;
       gStore.saveSoon();
@@ -1668,6 +1665,7 @@ export const WhimsyAnnotations = {
       return null;
     }
     await gStore.ensureLoaded();
+    await this._syncRecordFromNotesStore(this.getPageRecord(normUrl, { win, browser }));
 
     const doc = win.document;
     const btn = anchorEl || doc.getElementById(BUTTON_ID) || win.gURLBar;
@@ -2027,8 +2025,7 @@ export const WhimsyAnnotations = {
     // Also clear matching standalone/page notes in gWhimsyNotesStore.
     try {
       const notesStore = lazy.gWhimsyNotesStore;
-      await notesStore.ensureLoaded();
-      const notes = notesStore.list();
+      const notes = await notesStore.list();
       for (const n of notes) {
         if (allowedProfiles && !allowedProfiles.has(n.profileKey || "default")) {
           continue;
@@ -2047,10 +2044,10 @@ export const WhimsyAnnotations = {
             continue;
           }
         }
-        if (since > 0 && (n.updatedAt || n.createdAt || 0) < since) {
+        if (since > 0 && (n.updated || n.created || 0) < since) {
           continue;
         }
-        await notesStore.delete(n.id);
+        await notesStore.remove(n.id);
       }
     } catch {}
 

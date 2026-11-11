@@ -369,12 +369,23 @@ add_task(async function test_page_note_and_revisit_cue_and_screenshots() {
       "Updated page note: share with the sync team.",
       "Updated page note persisted and came back on reload"
     );
-    await gWhimsyNotesStore.ensureLoaded();
-    const syncedNote = gWhimsyNotesStore
-      .list()
-      .find(n => n.pageAttached && WhimsyAnnotations.normalizeURL(n.url) === WhimsyAnnotations.normalizeURL(TEST_URL));
+    const record = WhimsyAnnotations.getPageRecord(TEST_URL);
+    const pageNotes = (await gWhimsyNotesStore.list(record.profileKey)).filter(
+      n => n.pageAttached && WhimsyAnnotations.normalizeURL(n.url) === WhimsyAnnotations.normalizeURL(TEST_URL)
+    );
+    is(pageNotes.length, 1, "Editing the page note updates one attached note without duplicates");
+    const syncedNote = pageNotes[0];
     ok(syncedNote, "Page note is synced into gWhimsyNotesStore as one page-attached note");
+    is(syncedNote.id, record.noteId, "The annotation record links to the attached note");
     is(syncedNote.text, "Updated page note: share with the sync team.", "Synced note text matches");
+
+    await gWhimsyNotesStore.update(syncedNote.id, { text: "Edited in the Notes library." });
+    await loadArticle(browser);
+    is(WhimsyAnnotations.getPageNote(TEST_URL), "Edited in the Notes library.", "Revisiting reads changes from the async Notes store");
+
+    await WhimsyAnnotations.setPageNote(TEST_URL, "", { win: window, browser });
+    ok(!(await gWhimsyNotesStore.list(record.profileKey)).some(n => n.id === syncedNote.id), "Clearing a page note removes its Notes entry");
+    await WhimsyAnnotations.setPageNote(TEST_URL, "Updated page note: share with the sync team.", { win: window, browser });
   });
 });
 
@@ -451,6 +462,9 @@ add_task(async function test_fire_clears_when_ticked_keeps_when_unticked() {
     );
     const btn = document.getElementById("whimsy-annotations-button");
     ok(btn.hidden, "Address-bar icon hides once Fire clears the page's annotations");
+    ok(!(await gWhimsyNotesStore.list()).some(
+      n => n.pageAttached && WhimsyAnnotations.normalizeURL(n.url) === WhimsyAnnotations.normalizeURL(TEST_URL)
+    ), "Fire also removes the page-attached Notes entry");
   });
 });
 
