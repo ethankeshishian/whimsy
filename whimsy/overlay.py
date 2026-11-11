@@ -1235,6 +1235,9 @@ FALLBACK_FILE = "locales/en-US/browser/browser/preferences/whimsy-fallbacks.ftl"
 
 # Whimsy features, and signs that Zen now ships its own version.
 FEATURES = [
+    {"id": "image-drop", "title": "Dropped images open next to the page in a foreground tab",
+     "detect": [("src/zen", r"(?i)zen[-_.]?image[-_.]?drop|openDroppedImageInTab"),
+                ("src/browser/components/tabbrowser", r"imageDrop|openDroppedImageInTab")]},
     {"id": "ctrl-tab", "title": "Arc-style Ctrl+Tab: recently used order, one rounded card with rows of four, up to 12 tabs, other spaces' tabs badged",
      "detect": [("prefs", r"name:\s*browser\.ctrlTab\.sortByRecentlyUsed")]},
     {"id": "ui-zoom", "title": "Interface zoom",

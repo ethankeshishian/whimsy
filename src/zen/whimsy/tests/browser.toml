@@ -36,6 +36,9 @@ support-files = ["whimsy_no_copy.html"]
 ["browser_whimsy_allow_copy_keys.js"]
 support-files = ["whimsy_no_copy_keys.html"]
 
+["browser_whimsy_image_drop.js"]
+support-files = ["whimsy_image_drop.html", "whimsy_image_drop.sjs"]
+
 ["browser_whimsy_app_icon.js"]
 
 ["browser_whimsy_autofill_manager.js"]

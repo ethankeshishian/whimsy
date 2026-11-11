@@ -1,6 +1,55 @@
 diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/components/tabbrowser/Tabbrowser.sys.mjs
 --- a/browser/components/tabbrowser/Tabbrowser.sys.mjs
 +++ b/browser/components/tabbrowser/Tabbrowser.sys.mjs
+@@ -152,6 +152,26 @@
+     links = [{ url: urlOrLinks, nameOrTriggeringPrincipal, type: "" }];
+   }
+
++  // The first dropped item is the one that would replace this page. Keep
++  // other drops on the native path, including mixed drops led by a non-image.
++  let imageDrop = false;
++  if (
++    Services.prefs.getBoolPref("whimsy.feature.image-drop", true) &&
++    links.length
++  ) {
++    imageDrop = links[0].type?.startsWith("image/") || false;
++    if (!imageDrop) {
++      try {
++        const mime = Cc["@mozilla.org/mime;1"].getService(Ci.nsIMIMEService);
++        imageDrop = mime
++          .getTypeFromURI(Services.io.newURI(links[0].url))
++          .startsWith("image/");
++      } catch {
++        // Unknown extensions and non-URI text keep Firefox's normal behavior.
++      }
++    }
++  }
++
+   let lastLocationChange = browser.lastLocationChange;
+
+   let userContextId = browser.getAttribute("usercontextid");
+@@ -187,13 +207,18 @@
+     postDatas.push(data.postData);
+   }
+   if (lastLocationChange == browser.lastLocationChange) {
++    const targetTab = tabbrowser.getTabForBrowser(browser);
++    if (imageDrop && !targetTab) {
++      return;
++    }
+     tabbrowser.loadTabs(urls, {
+-      inBackground,
+-      replace: true,
++      inBackground: imageDrop ? false : inBackground,
++      replace: !imageDrop,
++      newIndex: imageDrop ? targetTab.index + 1 : undefined,
+       allowThirdPartyFixup: false,
+       postDatas,
+       userContextId,
+-      targetTab: tabbrowser.getTabForBrowser(browser),
++      targetTab,
+       triggeringPrincipal,
+     });
+   }
 @@ -4149,7 +4149,7 @@
              lazyBrowserURI.spec,
              t.userContextId,
