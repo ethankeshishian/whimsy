@@ -4,7 +4,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
 @@ -152,6 +152,26 @@
      links = [{ url: urlOrLinks, nameOrTriggeringPrincipal, type: "" }];
    }
-
+ 
 +  // The first dropped item is the one that would replace this page. Keep
 +  // other drops on the native path, including mixed drops led by a non-image.
 +  let imageDrop = false;
@@ -26,7 +26,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
 +  }
 +
    let lastLocationChange = browser.lastLocationChange;
-
+ 
    let userContextId = browser.getAttribute("usercontextid");
 @@ -187,13 +207,18 @@
      postDatas.push(data.postData);
@@ -49,7 +49,8 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
 +      targetTab,
        triggeringPrincipal,
      });
-@@ -2661,7 +2686,7 @@
+   }
+@@ -2543,7 +2568,7 @@
    setInitialTabTitle(
      aTab,
      aTitle,
@@ -58,7 +59,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
    ) {
      // Convert some non-content title (actually a url) to human readable title
      if (!isContentTitle && this.documentGlobal.isBlankPageURL(aTitle)) {
-@@ -2677,6 +2702,7 @@
+@@ -2559,6 +2584,7 @@
          beforeTabOpen,
          isContentTitle,
          isURL,
@@ -66,7 +67,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        });
      }
    }
-@@ -4149,7 +4175,7 @@
+@@ -3984,7 +4010,7 @@
              lazyBrowserURI.spec,
              t.userContextId,
              tabGroup?.id,
@@ -75,7 +76,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
            );
            b.registeredOpenURI = lazyBrowserURI;
          }
-@@ -7160,7 +7186,7 @@
+@@ -6899,7 +6925,7 @@
          browser.registeredOpenURI.spec,
          userContextId,
          aTab.group?.id,
@@ -84,7 +85,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete browser.registeredOpenURI;
      }
-@@ -7776,7 +7802,7 @@
+@@ -7504,7 +7530,7 @@
          otherBrowser.registeredOpenURI.spec,
          userContextId,
          aOtherTab.group?.id,
@@ -93,7 +94,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete otherBrowser.registeredOpenURI;
      }
-@@ -9878,13 +9904,13 @@
+@@ -9511,13 +9537,13 @@
          uri.spec,
          tab.userContextId,
          null,
@@ -109,7 +110,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
      }
    }
-@@ -9902,13 +9928,13 @@
+@@ -9535,13 +9561,13 @@
          uri.spec,
          tab.userContextId,
          originalGroup.id,
@@ -125,7 +126,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
      }
    }
-@@ -10202,7 +10228,7 @@
+@@ -9835,7 +9861,7 @@
            browser.registeredOpenURI.spec,
            userContextId,
            tab.group?.id,
@@ -134,7 +135,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
          );
          delete browser.registeredOpenURI;
        }
-@@ -11273,7 +11299,7 @@
+@@ -10909,7 +10935,7 @@
            uri.spec,
            userContextId,
            this._tab.group?.id,
@@ -143,7 +144,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
          );
          delete this._browser.registeredOpenURI;
        }
-@@ -11282,7 +11308,7 @@
+@@ -10918,7 +10944,7 @@
            aLocation.spec,
            userContextId,
            this._tab.group?.id,
