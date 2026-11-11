@@ -305,20 +305,7 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
       await TestUtils.waitForCondition(() => win.gZenStartup?.isReady,
         "Extension window initialized");
     }
-    info(`DEBUGW24 request(${operation}) tab.id=${tab.id} userContextId=${tab.userContextId} ` +
-      `zen-workspace-id=${tab.getAttribute("zen-workspace-id")} active=${gZenWorkspaces.activeWorkspace} ` +
-      `target=${result.accountURL}`);
-    try {
-      await loaded(tab.linkedBrowser, result.accountURL);
-    } catch (e) {
-      info(`DEBUGW24 loaded() failed for tab.id=${tab.id} closing=${tab.closing} ` +
-        `connected=${tab.isConnected} userContextId=${tab.userContextId} ` +
-        `zen-workspace-id=${tab.getAttribute("zen-workspace-id")} ` +
-        `browser=${!!tab.linkedBrowser} currentURI=${tab.linkedBrowser?.currentURI?.spec} ` +
-        `webProgress=${!!tab.linkedBrowser?.webProgress} ` +
-        `isLoadingDocument=${tab.linkedBrowser?.webProgress?.isLoadingDocument}`);
-      throw e;
-    }
+    await loaded(tab.linkedBrowser, result.accountURL);
     return { tab, result };
   }
   async function stays(space, properties, expectedProfile = space.containerTabId) {
