@@ -62,3 +62,22 @@ add_task(function test_every_pattern_compiles() {
     }
   }
 });
+
+add_task(function test_general_heuristic_without_site_rules() {
+  for (const host of ["example.com", "docs.example.com", "www.example.com"]) {
+    is(WhimsyTidyTitles.heuristic(`https://${host}/notes`, "(12) Launch Plan | Example"),
+      "Launch Plan", `${host}: strips a counter and host-derived suffix`);
+    is(WhimsyTidyTitles.heuristic(`https://${host}/notes`, "Example — Launch Plan"),
+      "Launch Plan", `${host}: strips a host-derived prefix`);
+  }
+  is(WhimsyTidyTitles.heuristic("https://unknown.invalid/", "[4] A useful document with many extra words"),
+    "A useful document with", "Unknown sites get a short name without a site list");
+  is(WhimsyTidyTitles.heuristic("https://unknown.invalid/", "A - B"), null,
+    "An unknown separator is kept when it could distinguish the page");
+  is(WhimsyTidyTitles.heuristic("https://unknown.invalid/", "Brief"), null,
+    "An already clean short title stays unchanged");
+  is(WhimsyTidyTitles.heuristic("https://unknown.invalid/", "(2)"), null,
+    "A counter-only title never becomes an empty custom label");
+  is(WhimsyTidyTitles.heuristic("about:blank", "A long non-web page title"), null,
+    "Internal pages are excluded");
+});
