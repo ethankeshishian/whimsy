@@ -47,9 +47,16 @@ async function assertShortcutTargets() {
     const direct = entries.find(([, label]) => label.split(" · ").includes(String(digit)));
     const expected = direct?.[0] ?? entries.find(([, label]) => label.split(" · ").includes("9"))?.[0];
     ok(expected, `A badge identifies ⌘${digit}`);
+    // With content focused, Firefox waits for the remote key reply before
+    // executing its <key>. Observe the real command even when a short list
+    // clamps several digits to the tab that is already selected.
+    const keyId = digit == 9 ? "key_selectLastTab" : `key_selectTab${digit}`;
+    const commanded = BrowserTestUtils.waitForEvent(document, "command", false,
+      event => event.target.id == keyId);
     EventUtils.synthesizeKey(String(digit), { metaKey: true });
-    is(gBrowser.selectedTab, expected, `⌘${digit} selected the badged tab`);
     ok(!showing(), "A digit hides the badges immediately");
+    await commanded;
+    is(gBrowser.selectedTab, expected, `⌘${digit} selected the badged tab`);
     release();
   }
   for (const tab of tabs.filter(t => !entries.some(([target]) => target == t))) {

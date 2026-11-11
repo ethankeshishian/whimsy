@@ -17,7 +17,7 @@ export const WhimsyCmdTabNumbers = {
   HOLD_MS: MODIFIER_HOLD_MS,
   PREF,
 
-  // Shared with Firefox's selectTabAtIndex (overlay.py) and the Private
+  // Shared with Firefox's selectTabAtIndex (whimsy-Tabbrowser patch) and the Private
   // Space guard. Keep Firefox's visibleTabs order, including Essentials,
   // pins, and Zen's rules for spaces, collapsed folders, and split views.
   // The preference affects decoration only, never shortcut destinations.
@@ -53,6 +53,12 @@ export const WhimsyCmdTabNumbers = {
     const on = () => Services.prefs.getBoolPref(PREF, true);
     const hide = () => this.hide(win);
     const keydown = event => {
+      // Remote content replies redispatch the original event through chrome.
+      // They can arrive after the physical keyup (or even the next press),
+      // so counting them leaves phantom held keys and can restart a hold.
+      if (event.isReplyEventFromRemoteContent) {
+        return;
+      }
       state.keys.add(event.code || event.key);
       if (event.key != "Meta") {
         hide();
@@ -75,6 +81,9 @@ export const WhimsyCmdTabNumbers = {
       }, MODIFIER_HOLD_MS);
     };
     const keyup = event => {
+      if (event.isReplyEventFromRemoteContent) {
+        return;
+      }
       state.keys.delete(event.code || event.key);
       if (event.key == "Meta" || !event.metaKey) {
         state.meta = false;
