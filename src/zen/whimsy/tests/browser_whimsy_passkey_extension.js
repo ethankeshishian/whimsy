@@ -296,8 +296,13 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
     const tab = tabTracker.getTab(result.id);
     tabs.add(tab);
     if (operation == "window") {
-      windows.add(tab.ownerGlobal);
-      await TestUtils.waitForCondition(() => tab.ownerGlobal.gZenStartup?.isReady,
+      // Gecko exposes a chrome node's window through documentGlobal.
+      // Track it before waiting so failed startup still closes the window.
+      const win = tab.documentGlobal;
+      windows.add(win);
+      is(win.gBrowser.getTabForBrowser(tab.linkedBrowser), tab,
+        "Extension API tab belongs to the tracked browser window");
+      await TestUtils.waitForCondition(() => win.gZenStartup?.isReady,
         "Extension window initialized");
     }
     await loaded(tab.linkedBrowser, result.accountURL);
@@ -374,7 +379,7 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
       await SimpleTest.promiseFocus(window);
       await gZenWorkspaces.changeWorkspace(a);
       const opened = await request("window", properties);
-      const win = opened.tab.ownerGlobal;
+      const win = opened.tab.documentGlobal;
       try {
         if (win.gZenWorkspaces.workspaceEnabled) {
           await TestUtils.waitForCondition(() => win.gZenWorkspaces.activeWorkspace ==
@@ -404,11 +409,11 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
       url: httpAccount, cookieStoreId: "firefox-default",
     });
     try {
-      await TestUtils.waitForCondition(() => routedWindow.tab.ownerGlobal.gZenWorkspaces.activeWorkspace == b.uuid,
+      await TestUtils.waitForCondition(() => routedWindow.tab.documentGlobal.gZenWorkspaces.activeWorkspace == b.uuid,
         "User rule routes the extension's initial window tab");
       is(routedWindow.tab.userContextId, b.containerTabId, "Window's initial tab uses the rule's profile");
     } finally {
-      await BrowserTestUtils.closeWindow(routedWindow.tab.ownerGlobal);
+      await BrowserTestUtils.closeWindow(routedWindow.tab.documentGlobal);
     }
   } finally {
     gZenSpaceRoutingManager.getAllRoutes = originalRoutes;
