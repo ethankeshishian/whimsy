@@ -842,7 +842,8 @@ export const WhimsyPrivate = {
         return selectTabAtIndex.apply(this, arguments);
       }
       // As Firefox's clamp, over the Private Space's own tabs.
-      const tabs = this.visibleTabs.filter(t => !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"));
+      const tabs = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCmdTabNumbers.sys.mjs")
+        .WhimsyCmdTabNumbers.tabsForShortcut(win);
       if (options?.event) {
         options.event.preventDefault();
         options.event.stopPropagation();

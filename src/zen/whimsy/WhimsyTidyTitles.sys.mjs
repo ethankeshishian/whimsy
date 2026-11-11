@@ -46,6 +46,47 @@ function matches(match = {}, path, fragment) {
 }
 
 export const WhimsyTidyTitles = {
+  // General fallback for every web site. Keep the page/topic, remove unread
+  // counters and host-derived branding at either edge, and fit a sidebar label.
+  // No provider, network request, or site-specific rule is needed.
+  heuristic(uri, title) {
+    let url;
+    try {
+      url = new URL(typeof uri == "string" ? uri : uri.spec ?? uri.href);
+    } catch {
+      return null;
+    }
+    if (!/^https?:$/.test(url.protocol)) {
+      return null;
+    }
+    const original = String(title ?? "").trim();
+    if (!original || original == url.href) {
+      return null;
+    }
+    const normalize = value => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    const hostParts = url.hostname.replace(/^www\./, "").split(".");
+    const brands = new Set([normalize(hostParts.join(".")), ...hostParts.slice(0, -1).map(normalize)]);
+    let name = original.replace(/^(?:\s*(?:\(\d[\d,+]*\)|\[\d[\d,+]*\]))+\s*/, "");
+    const parts = name.split(/\s+[|·•–—-]\s+|\s*[|·•]\s*/).map(part => part.trim()).filter(Boolean);
+    const partCount = parts.length;
+    while (parts.length > 1 && brands.has(normalize(parts[0]))) {
+      parts.shift();
+    }
+    while (parts.length > 1 && brands.has(normalize(parts.at(-1)))) {
+      parts.pop();
+    }
+    name = (parts.length != partCount ? parts.join(" – ") : name).replace(/\s+/g, " ").trim();
+    const words = name.split(" ").slice(0, 4);
+    name = words.join(" ");
+    if (Array.from(name).length > 28) {
+      while (words.length > 1 && Array.from(words.join(" ")).length > 28) {
+        words.pop();
+      }
+      name = Array.from(words.join(" ")).slice(0, 28).join("");
+    }
+    return name && name != original ? name : null;
+  },
+
   hostRules(host) {
     host = (host || "").toLowerCase().replace(/^www\./, "");
     if (TIDY_TITLES[host]) {

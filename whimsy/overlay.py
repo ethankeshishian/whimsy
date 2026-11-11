@@ -1287,6 +1287,8 @@ FALLBACK_FILE = "locales/en-US/browser/browser/preferences/whimsy-fallbacks.ftl"
 
 # Whimsy features, and signs that Zen now ships its own version.
 FEATURES = [
+    {"id": "cmd-tab-numbers", "title": "Show tab numbers while holding Command",
+     "detect": [("src/zen", r"(?i)tab-?(number|shortcut)-?(badge|hint)s?|hold-?command-?tabs")]},
     {"id": "ctrl-tab", "title": "Arc-style Ctrl+Tab: recently used order, one rounded card with rows of four, up to 12 tabs, other spaces' tabs badged",
      "detect": [("prefs", r"name:\s*browser\.ctrlTab\.sortByRecentlyUsed")]},
     {"id": "ui-zoom", "title": "Interface zoom",

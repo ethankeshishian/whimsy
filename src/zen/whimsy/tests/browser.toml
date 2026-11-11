@@ -644,6 +644,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave6/parity: Arc's fixed tidy-title rules (no AI).
 ["browser_whimsy_tidy_titles_rules.js"]
 
+# W24: pin entry points, offline fallback, manual names, and session restoration.
+["browser_whimsy_tidy_titles_pinning.js"]
+
 # wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
 ["browser_whimsy_command_bar_dedup.js"]
 
@@ -991,6 +994,8 @@ support-files = ["whimsy_ai_sensitive.html"]
 # and this lane's screenshots.
 ["browser_whimsy_chat_hover.js"]
 
+["browser_whimsy_chat_motion.js"]
+
 ["browser_whimsy_chat_shell.js"]
 
 ["browser_whimsy_chat_threads.js"]
@@ -1164,3 +1169,6 @@ support-files = ["whimsy_secfix_late_scam.html", "whimsy_secfix_scam_frame.html"
 support-files = ["whimsy_secfix_inject.html", "whimsy_secfix2_links.html", "whimsy_secfix2_redirect.sjs"]
 ["browser_whimsy_secfix2_page.js"]
 support-files = ["whimsy_secfix2_codes.html"]
+
+["browser_whimsy_cmd_tab_numbers.js"]
+skip-if = ["os != 'mac'"]

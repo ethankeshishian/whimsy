@@ -51,6 +51,10 @@ const SHUT_WIDTH = 160;
 const HINT_IDLE_MS = 3000;
 const PAGE_CHARS = 60000;
 
+// For the list and tasks subviews inside an already-open panel, and the
+// reduced-motion opacity-only fallback. The panel's own open/close (W24
+// chatmotion) instead reads panelMotion(), which matches the tabs
+// sidebar's duration and easing exactly.
 const EASE = "cubic-bezier(0.075, 0.82, 0.165, 1)";
 const EASE_EXIT = "cubic-bezier(0.4, 0, 1, 1)";
 const DUR_IN = 240;
@@ -103,6 +107,13 @@ function iconButton(doc, id, l10nId, name, onclick) {
 
 function reducedMotion(win) {
   return win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+// A CSS <time> custom property's value in milliseconds, whether it's
+// written as ms or s.
+function cssMs(value) {
+  const v = (value ?? "").trim();
+  return v.endsWith("ms") ? parseFloat(v) : parseFloat(v) * 1000;
 }
 
 function timeOf(ms, win) {
@@ -664,6 +675,25 @@ class ChatPanel {
     return this._peekMotion;
   }
 
+  // W24 chatmotion: the panel's own open/close, which (unlike the edge-hover
+  // peek above) isn't Zen's sidebar and so doesn't read Zen's live rules.
+  // Instead it reads the shared tokens whimsy-browser.css sets to match the
+  // sidebar's values exactly (--whimsy-dur-panel/-exit,
+  // --whimsy-ease-panel/-exit), so this and the CSS can't drift apart.
+  panelMotion() {
+    const style = this.win.getComputedStyle(this.doc.documentElement);
+    return {
+      in: {
+        duration: cssMs(style.getPropertyValue("--whimsy-dur-panel")),
+        easing: style.getPropertyValue("--whimsy-ease-panel").trim(),
+      },
+      out: {
+        duration: cssMs(style.getPropertyValue("--whimsy-dur-panel-exit")),
+        easing: style.getPropertyValue("--whimsy-ease-panel-exit").trim(),
+      },
+    };
+  }
+
   animatePeek(enter) {
     for (const a of this.animations()) {
       a.cancel();
@@ -907,13 +937,16 @@ class ChatPanel {
       this.panel.animate({ opacity: [0, 1] }, { duration: DUR_IN, easing: "linear" });
       return;
     }
+    // Same duration and easing as the tabs sidebar's own show (W24
+    // chatmotion), not a value guessed to look similar.
+    const { duration, easing } = this.panelMotion().in;
     if (!this.el.hasAttribute("overlay")) {
       const full = `${this.width() + GAP}px`;
-      this.el.animate({ width: ["0px", full], minWidth: ["0px", full] }, { duration: DUR_IN, easing: EASE });
+      this.el.animate({ width: ["0px", full], minWidth: ["0px", full] }, { duration, easing });
     }
     this.panel.animate(
       { translate: [`${dir * 28}px 0`, "0 0"], opacity: [0, 1] },
-      { duration: DUR_IN, easing: EASE }
+      { duration, easing }
     );
   }
 
@@ -935,12 +968,15 @@ class ChatPanel {
       this.panel.animate({ opacity: [1, 0] }, { duration: DUR_OUT, easing: "linear" }).finished.then(done, () => {});
       return;
     }
+    // Same duration and easing as the tabs sidebar's own hide (W24
+    // chatmotion), not a value guessed to look similar.
+    const { duration, easing } = this.panelMotion().out;
     if (!this.el.hasAttribute("overlay")) {
       const full = `${this.width() + GAP}px`;
-      this.el.animate({ width: [full, "0px"], minWidth: [full, "0px"] }, { duration: DUR_OUT, easing: EASE_EXIT, fill: "forwards" });
+      this.el.animate({ width: [full, "0px"], minWidth: [full, "0px"] }, { duration, easing, fill: "forwards" });
     }
     this.panel
-      .animate({ translate: ["0 0", `${dir * 28}px 0`], opacity: [1, 0] }, { duration: DUR_OUT, easing: EASE_EXIT, fill: "forwards" })
+      .animate({ translate: ["0 0", `${dir * 28}px 0`], opacity: [1, 0] }, { duration, easing, fill: "forwards" })
       .finished.then(() => {
         done();
         for (const a of this.animations()) {
