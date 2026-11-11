@@ -354,3 +354,83 @@ add_task(async function test_changelog_includes_builds_through_dev580_and_wave7(
   });
 });
 
+
+// BUGS.md 23: selection changes on press, with one sliding indicator and
+// one accessible panel throughout the visual crossfade.
+add_task(async function test_tab_press_crossfade_and_first_load_entrance() {
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
+  try {
+    await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+      const win = browser.contentWindow;
+      const doc = browser.contentDocument;
+      await doc.l10n.ready;
+      const home = doc.getElementById("whimsy-tab-home");
+      const changelog = doc.getElementById("whimsy-tab-changelog");
+      const privacy = doc.getElementById("whimsy-tab-privacy");
+      const hero = doc.querySelector("#whimsy-panel-home .wh-hero-art");
+      ok(doc.documentElement.classList.contains("wh-home-entrance"), "Initial Home gets its entrance class");
+      is(win.getComputedStyle(hero).animationName, "wh-arrive", "First load has the hero arrival animation");
+
+      function assertSelection(button) {
+        is(doc.querySelectorAll('[role="tab"][aria-selected="true"]').length, 1, "Exactly one selected tab");
+        is(button.getAttribute("aria-selected"), "true", "The pressed tab is selected");
+        const panels = [...doc.querySelectorAll('[role="tabpanel"]')].filter(panel => !panel.hidden);
+        is(panels.length, 1, "Exactly one real panel is visible, including during the fade");
+        is(panels[0].id, button.getAttribute("aria-controls"), "Visible panel belongs to the selected tab");
+        is(doc.querySelectorAll('[role="tab"][tabindex="0"]').length, 1, "Exactly one tab stop");
+        is(doc.querySelectorAll("#whimsy-tab-indicator").length, 1, "Selection uses a single indicator");
+        const ids = [...doc.querySelectorAll("[id]")].map(node => node.id);
+        is(new Set(ids).size, ids.length, "Crossfade introduces no duplicate IDs");
+        const indicator = doc.getElementById("whimsy-tab-indicator");
+        isnot(win.getComputedStyle(indicator).transitionDuration, "0s", "Selection indicator slides with motion enabled");
+        is(indicator.style.width, `${button.offsetWidth}px`, "Indicator tracks localized tab width");
+        is(indicator.style.transform, `translate(${button.offsetLeft}px, ${button.offsetTop}px)`, "Indicator targets selected tab position");
+      }
+
+      for (const button of [changelog, home, privacy, home]) {
+        EventUtils.synthesizeMouseAtCenter(button, { type: "mousedown" }, win);
+        assertSelection(button);
+        const ghost = doc.querySelector(".wh-panel-ghost");
+        ok(ghost, "Outgoing visual is present during the crossfade");
+        ok(ghost.inert && ghost.getAttribute("aria-hidden") == "true", "Outgoing visual cannot receive input or accessibility focus");
+        EventUtils.synthesizeMouseAtCenter(button, { type: "mouseup" }, win);
+        assertSelection(button);
+        if (button == home) {
+          ok(!doc.documentElement.classList.contains("wh-home-entrance"), "Returning Home does not restore the entrance class");
+          is(win.getComputedStyle(hero).animationName, "none", "Hero arrival does not replay");
+        }
+      }
+      await TestUtils.waitForCondition(() => !doc.querySelector(".wh-panel-ghost"), "Crossfade removes its visual copy");
+      assertSelection(home);
+      const ids = [...doc.querySelectorAll("[id]")].map(node => node.id);
+      is(new Set(ids).size, ids.length, "Transitions leave no duplicate IDs");
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_reduced_motion_tab_switches_are_instant() {
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  try {
+    await BrowserTestUtils.withNewTab("about:whimsy?tab=changelog", async browser => {
+      const win = browser.contentWindow;
+      const doc = browser.contentDocument;
+      ok(win.matchMedia("(prefers-reduced-motion: reduce)").matches, "Reduced motion is active");
+      for (const name of ["home", "privacy", "changelog", "home"]) {
+        const button = doc.getElementById(`whimsy-tab-${name}`);
+        EventUtils.synthesizeMouseAtCenter(button, {}, win);
+        is(doc.querySelectorAll('[role="tab"][aria-selected="true"]').length, 1, "One tab remains selected");
+        is(button.getAttribute("aria-selected"), "true", "Click selects the requested tab");
+        is(doc.querySelectorAll('[role="tabpanel"]:not([hidden])').length, 1, "One panel remains visible");
+        ok(!doc.querySelector(".wh-panel-ghost"), "Reduced motion creates no outgoing visual");
+        is(win.getComputedStyle(doc.getElementById("whimsy-tab-indicator")).transitionDuration, "0s", "Indicator does not transition");
+        is(win.getComputedStyle(doc.querySelector(".wh-hero-art")).animationName, "none", "Hero does not animate");
+        is(doc.getAnimations().filter(animation => animation.playState == "running").length, 0, "Tab switches start no animations");
+      }
+      ok(!doc.documentElement.classList.contains("wh-home-entrance"), "Opening another tab first does not defer the hero entrance until Home");
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+});
