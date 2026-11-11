@@ -39,6 +39,10 @@ async function closeChat() {
   }
 }
 
+// The same easing can be serialized with different whitespace (a custom
+// property keeps the author's line breaks; Animation.easing doesn't).
+const easing = value => String(value).replace(/\s+/g, " ").replace(/\(\s/g, "(").replace(/\s\)/g, ")").replace(/\s*,\s*/g, ", ").trim();
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -60,9 +64,9 @@ add_task(async function panel_tokens_equal_the_sidebars_own_motion() {
   const sidebar = chat().peekMotion();
   ok(sidebar.enter && sidebar.exit, "Zen's sidebar rules were found");
   is(panel.in.duration, sidebar.enter.duration, "Chat's open duration is the sidebar's own");
-  is(panel.in.easing, sidebar.enter.easing, "Chat's open easing is the sidebar's own spring");
+  is(easing(panel.in.easing), easing(sidebar.enter.easing), "Chat's open easing is the sidebar's own spring");
   is(panel.out.duration, sidebar.exit.duration, "Chat's close duration is the sidebar's own");
-  is(panel.out.easing, sidebar.exit.easing, "Chat's close easing is the sidebar's own");
+  is(easing(panel.out.easing), easing(sidebar.exit.easing), "Chat's close easing is the sidebar's own");
 });
 
 add_task(async function open_and_close_use_that_exact_motion() {
@@ -75,7 +79,7 @@ add_task(async function open_and_close_use_that_exact_motion() {
   for (const anim of [widthIn, slideIn]) {
     const timing = anim.effect.getTiming();
     is(timing.duration, motion.in.duration, "Open lasts exactly as long as the sidebar's show");
-    is(timing.easing, motion.in.easing, "...with the sidebar's own easing");
+    is(easing(timing.easing), easing(motion.in.easing), "...with the sidebar's own easing");
     is(timing.delay, 0, "...and no delay");
   }
   await opened;
@@ -88,7 +92,7 @@ add_task(async function open_and_close_use_that_exact_motion() {
   for (const anim of [widthOut, slideOut]) {
     const timing = anim.effect.getTiming();
     is(timing.duration, motion.out.duration, "Close lasts exactly as long as the sidebar's hide");
-    is(timing.easing, motion.out.easing, "...with the sidebar's own easing");
+    is(easing(timing.easing), easing(motion.out.easing), "...with the sidebar's own easing");
     is(timing.delay, 0, "...and no delay");
   }
   is(getComputedStyle(chat().el).transitionDelay, "0s", "No CSS transition-delay on the panel either");
