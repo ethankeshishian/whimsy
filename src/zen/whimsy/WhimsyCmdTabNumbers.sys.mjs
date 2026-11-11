@@ -53,6 +53,7 @@ export const WhimsyCmdTabNumbers = {
     const on = () => Services.prefs.getBoolPref(PREF, true);
     const hide = () => this.hide(win);
     const keydown = event => {
+      dump(`WHIMSY_CMDNUM_DEBUG keydown key=${event.key} code=${event.code} reply=${event.isReplyEventFromRemoteContent} meta=${state.meta} keys=${[...state.keys]} buttons=${state.buttons} target=${event.target}\n`);
       // Remote content replies redispatch the original event through chrome.
       // They can arrive after the physical keyup (or even the next press),
       // so counting them leaves phantom held keys and can restart a hold.
@@ -71,16 +72,20 @@ export const WhimsyCmdTabNumbers = {
       state.meta = true;
       if (!on() || event.repeat || event.ctrlKey || event.altKey || event.shiftKey || state.buttons ||
           state.keys.size != 1 || win.gURLBar?.view.isOpen) {
+        dump(`WHIMSY_CMDNUM_DEBUG keydown BAILOUT on=${on()} repeat=${event.repeat} ctrl=${event.ctrlKey} alt=${event.altKey} shift=${event.shiftKey} buttons=${state.buttons} keysSize=${state.keys.size} urlbarOpen=${!!win.gURLBar?.view.isOpen}\n`);
         return;
       }
+      dump(`WHIMSY_CMDNUM_DEBUG keydown TIMER STARTED\n`);
       state.timer = win.setTimeout(() => {
         state.timer = 0;
+        dump(`WHIMSY_CMDNUM_DEBUG timer fired meta=${state.meta} on=${on()} urlbarOpen=${!!win.gURLBar?.view.isOpen}\n`);
         if (state.meta && on() && !win.gURLBar?.view.isOpen) {
           this.show(win);
         }
       }, MODIFIER_HOLD_MS);
     };
     const keyup = event => {
+      dump(`WHIMSY_CMDNUM_DEBUG keyup key=${event.key} code=${event.code} reply=${event.isReplyEventFromRemoteContent} meta=${state.meta} metaKey=${event.metaKey} keys=${[...state.keys]} target=${event.target}\n`);
       if (event.isReplyEventFromRemoteContent) {
         return;
       }
