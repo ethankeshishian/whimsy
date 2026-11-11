@@ -104,7 +104,24 @@ add_task(async function real_digits_match_badges() {
   await assertShortcutTargets();
 });
 
-add_task(async function cancel_on_release_key_pointer_and_blur() {
+add_task(async function chrome_document_blur_preserves_hold() {
+  gBrowser.selectedBrowser.focus();
+  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+  try {
+    // Reproduce the window-targeted blur delivered as chrome hands focus to
+    // content after a tab switch. No top-level window deactivation occurs.
+    // Dispatch during the pending hold so cancelling its timer is observable.
+    window.dispatchEvent(new FocusEvent("blur"));
+    await TestUtils.waitForCondition(showing, "Document blur preserves the pending Command hold");
+    window.dispatchEvent(new FocusEvent("blur"));
+    ok(showing(), "Document blur preserves visible badges in the active window");
+  } finally {
+    release();
+  }
+  ok(!showing(), "Release still ends the hold after document blur");
+});
+
+add_task(async function cancel_on_release_key_pointer_and_deactivate() {
   await hold();
   release();
   ok(!showing(), "Release hides immediately");
@@ -129,6 +146,8 @@ add_task(async function cancel_on_release_key_pointer_and_blur() {
     await SimpleTest.promiseFocus(window);
     release();
   }
+  await hold();
+  release();
 });
 
 add_task(async function quick_tap_and_chords_never_reveal() {

@@ -95,8 +95,11 @@ export const WhimsyCmdTabNumbers = {
       hide();
     };
     const pointerup = event => { state.buttons = event.buttons; };
-    const blur = event => {
-      // Captured blur also fires as focus moves between chrome controls.
+    const deactivate = event => {
+      // Window blur also fires when focus leaves the chrome document for
+      // content, including after a tab/space switch. That is still the same
+      // active browser window, and must not cancel a newly started hold.
+      // Gecko's deactivate event tracks top-level window activation instead.
       if (event.target != win) {
         return;
       }
@@ -110,7 +113,7 @@ export const WhimsyCmdTabNumbers = {
         this.show(win);
       }
     };
-    const listeners = { keydown, keyup, pointerdown, pointerup, blur, ZenWorkspacesUIUpdate: workspace };
+    const listeners = { keydown, keyup, pointerdown, pointerup, deactivate, ZenWorkspacesUIUpdate: workspace };
     for (const [type, listener] of Object.entries(listeners)) {
       win.addEventListener(type, listener, true);
     }
