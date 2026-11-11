@@ -152,7 +152,7 @@ add_setup(async function () {
       }
     }
     for (const tab of tabs) {
-      if (tab.isConnected && !tab.closing) {
+      if (tab.isConnected && !tab.closing && !tab.documentGlobal.closed) {
         await BrowserTestUtils.removeTab(tab);
       }
     }
@@ -242,6 +242,7 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
       }],
     },
     background() {
+      let windowRequest = 0;
       browser.test.onMessage.addListener(async (operation, properties) => {
         try {
           let tab;
@@ -255,12 +256,21 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
             if (account == "two") {
               create.url = browser.runtime.getURL("account-two.html");
             }
-            accountURL = create.url;
             if (operation == "window") {
+              // Zen restores other tabs into normal windows. Give this
+              // request a unique URL so a restored account cannot match it.
+              const url = new URL(create.url);
+              url.searchParams.set("windowRequest", ++windowRequest);
+              create.url = url.href;
+              accountURL = create.url;
               const { active, ...options } = create;
               const win = await browser.windows.create(options);
-              tab = win.tabs[0];
+              browser.test.sendMessage("account-result", {
+                windowTabs: win.tabs, accountURL,
+              });
+              return;
             } else {
+              accountURL = create.url;
               tab = await browser.tabs.create(create);
             }
           }
@@ -291,21 +301,35 @@ add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
   ] });
   async function request(operation, properties) {
     mock.sendMessage(operation, properties);
-    const result = await mock.awaitMessage("account-result");
+    let result = await mock.awaitMessage("account-result");
     Assert.ok(!result.error, result.error || "Extension API succeeded");
-    const tab = tabTracker.getTab(result.id);
-    tabs.add(tab);
+    let tab;
     if (operation == "window") {
+      const candidates = result.windowTabs.map(item => ({
+        result: item, tab: tabTracker.getTab(item.id),
+      }));
       // Gecko exposes a chrome node's window through documentGlobal.
       // Track it before waiting so failed startup still closes the window.
-      const win = tab.documentGlobal;
+      const win = candidates[0].tab.documentGlobal;
       windows.add(win);
-      is(win.gBrowser.getTabForBrowser(tab.linkedBrowser), tab,
-        "Extension API tab belongs to the tracked browser window");
       await TestUtils.waitForCondition(() => win.gZenStartup?.isReady,
         "Extension window initialized");
+      const accountURL = result.accountURL;
+      const opened = await TestUtils.waitForCondition(() => candidates.find(item =>
+        item.tab.linkedBrowser?.currentURI?.spec == accountURL),
+      "Returned window contains the requested account tab");
+      tab = opened.tab;
+      result = { ...opened.result, accountURL };
+      is(win.gBrowser.getTabForBrowser(tab.linkedBrowser), tab,
+        "Extension API tab belongs to the tracked browser window");
+    } else {
+      tab = tabTracker.getTab(result.id);
+      tabs.add(tab);
     }
     await loaded(tab.linkedBrowser, result.accountURL);
+    ok(tab.isConnected && !tab.closing, "Account tab survives loading");
+    is(tabTracker.getTab(result.id), tab, "Account tab keeps its extension ID");
+    is(WhimsyProfileMoves.replacementOf(tab), tab, "Account flow never replaces the tab");
     return { tab, result };
   }
   async function stays(space, properties, expectedProfile = space.containerTabId) {
