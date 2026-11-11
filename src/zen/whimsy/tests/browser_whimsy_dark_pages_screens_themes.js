@@ -3,6 +3,12 @@
 
 "use strict";
 
+// browser-chrome loads only head.js automatically; load this suite explicitly.
+Services.scriptloader.loadSubScript(
+  getRootDirectory(gTestPath) + "head_whimsy_dark_pages.js",
+  this
+);
+
 add_task(async function screenshots_themes() {
   for (const [name, theme, expected] of [
     ["generated", "light", "generated"], ["native", "native", "native"], ["already-dark", "already", "native"],

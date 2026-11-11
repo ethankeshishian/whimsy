@@ -182,20 +182,20 @@ add_task(async function test_highlight_context_menu_and_cmdk_four_colors() {
 
     // 2. Highlight via ⌘K selection verbs in green, blue, and pink
     await selectInElement(browser, "#p2", "You own your data");
-    await WhimsyVerbs.runVerb(window, "highlight-green", {
-      text: "You own your data",
-      kind: "plain",
-    });
+    const greenSubject = await WhimsyVerbs.subjectFor(window);
+    is(greenSubject.kind, "selection", "⌘K captures the green passage as a selection");
+    ok(await WhimsyVerbs.runVerb(window, "highlight-green", greenSubject),
+      "⌘K executes the green highlight verb");
     await TestUtils.waitForCondition(
       async () => (await getRenderedMarks(browser)).length === 2,
       "Green highlight added via ⌘K"
     );
 
     await selectInElement(browser, "#p3", "peer-to-peer");
-    await WhimsyVerbs.runVerb(window, "highlight-blue", {
-      text: "peer-to-peer",
-      kind: "plain",
-    });
+    const blueSubject = await WhimsyVerbs.subjectFor(window);
+    is(blueSubject.kind, "selection", "⌘K captures the blue passage as a selection");
+    ok(await WhimsyVerbs.runVerb(window, "highlight-blue", blueSubject),
+      "⌘K executes the blue highlight verb");
     await TestUtils.waitForCondition(
       async () => (await getRenderedMarks(browser)).length === 3,
       "Blue highlight added via ⌘K"
@@ -203,10 +203,10 @@ add_task(async function test_highlight_context_menu_and_cmdk_four_colors() {
 
     await selectInElement(browser, "#p4", "readable decades later");
     WhimsyAnnotations.lastColor = "pink";
-    await WhimsyVerbs.runVerb(window, "highlight", {
-      text: "readable decades later",
-      kind: "plain",
-    });
+    const pinkSubject = await WhimsyVerbs.subjectFor(window);
+    is(pinkSubject.kind, "selection", "⌘K captures the pink passage as a selection");
+    ok(await WhimsyVerbs.runVerb(window, "highlight", pinkSubject),
+      "⌘K executes the default highlight verb");
     await TestUtils.waitForCondition(
       async () => (await getRenderedMarks(browser)).length === 4,
       "Pink highlight added via ⌘K default verb"
@@ -329,7 +329,10 @@ add_task(async function test_page_note_and_revisit_cue_and_screenshots() {
       highlightId: hl.id,
     });
     await BrowserTestUtils.waitForPopupEvent(popover, "shown");
-    await whimsyBothSchemes("w24-annotations-popover", popover);
+    await whimsyBothSchemes("w24-annotations-popover", async () => {
+      is(popover.state, "open", "Highlight popover is open for the screenshot");
+      return whimsyStandInPopups();
+    });
     const popHidden = BrowserTestUtils.waitForPopupEvent(popover, "hidden");
     WhimsySurface.close(popover);
     await popHidden;
@@ -346,7 +349,10 @@ add_task(async function test_page_note_and_revisit_cue_and_screenshots() {
     );
 
     // Screenshot 2: Address-bar page panel showing the note and highlights list
-    await whimsyBothSchemes("w24-annotations-page-panel", panel);
+    await whimsyBothSchemes("w24-annotations-page-panel", async () => {
+      is(panel.state, "open", "Page panel is open for the screenshot");
+      return whimsyStandInPopups();
+    });
 
     pageNoteInput.value = "Updated page note: share with the sync team.";
     pageNoteInput.dispatchEvent(new Event("input", { bubbles: true }));

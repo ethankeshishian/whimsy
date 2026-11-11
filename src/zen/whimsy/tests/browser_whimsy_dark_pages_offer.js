@@ -3,6 +3,12 @@
 
 "use strict";
 
+// browser-chrome loads only head.js automatically; load this suite explicitly.
+Services.scriptloader.loadSubScript(
+  getRootDirectory(gTestPath) + "head_whimsy_dark_pages.js",
+  this
+);
+
 add_task(async function first_conversion_toast_once_and_turn_off() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.dark-pages.offered", false]] });
   try {

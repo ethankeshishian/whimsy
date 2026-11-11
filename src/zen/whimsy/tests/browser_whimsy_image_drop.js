@@ -159,6 +159,23 @@ async function dragWebImage(imageAsFile) {
       gBrowser, DROP_WEB_ROOT + "whimsy_image_drop.html"
     );
     const state = originalState(original);
+    await SpecialPowers.spawn(original.linkedBrowser, [], () => {
+      // EventUtils checks content drop delivery. Without accepting dragover,
+      // Gecko deliberately routes an unclaimed drop only to chrome
+      // (EventStateManager::PostHandleEvent / PresShell::EventHandler).
+      // Accept dragover, but leave drop unhandled so RemoteDropLinks still
+      // performs the native navigation that this test exercises.
+      content.document.getElementById("dropTarget").addEventListener("dragover", event => {
+        event.preventDefault();
+      });
+      content.wrappedJSObject.imageDropCount = 0;
+      content.addEventListener("drop", event => {
+        content.wrappedJSObject.imageDropCount++;
+        content.wrappedJSObject.imageDropTrusted = event.isTrusted;
+        content.wrappedJSObject.imageDropPrevented = event.defaultPrevented;
+        content.wrappedJSObject.imageDropTarget = event.target.id;
+      });
+    });
     // Two visible widgets allow a real cross-document drag with the existing
     // Firefox mock-DND helper, rather than calling droppedLinkHandler directly.
     // Keep the source window unsynced so its tabs and teardown stay separate
@@ -195,6 +212,13 @@ async function dragWebImage(imageAsFile) {
       dropPromise: opened,
     });
     const imageTab = await opened;
+    await SpecialPowers.spawn(original.linkedBrowser, [], () => {
+      const page = content.wrappedJSObject;
+      is(page.imageDropCount, 1, "The target page received exactly one native drop");
+      ok(page.imageDropTrusted, "The drop was a trusted native event");
+      is(page.imageDropPrevented, false, "The page left drop unhandled for native navigation");
+      is(page.imageDropTarget, "dropTarget", "The native drop reached the intended target");
+    });
     await assertImageTab(original, imageTab, DROP_IMAGE, count, state);
   } finally {
     try {

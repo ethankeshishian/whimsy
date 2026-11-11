@@ -3,6 +3,12 @@
 
 "use strict";
 
+// browser-chrome loads only head.js automatically; load this suite explicitly.
+Services.scriptloader.loadSubScript(
+  getRootDirectory(gTestPath) + "head_whimsy_dark_pages.js",
+  this
+);
+
 add_task(async function screenshots_choices() {
   await whimsyBothSchemes("w24-darkpages-original", async () => {
     const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
