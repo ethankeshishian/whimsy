@@ -48,8 +48,20 @@ const easing = value =>
     .replace(/\(\s/g, "(")
     .replace(/\s\)/g, ")")
     .replace(/\s*,\s*/g, ", ")
-    .replace(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi, n => String(Number(Number(n).toPrecision(5))))
     .trim();
+const NUMBER = /-?\d*\.?\d+(?:e[-+]?\d+)?/gi;
+// Gecko serializes linear() stops as floats, so the last digit can differ
+// between two copies of the same curve; compare the shape exactly and the
+// numbers to within 1e-3.
+const sameEasing = (a, b) => {
+  const [x, y] = [easing(a), easing(b)];
+  const [nx, ny] = [x.match(NUMBER) || [], y.match(NUMBER) || []];
+  return (
+    x.replace(NUMBER, "#") == y.replace(NUMBER, "#") &&
+    nx.length == ny.length &&
+    nx.every((n, i) => Math.abs(Number(n) - Number(ny[i])) < 1e-3)
+  );
+};
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
@@ -87,7 +99,10 @@ add_task(async function open_and_close_use_that_exact_motion() {
   for (const anim of [widthIn, slideIn]) {
     const timing = anim.effect.getTiming();
     is(timing.duration, motion.in.duration, "Open lasts exactly as long as the sidebar's show");
-    is(easing(timing.easing), easing(motion.in.easing), "...with the sidebar's own easing");
+    ok(
+      sameEasing(timing.easing, motion.in.easing),
+      `...with the sidebar's own easing (${timing.easing} vs ${motion.in.easing})`
+    );
     is(timing.delay, 0, "...and no delay");
   }
   await opened;
@@ -100,7 +115,10 @@ add_task(async function open_and_close_use_that_exact_motion() {
   for (const anim of [widthOut, slideOut]) {
     const timing = anim.effect.getTiming();
     is(timing.duration, motion.out.duration, "Close lasts exactly as long as the sidebar's hide");
-    is(easing(timing.easing), easing(motion.out.easing), "...with the sidebar's own easing");
+    ok(
+      sameEasing(timing.easing, motion.out.easing),
+      `...with the sidebar's own easing (${timing.easing} vs ${motion.out.easing})`
+    );
     is(timing.delay, 0, "...and no delay");
   }
   is(getComputedStyle(chat().el).transitionDelay, "0s", "No CSS transition-delay on the panel either");
