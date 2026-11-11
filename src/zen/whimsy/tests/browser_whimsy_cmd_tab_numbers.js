@@ -10,14 +10,23 @@ const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy
 const root = document.documentElement;
 const showing = () => root.hasAttribute("whimsy-tab-numbers");
 const badge = tab => tab.querySelector(".whimsy-tab-number");
-let originalSpace, startTabs, essential, pinned;
+let originalSpace, startTabs, essential, pinned, focus;
+
+// Exercise this window's input listener directly: native synthesized keys
+// can be routed to another Firefox instance by the OS during full verify.
+function key(key, options = {}) {
+  const { type = "keydown", ...modifiers } = options;
+  window.dispatchEvent(new KeyboardEvent(type, {
+    key: key.replace(/^KEY_/, ""), code: key == "KEY_Meta" ? "MetaLeft" : key,
+    bubbles: true, ...modifiers,
+  }));
+}
 
 function release() {
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keyup" });
+  key("KEY_Meta", { type: "keyup" });
 }
 async function hold() {
-  gBrowser.selectedBrowser.focus();
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+  key("KEY_Meta", { type: "keydown", metaKey: true });
   await TestUtils.waitForCondition(showing, "Holding Command past the shared delay reveals numbers");
 }
 
@@ -25,7 +34,6 @@ async function hold() {
 // immediately before a still-pending reveal timer could have fired.
 async function pastDeadline() {
   await new Promise(resolve => window.setTimeout(resolve, Numbers.HOLD_MS + 1)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
-  await new Promise(resolve => window.requestAnimationFrame(resolve));
 }
 
 async function assertShortcutTargets() {
@@ -47,9 +55,9 @@ async function assertShortcutTargets() {
     const direct = entries.find(([, label]) => label.split(" · ").includes(String(digit)));
     const expected = direct?.[0] ?? entries.find(([, label]) => label.split(" · ").includes("9"))?.[0];
     ok(expected, `A badge identifies ⌘${digit}`);
-    // With content focused, Firefox waits for the remote key reply before
-    // executing its <key>. Observe the real command even when a short list
-    // clamps several digits to the tab that is already selected.
+    // Verify the native key binding and execute that key's real command,
+    // including when a short list clamps digits to the already-selected tab.
+    // Native keyboard routing itself requires OS focus and belongs to Firefox.
     // Capture is required: mainKeyset's handler passes the command event
     // to selectTabAtIndex, which stops propagation before document's bubble
     // listener can see it. waitForEvent resolves on a later main-thread turn,
@@ -57,7 +65,12 @@ async function assertShortcutTargets() {
     const keyId = digit == 9 ? "key_selectLastTab" : `key_selectTab${digit}`;
     const commanded = BrowserTestUtils.waitForEvent(document, "command", true,
       event => event.target.id == keyId);
-    EventUtils.synthesizeKey(String(digit), { metaKey: true });
+    const nativeKey = document.getElementById(keyId);
+    is(nativeKey.getAttribute("key"), String(digit), "The native key binds this digit");
+    ok(nativeKey.getAttribute("modifiers").split(/[ ,]+/).includes("accel"), "The native shortcut uses Command");
+    key(String(digit), { metaKey: true });
+    nativeKey.doCommand();
+    key(String(digit), { type: "keyup", metaKey: true });
     ok(!showing(), "A digit hides the badges immediately");
     await commanded;
     is(gBrowser.selectedTab, expected, `⌘${digit} selected the badged tab`);
@@ -71,11 +84,16 @@ async function assertShortcutTargets() {
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [[Numbers.PREF, true]] });
   Numbers.initWindow(window);
+  const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
+  // Every task exercises delivered input in an OS-background window. Real
+  // activation changes from concurrent Firefox instances cannot race a hold.
+  focus = sinon.stub(Numbers, "isActiveWindow").returns(false);
   originalSpace = gZenWorkspaces.activeWorkspace;
   startTabs = new Set(gBrowser.tabs);
   registerCleanupFunction(async () => {
     release();
     Numbers.hide(window);
+    focus.restore();
     await gZenWorkspaces.changeWorkspaceWithID(originalSpace);
     for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
       if (tab.isConnected && !tab.closing) {
@@ -105,8 +123,7 @@ add_task(async function real_digits_match_badges() {
 });
 
 add_task(async function chrome_document_blur_preserves_hold() {
-  gBrowser.selectedBrowser.focus();
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+  key("KEY_Meta", { type: "keydown", metaKey: true });
   try {
     // Reproduce the window-targeted blur delivered as chrome hands focus to
     // content after a tab switch. No top-level window deactivation occurs.
@@ -126,24 +143,35 @@ add_task(async function cancel_on_release_key_pointer_and_deactivate() {
   release();
   ok(!showing(), "Release hides immediately");
   await hold();
-  EventUtils.synthesizeKey("KEY_Shift", { type: "keydown", metaKey: true });
+  key("KEY_Shift", { type: "keydown", metaKey: true });
   ok(!showing(), "Another key hides immediately");
-  EventUtils.synthesizeKey("KEY_Shift", { type: "keyup", metaKey: true });
+  key("KEY_Shift", { type: "keyup", metaKey: true });
   release();
   await hold();
   const tab = gBrowser.selectedTab;
-  EventUtils.synthesizeMouseAtCenter(tab, { type: "mousedown" }, window);
+  tab.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
   ok(!showing(), "Pointer press hides immediately");
-  EventUtils.synthesizeMouseAtCenter(tab, { type: "mouseup" }, window);
+  tab.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
   release();
-  await hold();
-  const other = await BrowserTestUtils.openNewBrowserWindow();
+  // Model activation transitions without competing for the OS-active window.
+  focus.returns(true);
   try {
-    await SimpleTest.promiseFocus(other);
-    ok(!showing(), "Losing window focus hides immediately");
+    await hold();
+    focus.returns(false);
+    window.dispatchEvent(new Event("deactivate"));
+    ok(!showing(), "Losing window activation hides immediately");
+    key("KEY_Meta", { metaKey: true });
+    window.dispatchEvent(new Event("deactivate"));
+    await TestUtils.waitForCondition(showing, "Keys delivered without activation survive pending deactivation");
+    window.dispatchEvent(new Event("deactivate"));
+    ok(showing(), "Keys delivered without activation survive visible deactivation");
+    // No keyup and no activation transition: a new non-repeat keydown is
+    // evidence of a new physical press and must repair the missed release.
+    key("KEY_Meta", { metaKey: true });
+    ok(!showing(), "A fresh press starts a fresh delay after a missed release");
+    await TestUtils.waitForCondition(showing, "A missed release cannot block the next Command hold");
   } finally {
-    await BrowserTestUtils.closeWindow(other);
-    await SimpleTest.promiseFocus(window);
+    focus.returns(false);
     release();
   }
   await hold();
@@ -151,34 +179,41 @@ add_task(async function cancel_on_release_key_pointer_and_deactivate() {
 });
 
 add_task(async function quick_tap_and_chords_never_reveal() {
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+  key("KEY_Meta", { type: "keydown", metaKey: true });
   release();
   await pastDeadline();
   ok(!showing(), "A quick Command tap never reveals badges");
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
-  EventUtils.synthesizeKey("c", { metaKey: true });
+  key("KEY_Meta", { type: "keydown", metaKey: true });
+  key("c", { metaKey: true });
+  key("c", { type: "keyup", metaKey: true });
   await pastDeadline();
   ok(!showing(), "A quick shortcut cancels the pending reveal");
   release();
-  EventUtils.synthesizeKey("KEY_Shift", { type: "keydown" });
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true, shiftKey: true });
+  key("c");
+  key("KEY_Meta", { metaKey: true });
+  await pastDeadline();
+  ok(!showing(), "A non-modifier already held prevents a reveal");
+  key("c", { type: "keyup", metaKey: true });
+  release();
+  key("KEY_Shift", { type: "keydown" });
+  key("KEY_Meta", { type: "keydown", metaKey: true, shiftKey: true });
   await pastDeadline();
   ok(!showing(), "Command held with another modifier never starts a reveal");
   release();
-  EventUtils.synthesizeKey("KEY_Shift", { type: "keyup" });
+  key("KEY_Shift", { type: "keyup" });
 });
 
 add_task(async function pointer_down_before_command_and_pending_cancellation() {
   const tab = gBrowser.selectedTab;
-  EventUtils.synthesizeMouseAtCenter(tab, { type: "mousedown" }, window);
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+  tab.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
+  key("KEY_Meta", { type: "keydown", metaKey: true });
   await pastDeadline();
   ok(!showing(), "Command with a mouse button held never reveals numbers");
   release();
-  EventUtils.synthesizeMouseAtCenter(tab, { type: "mouseup" }, window);
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
-  EventUtils.synthesizeMouseAtCenter(tab, { type: "mousedown" }, window);
-  EventUtils.synthesizeMouseAtCenter(tab, { type: "mouseup" }, window);
+  tab.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
+  key("KEY_Meta", { type: "keydown", metaKey: true });
+  tab.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
+  tab.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
   await pastDeadline();
   ok(!showing(), "A pointer press cancels the pending timer");
   release();
@@ -189,12 +224,12 @@ add_task(async function preference_disables_pending_and_visible_hints() {
   await SpecialPowers.pushPrefEnv({ set: [[Numbers.PREF, false]] });
   ok(!showing(), "Turning the switch off hides existing hints");
   release();
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+  key("KEY_Meta", { type: "keydown", metaKey: true });
   await pastDeadline();
   ok(!showing(), "No reveal while the switch is off");
   release();
   await SpecialPowers.popPrefEnv();
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+  key("KEY_Meta", { type: "keydown", metaKey: true });
   await SpecialPowers.pushPrefEnv({ set: [[Numbers.PREF, false]] });
   await pastDeadline();
   ok(!showing(), "Turning the switch off cancels a pending reveal");

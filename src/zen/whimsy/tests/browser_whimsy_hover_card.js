@@ -162,26 +162,43 @@ add_task(async function tab_hover_has_no_add_note() {
     ["browser.tabs.notes.enabled", true],
     ["ui.tooltip.delay_ms", 0],
   ] });
-  await SimpleTest.promiseFocus(window);
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?hover-note");
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?hover-other");
   const panel = document.getElementById("tab-preview-panel");
+  gBrowser.tabContainer.ensureTabPreviewPanelLoaded();
+  const preview = gBrowser.tabContainer.previewPanel;
+  const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
+  // This tests preview contents with notes enabled. Firefox intentionally
+  // rejects background windows in shouldActivate(); competing test instances
+  // can take focus after promiseFocus resolves. Keep the native renderer and
+  // popup lifecycle, and isolate only that activation policy from this test.
+  const activation = sinon.stub(preview, "shouldActivate").returns(true);
   try {
+    if (panel.state != "closed") {
+      const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+      panel.hidePopup();
+      await hidden;
+    }
     const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
-    EventUtils.synthesizeMouseAtCenter(tab, { type: "mouseover" });
-    EventUtils.synthesizeMouseAtCenter(tab, { type: "mousemove" });
+    const updated = BrowserTestUtils.waitForEvent(panel, "TabPreviewUpdated");
+    preview.activate(tab);
     await shown;
-    await new Promise(resolve => setTimeout(resolve, 200)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await updated;
     ok(panel.querySelector(".tab-preview-title")?.textContent, "The preview shows the tab's title");
     ok(!panel.querySelector(".tab-preview-add-note"), "…and no Add note button");
     const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-    EventUtils.synthesizeMouseAtCenter(document.documentElement, { type: "mousemove" });
-    EventUtils.synthesizeMouseAtCenter(tab, { type: "mouseout" });
-    panel.hidePopup();
+    preview.deactivate(tab, { force: true });
     await hidden;
   } finally {
-    BrowserTestUtils.removeTab(other);
-    BrowserTestUtils.removeTab(tab);
+    activation.restore();
+    preview.deactivate(tab, { force: true });
+    if (panel.state != "closed") {
+      const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
+      panel.hidePopup();
+      await hidden;
+    }
+    await BrowserTestUtils.removeTab(other);
+    await BrowserTestUtils.removeTab(tab);
     await SpecialPowers.popPrefEnv();
   }
 });

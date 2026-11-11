@@ -112,7 +112,9 @@ add_task(async function box_with_text_defaults_insert_after() {
     Assert.deepEqual(buttons.map(b => b.dataset.button), ["insert-after", "replace", "copy"], "Insert after · Replace · Copy");
     ok(buttons[0].classList.contains("primary"), "Insert after is the default");
     await TestUtils.waitForCondition(() => buttons[0].getBoundingClientRect().width > 0, "Laid out");
-    EventUtils.synthesizeMouseAtCenter(buttons[0], {});
+    // Activate the choice itself. Coordinate injection can hit the page while
+    // the chat's entrance animation is still moving this laid-out button.
+    buttons[0].click();
     await SpecialPowers.spawn(browser, [DRAFT], async draft => {
       await ContentTaskUtils.waitForCondition(() => content.document.getElementById("box").value.endsWith(draft), "Inserted after");
     });
