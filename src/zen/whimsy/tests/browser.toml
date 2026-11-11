@@ -19,6 +19,9 @@ prefs = [
   "whimsy.ai.enabled=true",
   "whimsy.ai.memory=false",
   "whimsy.feature.ai-related=false",
+  # Adaptive conversion is exercised explicitly by its own file; other
+  # feature fixtures keep their authored colors and do not consume its toast.
+  "whimsy.feature.dark-pages=false",
   "whimsy.privateLock.askDismissals.tabs=2",
   "whimsy.privateLock.askDismissals.space=2",
   "whimsy.privateLock.askDismissals.windows=2",
@@ -32,6 +35,9 @@ support-files = ["whimsy_no_copy.html"]
 # W10-41: copy-protected pages: the blocked right-click offers Allow, copy keys, Copy URL on the second press (W10-61).
 ["browser_whimsy_allow_copy_keys.js"]
 support-files = ["whimsy_no_copy_keys.html"]
+
+["browser_whimsy_image_drop.js"]
+support-files = ["whimsy_image_drop.html", "whimsy_image_drop.sjs"]
 
 ["browser_whimsy_app_icon.js"]
 
@@ -372,6 +378,9 @@ support-files = ["whimsy_call.html"]
 
 # wave3/cmdbar: offline bangs and the Settings editor.
 ["browser_whimsy_bangs.js"]
+
+# W24 emoji: emoji from the command bar (":" or the Emoji command).
+["browser_whimsy_command_bar_emoji.js"]
 # wave3/tree: Cmd+1-9 skip hidden spaces
 ["browser_whimsy_space_shortcuts.js"]
 
@@ -589,6 +598,11 @@ support-files = ["whimsy_search_results.html", "whimsy_search_results_coop.html"
 # wave6: Already open (Arc): Return on an open address goes to its tab and space.
 ["browser_whimsy_already_open.js"]
 
+# W24/tabsearch (BUGS.md #16): ⌘T/⌘L find a tab by title or custom label in
+# every space and every Whimsy profile, labelled with the other space's icon
+# and name; no duplicate row; private windows unchanged.
+["browser_whimsy_tab_search_spaces.js"]
+
 # wave6: Trails: pages cut from Forward stay as branch rows in the Back/Forward menu.
 ["browser_whimsy_trails.js"]
 
@@ -636,6 +650,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave6/parity: Arc's fixed tidy-title rules (no AI).
 ["browser_whimsy_tidy_titles_rules.js"]
 
+# W24: pin entry points, offline fallback, manual names, and session restoration.
+["browser_whimsy_tidy_titles_pinning.js"]
+
 # wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
 ["browser_whimsy_command_bar_dedup.js"]
 
@@ -681,6 +698,11 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 ["browser_whimsy_access_commands.js"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
+
+# W24 passkey 2: page-world password-manager interception across profiles,
+# windows, frames, CSP, document_start and private-browsing permission.
+["browser_whimsy_passkey_extension.js"]
+support-files = ["whimsy_passkey_extension.sjs", "whimsy_passkey_extension_page.js"]
 
 # wave7/focus: paste guard (detector, sheet Cancel/Esc/Paste, ordinary text, card field, command, switches).
 ["browser_whimsy_paste_guard.js"]
@@ -976,6 +998,10 @@ support-files = ["whimsy_ai_sensitive.html"]
 # W23 chat-shell: the chat panel (⌘E, Esc, side, resize, narrow windows),
 # per-tab threads, the conversation list, the private wall, the Tasks strip,
 # and this lane's screenshots.
+["browser_whimsy_chat_hover.js"]
+
+["browser_whimsy_chat_motion.js"]
+
 ["browser_whimsy_chat_shell.js"]
 
 ["browser_whimsy_chat_threads.js"]
@@ -1073,6 +1099,12 @@ support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
 ["browser_whimsy_screens_w23_agent-chat.js"]
 support-files = ["whimsy_chat_article.html", "whimsy_agent_checkout.html"]
 
+# W24 agentdone: the agent never reports success for an unmet goal (the
+# outcome check, a named open tab over a new one, the repeat guard, the run
+# card's step, the disclosure chevron, the provider-sized history).
+["browser_whimsy_agent_done.js"]
+support-files = ["whimsy_agent_search.html"]
+
 # W23 agent-tabs: the Drive look (glow, pointer, target, working line), the
 # unpinned task folder for background tabs (dissolves like Zap), collisions,
 # needs-you, and the agent badge; plus this lane's screenshots.
@@ -1147,3 +1179,38 @@ support-files = ["whimsy_secfix2_codes.html"]
 # W24: keep adult sites out of history (stand-in hash and labelled stand-in pages).
 ["browser_whimsy_adult_history.js"]
 support-files = ["whimsy_adult_standin.html", "whimsy_adult_labelled.html", "whimsy_adult_rta.html"]
+["browser_whimsy_dark_pages.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_offer.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_sites.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_sites_private.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_dynamic.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_match.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_themes.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_choices.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_site_panel.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_settings.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+["browser_whimsy_mcp_approval.js"]
+# W24 annotations: page highlights in four colors, passage notes, one note per page, revisit cue, Fire, private browsing.
+["browser_whimsy_annotations.js"]
+
+["browser_whimsy_cmd_tab_numbers.js"]
+skip-if = ["os != 'mac'"]

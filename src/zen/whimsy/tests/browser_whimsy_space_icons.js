@@ -162,7 +162,12 @@ add_task(async function test_skin_tones() {
 });
 
 add_task(async function test_tab_icon_picker_stays_open() {
-  const picked = gZenEmojiPicker.open(gBrowser.selectedTab, { closeOnSelect: false, onSelect: () => {} });
+  // A tab's own picker opens from a tab on screen. An empty space shows
+  // only Zen's hidden empty tab (an earlier file can leave the space so),
+  // and a popup anchored to a hidden node closes as it opens.
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await TestUtils.waitForCondition(() => tab.checkVisibility(), "The tab is on screen");
+  const picked = gZenEmojiPicker.open(tab, { closeOnSelect: false, onSelect: () => {} });
   await BrowserTestUtils.waitForEvent(panel(), "popupshown");
   is(glyphButtons()[0].getAttribute("icon"), WhimsySpaceIcons.ARC_GLYPHS[0], "The shared picker has Arc's order");
   glyph("heart.svg").doCommand();
@@ -171,6 +176,7 @@ add_task(async function test_tab_icon_picker_stays_open() {
   panel().hidePopup();
   await hidden;
   await picked.catch(() => {});
+  BrowserTestUtils.removeTab(tab);
 });
 
 add_task(async function test_switch_off() {

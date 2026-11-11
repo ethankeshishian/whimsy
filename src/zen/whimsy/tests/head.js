@@ -187,6 +187,38 @@ add_setup(function whimsySnapshotLeakedPrefs() {
   }));
 });
 
+// Several files put a real image or text on the system clipboard to test
+// copy/paste (the capture card, chat answers, the upload picker's Cmd+V).
+// Registered first and re-registering itself from inside its own callback,
+// like whimsyRestoreLeakedPrefs above, so it runs after every test's own
+// cleanup and always leaves the clipboard empty, win or lose.
+registerCleanupFunction(() => registerCleanupFunction(function whimsyEmptyClipboard() {
+  try {
+    Services.clipboard.emptyClipboard(Services.clipboard.kGlobalClipboard);
+  } catch (e) {
+    // Not every platform/build has a global clipboard to empty.
+  }
+}));
+
+// A test that downloads a real file (Fire, Quick Look, the upload picker,
+// a page load that triggers a save) needs its own download folder: without
+// one, Firefox saves into the person's real Downloads folder. That's what
+// browser_whimsy_private_followups.js did before this helper existed,
+// leaving 173 whimsy-slow.bin files there. Pushes the prefs and makes the
+// folder; it (and anything written into it) is removed for you.
+async function useTempDownloadDir() {
+  const dir = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-dl");
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.download.folderList", 2],
+      ["browser.download.dir", dir],
+      ["browser.download.useDownloadDir", true],
+    ],
+  });
+  registerCleanupFunction(() => IOUtils.remove(dir, { recursive: true, ignoreAbsent: true }));
+  return dir;
+}
+
 // wave13/toast: Whimsy's toasts are Zen's (gZenUIManager.toasts,
 // WhimsyZenToasts.sys.mjs). The newest toast showing in `win`, as the
 // handle open() returned (element, messageId, update(), close()), or null.
@@ -323,6 +355,18 @@ function whimsyStandInPopups(doc = document) {
     });
     for (const child of panel.children) {
       const copy = child.cloneNode(true);
+      // cloneNode copies markup, but not the extension object required by
+      // connectedCallback. Rebuild these widgets from their extension before
+      // inserting them, rather than connecting uninitialized clones (or
+      // appending a second copy of their generated template).
+      const items = [child, ...child.querySelectorAll("unified-extensions-item")];
+      const copies = [copy, ...copy.querySelectorAll("unified-extensions-item")];
+      items.forEach((item, i) => {
+        if (item.localName == "unified-extensions-item") {
+          copies[i].replaceChildren();
+          copies[i].setExtension(item.extension);
+        }
+      });
       const from = child.querySelectorAll("input, textarea");
       copy.querySelectorAll("input, textarea").forEach((field, i) => {
         field.value = from[i]?.value ?? field.value;

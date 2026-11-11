@@ -570,15 +570,24 @@
       }
       return row;
     });
-    const add = S.el("button", "whimsy-ai-item is-compact is-button whimsy-ai-add");
-    add.type = "button";
-    add.id = "whimsyAIAddProvider";
-    add.style.cssText = "width:100%;border:0;font:inherit;color:inherit;text-align:start";
-    S.el("span", "", add).style.width = "38px";
-    S.tile(add, "chrome://browser/skin/zen-icons/plus.svg");
-    S.el("span", "whimsy-ai-item-name", add, "whimsy-ai-add-provider");
-    add.addEventListener("click", () => S.openSheet("add-provider", { restoreFocus: add }));
-    list.replaceChildren(...rows, add);
+    // Nothing left to offer once every provider is connected (W24
+    // uipolish #1): the row isn't shown, rather than opening a sheet
+    // with no choice in it.
+    const hasMore = order.length < ALL.length;
+    const add = hasMore ? S.el("button", "whimsy-ai-item is-compact is-button whimsy-ai-add") : null;
+    if (add) {
+      add.type = "button";
+      add.id = "whimsyAIAddProvider";
+      // No grip or rank column (it isn't a draggable provider row), so
+      // its icon sits flush at the row's own inset, like every other
+      // row in Settings › AI (W24 uipolish #3 — it used to reserve a
+      // leading 38px as if for a grip, leaving it oddly indented).
+      add.style.cssText = "width:100%;border:0;font:inherit;color:inherit;text-align:start";
+      S.tile(add, "chrome://browser/skin/zen-icons/plus.svg");
+      S.el("span", "whimsy-ai-item-name", add, "whimsy-ai-add-provider");
+      add.addEventListener("click", () => S.openSheet("add-provider", { restoreFocus: add }));
+    }
+    list.replaceChildren(...rows, ...(add ? [add] : []));
     if (focusedProvider || view.focusGrip) {
       const id = view.focusGrip ?? focusedProvider;
       list.querySelector(`.whimsy-ai-item[data-provider="${id}"] [data-action="${view.focusGrip ? "grip" : focusedAction}"]`)?.focus();
@@ -757,39 +766,56 @@
     connected(id, { first: !wasOn && S.ai.enabled });
   }
 
-  // Add a provider (set-3.1, set-1.2).
-  S.registerSheet("add-provider", async (state, opts) => {
+  // Add a provider (set-3.1, set-1.2): the choice itself, not a sentence
+  // about it. Apple's eligibility check is a subprocess call, so it never
+  // blocks the other choices from painting (W24 uipolish #1).
+  function addProviderChoice(choices, id, order, opts) {
+    const choice = S.el("button", "whimsy-ai-choice", choices);
+    choice.type = "button";
+    choice.dataset.provider = id;
+    S.tile(choice, S.logo(id), { logo: true });
+    const text = S.el("span", "", choice);
+    S.el("span", "whimsy-ai-choice-name", text, `whimsy-ai-name-${id}`);
+    S.el("span", "whimsy-ai-choice-detail", text, `whimsy-ai-add-${id}`);
+    if (order.includes(id)) {
+      choice.setAttribute("aria-disabled", "true");
+      S.el("span", "whimsy-ai-pill", choice, "whimsy-ai-add-connected").dataset.tone = "pass";
+    } else {
+      S.el("span", "whimsy-ai-chev", choice).setAttribute("aria-hidden", "true");
+      choice.addEventListener("click", () => S.openSheet(id, { restoreFocus: opts.restoreFocus }));
+    }
+    return choice;
+  }
+
+  S.registerSheet("add-provider", (state, opts) => {
     document.l10n.setAttributes(state.title, "whimsy-ai-add-title");
-    S.el("p", "", state.body, "whimsy-ai-add-text");
     const choices = S.el("div", "whimsy-ai-choices", state.body);
     choices.setAttribute("role", "list");
     cancel(state);
     const order = P().order;
-    let appleOk = true;
-    try {
-      const version = await P()._macOSVersion();
-      appleOk = Services.appinfo.OS == "Darwin" && (version == null || version >= 26);
-    } catch {}
+    // Apple's eligibility needs a subprocess call; every other choice
+    // renders right away so the sheet never opens looking empty.
     for (const id of ALL) {
-      if (id == "apple" && !appleOk) {
-        continue;
-      }
-      const choice = S.el("button", "whimsy-ai-choice", choices);
-      choice.type = "button";
-      choice.dataset.provider = id;
-      S.tile(choice, S.logo(id), { logo: true });
-      const text = S.el("span", "", choice);
-      S.el("span", "whimsy-ai-choice-name", text, `whimsy-ai-name-${id}`);
-      S.el("span", "whimsy-ai-choice-detail", text, `whimsy-ai-add-${id}`);
-      if (order.includes(id)) {
-        choice.setAttribute("aria-disabled", "true");
-        S.el("span", "whimsy-ai-pill", choice, "whimsy-ai-add-connected").dataset.tone = "pass";
-      } else {
-        S.el("span", "whimsy-ai-chev", choice).setAttribute("aria-hidden", "true");
-        choice.addEventListener("click", () => S.openSheet(id, { restoreFocus: opts.restoreFocus }));
+      if (id != "apple") {
+        addProviderChoice(choices, id, order, opts);
       }
     }
     choices.querySelector(".whimsy-ai-choice:not([aria-disabled])")?.focus();
+    (async () => {
+      let appleOk = true;
+      try {
+        const version = await P()._macOSVersion();
+        appleOk = Services.appinfo.OS == "Darwin" && (version == null || version >= 26);
+      } catch {}
+      // The sheet may have closed, or moved on, while that awaited.
+      if (S.sheet != state || !appleOk) {
+        return;
+      }
+      choices.prepend(addProviderChoice(choices, "apple", order, opts));
+      if (!choices.contains(document.activeElement)) {
+        choices.querySelector(".whimsy-ai-choice:not([aria-disabled])")?.focus();
+      }
+    })();
   });
 
   // Plan or API key, for Claude and ChatGPT.
@@ -803,12 +829,17 @@
     seg.style.setProperty("--index", method == "plan" ? "0" : "1");
     S.el("span", "whimsy-ai-seg-thumb", seg);
     for (const m of ["plan", "key"]) {
-      const b = S.el("button", "", seg, `whimsy-ai-seg-${m}-${id}`);
+      const b = S.el("button", "", seg);
       b.type = "button";
       b.dataset.method = m;
       b.setAttribute("role", "radio");
       b.setAttribute("aria-checked", String(m == method));
       b.tabIndex = m == method ? 0 : -1;
+      // A hidden bold twin reserves the button's width (see
+      // whimsy-ai-settings.css), so the sheet doesn't resize when the
+      // selection changes.
+      S.el("span", "whimsy-ai-seg-label", b, `whimsy-ai-seg-${m}-${id}`);
+      S.el("span", "whimsy-ai-seg-ghost", b, `whimsy-ai-seg-${m}-${id}`).setAttribute("aria-hidden", "true");
       b.addEventListener("click", () => m != method && onPick(m));
     }
     seg.addEventListener("keydown", event => {

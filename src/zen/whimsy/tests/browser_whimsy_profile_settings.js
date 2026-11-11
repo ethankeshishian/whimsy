@@ -122,13 +122,27 @@ add_task(async function download_folder_stays_local_and_safe() {
   ok(!Services.prefs.getDefaultBranch("").getBoolPref("services.sync.prefs.sync.whimsy.profiles.download-dirs", false),
     "Download folders don't sync");
   const agents = PathUtils.join(Services.dirsvc.get("Home", Ci.nsIFile).path, "Library", "LaunchAgents");
-  await IOUtils.makeDirectory(agents, { ignoreExisting: true });
-  await WhimsyProfileSettings.setDownloadDir(workKey, agents);
-  const workTab = await inFront(work);
-  isnot(Services.prefs.getStringPref("browser.download.dir", ""), agents, "~/Library/LaunchAgents is never applied");
-  ok(!Services.prefs.prefHasUserValue("browser.download.dir"), "…the person's own folder stays");
-  await WhimsyProfileSettings.setDownloadDir(workKey, null);
-  BrowserTestUtils.removeTab(workTab);
+  // The check this exercises compares against the person's real ~/Library,
+  // so this really does touch their machine: only create the folder if it
+  // isn't already there, and remove it (never recursively: it's never
+  // written into, but a real LaunchAgents folder is not ours to delete)
+  // when we're the ones who made it.
+  const existed = await IOUtils.exists(agents);
+  if (!existed) {
+    await IOUtils.makeDirectory(agents);
+  }
+  try {
+    await WhimsyProfileSettings.setDownloadDir(workKey, agents);
+    const workTab = await inFront(work);
+    isnot(Services.prefs.getStringPref("browser.download.dir", ""), agents, "~/Library/LaunchAgents is never applied");
+    ok(!Services.prefs.prefHasUserValue("browser.download.dir"), "…the person's own folder stays");
+    await WhimsyProfileSettings.setDownloadDir(workKey, null);
+    BrowserTestUtils.removeTab(workTab);
+  } finally {
+    if (!existed) {
+      await IOUtils.remove(agents, { ignoreAbsent: true });
+    }
+  }
 });
 
 add_task(async function feature_off_and_delete() {

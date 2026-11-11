@@ -181,6 +181,24 @@ add_task(async function find_selection_no_longer_on_cmd_e() {
   ok(document.getElementById("cmd_whimsyChatToggle"), "It's a named command");
 });
 
+// W24 smallbugs #12: a starter chip in the empty chat ("Sum up this
+// article", and the rest) used to only fill the composer. Today's chips
+// are all complete questions (none end in "…", the mark for a template
+// that still needs the person's own input), so clicking one sends it.
+add_task(async function suggestion_chip_sends_immediately() {
+  const calls = stubProvider();
+  await pressCmdE();
+  await TestUtils.waitForCondition(() => part(".whimsy-chat-suggestion")?.textContent?.trim(), "A starter chip renders its text for the page");
+  const chip = part(".whimsy-chat-suggestion");
+  const text = chip.textContent;
+  ok(!text.endsWith("…"), "Today's chips are complete questions, not templates");
+  EventUtils.synthesizeMouseAtCenter(chip, {});
+  await TestUtils.waitForCondition(() => calls.length == 1, "Clicking the chip sends a request through the provider");
+  is(calls[0].request.lastUserText, text, "...with exactly the chip's own text");
+  is(chat().composer.value, "", "and leaves the composer empty");
+  await closeChat();
+});
+
 // ---- Task 2: side, resize, narrow windows ----
 
 add_task(async function move_left_sits_inside_tabs() {

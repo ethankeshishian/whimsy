@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-surface.css"/>
 <link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-preferences.css"/>
 <script src="chrome://browser/content/whimsy/whimsy-settings.js"/>
+<script src="chrome://browser/content/whimsy/whimsy-settings-dark-pages.js"/>
 <script src="chrome://browser/content/whimsy/whimsy-settings-media.js"/>
 # W23 settings-ai
 <link rel="stylesheet" href="chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings.css"/>
@@ -70,6 +71,10 @@
               data-l10n-id="whimsy-library-finder-folders-enable" preference="whimsy.feature.finder-folders"/>
     <checkbox id="whimsyScreenshotSidebarEnabled"
               data-l10n-id="whimsy-library-screenshot-sidebar-enable" preference="whimsy.feature.screenshot-sidebar"/>
+  </groupbox>
+
+  <groupbox id="whimsyDarkPagesGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-dark-pages-heading"/></label>
   </groupbox>
 
   <groupbox id="whimsyLookGroup" data-category="paneZenLooks" hidden="true" class="highlighting-group">
@@ -280,6 +285,8 @@
 <html:template id="template-whimsyTabs" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
   <groupbox id="whimsyTabsGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-tabs-header"/></label>
+    <checkbox id="whimsyCmdTabNumbers" data-whimsy-feature="cmd-tab-numbers"
+              data-l10n-id="whimsy-tabs-cmd-numbers" preference="whimsy.feature.cmd-tab-numbers"/>
     <checkbox id="whimsyNewTabBelow" data-whimsy-feature="new-tab-position"
               data-l10n-id="whimsy-tabs-new-tab-below" preference="browser.tabs.insertAfterCurrent"/>
     <checkbox id="whimsyNewTabInFolder" data-whimsy-feature="new-tab-position"

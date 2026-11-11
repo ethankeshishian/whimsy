@@ -157,6 +157,7 @@
     build(container) {
       const switchRow = S.el("div", "whimsy-ai-item", container);
       const toggle = S.el("moz-toggle", "", switchRow, "whimsy-memory-switch");
+      toggle.id = "whimsyAIMemory";
       toggle.setAttribute("data-l10n-attrs", "label, description");
       toggle.setAttribute("inputlayout", "inline-end");
       toggle.style.flex = "1";

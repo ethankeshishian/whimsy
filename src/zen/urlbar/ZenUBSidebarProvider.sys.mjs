@@ -22,6 +22,17 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const DYNAMIC_TYPE_NAME = "zen-folders";
 
+// W24/tabsearch: the other-space label a "Switch to Tab" row shows isn't
+// part of TAB_SWITCH's schema-validated payload (UrlbarUtils.sys.mjs,
+// RESULT_PAYLOAD_SCHEMA), so it's kept out of band here, keyed by the
+// UrlbarResult instance, and read back by WhimsyAlreadyOpen's
+// decorateSpaceRows via getSpaceBadge.
+const spaceBadges = new WeakMap();
+
+export function getSpaceBadge(result) {
+  return spaceBadges.get(result) || null;
+}
+
 export class ZenUrlbarProviderSidebar extends UrlbarProvider {
   get name() {
     return "ZenUrlbarProviderSidebar";
@@ -60,39 +71,63 @@ export class ZenUrlbarProviderSidebar extends UrlbarProvider {
     this.#addTabs(sidebar, score, queryContext, addCallback);
   }
 
+  // The icon+name text for a tab's space, the way ZenSpaceManager shows an
+  // emoji space in a plain-text label (an svg space icon has no text form,
+  // so the name alone is shown). null when the space can't be found (a
+  // stale sidebar entry) or has no name.
+  #spaceBadge(sidebar, tabData) {
+    const space = (sidebar.spaces || []).find(
+      s => s.uuid == tabData.zenWorkspace
+    );
+    if (!space?.name) {
+      return null;
+    }
+    return space.icon && !space.icon.endsWith(".svg")
+      ? `${space.icon}  ${space.name}`
+      : space.name;
+  }
+
   #addTabs(sidebar, score, queryContext, addCallback) {
     const openTabUrls = lazy.UrlbarProviderOpenTabs.getOpenTabUrls();
     const activeSpace =
       lazy.BrowserWindowTracker.getTopWindow().gZenWorkspaces.activeWorkspace;
     let resultsAdded = 0;
-    for (const tabData of sidebar.tabs || []) {
-      // Essentials have no space, they are part of every one of them.
-      if (!tabData.zenEssential && tabData.zenWorkspace != activeSpace) {
-        continue;
-      }
-      const entries = tabData.entries || [];
-      const entry = entries[(tabData.index || entries.length) - 1];
-      const label = tabData.zenStaticLabel || entry?.title;
-      if (typeof label !== "string" || !label || !score(label)) {
-        continue;
-      }
-      const url = entry?.url;
-      if (!url || url == queryContext.currentPage) {
-        // Don't suggest switching to the current tab.
-        continue;
-      }
-      const userContextId = tabData.userContextId || 0;
-      // The sidebar data can lag behind a navigation, only offer tabs that
-      // are still registered as open with this url.
-      const openTab = [...(openTabUrls.get(url) || [])].find(
-        ([contextId]) => contextId == userContextId
-      );
-      if (!openTab) {
-        continue;
-      }
-      addCallback(
-        this,
-        new lazy.UrlbarResult({
+    // Every space, every Whimsy profile (profiles are containers; spaces
+    // carry containerTabId, so dropping the space check here already
+    // reaches every profile too). Current-space tabs (and essentials, part
+    // of every space) come first, so an equally good match from elsewhere
+    // never outranks the tab you're already next to.
+    for (const sameSpace of [true, false]) {
+      for (const tabData of sidebar.tabs || []) {
+        const essential = !!tabData.zenEssential;
+        const inSameSpace = essential || tabData.zenWorkspace == activeSpace;
+        if (inSameSpace != sameSpace) {
+          continue;
+        }
+        const entries = tabData.entries || [];
+        const entry = entries[(tabData.index || entries.length) - 1];
+        const label = tabData.zenStaticLabel || entry?.title;
+        if (typeof label !== "string" || !label || !score(label)) {
+          continue;
+        }
+        const url = entry?.url;
+        if (!url || url == queryContext.currentPage) {
+          // Don't suggest switching to the current tab.
+          continue;
+        }
+        const userContextId = tabData.userContextId || 0;
+        // The sidebar data can lag behind a navigation, only offer tabs that
+        // are still registered as open with this url.
+        const openTab = [...(openTabUrls.get(url) || [])].find(
+          ([contextId]) => contextId == userContextId
+        );
+        if (!openTab) {
+          continue;
+        }
+        // Current-space rows show no label; an essential has no space of
+        // its own either way.
+        const badge = sameSpace ? null : this.#spaceBadge(sidebar, tabData);
+        const result = new lazy.UrlbarResult({
           type: UrlbarShared.RESULT_TYPE.TAB_SWITCH,
           source: UrlbarShared.RESULT_SOURCE.TABS,
           payload: {
@@ -109,10 +144,14 @@ export class ZenUrlbarProviderSidebar extends UrlbarProvider {
             url: UrlbarShared.HIGHLIGHT.TYPED,
             title: UrlbarShared.HIGHLIGHT.TYPED,
           },
-        })
-      );
-      if (++resultsAdded == queryContext.maxResults) {
-        return;
+        });
+        if (badge) {
+          spaceBadges.set(result, badge);
+        }
+        addCallback(this, result);
+        if (++resultsAdded == queryContext.maxResults) {
+          return;
+        }
       }
     }
   }

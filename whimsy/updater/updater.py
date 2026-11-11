@@ -919,7 +919,7 @@ def cmd_ship():
             sh("npx surfer set brand release && npx surfer build", cwd=repo, timeout=4 * 3600)
             record_build(repo, built)
             update_state(message="Dev build: testing")
-            sh(["sh", "whimsy/verify.sh", "quick"], cwd=repo, timeout=3600)
+            sh(["sh", "whimsy/verify.sh", "quick"], cwd=repo, timeout=3 * 3600)
         except Exception as e:
             log("Dev build failed:\n" + traceback.format_exc())
             failed(state, None, e)

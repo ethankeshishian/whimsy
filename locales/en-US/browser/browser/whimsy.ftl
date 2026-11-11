@@ -1077,7 +1077,7 @@ whimsy-home-tab-home = Home
 whimsy-home-tab-changelog = Changelog
 # The <em> part gets the balloon's gradient.
 whimsy-home-hero-title = A browser with <em>a little lift</em>.
-whimsy-home-blurb = Arc’s flow, built on Zen and Firefox. Spaces, splits and the shortcuts your hands already know.
+whimsy-home-blurb = Arc’s flow, built on Zen and Firefox. Spaces, splits, and the shortcuts your hands already know.
 whimsy-home-hero-hint = Psst: the balloon likes a poke.
 whimsy-home-balloon =
     .aria-label = Poke the balloon
@@ -4510,6 +4510,10 @@ whimsy-setting-activity-days = Keep Agent Runs For
     .keywords = activity, retention, 7 days, 30 days, 90 days, forever, agent history
 whimsy-setting-activity-filter = Activity Filter
     .keywords = agent runs, whimsy agent, outside apps
+whimsy-setting-ai-memory = AI Memory
+    .keywords = memories, remember, saved facts, personal context, use and save memories
+whimsy-setting-memory-search = Search Memories
+    .keywords = find memory, saved memories, filter memories
 whimsy-setting-ai-commands = Built-in Commands
     .keywords = improve writing, fix spelling, summarize, ai commands
 whimsy-setting-update-channel = Update Channel
@@ -4544,6 +4548,10 @@ whimsy-setting-video-captions = Translated Captions
     .keywords = subtitles, cc, translate captions, closed captions
 whimsy-setting-video-speech-captions = Captions from Speech
     .keywords = live captions, transcribe, subtitles, speech recognition
+whimsy-setting-video-top-buttons = Video Corner Buttons
+    .keywords = summarize video, picture in picture, pip, video summary, top right
+whimsy-setting-dictation-hold-fn = Hold Fn to Dictate
+    .keywords = dictation, voice typing, speech to text, fn key, globe key, microphone
 whimsy-setting-playlist-offline = Offline Playlist
     .keywords = playlist, download videos, download audio, offline
 whimsy-setting-archive-prompt = Internet Archive Copies
@@ -6582,14 +6590,20 @@ whimsy-media-voice-heading = Read aloud and dictation
 whimsy-command-related-tag = Related
 
 # Memory
-whimsy-chat-note-memory-saved-one = Saved to memory: { $fact }
-whimsy-chat-note-memory-saved-many = Saved { $count } facts to memory
+# W24 memexpand: a disclosure, like "Used N memories" below, so it can
+# expand to list the facts it saved.
+whimsy-chat-note-memory-saved = { $count ->
+    [one] Saved 1 fact to memory
+   *[other] Saved { $count } facts to memory
+}
 whimsy-chat-note-memory-undo = Undo
 whimsy-chat-action-used-memories = { $count ->
     [one] Used 1 memory
    *[other] Used { $count } memories
 }
 whimsy-chat-used-memories-manage = Manage memory…
+whimsy-chat-memory-remove =
+    .aria-label = Remove “{ $fact }” from memory
 whimsy-memory-switch =
     .label = Use and save memories
     .description = Off: saved ones are kept but not used, and nothing new is saved.
@@ -6656,6 +6670,7 @@ whimsy-fire-item-cache = Cache
 whimsy-fire-item-form = Form and search history
 whimsy-fire-item-form-detail = every profile
 whimsy-fire-item-closed = Closed tabs and Archive
+whimsy-fire-item-notes = Notes and highlights
 whimsy-fire-item-aiChats = AI chats, including research reports
 whimsy-fire-item-agentActivity = Agent activity
 whimsy-fire-item-index = Related pages’ index
@@ -6776,6 +6791,7 @@ whimsy-fire-done-item-cookies = sign-ins and site data
 whimsy-fire-done-item-cache = the cache
 whimsy-fire-done-item-form = form and search history
 whimsy-fire-done-item-closed = closed tabs and the Archive
+whimsy-fire-done-item-notes = notes and highlights
 whimsy-fire-done-nothing = Nothing to erase
 ## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
 
@@ -6959,6 +6975,19 @@ whimsy-agent-chat-kept = { $count ->
     [one] 1 tab kept
    *[other] { $count } tabs kept
 }
+# W24 agentdone: the end of a run whose goal wasn't met. Never a check.
+whimsy-agent-chat-left-open = { $count ->
+    [one] 1 tab left open
+   *[other] { $count } tabs left open
+}
+whimsy-agent-chat-unmet-typed = Didn’t finish: I typed into the page but couldn’t submit it.
+whimsy-agent-chat-unmet-typed-search = Didn’t finish: I typed the search but couldn’t submit it.
+whimsy-agent-chat-unmet-no-search = Didn’t finish: the search never ran.
+whimsy-agent-chat-unmet-repeat = Didn’t finish: I couldn’t get past one step, so I stopped instead of repeating it.
+whimsy-agent-chat-unmet-error = Didn’t finish: the AI stopped answering partway through.
+whimsy-agent-chat-unmet-turns = Didn’t finish: I ran out of steps.
+# $name is the tab the person named, like Yahoo.
+whimsy-agent-chat-opened-new = No { $name } tab was open, so I opened one.
 whimsy-agent-chat-keep-question = { $count ->
     [one] Keep this tab?
    *[other] Keep these { $count } tabs?
@@ -7008,7 +7037,7 @@ whimsy-ai-agent-pause-sign-in = Signs in
 whimsy-ai-agent-unsure = When it can’t tell, it pauses
 whimsy-ai-agent-unsure-detail = There’s no always-allow for paying or sending, and no way to skip the pause.
 whimsy-ai-outside-heading = Outside agents
-whimsy-ai-outside-desc = Other apps that use your tabs. Connect writes the app’s own MCP setting for you; Remove takes it out again.
+whimsy-ai-outside-desc = Other apps that use your tabs.
 whimsy-ai-outside-enable = Let apps on this Mac use Whimsy
 whimsy-ai-outside-enable-detail = Agents like Claude Code and Codex can read and use your tabs through Whimsy’s MCP server. They follow the same rules as Whimsy’s agent, and their runs show in Activity.
 whimsy-ai-outside-last-used = Connected · last used { $when }
@@ -7820,3 +7849,112 @@ whimsy-adult-history-toggle =
     .description = Pages still load, but their visits stay out of history, address bar suggestions, Recently Closed, and Whimsy’s Library, Related, and memory. Checked on this Mac; nothing is sent anywhere.
 whimsy-setting-adult-history = History Filter for Adult Sites
     .keywords = adult, explicit, nsfw, porn, history, hide from history, recently closed, suggestions, private
+## W24 emoji: emoji from the command bar (":" or the Emoji command). Mockup:
+## docs/superpowers/mockups/w24/05-emoji.html.
+
+whimsy-action-emoji = Emoji
+whimsy-emoji-section-frequent = Frequently used
+whimsy-emoji-section-smileys = Smileys
+whimsy-emoji-section-results = Results
+whimsy-emoji-footer-type = Type into the page
+whimsy-emoji-footer-copy = Copy
+# $name (string) - the emoji's name, e.g. "party popper"
+whimsy-emoji-copied-toast = Copied { $name } · ⌘V to paste
+# $query (string) - what was typed
+whimsy-emoji-no-match = No emoji for “{ $query }”
+# $query (string) - what was typed
+whimsy-emoji-search-web = Search the web for “{ $query }”
+
+whimsy-ai-chat-edge-hover =
+    .label = Show chat when the pointer reaches the window edge
+
+# W24 dark pages
+whimsy-dark-pages-heading = Web pages
+whimsy-dark-pages-title = Dark pages
+whimsy-dark-pages-description = Uses a site’s own dark theme when it has one, otherwise makes one. PDFs too.
+whimsy-dark-pages-off = Off
+whimsy-dark-pages-match = Match Whimsy
+whimsy-dark-pages-always = Always
+whimsy-dark-pages-dim = Dim images
+whimsy-dark-pages-dim-description = Photos a little darker on dark pages
+whimsy-dark-pages-sites = Sites you changed
+whimsy-dark-pages-reset = Reset
+whimsy-dark-pages-site-title = Dark page
+whimsy-dark-pages-automatic = Automatic
+whimsy-dark-pages-dark = Dark
+whimsy-dark-pages-original = Original
+whimsy-dark-pages-state-generated = Generated; this site has no dark theme
+whimsy-dark-pages-state-native = This site’s own dark theme
+whimsy-dark-pages-state-original = This site’s original appearance
+whimsy-dark-pages-button =
+    .tooltiptext = Dark page
+    .aria-label = Dark page
+whimsy-action-toggle-dark-page = Toggle Dark Page
+whimsy-dark-pages-toast = Whimsy made this page dark.
+whimsy-dark-pages-turn-off = Turn off
+whimsy-dark-pages-site-settings = Site settings
+whimsy-setting-dark-pages = Dark Pages
+    .keywords = dark theme, night, appearance, PDFs
+whimsy-setting-dim-images = Dim Images
+    .keywords = photos, brightness, dark pages
+# Outside-app approvals, available even when no chat is open.
+whimsy-mcp-pending = Pending approvals
+whimsy-mcp-approve = Approve
+whimsy-mcp-deny = Deny
+whimsy-mcp-self = I’ll do it
+whimsy-mcp-stop = Stop
+whimsy-mcp-continue = Continue
+whimsy-mcp-pending-empty = No approvals are waiting.
+whimsy-mcp-busy = Another request is awaiting approval. Approve or deny it in Whimsy’s pending approvals before trying a different action.
+whimsy-mcp-expired = The approval prompt wasn't answered in time. Retry the action to request approval again.
+whimsy-mcp-unavailable = No browser window can show the approval prompt. Open a normal Whimsy window, and retry the action.
+whimsy-mcp-denied = The person denied approval to go to { $host }.
+whimsy-mcp-invalid-page = Use limit 1–100, a nonnegative integer cursor, a string query, and an integer windowId.
+## W24 annotations: page highlights in four colors and one editable note per page.
+## Mockup: docs/superpowers/mockups/w24/02-annotations.html.
+
+whimsy-annotations-context-highlight =
+    .label = Highlight
+whimsy-annotations-context-add-note =
+    .label = Add Note…
+
+whimsy-verb-highlight = Highlight
+whimsy-verb-highlight-yellow = Highlight Yellow
+whimsy-verb-highlight-green = Highlight Green
+whimsy-verb-highlight-blue = Highlight Blue
+whimsy-verb-highlight-pink = Highlight Pink
+whimsy-verb-annotate = Add Note…
+
+whimsy-annotations-urlbar-button =
+    .tooltiptext = Notes and highlights on this page
+    .aria-label = Notes and highlights on this page
+
+whimsy-annotations-popover-title = Highlight & note
+whimsy-annotations-panel-title = Notes & highlights
+whimsy-annotations-panel-heading = Notes & highlights
+whimsy-annotations-open-in-notes = Open in Notes
+whimsy-annotations-color-label = Highlight color
+whimsy-annotations-note-placeholder =
+    .placeholder = Write a note about this passage…
+whimsy-annotations-page-note-placeholder =
+    .placeholder = Write a note for this page…
+whimsy-annotations-highlights-label = Highlights
+whimsy-annotations-no-highlights = No highlights on this page yet.
+whimsy-annotations-return-hint = Return to save
+whimsy-annotations-remove-highlight = Remove
+whimsy-annotations-cancel = Cancel
+whimsy-annotations-save = Save
+whimsy-annotations-edit-item = Edit note
+whimsy-annotations-delete-item = Remove
+whimsy-annotations-clear-page = Clear page
+whimsy-annotations-done = Done
+
+# $color (String) - the highlight color name, e.g. "Yellow"
+whimsy-annotations-toast-highlighted = Highlighted in { $color }
+whimsy-annotations-toast-note-saved = Note saved
+whimsy-annotations-toast-removed = Highlight removed
+whimsy-annotations-toast-note-deleted = Note deleted
+
+whimsy-tabs-cmd-numbers =
+    .label = Show tab numbers while holding ⌘
+    .accesskey = S

@@ -34,9 +34,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  getSpaceBadge: "resource:///modules/ZenUBSidebarProvider.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.already-open";
+// W24/tabsearch: reveals the other-space label decorateSpaceRows writes into
+// a switch-to-tab row's url slot — Firefox hides that slot for every
+// [type="switchtab"] row by default.
+const TABSEARCH_SHEET = "chrome://browser/content/whimsy/whimsy-tabsearch.css";
 const TAB_SWITCH_RESULT = 1; // UrlbarShared.RESULT_TYPE.TAB_SWITCH
 const URL_RESULT = 3; // UrlbarShared.RESULT_TYPE.URL
 const TABS_SOURCE = 4; // UrlbarShared.RESULT_SOURCE.TABS
@@ -88,6 +93,108 @@ export const WhimsyAlreadyOpen = {
         results.splice(i, 1);
       }
     }
+  },
+
+  // W24/tabsearch: ZenUrlbarProviderSidebar now matches a tab's title or
+  // custom label in every space and every Whimsy profile, the same ground
+  // Firefox's own "Switch to Tab" (UrlbarProviderOpenTabs) already covers.
+  // When both match the same open tab, keep only the sidebar provider's row
+  // (it carries the other-space label; see decorateSpaceRows) and drop
+  // Firefox's, so the tab never shows twice.
+  dropDuplicateSidebarRows(win, queryContext) {
+    const results = queryContext?.results;
+    if (!results?.length) {
+      return;
+    }
+    const tabKey = result =>
+      this.key(result.payload?.url) + "\u0000" + (result.payload?.userContext?.id ?? 0);
+    const ours = new Set();
+    for (const result of results) {
+      if (result.providerName == "ZenUrlbarProviderSidebar" && result.type == TAB_SWITCH_RESULT) {
+        ours.add(tabKey(result));
+      }
+    }
+    if (!ours.size) {
+      return;
+    }
+    for (let i = results.length - 1; i >= 0; i--) {
+      const result = results[i];
+      if (
+        result.providerName != "ZenUrlbarProviderSidebar" &&
+        result.type == TAB_SWITCH_RESULT &&
+        ours.has(tabKey(result))
+      ) {
+        results.splice(i, 1);
+      }
+    }
+  },
+
+  // W24/tabsearch: after the view renders a query's rows, a "Switch to Tab"
+  // row for a tab in another space (or profile) shows that space's icon and
+  // name where the url would otherwise go: same slot, same muted size as
+  // Firefox's own url line, no new colour. ZenUrlbarProviderSidebar keeps
+  // the badge out of band (a WeakMap keyed by the result, read here via
+  // getSpaceBadge — TAB_SWITCH's payload schema rejects unknown
+  // properties) only for those rows (never for the current space, never
+  // for an essential); this only changes what's displayed, never
+  // result.payload.url itself, so picking the row is unaffected. Firefox
+  // hides the url slot for every [type="switchtab"] row by default
+  // (whimsy-tabsearch.css reveals it, but only for a row carrying the
+  // data-whimsy-space-badge attribute set here); rows are reused across
+  // queries, so a row that no longer has a badge must have the attribute
+  // cleared, not just left stale from an earlier query.
+  //
+  // UrlbarView (a private class; its per-row render method can't be
+  // monkey-patched) clears a TAB_SWITCH row's url text and `has-url`
+  // whenever it re-renders that row — not only from the query that first
+  // built it, but again afterwards (confirmed: the badge is correct right
+  // after onQueryResults, gone again by the time the popup's opening
+  // animation has settled and the next paint happens). Calling this only
+  // from onQueryResults loses that race. observeSpaceRows below watches
+  // the rendered rows and calls this again the moment anything changes
+  // them; writing only when something is actually wrong keeps the two from
+  // looping.
+  decorateSpaceRows(win) {
+    const rows = win.gURLBar?.view?.panel?.querySelector(".urlbarView-results");
+    if (!rows) {
+      return;
+    }
+    this.observeSpaceRows(win, rows);
+    for (const row of rows.children) {
+      const badge = row.result?.type == TAB_SWITCH_RESULT ? lazy.getSpaceBadge(row.result) : null;
+      const url = row.querySelector(".urlbarView-url");
+      if (!url) {
+        continue;
+      }
+      if (badge) {
+        if (url.textContent != badge || !url.hasAttribute("data-whimsy-space-badge")) {
+          url.textContent = badge;
+          url.setAttribute("data-whimsy-space-badge", "true");
+        }
+      } else if (url.hasAttribute("data-whimsy-space-badge")) {
+        url.removeAttribute("data-whimsy-space-badge");
+      }
+    }
+  },
+
+  // Firefox renders rows outside onQueryResults too (at least once more,
+  // after the popup's opening transition finishes); this re-applies the
+  // badge whenever that happens. One observer per results list, kept for
+  // the window's life; decorateSpaceRows's own writes are idempotent
+  // no-ops once correct, so this never triggers itself in a loop.
+  observeSpaceRows(win, rows) {
+    if (rows._whimsySpaceObserver) {
+      return;
+    }
+    const observer = new win.MutationObserver(() => this.decorateSpaceRows(win));
+    observer.observe(rows, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["data-whimsy-space-badge", "has-url"],
+    });
+    rows._whimsySpaceObserver = observer;
   },
 
   // Whether this address bar is the command bar for a new tab: Zen's Cmd+T
@@ -168,7 +275,13 @@ export const WhimsyAlreadyOpen = {
   },
 
   // The open tab showing `url` for this window's address bar, or null. The
-  // current window first (its selected tab last), then the others.
+  // current window first (its selected tab last), then the others. Same
+  // container first (today's common case); a second pass without that
+  // restriction finds the tab in another Whimsy profile, so typing an
+  // address already open elsewhere jumps there too. Privacy still never
+  // crosses (a private tab never matches a normal search, either way): this
+  // only picks an existing tab, it shares no cookies or history between
+  // profiles.
   findTab(win, url, { userContextId, isPrivate }) {
     const wanted = this.key(url);
     if (!wanted) {
@@ -180,25 +293,27 @@ export const WhimsyAlreadyOpen = {
         windows.push(other);
       }
     }
-    for (const w of windows) {
-      if (w.document.documentElement.hasAttribute("whimsy-quick-window")) {
-        continue;
-      }
-      const tabs = w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs;
-      const candidates = [...tabs].sort((a, b) => (a.selected ? 1 : 0) - (b.selected ? 1 : 0));
-      for (const tab of candidates) {
-        if (
-          !tab?.linkedBrowser ||
-          tab.closing ||
-          tab.hasAttribute("zen-glance-tab") ||
-          !w.gBrowser.isTab?.(tab) ||
-          this.userContextOf(tab) != userContextId ||
-          lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) != isPrivate
-        ) {
+    for (const crossProfile of [false, true]) {
+      for (const w of windows) {
+        if (w.document.documentElement.hasAttribute("whimsy-quick-window")) {
           continue;
         }
-        if (this.key(this.tabUrl(tab)) == wanted) {
-          return { win: w, tab };
+        const tabs = w.gZenWorkspaces?.allStoredTabs ?? w.gBrowser.tabs;
+        const candidates = [...tabs].sort((a, b) => (a.selected ? 1 : 0) - (b.selected ? 1 : 0));
+        for (const tab of candidates) {
+          if (
+            !tab?.linkedBrowser ||
+            tab.closing ||
+            tab.hasAttribute("zen-glance-tab") ||
+            !w.gBrowser.isTab?.(tab) ||
+            (!crossProfile && this.userContextOf(tab) != userContextId) ||
+            lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser) != isPrivate
+          ) {
+            continue;
+          }
+          if (this.key(this.tabUrl(tab)) == wanted) {
+            return { win: w, tab };
+          }
         }
       }
     }
@@ -317,6 +432,11 @@ export const WhimsyAlreadyOpen = {
       return;
     }
     urlbar._whimsyAlreadyOpen = true;
+    try {
+      win.windowUtils.loadSheetUsingURIString(TABSEARCH_SHEET, win.windowUtils.AUTHOR_SHEET);
+    } catch (e) {
+      console.error("Whimsy: tabsearch sheet", e);
+    }
     const original = urlbar.pickResult;
     urlbar.pickResult = function (params = {}) {
       try {
@@ -367,10 +487,17 @@ export const WhimsyAlreadyOpen = {
       urlbar.view.onQueryResults = function (queryContext) {
         try {
           WhimsyAlreadyOpen.dropDuplicateTabRows(win, queryContext);
+          WhimsyAlreadyOpen.dropDuplicateSidebarRows(win, queryContext);
         } catch (e) {
           console.error("Whimsy: open tab rows", e);
         }
-        return origOnQueryResults.apply(this, arguments);
+        const result = origOnQueryResults.apply(this, arguments);
+        try {
+          WhimsyAlreadyOpen.decorateSpaceRows(win);
+        } catch (e) {
+          console.error("Whimsy: space rows", e);
+        }
+        return result;
       };
     }
   },

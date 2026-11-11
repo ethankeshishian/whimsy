@@ -480,8 +480,8 @@
     background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.15));
   }
   &.primary {
-    background: var(--whimsy-chat-accent-bg);
-    color: light-dark(white, #0f1720);
+    background: var(--whimsy-chat-primary-bg);
+    color: #fff;
   }
   &:focus-visible {
     outline: var(--whimsy-chat-focus);
@@ -1053,8 +1053,15 @@
   letter-spacing: 0.04em;
 }
 
-/* chat-4.4: Used N memories, a disclosure: its chevron, and the list in place. */
-.whimsy-chat-btn-labelled[data-action="used-memories"]::after {
+/* W24 memexpand (was chat-4.4): the disclosure shared by "Used N memories"
+   and "Saved N facts": a chevron that rotates open, and the list it
+   reveals in place. */
+.whimsy-chat-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.whimsy-chat-disclosure::after {
   content: "";
   width: 10px;
   height: 10px;
@@ -1065,10 +1072,10 @@
   rotate: -90deg;
   transition: rotate 150ms cubic-bezier(0.2, 0, 0, 1);
 }
-.whimsy-chat-btn-labelled[data-action="used-memories"][aria-expanded="true"]::after {
+.whimsy-chat-disclosure[aria-expanded="true"]::after {
   rotate: 0deg;
 }
-.whimsy-chat-used-memories {
+.whimsy-chat-memory-list {
   display: grid;
   gap: 6px;
   margin-block-start: 4px;
@@ -1080,7 +1087,19 @@
     display: grid;
     gap: 4px;
     margin: 0;
-    padding-inline-start: 16px;
+    padding: 0;
+    list-style: none;
+  }
+  & li {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  & .whimsy-chat-memory-text {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
   & .whimsy-chat-link {
     justify-self: start;

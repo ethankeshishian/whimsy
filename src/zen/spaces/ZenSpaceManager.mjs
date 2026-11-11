@@ -891,6 +891,17 @@ class nsZenWorkspaces {
         this.activeWorkspace = initialWorkspace.uuid;
       }
     }
+    const extra = window.arguments?.[1];
+    if (extra instanceof Ci.nsIPropertyBag2 && extra.hasKey("whimsy-extension-space")) {
+      const initial = gBrowserInit.uriToLoadPromise;
+      const uri = Array.isArray(initial) ? initial[0] : initial;
+      const route = gZenSpaceRoutingManager.routeUri(uri, { fromExternal: false });
+      const target = route === "most-recent-space"
+        ? extra.getPropertyAsAString("whimsy-extension-space") : route;
+      if (this.getWorkspaceFromId(target)) {
+        this.activeWorkspace = target;
+      }
+    }
     let promise = this.#initializeWorkspaces();
     for (const workspace of spacesFromStore) {
       const element = this.workspaceElement(workspace.uuid);
@@ -3379,6 +3390,10 @@ class nsZenWorkspaces {
       triggeringPrincipal.isAddonOrExpandedAddonPrincipal &&
       typeof userContextId === "undefined"
     ) {
+      const active = this.getActiveWorkspaceFromCache();
+      if (active) {
+        return [this.#spaceContainerId(active), true, undefined];
+      }
       return [userContextId, false, undefined];
     }
 

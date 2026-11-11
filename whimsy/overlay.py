@@ -77,6 +77,88 @@ HOOKS = [
 ]
 
 HOTFIXES = [
+    # W24: share Zen's existing native color inversion with adaptive pages.
+    # An async boost lookup must preserve adaptation and track the user's
+    # own Smart Invert so disabling Dark pages restores their boost.
+    {
+        "id": "dark-pages-boost-inversion",
+        "file": "src/zen/boosts/actors/ZenBoostsChild.sys.mjs",
+        "why": "Dark pages reuses Boosts' paint-time color path without competing setters.",
+        "old": "  #setSyncedField(browsingContext, field, value) {\n"
+               "    if (browsingContext[field] !== value) {",
+        "new": "  #setSyncedField(browsingContext, field, value) {\n"
+               '    if (field === "isZenBoostsInverted") { // Whimsy hotfix\n'
+               '      value = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDarkPagesConfig.sys.mjs").darkPagesInversion(browsingContext, value);\n'
+               "    }\n"
+               "    if (browsingContext[field] !== value) {",
+    },
+    {
+        "id": "extension-window-initial-space",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Choose an extension window's space before initial-tab placement and isolation, "
+               "including explicit stores and site rules.",
+        "old": '    let promise = this.#initializeWorkspaces();',
+        "new": '    const extra = window.arguments?.[1];\n'
+               '    if (extra instanceof Ci.nsIPropertyBag2 && extra.hasKey("whimsy-extension-space")) {\n'
+               '      const initial = gBrowserInit.uriToLoadPromise;\n'
+               '      const uri = Array.isArray(initial) ? initial[0] : initial;\n'
+               '      const route = gZenSpaceRoutingManager.routeUri(uri, { fromExternal: false });\n'
+               '      const target = route === "most-recent-space"\n'
+               '        ? extra.getPropertyAsAString("whimsy-extension-space") : route;\n'
+               '      if (this.getWorkspaceFromId(target)) {\n'
+               '        this.activeWorkspace = target;\n'
+               '      }\n'
+               '    }\n'
+               '    let promise = this.#initializeWorkspaces();',
+    },
+    {
+        "id": "extension-window-startup-first-url",
+        "file": "src/zen/space-routing/ZenSpaceRoutingManager.sys.mjs",
+        "why": "An extension window may load a list of URLs; its initial tab is the first one.",
+        "old": '    const uriString = win.gBrowserInit.uriToLoadPromise;',
+        "new": '    const initial = win.gBrowserInit.uriToLoadPromise;\n'
+               '    const uriString = Array.isArray(initial) ? initial[0] : initial;',
+    },
+    {
+        "id": "extension-window-startup-routing",
+        "file": "src/zen/space-routing/ZenSpaceRoutingManager.sys.mjs",
+        "why": "Extension windows honor site rules, but not the default route for outside apps.",
+        "old": '      !extraOptions.hasKey("fromExternal") ||\n'
+               '      !extraOptions.getPropertyAsBool("fromExternal")',
+        "new": '      !((extraOptions.hasKey("fromExternal") &&\n'
+               '         extraOptions.getPropertyAsBool("fromExternal")) ||\n'
+               '        (extraOptions.hasKey("whimsy-extension-window") &&\n'
+               '         extraOptions.getPropertyAsBool("whimsy-extension-window")))',
+    },
+    {
+        "id": "extension-window-startup-route-type",
+        "file": "src/zen/space-routing/ZenSpaceRoutingManager.sys.mjs",
+        "why": "Keep extension windows distinct from OS/external links when choosing the startup rule.",
+        "old": '    const targetRoute = this.routeUri(uriString, { fromExternal: true });',
+        "new": '    const fromExternal = extraOptions.hasKey("fromExternal") &&\n'
+               '      extraOptions.getPropertyAsBool("fromExternal");\n'
+               '    const targetRoute = this.routeUri(uriString, { fromExternal });',
+    },
+    {
+        "id": "extension-tabs-current-space",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Extension account tabs inherit the active profile instead of container 0, "
+               "which isolation otherwise sends to its first matching space. Explicit stores remain explicit.",
+        "old": '      triggeringPrincipal.isAddonOrExpandedAddonPrincipal &&\n'
+               '      typeof userContextId === "undefined"\n'
+               '    ) {\n'
+               '      return [userContextId, false, undefined];\n'
+               '    }',
+        "new": '      triggeringPrincipal.isAddonOrExpandedAddonPrincipal &&\n'
+               '      typeof userContextId === "undefined"\n'
+               '    ) {\n'
+               '      const active = this.getActiveWorkspaceFromCache();\n'
+               '      if (active) {\n'
+               '        return [this.#spaceContainerId(active), true, undefined];\n'
+               '      }\n'
+               '      return [userContextId, false, undefined];\n'
+               '    }',
+    },
     {
         "id": "spaces-recreate-missing-empty-tab",
         "file": "src/zen/spaces/ZenSpaceManager.mjs",
@@ -169,6 +251,19 @@ HOTFIXES = [
         "new": "          document.l10n.setArgs(element, {\n"
                "            isEssential: isEssential ? \"true\" : \"false\", // Whimsy hotfix\n"
                "          });",
+    },
+    {
+        "id": "pinned-tab-essentials-private-window",
+        "file": "src/zen/tabs/ZenPinnedTabManager.mjs",
+        "why": "canEssentialBeAdded() dereferences getActiveWorkspaceFromCache() "
+               "unguarded; in a private window (no active workspace) that's "
+               "undefined, and the urlbar's global-actions provider calls "
+               "canEssentialBeAdded() on every query in every window, "
+               "crashing any search typed into a private window.",
+        "old": "        (tab.getAttribute(\"usercontextid\") || 0) !=\n"
+               "          (gZenWorkspaces.getActiveWorkspaceFromCache().containerTabId || 0) &&",
+        "new": "        (tab.getAttribute(\"usercontextid\") || 0) !=\n"
+               "          (gZenWorkspaces.getActiveWorkspaceFromCache()?.containerTabId || 0) && // Whimsy hotfix",
     },
     # home: Zen links the homepage task replaces (see docs/whimsy/BUILD-PLAN.md).
     {
@@ -1207,6 +1302,11 @@ FALLBACK_FILE = "locales/en-US/browser/browser/preferences/whimsy-fallbacks.ftl"
 
 # Whimsy features, and signs that Zen now ships its own version.
 FEATURES = [
+    {"id": "image-drop", "title": "Dropped images open next to the page in a foreground tab",
+     "detect": [("src/zen", r"(?i)zen[-_.]?image[-_.]?drop|openDroppedImageInTab"),
+                ("src/browser/components/tabbrowser", r"imageDrop|openDroppedImageInTab")]},
+    {"id": "cmd-tab-numbers", "title": "Show tab numbers while holding Command",
+     "detect": [("src/zen", r"(?i)tab-?(number|shortcut)-?(badge|hint)s?|hold-?command-?tabs")]},
     {"id": "ctrl-tab", "title": "Arc-style Ctrl+Tab: recently used order, one rounded card with rows of four, up to 12 tabs, other spaces' tabs badged",
      "detect": [("prefs", r"name:\s*browser\.ctrlTab\.sortByRecentlyUsed")]},
     {"id": "ui-zoom", "title": "Interface zoom",
@@ -1253,6 +1353,8 @@ FEATURES = [
      "detect": [("src/zen/spaces", r"lastSelectedWorkspaceTabs\[[^\]]+\]\s*=\s*[^;]*lastAccessed")]},
     {"id": "emoji-search", "title": "Emoji search: every word must match, Enter picks the first result, empty state",
      "detect": [("src/zen/common/emojis", r"split\(/\\s\+/\)|no-results|emojis-picker-empty")]},
+    {"id": "command-bar-emoji", "title": "Emoji from the command bar: \":\" or the Emoji command opens an 8-across searchable grid (frequent, skin tones, insert or copy)",
+     "detect": [("src/zen", r"UrlbarProviderEmoji|urlbar-emoji-grid")]},
     {"id": "hide-switcher", "title": "Hide the space switcher (toggle, off by default)",
      "detect": [("prefs", r"name:\s*zen\.[\w.-]*(hide|show)[\w.-]*(workspace|space)[\w.-]*(switcher|icons|button)")]},
     {"id": "open-link-in-space", "title": "Open Link in Space (link context menu, Arc)",
@@ -1301,6 +1403,8 @@ FEATURES = [
     {"id": "reading-time", "title": "Reading time next to the Reader View button (setting)",
      "detect": [("src/zen/urlbar", r"(?i)reading-?time"),
                 ("src/browser/base/content", r"(?i)id=\"[\w-]*reading-?time")]},
+    {"id": "dark-pages", "title": "Dark pages: native dark themes, then generated colors",
+     "detect": [("src/zen", r"(?i)(darkreader|adaptiveDarkMode|forceDarkPages)")]},
     {"id": "dark-pdf", "title": "Dark PDFs: a Settings toggle for pdf.js page colours (off by default)",
      "detect": [("prefs", r"name:\s*pdfjs\.(forcePageColors|viewerCssTheme)"),
                 ("src/browser/components/preferences", r"pdfjs\.forcePageColors")]},
@@ -1838,6 +1942,9 @@ FEATURES = [
      "detect": [("src/zen/urlbar", r"(?i)(accel|cmd)[-_]?digit[-_]?row|row[-_]?numbers")]},
     {"id": "command-bar-vpn-strip", "title": "VPN status strip along the bottom of the command bar's results while the VPN is on",
      "detect": [("src/zen", r"(?i)zen[-_.]?vpn[-_.]?(status|strip)")]},
+    # W24 annotations
+    {"id": "annotations", "title": "Annotations: highlight passages in four colors and keep a note on any page",
+     "detect": [("src/zen", r"(?i)zen[-_.]?annotations?\b")]},
 ]
 
 

@@ -168,14 +168,19 @@ export const WhimsyAgentPointer = {
     const doc = tab.ownerDocument;
     this.loadSheet(doc.documentGlobal);
     if (!line) {
-      line = doc.createXULElement("label");
+      // An inner HTML span carries the text (like whimsy-task-folder's
+      // working line), so CSS can ellipsize it. A XUL label's own
+      // crop="end" doesn't survive becoming a flex container for the
+      // dot + text layout (W24 uipolish #7): the text overflows the row
+      // instead of being cut off.
+      line = doc.createElementNS(HTML_NS, "span");
       line.className = "whimsy-agent-working";
       line.setAttribute("role", "presentation");
-      line.setAttribute("crop", "end");
+      line.append(doc.createElementNS(HTML_NS, "span"));
       container.append(line);
     }
     tab.setAttribute("whimsy-agent-working", tone);
-    doc.l10n.setAttributes(line, "whimsy-agent-tabs-working", { client, doing: text });
+    doc.l10n.setAttributes(line.firstElementChild, "whimsy-agent-tabs-working", { client, doing: text });
   },
 
   /** The line for where a task is: doing, waiting on you, or yours. */
@@ -202,7 +207,7 @@ export const WhimsyAgentPointer = {
     const line = this.lineFor(task);
     const doc = tab.ownerDocument;
     this.working(tab, line.doing ?? "", { client: line.client, tone: line.tone });
-    const label = tab.querySelector(".whimsy-agent-working");
+    const label = tab.querySelector(".whimsy-agent-working")?.firstElementChild;
     if (line.l10n && label) {
       doc.l10n.setAttributes(label, line.l10n, { client: line.client });
     } else if (!line.doing && label) {

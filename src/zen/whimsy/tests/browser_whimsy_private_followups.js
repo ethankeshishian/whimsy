@@ -106,6 +106,9 @@ add_task(async function test_switch_to_tab_stays_on_its_side() {
 });
 
 add_task(async function test_downloads_follow_the_selected_tab() {
+  // The download below saves a real file: keep it in a temp folder, never
+  // the person's Downloads folder, and remove it afterwards.
+  await useTempDownloadDir();
   const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?dl-normal");
   const publicIndicator = DownloadsCommon.getIndicatorData(window);
   const publicData = DownloadsCommon.getData(window);

@@ -48,6 +48,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaces: "resource:///modules/whimsy/WhimsySpaces.sys.mjs",
   // batch6: split view extras.
   WhimsySplit: "resource:///modules/whimsy/WhimsySplit.sys.mjs",
+  WhimsyCmdTabNumbers: "resource:///modules/whimsy/WhimsyCmdTabNumbers.sys.mjs",
   WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
   // batch8: tab lifecycle
@@ -310,6 +311,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
 });
 
+// W24 emoji: emoji from the command bar (":" or the Emoji command).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyEmoji: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs",
+});
+
 // wave7/small: Move to ▸ New Space… (tab menu, split row menu, command bar).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyNewSpaceMove: "resource:///modules/whimsy/WhimsyNewSpaceMove.sys.mjs",
@@ -367,12 +373,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 // wave9: W9-04 site settings ("This Site" in Zen's site panel).
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyDarkPages: "resource:///modules/whimsy/WhimsyDarkPages.sys.mjs",
   WhimsySiteSettings: "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs",
 });
 
 // wave5: Easel.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEasel: "resource:///modules/whimsy/WhimsyEasel.sys.mjs",
+  WhimsyAnnotations: "resource:///modules/whimsy/WhimsyAnnotations.sys.mjs",
 });
 
 const BROWSER_SHEET = "chrome://browser/content/whimsy/whimsy-browser.css";
@@ -394,6 +402,30 @@ export const Whimsy = {
       return;
     }
     this._actorsRegistered = true;
+    lazy.WhimsyDarkPages.init();
+    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
+        events: {
+          DOMDocElementInserted: {},
+          StyleSheetApplicableStateChanged: {},
+          StyleRuleAdded: {},
+          StyleRuleRemoved: {},
+          StyleRuleChanged: {},
+          DOMContentLoaded: {},
+          pageshow: {},
+          pagehide: {},
+          beforeprint: {},
+          afterprint: {},
+          load: { capture: true },
+        },
+      },
+      matches: ["http://*/*", "https://*/*"],
+      allFrames: false,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
     ChromeUtils.registerWindowActor("WhimsyPage", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageParent.sys.mjs" },
       child: {
@@ -473,6 +505,27 @@ export const Whimsy = {
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
+    // W24 emoji: inserting a picked emoji into the page's focused field
+    // (WhimsyEmojiChild.sys.mjs). Top frame only: good enough for the
+    // common case (a same-document editor), not a cross-origin iframe's.
+    ChromeUtils.registerWindowActor("WhimsyEmoji", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyEmojiChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      safeForUntrustedWebProcess: true,
+    });
+
+    // W24 annotations: page highlights and notes.
+    ChromeUtils.registerWindowActor("WhimsyAnnotations", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAnnotations.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyAnnotationsChild.sys.mjs",
+        events: { DOMContentLoaded: {}, pageshow: {} },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*", "data:*"],
+      messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
 
@@ -701,6 +754,7 @@ export const Whimsy = {
     // as Settings → Home and startup says.
     run("home", () => lazy.WhimsyHome.init());
     // Watches its prefs and switches, so options apply without a restart.
+    run("cmd-tab-numbers", () => lazy.WhimsyCmdTabNumbers.initWindow(win));
     run("tabs", () => lazy.WhimsyTabs.initWindow(win));
     run("folder-colors", () => lazy.WhimsyFolderColors.initWindow(win));
     // batch12: follower tabs. Checks its own switch on each use (the tab
@@ -723,10 +777,13 @@ export const Whimsy = {
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
+    run("dark-pages", () => lazy.WhimsyDarkPages.initWindow(win));
     // batch6: split view extras; each action checks its own switch.
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).
     run("command-bar", () => lazy.WhimsyCommandBar.initWindow(win));
+    // W24 emoji: emoji from the command bar (":" or the Emoji command).
+    run("command-bar-emoji", () => lazy.WhimsyEmoji.initWindow(win));
     // W23 chat-shell: the chat panel (⌘E). Installed only with its switch
     // on; the panel itself is built the first time it opens.
     run("ai-chat", () => lazy.WhimsyChatPanel.initWindow(win));
@@ -1200,6 +1257,12 @@ export const Whimsy = {
     // wave5: Easel (Arc's Easels). Always installed: the command, the
     // capture button and the page each check whimsy.feature.easel on use.
     run("easel", () => lazy.WhimsyEasel.initWindow(win));
+
+    // W24 annotations: page highlights and notes.
+    run("annotations", () => {
+      lazy.WhimsyAnnotations.init();
+      lazy.WhimsyAnnotations.initWindow(win);
+    });
 
     this.runDeferred(win, deferred, run);
   },

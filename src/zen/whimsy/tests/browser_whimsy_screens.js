@@ -827,3 +827,25 @@ async function settled(doc = document) {
       a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity),
   "Animations have settled").catch(() => info("Some animation kept running"));
 }
+
+add_task(async function tidy_title_on_pin() {
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.tidy-titles", true],
+    ["whimsy.ai.enabled", false],
+  ] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?tidy-title-shot");
+  try {
+    await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+      content.document.title = "(5) Launch Plan | Example";
+    });
+    await TestUtils.waitForCondition(() => tab.label == "(5) Launch Plan | Example" && !tab.hasAttribute("busy"), "Page title ready");
+    gBrowser.pinTab(tab);
+    await TestUtils.waitForCondition(() => tab.label == "Launch Plan", "Pinned title tidied locally");
+    await Promise.all(tab.querySelector(".tab-label").getAnimations().map(a => a.finished.catch(() => {})));
+    await shot("w24-tidy-title-on-pin");
+    ok(tab.hasAttribute("whimsy-title-tidied"), "Tidy reveal marker is present");
+  } finally {
+    await BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});

@@ -1,0 +1,34 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+
+/* Imported inside Firefox's VPN content shadow root. The panel view supplies
+ * the shared inset and gap token, including the header and bottom padding. */
+:host([whimsy-vpn-layout]) #ipprotection-content-wrapper {
+  margin: 0;
+  padding: 0;
+  gap: var(--whimsy-vpn-section-gap);
+}
+
+:host([whimsy-vpn-layout]) #ipprotection-content-wrapper > ipprotection-status-card,
+:host([whimsy-vpn-layout]) #ipprotection-content-wrapper > .vpn-bottom-content {
+  margin-block: 0;
+}
+
+/* The site row is a section too. Its native padding and separator otherwise
+ * add space on top of the wrapper's gap (and indent its leading icon). */
+:host([whimsy-vpn-layout]) #site-exclusion-control {
+  padding: 0;
+}
+
+:host([whimsy-vpn-layout]) #ipprotection-content-wrapper > hr {
+  display: none;
+}
+
+:host([whimsy-vpn-layout]) .vpn-bottom-content {
+  gap: var(--whimsy-vpn-section-gap);
+}
+
+:host([whimsy-vpn-layout]) .vpn-bottom-content moz-button {
+  --button-padding: 0;
+}

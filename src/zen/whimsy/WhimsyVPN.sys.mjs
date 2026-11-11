@@ -545,6 +545,7 @@ export const WhimsyVPN = {
     let section = doc.getElementById(SECTION_ID);
     const { state } = this.uiState(win);
     const content = view?.querySelector("ipprotection-content");
+    content?.toggleAttribute("whimsy-vpn-layout", state != "hidden" && state != "setup");
     if (state == "hidden" || state == "setup" || !content) {
       section?.remove();
       return null;

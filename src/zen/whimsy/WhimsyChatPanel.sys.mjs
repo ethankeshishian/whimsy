@@ -36,6 +36,7 @@ const FEATURE_PREF = "whimsy.feature.ai-chat";
 const AI_PREF = "whimsy.ai.enabled";
 const SIDE_PREF = "whimsy.chat.side";
 const WIDTH_PREF = "whimsy.chat.width";
+const HOVER_PREF = "whimsy.ai.chat.edge-hover";
 const OFF_TOAST_PREF = "whimsy.chat.ai-off-toast-seen";
 const SETUP_URL = "about:preferences?sheet=add-provider#whimsyAI";
 
@@ -50,6 +51,10 @@ const SHUT_WIDTH = 160;
 const HINT_IDLE_MS = 3000;
 const PAGE_CHARS = 60000;
 
+// For the list and tasks subviews inside an already-open panel, and the
+// reduced-motion opacity-only fallback. The panel's own open/close (W24
+// chatmotion) instead reads panelMotion(), which matches the tabs
+// sidebar's duration and easing exactly.
 const EASE = "cubic-bezier(0.075, 0.82, 0.165, 1)";
 const EASE_EXIT = "cubic-bezier(0.4, 0, 1, 1)";
 const DUR_IN = 240;
@@ -102,6 +107,13 @@ function iconButton(doc, id, l10nId, name, onclick) {
 
 function reducedMotion(win) {
   return win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+// A CSS <time> custom property's value in milliseconds, whether it's
+// written as ms or s.
+function cssMs(value) {
+  const v = (value ?? "").trim();
+  return v.endsWith("ms") ? parseFloat(v) : parseFloat(v) * 1000;
 }
 
 function timeOf(ms, win) {
@@ -347,6 +359,9 @@ class ChatPanel {
       this.panel
     );
     this.el.setAttribute("role", "complementary");
+    for (const type of ["focusin", "input", "click", "contextmenu", "dragenter", "drop"]) {
+      this.el.addEventListener(type, () => this.engage(), true);
+    }
     this.buildHeadMenu();
     this.layout();
   }
@@ -444,7 +459,7 @@ class ChatPanel {
     this.el.toggleAttribute("lead", side == "left" && doc.documentElement.getAttribute("zen-right-side") == "true");
     const width = this.width();
     this.el.style.setProperty("--whimsy-chat-width", `${width}px`);
-    this.el.toggleAttribute("overlay", wrapper.getBoundingClientRect().width - width - GAP < MIN_PAGE);
+    this.el.toggleAttribute("overlay", this.peeking || wrapper.getBoundingClientRect().width - width - GAP < MIN_PAGE);
   }
 
   startDrag(event) {
@@ -529,6 +544,248 @@ class ChatPanel {
     this.layout();
   }
 
+  // ---- Window-edge peek ----
+
+  clearHoverTimers() {
+    this.win.clearTimeout(this.hoverEnter);
+    this.win.clearTimeout(this.hoverLeave);
+    this.hoverEnter = this.hoverLeave = null;
+  }
+
+  engage() {
+    if (!this.peeking || !this._open) {
+      return;
+    }
+    this.clearHoverTimers();
+    this.peeking = false;
+    this.el.removeAttribute("peek");
+    for (const a of this.animations()) {
+      a.cancel();
+    }
+    this.layout();
+  }
+
+  hoverBlocked() {
+    const compact = this.win.gZenCompactModeManager;
+    return !featureOn() || !lazy.WhimsyAI.enabled ||
+      !Services.prefs.getBoolPref(HOVER_PREF, true) ||
+      this.pointerDown || this.draggingOutside ||
+      this.doc.documentElement.hasAttribute("inDOMFullscreen") ||
+      Services.focus.activeWindow != this.win ||
+      this.doc.querySelector("menupopup[open], panel[open], dialog[open], #urlbar[open], [popover]:popover-open, .whimsy-chat-menu, .whimsy-chat-sheet") ||
+      // XUL panels (e.g. tabgroup-preview-panel) can have role=menu with
+      // no hidden attribute even while closed. Their popup state below,
+      // rather than their ARIA role, determines whether they block a peek.
+      [...this.doc.querySelectorAll("[role='menu']")].some(p =>
+        p.namespaceURI == HTML_NS && p.checkVisibility({ checkVisibilityCSS: true })) ||
+      [...this.doc.querySelectorAll("menupopup, panel")].some(p => p.state == "open" || p.state == "showing") ||
+      (compact?.sidebarIsOnRight ? this.side == "right" : this.side == "left");
+  }
+
+  onHoverMove(event) {
+    const compact = this.win.gZenCompactModeManager;
+    if (!compact || (this._open && !this.peeking)) {
+      return;
+    }
+    const edge = compact._getCrossedEdge(event.clientX, event.clientY) == this.side;
+    const inside = this._open && this.el.contains(event.target);
+    if (!edge && !this._open) {
+      this.win.clearTimeout(this.hoverEnter);
+      this.hoverEnter = null;
+      return;
+    }
+    if (event.buttons || this.hoverBlocked()) {
+      this.clearHoverTimers();
+      if (this.peeking && this._open) {
+        this.close({ reason: "hover" });
+      }
+      return;
+    }
+    if (edge || inside) {
+      this.win.clearTimeout(this.hoverLeave);
+      this.hoverLeave = null;
+      if (!this._open && !this.hoverEnter) {
+        this.hoverEnter = this.win.setTimeout(() => {
+          this.hoverEnter = null;
+          if (!this.hoverBlocked()) {
+            this.open({ peek: true, focus: false }).catch(console.error);
+          }
+        }, compact.HOVER_HACK_DELAY);
+      }
+    } else {
+      this.win.clearTimeout(this.hoverEnter);
+      this.hoverEnter = null;
+      this.scheduleHoverClose();
+    }
+  }
+
+  scheduleHoverClose() {
+    if (!this.peeking || !this._open || this.hoverLeave) {
+      return;
+    }
+    const compact = this.win.gZenCompactModeManager;
+    const sidebar = compact.hoverableElements.find(entry => entry.element == compact.sidebar);
+    this.hoverLeave = this.win.setTimeout(() => {
+      this.hoverLeave = null;
+      if (this.peeking) {
+        this.close({ reason: "hover" });
+      }
+    }, compact.HOVER_HACK_DELAY + (sidebar?.keepHoverDuration ?? 0));
+  }
+
+  // Read Zen's sidebar animation from its loaded rules, including its spring
+  // curve. Keeping the source there lets upstream tune both peeks together.
+  peekMotion() {
+    if (!this._peekMotion) {
+      const motion = {};
+      const visit = (rules, compact = false) => {
+        for (const rule of rules ?? []) {
+          const style = rule.style;
+          if (compact && style?.getPropertyValue("--zen-compact-mode-func")) {
+            motion.enter = {
+              duration: parseFloat(style.getPropertyValue("--zen-compact-mode-time")) * 1000,
+              easing: style.getPropertyValue("--zen-compact-mode-func").trim(),
+            };
+          }
+          if (compact && style?.translate.includes("--zen-compact-hidden-translate")) {
+            motion.exit = {
+              duration: parseFloat(style.transitionDuration) * 1000,
+              easing: style.transitionTimingFunction.split(",")[0],
+            };
+          }
+          if (rule.styleSheet) {
+            visitSheet(rule.styleSheet, compact);
+          } else if (rule.cssRules) {
+            visit(rule.cssRules, compact);
+          }
+        }
+      };
+      const visitSheet = (sheet, compact = false) => {
+        try {
+          visit(sheet.cssRules, compact || sheet.href?.endsWith("/zen-compact-mode.css"));
+        } catch {
+          // An extension's sheet may not expose its rules to this document.
+        }
+      };
+      for (const sheet of this.doc.styleSheets) {
+        visitSheet(sheet);
+      }
+      this._peekMotion = motion;
+    }
+    return this._peekMotion;
+  }
+
+  // W24 chatmotion: the panel's own open/close, which (unlike the edge-hover
+  // peek above) isn't Zen's sidebar and so doesn't read Zen's live rules.
+  // Instead it reads the shared tokens whimsy-browser.css sets to match the
+  // sidebar's values exactly (--whimsy-dur-panel/-exit,
+  // --whimsy-ease-panel/-exit), so this and the CSS can't drift apart.
+  panelMotion() {
+    const style = this.win.getComputedStyle(this.doc.documentElement);
+    return {
+      in: {
+        duration: cssMs(style.getPropertyValue("--whimsy-dur-panel")),
+        easing: style.getPropertyValue("--whimsy-ease-panel").trim(),
+      },
+      out: {
+        duration: cssMs(style.getPropertyValue("--whimsy-dur-panel-exit")),
+        easing: style.getPropertyValue("--whimsy-ease-panel-exit").trim(),
+      },
+    };
+  }
+
+  animatePeek(enter) {
+    for (const a of this.animations()) {
+      a.cancel();
+    }
+    const off = `${this.side == "right" ? 100 : -100}% 0`;
+    const motion = this.peekMotion()[enter ? "enter" : "exit"];
+    const anim = this.panel.animate(
+      reducedMotion(this.win) ? { opacity: enter ? [0, 1] : [1, 0] } : { translate: enter ? [off, "0 0"] : ["0 0", off] },
+      { duration: motion?.duration || 0, easing: motion?.easing || "linear", fill: "forwards" }
+    );
+    anim.finished.then(() => {
+      if (!enter && !this._open) {
+        this.el.hidden = true;
+        this.peeking = false;
+        this.el.removeAttribute("peek");
+      }
+      anim.cancel();
+    }, () => {});
+  }
+
+  watchForHover() {
+    const { win } = this;
+    const listeners = {
+      mousemove: e => this.onHoverMove(e),
+      mouseout: e => {
+        if (!e.relatedTarget) {
+          this.win.clearTimeout(this.hoverEnter);
+          this.hoverEnter = null;
+          this.scheduleHoverClose();
+        }
+      },
+      mousedown: e => {
+        this.pointerDown = true;
+        this.clearHoverTimers();
+        if (this.peeking && !this.el.contains(e.target)) {
+          this.close({ reason: "hover" });
+        }
+      },
+      mouseup: () => { this.pointerDown = false; },
+      dragstart: e => {
+        this.pointerDown = false;
+        this.draggingOutside = !this.el?.contains(e.target);
+        this.clearHoverTimers();
+        if (this.peeking && this.draggingOutside) {
+          this.close({ reason: "hover" });
+        }
+      },
+      dragover: e => {
+        this.draggingOutside = !this.el?.contains(e.target);
+        if (!this.draggingOutside) {
+          this.engage();
+        }
+        this.clearHoverTimers();
+      },
+      dragleave: e => {
+        if (!e.relatedTarget) {
+          this.draggingOutside = false;
+        }
+      },
+      dragend: () => { this.pointerDown = this.draggingOutside = false; },
+      drop: () => { this.pointerDown = this.draggingOutside = false; },
+      popupshowing: e => {
+        this.clearHoverTimers();
+        if (this.peeking) {
+          if (this.el?.contains(e.target.triggerNode) || e.target == this.headMenu) {
+            this.engage();
+          } else {
+            this.close({ reason: "hover" });
+          }
+        }
+      },
+      blur: e => {
+        if (e.target == win) {
+          this.pointerDown = this.draggingOutside = false;
+          this.clearHoverTimers();
+          if (this.peeking) {
+            this.close({ reason: "hover" });
+          }
+        }
+      },
+    };
+    for (const [type, fn] of Object.entries(listeners)) {
+      win.addEventListener(type, fn, true);
+    }
+    win.addEventListener("unload", () => {
+      this.clearHoverTimers();
+      for (const [type, fn] of Object.entries(listeners)) {
+        win.removeEventListener(type, fn, true);
+      }
+    }, { once: true });
+  }
+
   // ---- Open and close ----
 
   async open(opts = {}) {
@@ -536,8 +793,13 @@ class ChatPanel {
       return false;
     }
     this.build();
+    if (!opts.peek) {
+      this.engage();
+    }
     const wasOpen = this._open;
     if (!wasOpen) {
+      this.peeking = !!opts.peek;
+      this.el.toggleAttribute("peek", this.peeking);
       this._open = true;
       this.el.hidden = false;
       this.layout();
@@ -556,7 +818,7 @@ class ChatPanel {
     if (opts.send) {
       await this.send();
     }
-    if ((opts.focus ?? "composer") == "composer" && this._open) {
+    if (!opts.peek && (opts.focus ?? "composer") == "composer" && this._open) {
       this.composer.focus();
     } else if (opts.focus == "card" && this._open) {
       // A card waiting on you takes focus (agent-5.10): the pause asked
@@ -610,6 +872,7 @@ class ChatPanel {
     if (!this._open) {
       return;
     }
+    this.clearHoverTimers();
     this._open = false;
     this.cancelMemoryNote();
     this.reason = reason;
@@ -665,22 +928,33 @@ class ChatPanel {
     for (const a of this.animations()) {
       a.cancel();
     }
+    if (this.peeking) {
+      this.animatePeek(true);
+      return;
+    }
     const dir = this.side == "right" ? 1 : -1;
     if (reducedMotion(this.win)) {
       this.panel.animate({ opacity: [0, 1] }, { duration: DUR_IN, easing: "linear" });
       return;
     }
+    // Same duration and easing as the tabs sidebar's own show (W24
+    // chatmotion), not a value guessed to look similar.
+    const { duration, easing } = this.panelMotion().in;
     if (!this.el.hasAttribute("overlay")) {
       const full = `${this.width() + GAP}px`;
-      this.el.animate({ width: ["0px", full], minWidth: ["0px", full] }, { duration: DUR_IN, easing: EASE });
+      this.el.animate({ width: ["0px", full], minWidth: ["0px", full] }, { duration, easing });
     }
     this.panel.animate(
       { translate: [`${dir * 28}px 0`, "0 0"], opacity: [0, 1] },
-      { duration: DUR_IN, easing: EASE }
+      { duration, easing }
     );
   }
 
   animateOut() {
+    if (this.peeking) {
+      this.animatePeek(false);
+      return;
+    }
     for (const a of this.animations()) {
       a.cancel();
     }
@@ -694,12 +968,15 @@ class ChatPanel {
       this.panel.animate({ opacity: [1, 0] }, { duration: DUR_OUT, easing: "linear" }).finished.then(done, () => {});
       return;
     }
+    // Same duration and easing as the tabs sidebar's own hide (W24
+    // chatmotion), not a value guessed to look similar.
+    const { duration, easing } = this.panelMotion().out;
     if (!this.el.hasAttribute("overlay")) {
       const full = `${this.width() + GAP}px`;
-      this.el.animate({ width: [full, "0px"], minWidth: [full, "0px"] }, { duration: DUR_OUT, easing: EASE_EXIT, fill: "forwards" });
+      this.el.animate({ width: [full, "0px"], minWidth: [full, "0px"] }, { duration, easing, fill: "forwards" });
     }
     this.panel
-      .animate({ translate: ["0 0", `${dir * 28}px 0`], opacity: [1, 0] }, { duration: DUR_OUT, easing: EASE_EXIT, fill: "forwards" })
+      .animate({ translate: ["0 0", `${dir * 28}px 0`], opacity: [1, 0] }, { duration, easing, fill: "forwards" })
       .finished.then(() => {
         done();
         for (const a of this.animations()) {
@@ -922,8 +1199,9 @@ class ChatPanel {
     this.ready = true;
   }
 
-  // Three suggestions from what dominates the page; they fill the
-  // composer and never send.
+  // Three suggestions from what dominates the page. A complete question
+  // sends immediately; one that still needs the person's own input (it
+  // ends in "…", a template to fill in) only fills the composer.
   async suggestionsFor(tab) {
     if (!isWebTab(tab)) {
       return null;
@@ -974,9 +1252,17 @@ class ChatPanel {
               {
                 class: "whimsy-chat-suggestion",
                 onclick: e => {
-                  this.composer.value = e.currentTarget.textContent;
+                  const text = e.currentTarget.textContent;
+                  this.composer.value = text;
                   this.autosize();
-                  this.composer.focus();
+                  // A chip ending in "…" is a template that still needs the
+                  // person's own input (none of today's do, but a future
+                  // one might); only fill the composer for those.
+                  if (text.endsWith("…")) {
+                    this.composer.focus();
+                  } else {
+                    this.send();
+                  }
                 },
               },
               icon(doc, ICON_FOR[id] ?? "sparkle"),
@@ -1105,6 +1391,7 @@ class ChatPanel {
   }
 
   async send() {
+    this.engage();
     const { win } = this;
     const tab = this.currentTab;
     const text = this.composer.value.trim();
@@ -1168,15 +1455,33 @@ class ChatPanel {
     return null;
   }
 
-  systemPrompt(page, extra = [], memories = []) {
+  /**
+   * The chat's instructions. `memory` ({saved}, when memory is on for this
+   * answer) explains Whimsy's memory and lists what this conversation
+   * saved, so questions about memory get a real answer; `tab` ({title,
+   * url}) names a tab whose text can't be read (a browser page).
+   */
+  systemPrompt(page, extra = [], memories = [], { memory = null, tab = null } = {}) {
     const lines = [
       "You are the chat in Whimsy, a web browser. Answer plainly and briefly, in the language the person writes in.",
     ];
-    if (memories.length) {
+    if (memory) {
+      const saved = memory.saved ?? [];
       lines.push(
         "",
-        "Stable facts you already know about this person (use only if relevant to the question; never list them unprompted):",
-        ...memories.map(m => `- ${m.text}`)
+        "Whimsy has a memory: after a chat answer it saves short, stable facts the person tells you about themselves, and it gives you the ones relevant to each question. The person can see, edit, and delete them in Settings > AI > Memory. When they ask what you remember, saved, or used, answer from the two lists below, and say so plainly when a list is empty.",
+        memories.length ? "Memories given to you for this answer (use them only when they help; don't bring them up otherwise):" : "Memories given to you for this answer: none.",
+        ...memories.map(m => `- ${m.text}`),
+        saved.length ? "Saved to memory earlier in this conversation:" : "Saved to memory earlier in this conversation: nothing.",
+        ...saved.map(m => `- ${m.text}`)
+      );
+    }
+    if (!page && tab) {
+      lines.push(
+        "",
+        `The person's tab is a browser page whose text you can't read. Page title: ${tab.title || "(none)"}`,
+        `Address: ${tab.url}`,
+        'When they ask about "this page" or "this tab", say which page it is from its title and address, and that you can\'t read browser pages.'
       );
     }
     if (page) {
@@ -1286,11 +1591,20 @@ class ChatPanel {
         asker.content = [{ type: "text", text: asker.content }, ...opts.images];
       }
       // Memory: never for a private tab, and only the facts worth this question.
-      if (!opts.textOnly && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
+      const ownTab = thread.kind == "tab" ? lazy.WhimsyChatThreads.tabOf(thread) : null;
+      let memory = null;
+      if (!opts.textOnly && !lazy.WhimsyAIContext.isPrivate(ownTab ?? this.currentTab) && lazy.WhimsyAIMemory.on) {
         const lastUser = history.findLast(m => m.role == "user")?.content ?? "";
         memories = await lazy.WhimsyAIMemory.forPrompt(typeof lastUser == "string" ? lastUser : "");
+        memory = { saved: await lazy.WhimsyAIMemory.savedIn(thread.id) };
       }
-      const system = this.systemPrompt(page, extra, memories);
+      // A browser page (about:, the Library) has no readable text, but the
+      // model still hears which page it is, so "what's on this tab" isn't
+      // answered "nothing".
+      const tab = !page && ownTab && !isWebTab(ownTab) && !lazy.WhimsyAIContext.isOffLimits(ownTab) && !lazy.WhimsyAIContext.isPrivate(ownTab)
+        ? { title: ownTab.label, url: ownTab.linkedBrowser?.currentURI?.spec ?? "" }
+        : null;
+      const system = this.systemPrompt(page, extra, memories, { memory, tab });
       needs = opts.textOnly ? { chars: system.length } : { ...lazy.WhimsyChatContextUI.needsOf(context ?? {}, system), ...(opts.needs ?? {}) };
       const choice = lazy.WhimsyChatAnswer.choiceFor(thread);
       const provider = opts.provider ?? (choice.provider != "auto" ? choice.provider : undefined);
@@ -1367,7 +1681,10 @@ class ChatPanel {
     if (saved?.role == "ai" && !opts.continueFrom && !opts.instruction) {
       language = await this.languageOffer(thread, context);
     }
-    if (saved?.role == "ai" && !saved.partial && !opts.continueFrom && !lazy.WhimsyAIContext.isPrivate(this.currentTab)) {
+    // Memory never reads a private tab's chat: the thread's own tab decides,
+    // not whichever tab is selected by the time the answer lands.
+    const answeredTab = thread.kind == "tab" ? lazy.WhimsyChatThreads.tabOf(thread) : null;
+    if (saved?.role == "ai" && !saved.partial && !opts.continueFrom && !lazy.WhimsyAIContext.isPrivate(answeredTab ?? this.currentTab)) {
       this.noteMemory(thread, saved);
     }
     if (this.thread?.id == thread.id) {
@@ -1477,6 +1794,7 @@ class ChatPanel {
   // ---- Conversation list ----
 
   async openList() {
+    this.engage();
     if (lazy.WhimsyAIContext.isPrivate(this.win.gBrowser.selectedTab)) {
       return;
     }
@@ -1737,7 +2055,19 @@ class ChatPanel {
     const onResize = () => this._open && this.layout();
     win.addEventListener("resize", onResize);
     const prefs = {
-      [SIDE_PREF]: () => this.layout(),
+      [SIDE_PREF]: () => {
+        this.clearHoverTimers();
+        if (this.peeking) {
+          this.close({ reason: "side" });
+        }
+        this.layout();
+      },
+      [HOVER_PREF]: () => {
+        this.clearHoverTimers();
+        if (this.peeking && !Services.prefs.getBoolPref(HOVER_PREF, true)) {
+          this.close({ reason: "pref" });
+        }
+      },
       [WIDTH_PREF]: () => this.layout(),
       [AI_PREF]: () => {
         if (lazy.WhimsyAI.enabled) {
@@ -1763,6 +2093,7 @@ class ChatPanel {
     Services.obs.addObserver(observer, lazy.WhimsyChat.TOPIC);
     Services.obs.addObserver(observer, lazy.WhimsyAIStore.TOPIC);
     this.watchForHint();
+    this.watchForHover();
     win.addEventListener(
       "unload",
       () => {
@@ -1826,7 +2157,10 @@ export const WhimsyChatPanel = {
         { l10nId: "whimsy-chat-cmd-hide", isAvailable: () => ai() && panel.isOpen },
       ],
     });
-    const open = async () => (panel.isOpen || (await panel.open({ focus: "card" }))) && panel.thread && !panel.private;
+    const open = async () => {
+      panel.engage();
+      return (panel.isOpen || (await panel.open({ focus: "card" }))) && panel.thread && !panel.private;
+    };
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyChatWhatAISees",
       l10nId: "whimsy-chat-cmd-what-ai-sees",

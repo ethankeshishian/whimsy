@@ -769,10 +769,20 @@ export const WhimsySurface = {
       if (option.controls) {
         button.setAttribute("aria-controls", option.controls);
       }
-      if (option.l10nId) {
-        setL10n(doc, button, option.l10nId, option.l10nArgs);
-      } else {
-        button.textContent = option.text ?? option.value;
+      // A hidden bold twin reserves the button's width, so the control
+      // doesn't resize when the selection (and so which label goes
+      // bold) changes.
+      for (const part of ["label", "ghost"]) {
+        const span = html(doc, "span", `whimsy-surface-segment-${part}`);
+        if (option.l10nId) {
+          setL10n(doc, span, option.l10nId, option.l10nArgs);
+        } else {
+          span.textContent = option.text ?? option.value;
+        }
+        if (part == "ghost") {
+          span.setAttribute("aria-hidden", "true");
+        }
+        button.append(span);
       }
       button.addEventListener("click", () => onPick(option.value));
       group.append(button);

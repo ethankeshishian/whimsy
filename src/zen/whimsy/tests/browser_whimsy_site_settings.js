@@ -57,6 +57,28 @@ async function closePanel() {
   await hidden;
 }
 
+// The zoom Firefox has saved for the browser's page (FullZoom's content
+// pref, read from the store). A + step saves asynchronously; a reload
+// before the save lands restores the previous value, so tests that
+// reload after a step wait on this first.
+function savedZoom(browser) {
+  const cps = Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
+  return new Promise(resolve => {
+    let value;
+    cps.getByDomainAndName(browser.currentURI.spec, FullZoom.name, browser.loadContext, {
+      handleResult(pref) {
+        value = pref.value;
+      },
+      handleCompletion: () => resolve(value),
+      handleError: () => resolve(undefined),
+    });
+  });
+}
+
+async function waitForSavedZoom(browser, zoom, msg) {
+  await TestUtils.waitForCondition(async () => Math.abs(((await savedZoom(browser)) ?? 1) - zoom) < 0.01, msg);
+}
+
 function clearAll() {
   for (const oa of [NORMAL, { userContextId: 0, privateBrowsingId: 1 }, { userContextId: 2, privateBrowsingId: 0 }]) {
     const principal = WhimsySiteSettings.sitePrincipal(HOST, oa);
@@ -204,6 +226,7 @@ add_task(async function test_zoom_stepper_reader_saved_zoom() {
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > saved, "+ steps the page zoom");
     const last = ZoomManager.getZoomForBrowser(browser);
     await closePanel();
+    await waitForSavedZoom(browser, last, "The step is saved for the site");
     BrowserTestUtils.reloadTab(tab);
     await BrowserTestUtils.browserLoaded(browser);
     await TestUtils.waitForCondition(() => Math.abs(ZoomManager.getZoomForBrowser(browser) - last) < 0.01,
@@ -272,6 +295,8 @@ add_task(async function test_zoom_stepper_reader_reload_in_reader() {
     await TestUtils.waitForCondition(() => ZoomManager.getZoomForBrowser(browser) > 1, "+ steps Reader View's zoom");
     const set = ZoomManager.getZoomForBrowser(browser);
     await closePanel();
+    // Each + saves on its own; the reload must come after the last save.
+    await waitForSavedZoom(browser, set, "Both steps are saved for Reader View");
     BrowserTestUtils.reloadTab(tab);
     await BrowserTestUtils.browserLoaded(browser);
     is(browser.currentURI.spec, readerURL, "Reloading stayed in Reader View");
@@ -695,23 +720,34 @@ add_task(async function test_reader_switch_disabled_when_not_readerable() {
 // Always Open in Reader View and in Full Screen on (their bolder weight).
 add_task(async function test_rows_fit_on_one_line() {
   clearAll();
+  // The row only needs the flag on: opening the site must not put the test
+  // window itself in full screen, which outlives this file (and a --repeat
+  // run's next pass, where test_open_in_full_screen then sees a full-screen
+  // window and never enters it).
+  const enterFullscreen = WhimsySiteSettings.enterFullscreen;
+  WhimsySiteSettings.enterFullscreen = () => {};
   WhimsySiteSettings.setFlag("reader", HOST, NORMAL, true);
   WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, true);
-  await BrowserTestUtils.withNewTab(PAGE, async () => {
-    await openPanel();
-    is(rowOf("reader").getAttribute("state"), "allow", "Reader View row is on (weight 500)");
-    is(rowOf("fullscreen").getAttribute("state"), "allow", "Full Screen row is on");
-    const labels = [...section().querySelectorAll(".whimsy-surface-row-label")].filter(l => l.getClientRects().length);
-    ok(labels.length >= 4, `${labels.length} row names showing`);
-    for (const label of labels) {
-      const lineHeight = parseFloat(getComputedStyle(label).lineHeight) || 18;
-      ok(label.scrollWidth <= label.clientWidth, `"${label.textContent}" isn't cut off (${label.scrollWidth} <= ${label.clientWidth})`);
-      ok(label.getBoundingClientRect().height < lineHeight * 1.5, `"${label.textContent}" is one line`);
-    }
-    const width = panel().getBoundingClientRect().width;
-    ok(width >= 270, `The panel is wider (${width}px)`);
-    await closePanel();
-  });
-  WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, false);
-  clearAll();
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async () => {
+      await openPanel();
+      is(rowOf("reader").getAttribute("state"), "allow", "Reader View row is on (weight 500)");
+      is(rowOf("fullscreen").getAttribute("state"), "allow", "Full Screen row is on");
+      const labels = [...section().querySelectorAll(".whimsy-surface-row-label")].filter(l => l.getClientRects().length);
+      ok(labels.length >= 4, `${labels.length} row names showing`);
+      for (const label of labels) {
+        const lineHeight = parseFloat(getComputedStyle(label).lineHeight) || 18;
+        ok(label.scrollWidth <= label.clientWidth, `"${label.textContent}" isn't cut off (${label.scrollWidth} <= ${label.clientWidth})`);
+        ok(label.getBoundingClientRect().height < lineHeight * 1.5, `"${label.textContent}" is one line`);
+      }
+      const width = panel().getBoundingClientRect().width;
+      ok(width >= 270, `The panel is wider (${width}px)`);
+      await closePanel();
+    });
+  } finally {
+    WhimsySiteSettings.setFlag("fullscreen", HOST, NORMAL, false);
+    WhimsySiteSettings.enterFullscreen = enterFullscreen;
+    clearAll();
+  }
+  ok(!window.fullScreen, "The test window never went full screen");
 });

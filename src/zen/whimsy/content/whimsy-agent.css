@@ -131,6 +131,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .whimsy-agent-working::before {
@@ -140,6 +142,19 @@
   height: 5px;
   border-radius: 50%;
   background: currentColor;
+}
+
+/* The text is its own child (not the line's own value), so it can shrink
+   and ellipsize inside the flex row instead of overflowing the tab. An
+   explicit width (not just flex-shrink) keeps this a definite box instead
+   of one sized to its own (unwrapped, long) content. */
+.whimsy-agent-working > span {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 :is(.tabbrowser-tab, .whimsy-task-folder)[whimsy-agent-working="wait"] .whimsy-agent-working {
@@ -160,13 +175,50 @@
     max-height: none !important;
   }
 
+  /* .tab-stack lays its children (background + content) over each other in
+     a grid, and .tab-content is a flex row (icon + label). Neither had an
+     explicit width, so each one's own box defaulted to a content-based
+     (auto) size in that axis instead of a bounded one - exactly the gap
+     that let the working line's long, unwrapped text balloon its
+     ancestors' own boxes outward instead of being clipped by them (the
+     tab's own `overflow: clip` only hides the overflowing *paint*, it
+     doesn't shrink a descendant's own rect). Pin every level down to the
+     tab's actual width so none of them can grow with content. Only
+     .tab-content and below also clip: .tab-stack holds .tab-background's
+     own shadow (a sibling, not a descendant of .tab-content), which must
+     keep bleeding past its box as it already did. */
+  & .tab-stack {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  & .tab-content,
+  & .tab-label-container,
+  & .tab-label {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
   & .tab-content {
     min-height: max(var(--tab-min-height), 44px);
   }
 
   & .tab-label-container {
     height: auto !important;
-    overflow: hidden;
+    /* Stack the title and the working line as two properly-bounded
+       rows: without this, the working line's own intrinsic (long,
+       one-line) content width inflates the container instead of being
+       clipped by it (W24 uipolish #7). */
+    display: flex;
+    flex-direction: column;
+  }
+
+  & .whimsy-agent-working {
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 
@@ -306,12 +358,6 @@
 
 .whimsy-task-folder .whimsy-agent-working {
   font-weight: 400;
-}
-
-.whimsy-task-folder .whimsy-agent-working > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .whimsy-task-folder-count {

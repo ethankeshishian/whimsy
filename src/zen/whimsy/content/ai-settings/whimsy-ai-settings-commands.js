@@ -466,10 +466,15 @@
     seg.style.setProperty("--count", String(lazy.RESULTS.length));
     S.el("span", "whimsy-ai-seg-thumb", seg);
     for (const r of lazy.RESULTS) {
-      const b = S.el("button", "", seg, `whimsy-commands-result-${r}`);
+      const b = S.el("button", "", seg);
       b.type = "button";
       b.dataset.result = r;
       b.setAttribute("role", "radio");
+      // A hidden bold twin reserves the button's width (see
+      // whimsy-ai-settings.css), so the sheet doesn't resize when the
+      // selection changes.
+      S.el("span", "whimsy-ai-seg-label", b, `whimsy-commands-result-${r}`);
+      S.el("span", "whimsy-ai-seg-ghost", b, `whimsy-commands-result-${r}`).setAttribute("aria-hidden", "true");
       b.addEventListener("click", () => setResult(r, { focus: false }));
     }
     const resultHint = S.el("span", "whimsy-ai-hint", state.body, "whimsy-commands-result-hint");

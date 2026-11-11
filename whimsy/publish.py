@@ -91,12 +91,15 @@ def run(cmd, cwd=ROOT, env=None, capture=False, input=None):
 
 
 def objdir():
-    # The configured build folder (ignore stray empty obj-* folders).
+    # The folder the build used. A configure-only obj-* folder (e.g. one made
+    # for a different host triple) also has config.status, so prefer the one
+    # with a built app, then the most recently configured.
     dirs = [d for d in glob.glob(os.path.join(ENGINE, "obj-*"))
             if os.path.exists(os.path.join(d, "config.status"))]
     if not dirs:
         raise SystemExit("publish: build first")
-    return dirs[0]
+    return max(dirs, key=lambda d: (os.path.isdir(os.path.join(d, "dist", "bin")),
+                                    os.path.getmtime(os.path.join(d, "config.status"))))
 
 
 def packaged_app(obj):

@@ -527,6 +527,7 @@ add_task(async function features_rows_toggle_prefs() {
   for (const [id, pref] of [
     ["whimsyAITidyTabs", "whimsy.feature.tidy-tabs"],
     ["whimsyAITidyTitles", "whimsy.feature.tidy-titles"],
+    ["whimsyAIChatHover", "whimsy.ai.chat.edge-hover"],
     ["whimsyAIAskOnPage", "whimsy.feature.ask-on-page"],
     ["whimsyAILinkPreviews", "whimsy.feature.link-previews"],
     ["whimsyAIPageWatch", "whimsy.feature.page-watch"],
@@ -704,5 +705,170 @@ add_task(async function activity_filter_and_retention() {
   await TestUtils.waitForCondition(() => page.$("whimsyAIActivityEmpty"), "With no runs, Activity says so");
   is((await WhimsyClaudeReplay.runs()).length, 0, "Every run is deleted");
   ok(deleteAll.disabled, "and Delete all… stays in place, off");
+  await done(page);
+});
+
+// ---- W24 uipolish ----
+
+function resolvedRGB(win, value) {
+  const canvas = win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, 1, 1);
+  ctx.fillStyle = value;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+}
+function luminance([r, g, b]) {
+  const lin = c => (c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+function contrastRatio(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+function saturation([r, g, b]) {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max == min) {
+    return 0;
+  }
+  const l = (max + min) / 2;
+  const d = max - min;
+  return l > 0.5 ? d / (2 - max - min) : d / (max + min);
+}
+async function inScheme(page, dark, run) {
+  await whimsySetScheme(dark);
+  await TestUtils.waitForCondition(() => page.win.matchMedia(`(prefers-color-scheme: ${dark ? "dark" : "light"})`).matches, "The Settings tab follows the scheme");
+  try {
+    await run(dark);
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
+}
+
+// #1: the "Add a provider" sheet used to show only a sentence and Cancel
+// until a subprocess call (reading the macOS version, for Apple's
+// eligibility) resolved. Every other choice now renders the instant the
+// sheet opens, with no wait.
+add_task(async function add_provider_sheet_shows_choices_without_waiting() {
+  Services.prefs.setStringPref("whimsy.ai.order", "");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  const page = await openAI();
+  const addButton = await TestUtils.waitForCondition(() => page.$("whimsyAIAddProvider"), "Add a provider… shows");
+  click(page, addButton);
+  const add = await sheet(page, "add-provider");
+  Assert.greaterOrEqual(add.querySelectorAll(".whimsy-ai-choice").length, 4, "Choices are there the instant the sheet opens, not just a sentence and Cancel");
+  await whimsyShot("w24-uipolish-1-add-provider-sheet");
+  await done(page);
+});
+
+// #1: nothing left to add once every provider is connected, so the row
+// isn't shown (it used to open a sheet with no choice in it).
+add_task(async function add_provider_row_hidden_when_all_connected() {
+  WhimsyAIProviders.setOrder(["claude", "openai", "gemini", "ollama", "apple"]);
+  const page = await openAI();
+  await listReady(page);
+  ok(!page.$("whimsyAIAddProvider"), "No Add a provider… row left to show");
+  WhimsyAIProviders.setOrder([]);
+  await done(page);
+});
+
+// #2: "Off limits to AI" is a 2-column grid; 3 facts used to leave one
+// tall empty cell on the right. The odd one out now spans the row.
+add_task(async function off_limits_grid_has_no_empty_cell() {
+  const page = await openAI();
+  const card = await TestUtils.waitForCondition(() => visible(page.$("whimsyAIOffLimits")) && page.$("whimsyAIOffLimits"), "Off limits shows");
+  const facts = [...card.querySelectorAll(".whimsy-ai-fact")];
+  is(facts.length, 3, "three facts");
+  const containerWidth = card.querySelector(".whimsy-ai-facts").getBoundingClientRect().width;
+  const lastWidth = facts.at(-1).getBoundingClientRect().width;
+  Assert.greater(lastWidth, containerWidth * 0.9, "The last (odd) fact fills the row instead of leaving an empty cell beside it");
+  await whimsyShot("w24-uipolish-2-off-limits-grid");
+  await done(page);
+});
+
+// #3: "Add a provider…" used to reserve a leading 38px as if for a drag
+// grip it doesn't have, indenting its icon. It now sits flush like every
+// other row.
+add_task(async function add_provider_row_left_edge_matches_sibling_rows() {
+  Services.prefs.setStringPref("whimsy.ai.order", "");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  const page = await openAI();
+  const add = await TestUtils.waitForCondition(() => page.$("whimsyAIAddProvider"), "Add a provider… shows");
+  const addInset = add.querySelector(".whimsy-ai-tile").getBoundingClientRect().left - add.getBoundingClientRect().left;
+  const fact = await TestUtils.waitForCondition(() => page.doc.querySelector("#whimsyAIOffLimits .whimsy-ai-fact"), "A sibling row (an off-limits fact) shows");
+  const factInset = fact.querySelector("img").getBoundingClientRect().left - fact.getBoundingClientRect().left;
+  is(Math.round(addInset), Math.round(factInset), `Its icon lines up with other rows' icons (add ${addInset}px, sibling ${factInset}px)`);
+  await whimsyShot("w24-uipolish-3-add-provider-row");
+  await done(page);
+});
+
+// #4: the outside-agents description explained the MCP mechanism; it's
+// one short line now.
+add_task(async function outside_agents_desc_is_one_short_line() {
+  const page = await openAI();
+  const desc = await TestUtils.waitForCondition(() => page.doc.querySelector("#whimsyAISection-outside-agents .whimsy-ai-desc"), "The description shows");
+  ok(!desc.textContent.includes("MCP"), `No mechanism jargon: "${desc.textContent}"`);
+  ok(!desc.textContent.includes(";"), `One short sentence, not a compound one: "${desc.textContent}"`);
+  await done(page);
+});
+
+// #5: Activity's filter segmented control used to sit flush on (even
+// overlapping) the card below it, from a stray negative margin.
+add_task(async function activity_segmented_control_has_gap_to_card_below() {
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  const page = await openAI();
+  const filter = await TestUtils.waitForCondition(() => page.$("whimsyAIActivityFilter"), "The Activity filter shows");
+  const bar = filter.closest(".whimsy-ai-agent-bar");
+  const below = page.$("whimsyAIActivityRuns");
+  const barRect = bar.getBoundingClientRect();
+  const belowRect = below.getBoundingClientRect();
+  Assert.greaterOrEqual(belowRect.top - barRect.bottom, 8, `At least 8px between the segmented control and the card below (got ${belowRect.top - barRect.bottom}px)`);
+  await whimsyShot("w24-uipolish-5-activity-gap");
+  await done(page);
+});
+
+// #6: the shared segmented component (whimsy-ai-seg) reserved the bold
+// label's width, so a control's size no longer depends on the selection.
+// "Keep runs for" is the one the owner saw change size in Settings.
+add_task(async function keep_runs_for_segmented_width_is_stable() {
+  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+  const page = await openAI();
+  const days = await TestUtils.waitForCondition(() => page.$("whimsyAIActivityDays"), "Keep runs for shows");
+  days.scrollIntoView({ block: "center" });
+  const widths = [];
+  for (const value of ["7", "30", "90", "0"]) {
+    click(page, days.querySelector(`[data-value='${value}']`));
+    await settled(page);
+    widths.push(Math.round(days.getBoundingClientRect().width));
+  }
+  ok(widths.every(w => w == widths[0]), `The control's width stays constant across every selection: ${widths}`);
+  Services.prefs.clearUserPref("whimsy.ai.activity.days");
+  await done(page);
+});
+
+// #10 (uipolish lane): primary buttons used a washed-out fill with
+// near-black text in dark mode. They now use a dedicated, darker fill
+// (--ai-primary-bg) with white text in both themes.
+add_task(async function settings_primary_button_is_readable_light_and_dark() {
+  Services.prefs.setStringPref("whimsy.ai.order", "");
+  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+  const page = await openAI();
+  const btn = await TestUtils.waitForCondition(() => visible(page.$("whimsyAISetUp")) && page.$("whimsyAISetUp"), "Set up AI (a primary button) shows");
+  for (const dark of [false, true]) {
+    await inScheme(page, dark, async () => {
+      const style = page.win.getComputedStyle(btn);
+      const fill = resolvedRGB(page.win, style.backgroundColor);
+      const text = resolvedRGB(page.win, style.color);
+      Assert.greaterOrEqual(contrastRatio(fill, text), 4.5, `The primary button's text is readable (${dark ? "dark" : "light"} mode)`);
+      Assert.greaterOrEqual(saturation(fill), 0.2, `The fill reads as the full accent, not washed out (${dark ? "dark" : "light"} mode)`);
+      await whimsyShot(`w24-uipolish-10-settings-primary-${dark ? "dark" : "light"}`);
+    });
+  }
   await done(page);
 });

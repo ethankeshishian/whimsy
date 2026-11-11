@@ -64,15 +64,15 @@ add_task(async function auto_save_note_line_undo_blocks() {
   const msg = { role: "ai", facts: saved.map(m => m.text), memoryIds: saved.map(m => m.id) };
   const node = render(document, msg, { thread: { id: "thread-1" } });
   is(node.dataset.kind, "memory-saved", "The note is a memory-saved card");
-  ok(node.querySelector(".whimsy-chat-link"), "It has an Undo link");
+  ok(node.querySelector('[data-action="undo"]'), "It has an Undo link");
   await WhimsyAIMemory._undoFromNote({ id: "thread-1" }, msg, node);
   ok(!(await WhimsyAIMemory.get(saved[0].id)), "Undo deletes the fact");
-  ok(!node.querySelector(".whimsy-chat-link"), "...and the link goes");
+  ok(!node.querySelector('[data-action="undo"]'), "...and the link goes");
   info(`blocked list after Undo: ${JSON.stringify(await WhimsyAIStore.readDoc("memory-blocked", []))}`);
 
   // Undo blocks the exact fact text (case/whitespace aside) from being
   // saved again, even from an unrelated exchange.
-  const again = await WhimsyAIMemory.extract("thread-2", { userText: "unrelated", aiText: "ok" });
+  const again = await WhimsyAIMemory.extract("thread-2", { userText: "I live in Austin, still", aiText: "ok" });
   info(`re-extract saved: ${JSON.stringify(again.map(m => m.text))}`);
   is(again.length, 0, "The blocked fact isn't saved again");
   is((await WhimsyAIMemory.save("Lives in Austin")), null, "...and a direct save() of the same text is blocked too");
@@ -159,13 +159,13 @@ add_task(async function panel_tracks_and_cancels_memory_note() {
     memoryAsks = 0;
     held = Promise.resolve();
     await openChat();
-    ask("Miso is a tabby");
+    ask("My cat Miso is a tabby");
     await TestUtils.waitForCondition(() => memoryAsks == 1, "Asked again");
     await chat.memoryNote;
     ok((await WhimsyAIMemory.list()).some(m => m.text == "Has a cat named Miso"), "Left open, the fact is saved");
     const note = await TestUtils.waitForCondition(() => document.querySelector("#whimsy-chat [data-kind='memory-saved']"),
       "...with its note line in the chat");
-    const undo = note.querySelector(".whimsy-chat-link");
+    const undo = note.querySelector('[data-action="undo"]');
     ok(undo, "The note has Undo");
     undo.scrollIntoView({ block: "center" });
     const hit = () => {
@@ -176,7 +176,7 @@ add_task(async function panel_tracks_and_cancels_memory_note() {
       .catch(e => info(`Undo hit test: ${hit()?.outerHTML?.slice(0, 160)} connected=${undo.isConnected}`) ?? Promise.reject(e));
     EventUtils.synthesizeMouseAtCenter(undo, {});
     await TestUtils.waitForCondition(async () => !(await WhimsyAIMemory.list()).length, "Undo in the chat deletes it");
-    await TestUtils.waitForCondition(() => !note.querySelector(".whimsy-chat-link"), "...and the Undo link goes");
+    await TestUtils.waitForCondition(() => !note.querySelector('[data-action="undo"]'), "...and the Undo link goes");
     is(await WhimsyAIMemory.save("Has a cat named Miso"), null, "...and blocks it from coming back");
   } finally {
     if (chat.isOpen) {
@@ -186,4 +186,328 @@ add_task(async function panel_tracks_and_cancels_memory_note() {
     WhimsyAIProviders.setTestProvider(null);
     await clearAllMemories();
   }
+});
+
+// ---- W24 memory (owner 2026-11-10, item 8) ----
+// Apple's on-device model answers the extraction prompt with one invented
+// fact per category it names ("Name: Sam", "Places: none mentioned"), for
+// any message at all. This stub does the same, so these tests see what the
+// owner saw: "Saved 6 facts to memory" under every answer, in every tab.
+
+const { WhimsyChatPanel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatPanel.sys.mjs");
+const { WhimsyAIContext } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIContext.sys.mjs");
+
+const INVENTED = ["Name: Sam", "Role: Developer", "Preference: Coffee", "Ongoing projects: none mentioned", "People: Alex, Jamie", "Places: Berlin, Tokyo"];
+
+function eagerProvider(requests, answer = request => `Answer to ${request.lastUserText}`) {
+  return async request => {
+    requests.push(request);
+    if (request.task == "memory") {
+      const said = /The person wrote: (.*)/s.exec(request.prompt)?.[1] ?? "";
+      return JSON.stringify([...(/pilot/i.test(said) ? ["Is a pilot"] : []), ...(/Austin/.test(said) ? ["Lives in Austin"] : []), ...INVENTED]);
+    }
+    return answer(request);
+  };
+}
+
+async function withChat(fn) {
+  await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-w24-memory-" + Math.random().toString(16).slice(2)));
+  await SpecialPowers.pushPrefEnv({ set: [[WhimsyAIMemory.USE_PREF, true], ["whimsy.feature.ai-hints", false]] });
+  const chat = WhimsyChatPanel.forWindow(window);
+  const tabs = [];
+  const api = {
+    chat,
+    async open(url) {
+      const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+      tabs.push(tab);
+      return tab;
+    },
+    async show() {
+      if (!chat.isOpen) {
+        EventUtils.synthesizeKey("e", { accelKey: true });
+      }
+      await TestUtils.waitForCondition(() => chat.isOpen && chat.ready, "Chat is open");
+    },
+    cards: () => [...chat.body.querySelectorAll("[data-kind='memory-saved']")],
+    answers: () => [...chat.body.querySelectorAll(".whimsy-chat-msg[data-role='ai']")].filter(m => !m.hasAttribute("busy")),
+    async ask(text) {
+      const before = api.answers().length;
+      chat.composer.focus();
+      EventUtils.sendString(text);
+      EventUtils.synthesizeKey("KEY_Enter");
+      await TestUtils.waitForCondition(() => api.answers().length == before + 1, `"${text}" was answered`);
+      // The background save is part of the answer: wait for it to settle.
+      await chat.memoryNote;
+      await chat.doc.l10n.translateFragment(chat.body);
+      return api.answers().at(-1);
+    },
+  };
+  try {
+    await fn(api);
+  } finally {
+    if (chat.isOpen) {
+      chat.close({ reason: "key" });
+    }
+    for (const tab of tabs) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    WhimsyAIProviders.setTestProvider(null);
+    await clearAllMemories();
+    await WhimsyAIStore._resetForTesting(null);
+    await SpecialPowers.popPrefEnv();
+  }
+}
+
+// 8a: the save card shows once, in the thread that saved, and only for
+// facts that are new.
+add_task(async function w24_save_card_only_in_the_saving_thread_for_new_facts() {
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests));
+  await withChat(async ({ open, show, ask, cards, chat }) => {
+    const a = await open("https://example.com/?memory-a");
+    const b = await open("https://example.org/?memory-b");
+    await BrowserTestUtils.switchTab(gBrowser, a);
+    await show();
+    await ask("I'm a pilot and I live in Austin");
+    is(cards().length, 1, "Tab A: one save card under the answer");
+    const savedTexts = (await WhimsyAIMemory.list()).map(m => m.text).sort();
+    Assert.deepEqual(savedTexts, ["Is a pilot", "Lives in Austin"], "Only the facts the person said were saved, none of the invented ones");
+    ok(/2 facts/.test(cards()[0].textContent), `The card counts the 2 new facts: "${cards()[0].textContent.trim()}"`);
+
+    await BrowserTestUtils.switchTab(gBrowser, b);
+    await TestUtils.waitForCondition(() => chat.ready && !chat.body.querySelector(".whimsy-chat-msg"), "Tab B shows its own chat");
+    await ask("what's on this tab");
+    is(cards().length, 0, "Tab B: a question about the page saves nothing and shows no card");
+
+    await BrowserTestUtils.switchTab(gBrowser, a);
+    await TestUtils.waitForCondition(() => chat.ready && chat.body.querySelectorAll(".whimsy-chat-msg[data-role='user']").length == 1, "Back on tab A");
+    is(cards().length, 1, "Tab A still has just its one card");
+    await ask("I live in Austin, as I said");
+    is(cards().length, 1, "Saying a known fact again adds no second card");
+    is((await WhimsyAIMemory.list()).length, 2, "...and saves no duplicate");
+    const aThread = (await WhimsyAIStore.threads({ tabKey: WhimsyAIContext.tabKey(a) }))[0];
+    const bThread = (await WhimsyAIStore.threads({ tabKey: WhimsyAIContext.tabKey(b) }))[0];
+    is((await WhimsyAIStore.messages(aThread.id)).filter(m => m.kind == "memory-saved").length, 1, "A's thread stores one save note");
+    is((await WhimsyAIStore.messages(bThread.id)).filter(m => m.kind == "memory-saved").length, 0, "B's thread stores none");
+
+    // Undo still works on the one card.
+    const undo = cards()[0].querySelector('[data-action="undo"]');
+    ok(undo, "The card has Undo");
+    undo.scrollIntoView({ block: "center" });
+    EventUtils.synthesizeMouseAtCenter(undo, {});
+    await TestUtils.waitForCondition(async () => !(await WhimsyAIMemory.list()).length, "Undo deletes both facts");
+  });
+});
+
+// 8b: questions about the page or the browser never produce facts, and
+// don't even cost a model call.
+add_task(async function w24_trivial_questions_save_nothing() {
+  await clearAllMemories();
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests));
+  try {
+    for (const userText of ["what's on this tab", "what website am i on", "Tell me what's on this tab", "what did you just save to memory?", "what have you saved to memory", "summarize this page"]) {
+      const saved = await WhimsyAIMemory.extract("thread-trivial", { userText, aiText: "Google" });
+      Assert.deepEqual(saved.map(m => m.text), [], `"${userText}" saves nothing`);
+    }
+    is(requests.filter(r => r.task == "memory").length, 0, "...and never asks the model");
+    const kept = await WhimsyAIMemory.extract("thread-trivial", { userText: "My name is Ada", aiText: "Hi Ada" });
+    Assert.deepEqual(kept.map(m => m.text), [], "A message about yourself asks, but invented category facts are still dropped");
+    is(requests.filter(r => r.task == "memory").length, 1, "(that one did ask)");
+    is((await WhimsyAIMemory.list()).length, 0, "Nothing reached storage");
+  } finally {
+    WhimsyAIProviders.setTestProvider(null);
+    await clearAllMemories();
+  }
+});
+
+// 8c: the model is told what memory is, which memories it got, and what
+// this conversation saved, so it can answer questions about memory.
+add_task(async function w24_memory_question_prompt_lists_used_and_saved() {
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests));
+  await withChat(async ({ open, show, ask }) => {
+    await WhimsyAIMemory.save("Prefers dark mode");
+    await open("https://example.com/?memory-c");
+    await show();
+    await ask("I'm a pilot");
+    await ask("what did you just save to memory?");
+    const sent = requests.filter(r => r.task == "chat").at(-1);
+    ok(sent, "The memory question went to the model");
+    info(sent.system.split("\n").filter(l => /memor|^- /i.test(l)).join(" | "));
+    ok(/Whimsy has a memory/.test(sent.system), "The system prompt explains Whimsy's memory");
+    const usedBlock = sent.system.split("Memories given to you for this answer")[1]?.split("Saved to memory earlier")[0] ?? "";
+    ok(usedBlock.includes("- Prefers dark mode") && usedBlock.includes("- Is a pilot"), "...lists the memories it was given");
+    const savedBlock = sent.system.split("Saved to memory earlier in this conversation")[1] ?? "";
+    ok(savedBlock.includes("- Is a pilot"), "...and what this conversation saved");
+    ok(!savedBlock.includes("Prefers dark mode"), "...which is only this conversation's");
+    const answer = [...WhimsyChatPanel.forWindow(window).body.querySelectorAll(".whimsy-chat-msg[data-role='ai']")].at(-1);
+    ok(answer.querySelector("[data-action='used-memories']"), "The answer shows which memories it used");
+  });
+});
+
+// 8d: two different questions send two different user messages, and the
+// second answer is never the first one reused. One-shot providers (Apple)
+// get the new question set apart as the one to answer.
+add_task(async function w24_two_questions_two_messages_no_reuse() {
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests, request => request.lastUserText == "what website am i on" ? "Google" : `About memory: ${request.lastUserText}`));
+  await withChat(async ({ open, show, ask }) => {
+    await open("https://example.com/?memory-d");
+    await show();
+    const first = await ask("what website am i on");
+    const second = await ask("what have you saved to memory");
+    const chats = requests.filter(r => r.task == "chat");
+    is(chats.length, 2, "Two questions, two requests");
+    is(chats[0].lastUserText, "what website am i on", "The first sends the first question");
+    is(chats[1].lastUserText, "what have you saved to memory", "The second sends the second question");
+    is(chats[1].messages.filter(m => m.role == "user").length, 2, "...with the first kept as history");
+    ok(/The person's new message, the one to answer now:\nwhat have you saved to memory$/.test(chats[1].prompt),
+      "A one-shot provider reads the new question last, marked as the one to answer");
+    ok(chats[1].prompt.indexOf("Assistant: Google") < chats[1].prompt.indexOf("the one to answer now"), "...after the earlier answer");
+    ok(first.textContent.includes("Google"), "The first answer");
+    ok(second.textContent.includes("About memory: what have you saved to memory") && !second.textContent.includes("Google"),
+      "The second answer is its own, not the first reused");
+  });
+});
+
+// 8e: a tab whose text can't be read (a browser page) is still named, so
+// "what's on this tab" isn't answered "nothing".
+add_task(async function w24_browser_page_tab_is_named_in_the_prompt() {
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests));
+  await withChat(async ({ open, show, ask }) => {
+    const tab = await open("about:robots");
+    await TestUtils.waitForCondition(() => tab.label && tab.label != "about:robots", "The page has its title");
+    await show();
+    await ask("tell me what's on this tab");
+    const sent = requests.filter(r => r.task == "chat").at(-1);
+    ok(sent.system.includes("Address: about:robots"), "The prompt names the tab's address");
+    ok(sent.system.includes(`Page title: ${tab.label}`), `...and its title (${tab.label})`);
+    ok(/can't read/.test(sent.system), "...and says its text can't be read");
+  });
+});
+
+// ---- W24 memexpand (owner 2026-11-10, item 14) ----
+// "No made up memories. Also I should be able to expand to see the
+// memories." "Used N memories" and "Saved N facts" are disclosures,
+// collapsed by default, that list each memory by id, read fresh from the
+// store (never a stale cached snapshot). Saved facts are each removable.
+
+add_task(async function w24_memexpand_used_memories_lists_exact_and_keyboard() {
+  await clearAllMemories();
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests));
+  await withChat(async ({ open, show, ask }) => {
+    await WhimsyAIMemory.save("Prefers dark mode");
+    await WhimsyAIMemory.save("Works at Acme");
+    await open("https://example.com/?memexpand-used");
+    await show();
+    const answer = await ask("Does dark mode work at Acme?");
+    const used = answer.querySelector('[data-action="used-memories"]');
+    ok(used, "The answer shows Used N memories");
+    is(used.getAttribute("aria-expanded"), "false", "Collapsed by default");
+    const row = used.closest(".whimsy-chat-actions");
+    ok(!row.nextElementSibling?.matches(".whimsy-chat-memory-list"), "...and nothing is open yet");
+
+    used.focus();
+    EventUtils.synthesizeKey("KEY_Enter", {});
+    const box = await TestUtils.waitForCondition(() => row.nextElementSibling?.matches(".whimsy-chat-memory-list") && row.nextElementSibling, "Enter opens the list");
+    is(used.getAttribute("aria-expanded"), "true", "aria-expanded flips to true");
+    const texts = [...box.querySelectorAll("li .whimsy-chat-memory-text")].map(n => n.textContent).sort();
+    Assert.deepEqual(texts, ["Prefers dark mode", "Works at Acme"], "Exactly the memories used for this answer, by text");
+    ok(!box.querySelector(".whimsy-chat-chip-x"), "Used memories are read-only: no remove control");
+
+    EventUtils.synthesizeKey("KEY_Enter", {});
+    await TestUtils.waitForCondition(() => !row.nextElementSibling?.matches(".whimsy-chat-memory-list"), "Enter again folds it");
+    is(used.getAttribute("aria-expanded"), "false", "aria-expanded flips back to false");
+  });
+});
+
+add_task(async function w24_memexpand_used_memories_deleted_elsewhere_shows_gone() {
+  await clearAllMemories();
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests));
+  await withChat(async ({ open, show, ask }) => {
+    const a = await WhimsyAIMemory.save("Prefers dark mode");
+    const b = await WhimsyAIMemory.save("Works at Acme");
+    await open("https://example.com/?memexpand-used-gone");
+    await show();
+    const answer = await ask("Does dark mode work at Acme?");
+    const used = answer.querySelector('[data-action="used-memories"]');
+    ok(used, "The answer used both memories");
+
+    // Settings (or any other remove) deletes one before the list is opened.
+    await WhimsyAIMemory.remove(b.id, { block: false });
+
+    used.click();
+    const row = used.closest(".whimsy-chat-actions");
+    const box = await TestUtils.waitForCondition(() => row.nextElementSibling?.matches(".whimsy-chat-memory-list") && row.nextElementSibling, "The list opens");
+    const texts = [...box.querySelectorAll("li .whimsy-chat-memory-text")].map(n => n.textContent);
+    Assert.deepEqual(texts, [a.text], "The deleted one is left out, never shown with stale text");
+  });
+});
+
+add_task(async function w24_memexpand_saved_facts_list_and_remove_updates_count_and_hides_at_zero() {
+  await clearAllMemories();
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests));
+  await withChat(async ({ open, show, ask, cards }) => {
+    await open("https://example.com/?memexpand-saved");
+    await show();
+    await ask("I'm a pilot and I live in Austin");
+    is(cards().length, 1, "One save card");
+    const card = cards()[0];
+    const toggle = card.querySelector(".whimsy-chat-disclosure");
+    ok(toggle, "The save card is a disclosure");
+    is(toggle.getAttribute("aria-expanded"), "false", "Collapsed by default");
+
+    toggle.click();
+    const box = await TestUtils.waitForCondition(() => card.nextElementSibling?.matches(".whimsy-chat-memory-list") && card.nextElementSibling, "It expands in place");
+    is(toggle.getAttribute("aria-expanded"), "true", "aria-expanded flips to true");
+    let items = [...box.querySelectorAll("li")];
+    is(items.length, 2, "Exactly the saved facts for this answer");
+    const texts = items.map(li => li.querySelector(".whimsy-chat-memory-text").textContent).sort();
+    Assert.deepEqual(texts, ["Is a pilot", "Lives in Austin"], "...by text");
+    ok(items.every(li => li.querySelector(".whimsy-chat-chip-x")), "Each saved fact has its own remove control");
+    is((await WhimsyAIMemory.list()).length, 2, "Both are in the store");
+
+    // Remove the first row.
+    const removedText = items[0].querySelector(".whimsy-chat-memory-text").textContent;
+    items[0].querySelector(".whimsy-chat-chip-x").click();
+    await TestUtils.waitForCondition(async () => (await WhimsyAIMemory.list()).length == 1, "Removing deletes it via WhimsyAIMemory");
+    ok(!(await WhimsyAIMemory.list()).some(m => m.text == removedText), "...the removed fact specifically");
+    await TestUtils.waitForCondition(() => box.querySelectorAll("li").length == 1, "...and drops its row");
+    await TestUtils.waitForCondition(() => /1 fact/.test(toggle.textContent), `Updates to "Saved 1 fact" (${toggle.textContent})`);
+
+    // Remove the last row: the whole chip disappears.
+    items = [...box.querySelectorAll("li")];
+    items[0].querySelector(".whimsy-chat-chip-x").click();
+    await TestUtils.waitForCondition(async () => (await WhimsyAIMemory.list()).length == 0, "The last fact is removed too");
+    await TestUtils.waitForCondition(() => cards().length == 0, "At 0, the chip disappears");
+    ok(!box.isConnected, "...and its list goes with it");
+  });
+});
+
+add_task(async function w24_memexpand_saved_fact_deleted_in_settings_meanwhile_shows_gone() {
+  await clearAllMemories();
+  const requests = [];
+  WhimsyAIProviders.setTestProvider(eagerProvider(requests));
+  await withChat(async ({ open, show, ask, cards }) => {
+    await open("https://example.com/?memexpand-saved-gone");
+    await show();
+    await ask("I'm a pilot and I live in Austin");
+    const card = cards()[0];
+    const kept = (await WhimsyAIMemory.list()).find(m => m.text == "Is a pilot");
+    const goneId = (await WhimsyAIMemory.list()).find(m => m.text == "Lives in Austin").id;
+
+    // Settings deletes one fact before the person ever expands the chip.
+    await WhimsyAIMemory.remove(goneId, { block: false });
+
+    const toggle = card.querySelector(".whimsy-chat-disclosure");
+    toggle.click();
+    const box = await TestUtils.waitForCondition(() => card.nextElementSibling?.matches(".whimsy-chat-memory-list") && card.nextElementSibling, "It expands");
+    const texts = [...box.querySelectorAll("li .whimsy-chat-memory-text")].map(n => n.textContent);
+    Assert.deepEqual(texts, [kept.text], "Only the fact still in the store shows; the deleted one is gone, not stale text");
+  });
 });

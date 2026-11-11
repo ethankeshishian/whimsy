@@ -197,12 +197,25 @@ main {
 }
 
 .whimsy-home-tabs {
+  position: relative;
+  isolation: isolate;
   display: flex;
   gap: 2px;
   padding: 3px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--wh-text) 5%, transparent);
   border: 1px solid var(--wh-border);
+}
+
+#whimsy-tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  background: var(--wh-surface);
+  box-shadow: var(--wh-shadow-sm);
 }
 
 .whimsy-home-tab {
@@ -222,13 +235,32 @@ main {
   color: var(--wh-text);
 }
 
+.whimsy-home-tab:not([aria-selected="true"]):hover {
+  background: color-mix(in srgb, var(--wh-surface) 35%, transparent);
+}
+
 .whimsy-home-tab[aria-selected="true"] {
-  background: var(--wh-surface);
   color: var(--wh-text);
-  box-shadow: var(--wh-shadow-sm);
 }
 
 /* Panels */
+
+#whimsy-home main {
+  position: relative;
+}
+
+.wh-panel-ghost {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.wh-panel-ghost,
+.wh-panel-ghost * {
+  animation: none !important;
+  transition: none !important;
+}
 
 .whimsy-home-panel[hidden] {
   display: none;
@@ -867,11 +899,11 @@ main {
     transition: color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
   }
 
-  .whimsy-home-panel:not([hidden]) {
-    animation: wh-panel-in 320ms var(--wh-ease-out);
+  #whimsy-tab-indicator {
+    transition: transform 180ms var(--wh-ease-out), width 180ms var(--wh-ease-out);
   }
 
-  .wh-hero-copy > * {
+  .wh-home-entrance .wh-hero-copy > * {
     animation: wh-rise 700ms var(--wh-ease-out) backwards;
   }
 
@@ -884,20 +916,20 @@ main {
     animation-delay: 420ms;
   }
 
-  .wh-hero-sky {
+  .wh-home-entrance .wh-hero-sky {
     animation: wh-drift 4s ease-in-out 1 alternate;
   }
 
   /* On the wrapper, so ending a poke never replays the arrival. */
-  .wh-hero-art {
+  .wh-home-entrance .wh-hero-art {
     animation: wh-arrive 1100ms var(--wh-ease-out) backwards;
   }
 
-  .wh-balloon-svg {
+  .wh-home-entrance .wh-balloon-svg {
     animation: wh-bob 4s ease-in-out 1;
   }
 
-  .wh-balloon-string {
+  .wh-home-entrance .wh-balloon-string {
     animation: wh-sway 4s ease-in-out 1 alternate;
   }
 
@@ -905,7 +937,7 @@ main {
     animation: wh-poke 760ms var(--wh-ease-out);
   }
 
-  .wh-sparkle {
+  .wh-home-entrance .wh-sparkle {
     animation: wh-twinkle 2.5s ease-in-out 1;
   }
 
@@ -917,11 +949,11 @@ main {
     animation-delay: 2s;
   }
 
-  .wh-cloud-1 {
+  .wh-home-entrance .wh-cloud-1 {
     animation: wh-float-x 4s ease-in-out 1 alternate;
   }
 
-  .wh-cloud-2 {
+  .wh-home-entrance .wh-cloud-2 {
     animation: wh-float-x 4s ease-in-out 1 alternate-reverse;
   }
 
@@ -954,13 +986,6 @@ main {
 
   .wh-anchor {
     transition: opacity 150ms ease, color 150ms ease;
-  }
-}
-
-@keyframes wh-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
   }
 }
 

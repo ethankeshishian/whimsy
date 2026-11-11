@@ -34,6 +34,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionSaver: "moz-src:///browser/components/sessionstore/SessionSaver.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
+  WhimsyAnnotations: "resource:///modules/whimsy/WhimsyAnnotations.sys.mjs",
   WhimsyArchive: "resource:///modules/whimsy/WhimsyArchive.sys.mjs",
   WhimsyFormDrafts: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
@@ -41,6 +42,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.fire-button";
@@ -59,7 +62,7 @@ const RANGES = ["hour", "today", "week", "all"];
 // sign-ins, cache, form and search history, closed tabs and the Archive,
 // the download list), then the AI's own.
 const DEFAULT_ITEMS = {
-  tabs: true, history: true, cookies: true, cache: true, form: true, closed: true, downloads: false,
+  tabs: true, history: true, cookies: true, cache: true, form: true, closed: true, notes: false, downloads: false,
   aiChats: true, agentActivity: true, index: true, memory: false, routineResults: false,
 };
 const ITEM_IDS = Object.keys(DEFAULT_ITEMS);
@@ -416,6 +419,32 @@ export const WhimsyFireButton = {
     return lazy.Sanitizer.sanitize(items, { range });
   },
 
+  // Gecko empties the disk cache on its cache thread after cache2.clear()
+  // returns, so a Fire that resolved then could still find (and serve) the
+  // pages it said it erased. The disk-consumption callback waits for that
+  // eviction (CacheIndex holds it until the evictor is done). Capped, so a
+  // stuck cache thread can't hold the Fire button forever.
+  cacheCleared(cap = 10000) {
+    return new Promise(resolve => {
+      // The cache holds its observer weakly; the timer keeps this one alive.
+      const observer = {
+        QueryInterface: ChromeUtils.generateQI(["nsICacheStorageConsumptionObserver", "nsISupportsWeakReference"]),
+        onNetworkCacheDiskConsumption: () => done(),
+      };
+      const timer = lazy.setTimeout(() => observer && resolve(), cap);
+      const done = () => {
+        lazy.clearTimeout(timer);
+        resolve();
+      };
+      try {
+        Services.cache2.asyncGetDiskConsumption(observer);
+      } catch (e) {
+        // No disk cache index (disabled, or still building): nothing to wait for.
+        done();
+      }
+    });
+  },
+
   // Every profile's history visits since `since` (ms; null for all time).
   clearHistory(since) {
     return since == null
@@ -513,6 +542,9 @@ export const WhimsyFireButton = {
       if (names.length) {
         await this.sanitize(names, range);
       }
+      if (items.cache) {
+        await this.cacheCleared();
+      }
       if (items.history) {
         visitCount = -1; // Unknown exactly; the toast says "history" generically.
       }
@@ -576,6 +608,19 @@ export const WhimsyFireButton = {
     if (kinds.length) {
       await lazy.WhimsyAIStore.clear({ since, kinds });
     }
+    if (settings.items.notes) {
+      const spaceUuids = spaces.map(sp => sp.uuid).filter(Boolean);
+      const profileKeys = [
+        ...spaceUuids,
+        ...profiles.map(id => lazy.WhimsyProfiles.keyFor(id)),
+        "default",
+      ];
+      await lazy.WhimsyAnnotations.clearForFire({
+        since: since ?? 0,
+        allSpaces: !!settings.allSpaces,
+        profileIds: profileKeys,
+      });
+    }
     return {
       tabs: tabCount, visits: visitCount, sites: siteCount,
       profile: settings.allSpaces ? null : this.scopeName(win, settings),
@@ -597,6 +642,11 @@ export const WhimsyFireButton = {
     await this.purgeClosed(tab => (tab.entries ?? []).some(entry => siteOfURL(entry.url) == site));
     await lazy.ForgetAboutSite.removeDataFromBaseDomain(site);
     await lazy.WhimsyFormDrafts.forgetSite(site);
+    await lazy.WhimsyAnnotations.clearForFire({
+      since: 0,
+      allSpaces: true,
+      baseDomain: site,
+    });
     return { tabs: count };
   },
 
@@ -793,6 +843,8 @@ export const WhimsyFireButton = {
           current.items[id] = on;
           refresh();
         }, ITEM_DETAILS[id]);
+        r.row.dataset.item = id;
+        r.input.dataset.item = id;
         box.append(r.row);
       }
       itemsList.append(head.row, box);
@@ -1178,6 +1230,7 @@ export const WhimsyFireButton = {
       routineResults: "whimsy-fire-done-item-routineResults", downloads: "whimsy-fire-done-item-downloads",
       cookies: "whimsy-fire-done-item-cookies", cache: "whimsy-fire-done-item-cache",
       form: "whimsy-fire-done-item-form", closed: "whimsy-fire-done-item-closed",
+      notes: "whimsy-fire-done-item-notes",
     };
     for (const id of result.items ?? []) {
       // Counted sign-ins ("sign-ins on 18 sites") already say it.

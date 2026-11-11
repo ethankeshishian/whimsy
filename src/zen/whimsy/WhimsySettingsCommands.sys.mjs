@@ -90,7 +90,14 @@ export const SETTINGS = [
   { name: "screenshot-sidebar", setting: "whimsyScreenshotSidebarEnabled", pref: "whimsy.feature.screenshot-sidebar" },
   { name: "menu-icons", setting: "whimsyMenuIcons", pref: "whimsy.look.menu-icons", feature: ["menu-icons"] },
   { name: "reading-time", setting: "whimsyReadingTime", pref: "whimsy.reader.reading-time", feature: ["reading-time"] },
-  { name: "dark-pdf", setting: "whimsyDarkPdf", pref: "whimsy.pdf.dark", feature: ["dark-pdf"],
+  { name: "dark-pages", setting: "whimsyDarkPagesMode", pref: "whimsy.dark-pages.mode", feature: ["dark-pages"],
+    choices: [
+      { value: "off", l10nId: "whimsy-dark-pages-off" },
+      { value: "match", l10nId: "whimsy-dark-pages-match" },
+      { value: "always", l10nId: "whimsy-dark-pages-always" },
+    ] },
+  { name: "dim-images", setting: "whimsyDarkPagesDimImages", pref: "whimsy.dark-pages.dim-images", feature: ["dark-pages"] },
+  { name: "dark-pdf", when: () => !featureOn("dark-pages"), setting: "whimsyDarkPdf", pref: "whimsy.pdf.dark", feature: ["dark-pdf"],
     command: ["cmd_whimsyToggleDarkPdf"] },
   { name: "find-card", setting: "whimsyFindCard", pref: "whimsy.feature.find-card", feature: ["find-card"] },
   { name: "ui-font", setting: "whimsyUiFont", pref: "whimsy.look.ui-font", feature: ["ui-font"],
@@ -229,6 +236,10 @@ export const SETTINGS = [
       { value: 90, l10nId: "whimsy-ai-activity-days-90" },
       { value: 0, l10nId: "whimsy-ai-activity-days-forever" },
     ] },
+  // W23 memory-fire: Settings › AI › Memory.
+  { name: "ai-memory", setting: "whimsyAIMemory", pref: "whimsy.ai.memory", feature: ["ai-memory"], when: aiAllowed },
+  { name: "memory-search", setting: "whimsyMemorySearch", covers: "#whimsyMemoryList", feature: ["ai-memory"],
+    when: aiAllowed, exempt: "a search of the saved memories, and each memory's own edit field, not settings" },
 
   // About
   { name: "update-channel", setting: "whimsyUpdatesChannel", pref: "whimsy.update-channel",
@@ -262,6 +273,12 @@ export const SETTINGS = [
     feature: ["video-captions"] },
   { name: "video-speech-captions", setting: "whimsyVideoSpeechCaptions", pref: "whimsy.feature.video-speech-captions",
     feature: ["video-speech-captions"] },
+  // W23 video: Summarize and picture-in-picture at the top right of videos.
+  { name: "video-top-buttons", setting: "whimsyVideoTopButtons", pref: "whimsy.video.top-buttons",
+    feature: ["ai-video-summary"] },
+  // W23 voice-image: dictation by holding Fn (macOS speech).
+  { name: "dictation-hold-fn", setting: "whimsyDictationHoldFn", pref: "whimsy.dictation.hold-fn",
+    feature: ["dictation"], when: mac },
   { name: "playlist-offline", setting: "whimsyPlaylistOffline", pref: "whimsy.playlist.offline-download",
     feature: ["playlist"] },
   { name: "archive-prompt", setting: "whimsyArchivePrompt", pref: "whimsy.archive.prompt", feature: ["wayback"] },

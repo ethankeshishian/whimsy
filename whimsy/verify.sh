@@ -3,13 +3,16 @@
 # screenshots of the real window to $WHIMSY_SHOTS (default .surfer/shots).
 #   sh whimsy/verify.sh          everything
 #   sh whimsy/verify.sh quick    Whimsy tests + screenshots only
-#   sh whimsy/verify.sh gate     the updater's gate: Whimsy tests must pass;
-#                                a failing Zen test file gets one retry
+#   sh whimsy/verify.sh gate     the updater's gate; also retries Zen's failing
+#                                test files once
+# A failing Whimsy test file gets one retry in every mode. A file that passes
+# on retry is listed in .surfer/verify/flaky.txt for the next wave to fix.
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH" _ZO_DOCTOR=0
 export WHIMSY_SHOTS="${WHIMSY_SHOTS:-$PWD/.surfer/shots}"
 MODE="${1:-all}"
 rm -rf "$WHIMSY_SHOTS" && mkdir -p "$WHIMSY_SHOTS" .surfer/verify
+: > .surfer/verify/flaky.txt
 # The sandbox read path must be the src/ the engine links into: in a
 # worktree, engine/ is a symlink to the main checkout's engine.
 ROOT=$(cd "$(dirname "$(cd engine && pwd -P)")" && pwd -P)
@@ -42,8 +45,8 @@ run() { # run <name> <paths...>
   fi
 }
 
-# Zen's suites: retry each failing test file once, so one flaky test can't
-# block an update but a real breakage still does.
+# Retry each failing test file once, so one flaky test can't block an update
+# but a real breakage still does.
 run_with_retry() { # run_with_retry <name> <path>
   if run "$1" "$2"; then return 0; fi
   # A missing summary, empty run, or crash is not a flaky test failure.
@@ -62,6 +65,7 @@ run_with_retry() { # run_with_retry <name> <path>
   for f in $retry_files; do
     if run "$1-retry-$(basename "$f" .js)" "$f"; then
       echo "  $f passed on retry (flaky)"
+      echo "$f" >> .surfer/verify/flaky.txt
     else
       bad="$bad $f"
     fi
@@ -92,10 +96,49 @@ wait_for_foreground() { # wait_for_foreground <name>
   done
 }
 
-run whimsy zen/whimsy/tests || status=1
+# Guard: a Whimsy test that triggers a real download must land it in a
+# temp folder it cleans up itself, never the person's actual Downloads
+# folder (browser_whimsy_private_followups.js left 173 whimsy-slow.bin
+# files there before useTempDownloadDir() existed). Resolve the folder the
+# way macOS does, not a hard-coded path: iCloud Drive can mirror it at a
+# CloudDocs path (this Mac does), and that's what "path to downloads
+# folder" and Firefox's own downloads code both return.
+downloads_dir() {
+  osascript -e 'POSIX path of (path to downloads folder)' 2>/dev/null | sed 's:/*$::'
+}
+DOWNLOADS_DIR=$(downloads_dir)
+if [ -n "$DOWNLOADS_DIR" ] && [ -d "$DOWNLOADS_DIR" ]; then
+  LC_ALL=C ls -A "$DOWNLOADS_DIR" 2>/dev/null | LC_ALL=C sort > .surfer/verify/downloads-before.txt
+fi
+
+run_with_retry whimsy zen/whimsy/tests || status=1
 # Native-event tests need a visible window; run just those headed.
 wait_for_foreground whimsy-native &&
 (WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js zen/whimsy/tests/browser_whimsy_native_services.js zen/whimsy/tests/browser_whimsy_arc_menu_keys_native.js) || status=1
+
+if [ -n "$DOWNLOADS_DIR" ] && [ -d "$DOWNLOADS_DIR" ] && [ -f .surfer/verify/downloads-before.txt ]; then
+  LC_ALL=C ls -A "$DOWNLOADS_DIR" 2>/dev/null | LC_ALL=C sort > .surfer/verify/downloads-after.txt
+  LC_ALL=C comm -13 .surfer/verify/downloads-before.txt .surfer/verify/downloads-after.txt > .surfer/verify/downloads-new.txt
+  # Names a .sjs in the tests dir hands out via Content-Disposition, plus
+  # the plain whimsy-* pattern every fixture's own name follows.
+  grep -ho 'filename="\{0,1\}[^";]*' src/zen/whimsy/tests/*.sjs 2>/dev/null | sed -E 's/^filename="?//' | LC_ALL=C sort -u > .surfer/verify/downloads-fixtures.txt
+  leaked=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in
+      whimsy-*) leaked="$leaked
+$f" ;;
+      *) grep -qxF "$f" .surfer/verify/downloads-fixtures.txt && leaked="$leaked
+$f" ;;
+    esac
+  done < .surfer/verify/downloads-new.txt
+  if [ -n "$leaked" ]; then
+    echo "whimsy: the suite left test fixture(s) in the real Downloads folder ($DOWNLOADS_DIR):"
+    echo "$leaked"
+    status=1
+  fi
+fi
+
 if [ "$MODE" = "all" ] || [ "$MODE" = "gate" ]; then
   if [ "$MODE" = "gate" ]; then
     run_with_retry zen-tabs zen/tests/tabs || status=1

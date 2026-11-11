@@ -369,7 +369,9 @@ add_task(async function quota_wait_dimmed_clears() {
   let out = true;
   answer = () => {
     if (out) {
-      throw Object.assign(new WhimsyAIError("plan-limit"), { until: Date.now() + 300 });
+      // A moment after the routines' clock, not the real one: MONDAY is a
+      // fixed date, so a real "now" an hour past it outlasted the next tick.
+      throw Object.assign(new WhimsyAIError("plan-limit"), { until: clock + 300 });
     }
     return "Recap ready\n\nThree projects moved.";
   };

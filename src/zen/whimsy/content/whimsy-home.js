@@ -57,12 +57,104 @@ function currentTabFromLocation() {
   }
 }
 
+let selectedTab = null;
+let panelFade = null;
+
+function positionTabIndicator() {
+  const button = document.getElementById(`whimsy-tab-${selectedTab}`);
+  if (!button) {
+    return;
+  }
+  const indicator = document.getElementById("whimsy-tab-indicator");
+  indicator.style.width = `${button.offsetWidth}px`;
+  indicator.style.height = `${button.offsetHeight}px`;
+  indicator.style.transform = `translate(${button.offsetLeft}px, ${button.offsetTop}px)`;
+}
+
+function finishPanelFade() {
+  if (panelFade) {
+    panelFade.incoming.cancel();
+    panelFade.outgoing.cancel();
+    panelFade.ghost.remove();
+    panelFade = null;
+  }
+}
+
+// Only a non-interactive visual copy fades out. The real outgoing panel is
+// hidden immediately, so accessibility and keyboard navigation switch at once.
+function copyOutgoingPanel(panel) {
+  const ghost = panel.cloneNode(true);
+  ghost.className = "wh-panel-ghost";
+  ghost.removeAttribute("role");
+  ghost.removeAttribute("aria-labelledby");
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.inert = true;
+  // Keep SVG paint references working without introducing duplicate IDs.
+  const ids = new Map();
+  for (const node of [ghost, ...ghost.querySelectorAll("[id]")]) {
+    if (node.id) {
+      ids.set(node.id, `wh-fade-${node.id}`);
+      node.id = ids.get(node.id);
+    }
+  }
+  for (const node of [ghost, ...ghost.querySelectorAll("*")]) {
+    for (const attr of [...node.attributes]) {
+      let value = attr.value.replace(/url\(#([^)]+)\)/g, (match, id) =>
+        ids.has(id) ? `url(#${ids.get(id)})` : match
+      );
+      if (value.startsWith("#") && ids.has(value.slice(1))) {
+        value = `#${ids.get(value.slice(1))}`;
+      }
+      if (value != attr.value) {
+        node.setAttribute(attr.name, value);
+      }
+    }
+  }
+  panel.parentNode.appendChild(ghost);
+  return ghost;
+}
+
 function selectTab(tab, { fromUser = false } = {}) {
+  const changed = selectedTab != null && selectedTab != tab;
+  if (selectedTab == tab) {
+    return;
+  }
+  finishPanelFade();
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const outgoing = changed && !reduced
+    ? copyOutgoingPanel(document.getElementById(`whimsy-panel-${selectedTab}`))
+    : null;
+  if (changed) {
+    // First-load decoration must never restart when display:none is removed.
+    document.documentElement.classList.remove("wh-home-entrance");
+  } else if (selectedTab == null && tab == "home") {
+    document.documentElement.classList.add("wh-home-entrance");
+  }
+  selectedTab = tab;
   for (const name of TABS) {
     const button = document.getElementById(`whimsy-tab-${name}`);
     button.setAttribute("aria-selected", String(name == tab));
     button.tabIndex = name == tab ? 0 : -1;
     document.getElementById(`whimsy-panel-${name}`).hidden = name != tab;
+  }
+  positionTabIndicator();
+  if (outgoing) {
+    const incoming = document.getElementById(`whimsy-panel-${tab}`).animate(
+      [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" }
+    );
+    const fade = {
+      ghost: outgoing,
+      incoming,
+      outgoing: outgoing.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: 160, easing: "ease-out", fill: "forwards",
+      }),
+    };
+    panelFade = fade;
+    fade.outgoing.finished.then(() => {
+      if (panelFade == fade) {
+        finishPanelFade();
+      }
+    }, () => {});
   }
   try {
     // about: URLs may only change their fragment. Leave a URL that already
@@ -80,6 +172,11 @@ function selectTab(tab, { fromUser = false } = {}) {
 
 function initTabs() {
   for (const button of document.querySelectorAll(".whimsy-home-tab")) {
+    button.addEventListener("pointerdown", event => {
+      if (event.isPrimary && event.button == 0) {
+        selectTab(button.dataset.tab, { fromUser: true });
+      }
+    });
     button.addEventListener("click", () => selectTab(button.dataset.tab, { fromUser: true }));
     button.addEventListener("keydown", event => {
       if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
@@ -102,6 +199,20 @@ function initTabs() {
   window.addEventListener("popstate", follow);
   window.addEventListener("hashchange", follow);
   selectTab(currentTabFromLocation());
+  // Localization, font loading, zoom, and resizing can all change tab widths.
+  const observer = new ResizeObserver(positionTabIndicator);
+  for (const button of document.querySelectorAll(".whimsy-home-tab")) {
+    observer.observe(button);
+  }
+  window.addEventListener("pagehide", () => {
+    observer.disconnect();
+    finishPanelFade();
+  }, { once: true });
+  window.matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", event => {
+    if (event.matches) {
+      finishPanelFade();
+    }
+  });
 }
 
 // "1.24b-w2-dev.74" -> "v1-24b-w2-dev-74"; "Unreleased" -> "unreleased".

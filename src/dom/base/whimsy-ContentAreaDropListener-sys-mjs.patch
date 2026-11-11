@@ -1,0 +1,36 @@
+diff --git a/dom/base/ContentAreaDropListener.sys.mjs b/dom/base/ContentAreaDropListener.sys.mjs
+--- a/dom/base/ContentAreaDropListener.sys.mjs
++++ b/dom/base/ContentAreaDropListener.sys.mjs
+@@ -126,7 +126,32 @@
+   _getDropLinks(dt) {
+     let links = [];
+     for (let i = 0; i < dt.mozItemCount; i++) {
++      const firstLink = links.length;
+       this._addLinksFromItem(links, dt, i);
++      if (!Services.prefs.getBoolPref("whimsy.feature.image-drop", true)) {
++        continue;
++      }
++      // Preserve image identity across RemoteDropLinks (which has no event).
++      // Use transferable data in both queryLinks and dropLinks so the parent's
++      // verification sees exactly the same types as the receiving child.
++      const types = dt.mozTypesAt(i);
++      const file = dt.files?.[i];
++      const imageFile = file?.type.startsWith("image/");
++      const imageURL =
++        types.contains("application/x-moz-file-promise-url") &&
++        (imageFile || types.contains("application/x-moz-nativeimage"))
++          ? dt.mozGetDataAt("application/x-moz-file-promise-url", i)
++          : null;
++      for (let j = firstLink; j < links.length; j++) {
++        const link = links[j];
++        if (
++          link.url == imageURL ||
++          (imageFile && file.mozFullPath &&
++            link.url == PathUtils.toFileURI(file.mozFullPath))
++        ) {
++          link.type = "image/*";
++        }
++      }
+     }
+     return links;
+   },
