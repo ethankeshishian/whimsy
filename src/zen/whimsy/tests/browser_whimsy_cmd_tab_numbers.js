@@ -50,8 +50,12 @@ async function assertShortcutTargets() {
     // With content focused, Firefox waits for the remote key reply before
     // executing its <key>. Observe the real command even when a short list
     // clamps several digits to the tab that is already selected.
+    // Capture is required: mainKeyset's handler passes the command event
+    // to selectTabAtIndex, which stops propagation before document's bubble
+    // listener can see it. waitForEvent resolves on a later main-thread turn,
+    // after that handler has selected the tab.
     const keyId = digit == 9 ? "key_selectLastTab" : `key_selectTab${digit}`;
-    const commanded = BrowserTestUtils.waitForEvent(document, "command", false,
+    const commanded = BrowserTestUtils.waitForEvent(document, "command", true,
       event => event.target.id == keyId);
     EventUtils.synthesizeKey(String(digit), { metaKey: true });
     ok(!showing(), "A digit hides the badges immediately");
