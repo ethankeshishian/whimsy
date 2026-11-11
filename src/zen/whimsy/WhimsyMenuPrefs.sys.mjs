@@ -326,6 +326,8 @@ const MENUS = [
       // W10-20: off by default.
       item("select-all", "whimsy-menus-select-all", ["context-selectall"]),
       SEPARATOR,
+      item("highlight", "whimsy-annotations-context-highlight", ["context-whimsy-highlight"]),
+      item("add-note", "whimsy-annotations-context-add-note", ["context-whimsy-add-note"]),
       item("note", "whimsy-menus-selection-note", ["context-whimsy-verb-note"]),
       // W10-20: Quick Actions ▸ (macOS's own name for "do this in another
       // app"), with each row naming the app. WhimsyVerbs builds it; a

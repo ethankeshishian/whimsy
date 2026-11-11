@@ -16,6 +16,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAIReader.sys.mjs",
     "WhimsyAITabs.sys.mjs",
     "WhimsyAlreadyOpen.sys.mjs",
+    "WhimsyAnnotations.sys.mjs",
+    "WhimsyAnnotationsChild.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
     "WhimsyArchive.sys.mjs",
     "WhimsyArchiveMenu.sys.mjs",

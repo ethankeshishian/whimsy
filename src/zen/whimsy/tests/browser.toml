@@ -1169,3 +1169,6 @@ support-files = ["whimsy_secfix2_codes.html"]
 ["browser_whimsy_dark_pages.js"]
 support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
 ["browser_whimsy_mcp_approval.js"]
+# W24 annotations: page highlights in four colors, passage notes, one note per page, revisit cue, Fire, private browsing.
+["browser_whimsy_annotations.js"]
+

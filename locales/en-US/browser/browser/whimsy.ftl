@@ -6670,6 +6670,7 @@ whimsy-fire-item-cache = Cache
 whimsy-fire-item-form = Form and search history
 whimsy-fire-item-form-detail = every profile
 whimsy-fire-item-closed = Closed tabs and Archive
+whimsy-fire-item-notes = Notes and highlights
 whimsy-fire-item-aiChats = AI chats, including research reports
 whimsy-fire-item-agentActivity = Agent activity
 whimsy-fire-item-index = Related pages’ index
@@ -6790,6 +6791,7 @@ whimsy-fire-done-item-cookies = sign-ins and site data
 whimsy-fire-done-item-cache = the cache
 whimsy-fire-done-item-form = form and search history
 whimsy-fire-done-item-closed = closed tabs and the Archive
+whimsy-fire-done-item-notes = notes and highlights
 whimsy-fire-done-nothing = Nothing to erase
 ## W23 agent-chat: the agent in chat (mode, plan, run card, steps, pauses, notices, end of task)
 
@@ -7898,3 +7900,48 @@ whimsy-mcp-expired = The approval prompt wasn't answered in time. Retry the acti
 whimsy-mcp-unavailable = No browser window can show the approval prompt. Open a normal Whimsy window, and retry the action.
 whimsy-mcp-denied = The person denied approval to go to { $host }.
 whimsy-mcp-invalid-page = Use limit 1–100, a nonnegative integer cursor, a string query, and an integer windowId.
+## W24 annotations: page highlights in four colors and one editable note per page.
+## Mockup: docs/superpowers/mockups/w24/02-annotations.html.
+
+whimsy-annotations-context-highlight =
+    .label = Highlight
+whimsy-annotations-context-add-note =
+    .label = Add Note…
+
+whimsy-verb-highlight = Highlight
+whimsy-verb-highlight-yellow = Highlight Yellow
+whimsy-verb-highlight-green = Highlight Green
+whimsy-verb-highlight-blue = Highlight Blue
+whimsy-verb-highlight-pink = Highlight Pink
+whimsy-verb-annotate = Add Note…
+
+whimsy-annotations-urlbar-button =
+    .tooltiptext = Notes and highlights on this page
+    .aria-label = Notes and highlights on this page
+
+whimsy-annotations-popover-title = Highlight & note
+whimsy-annotations-panel-title = Notes & highlights
+whimsy-annotations-panel-heading = Notes & highlights
+whimsy-annotations-open-in-notes = Open in Notes
+whimsy-annotations-color-label = Highlight color
+whimsy-annotations-note-placeholder =
+    .placeholder = Write a note about this passage…
+whimsy-annotations-page-note-placeholder =
+    .placeholder = Write a note for this page…
+whimsy-annotations-highlights-label = Highlights
+whimsy-annotations-no-highlights = No highlights on this page yet.
+whimsy-annotations-return-hint = Return to save
+whimsy-annotations-remove-highlight = Remove
+whimsy-annotations-cancel = Cancel
+whimsy-annotations-save = Save
+whimsy-annotations-edit-item = Edit note
+whimsy-annotations-delete-item = Remove
+whimsy-annotations-clear-page = Clear page
+whimsy-annotations-done = Done
+
+# $color (String) - the highlight color name, e.g. "Yellow"
+whimsy-annotations-toast-highlighted = Highlighted in { $color }
+whimsy-annotations-toast-note-saved = Note saved
+whimsy-annotations-toast-removed = Highlight removed
+whimsy-annotations-toast-note-deleted = Note deleted
+

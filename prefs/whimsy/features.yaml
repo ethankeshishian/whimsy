@@ -678,6 +678,9 @@
 - name: whimsy.feature.command-bar-vpn-strip
   value: true
 
+- name: whimsy.feature.annotations
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

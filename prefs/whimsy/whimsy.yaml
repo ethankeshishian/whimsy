@@ -893,3 +893,7 @@
 
 - name: whimsy.dark-pages.offered
   value: false
+# W24 annotations: last highlight color chosen ("yellow", "green", "blue", "pink").
+- name: whimsy.annotations.color
+  value: "yellow"
+
