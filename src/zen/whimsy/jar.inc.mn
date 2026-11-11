@@ -265,3 +265,6 @@
         content/browser/whimsy/whimsy-dictation.css (../../zen/whimsy/content/whimsy-dictation.css)
 # W23 page-act: the chat card, the page bar, the translation choice, and the scam warning
         content/browser/whimsy/whimsy-page-act.css (../../zen/whimsy/content/whimsy-page-act.css)
+# W24 dark pages
+        content/browser/whimsy/icons/moon.svg (../../zen/whimsy/content/icons/moon.svg)
+        content/browser/whimsy/whimsy-settings-dark-pages.js (../../zen/whimsy/content/whimsy-settings-dark-pages.js)

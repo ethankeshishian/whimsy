@@ -371,6 +371,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 // wave9: W9-04 site settings ("This Site" in Zen's site panel).
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyDarkPages: "resource:///modules/whimsy/WhimsyDarkPages.sys.mjs",
   WhimsySiteSettings: "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs",
 });
 
@@ -398,6 +399,30 @@ export const Whimsy = {
       return;
     }
     this._actorsRegistered = true;
+    lazy.WhimsyDarkPages.init();
+    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
+        events: {
+          DOMDocElementInserted: {},
+          StyleSheetApplicableStateChanged: {},
+          StyleRuleAdded: {},
+          StyleRuleRemoved: {},
+          StyleRuleChanged: {},
+          DOMContentLoaded: {},
+          pageshow: {},
+          pagehide: {},
+          beforeprint: {},
+          afterprint: {},
+          load: { capture: true },
+        },
+      },
+      matches: ["http://*/*", "https://*/*"],
+      allFrames: false,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
     ChromeUtils.registerWindowActor("WhimsyPage", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageParent.sys.mjs" },
       child: {
@@ -723,6 +748,7 @@ export const Whimsy = {
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
+    run("dark-pages", () => lazy.WhimsyDarkPages.initWindow(win));
     // batch6: split view extras; each action checks its own switch.
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).

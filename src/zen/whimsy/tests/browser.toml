@@ -19,6 +19,9 @@ prefs = [
   "whimsy.ai.enabled=true",
   "whimsy.ai.memory=false",
   "whimsy.feature.ai-related=false",
+  # Adaptive conversion is exercised explicitly by its own file; other
+  # feature fixtures keep their authored colors and do not consume its toast.
+  "whimsy.feature.dark-pages=false",
   "whimsy.privateLock.askDismissals.tabs=2",
   "whimsy.privateLock.askDismissals.space=2",
   "whimsy.privateLock.askDismissals.windows=2",
@@ -1159,3 +1162,6 @@ support-files = ["whimsy_secfix_late_scam.html", "whimsy_secfix_scam_frame.html"
 support-files = ["whimsy_secfix_inject.html", "whimsy_secfix2_links.html", "whimsy_secfix2_redirect.sjs"]
 ["browser_whimsy_secfix2_page.js"]
 support-files = ["whimsy_secfix2_codes.html"]
+
+["browser_whimsy_dark_pages.js"]
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
