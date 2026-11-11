@@ -93,6 +93,73 @@ HOTFIXES = [
                "    if (browsingContext[field] !== value) {",
     },
     {
+        "id": "extension-window-initial-space",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Choose an extension window's space before initial-tab placement and isolation, "
+               "including explicit stores and site rules.",
+        "old": '    let promise = this.#initializeWorkspaces();',
+        "new": '    const extra = window.arguments?.[1];\n'
+               '    if (extra instanceof Ci.nsIPropertyBag2 && extra.hasKey("whimsy-extension-space")) {\n'
+               '      const initial = gBrowserInit.uriToLoadPromise;\n'
+               '      const uri = Array.isArray(initial) ? initial[0] : initial;\n'
+               '      const route = gZenSpaceRoutingManager.routeUri(uri, { fromExternal: false });\n'
+               '      const target = route === "most-recent-space"\n'
+               '        ? extra.getPropertyAsAString("whimsy-extension-space") : route;\n'
+               '      if (this.getWorkspaceFromId(target)) {\n'
+               '        this.activeWorkspace = target;\n'
+               '      }\n'
+               '    }\n'
+               '    let promise = this.#initializeWorkspaces();',
+    },
+    {
+        "id": "extension-window-startup-first-url",
+        "file": "src/zen/space-routing/ZenSpaceRoutingManager.sys.mjs",
+        "why": "An extension window may load a list of URLs; its initial tab is the first one.",
+        "old": '    const uriString = win.gBrowserInit.uriToLoadPromise;',
+        "new": '    const initial = win.gBrowserInit.uriToLoadPromise;\n'
+               '    const uriString = Array.isArray(initial) ? initial[0] : initial;',
+    },
+    {
+        "id": "extension-window-startup-routing",
+        "file": "src/zen/space-routing/ZenSpaceRoutingManager.sys.mjs",
+        "why": "Extension windows honor site rules, but not the default route for outside apps.",
+        "old": '      !extraOptions.hasKey("fromExternal") ||\n'
+               '      !extraOptions.getPropertyAsBool("fromExternal")',
+        "new": '      !((extraOptions.hasKey("fromExternal") &&\n'
+               '         extraOptions.getPropertyAsBool("fromExternal")) ||\n'
+               '        (extraOptions.hasKey("whimsy-extension-window") &&\n'
+               '         extraOptions.getPropertyAsBool("whimsy-extension-window")))',
+    },
+    {
+        "id": "extension-window-startup-route-type",
+        "file": "src/zen/space-routing/ZenSpaceRoutingManager.sys.mjs",
+        "why": "Keep extension windows distinct from OS/external links when choosing the startup rule.",
+        "old": '    const targetRoute = this.routeUri(uriString, { fromExternal: true });',
+        "new": '    const fromExternal = extraOptions.hasKey("fromExternal") &&\n'
+               '      extraOptions.getPropertyAsBool("fromExternal");\n'
+               '    const targetRoute = this.routeUri(uriString, { fromExternal });',
+    },
+    {
+        "id": "extension-tabs-current-space",
+        "file": "src/zen/spaces/ZenSpaceManager.mjs",
+        "why": "Extension account tabs inherit the active profile instead of container 0, "
+               "which isolation otherwise sends to its first matching space. Explicit stores remain explicit.",
+        "old": '      triggeringPrincipal.isAddonOrExpandedAddonPrincipal &&\n'
+               '      typeof userContextId === "undefined"\n'
+               '    ) {\n'
+               '      return [userContextId, false, undefined];\n'
+               '    }',
+        "new": '      triggeringPrincipal.isAddonOrExpandedAddonPrincipal &&\n'
+               '      typeof userContextId === "undefined"\n'
+               '    ) {\n'
+               '      const active = this.getActiveWorkspaceFromCache();\n'
+               '      if (active) {\n'
+               '        return [this.#spaceContainerId(active), true, undefined];\n'
+               '      }\n'
+               '      return [userContextId, false, undefined];\n'
+               '    }',
+    },
+    {
         "id": "spaces-recreate-missing-empty-tab",
         "file": "src/zen/spaces/ZenSpaceManager.mjs",
         "why": "A removed empty-tab sentinel leaves no close-selection fallback. "

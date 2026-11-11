@@ -699,6 +699,11 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
 
+# W24 passkey 2: page-world password-manager interception across profiles,
+# windows, frames, CSP, document_start and private-browsing permission.
+["browser_whimsy_passkey_extension.js"]
+support-files = ["whimsy_passkey_extension.sjs", "whimsy_passkey_extension_page.js"]
+
 # wave7/focus: paste guard (detector, sheet Cancel/Esc/Paste, ordinary text, card field, command, switches).
 ["browser_whimsy_paste_guard.js"]
 # wave7/teach: Teach once (shows once, Esc/close/tab switch dismiss, never reappears, switches, shortcut retires it, Reset Tips, registry).

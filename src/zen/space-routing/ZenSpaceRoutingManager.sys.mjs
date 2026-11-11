@@ -167,20 +167,25 @@ class nsZenSpaceRoutingManager {
     const extraOptions = win.arguments?.[1];
     if (
       !(extraOptions instanceof Ci.nsIPropertyBag2) ||
-      !extraOptions.hasKey("fromExternal") ||
-      !extraOptions.getPropertyAsBool("fromExternal")
+      !((extraOptions.hasKey("fromExternal") &&
+         extraOptions.getPropertyAsBool("fromExternal")) ||
+        (extraOptions.hasKey("whimsy-extension-window") &&
+         extraOptions.getPropertyAsBool("whimsy-extension-window")))
     ) {
       return null;
     }
 
     // Resolved synchronously for anything but the homepage, which is never
     // an external link.
-    const uriString = win.gBrowserInit.uriToLoadPromise;
+    const initial = win.gBrowserInit.uriToLoadPromise;
+    const uriString = Array.isArray(initial) ? initial[0] : initial;
     if (typeof uriString != "string") {
       return null;
     }
 
-    const targetRoute = this.routeUri(uriString, { fromExternal: true });
+    const fromExternal = extraOptions.hasKey("fromExternal") &&
+      extraOptions.getPropertyAsBool("fromExternal");
+    const targetRoute = this.routeUri(uriString, { fromExternal });
     return targetRoute === "most-recent-space" ? null : targetRoute;
   }
 
