@@ -271,13 +271,28 @@ add_task(async function new_chat_and_title() {
   is(part(".whimsy-chat-head-title").textContent, tab.label, "An empty chat takes the tab's title");
   is(parts(".whimsy-chat-suggest button").length, 3, "with three suggestions");
   const suggestion = parts(".whimsy-chat-suggest button")[0];
+  const suggestionText = suggestion.textContent;
+  const before = calls.length;
+  // W24 complete suggestions send on click. Let that answer finish before
+  // following up, just as send() waits before the next composer interaction.
   EventUtils.synthesizeMouseAtCenter(suggestion, {});
-  is(chat().composer.value, suggestion.textContent, "A suggestion fills the composer");
-  is(calls.filter(c => c.request.lastUserText == suggestion.textContent).length, 0, "and doesn't send");
-  chat().composer.value = "";
+  await TestUtils.waitForCondition(
+    () => parts(".whimsy-chat-msg[data-role='ai']").some(m => !m.hasAttribute("busy") && m.textContent.includes("Answer to " + suggestionText)),
+    "The suggestion's answer streamed in"
+  );
+  is(calls.length, before + 1, "A suggestion sends exactly one request");
+  is(calls.at(-1).request.lastUserText, suggestionText, "The request contains the suggestion's text");
+  is(chat().composer.value, "", "Sending the suggestion clears the composer");
+  const firstThreadId = chat().thread.id;
   await send("first");
+  is(chat().thread.id, firstThreadId, "A follow-up stays in the suggestion's chat");
+  Assert.deepEqual(
+    (await WhimsyAIStore.messages(firstThreadId)).filter(m => m.role == "user").map(m => m.text),
+    [suggestionText, "first"],
+    "The first chat stores both the suggestion and its follow-up"
+  );
   EventUtils.synthesizeMouseAtCenter(part("#whimsy-chat-new-button"), {});
-  await TestUtils.waitForCondition(() => !parts(".whimsy-chat-msg").length, "New chat starts empty");
+  await TestUtils.waitForCondition(() => chat().ready && !parts(".whimsy-chat-msg").length, "New chat starts empty");
   is(document.activeElement, chat().composer, "with focus in the composer");
   await send("second");
   const threads = await WhimsyAIStore.threads({ tabKey: WhimsyAIContext.tabKey(tab) });
