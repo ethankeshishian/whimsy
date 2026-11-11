@@ -7,6 +7,8 @@
 // Threads, Hacker News), resting on a link to another site is enough. The
 // parent (WhimsyAIPage) checks the switches again, fetches and draws.
 
+import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
+
 const PREF = "whimsy.feature.link-previews";
 // W10-28: Settings → AI's Enable AI (WhimsyAI.PREF).
 const AI_ENABLED_PREF = "whimsy.ai.enabled";
@@ -106,7 +108,9 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       return false;
     }
     const token = (this.passageToken = (this.passageToken ?? 0) + 1);
-    const behavior = reduced ? "instant" : "smooth";
+    // Hidden documents need no motion, and may never receive animation frames.
+    const animate = !reduced && !win.document.hidden;
+    const behavior = animate ? "smooth" : "instant";
     const rect = range.getBoundingClientRect();
     const target = Math.max(0, Math.min(win.scrollMaxY, win.scrollY + rect.top - win.innerHeight / 3));
     let moved = false;
@@ -116,9 +120,9 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     } else {
       const el = range.startContainer.nodeType == 1 ? range.startContainer : range.startContainer.parentElement;
       el?.scrollIntoView({ block: "center", behavior });
-      moved = !reduced;
+      moved = animate;
     }
-    if (moved && !reduced) {
+    if (moved && animate) {
       await new Promise(resolve => {
         const done = () => {
           win.clearTimeout(timer);
@@ -138,14 +142,9 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       const fixed = Math.max(0, Math.min(win.scrollMaxY, win.scrollY + landed));
       if (Math.abs(fixed - win.scrollY) > 8) {
         win.scrollTo({ top: fixed, behavior: "instant" });
-        // Its scroll event fires on the next frame; the tint must not take it as the reader's.
-        await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
-        if (token != this.passageToken || !this.contentWindow) {
-          return false;
-        }
       }
     }
-    this.paintPassage(win, range, String(color || "AccentColor"), reduced);
+    this.paintPassage(win, range, String(color || "AccentColor"), !animate);
     return true;
   }
 
@@ -176,15 +175,30 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       }
     };
     const token = this.passageToken;
+    let frame = 0;
+    let finishTimer = 0;
     const clear = () => {
+      win.cancelAnimationFrame(frame);
+      clearTimeout(finishTimer);
       if (name) {
         highlights.delete(name);
         name = null;
       }
       win.removeEventListener("scroll", onScroll, true);
     };
-    const onScroll = () => {
-      if (this.passageToken == token) {
+    // Scroll events are queued. Snapshot the landing position and install
+    // the listener synchronously, so the arrival's delayed events are harmless
+    // and the reader's next scroll cannot fall into a frame-sized gap.
+    const positions = new Map([[win.document, [win.scrollX, win.scrollY]]]);
+    for (let el = range.startContainer.nodeType == 1 ? range.startContainer : range.startContainer.parentElement;
+         el; el = el.parentElement) {
+      positions.set(el, [el.scrollLeft, el.scrollTop]);
+    }
+    const onScroll = event => {
+      const target = event.target == win ? win.document : event.target;
+      const before = positions.get(target);
+      const after = target == win.document ? [win.scrollX, win.scrollY] : [target.scrollLeft, target.scrollTop];
+      if (this.passageToken == token && (!before || before[0] != after[0] || before[1] != after[1])) {
         this.clearPassage();
       }
     };
@@ -202,17 +216,20 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
         const want = 32 - 14 * eased;
         show(LEVELS.reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a)));
         if (t < 1) {
-          win.requestAnimationFrame(step);
+          frame = win.requestAnimationFrame(step);
         }
       };
       step(start);
+      // Motion is cosmetic: a window hidden mid-ease must still reach the
+      // final tint on its original deadline, without needing another frame.
+      finishTimer = setTimeout(() => {
+        if (this.passageToken == token) {
+          win.cancelAnimationFrame(frame);
+          show(LEVELS.at(-1));
+        }
+      }, TINT_MS);
     }
-    // The arrival's own last scroll events have fired by the next frame.
-    win.requestAnimationFrame(() => {
-      if (this.passageToken == token) {
-        win.addEventListener("scroll", onScroll, { capture: true, passive: true });
-      }
-    });
+    win.addEventListener("scroll", onScroll, { capture: true, passive: true });
   }
 
   clearPassage() {
