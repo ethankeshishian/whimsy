@@ -21,8 +21,7 @@
 // still renames it. Today tabs keep the page's own title, and a name the
 // person typed is never touched.
 //
-// Both only run once the chosen AI provider is set up, and stop with the
-// AI kill switch.
+// Grouping needs AI. Titles also have a deterministic offline fallback.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -45,7 +44,6 @@ const MENU_ID = "whimsy-tidy-header-menu";
 // Node.DOCUMENT_POSITION_FOLLOWING (no Node global in a system module).
 const Node_FOLLOWING = 4;
 const TITLE_CACHE_MAX = 300;
-const MIN_TITLE_LENGTH = 24;
 
 const TIDY_SYSTEM =
   "You organize a person's open browser tabs into a few topic sections, like Arc's Tidy Tabs. " +
@@ -73,7 +71,7 @@ export const WhimsyAITabs = {
     if (windows.has(win)) {
       return;
     }
-    const state = { renderQueued: false };
+    const state = { renderQueued: false, titleRequests: new WeakMap(), waitingTitles: new WeakSet() };
     windows.set(win, state);
     // wave5: the broom on the Today line, as a command for the current space.
     ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
@@ -93,7 +91,23 @@ export const WhimsyAITabs = {
     }
     container.addEventListener("TabOpen", event => this.onTabOpen(win, event.target));
     container.addEventListener("TabMove", event => this.onTabMove(win, event.target));
-    container.addEventListener("TabPinned", event => this.onTabPinned(event.target));
+    // Capture on the window: Essentials and folder tabs can live outside
+    // the normal strip. Defer until Zen has finished moving/pinning the tab.
+    const pinned = event => {
+      const tab = event.detail?.tab ?? event.target;
+      win.queueMicrotask(() => this.onTabPinned(tab));
+    };
+    win.addEventListener("TabPinned", pinned, true);
+    win.addEventListener("TabAddedToEssentials", pinned, true);
+    win.addEventListener("TabUnpinned", event => {
+      state.titleRequests.delete(event.target);
+      state.waitingTitles.delete(event.target);
+    }, true);
+    win.addEventListener("TabAttrModified", event => {
+      if (state.waitingTitles.has(event.target) && event.detail.changed.some(attr => ["label", "busy"].includes(attr))) {
+        this.onTabPinned(event.target);
+      }
+    }, true);
     container.addEventListener("SSTabRestoring", event => this.restoreSection(win, event.target));
     win.addEventListener("ZenWorkspacesUIUpdate", render);
     win.addEventListener("TabSelect", render);
@@ -602,8 +616,8 @@ export const WhimsyAITabs = {
       "(the product, person, document or topic); drop site names, separators, counters and filler " +
       "unless the site name is all there is.\n" +
       `Title: ${title.slice(0, 200)}\nSite: ${host}`;
-    const text = await lazy.WhimsyAIProviders.complete({ system: TITLE_SYSTEM, prompt, maxTokens: 40, signal });
-    const short = cleanName(text.split("\n")[0], 40);
+    const text = await lazy.WhimsyAIProviders.complete({ task: "quick-text", system: TITLE_SYSTEM, prompt, maxTokens: 40, signal });
+    const short = cleanName(text.split("\n")[0], 28).split(" ").slice(0, 4).join(" ");
     const result = short && short.length < title.length ? short : null;
     titleCache.set(key, result);
     if (titleCache.size > TITLE_CACHE_MAX) {
@@ -613,38 +627,69 @@ export const WhimsyAITabs = {
   },
 
   // Arc's Tidy Tab Titles: a tab being pinned gets a short name.
-  onTabPinned(tab) {
-    const win = tab.ownerDocument.defaultView;
-    const rulesOn = Services.prefs.getBoolPref(TITLES_PREF, true);
-    if (!windows.has(win) || !rulesOn || tab.zenStaticLabel || tab.hasAttribute("zen-essential")) {
+  async onTabPinned(tab) {
+    const win = tab?.documentGlobal;
+    const state = windows.get(win);
+    if (!state || tab.localName != "tab" || !tab.pinned || tab.closing ||
+        !Services.prefs.getBoolPref(TITLES_PREF, true) || tab.zenStaticLabel ||
+        tab.hasAttribute("zen-empty-tab") || tab.hasAttribute("zen-glance-tab") ||
+        state.titleRequests.has(tab)) {
       return;
     }
-    const title = tab.label;
+    const uri = tab.linkedBrowser?.currentURI;
+    if (!uri || !/^https?$/.test(uri.scheme)) {
+      state.waitingTitles.add(tab);
+      return;
+    }
+    const title = tab.label || "";
+    if (!title.trim() || title == uri.spec || tab.hasAttribute("busy")) {
+      state.waitingTitles.add(tab);
+      return;
+    }
+    state.waitingTitles.delete(tab);
+    const request = {};
+    state.titleRequests.set(tab, request);
+    const spec = uri.spec;
     const apply = short => {
       // Unpinned, renamed by hand or navigated while we asked: leave it.
-      if (short && tab.pinned && !tab.closing && !tab.zenStaticLabel && tab.label == title && Services.prefs.getBoolPref(TITLES_PREF, true)) {
+      if (short && state.titleRequests.get(tab) == request && tab.isConnected &&
+          tab.pinned && !tab.closing && !tab.zenStaticLabel && tab.label == title &&
+          tab.linkedBrowser.currentURI.spec == spec &&
+          !tab.querySelector(".tab-label-container-editing") &&
+          Services.prefs.getBoolPref(TITLES_PREF, true)) {
         tab.zenStaticLabel = short;
-        tab.ownerDocument.defaultView.gBrowser._setTabLabel(tab, short, { _zenChangeLabelFlag: true });
+        win.gBrowser._setTabLabel(tab, short, { _zenChangeLabelFlag: true });
+        tab.setAttribute("whimsy-title-tidied", "true");
       }
     };
-    const uri = tab.linkedBrowser?.currentURI;
-    // wave6/parity: Arc's fixed rules first (no AI needed, so they work
-    // with the AI kill switch on); the AI rename only where none applies.
-    const ruled = uri ? lazy.WhimsyTidyTitles.tidy(uri, title) : null;
-    if (ruled) {
-      apply(ruled);
-      return;
+    const ruled = lazy.WhimsyTidyTitles.tidy(uri, title);
+    const fallback = ruled ?? lazy.WhimsyTidyTitles.heuristic(uri, title);
+    try {
+      // Private titles stay local, even if a mixed provider order could route
+      // a nominally local request to a cloud provider on failure.
+      if (ruled || !this.titlesEnabled || lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser)) {
+        apply(fallback);
+      } else if (await lazy.WhimsyAIProviders.isReady()) {
+        if (tab.closing || !tab.isConnected || !tab.pinned || tab.zenStaticLabel ||
+            tab.label != title || tab.linkedBrowser.currentURI.spec != spec ||
+            !this.titlesEnabled || !Services.prefs.getBoolPref(TITLES_PREF, true) ||
+            state.titleRequests.get(tab) != request) {
+          apply(fallback);
+          return;
+        }
+        const short = await this.shortTitleFor(tab);
+        apply(this.titlesEnabled ? short || fallback : fallback);
+      } else {
+        apply(fallback);
+      }
+    } catch (error) {
+      console.debug("Whimsy: tidy tab title; using local title", error);
+      apply(fallback);
+    } finally {
+      if (state.titleRequests.get(tab) == request) {
+        state.titleRequests.delete(tab);
+      }
     }
-    if (!this.titlesEnabled || !uri || !/^https?$/.test(uri.scheme) || (tab.label || "").length < MIN_TITLE_LENGTH) {
-      return;
-    }
-    if (lazy.WhimsyAIProviders.isCloud && lazy.PrivateBrowsingUtils.isBrowserPrivate(tab.linkedBrowser)) {
-      return;
-    }
-    lazy.WhimsyAIProviders.isReady()
-      .then(ready => (ready ? this.shortTitleFor(tab) : null))
-      .then(apply)
-      .catch(error => console.debug("Whimsy: tidy tab title", error));
   },
 
   showError(win, error) {

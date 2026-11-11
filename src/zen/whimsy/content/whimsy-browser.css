@@ -16,6 +16,18 @@
   --whimsy-dur-exit: 180ms;
 }
 
+/* A quiet reveal when pinning gives a tab its tidy name. */
+@media (prefers-reduced-motion: no-preference) {
+  .tabbrowser-tab[whimsy-title-tidied] .tab-label {
+    animation: whimsy-title-tidied var(--whimsy-dur-base) var(--whimsy-ease);
+  }
+}
+
+@keyframes whimsy-title-tidied {
+  from { opacity: 0.4; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Interface zoom (whimsy.ui-zoom). Everything around the web page is zoomed:
    the sidebar, the top toolbar, Firefox's sidebar panel, the find bar, menus
    and panels. Web pages keep their own zoom, so nothing that holds a page is

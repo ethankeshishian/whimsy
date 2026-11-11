@@ -1,6 +1,23 @@
 diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/components/tabbrowser/Tabbrowser.sys.mjs
 --- a/browser/components/tabbrowser/Tabbrowser.sys.mjs
 +++ b/browser/components/tabbrowser/Tabbrowser.sys.mjs
+@@ -2661,7 +2661,7 @@
+   setInitialTabTitle(
+     aTab,
+     aTitle,
+-    { beforeTabOpen, isContentTitle, isURL } = {}
++    { beforeTabOpen, isContentTitle, isURL, _zenChangeLabelFlag } = {}
+   ) {
+     // Convert some non-content title (actually a url) to human readable title
+     if (!isContentTitle && this.documentGlobal.isBlankPageURL(aTitle)) {
+@@ -2677,6 +2677,7 @@
+         beforeTabOpen,
+         isContentTitle,
+         isURL,
++        _zenChangeLabelFlag,
+       });
+     }
+   }
 @@ -4149,7 +4149,7 @@
              lazyBrowserURI.spec,
              t.userContextId,
