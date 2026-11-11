@@ -203,6 +203,198 @@ add_task(async function profiles_pins_essentials_and_new_profile() {
   await intercepted(normal.linkedBrowser, "Return after profile/space switch");
 });
 
+add_task(async function extension_account_tabs_stay_in_the_invoking_space() {
+  // Both containers are unique to one space: this exercises the actual
+  // force-container-workspace branch, rather than mocking the space manager.
+  const accountSpaces = [];
+  for (const name of ["Account A", "Account B"]) {
+    const profile = WhimsyProfiles.create(name);
+    profiles.push(profile);
+    const space = await gZenWorkspaces.createAndSaveWorkspace(name, undefined, true, profile);
+    spaces.push(space);
+    accountSpaces.push(space);
+  }
+  const [a, b] = accountSpaces;
+  const httpAccount = PAGE.replace("https:", "http:") + "?account=one";
+  const mock = ExtensionTestUtils.loadExtension({
+    manifest: {
+      permissions: ["tabs", "cookies", "contextualIdentities"],
+      content_scripts: [{
+        matches: ["http://example.com/*"], js: ["account-content.js"],
+        run_at: "document_start", world: "MAIN",
+      }],
+    },
+    background() {
+      browser.test.onMessage.addListener(async (operation, properties) => {
+        try {
+          let tab;
+          let accountURL;
+          if (operation == "update") {
+            const { id, ...update } = properties;
+            accountURL = update.url;
+            tab = await browser.tabs.update(id, update);
+          } else {
+            const { account, ...create } = properties;
+            if (account == "two") {
+              create.url = browser.runtime.getURL("account-two.html");
+            }
+            accountURL = create.url;
+            if (operation == "window") {
+              const { active, ...options } = create;
+              const win = await browser.windows.create(options);
+              tab = win.tabs[0];
+            } else {
+              tab = await browser.tabs.create(create);
+            }
+          }
+          browser.test.sendMessage("account-result", { ...tab, accountURL });
+        } catch (error) {
+          browser.test.sendMessage("account-result", { error: error.message });
+        }
+      });
+    },
+    files: {
+      "account-two.html": "<!doctype html><title>Second account sign in</title><p>Sign in</p>",
+      "account-content.js": "window.accountContentScript = location.href;",
+    },
+  });
+  await mock.startup();
+  const { ExtensionParent } = ChromeUtils.importESModule("resource://gre/modules/ExtensionParent.sys.mjs");
+  const { tabTracker } = ExtensionParent.apiManager.global;
+  const originalRoutes = gZenSpaceRoutingManager.getAllRoutes;
+  // Isolate this regression from the test profile's saved site rules. The
+  // last case supplies a rule through the real routing matcher/dispatcher.
+  let rules = [];
+  gZenSpaceRoutingManager.getAllRoutes = () => rules;
+  await SpecialPowers.pushPrefEnv({ set: [["zen.workspaces.force-container-workspace", true]] });
+  async function request(operation, properties) {
+    mock.sendMessage(operation, properties);
+    const result = await mock.awaitMessage("account-result");
+    Assert.ok(!result.error, result.error || "Extension API succeeded");
+    const tab = tabTracker.getTab(result.id);
+    tabs.add(tab);
+    if (operation == "window") {
+      windows.add(tab.ownerGlobal);
+      await TestUtils.waitForCondition(() => tab.ownerGlobal.gZenStartup?.isReady,
+        "Extension window initialized");
+    }
+    await loaded(tab.linkedBrowser, result.accountURL);
+    return { tab, result };
+  }
+  async function stays(space, properties, expectedProfile = space.containerTabId) {
+    await gZenWorkspaces.changeWorkspace(space);
+    await newTab(PAGE, space.containerTabId);
+    const switches = [];
+    const onSwitch = () => switches.push(gZenWorkspaces.activeWorkspace);
+    Services.prefs.addObserver("zen.workspaces.active", onSwitch);
+    try {
+      const opened = await request("create", { active: true, ...properties });
+      is(opened.tab.getAttribute("zen-workspace-id"), space.uuid, "Account tab belongs to invoking space");
+      is(opened.tab.userContextId, expectedProfile, "Account tab uses the expected profile");
+      is(gZenWorkspaces.activeWorkspace, space.uuid, "Opening an account leaves the active space unchanged");
+      Assert.deepEqual(switches, [], "No transient space jump while opening the account");
+      return opened;
+    } finally {
+      Services.prefs.removeObserver("zen.workspaces.active", onSwitch);
+    }
+  }
+  try {
+    // These fail without the fix: the add-on-principal early return leaves
+    // userContextId undefined, so Gecko creates both accounts in container 0.
+    for (const force of [false, true]) {
+      await SpecialPowers.pushPrefEnv({ set: [["zen.workspaces.force-container-workspace", force]] });
+      try {
+        for (const space of [a, b]) {
+          const web = await stays(space, { url: httpAccount });
+          is(await SpecialPowers.spawn(web.tab.linkedBrowser, [], () =>
+            content.wrappedJSObject.accountContentScript), httpAccount,
+          "All Profiles content script runs in each space's HTTP account page");
+          const own = await stays(space, { account: "two" });
+          ok(own.result.accountURL.startsWith("moz-extension://"), "Second account is the extension's own page");
+          is(own.result.cookieStoreId, `firefox-container-${space.containerTabId}`, "Returned store matches the space profile");
+        }
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+
+    // Firefox API parity: an explicit store must keep that cookie jar. Arc's
+    // profile invariant means it belongs in a B space, never B's cookies in A.
+    await gZenWorkspaces.changeWorkspace(a);
+    await newTab(PAGE, a.containerTabId);
+    const explicit = await request("create", {
+      url: httpAccount, active: true, cookieStoreId: `firefox-container-${b.containerTabId}`,
+    });
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == b.uuid &&
+      explicit.tab.getAttribute("zen-workspace-id") == b.uuid, "Explicit B store opens in B's space");
+    is(explicit.tab.userContextId, b.containerTabId, "Explicit B request keeps its profile");
+    is(explicit.result.cookieStoreId, `firefox-container-${b.containerTabId}`, "Explicit cookie store is honored");
+
+    // Reuse preserves the existing document's profile and space. A background
+    // update doesn't focus it; active:true intentionally selects it (Firefox's
+    // tabs.update contract) and therefore reveals its original space in Zen.
+    const existing = await stays(b, { url: httpAccount });
+    await gZenWorkspaces.changeWorkspace(a);
+    await newTab(PAGE, a.containerTabId);
+    await request("update", { id: existing.result.id, url: httpAccount + "&reuse=background", active: false });
+    is(gZenWorkspaces.activeWorkspace, a.uuid, "Background reuse does not switch spaces");
+    await request("update", { id: existing.result.id, url: httpAccount + "&reuse=active", active: true });
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == b.uuid &&
+      gBrowser.selectedTab == existing.tab, "Explicit activation reveals the existing account tab");
+    is(existing.tab.getAttribute("zen-workspace-id"), b.uuid, "Reuse never moves the existing tab");
+    is(existing.tab.userContextId, b.containerTabId, "Reuse never changes its cookie jar");
+
+    for (const properties of [
+      { url: httpAccount },
+      { account: "two", type: "popup" },
+      { url: httpAccount, cookieStoreId: `firefox-container-${b.containerTabId}` },
+    ]) {
+      await SimpleTest.promiseFocus(window);
+      await gZenWorkspaces.changeWorkspace(a);
+      const opened = await request("window", properties);
+      const win = opened.tab.ownerGlobal;
+      try {
+        if (win.gZenWorkspaces.workspaceEnabled) {
+          await TestUtils.waitForCondition(() => win.gZenWorkspaces.activeWorkspace ==
+            (properties.cookieStoreId ? b.uuid : a.uuid), "Window shows the requested profile's space");
+        }
+        is(opened.tab.userContextId, properties.cookieStoreId ? b.containerTabId : a.containerTabId,
+          "Extension window inherits profile unless a store was explicitly requested");
+      } finally {
+        await BrowserTestUtils.closeWindow(win);
+      }
+    }
+
+    // A user rule wins even over an explicit third profile (Default), which
+    // differs from both the source A and the destination B.
+    rules = [{ reference: "account=one", matchType: "contains", openIn: b.uuid }];
+    await gZenWorkspaces.changeWorkspace(a);
+    await newTab(PAGE, a.containerTabId);
+    const routed = await request("create", {
+      url: httpAccount, active: true, cookieStoreId: "firefox-default",
+    });
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == b.uuid, "User site rule wins");
+    is(routed.tab.getAttribute("zen-workspace-id"), b.uuid, "Rule selected destination space");
+    is(routed.tab.userContextId, b.containerTabId, "Rule selected destination profile");
+    await SimpleTest.promiseFocus(window);
+    await gZenWorkspaces.changeWorkspace(a);
+    const routedWindow = await request("window", {
+      url: httpAccount, cookieStoreId: "firefox-default",
+    });
+    try {
+      await TestUtils.waitForCondition(() => routedWindow.tab.ownerGlobal.gZenWorkspaces.activeWorkspace == b.uuid,
+        "User rule routes the extension's initial window tab");
+      is(routedWindow.tab.userContextId, b.containerTabId, "Window's initial tab uses the rule's profile");
+    } finally {
+      await BrowserTestUtils.closeWindow(routedWindow.tab.ownerGlobal);
+    }
+  } finally {
+    gZenSpaceRoutingManager.getAllRoutes = originalRoutes;
+    await SpecialPowers.popPrefEnv();
+    await mock.unload();
+  }
+});
+
 add_task(async function glance_mini_and_mini_profile_switch() {
   await gZenWorkspaces.changeWorkspace(workSpace);
   const parent = await newTab(PAGE, workSpace.containerTabId);

@@ -1,6 +1,36 @@
 diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/components/tabbrowser/Tabbrowser.sys.mjs
 --- a/browser/components/tabbrowser/Tabbrowser.sys.mjs
 +++ b/browser/components/tabbrowser/Tabbrowser.sys.mjs
+@@ -828,6 +828,18 @@
+       }
+     }
+
++    // Whimsy: a window opened by an extension inherits its source profile,
++    // but a user site rule takes precedence over that or an explicit store.
++    if (!tabArgument && extraOptions?.hasKey("whimsy-extension-window") &&
++        extraOptions.getPropertyAsBool("whimsy-extension-window")) {
++      const routedContext = this.documentGlobal.gZenSpaceRoutingManager
++        .getStartupUserContextId(this.documentGlobal);
++      if (typeof routedContext === "number") {
++        userContextId = routedContext;
++        zenHasDefaultUserContextId = true;
++      }
++    }
++
+     if (openWindowInfo) {
+       userContextId = openWindowInfo.originAttributes.userContextId;
+     }
+@@ -4037,7 +4037,9 @@
+
+     let hasZenDefaultUserContextId = false;
+     let zenForcedWorkspaceId = undefined;
+-    if (beforeRouteResult.isRouteFound && this.documentGlobal.gZenSpaceRoutingManager.shouldUseRouteContainer(userContextId, fromExternal, this.documentGlobal)) {
++    // Whimsy: user site rules also override an extension's explicit cookie store.
++    if (beforeRouteResult.isRouteFound && (triggeringPrincipal.isAddonOrExpandedAddonPrincipal ||
++        this.documentGlobal.gZenSpaceRoutingManager.shouldUseRouteContainer(userContextId, fromExternal, this.documentGlobal))) {
+       userContextId = beforeRouteResult.userContextId;
+       hasZenDefaultUserContextId = true;
+     } else if (typeof this.documentGlobal.gZenWorkspaces !== "undefined" && !_forZenEmptyTab) {
 @@ -4149,7 +4149,7 @@
              lazyBrowserURI.spec,
              t.userContextId,

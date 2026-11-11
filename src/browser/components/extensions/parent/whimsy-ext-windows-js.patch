@@ -1,0 +1,47 @@
+diff --git a/browser/components/extensions/parent/ext-windows.js b/browser/components/extensions/parent/ext-windows.js
+--- a/browser/components/extensions/parent/ext-windows.js
++++ b/browser/components/extensions/parent/ext-windows.js
+@@ -370,8 +370,19 @@
+             createData.type !== null && createData.type != "normal";
+
+           let extraOptions = null;
++          // Whimsy: windows.create has no tab opener. Inherit the source profile.
++          const whimsySource = windowTracker.getTopNormalWindow(context);
++          const whimsySpace = !createData.incognito && createData.tabId === null &&
++            whimsySource?.gZenWorkspaces?.workspaceEnabled &&
++            whimsySource.gZenWorkspaces.getActiveWorkspaceFromCache();
++          if (whimsySpace) {
++            extraOptions = Cc["@mozilla.org/hash-property-bag;1"]
++              .createInstance(Ci.nsIWritablePropertyBag2);
++            extraOptions.setPropertyAsBool("whimsy-extension-window", true);
++            extraOptions.setPropertyAsAString("whimsy-extension-space", whimsySpace.uuid);
++          }
+           if (isPopup) {
+-            extraOptions = Cc[
++            extraOptions ||= Cc[
+               "@mozilla.org/hash-property-bag;1"
+             ].createInstance(Ci.nsIWritablePropertyBag2);
+             extraOptions.setPropertyAsBool("web-extension-popup-window", true);
+@@ -392,7 +403,22 @@
+               createData.incognito
+             );
+
++            if (whimsySpace) {
++              const candidates = whimsySource.gZenWorkspaces.getWorkspaces().filter(
++                space => (space.containerTabId || 0) === userContextIdSupports.data
++              );
++              const target = candidates.find(space => space.uuid === whimsySpace.uuid) || candidates[0];
++              if (target) {
++                extraOptions.setPropertyAsAString("whimsy-extension-space", target.uuid);
++              }
++            }
+             args.appendElement(userContextIdSupports); // userContextId
++          } else if (whimsySpace) {
++            // Inheriting the profile requires no cookies permission.
++            const whimsyContext = Cc["@mozilla.org/supports-PRUint32;1"]
++              .createInstance(Ci.nsISupportsPRUint32);
++            whimsyContext.data = whimsySpace.containerTabId || 0;
++            args.appendElement(whimsyContext);
+           } else {
+             args.appendElement(null);
+           }
