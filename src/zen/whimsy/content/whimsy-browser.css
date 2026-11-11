@@ -7610,3 +7610,42 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     outline: 1px solid currentColor;
   }
 }
+
+/* W24: decorative Command-hold numbers. Unread-badge metrics, link-hint
+   accent/contrast colors, and the tab audio indicator's quiet treatment. */
+.tabbrowser-tab .tab-content:has(> .whimsy-tab-number) {
+  position: relative;
+}
+.whimsy-tab-number {
+  position: absolute;
+  inset-inline-end: 28px; /* Leave the close button's hit area clear. */
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 3;
+  min-width: 16px;
+  height: 16px;
+  padding-inline: 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  font: 600 10px/16px -apple-system, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+  background: var(--whimsy-tab-number-bg, var(--zen-primary-color));
+  color: var(--whimsy-tab-number-ink, CanvasText);
+  box-shadow: 0 0 0 1.5px var(--zen-main-browser-background, Canvas);
+  pointer-events: none;
+  opacity: 0;
+  @media (prefers-reduced-motion: no-preference) {
+    transition: opacity var(--whimsy-dur-fast) var(--whimsy-ease);
+  }
+}
+:root[whimsy-tab-numbers] .whimsy-tab-number {
+  opacity: 1;
+}
+/* Icon-only tabs: outside the favicon, like the unread/audio corner badge.
+   This doesn't set any of compact mode's hover or expansion attributes. */
+:is(.tabbrowser-tab[zen-essential], :root:not([zen-sidebar-expanded="true"]) .tabbrowser-tab) .whimsy-tab-number {
+  inset-inline-start: calc(50% + 10px);
+  inset-inline-end: auto;
+}
