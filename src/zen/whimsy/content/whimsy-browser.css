@@ -1903,10 +1903,30 @@ tab[whimsy-devmode][selected] {
 }
 
 /* B: Scope follows the native status card and can be chosen while off. */
+#PanelUI-ipprotection:has(ipprotection-content[whimsy-vpn-layout]) {
+  --whimsy-vpn-section-gap: var(--space-medium);
+  display: flex;
+  flex-direction: column;
+  gap: var(--whimsy-vpn-section-gap);
+  padding: var(--whimsy-vpn-section-gap) var(--space-small);
+}
+#PanelUI-ipprotection:has(ipprotection-content[whimsy-vpn-layout]) > .panel-header {
+  padding: 0;
+  min-height: 0;
+
+  > h1 {
+    margin: 0;
+    text-align: start;
+  }
+}
 .whimsy-vpn-panel-section {
   display: flex;
   flex-direction: column;
   /* The native panel view owns the inset; its wrapper owns section gaps. */
+  padding: 0;
+}
+.whimsy-vpn-panel-group {
+  /* Align the caption and segmented control with the other section edges. */
   padding: 0;
 }
 .whimsy-vpn-scope-heading {
