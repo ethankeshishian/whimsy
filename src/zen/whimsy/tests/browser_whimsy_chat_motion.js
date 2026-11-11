@@ -39,9 +39,17 @@ async function closeChat() {
   }
 }
 
-// The same easing can be serialized with different whitespace (a custom
-// property keeps the author's line breaks; Animation.easing doesn't).
-const easing = value => String(value).replace(/\s+/g, " ").replace(/\(\s/g, "(").replace(/\s\)/g, ")").replace(/\s*,\s*/g, ", ").trim();
+// The same easing can be serialized differently: a custom property keeps the
+// author's line breaks and float noise (7.000000000000001%), while
+// Animation.easing rounds to six significant digits. Compare the values.
+const easing = value =>
+  String(value)
+    .replace(/\s+/g, " ")
+    .replace(/\(\s/g, "(")
+    .replace(/\s\)/g, ")")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi, n => String(Number(Number(n).toPrecision(5))))
+    .trim();
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
