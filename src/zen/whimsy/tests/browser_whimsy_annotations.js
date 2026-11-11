@@ -57,9 +57,14 @@ const ARTICLE_HTML = `
 
 async function loadArticle(browser, html = ARTICLE_HTML) {
   await SpecialPowers.spawn(browser, [html], contentHtml => {
-    content.document.open();
-    content.document.write(contentHtml);
-    content.document.close();
+    // document.write() uses the caller's principal; the SpecialPowers
+    // sandbox cannot open a web document's parser. Import a parsed fixture
+    // into the existing document so its URL and actor remain unchanged.
+    const doc = content.document;
+    const parsed = new content.DOMParser().parseFromString(contentHtml, "text/html");
+    doc.documentElement.replaceChildren(
+      ...Array.from(parsed.documentElement.children, node => doc.importNode(node, true))
+    );
   });
   await WhimsyAnnotations.restoreForBrowser(browser, {
     url: browser.currentURI.spec,

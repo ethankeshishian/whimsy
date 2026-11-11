@@ -92,6 +92,49 @@ function originalState(tab) {
     locationChange: tab.linkedBrowser.lastLocationChange };
 }
 
+async function dragWithNativeSessions(sourceBrowser, targetBrowser, params) {
+  const { MockRegistrar } = ChromeUtils.importESModule(
+    "resource://testing-common/MockRegistrar.sys.mjs"
+  );
+  const service = Cc["@mozilla.org/widget/dragservice;1"].getService(Ci.nsIDragService);
+  const dragController = service.getMockDragController();
+  const mock = dragController.mockDragService;
+  const previous = mock.neverAllowSessionIsSynthesizedForTests;
+  const registration = MockRegistrar.register("@mozilla.org/widget/dragservice;1", mock);
+  const changed = [];
+  try {
+    // Match Firefox's browser_dragdrop_impl.js: the modern mock controller
+    // needs native sessions in the parent AND content. Otherwise dragstart
+    // fires, but the legacy synthesized session never invokes the parent.
+    mock.neverAllowSessionIsSynthesizedForTests = true;
+    for (const browser of [sourceBrowser, targetBrowser]) {
+      const old = await SpecialPowers.spawn(browser, [], () => {
+        const drag = SpecialPowers.Cc["@mozilla.org/widget/dragservice;1"]
+          .getService(SpecialPowers.Ci.nsIDragService);
+        const value = drag.neverAllowSessionIsSynthesizedForTests;
+        drag.neverAllowSessionIsSynthesizedForTests = true;
+        return value;
+      });
+      changed.push({ browser, old });
+    }
+    await EventUtils.synthesizeMockDragAndDrop({ ...params, dragController });
+  } finally {
+    try {
+      // Reverse order also restores correctly when both browsers share a process.
+      for (const { browser, old } of changed.reverse()) {
+        await SpecialPowers.spawn(browser, [old], value => {
+          SpecialPowers.Cc["@mozilla.org/widget/dragservice;1"]
+            .getService(SpecialPowers.Ci.nsIDragService)
+            .neverAllowSessionIsSynthesizedForTests = value;
+        });
+      }
+    } finally {
+      mock.neverAllowSessionIsSynthesizedForTests = previous;
+      MockRegistrar.unregister(registration);
+    }
+  }
+}
+
 add_task(async function image_file_opens_next_selected_tab() {
   const original = await openFileDropPage();
   const state = originalState(original);
@@ -140,7 +183,7 @@ async function dragWebImage(imageAsFile) {
     });
     const count = gBrowser.tabs.length;
     const opened = BrowserTestUtils.waitForNewTab(gBrowser, DROP_IMAGE, true);
-    await EventUtils.synthesizeMockDragAndDrop({
+    await dragWithNativeSessions(sourceBrowser, original.linkedBrowser, {
       sourceBrowsingCxt: sourceBrowser.browsingContext,
       targetBrowsingCxt: original.linkedBrowser.browsingContext,
       srcElement: "dragImage",

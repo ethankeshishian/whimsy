@@ -1167,6 +1167,39 @@ support-files = ["whimsy_secfix_inject.html", "whimsy_secfix2_links.html", "whim
 support-files = ["whimsy_secfix2_codes.html"]
 
 ["browser_whimsy_dark_pages.js"]
+head = "head.js head_whimsy_dark_pages.js"
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_offer.js"]
+head = "head.js head_whimsy_dark_pages.js"
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_sites.js"]
+head = "head.js head_whimsy_dark_pages.js"
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_dynamic.js"]
+head = "head.js head_whimsy_dark_pages.js"
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_match.js"]
+head = "head.js head_whimsy_dark_pages.js"
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_themes.js"]
+head = "head.js head_whimsy_dark_pages.js"
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_choices.js"]
+head = "head.js head_whimsy_dark_pages.js"
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_site_panel.js"]
+head = "head.js head_whimsy_dark_pages.js"
+support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_settings.js"]
+head = "head.js head_whimsy_dark_pages.js"
 support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
 ["browser_whimsy_mcp_approval.js"]
 # W24 annotations: page highlights in four colors, passage notes, one note per page, revisit cue, Fire, private browsing.

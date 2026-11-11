@@ -16,7 +16,7 @@ const visiblePrompt = win => TestUtils.waitForCondition(() =>
   prompt(win)?.querySelector("article") && prompt(win).getBoundingClientRect().width > 0,
 "The approval is visible in browser chrome");
 function choose(win, choice) {
-  synthesizeMouseAtCenter(prompt(win).querySelector(`[data-choice="${choice}"]`), {}, win);
+  EventUtils.synthesizeMouseAtCenter(prompt(win).querySelector(`[data-choice="${choice}"]`), {}, win);
 }
 
 add_setup(async function () {
@@ -57,7 +57,7 @@ add_task(async function frontmost_approval_and_repeat_open_once() {
   ok(tab, "The approved tab exists");
   ok(!prompt(window), "Answered requests leave the pending surface");
   WhimsyAgentTasks.finish(task.id);
-  BrowserTestUtils.removeTab(tab);
+  await BrowserTestUtils.removeTab(tab);
 });
 
 add_task(async function denying_returns_error() {
@@ -106,7 +106,9 @@ add_task(async function retry_resurfaces_in_frontmost_window() {
     is(textOf(result), WhimsyAgentGuard.WAITING_TEXT, "First call releases its transport hold");
     const task = WhimsyAgentTasks.forSession("approval-two-windows");
     const id = task.pause.id;
-    second = await BrowserTestUtils.openNewBrowserWindow();
+    second = await BrowserTestUtils.openNewBrowserWindow({
+      zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false),
+    });
     await SimpleTest.promiseFocus(second);
     await TestUtils.waitForCondition(() => WhimsyOutsideAgents.window() == second, "Second window is most recent");
     // Lose the old prompt as if its chrome were rebuilt.
@@ -163,7 +165,7 @@ add_task(async function tabs_list_pages_and_filters() {
     ok((await call("approval-pages", "tabs_list", { limit: 0 })).isError, "Invalid limits are rejected");
   } finally {
     for (const tab of tabs) {
-      BrowserTestUtils.removeTab(tab);
+      await BrowserTestUtils.removeTab(tab);
     }
   }
 });
