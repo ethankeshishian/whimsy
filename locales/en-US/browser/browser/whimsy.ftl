@@ -7855,3 +7855,7 @@ whimsy-emoji-search-web = Search the web for “{ $query }”
 
 whimsy-ai-chat-edge-hover =
     .label = Show chat when the pointer reaches the window edge
+
+whimsy-tabs-cmd-numbers =
+    .label = Show tab numbers while holding ⌘
+    .accesskey = S

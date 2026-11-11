@@ -10,6 +10,7 @@
 // from any state and keeps the exchange in chat's list. Also: ⌘1–⌘9 pick a
 // row while the bar is open, and the empty mic slot on the input's right.
 
+import { MODIFIER_HOLD_MS } from "resource:///modules/whimsy/WhimsyHold.sys.mjs";
 import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
@@ -40,7 +41,7 @@ const SPARKLE = "chrome://browser/skin/zen-icons/sparkles.svg";
 const ASK_TYPE = "whimsy-ask";
 const CARD_TYPE = "whimsy-ask-card";
 const LOADING_MS = 300;
-const HOLD_MS = 400;
+const HOLD_MS = MODIFIER_HOLD_MS;
 const PAGE_CHARS = 60000;
 const SAVED_HINT_PREF = "whimsy.ai.cmdbar.answer-saved-shown";
 const REDUCED = "(prefers-reduced-motion: reduce)";
