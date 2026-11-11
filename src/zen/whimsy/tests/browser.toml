@@ -650,6 +650,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave6/parity: Arc's fixed tidy-title rules (no AI).
 ["browser_whimsy_tidy_titles_rules.js"]
 
+# W24: pin entry points, offline fallback, manual names, and session restoration.
+["browser_whimsy_tidy_titles_pinning.js"]
+
 # wave6/parity: command bar dedup by title+host on Arc's 10 hosts.
 ["browser_whimsy_command_bar_dedup.js"]
 
@@ -991,6 +994,8 @@ support-files = ["whimsy_ai_sensitive.html"]
 # per-tab threads, the conversation list, the private wall, the Tasks strip,
 # and this lane's screenshots.
 ["browser_whimsy_chat_hover.js"]
+
+["browser_whimsy_chat_motion.js"]
 
 ["browser_whimsy_chat_shell.js"]
 

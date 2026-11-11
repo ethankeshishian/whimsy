@@ -1077,7 +1077,7 @@ whimsy-home-tab-home = Home
 whimsy-home-tab-changelog = Changelog
 # The <em> part gets the balloon's gradient.
 whimsy-home-hero-title = A browser with <em>a little lift</em>.
-whimsy-home-blurb = Arc’s flow, built on Zen and Firefox. Spaces, splits and the shortcuts your hands already know.
+whimsy-home-blurb = Arc’s flow, built on Zen and Firefox. Spaces, splits, and the shortcuts your hands already know.
 whimsy-home-hero-hint = Psst: the balloon likes a poke.
 whimsy-home-balloon =
     .aria-label = Poke the balloon
