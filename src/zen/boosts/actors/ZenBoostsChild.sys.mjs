@@ -370,6 +370,9 @@ export class ZenBoostsChild extends JSWindowActorChild {
    * @param {number | boolean} value
    */
   #setSyncedField(browsingContext, field, value) {
+    if (field === "isZenBoostsInverted") { // Whimsy hotfix
+      value = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDarkPagesConfig.sys.mjs").darkPagesInversion(browsingContext, value);
+    }
     if (browsingContext[field] !== value) {
       browsingContext[field] = value;
     }
