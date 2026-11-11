@@ -1,10 +1,62 @@
 diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/components/tabbrowser/Tabbrowser.sys.mjs
 --- a/browser/components/tabbrowser/Tabbrowser.sys.mjs
 +++ b/browser/components/tabbrowser/Tabbrowser.sys.mjs
-@@ -828,6 +828,18 @@
-       }
-     }
+@@ -150,6 +150,26 @@
+     triggeringPrincipal = nameOrTriggeringPrincipal;
+   } else {
+     links = [{ url: urlOrLinks, nameOrTriggeringPrincipal, type: "" }];
++  }
++
++  // The first dropped item is the one that would replace this page. Keep
++  // other drops on the native path, including mixed drops led by a non-image.
++  let imageDrop = false;
++  if (
++    Services.prefs.getBoolPref("whimsy.feature.image-drop", true) &&
++    links.length
++  ) {
++    imageDrop = links[0].type?.startsWith("image/") || false;
++    if (!imageDrop) {
++      try {
++        const mime = Cc["@mozilla.org/mime;1"].getService(Ci.nsIMIMEService);
++        imageDrop = mime
++          .getTypeFromURI(Services.io.newURI(links[0].url))
++          .startsWith("image/");
++      } catch {
++        // Unknown extensions and non-URI text keep Firefox's normal behavior.
++      }
++    }
+   }
  
+   let lastLocationChange = browser.lastLocationChange;
+@@ -187,13 +207,18 @@
+     postDatas.push(data.postData);
+   }
+   if (lastLocationChange == browser.lastLocationChange) {
++    const targetTab = tabbrowser.getTabForBrowser(browser);
++    if (imageDrop && !targetTab) {
++      return;
++    }
+     tabbrowser.loadTabs(urls, {
+-      inBackground,
+-      replace: true,
++      inBackground: imageDrop ? false : inBackground,
++      replace: !imageDrop,
++      newIndex: imageDrop ? targetTab.index + 1 : undefined,
+       allowThirdPartyFixup: false,
+       postDatas,
+       userContextId,
+-      targetTab: tabbrowser.getTabForBrowser(browser),
++      targetTab,
+       triggeringPrincipal,
+     });
+   }
+@@ -825,6 +850,18 @@
+       if (typeof zenStartup.userContextId == 'number') {
+         userContextId = zenStartup.userContextId;
+         zenHasDefaultUserContextId = zenStartup.isSpaceDefault;
++      }
++    }
++
 +    // Whimsy: a window opened by an extension inherits its source profile,
 +    // but a user site rule takes precedence over that or an explicit store.
 +    if (!tabArgument && extraOptions?.hasKey("whimsy-extension-window") &&
@@ -14,13 +66,10 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
 +      if (typeof routedContext === "number") {
 +        userContextId = routedContext;
 +        zenHasDefaultUserContextId = true;
-+      }
-+    }
-+
-     if (openWindowInfo) {
-       userContextId = openWindowInfo.originAttributes.userContextId;
+       }
      }
-@@ -2661,7 +2673,7 @@
+ 
+@@ -2661,7 +2698,7 @@
    setInitialTabTitle(
      aTab,
      aTitle,
@@ -29,7 +78,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
    ) {
      // Convert some non-content title (actually a url) to human readable title
      if (!isContentTitle && this.documentGlobal.isBlankPageURL(aTitle)) {
-@@ -2677,6 +2689,7 @@
+@@ -2677,6 +2714,7 @@
          beforeTabOpen,
          isContentTitle,
          isURL,
@@ -37,7 +86,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        });
      }
    }
-@@ -4012,7 +4025,9 @@
+@@ -4012,7 +4050,9 @@
  
      let hasZenDefaultUserContextId = false;
      let zenForcedWorkspaceId = undefined;
@@ -48,7 +97,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        userContextId = beforeRouteResult.userContextId;
        hasZenDefaultUserContextId = true;
      } else if (typeof this.documentGlobal.gZenWorkspaces !== "undefined" && !_forZenEmptyTab) {
-@@ -4149,7 +4164,7 @@
+@@ -4149,7 +4189,7 @@
              lazyBrowserURI.spec,
              t.userContextId,
              tabGroup?.id,
@@ -57,7 +106,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
            );
            b.registeredOpenURI = lazyBrowserURI;
          }
-@@ -7160,7 +7175,7 @@
+@@ -7160,7 +7200,7 @@
          browser.registeredOpenURI.spec,
          userContextId,
          aTab.group?.id,
@@ -66,7 +115,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete browser.registeredOpenURI;
      }
-@@ -7776,7 +7791,7 @@
+@@ -7776,7 +7816,7 @@
          otherBrowser.registeredOpenURI.spec,
          userContextId,
          aOtherTab.group?.id,
@@ -75,7 +124,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete otherBrowser.registeredOpenURI;
      }
-@@ -8106,7 +8121,7 @@
+@@ -8106,7 +8146,7 @@
     *   The context for the operation for telemetry purposes.
     */
    selectTabAtIndex(aIndex, { event, metricsContext } = {}) {
@@ -84,7 +133,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
  
      // count backwards for aIndex < 0
      if (aIndex < 0) {
-@@ -9878,13 +9893,13 @@
+@@ -9878,13 +9918,13 @@
          uri.spec,
          tab.userContextId,
          null,
@@ -100,7 +149,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
      }
    }
-@@ -9902,13 +9917,13 @@
+@@ -9902,13 +9942,13 @@
          uri.spec,
          tab.userContextId,
          originalGroup.id,
@@ -116,7 +165,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
      }
    }
-@@ -10202,7 +10217,7 @@
+@@ -10202,7 +10242,7 @@
            browser.registeredOpenURI.spec,
            userContextId,
            tab.group?.id,
@@ -125,7 +174,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
          );
          delete browser.registeredOpenURI;
        }
-@@ -11273,7 +11288,7 @@
+@@ -11273,7 +11313,7 @@
            uri.spec,
            userContextId,
            this._tab.group?.id,
@@ -134,7 +183,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
          );
          delete this._browser.registeredOpenURI;
        }
-@@ -11282,7 +11297,7 @@
+@@ -11282,7 +11322,7 @@
            aLocation.spec,
            userContextId,
            this._tab.group?.id,

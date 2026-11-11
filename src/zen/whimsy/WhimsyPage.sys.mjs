@@ -1096,6 +1096,10 @@ export const WhimsyPage = {
   // --- Dark PDFs ---
 
   get darkPdf() {
+    if (Services.prefs.getBoolPref("whimsy.feature.dark-pages", true)) {
+      const { WhimsyDarkPages } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDarkPages.sys.mjs");
+      return WhimsyDarkPages.active;
+    }
     return Services.prefs.getBoolPref(PDF_FEATURE_PREF, true) && Services.prefs.getBoolPref(PDF_PREF, false);
   },
 

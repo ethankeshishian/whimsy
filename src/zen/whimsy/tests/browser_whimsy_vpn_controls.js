@@ -317,6 +317,76 @@ add_task(async function test_panel_section() {
   }
 });
 
+add_task(async function test_panel_shared_inset_and_spacing() {
+  const { WhimsyVPNScope } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVPNScope.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["browser.ipProtection.features.siteInclusions", false],
+    ["browser.ipProtection.features.siteExceptions", true],
+    [WhimsyVPNScope.FEATURE, true],
+    [WhimsyVPNScope.PREF, ""],
+  ] });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  let popup;
+  try {
+    WhimsyVPN.endHold();
+    setStates(IPProtectionStates.READY, IPPProxyStates.NOT_READY);
+    await whimsyBothSchemes("w24-uifix2-vpn-panel", async () => {
+      popup = await openVpnPanel();
+      const content = popup.querySelector("ipprotection-content");
+      await content.updateComplete;
+      const root = content.shadowRoot;
+      const card = root.querySelector("ipprotection-status-card");
+      const settings = root.querySelector("#vpn-settings-button");
+      const site = root.querySelector("#site-exclusion-control");
+      ok(site, "The site section is present for this HTTP page");
+      await Promise.all([card.updateComplete, settings.updateComplete,
+        site.querySelector("moz-toggle").updateComplete]);
+      await document.l10n.translateFragment(content);
+      const group = content.querySelector(".whimsy-vpn-panel-group");
+      const view = document.getElementById("PanelUI-ipprotection");
+      const header = document.getElementById("PanelUI-ipprotection-header");
+      const sections = [header, card, group, site, settings];
+      const gap = parseFloat(getComputedStyle(view).rowGap);
+      Assert.greater(gap, 0, "The shared section gap is positive");
+      // DOMRects can round opposite edges to adjacent layout units.
+      const near = (actual, expected, message) =>
+        ok(Math.abs(actual - expected) < 0.05,
+          `${message}: got ${actual}, expected ${expected}`);
+      const left = card.getBoundingClientRect().left;
+      let previous;
+      for (const section of sections) {
+        ok(section.checkVisibility(), `${section.id || section.localName} is visible`);
+        const rect = section.getBoundingClientRect();
+        near(rect.left, left, "Every section shares the same left inset");
+        if (previous) {
+          // Scope-to-Settings includes the site row; only compare neighbours.
+          near(rect.top - previous.bottom, gap, "Adjacent sections have the shared gap");
+        }
+        previous = rect;
+      }
+      for (const element of [header.querySelector("h1"),
+        group.querySelector("#whimsy-vpn-scope-heading"),
+        group.querySelector(".whimsy-surface-seg")]) {
+        near(element.getBoundingClientRect().left, left, "Section contents share the inset");
+      }
+      near(view.getBoundingClientRect().bottom - previous.bottom, gap,
+        "Bottom padding equals the section gap");
+
+      const removeStandIn = whimsyStandInPopups();
+      return async () => {
+        removeStandIn();
+        await closeVpnPanel(popup);
+      };
+    });
+  } finally {
+    if (popup) {
+      await closeVpnPanel(popup);
+    }
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // A long profile name has room: it wraps before anything is cut off, and
 // the tooltip carries the full name.
 add_task(async function test_panel_section_long_profile_name() {

@@ -355,6 +355,18 @@ function whimsyStandInPopups(doc = document) {
     });
     for (const child of panel.children) {
       const copy = child.cloneNode(true);
+      // cloneNode copies markup, but not the extension object required by
+      // connectedCallback. Rebuild these widgets from their extension before
+      // inserting them, rather than connecting uninitialized clones (or
+      // appending a second copy of their generated template).
+      const items = [child, ...child.querySelectorAll("unified-extensions-item")];
+      const copies = [copy, ...copy.querySelectorAll("unified-extensions-item")];
+      items.forEach((item, i) => {
+        if (item.localName == "unified-extensions-item") {
+          copies[i].replaceChildren();
+          copies[i].setExtension(item.extension);
+        }
+      });
       const from = child.querySelectorAll("input, textarea");
       copy.querySelectorAll("input, textarea").forEach((field, i) => {
         field.value = from[i]?.value ?? field.value;

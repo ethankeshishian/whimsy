@@ -784,3 +784,12 @@ mark.whimsy-search-mark {
   color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 68%, transparent));
   background: color-mix(in srgb, currentColor 6%, transparent);
 }
+
+/* W24: the page appearance controls use the shared surface track. */
+#whimsyDarkPagesGroup {
+  gap: 12px;
+
+  .whimsy-surface-seg {
+    margin: 0 12px 12px;
+  }
+}

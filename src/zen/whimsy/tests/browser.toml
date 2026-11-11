@@ -19,6 +19,9 @@ prefs = [
   "whimsy.ai.enabled=true",
   "whimsy.ai.memory=false",
   "whimsy.feature.ai-related=false",
+  # Adaptive conversion is exercised explicitly by its own file; other
+  # feature fixtures keep their authored colors and do not consume its toast.
+  "whimsy.feature.dark-pages=false",
   "whimsy.privateLock.askDismissals.tabs=2",
   "whimsy.privateLock.askDismissals.space=2",
   "whimsy.privateLock.askDismissals.windows=2",
@@ -32,6 +35,9 @@ support-files = ["whimsy_no_copy.html"]
 # W10-41: copy-protected pages: the blocked right-click offers Allow, copy keys, Copy URL on the second press (W10-61).
 ["browser_whimsy_allow_copy_keys.js"]
 support-files = ["whimsy_no_copy_keys.html"]
+
+["browser_whimsy_image_drop.js"]
+support-files = ["whimsy_image_drop.html", "whimsy_image_drop.sjs"]
 
 ["browser_whimsy_app_icon.js"]
 
@@ -1169,6 +1175,39 @@ support-files = ["whimsy_secfix_late_scam.html", "whimsy_secfix_scam_frame.html"
 support-files = ["whimsy_secfix_inject.html", "whimsy_secfix2_links.html", "whimsy_secfix2_redirect.sjs"]
 ["browser_whimsy_secfix2_page.js"]
 support-files = ["whimsy_secfix2_codes.html"]
+
+["browser_whimsy_dark_pages.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_offer.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_sites.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_sites_private.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_dynamic.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_match.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_themes.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_choices.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_site_panel.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+["browser_whimsy_dark_pages_screens_settings.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+["browser_whimsy_mcp_approval.js"]
+# W24 annotations: page highlights in four colors, passage notes, one note per page, revisit cue, Fire, private browsing.
+["browser_whimsy_annotations.js"]
 
 ["browser_whimsy_cmd_tab_numbers.js"]
 skip-if = ["os != 'mac'"]
