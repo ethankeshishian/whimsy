@@ -97,7 +97,7 @@ function rawPost(url, body, headers) {
 
 function listedIds(result) {
   const body = textOf(result);
-  return body.startsWith("[") ? JSON.parse(body).map(t => t.tabId) : [];
+  return body.startsWith("{") ? JSON.parse(body).tabs.map(t => t.tabId) : [];
 }
 
 function newTask(opts = {}) {
@@ -448,7 +448,7 @@ add_task(async function outside_agent_cannot_list_private_tab() {
   const secret = WhimsyPrivate.openPrivateTab(window, { url: PAGE + "?private", force: true });
   await BrowserTestUtils.browserLoaded(secret.linkedBrowser, false, PAGE + "?private");
   ok(!PrivateBrowsingUtils.isWindowPrivate(window), "A private tab in a normal window");
-  const listed = JSON.parse(textOf(await ok_result(outside("tabs_list", {}, "private-session"), "tabs_list")));
+  const listed = JSON.parse(textOf(await ok_result(outside("tabs_list", {}, "private-session"), "tabs_list"))).tabs;
   ok(listed.some(t => t.url.endsWith("?normal")), "The normal tab is listed");
   ok(!listed.some(t => t.url.includes("?private")), "The private tab isn't");
   const privateId = WhimsyClaude.tabId(secret);

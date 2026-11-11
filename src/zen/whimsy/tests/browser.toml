@@ -1168,3 +1168,4 @@ support-files = ["whimsy_secfix2_codes.html"]
 
 ["browser_whimsy_dark_pages.js"]
 support-files = ["whimsy_dark_pages.html", "whimsy_test_image.png"]
+["browser_whimsy_mcp_approval.js"]

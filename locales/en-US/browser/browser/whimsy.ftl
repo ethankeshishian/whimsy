@@ -7885,3 +7885,16 @@ whimsy-setting-dark-pages = Dark Pages
     .keywords = dark theme, night, appearance, PDFs
 whimsy-setting-dim-images = Dim Images
     .keywords = photos, brightness, dark pages
+# Outside-app approvals, available even when no chat is open.
+whimsy-mcp-pending = Pending approvals
+whimsy-mcp-approve = Approve
+whimsy-mcp-deny = Deny
+whimsy-mcp-self = I’ll do it
+whimsy-mcp-stop = Stop
+whimsy-mcp-continue = Continue
+whimsy-mcp-pending-empty = No approvals are waiting.
+whimsy-mcp-busy = Another request is awaiting approval. Approve or deny it in Whimsy’s pending approvals before trying a different action.
+whimsy-mcp-expired = The approval prompt wasn't answered in time. Retry the action to request approval again.
+whimsy-mcp-unavailable = No browser window can show the approval prompt. Open a normal Whimsy window, and retry the action.
+whimsy-mcp-denied = The person denied approval to go to { $host }.
+whimsy-mcp-invalid-page = Use limit 1–100, a nonnegative integer cursor, a string query, and an integer windowId.

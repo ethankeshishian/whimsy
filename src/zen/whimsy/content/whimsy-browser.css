@@ -7510,4 +7510,27 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   .whimsy-surface-seg {
     margin: 0 10px 10px;
   }
+/* MCP approvals live in browser chrome, independent of chat and spaces. */
+#whimsy-mcp-approvals {
+  position: fixed;
+  inset-block-start: 64px;
+  inset-inline-end: 24px;
+  z-index: 2147483647;
+  display: block;
+  width: min(390px, calc(100vw - 48px));
+  max-height: calc(100vh - 100px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--zen-colors-border, GrayText);
+  border-radius: 16px;
+  background: var(--zen-colors-tertiary, Canvas);
+  color: var(--zen-colors-text, CanvasText);
+  box-shadow: 0 12px 40px light-dark(#0003, #0008);
+  font: menu;
+
+  h3 { margin: 0 0 12px; }
+  article + article { border-top: 1px solid GrayText; padding-top: 12px; margin-top: 12px; }
+  p { overflow-wrap: anywhere; }
+  button { font: inherit; padding: 7px 12px; margin-inline-end: 8px; border-radius: 8px; cursor: pointer; }
+  button:focus-visible { outline: 2px solid AccentColor; outline-offset: 2px; }
 }
