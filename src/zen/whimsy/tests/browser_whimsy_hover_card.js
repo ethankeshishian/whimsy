@@ -1,8 +1,9 @@
 /* Any copyright is dedicated to the Public Domain.
    https://creativecommons.org/publicdomain/zero/1.0/ */
 
-// batch hover: Arc-style hover cards. Tabs: Firefox's own tab preview, on
-// by default. History: the shared card, from the row's own visit.
+// batch hover: Arc-style hover cards. History: the shared card, from the
+// row's own visit. Tabs: W25's hover card (browser_whimsy_hover_cards.js)
+// replaces Firefox's tab preview, which stays off.
 
 const { WhimsyHoverCard } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs"
@@ -10,10 +11,10 @@ const { WhimsyHoverCard } = ChromeUtils.importESModule(
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
 
-add_task(async function tab_hover_preview_on_by_default() {
+add_task(async function firefox_tab_preview_stays_off() {
   ok(
-    Services.prefs.getDefaultBranch("").getBoolPref("browser.tabs.hoverPreview.enabled"),
-    "Firefox's tab hover card is on by default (Arc parity)"
+    !Services.prefs.getDefaultBranch("").getBoolPref("browser.tabs.hoverPreview.enabled"),
+    "Firefox's tab hover preview is off: Whimsy's hover card takes its place"
   );
 });
 
@@ -103,13 +104,17 @@ add_task(async function history_row_uses_its_own_visit() {
   }
 });
 
-add_task(async function firefox_owns_the_only_tab_preview_setting() {
-  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
+// W25: the hover settings are one group in General: the hover card's one
+// switch, then History and People. No tab-preview checkbox of Firefox's.
+add_task(async function hover_settings_live_in_general() {
+  await BrowserTestUtils.withNewTab("about:preferences#general", async browser => {
     const doc = browser.contentDocument;
-    await TestUtils.waitForCondition(() => doc.getElementById("whimsyHoverGroup"));
-    ok(!doc.getElementById("whimsyHoverTabs"), "No duplicate Whimsy tab-preview checkbox");
-    is(doc.getElementById("whimsyHoverGroup").querySelectorAll('[preference="browser.tabs.hoverPreview.enabled"]').length, 0,
-      "Whimsy leaves tab previews to Firefox’s existing setting");
+    const group = await TestUtils.waitForCondition(() => doc.getElementById("whimsyHoverGroup"));
+    ok(["paneGeneral", "paneSync"].includes(group.dataset.category), "The group is in General");
+    ok(!doc.getElementById("whimsyHoverTabs"), "No separate tab-preview checkbox");
+    is(group.querySelectorAll('[preference="browser.tabs.hoverPreview.enabled"]').length, 0,
+      "Firefox's tab preview isn't offered: the hover card replaces it");
+    ok(doc.getElementById("whimsyHoverCards"), "The hover card's switch");
     ok(doc.getElementById("whimsyHoverHistory"), "Whimsy-only History option remains");
     ok(doc.getElementById("whimsyHoverPeople"), "Whimsy-only People option remains");
   });
@@ -151,54 +156,5 @@ add_task(async function tab_hover_leaves_out_the_profile() {
       BrowserTestUtils.removeTab(t);
     }
     await gZenWorkspaces.removeWorkspace(space.uuid);
-  }
-});
-
-// W16-22: the tab hover preview shows the title, address and thumbnail,
-// with no "Add note" button (tab notes stay on for the Library).
-add_task(async function tab_hover_has_no_add_note() {
-  await SpecialPowers.pushPrefEnv({ set: [
-    ["browser.tabs.hoverPreview.enabled", true],
-    ["browser.tabs.notes.enabled", true],
-    ["ui.tooltip.delay_ms", 0],
-  ] });
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?hover-note");
-  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?hover-other");
-  const panel = document.getElementById("tab-preview-panel");
-  gBrowser.tabContainer.ensureTabPreviewPanelLoaded();
-  const preview = gBrowser.tabContainer.previewPanel;
-  const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
-  // This tests preview contents with notes enabled. Firefox intentionally
-  // rejects background windows in shouldActivate(); competing test instances
-  // can take focus after promiseFocus resolves. Keep the native renderer and
-  // popup lifecycle, and isolate only that activation policy from this test.
-  const activation = sinon.stub(preview, "shouldActivate").returns(true);
-  try {
-    if (panel.state != "closed") {
-      const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-      panel.hidePopup();
-      await hidden;
-    }
-    const shown = BrowserTestUtils.waitForPopupEvent(panel, "shown");
-    const updated = BrowserTestUtils.waitForEvent(panel, "TabPreviewUpdated");
-    preview.activate(tab);
-    await shown;
-    await updated;
-    ok(panel.querySelector(".tab-preview-title")?.textContent, "The preview shows the tab's title");
-    ok(!panel.querySelector(".tab-preview-add-note"), "…and no Add note button");
-    const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-    preview.deactivate(tab, { force: true });
-    await hidden;
-  } finally {
-    activation.restore();
-    preview.deactivate(tab, { force: true });
-    if (panel.state != "closed") {
-      const hidden = BrowserTestUtils.waitForPopupEvent(panel, "hidden");
-      panel.hidePopup();
-      await hidden;
-    }
-    await BrowserTestUtils.removeTab(other);
-    await BrowserTestUtils.removeTab(tab);
-    await SpecialPowers.popPrefEnv();
   }
 });

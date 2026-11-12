@@ -674,7 +674,6 @@ WhimsyAISettings.register({
       ["whimsyAITidyTitles", "whimsy.feature.tidy-titles", "whimsy-ai-features-tidy-titles"],
       ["whimsyAIChatHover", "whimsy.ai.chat.edge-hover", "whimsy-ai-chat-edge-hover"],
       ["whimsyAIAskOnPage", "whimsy.feature.ask-on-page", "whimsy-ai-features-ask-on-page"],
-      ["whimsyAILinkPreviews", "whimsy.feature.link-previews", "whimsy-ai-features-link-previews"],
       ["whimsyAIPageWatch", "whimsy.feature.page-watch", "whimsy-ai-features-page-watch"],
     ]) {
       const item = S.el("div", "whimsy-ai-item", list);

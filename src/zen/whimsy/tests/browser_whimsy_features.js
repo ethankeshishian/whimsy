@@ -44,7 +44,7 @@ const W23_FEATURES = [
   "ai-connectors", "ai-onboarding", "ai-hints", "ai-summary", "ai-draft-reply", "ai-form-fill",
   "ai-translate", "ai-page-edits", "ai-scam-warning", "ai-compare", "ai-tab-requests", "find-card",
   "ai-video-summary", "video-speed-range", "video-default-speed", "image-text", "read-aloud",
-  "dictation", "media-settings", "routines", "link-previews", "ask-on-page", "page-watch",
+  "dictation", "media-settings", "routines", "ask-on-page", "page-watch",
   "claude-replay", "ai-providers",
 ];
 

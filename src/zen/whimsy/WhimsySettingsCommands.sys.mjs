@@ -167,8 +167,6 @@ export const SETTINGS = [
   // W24 chat hover: open the chat panel at the window edge.
   { name: "chat-edge-hover", setting: "whimsyAIChatHover", pref: "whimsy.ai.chat.edge-hover", feature: ["ai-providers"],
     when: aiAllowed },
-  { name: "link-previews", setting: "whimsyAILinkPreviews", pref: "whimsy.feature.link-previews",
-    feature: ["ai-providers"], when: aiAllowed },
   { name: "page-watch", setting: "whimsyAIPageWatch", pref: "whimsy.feature.page-watch", feature: ["ai-providers"],
     when: aiAllowed },
   { name: "autofill-payments", setting: "whimsyAutofillPayments", pref: "extensions.formautofill.creditCards.enabled" },
@@ -331,10 +329,6 @@ export const SETTINGS = [
   { name: "space-extensions", setting: "whimsySpaceExtensions", pref: "whimsy.feature.space-extensions",
     feature: ["space-extensions"] },
   { name: "split-new-tab", setting: "whimsySplitNewTab", pref: "whimsy.feature.split-new-tab" },
-  { name: "history-preview", setting: "whimsyHoverHistory", pref: "whimsy.feature.history-preview",
-    feature: ["history-preview"] },
-  { name: "people-cards", setting: "whimsyHoverPeople", pref: "whimsy.feature.people-cards", feature: ["people-cards"] },
-  { name: "link-cards", setting: "whimsyHoverLinks", pref: "whimsy.feature.link-cards", feature: ["link-cards"] },
   { name: "profiles", setting: "whimsyProfilesList", feature: ["space-profiles"],
     exempt: "each profile's own name, search engine and download folder, set in its editor" },
   { name: "profile-name", setting: "whimsyProfilesCreate", feature: ["space-profiles"],
@@ -388,6 +382,11 @@ export const SETTINGS = [
     pref: "media.hardware-video-decoding.enabled", feature: ["hardware-video-decoding"] },
   { name: "battery-saver", setting: "whimsyBatterySaverEnabled", pref: "whimsy.battery-saver.enabled",
     feature: ["battery-saver"] },
+  // W25: hover cards on tabs and links (General › Hover cards).
+  { name: "hover-cards", setting: "whimsyHoverCards", pref: "whimsy.feature.hover-cards", feature: ["hover-cards"] },
+  { name: "history-preview", setting: "whimsyHoverHistory", pref: "whimsy.feature.history-preview",
+    feature: ["history-preview"] },
+  { name: "people-cards", setting: "whimsyHoverPeople", pref: "whimsy.feature.people-cards", feature: ["people-cards"] },
 
   // Settings → Menus: a switch for every row of every right-click menu
   // (hundreds, and turning one off is done where you'd miss it, in its

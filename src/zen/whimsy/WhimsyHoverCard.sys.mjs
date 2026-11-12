@@ -4,12 +4,11 @@
 
 // Hover cards (Arc parity). Arc shows a small card when you rest the pointer
 // on a tab (title, address, a preview of the page), on a profile link (who
-// the person is) and on a history entry. Tabs reuse Firefox's own tab hover
-// preview (browser.tabs.hoverPreview.*, which Zen ships off and Whimsy turns
-// on through overlay.py PREF_OVERRIDES): it already handles unloaded and
-// private tabs, the vertical sidebar and its own thumbnails. This module is
-// the one shared card for everything else: History rows in Zen's Library
-// (whimsy.feature.history-preview) and People cards (WhimsyPeople*.sys.mjs).
+// the person is) and on a history entry. Tabs and links get W25's hover card
+// (WhimsyHoverCards.sys.mjs), which replaces Firefox's tab hover preview.
+// This module is the card for History rows in Zen's Library
+// (whimsy.feature.history-preview) and builds People cards
+// (WhimsyPeople*.sys.mjs).
 //
 // The pattern is Zen's folder hover-search (ZenFolders.mjs): an enter delay,
 // then a short grace period on leave so moving into the card keeps it open.

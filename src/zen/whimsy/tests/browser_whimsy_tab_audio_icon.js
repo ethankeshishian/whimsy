@@ -36,6 +36,8 @@ add_setup(async function () {
       // open over it, and its "Add note" badge throws a lit error in this
       // engine (moz-badge inside a XUL toolbarbutton), unrelated to the speaker.
       ["browser.tabs.hoverPreview.enabled", false],
+      // W25: nor Whimsy's hover card, which takes the preview's place.
+      ["whimsy.feature.hover-cards", false],
     ],
   });
 });

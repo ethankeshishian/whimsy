@@ -194,8 +194,9 @@ add_task(async function test_every_setting_is_found_by_search() {
       ["Tidy Titles", "whimsyAITidyTitles"],
       ["tidy tab titles", "whimsyAITidyTitles"],
       ["Tidy Tabs", "whimsyAITidyTabs"],
-      ["5-second previews", "whimsyAILinkPreviews"],
-      ["link previews", "whimsyAILinkPreviews"],
+      // W25: the hover card replaced 5-second previews.
+      ["hover cards", "whimsyHoverCards"],
+      ["link preview", "whimsyHoverCards"],
       ["ask on page", "whimsyAIAskOnPage"],
       ["utm", "whimsyStripTracking"],
       ["tree style", "whimsyTreeTabs"],

@@ -51,8 +51,8 @@ function provider(request) {
   if (/too long to read at once/.test(prompt)) {
     return JSON.stringify({ sections: [0, 12] });
   }
-  if (/link preview/.test(request.system ?? "")) {
-    return JSON.stringify({ title: "Quarterly planning notes", points: ["The offsite is in Lisbon on March 14", "The espresso machine is out of stock", "Priya owns the budget"] });
+  if (/hover card/.test(request.system ?? "")) {
+    return JSON.stringify({ title: "Quarterly planning notes", description: "The Lisbon offsite is on March 14; the espresso machine is out of stock, and Priya owns the budget." });
   }
   if (/Ask on Page/.test(request.system ?? "")) {
     return JSON.stringify({ answer: "The offsite is in Lisbon on March 14.", quote: "The offsite is on March 14 in Lisbon." });
@@ -246,7 +246,8 @@ add_task(async function pdf_summary() {
   });
 });
 
-// fu-page 7.1 / page-7.4: a link preview, loading then filled.
+// W25 (was fu-page 7.1 / page-7.4): a link's hover card, its description
+// loading then filled.
 add_task(async function link_preview() {
   let release = null;
   WhimsyAIReader.setTestReader(async () => {
@@ -260,27 +261,37 @@ add_task(async function link_preview() {
       // Under the page's link, where a hover would put the cards (fu-page 7.1).
       const link = await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
         const r = content.document.querySelector("a").getBoundingClientRect();
-        return { x: r.left, y: r.top, width: r.width, height: r.height };
+        return { x: content.mozInnerScreenX + r.left, y: content.mozInnerScreenY + r.top, width: r.width, height: r.height };
       });
-      await WhimsyAIPage.showPreview(window, tab.linkedBrowser, { url: PAGE + `?shot-${dark}`, how: "hover", ...link });
+      const { WhimsyLinkHover } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHover.sys.mjs");
+      const { WhimsyHoverCards } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHoverCards.sys.mjs");
+      WhimsyHoverCards.setTestFetcher(async () => ({ text: "<html><head><title>Planning</title></head></html>" }));
+      WhimsyLinkHover.forWindow(window).enter({
+        source: "link",
+        browser: tab.linkedBrowser,
+        url: PAGE + `?shot-${dark}`,
+        title: "Quarterly planning notes",
+        ...link,
+      });
       const panel = await TestUtils.waitForCondition(() => {
         const p = document.getElementById("whimsy-link-hover");
         return p?.state == "open" && p;
-      }, "The cards open");
-      await TestUtils.waitForCondition(() => release && panel.querySelector('[data-card="ai"] .whimsy-ai-shimmer'), "The summary is loading");
+      }, "The card opens");
+      await TestUtils.waitForCondition(() => release && panel.querySelector(".whimsy-hc-desc.is-loading"), "The description is loading");
       await whimsySettled();
       // MUST 6: the cards are a panel of their own; copy them in for the shot.
       let undo = whimsyStandInPopups();
       await whimsyShot(NAME(`preview-loading-${dark ? "dark" : "light"}`));
       undo();
       release();
-      await TestUtils.waitForCondition(() => panel.querySelector('[data-card="ai"] .whimsy-preview-points'), "then fills in place");
+      await TestUtils.waitForCondition(() => panel.querySelector(".whimsy-hc-desc.is-text"), "then fills in place");
       await whimsySettled();
       undo = whimsyStandInPopups();
-      ok(document.querySelector('div#whimsy-link-hover [data-card="ai"] .whimsy-preview-points'), "The filled cards are in the shot");
+      ok(document.querySelector("div#whimsy-link-hover .whimsy-hc-desc.is-text"), "The filled card is in the shot");
       return async () => {
         undo();
-        WhimsyAIPage.hidePreview(window);
+        WhimsyLinkHover.forWindow(window).hide({ animate: false });
+        WhimsyHoverCards.setTestFetcher(null);
         BrowserTestUtils.removeTab(tab);
       };
     });

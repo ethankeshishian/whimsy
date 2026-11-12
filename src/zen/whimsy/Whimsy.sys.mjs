@@ -92,6 +92,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
   // batch hover: shared hover card (History rows, People cards).
   WhimsyHoverCard: "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs",
+  WhimsyHoverCards: "resource:///modules/whimsy/WhimsyHoverCards.sys.mjs",
   WhimsyProtocol: "resource:///modules/whimsy/WhimsyProtocol.sys.mjs",
   // batch hist: visit-space recorder.
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
@@ -530,14 +531,13 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
-    // wave3/ai: 5-second previews. The child only messages on Shift over a
-    // link (or resting on a result link on search sites, X, Threads, HN);
-    // the parent checks the switches, fetches and draws the card.
+    // W25 hover cards: the child reports the link the pointer enters and
+    // leaves; the parent (WhimsyLinkHover) waits, then draws the card.
     ChromeUtils.registerWindowActor("WhimsyAIPreview", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIPreviewParent.sys.mjs" },
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyAIPreviewChild.sys.mjs",
-        events: { mouseover: {}, mouseout: {}, keydown: {}, pagehide: {} },
+        events: { mouseover: {}, mouseout: {}, pagehide: {} },
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
@@ -936,9 +936,11 @@ export const Whimsy = {
     // batch7: whimsy:// URL schemes (the address-bar half; see
     // WhimsyProtocol.sys.mjs for why the external-link half is deferred).
     run("url-schemes", () => lazy.WhimsyProtocol.initWindow(win));
-    // batch hover: History hover cards in Zen's Library (tab cards are
-    // Firefox's own browser.tabs.hoverPreview).
+    // batch hover: History hover cards in Zen's Library.
     later("history-preview", () => lazy.WhimsyHoverCard.initWindow(win));
+    // W25: hover cards on tabs (links report through WhimsyAIPreview). It
+    // checks its switch on each hover, so turning it on needs no restart.
+    run("hover-cards", () => lazy.WhimsyHoverCards.initWindow(win));
     // batch7: developer mode tabs (Arc parity).
     run("dev-mode", () => {
       lazy.WhimsyDevMode.initWindow(win);

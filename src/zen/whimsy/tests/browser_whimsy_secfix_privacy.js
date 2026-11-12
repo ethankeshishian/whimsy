@@ -45,13 +45,14 @@ add_task(async function index_skips_signed_in_pages() {
   await WhimsyAIIndex.clear({});
   is((await capture(ROOT + "whimsy_secfix_account.html")).length, 0, "A page with Sign out is never indexed");
 
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ROOT + "whimsy_secfix_inject.html");
-  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
-    content.document.cookie = "sessionid=abc; Secure; path=/";
-  });
-  await WhimsyAIIndex._captureVisit(window, tab.linkedBrowser);
-  BrowserTestUtils.removeTab(tab);
-  is((await WhimsyAIIndex._entriesForTesting()).length, 0, "Nor a page whose site has a sign-in cookie");
+  // Sign in first, on the account page (never indexed itself): opening a tab
+  // also captures it on load, so the cookie has to be there before the visit.
+  await BrowserTestUtils.withNewTab(ROOT + "whimsy_secfix_account.html", browser =>
+    SpecialPowers.spawn(browser, [], () => {
+      content.document.cookie = "sessionid=abc; Secure; path=/";
+    })
+  );
+  is((await capture(ROOT + "whimsy_secfix_inject.html")).length, 0, "Nor a page whose site has a sign-in cookie");
   Services.cookies.removeAll();
 });
 
@@ -118,7 +119,7 @@ add_task(async function memory_never_learns_from_the_answer() {
   }
 });
 
-// W23 secfix L5: Fire drops link-preview summaries kept in memory.
+// W23 secfix L5: Fire drops hover card descriptions kept in memory.
 add_task(async function fire_drops_preview_summaries() {
   const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
   const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
@@ -127,15 +128,15 @@ add_task(async function fire_drops_preview_summaries() {
   WhimsyAIReader.setTestReader(() => "Signed-in statement text.");
   WhimsyAIProviders.setTestProvider(async () => {
     asked++;
-    return JSON.stringify({ title: "Statement", points: ["A balance"] });
+    return JSON.stringify({ title: "Statement", description: "A balance." });
   });
   try {
     const url = "https://example.com/statement?fire";
-    await WhimsyAIPage.summarize(url, { userContextId: 0 });
-    await WhimsyAIPage.summarize(url, { userContextId: 0 });
-    is(asked, 1, "Sanity: the summary is kept for a while");
+    await WhimsyAIPage.describe(url, { userContextId: 0 });
+    await WhimsyAIPage.describe(url, { userContextId: 0 });
+    is(asked, 1, "Sanity: the description is kept for a while");
     await WhimsyAIStore.clear({ kinds: ["chats"] });
-    await WhimsyAIPage.summarize(url, { userContextId: 0 });
+    await WhimsyAIPage.describe(url, { userContextId: 0 });
     is(asked, 2, "After Fire it's gone, so it's made again");
   } finally {
     WhimsyAIReader.setTestReader(null);

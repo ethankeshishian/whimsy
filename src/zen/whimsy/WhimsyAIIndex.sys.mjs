@@ -207,7 +207,10 @@ export const WhimsyAIIndex = {
       .map(({ url, title, score }) => ({ url, title, score }));
   },
 
+  _clears: 0,
+
   async clear({ since = null } = {}) {
+    this._clears++;
     this.init();
     const s = await load();
     s.entries = since == null ? [] : s.entries.filter(e => (e.date ?? 0) < since);
@@ -294,6 +297,9 @@ export const WhimsyAIIndex = {
     if (!this.on) {
       return;
     }
+    // A clear while this page is still being read wins: the page isn't
+    // added back after it.
+    const cleared = this._clears;
     const tab = win.gBrowser.getTabForBrowser(browser);
     if (!tab || lazy.WhimsyAIContext.isOffLimits(tab)) {
       return;
@@ -313,7 +319,7 @@ export const WhimsyAIIndex = {
     // fragment (reset tokens, search terms, message ids): the page's address
     // is kept as origin and path only.
     const uri = browser.currentURI;
-    if (this._signedIn(browser, uri, title, text)) {
+    if (this._signedIn(browser, uri, title, text) || cleared != this._clears) {
       return;
     }
     await this.add({ url: uri.prePath + uri.filePath, title, text });

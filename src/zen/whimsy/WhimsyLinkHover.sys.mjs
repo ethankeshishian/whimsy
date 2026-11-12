@@ -2,48 +2,41 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// wave7/ux: one hover host for links in pages (review HIG 13, user's call:
-// "Do either people or link preview. If AI is enabled, then show the AI
-// preview under. So two floating cards, designed well, that don't overlap
-// each other", and "those cards should appear and disappear with the same
-// timing and animation").
-//
-// Up to two cards, stacked in one popup so they can never overlap or drift
-// apart:
-//   1. Who or where: the People card on a profile link (WhimsyPeople), or
-//      otherwise the link card (where the link goes). Never both.
-//   2. The AI summary (WhimsyAIPage, 5-second previews), only while that
-//      feature is on. It opens with card 1, showing its loading lines,
-//      and fills in place; it never animates in on its own.
-// Both share one width and one gap, open after one delay and leave after
-// one grace period, and run one transition: a single attribute on the
-// popup starts both cards' transitions in the same style flush. The popup
-// opens against the link's box (openPopupAtScreenRect), so layout flips
-// the whole stack above the link when there's no room below and it never
-// covers the link.
-//
-// Triggers stay where they were: People cards on any profile link
-// (WhimsyPeopleChild); link cards on Shift over a link, or resting on an
-// outbound link on search results, X, Threads and Hacker News
-// (WhimsyAIPreviewChild). Tabs keep Firefox's tab hover preview and History
-// rows keep WhimsyHoverCard: different surfaces, and opening this host
-// closes nothing of theirs. Nothing shows in private tabs.
+// The one hover host for links in pages (wave7/ux, reworked for W25's hover
+// cards). One card at a time, never stacked:
+//   - the People card on a profile link (WhimsyPeople), while People cards
+//     are on;
+//   - otherwise the hover card (WhimsyHoverCards): a picture on top, the
+//     title, the address, and the AI description. Every link gets one while
+//     whimsy.feature.hover-cards is on, private tabs included (there it
+//     shows only the link's text and address).
+// Both open after one 500ms delay against the link's box
+// (openPopupAtScreenRect), so layout flips the card above the link when
+// there's no room below and it never covers the link. Moving on to another
+// link swaps the hover card with no delay; a People card (which has
+// buttons) keeps the hover bridge, so links crossed on the way to it don't
+// replace it. Tabs have their own card (WhimsyHoverCards' TabHover) and
+// History rows keep WhimsyHoverCard.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   buildPersonCard: "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyHoverCards: "resource:///modules/whimsy/WhimsyHoverCards.sys.mjs",
   WhimsyPeople: "resource:///modules/whimsy/WhimsyPeople.sys.mjs",
 });
 
 const HTML = "http://www.w3.org/1999/xhtml";
 const PANEL_ID = "whimsy-link-hover";
-const LINK_CARDS_PREF = "whimsy.feature.link-cards";
 const ENTER_DELAY_MS = 500;
-// wave9/mini W8-28: long enough to cross from the link to the card and
+// wave9/mini W8-28: long enough to cross from the link to a People card and
 // reach its buttons (180 ms lost the card on LinkedIn's dense layouts).
 const LEAVE_GRACE_MS = 400;
+// The hover card has no buttons: it closes soon after the link is left,
+// leaving a moment for the next link's hover to swap it.
+const CARD_LEAVE_MS = 100;
+// A link entered this soon after a card closed opens its card at once.
+const SWAP_MS = 300;
 // Space between the link and the stack (the cards' own gap is CSS).
 const LINK_GAP_PX = 4;
 const OPEN_ATTR = "whimsy-open";
@@ -61,7 +54,7 @@ export const WhimsyLinkHover = {
   PANEL_ID,
 
   get linkCardsEnabled() {
-    return Services.prefs.getBoolPref(LINK_CARDS_PREF, true);
+    return lazy.WhimsyHoverCards.enabled;
   },
 
   forWindow(win) {
@@ -82,8 +75,9 @@ class LinkHover {
     // here (the hover bridge) instead of replacing the card at once.
     this.pending = null;
     this.overPanel = false;
+    this.closedAt = 0;
     this.onKey = event => {
-      // Shift is how you ask for a card; other keys (Esc above all) close it.
+      // Keys (Esc above all) close it; modifiers alone don't.
       if (!["Shift", "Control", "Alt", "Meta"].includes(event.key)) {
         this.cancelPending();
         this.hide();
@@ -114,7 +108,7 @@ class LinkHover {
    * @param {"people" | "link"} req.source - which child saw it
    * @param {MozBrowser} req.browser
    * @param {string} req.url
-   * @param {"hover" | "shift"} req.how - Shift opens at once
+   * @param {"hover"} [req.how]
    * @param {number} req.x - the link's box, screen CSS pixels
    * @param {number} req.y
    * @param {number} req.width
@@ -124,56 +118,56 @@ class LinkHover {
    */
   enter(req) {
     const { browser, url } = req;
-    if (!browser || !url || lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
+    if (!browser || !url) {
       return;
     }
     const key = keyOf(url);
+    // People cards never show in private tabs; the hover card does, with
+    // the link's text and address only.
+    const kind = this.kindFor(req, lazy.PrivateBrowsingUtils.isBrowserPrivate(browser));
+    if (!kind) {
+      return;
+    }
     const target = this.target;
     if (target && target.key == key && target.browser == browser) {
-      // The same link again (the other child, or Shift pressed on it, or
-      // back onto it from the way to the card).
+      // The same link again (the other child, or back onto it from the way
+      // to the card).
       this.cancelPending();
       this.win.clearTimeout(target.leaveTimer);
       target.title ||= req.title;
-      if (req.how == "shift" && !target.shown) {
-        this.win.clearTimeout(target.enterTimer);
-        target.how = "shift";
-        this.#open(target);
-      }
       return;
     }
     const pending = this.pending;
     if (pending && pending.key == key && pending.browser == browser) {
       pending.title ||= req.title;
-      if (req.how == "shift") {
-        this.#promote(pending);
-      }
       return;
     }
     this.cancelPending();
     const next = {
       ...req,
       key,
-      kind: this.kindFor(req),
+      kind,
       controller: new AbortController(),
       shown: false,
-      // Decided during the delay so both cards can open on the same frame.
-      aiMode: lazy.WhimsyAIPage.previewMode(browser, url, req.how).catch(() => null),
+      // Decided during the delay, so the card opens with its description's
+      // place already there (no jump when it arrives).
+      ai: kind == "link" ? lazy.WhimsyHoverCards.linkDescribes(browser, url).catch(() => false) : false,
     };
-    if (target?.shown && req.how == "hover") {
+    if (target?.shown && target.kind == "people") {
       // wave9/mini W8-28, the hover bridge: the pointer is probably on its
-      // way to the open card and crossing other links (LinkedIn stacks a
-      // person's photo, name and headline as separate links). The card
-      // stays; this link takes over only if the pointer rests on it for the
-      // whole delay, and never once the pointer reaches the card.
+      // way to the open People card and crossing other links (LinkedIn
+      // stacks a person's photo, name and headline as separate links). The
+      // card stays; this link takes over only if the pointer rests on it for
+      // the whole delay, and never once the pointer reaches the card.
       this.pending = next;
       next.enterTimer = this.win.setTimeout(() => this.#promote(next), ENTER_DELAY_MS);
       return;
     }
+    // Moving along links: the next card swaps in with no delay.
+    const swap = !!target?.shown || Date.now() - this.closedAt < SWAP_MS;
     this.hide({ animate: false });
     this.target = next;
-    const delay = req.how == "shift" ? 0 : ENTER_DELAY_MS;
-    next.enterTimer = this.win.setTimeout(() => this.#open(next), delay);
+    next.enterTimer = this.win.setTimeout(() => this.#open(next), swap ? 0 : ENTER_DELAY_MS);
   }
 
   // The bridged link won: it replaces whatever card is still showing.
@@ -201,10 +195,10 @@ class LinkHover {
     }
   }
 
-  // Card 1: People on a profile link (when People cards are on), else the
-  // link card (when link cards are on), else none (the AI card alone).
-  kindFor({ url }) {
-    if (lazy.WhimsyPeople.enabled && lazy.WhimsyPeople.profile(url)) {
+  // People on a profile link (when People cards are on), else the hover
+  // card (when hover cards are on), else none.
+  kindFor({ url }, isPrivate = false) {
+    if (!isPrivate && lazy.WhimsyPeople.enabled && lazy.WhimsyPeople.profile(url)) {
       return "people";
     }
     return WhimsyLinkHover.linkCardsEnabled ? "link" : null;
@@ -237,33 +231,33 @@ class LinkHover {
         // A link the pointer is resting on may still take over.
         this.hide({ keepPending: true });
       }
-    }, LEAVE_GRACE_MS);
+    }, target.kind == "people" ? LEAVE_GRACE_MS : CARD_LEAVE_MS);
   }
 
   async #open(target) {
-    const aiMode = await target.aiMode;
+    const ai = await target.ai;
     if (this.target != target || target.shown || this.win.closed) {
       return;
     }
-    if (!target.kind && !aiMode) {
-      this.target = null;
-      return;
+    // The last card may still be closing: a panel that's hiding can't open
+    // again, and its popuphidden would end this card.
+    if (this.panel?.state == "hiding") {
+      await new Promise(resolve => this.panel.addEventListener("popuphidden", resolve, { once: true }));
+      if (this.target != target || target.shown || this.win.closed) {
+        return;
+      }
     }
-    if (target.how == "hover" && target.browser != this.win.gBrowser.selectedBrowser) {
+    if (target.browser != this.win.gBrowser.selectedBrowser) {
       return;
     }
     target.shown = true;
+    // An earlier card's exit may still be timed to hide the panel: this card
+    // replaces it, so that close must not land on the new one.
+    this.closing = null;
     const panel = this.#ensurePanel();
     const stack = panel.querySelector(".whimsy-link-hover-stack");
-    stack.replaceChildren();
-    if (target.kind) {
-      stack.append(this.#primaryCard(target));
-    }
-    if (aiMode) {
-      stack.append(this.#aiCard(target, aiMode));
-    }
+    stack.replaceChildren(target.kind == "people" ? this.#peopleCard(target) : this.#hoverCard(target, ai));
     panel.removeAttribute(OPEN_ATTR);
-    panel.toggleAttribute("whimsy-two-cards", stack.childElementCount == 2);
     const { x, y, width, height } = target;
     panel.openPopupAtScreenRect(
       "after_start",
@@ -307,6 +301,7 @@ class LinkHover {
     });
     panel.addEventListener("popuphidden", () => {
       this.overPanel = false;
+      this.closedAt = Date.now();
       panel.removeAttribute(OPEN_ATTR);
       if (this.target?.shown) {
         this.target.controller.abort();
@@ -358,48 +353,12 @@ class LinkHover {
     return card;
   }
 
-  #text(className, text) {
-    const el = this.win.document.createElementNS(HTML, "div");
-    el.className = className;
-    el.textContent = String(text).slice(0, 500);
-    return el;
-  }
-
-  #primaryCard(target) {
-    return target.kind == "people" ? this.#peopleCard(target) : this.#linkCard(target);
-  }
-
-  // Where the link goes: its icon, its text, and the address.
-  #linkCard(target) {
-    const doc = this.win.document;
+  // W25: the hover card (WhimsyHoverCards), filled in place as the
+  // picture, title, and description arrive. Clicking it opens the link, as
+  // clicking the link would.
+  #hoverCard(target, ai) {
     const card = this.#card("link");
-    let host = target.url;
-    let rest = "";
-    try {
-      const url = new URL(target.url);
-      host = url.host.replace(/^www\./, "");
-      rest = `${url.pathname}${url.search}`.replace(/^\/$/, "");
-    } catch {}
-    const head = doc.createElementNS(HTML, "div");
-    head.className = "whimsy-link-hover-head";
-    const icon = doc.createElementNS(HTML, "img");
-    icon.className = "whimsy-link-hover-icon";
-    icon.alt = "";
-    icon.src = `page-icon:${target.url}`;
-    icon.addEventListener("error", () => icon.remove(), { once: true });
-    const titles = doc.createElementNS(HTML, "div");
-    titles.className = "whimsy-link-hover-titles";
-    titles.append(this.#text("whimsy-link-hover-title", target.title || host));
-    const address = this.#text("whimsy-link-hover-url", host);
-    if (rest) {
-      const path = doc.createElementNS(HTML, "span");
-      path.className = "whimsy-link-hover-path";
-      path.textContent = rest.slice(0, 300);
-      address.append(path);
-    }
-    titles.append(address);
-    head.append(icon, titles);
-    card.append(head);
+    card.append(lazy.WhimsyHoverCards.linkCard(this.win, { ...target, ai }));
     card.addEventListener("click", event => this.#follow(event, target.url));
     return card;
   }
@@ -440,28 +399,6 @@ class LinkHover {
     return card;
   }
 
-  // The AI summary: present from the first frame (loading lines), filled in
-  // place by WhimsyAIPage.
-  #aiCard(target, mode) {
-    const doc = this.win.document;
-    const card = this.#card("ai");
-    const label = doc.createElementNS(HTML, "div");
-    label.className = "whimsy-link-hover-eyebrow";
-    doc.l10n.setAttributes(label, "whimsy-link-hover-ai-label");
-    const body = doc.createElementNS(HTML, "div");
-    body.className = "whimsy-link-hover-ai";
-    card.append(label, body);
-    lazy.WhimsyAIPage.fillPreview(this.win, body, {
-      url: target.url,
-      browser: target.browser,
-      mode,
-      how: target.how,
-      signal: target.controller.signal,
-    }).catch(error => console.error("Whimsy: link preview", error));
-    card.addEventListener("click", event => this.#follow(event, target.url));
-    return card;
-  }
-
   // Clicking a card opens the link, as clicking the link would.
   #follow(event, url) {
     if (event.button != 0) {
@@ -471,8 +408,8 @@ class LinkHover {
     this.win.openTrustedLinkIn(url, "current");
   }
 
-  // Both cards leave together: one attribute off, one shared exit, then the
-  // popup closes. Reduced motion has no transition, so it closes at once.
+  // The card leaves on one attribute, one exit transition, then the popup
+  // closes. Reduced motion has no transition, so it closes at once.
   hide({ animate = true, keepPending = false } = {}) {
     if (!keepPending) {
       this.cancelPending();
@@ -489,6 +426,7 @@ class LinkHover {
       return;
     }
     if (!animate || !panel.hasAttribute(OPEN_ATTR)) {
+      this.closing = null;
       panel.hidePopup();
       return;
     }
