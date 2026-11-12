@@ -186,7 +186,9 @@ add_task(async function test_command() {
   const id = "cmd_whimsySetting-adult-history";
   const entry = WhimsyCommands.get(id);
   ok(entry, "The switch has a command");
-  is(entry.icon, "chrome://browser/skin/zen-icons/settings.svg", "It uses the settings icon");
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const row = globalActions.find(a => a.whimsyCommand == id);
+  is(row?.icon, "chrome://browser/skin/zen-icons/settings.svg", "Its command-bar row uses the settings icon");
   const cmd = document.getElementById(id);
   ok(cmd, "Its <command> exists");
   cmd.doCommand();
