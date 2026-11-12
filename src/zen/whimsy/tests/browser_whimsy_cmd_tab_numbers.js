@@ -176,7 +176,8 @@ add_task(async function hints_only_on_visible_tab_rows() {
         const h = node.getBoundingClientRect();
         const t = tab.getBoundingClientRect();
         ok(h.width > 0 && h.left >= t.left && h.right <= t.right && h.top >= t.top && h.bottom <= t.bottom,
-          `Pinned section ${state}: hint "${node.textContent}" sits inside its tab's row`);
+          `Pinned section ${state}: hint "${node.textContent}" sits inside its tab's row ` +
+          `(hint ${[h.left, h.top, h.right, h.bottom].map(Math.round)}, tab ${[t.left, t.top, t.right, t.bottom].map(Math.round)})`);
         for (const [x, y] of [[h.left + 1, h.top + 1], [h.right - 1, h.bottom - 1], [h.left + h.width / 2, h.top + h.height / 2]]) {
           const hit = win.document.elementFromPoint(x, y);
           is(hit?.closest(".tabbrowser-tab"), tab, `Pinned section ${state}: hint "${node.textContent}" overlaps only its own tab row`);

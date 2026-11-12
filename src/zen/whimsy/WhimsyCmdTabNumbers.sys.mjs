@@ -215,7 +215,9 @@ export const WhimsyCmdTabNumbers = {
     for (const [tab, node] of state.badges) {
       const r = tab.getBoundingClientRect();
       node.hidden = false;
-      const { width, height } = node.getBoundingClientRect();
+      // Layout size: the hint's pop-in scale must not shrink the measure.
+      const width = node.offsetWidth;
+      const height = node.offsetHeight;
       const iconOnly = iconOnlyStrip || tab.hasAttribute("zen-essential");
       const x = Math.max(r.left + 2, iconOnly ? r.right - width - 2 : r.right - width - 28);
       const y = iconOnly ? r.top + 2 : r.top + (r.height - height) / 2;
@@ -264,6 +266,13 @@ export const WhimsyCmdTabNumbers = {
       this.place(win, state);
     };
     refresh();
+    // Rows can still be settling (a section expanding): place again once
+    // layout has caught up.
+    win.requestAnimationFrame(() => win.requestAnimationFrame(() => {
+      if (win.document.documentElement.hasAttribute("whimsy-tab-numbers")) {
+        this.place(win, state);
+      }
+    }));
     // Establish the transparent starting style before fading in.
     layer.getBoundingClientRect();
     layer.classList.remove("leaving");
