@@ -173,11 +173,11 @@ add_task(async function test_speaker_swap_keeps_window() {
     const onOpen = { observe: (subject, topic) => (reopened ||= topic == "domwindowopened") };
     Services.ww.registerNotification(onOpen);
     try {
-      const start = Cu.now();
+      const start = ChromeUtils.now();
       await page(call, "setSpeaker", "Ben");
       await TestUtils.waitForCondition(async () => (await floated(call)).includes("remote-Ben"),
         "The floating window follows the new speaker");
-      Assert.greaterOrEqual(Cu.now() - start, 1000, "It waits for the new speaker to hold the big tile");
+      Assert.greaterOrEqual(ChromeUtils.now() - start, 1000, "It waits for the new speaker to hold the big tile");
       Assert.deepEqual(await floated(call), ["remote-Ben"], "Only the new speaker is cloned");
       ok(!pip.closed, "The same window stays open");
       Assert.deepEqual(pipWindows(), [pip], "No other window opened");

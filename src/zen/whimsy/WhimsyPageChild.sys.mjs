@@ -608,11 +608,11 @@ export class WhimsyPageChild extends JSWindowActorChild {
     if (follow && best && best != current) {
       const leader = this._callLeader?.video?.get?.();
       if (leader != best) {
-        this._callLeader = { video: Cu.getWeakReference(best), since: Cu.now() };
+        this._callLeader = { video: Cu.getWeakReference(best), since: ChromeUtils.now() };
       }
       const kind = this.callVideoKind(current);
       const urgent = !playing || (kind == "local" && this.callVideoKind(best) != "local");
-      if ((urgent || Cu.now() - this._callLeader.since >= holdMs) && this.swapCallVideo(current, best)) {
+      if ((urgent || ChromeUtils.now() - this._callLeader.since >= holdMs) && this.swapCallVideo(current, best)) {
         floating = best;
         this._callLeader = null;
       }

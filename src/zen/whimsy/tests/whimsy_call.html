@@ -173,7 +173,8 @@
 
   // Hides (or shows) every WebRTC participant's tile.
   window.hideOthers = function (hidden) {
-    document.getElementById("others").hidden = hidden;
+    // (Its inline display would beat the hidden attribute.)
+    document.getElementById("others").style.display = hidden ? "none" : "flex";
     return true;
   };
 
