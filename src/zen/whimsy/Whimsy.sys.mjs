@@ -25,6 +25,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDictation: "resource:///modules/whimsy/WhimsyDictation.sys.mjs",
   WhimsyAICommands: "resource:///modules/whimsy/WhimsyAICommands.sys.mjs",
   WhimsyAIIndex: "resource:///modules/whimsy/WhimsyAIIndex.sys.mjs",
+  WhimsyAdultHistory: "resource:///modules/whimsy/WhimsyAdultHistory.sys.mjs",
   WhimsyAISelectionCard: "resource:///modules/whimsy/WhimsyAISelectionCard.sys.mjs",
   WhimsyCommandBarUpdates: "resource:///modules/whimsy/WhimsyCommandBarUpdates.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
@@ -586,6 +587,19 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
+    // W24: a top-level page labelled adult (meta rating or RTA) is taken
+    // back out of history (WhimsyAdultHistory). Only the fact crosses over.
+    ChromeUtils.registerWindowActor("WhimsyAdultHistory", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAdultHistory.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyAdultHistoryChild.sys.mjs",
+        events: { DOMContentLoaded: {}, pageshow: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
     // W23 ⌘K: the view's make-up when ⌘K opens, and what the selection sits in.
     ChromeUtils.registerWindowActor("WhimsyAIViewShare", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAIViewShare.sys.mjs" },
@@ -804,6 +818,8 @@ export const Whimsy = {
     run("read-aloud", () => ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyReadAloud.sys.mjs").WhimsyReadAloud.initWindow(win));
     // W23 memory-fire: "Related" rows by meaning, from the on-device index.
     run("ai-related", () => lazy.WhimsyAIIndex.initWindow(win));
+    // W24: keep adult sites out of history; checks its switches on each load.
+    run("adult-history", () => lazy.WhimsyAdultHistory.init());
     // Once per session; it watches its pref and switch to turn the built-in
     // add-on on or off.
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());

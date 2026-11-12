@@ -183,6 +183,8 @@ export const SETTINGS = [
         }
       }
     } },
+  // W24: keep adult sites out of history.
+  { name: "adult-history", setting: "whimsyAdultHistory", pref: "whimsy.adult-history.enabled", feature: ["adult-history"] },
   { name: "private-in-window", setting: "whimsyPrivateInWindow", pref: "whimsy.private.in-window", feature: ["scratch"] },
   // W11-14: the private lock's switches have their own commands (Turn Lock
   // for … On/Off), which ask for Touch ID before turning one off while locked.

@@ -534,6 +534,9 @@
 - name: whimsy.feature.battery-saver
   value: true
 
+- name: whimsy.feature.adult-history
+  value: true
+
 - name: whimsy.feature.form-protection
   value: true
 

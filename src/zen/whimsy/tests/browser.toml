@@ -1176,6 +1176,9 @@ support-files = ["whimsy_secfix_inject.html", "whimsy_secfix2_links.html", "whim
 ["browser_whimsy_secfix2_page.js"]
 support-files = ["whimsy_secfix2_codes.html"]
 
+# W24: keep adult sites out of history (stand-in hash and labelled stand-in pages).
+["browser_whimsy_adult_history.js"]
+support-files = ["whimsy_adult_standin.html", "whimsy_adult_labelled.html", "whimsy_adult_rta.html"]
 ["browser_whimsy_dark_pages.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
