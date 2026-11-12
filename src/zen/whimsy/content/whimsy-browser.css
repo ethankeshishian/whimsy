@@ -927,10 +927,11 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
    filled glyph pops 1.12 -> 1 while it fades in (180ms) and the pill fades
    in with it; nothing changes width, so nothing beside it moves.
    Reduced motion: a plain fade. */
-:root[whimsy-smart-buttons] #urlbar #reader-mode-button {
+/* W25: the Dark page moon shares this "on" pill (WhimsyDarkPages). */
+:root[whimsy-smart-buttons] #urlbar :is(#reader-mode-button, #whimsy-dark-page-button) {
   transition: background-color 180ms ease-out;
 }
-:root[whimsy-smart-buttons] #urlbar #reader-mode-button[readeractive] {
+:root[whimsy-smart-buttons] #urlbar :is(#reader-mode-button[readeractive], #whimsy-dark-page-button[active]) {
   background-color: var(--urlbar-box-background-color) !important;
 
   :where(#urlbar[focused]) & {
@@ -944,11 +945,13 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     }
   }
   & > .urlbar-icon {
-    list-style-image: url("chrome://browser/content/whimsy/icons/reader-on.svg") !important;
     fill: currentColor !important;
     fill-opacity: 1 !important;
     animation: whimsy-reader-on 180ms cubic-bezier(0.2, 0, 0, 1);
   }
+}
+:root[whimsy-smart-buttons] #urlbar #reader-mode-button[readeractive] > .urlbar-icon {
+  list-style-image: url("chrome://browser/content/whimsy/icons/reader-on.svg") !important;
 }
 @keyframes whimsy-reader-on {
   0% { opacity: 0; scale: 0.6; }
@@ -959,12 +962,12 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   from { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  :root[whimsy-smart-buttons] #urlbar #reader-mode-button[readeractive] > .urlbar-icon {
+  :root[whimsy-smart-buttons] #urlbar :is(#reader-mode-button[readeractive], #whimsy-dark-page-button[active]) > .urlbar-icon {
     animation-name: whimsy-reader-on-fade;
   }
 }
 @media (forced-colors: active) {
-  :root[whimsy-smart-buttons] #urlbar #reader-mode-button[readeractive] {
+  :root[whimsy-smart-buttons] #urlbar :is(#reader-mode-button[readeractive], #whimsy-dark-page-button[active]) {
     outline: 1px solid Highlight;
   }
 }

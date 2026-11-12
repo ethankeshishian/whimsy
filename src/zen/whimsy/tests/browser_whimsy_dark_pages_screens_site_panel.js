@@ -16,7 +16,6 @@ add_task(async function screenshots_site_panel() {
     gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
     const panel = document.getElementById("zen-unified-site-data-panel");
     const shown = BrowserTestUtils.waitForEvent(panel, "popupshown");
-    ok(!document.getElementById("whimsy-dark-page-button"), "No dark page button in the address bar");
     WhimsySiteSettings.open(window, { focus: "dark-pages" });
     await shown;
     const row = document.querySelector('[whimsy-site-setting="dark-pages"]');
