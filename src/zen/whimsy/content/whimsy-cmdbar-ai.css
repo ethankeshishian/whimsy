@@ -1242,3 +1242,32 @@
 .whimsy-cmdk-field-value {
   overflow-wrap: anywhere;
 }
+
+/* W25 designfix: a long query never pushes a row's key hint ("Search with
+   Google", "Ask About This Page") off the bar. The title gives way with an
+   ellipsis; the hint keeps its full text after the standard gap; the row
+   keeps its end padding. */
+#urlbar .urlbarView-row > .urlbarView-row-inner {
+  padding-inline-end: var(--urlbarview-row-padding-inline, 8px);
+
+  & > .urlbarView-no-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100% !important;
+  }
+  & .urlbarView-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .urlbarView-action:not(:empty) {
+    flex-shrink: 0;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+    margin-inline-start: 8px;
+  }
+}

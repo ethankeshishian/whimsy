@@ -410,3 +410,33 @@ add_task(async function accent_pills_and_selected_rows_meet_aa() {
     }
   });
 });
+
+// W25 designfix, part of the truncation guard: with a very long query, a
+// row's key hint keeps its full text inside the row's padding box and
+// never overlaps the title, which ellipses instead.
+add_task(async function long_query_keeps_key_hints_whole() {
+  await withPage(PAGE("empty"), async () => {
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: "lorem ipsum ".repeat(17).slice(0, 200) });
+    let checked = 0;
+    for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+      const { element } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+      const inner = element.row.querySelector(".urlbarView-row-inner");
+      const action = inner?.querySelector(".urlbarView-action");
+      const title = inner?.querySelector(".urlbarView-title");
+      if (!action?.textContent.trim() || !action.checkVisibility() || !title) {
+        continue;
+      }
+      checked++;
+      const name = action.textContent.trim();
+      ok(action.scrollWidth <= action.clientWidth, `"${name}" isn't truncated`);
+      const box = inner.getBoundingClientRect();
+      const end = box.right - parseFloat(getComputedStyle(inner).paddingRight);
+      const a = action.getBoundingClientRect();
+      Assert.lessOrEqual(a.right, end + 0.5, `"${name}" sits inside the row's padding box`);
+      Assert.greaterOrEqual(a.left, title.getBoundingClientRect().right - 0.5, `"${name}" doesn't overlap the title`);
+    }
+    Assert.greater(checked, 0, "At least one row shows a key hint");
+    gURLBar.view.close();
+    gURLBar.handleRevert();
+  });
+});
