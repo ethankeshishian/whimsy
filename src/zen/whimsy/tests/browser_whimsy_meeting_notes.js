@@ -38,6 +38,16 @@ let aiReply = "- Onboarding v3 ships behind a flag on Dec 2.\n- Priya wants the 
 const panel = () => WhimsyChatPanel.forWindow(window);
 const card = () => panel().body?.querySelector(":scope > .whimsy-meeting-card");
 
+// The chat panel slides in: click a card's button only once it has arrived
+// under the pointer, or the click lands outside the window.
+async function clickable(el) {
+  await TestUtils.waitForCondition(() => {
+    const r = el.getBoundingClientRect();
+    const hit = el.ownerDocument.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return hit && (hit == el || el.contains(hit));
+  }, `${el.id} is in view, under the pointer (window ${window.innerWidth}px wide, button at ${Math.round(el.getBoundingClientRect().left)}px)`);
+}
+
 function json(response, body, status = 200) {
   response.setStatusLine("1.1", status, "x");
   response.setHeader("Content-Type", "application/json");
@@ -202,15 +212,8 @@ add_task(async function connect_from_the_chat_card() {
   is(card().dataset.kind, "off", "One line and one button");
   ok(!tab.hasAttribute("whimsy-meeting-following"), "No red dot until Granola follows");
   const settingsOpened = BrowserTestUtils.waitForNewTab(gBrowser, url => url.startsWith("about:preferences"), true);
-  const diagRect = button.getBoundingClientRect();
-  const diagHit = document.elementFromPoint(diagRect.left + diagRect.width / 2, diagRect.top + diagRect.height / 2);
-  const diagConnect = WhimsyMeetingNotes.connect;
-  WhimsyMeetingNotes.connect = function (w) { info(`DIAG connect called win=${!!w} openPrefs=${typeof w?.openPreferences}`); return diagConnect.call(this, w); };
-  info(`DIAG rect=${JSON.stringify(diagRect)} hit=${diagHit?.localName}#${diagHit?.id}.${diagHit?.className} inDoc=${button.ownerDocument == document} panelOpen=${panel().isOpen} popups=${[...document.querySelectorAll("panel,menupopup")].filter(p => p.state == "open").map(p => p.id).join(",")}`);
+  await clickable(button);
   EventUtils.synthesizeMouseAtCenter(button, {});
-  await new Promise(r => setTimeout(r, 3000));
-  info(`DIAG after tabs=${gBrowser.tabs.map(t => t.linkedBrowser.currentURI.spec).join(" ")} sel=${gBrowser.selectedBrowser.currentURI.spec}`);
-  WhimsyMeetingNotes.connect = diagConnect;
   const settings = await settingsOpened;
   const doc = settings.linkedBrowser.contentDocument;
   // Granola's own row runs its sign-in: Signing in…, then connected.
@@ -260,6 +263,7 @@ add_task(async function follows_a_meeting_with_live_points() {
   ok(card().querySelector("#whimsy-meeting-download"), "Download transcript");
   const dir = await useTempDownloadDir();
   granola.transcript = "Ana: the whole transcript.";
+  await clickable(card().querySelector("#whimsy-meeting-download"));
   EventUtils.synthesizeMouseAtCenter(card().querySelector("#whimsy-meeting-download"), {});
   await TestUtils.waitForCondition(() => toastFor("whimsy-meeting-downloaded"), "Downloaded, with Show in Finder");
   const [file] = await IOUtils.getChildren(dir);
@@ -371,6 +375,7 @@ add_task(async function fallback_offer_take_notes_and_stop() {
   is(card().querySelector(".whimsy-meeting-meta").dataset.l10nId, "whimsy-meeting-from-own", "It says they're Whimsy's own");
 
   // Stop: the microphone and the call's sound go off.
+  await clickable(card().querySelector("#whimsy-meeting-stop"));
   EventUtils.synthesizeMouseAtCenter(card().querySelector("#whimsy-meeting-stop"), {});
   await TestUtils.waitForCondition(() => mic.sessions.at(-1).stopped, "The microphone stops");
   await TestUtils.waitForCondition(() => call.sessions[0].stopped, "The call's sound stops");
