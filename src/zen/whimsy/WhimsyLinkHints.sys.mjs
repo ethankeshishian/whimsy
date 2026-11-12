@@ -54,11 +54,12 @@ export const WhimsyLinkHints = {
 
   // The badge colors: the space's accent, with black or white ink, whichever
   // reads better on it.
-  colors(win) {
+  // Hold-⌘ tab hints pass another token (WhimsyCmdTabNumbers).
+  colors(win, token = "--zen-primary-color") {
     // Resolved through a probe, since the variable may be a color-mix().
     const { document } = win;
     const probe = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-    probe.style.color = "var(--zen-primary-color)";
+    probe.style.color = `var(${token})`;
     probe.hidden = true;
     document.documentElement.append(probe);
     let rgba = null;

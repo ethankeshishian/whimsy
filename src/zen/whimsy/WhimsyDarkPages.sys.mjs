@@ -4,7 +4,6 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsySiteSettings: "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
@@ -135,17 +134,7 @@ export const WhimsyDarkPages = {
     };
     media.addEventListener("change", theme);
     theme();
-    const doc = win.document;
-    const anchor = doc.getElementById("page-action-buttons");
-    if (anchor) {
-      const button = doc.createXULElement("toolbarbutton");
-      button.id = "whimsy-dark-page-button";
-      button.className = "urlbar-icon";
-      button.setAttribute("image", ICON);
-      doc.l10n.setAttributes(button, "whimsy-dark-pages-button");
-      button.addEventListener("command", () => lazy.WhimsySiteSettings.open(win, { focus: "dark-pages" }));
-      anchor.append(button);
-    }
+    this.addButton(win);
     const update = () => {
       this.updateButton(win);
       this.offer(win, win.gBrowser.selectedBrowser);
@@ -158,16 +147,6 @@ export const WhimsyDarkPages = {
       }
     } };
     win.gBrowser.addTabsProgressListener(progress);
-    lazy.WhimsyCommands.register(win, {
-      id: "cmd_whimsyToggleDarkPage",
-      l10nId: "whimsy-action-toggle-dark-page",
-      icon: ICON,
-      isAvailable: w => this.enabled && !!this.siteKey(w.gBrowser.selectedBrowser),
-      run: w => {
-        const browser = w.gBrowser.selectedBrowser;
-        this.setChoice(browser, this.state(browser) == "original" ? "on" : "off");
-      },
-    });
     win.addEventListener("unload", () => {
       windows.delete(win);
       media.removeEventListener("change", theme);
@@ -175,6 +154,77 @@ export const WhimsyDarkPages = {
       win.gBrowser.removeTabsProgressListener(progress);
     }, { once: true });
     update();
+  },
+
+  // The URL bar's moon: a page action like Reader view (the shared
+  // .urlbar-page-action > .urlbar-icon markup, so Zen's hover pill and
+  // auto-hide apply). One click flips this site between dark and original,
+  // live; no menu.
+  addButton(win) {
+    const doc = win.document;
+    const anchor = doc.getElementById("page-action-buttons");
+    if (!anchor || doc.getElementById("whimsy-dark-page-button")) {
+      return;
+    }
+    const button = doc.createXULElement("hbox");
+    button.id = "whimsy-dark-page-button";
+    button.className = "urlbar-page-action";
+    button.setAttribute("role", "button");
+    button.setAttribute("tabindex", "0");
+    const icon = doc.createXULElement("image");
+    icon.className = "urlbar-icon";
+    icon.setAttribute("src", ICON);
+    button.append(icon);
+    const toggle = event => {
+      if (event.type == "click" ? event.button != 0 : event.key != "Enter" && event.key != " ") {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.toggle(win.gBrowser.selectedBrowser);
+    };
+    button.addEventListener("click", toggle);
+    button.addEventListener("keydown", toggle);
+    anchor.append(button);
+  },
+
+  // Two states per site (owner, W25): dark or not. Off is the default
+  // (nothing remembered) when the global setting leaves the site light;
+  // otherwise the site's choice is remembered.
+  isDark(browser) {
+    const choice = this.choice(browser);
+    return choice == "on" || (choice == "automatic" && this.active);
+  },
+
+  setDark(browser, dark) {
+    this.setChoice(browser, dark == this.active ? "automatic" : dark ? "on" : "off");
+  },
+
+  toggle(browser) {
+    this.setDark(browser, !this.isDark(browser));
+  },
+
+  updateButton(win) {
+    const browser = win.gBrowser.selectedBrowser;
+    const button = win.document.getElementById("whimsy-dark-page-button");
+    if (!button) {
+      return;
+    }
+    const dark = this.isDark(browser);
+    button.hidden = !this.enabled || !this.siteKey(browser);
+    button.toggleAttribute("active", dark);
+    // Keep an open site panel's row in step, only when this site's choice
+    // or state actually changed (a re-render would close other controls).
+    const shown = `${browser.browserId}|${this.siteKey(browser)}|${this.choice(browser)}|${this.state(browser)}`;
+    if (button._shown != shown) {
+      const panelOpen = win.document.getElementById("zen-unified-site-data-panel")?.state == "open";
+      if (panelOpen && button._shown?.startsWith(`${browser.browserId}|${this.siteKey(browser)}|`)) {
+        lazy.WhimsySiteSettings.render(win);
+      }
+      button._shown = shown;
+    }
+    button.setAttribute("aria-pressed", dark);
+    win.document.l10n.setAttributes(button, dark ? "whimsy-dark-pages-button-original" : "whimsy-dark-pages-button-dark");
   },
 
   state(browser) {
@@ -185,24 +235,10 @@ export const WhimsyDarkPages = {
     if (!["native", "generated", "original"].includes(state)) {
       return;
     }
-    const changed = states.get(browser) != state;
     states.set(browser, state);
     const win = browser.ownerDocument.defaultView;
     this.updateButton(win);
     this.offer(win, browser);
-    if (changed && win.gBrowser.selectedBrowser == browser &&
-        win.document.getElementById("zen-unified-site-data-panel")?.state == "open") {
-      lazy.WhimsySiteSettings.render(win);
-    }
-  },
-
-  updateButton(win) {
-    const browser = win.gBrowser.selectedBrowser;
-    const button = win.document.getElementById("whimsy-dark-page-button");
-    if (button) {
-      button.hidden = !this.enabled || !this.siteKey(browser);
-      button.toggleAttribute("active", this.state(browser) != "original");
-    }
   },
 
   offer(win, browser) {
@@ -229,34 +265,26 @@ export const WhimsyDarkPages = {
     }
   },
 
+  // A switch row like Always Open in Reader View (WhimsySiteSettings.render).
   siteRow(win, browser) {
     if (!this.enabled) {
       return null;
     }
     const doc = win.document;
-    const { WhimsySurface } = lazy;
-    const box = WhimsySurface.group(doc);
-    box.setAttribute("whimsy-site-setting", "dark-pages");
-    const { caption, label } = WhimsySurface.caption(doc, {
+    const dark = this.isDark(browser);
+    const labelId = "whimsy-dark-page-site-label";
+    const toggle = lazy.WhimsySurface.switch(doc, {
+      checked: dark,
+      labelledBy: labelId,
+      id: "whimsy-site-settings-dark-pages-switch",
+      onChange: checked => this.setDark(browser, checked),
+    });
+    return lazy.WhimsySiteSettings.row(doc, {
+      kind: "dark-pages",
       l10nId: "whimsy-dark-pages-site-title",
-      detailL10nId: `whimsy-dark-pages-state-${this.state(browser)}`,
+      labelId,
+      on: this.choice(browser) != "automatic",
+      trailing: [toggle],
     });
-    const seg = WhimsySurface.seg(doc, {
-      name: "dark-page", label: "Dark page",
-      options: [
-        { value: "automatic", l10nId: "whimsy-dark-pages-automatic" },
-        { value: "on", l10nId: "whimsy-dark-pages-dark" },
-        { value: "off", l10nId: "whimsy-dark-pages-original" },
-      ],
-      onPick: value => {
-        this.setChoice(browser, value);
-        seg.select(value);
-      },
-    });
-    label.id = "whimsy-dark-page-site-label";
-    seg.group.setAttribute("aria-labelledby", label.id);
-    seg.select(this.choice(browser));
-    box.append(caption, seg.group);
-    return box;
   },
 };

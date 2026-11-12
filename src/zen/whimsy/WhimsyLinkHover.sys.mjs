@@ -276,16 +276,8 @@ class LinkHover {
       return panel;
     }
     const doc = this.win.document;
-    panel = doc.createXULElement("panel");
-    panel.id = PANEL_ID;
-    panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("consumeoutsideclicks", "false");
-    panel.setAttribute("animate", "false");
-    panel.setAttribute("flip", "both");
-    panel.setAttribute("role", "group");
-    const stack = doc.createElementNS(HTML, "div");
-    stack.className = "whimsy-link-hover-stack";
-    panel.append(stack);
+    // The tab card's host too (WhimsyHoverCards.createHost): one look.
+    panel = lazy.WhimsyHoverCards.createHost(doc, PANEL_ID);
     panel.addEventListener("popupshown", () => {
       // Flipped above the link: the cards rise from below instead.
       const target = this.target;

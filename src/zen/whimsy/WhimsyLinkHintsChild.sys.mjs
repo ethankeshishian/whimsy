@@ -12,7 +12,14 @@
 const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
-const STYLESHEET = "chrome://browser/content/whimsy/whimsy-link-hints.css";
+export const STYLESHEET = "chrome://browser/content/whimsy/whimsy-link-hints.css";
+
+// Places a .hint at (x, y), kept inside the viewport. Shared with the
+// hold-⌘ tab hints (WhimsyCmdTabNumbers).
+export function placeHint(node, x, y, label, win) {
+  node.style.left = `${Math.min(x, win.innerWidth - 8 - label.length * 9)}px`;
+  node.style.top = `${Math.min(y, win.innerHeight - 18)}px`;
+}
 // Vimium's home-row-first alphabet: the easiest letters come first.
 export const ALPHABET = "sadfjklewcmpgh";
 const MAX_HINTS = 700;
@@ -241,8 +248,7 @@ export class WhimsyLinkHintsChild extends JSWindowActorChild {
     this.hints = targets.map((target, i) => {
       const node = doc.createElement("span");
       node.className = "hint";
-      node.style.left = `${Math.min(target.x, win.innerWidth - 8 - labels[i].length * 9)}px`;
-      node.style.top = `${Math.min(target.y, win.innerHeight - 18)}px`;
+      placeHint(node, target.x, target.y, labels[i], win);
       const typed = doc.createElement("span");
       typed.className = "typed";
       const rest = doc.createElement("span");

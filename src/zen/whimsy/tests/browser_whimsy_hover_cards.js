@@ -24,6 +24,7 @@ const PAGE = ROOT + "whimsy_ai_page.html";
 const LINKS = ROOT + "whimsy_ai_links.html";
 const IMAGE = ROOT + "whimsy_test_image.png";
 const DESCRIPTION = "Planning notes for the Lisbon offsite on March 14, with the budget and the espresso machine.";
+const POINTS = ["The offsite is in Lisbon on March 14.", "The espresso machine costs $129.", "The budget is still open."];
 
 const linkPanel = () => document.getElementById(WhimsyLinkHover.PANEL_ID);
 const tabPanel = () => document.getElementById(WhimsyHoverCards.TAB_PANEL_ID);
@@ -33,7 +34,7 @@ let asked = [];
 let reads = [];
 let fetches = [];
 let imageBytes = null;
-let answer = () => JSON.stringify({ title: "Planning notes", description: DESCRIPTION });
+let answer = () => JSON.stringify({ title: "Planning notes", description: DESCRIPTION, points: POINTS });
 
 add_setup(async () => {
   await SimpleTest.promiseFocus(window);
@@ -80,10 +81,112 @@ function reset() {
   asked = [];
   reads = [];
   fetches = [];
-  answer = () => JSON.stringify({ title: "Planning notes", description: DESCRIPTION });
+  answer = () => JSON.stringify({ title: "Planning notes", description: DESCRIPTION, points: POINTS });
 }
 
 const described = request => /hover card/.test(request.system);
+
+// The AI summary's three bullets, right under the description.
+function checkPoints(card, what) {
+  const desc = card.querySelector(".whimsy-hc-desc.is-text");
+  const list = card.querySelector("ul.whimsy-hc-points");
+  ok(list, `${what}: the bullets show`);
+  is(desc.nextElementSibling, list, `${what}: under the description`);
+  Assert.deepEqual([...list.children].map(li => li.localName), ["li", "li", "li"], `${what}: exactly three`);
+  Assert.deepEqual([...list.children].map(li => li.textContent), POINTS, `${what}: the AI's bullets`);
+}
+
+// Every shadow on `el`, as how far it reaches past each side.
+function shadowExtent(el) {
+  const extent = { top: 0, right: 0, bottom: 0, left: 0 };
+  const value = getComputedStyle(el).boxShadow;
+  if (value == "none") {
+    return extent;
+  }
+  for (const shadow of value.split(/,(?![^(]*\))/)) {
+    if (/inset/.test(shadow)) {
+      continue;
+    }
+    const [x = 0, y = 0, blur = 0, spread = 0] = shadow.replace(/rgba?\([^)]*\)/, "").match(/-?[\d.]+px/g).map(parseFloat);
+    extent.top = Math.max(extent.top, blur + spread - y);
+    extent.bottom = Math.max(extent.bottom, blur + spread + y);
+    extent.left = Math.max(extent.left, blur + spread - x);
+    extent.right = Math.max(extent.right, blur + spread + x);
+  }
+  return extent;
+}
+
+// -moz-window-shadow is chrome-only, so getComputedStyle can't read it:
+// take the winning declaration from the rules that match `el` (cascade
+// order, !important last).
+function windowShadow(el) {
+  let value = "auto";
+  let important = false;
+  for (const rule of InspectorUtils.getMatchingCSSRules(el)) {
+    for (const [, v, imp] of rule.style.cssText.matchAll(/-moz-window-shadow:\s*([a-z-]+)\s*(!important)?/g)) {
+      if (imp || !important) {
+        value = v;
+        important ||= !!imp;
+      }
+    }
+  }
+  return value;
+}
+
+// The look of a card's surface and of everything around it in its popup.
+function surfaceLook(panel) {
+  const frame = panel.querySelector(".whimsy-link-hover-card");
+  const content = panel.shadowRoot?.querySelector("[part~='content']");
+  const pick = (el, names) => Object.fromEntries(names.map(n => [n, el ? getComputedStyle(el).getPropertyValue(n) : null]));
+  return {
+    card: pick(frame, ["background-color", "border-top-width", "border-top-style", "border-top-color", "border-radius", "box-shadow", "width", "padding-top", "padding-left"]),
+    panel: pick(panel, ["appearance", "background-color", "border-top-width", "box-shadow", "margin-top", "margin-left", "padding-top"]),
+    content: pick(content, ["appearance", "background-color", "border-top-width", "box-shadow", "padding-top", "margin-top", "border-radius"]),
+    stack: pick(panel.querySelector(".whimsy-link-hover-stack"), ["background-color", "box-shadow", "padding-top", "padding-left", "padding-bottom"]),
+    windowShadow: windowShadow(panel),
+    attributes: [...panel.attributes].map(a => a.name).filter(n => !["id", "whimsy-open", "side", "state", "style"].includes(n)).sort(),
+  };
+}
+
+// Nothing between the card and its popup's window cuts its shadow: the
+// card inflated by its shadow's reach fits in every clipping box around it
+// and in the popup itself, on all four sides.
+function checkShadowRoom(panel, what) {
+  const frame = panel.querySelector(".whimsy-link-hover-card");
+  const reach = shadowExtent(frame);
+  ok(reach.bottom > 0, `${what}: the card has a shadow`);
+  const box = frame.getBoundingClientRect();
+  const needed = {
+    top: box.top - reach.top,
+    right: box.right + reach.right,
+    bottom: box.bottom + reach.bottom,
+    left: box.left - reach.left,
+  };
+  const clips = [panel];
+  const content = panel.shadowRoot?.querySelector("[part~='content']");
+  if (content) {
+    clips.push(content);
+  }
+  for (let el = frame.parentElement; el && el != panel; el = el.parentElement) {
+    if (getComputedStyle(el).overflow != "visible") {
+      clips.push(el);
+    }
+  }
+  for (const clip of clips) {
+    const room = clip.getBoundingClientRect();
+    const name = clip == panel ? "the popup" : clip.getAttribute?.("part") || clip.className;
+    Assert.lessOrEqual(room.top, needed.top + 0.5, `${what}: ${name} leaves the shadow room above`);
+    Assert.greaterOrEqual(room.right, needed.right - 0.5, `${what}: ...on the right`);
+    Assert.greaterOrEqual(room.bottom, needed.bottom - 0.5, `${what}: ...below`);
+    Assert.lessOrEqual(room.left, needed.left + 0.5, `${what}: ...on the left`);
+  }
+  // The popup's own window is as big as the popup.
+  const outer = panel.getOuterScreenRect();
+  const inner = panel.getBoundingClientRect();
+  Assert.greaterOrEqual(outer.width + 0.5, inner.width, `${what}: the popup's window holds the room across`);
+  Assert.greaterOrEqual(outer.height + 0.5, inner.height, `${what}: ...and down`);
+  info(`${what}: card ${JSON.stringify(box)} reach ${JSON.stringify(reach)} popup ${JSON.stringify(inner)} window ${JSON.stringify(outer)}`);
+}
 
 async function closeAll() {
   host.hide({ animate: false });
@@ -148,8 +251,14 @@ add_task(async function tab_card() {
     const desc = await TestUtils.waitForCondition(
       () => card.querySelector(".whimsy-hc-desc.is-text"),
       "The description arrives"
-    );
+    ).catch(error => {
+      const now = card.querySelector(".whimsy-hc-desc");
+      info(`Description state: ${now?.className} "${now?.textContent}"; asked ${asked.length}; card connected ${card.isConnected}`);
+      throw error;
+    });
     is(desc.textContent, DESCRIPTION, "It's the AI's description");
+    checkPoints(card, "A tab");
+    is(asked.filter(described).length, 1, "The description and its bullets came from one request");
     const request = asked.find(described);
     ok(request?.prompt.includes("espresso machine"), "Written from the loaded page's own text");
     is(reads.length, 0, "Nothing was fetched for a tab");
@@ -225,6 +334,8 @@ add_task(async function link_card() {
     Assert.deepEqual(fetches.map(f => f.kind), ["page", "image"], "Fetched the page's tags, then its image");
     const desc = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-text"), "The description");
     is(desc.textContent, DESCRIPTION, "The AI's one- or two-sentence description");
+    checkPoints(card, "A link");
+    is(asked.filter(described).length, 1, "The description and its bullets came from one request");
     is(reads[0]?.url, PAGE, "The linked page was read");
     ok(reads[0].anonymous, "...without sign-ins");
     is(reads[0].userContextId, WhimsyAIReader.anonymousContextId(), "...in Firefox's background container");
@@ -270,6 +381,7 @@ add_task(async function link_without_image_and_failed_description() {
     ok(card.querySelector(".whimsy-hc-site-icon"), "...with the site's icon");
     const note = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-note"), "A muted note");
     is(note.dataset.note, "failed", "It couldn't be described");
+    ok(!card.querySelector(".whimsy-hc-points"), "...and has no bullets");
     ok(!fetches.some(f => f.kind == "image"), "No image was fetched");
   } finally {
     await closeAll();
@@ -327,12 +439,14 @@ add_task(async function ai_off() {
     const card = await openTabCard();
     await TestUtils.waitForCondition(() => card.querySelector('.whimsy-hc-picture[data-kind="image"]'), "The picture");
     ok(!card.querySelector(".whimsy-hc-desc"), "A tab: no description and no note");
+    ok(!card.querySelector(".whimsy-hc-points"), "...and no bullets");
     await closeAll();
 
     await hoverLink(other.linkedBrowser);
     const link = await openLinkCard();
     await TestUtils.waitForCondition(() => link.querySelector('.whimsy-hc-picture[data-kind="image"]'), "The link's picture");
     ok(!link.querySelector(".whimsy-hc-desc"), "A link: no description and no note");
+    ok(!link.querySelector(".whimsy-hc-points"), "...and no bullets");
     is(reads.length, 0, "No page was read for AI");
     is(asked.length, 0, "Nothing was asked");
   } finally {
@@ -356,6 +470,7 @@ add_task(async function private_tabs() {
     const card = await openTabCard();
     const note = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-note"), "A note");
     is(note.dataset.note, "private", "Private tabs don't get descriptions");
+    ok(!card.querySelector(".whimsy-hc-points"), "...or bullets");
     await closeAll();
     BrowserTestUtils.removeTab(other);
 
@@ -367,11 +482,137 @@ add_task(async function private_tabs() {
     is(link.querySelector(".whimsy-hc-host").textContent, "example.com", "...and its address");
     is(link.querySelector(".whimsy-hc-picture").dataset.kind, "site", "...with the site tile, no picture");
     is(link.querySelector(".whimsy-hc-desc.is-note")?.dataset.note, "private-link", "...and says why");
+    ok(!link.querySelector(".whimsy-hc-points"), "...with no bullets");
     is(fetches.length, 0, "The linked page isn't loaded");
     is(reads.length, 0, "...or read");
     is(asked.length, 0, "Nothing goes to AI");
   } finally {
     await closeAll();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// The summary loads as one: quiet lines for the description and for its
+// bullets, filled together from the one answer.
+add_task(async function summary_loads_with_bullets() {
+  reset();
+  let release;
+  const gate = new Promise(r => (release = r));
+  answer = async () => {
+    await gate;
+    return JSON.stringify({ title: "Planning notes", description: DESCRIPTION, points: POINTS });
+  };
+  try {
+    // A page not described before, so nothing comes from the cache.
+    host.enter({ source: "link", browser: gBrowser.selectedBrowser, url: PAGE + "?loading", title: "Loading", x: 200, y: 200, width: 80, height: 18 });
+    const card = await openLinkCard();
+    await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-loading"), "The summary is loading");
+    is(card.querySelectorAll(".whimsy-hc-points.is-loading > i").length, 3, "...with the bullets' place held");
+    release();
+    await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-text"), "Filled");
+    checkPoints(card, "After loading");
+    ok(!card.querySelector(".is-loading"), "No loading lines are left");
+    is(asked.filter(described).length, 1, "One request");
+    // A tall summary scrolls inside the card rather than growing past it.
+    const frame = linkPanel().querySelector(".whimsy-link-hover-card");
+    is(getComputedStyle(frame).overflowY, "auto", "The card scrolls when the summary is tall");
+    Assert.lessOrEqual(frame.getBoundingClientRect().height, parseFloat(getComputedStyle(frame).maxHeight) + 0.5, "...within its max height");
+  } finally {
+    release();
+    await closeAll();
+  }
+});
+
+// One look for both: a tab's card and a link's card have the same single
+// surface (background, border, radius, shadow) in hosts that add none of
+// their own, and neither host clips the card's shadow on any side.
+add_task(async function tab_and_link_cards_look_the_same() {
+  reset();
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINKS);
+  try {
+    hoverTab(tab);
+    const tabCard = await openTabCard();
+    await TestUtils.waitForCondition(() => tabPanel().hasAttribute("whimsy-open") && tabCard.querySelector(".whimsy-hc-desc.is-text"), "The tab's card is open");
+    await whimsySettled();
+    const tabLook = surfaceLook(tabPanel());
+    info(`Tab card: ${JSON.stringify(tabLook)}`);
+    const open = [...document.querySelectorAll("panel, menupopup, tooltip")].filter(p => p.state == "open").map(p => p.id || p.localName);
+    Assert.deepEqual(open, [WhimsyHoverCards.TAB_PANEL_ID], "The tab's card is the only popup open: nothing is stacked around it");
+    checkShadowRoom(tabPanel(), "Tab card");
+    await closeAll();
+
+    await hoverLink(other.linkedBrowser);
+    const linkCard = await openLinkCard();
+    await TestUtils.waitForCondition(() => linkPanel().hasAttribute("whimsy-open") && linkCard.querySelector(".whimsy-hc-desc.is-text"), "The link's card is open");
+    await whimsySettled();
+    const linkLook = surfaceLook(linkPanel());
+    info(`Link card: ${JSON.stringify(linkLook)}`);
+    checkShadowRoom(linkPanel(), "Link card");
+
+    for (const name of ["background-color", "border-top-width", "border-top-style", "border-top-color", "border-radius", "box-shadow", "width"]) {
+      is(tabLook.card[name], linkLook.card[name], `Same card ${name}`);
+    }
+    Assert.deepEqual(tabLook.panel, linkLook.panel, "The same host popup");
+    Assert.deepEqual(tabLook.content, linkLook.content, "...with the same (bare) content box");
+    Assert.deepEqual(tabLook.stack, linkLook.stack, "...and the same room around the card");
+    Assert.deepEqual(tabLook.attributes, linkLook.attributes, "...made the same way");
+    // Zen's widget.macos.native-popovers shows an anchored panel (the tab's)
+    // as an NSPopover with its own material, arrow, and shadow, unless it
+    // is nonnative.
+    ok(tabPanel().hasAttribute("nonnative"), "The tab's card is never a native popover");
+    ok(linkPanel().hasAttribute("nonnative"), "...nor is the link's");
+    // One surface: nothing around the card paints a background, border, or shadow.
+    for (const [what, look] of [["tab", tabLook], ["link", linkLook]]) {
+      ok(/rgba\(0, 0, 0, 0\)|transparent/.test(look.content["background-color"]), `${what}: the popup's box has no background`);
+      is(look.content["box-shadow"], "none", `${what}: ...no shadow`);
+      is(look.content["border-top-width"], "0px", `${what}: ...no border`);
+      is(look.panel.appearance, "none", `${what}: ...and no native material`);
+      is(look.windowShadow, "none", `${what}: ...or window shadow`);
+      ok(/rgba\(0, 0, 0, 0\)|transparent/.test(look.stack["background-color"]), `${what}: the shadow's room is see-through`);
+    }
+    is(getComputedStyle(linkPanel().querySelector(".whimsy-link-hover-stack")).pointerEvents, "none", "The shadow's room lets the pointer through");
+    is(getComputedStyle(linkPanel().querySelector(".whimsy-link-hover-card")).pointerEvents, "auto", "...the card takes it");
+  } finally {
+    await closeAll();
+    BrowserTestUtils.removeTab(other);
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// Shots: the tab's card and the link's card, described with bullets, in
+// light and dark.
+add_task(async function shots() {
+  reset();
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINKS);
+  try {
+    await whimsyBothSchemes("w25-hover-card-tab", async () => {
+      hoverTab(tab);
+      const card = await openTabCard();
+      await TestUtils.waitForCondition(() => tabPanel().hasAttribute("whimsy-open") && card.querySelector("ul.whimsy-hc-points"), "Described");
+      await whimsySettled();
+      const undo = whimsyStandInPopups();
+      return async () => {
+        undo();
+        leaveTab(tab);
+        await closeAll();
+      };
+    });
+    await whimsyBothSchemes("w25-hover-card-link", async () => {
+      await hoverLink(other.linkedBrowser);
+      const card = await openLinkCard();
+      await TestUtils.waitForCondition(() => linkPanel().hasAttribute("whimsy-open") && card.querySelector("ul.whimsy-hc-points"), "Described");
+      await whimsySettled();
+      const undo = whimsyStandInPopups();
+      return async () => {
+        undo();
+        await closeAll();
+      };
+    });
+  } finally {
+    await closeAll();
+    BrowserTestUtils.removeTab(other);
     BrowserTestUtils.removeTab(tab);
   }
 });

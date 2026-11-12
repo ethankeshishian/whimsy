@@ -570,6 +570,12 @@ const SPARKLE = `${ICONS}sparkles.svg`;
 const WICONS = "chrome://browser/content/whimsy/icons/";
 const VIEW_KINDS = ["article", "video", "image"];
 const HOLD_TO_SPEAK_MS = 300;
+// K's auto-repeat (see initHoldToSpeak): the longest macOS initial delay,
+// the wait for the second repeat, the shortest allowed gap, and the check.
+const REPEAT_FIRST_MS = 2000;
+const REPEAT_NEXT_MS = 500;
+const REPEAT_MIN_MS = 150;
+const TICK_MS = 16;
 const TOP_ROWS = 3;
 const MIN_SHARE = 0.04;
 // "This page": optional rows other lanes register keep this order, with
@@ -1270,12 +1276,21 @@ export const WhimsyVerbs = {
 
   // W23 voice-image (fu-media dec-15): ⌘K opens on key down as before; with
   // both keys still down after 300ms the open menu listens (WhimsyDictation),
-  // and letting go stops, leaving the top match selected. Key repeat never
-  // reopens the menu.
+  // and letting go of either key stops, leaving the top match selected. Key
+  // repeat never reopens the menu.
+  //
+  // W25: macOS sends no keyup for a key let go while ⌘ is down, so K's keyup
+  // can't be trusted. K counts as down only while its auto-repeat keeps
+  // arriving: listening starts on a repeat once 300ms have passed, and ends
+  // on K's keyup, ⌘'s keyup, any other key, blur, or when the repeats stop.
   initHoldToSpeak(win) {
     const accel = event => (Services.appinfo.OS == "Darwin" ? event.metaKey : event.ctrlKey);
     let held = false;
     let timer = 0;
+    let downAt = 0;
+    let lastSeen = 0;
+    let interval = 0;
+    const now = () => win.performance.now();
     const release = () => {
       if (timer) {
         win.clearTimeout(timer);
@@ -1289,34 +1304,62 @@ export const WhimsyVerbs = {
         }
       }
     };
+    // How long K may go without a repeat before it must have been let go:
+    // the system's initial repeat delay first, then a few repeat intervals.
+    const gap = () => (!interval ? REPEAT_FIRST_MS : interval < 0 ? REPEAT_NEXT_MS : Math.max(REPEAT_MIN_MS, interval * 3));
+    const listen = () => {
+      if (!held || lazy.WhimsyDictation.active?.trigger == "cmdk" || !interval) {
+        return;
+      }
+      if (now() - downAt >= HOLD_TO_SPEAK_MS && (win.gURLBar?.view.isOpen || win.gURLBar?.focused)) {
+        lazy.WhimsyDictation.startFromCmdK(win);
+      }
+    };
+    const tick = () => {
+      timer = 0;
+      if (!held) {
+        return;
+      }
+      if (now() - lastSeen > gap()) {
+        release();
+        return;
+      }
+      listen();
+      timer = win.setTimeout(tick, TICK_MS);
+    };
     win.addEventListener(
       "keydown",
       event => {
         if (event.code == "KeyK" && accel(event) && !event.altKey && !event.shiftKey) {
+          // Web content's copy of a key event arrives late; it is no
+          // evidence that K is still down.
+          if (event.isReplyEventFromRemoteContent) {
+            if (event.repeat || held) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+            }
+            return;
+          }
           if (event.repeat || held) {
             event.preventDefault();
             event.stopImmediatePropagation();
+            if (held && event.repeat) {
+              const t = now();
+              // -1: one repeat seen, its interval not yet known.
+              interval = interval ? t - lastSeen : -1;
+              lastSeen = t;
+              listen();
+            }
             return;
           }
           held = true;
+          downAt = lastSeen = now();
+          interval = 0;
           win.gURLBar?.setAttribute("whimsy-holding-k", "");
           // Row numbers stay hidden while K is held.
           lazy.WhimsyCommandBarAI.stopNumbers?.(win);
-          // The menu may still be measuring the view at 300ms: wait for it
-          // while K stays down.
-          const listen = () => {
-            timer = 0;
-            if (!held) {
-              return;
-            }
-            if (win.gURLBar?.view.isOpen || win.gURLBar?.focused) {
-              lazy.WhimsyDictation.startFromCmdK(win);
-            } else {
-              timer = win.setTimeout(listen, 50);
-            }
-          };
-          timer = win.setTimeout(listen, HOLD_TO_SPEAK_MS);
-        } else if (held && event.key != "Meta" && event.key != "Control") {
+          timer = win.setTimeout(tick, TICK_MS);
+        } else if (held && event.key != "Meta" && event.key != "Control" && !event.isReplyEventFromRemoteContent) {
           release();
         }
       },
@@ -1325,7 +1368,7 @@ export const WhimsyVerbs = {
     win.addEventListener(
       "keyup",
       event => {
-        if (held && (event.code == "KeyK" || event.key == "Meta" || event.key == "Control")) {
+        if (held && (event.code == "KeyK" || event.key == "Meta" || event.key == "Control" || !accel(event))) {
           release();
         }
       },
