@@ -338,3 +338,64 @@ add_task(async function ai_off_and_private_unchanged() {
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W25 designfix: the Actions chip, the selected row, and the key tag on it
+// all take one accent token pair (--whimsy-accent-fill under
+// --whimsy-on-accent), which must clear WCAG AA in both themes.
+function srgb(color) {
+  const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data];
+}
+function luminance([r, g, b]) {
+  const lin = c => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+function contrast(fg, bg) {
+  const [a, b] = [luminance(srgb(fg)), luminance(srgb(bg))].sort((x, y) => y - x);
+  return (a + 0.05) / (b + 0.05);
+}
+// The nearest painted (opaque) background behind `el`.
+function backgroundOf(el) {
+  for (let node = el; node; node = node.parentElement) {
+    const bg = getComputedStyle(node).backgroundColor;
+    if (srgb(bg)[3] == 255) {
+      return bg;
+    }
+  }
+  return "white";
+}
+
+add_task(async function accent_pills_and_selected_rows_meet_aa() {
+  await withPage(PAGE("field"), async browser => {
+    await select(browser, "field");
+    for (const dark of [false, true]) {
+      await whimsySetScheme(dark);
+      try {
+        await cmdK();
+        const rows = await shown();
+        const title = document.getElementById("urlbar-search-mode-indicator-title");
+        await TestUtils.waitForCondition(() => title.textContent == "Actions", "The Actions chip");
+        const chip = document.getElementById("urlbar-search-mode-indicator");
+        const selected = rows[0].element.row ?? rows[0].element;
+        const row = selected.closest(".urlbarView-row");
+        await TestUtils.waitForCondition(() => row.hasAttribute("selected"), "The first row is selected");
+        const tag = row.querySelector(".whimsy-cmdk-tag");
+        const scheme = dark ? "dark" : "light";
+        for (const [name, el] of [["Actions chip", title], ["selected row title", row.querySelector(".urlbarView-title")], ["its key tag", tag]]) {
+          ok(el, `${name} is there`);
+          const ratio = contrast(getComputedStyle(el).color, backgroundOf(el));
+          Assert.greaterOrEqual(ratio, 4.5, `${scheme}: ${name} contrast is ${ratio.toFixed(2)}:1`);
+        }
+        is(srgb(getComputedStyle(chip).backgroundColor).join(), srgb(getComputedStyle(row).backgroundColor).join(), `${scheme}: the chip and the selected row share one accent fill`);
+        await whimsyShot(`w25-cmdbar-contrast-${scheme}`);
+        await closeBar();
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+  });
+});

@@ -31,8 +31,8 @@
   margin-inline-end: 8px;
   padding: 4px 8px;
   border-radius: 50px;
-  background-color: color-mix(in srgb, var(--zen-primary-color) 50%, light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.2)) 50%);
-  color: white;
+  background-color: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
@@ -81,7 +81,7 @@
   white-space: nowrap;
 
   .urlbarView-row[selected] & {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--whimsy-on-accent);
   }
 }
 
@@ -108,8 +108,8 @@
   white-space: nowrap;
 
   .urlbarView-row[selected] & {
-    color: white !important;
-    border-color: rgba(255, 255, 255, 0.45);
+    color: var(--whimsy-on-accent) !important;
+    border-color: color-mix(in srgb, var(--whimsy-on-accent) 60%, transparent);
   }
 
   &[hidden] {
@@ -570,7 +570,7 @@
   }
 
   .urlbarView-row[selected] & {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--whimsy-on-accent);
   }
 }
 
@@ -976,7 +976,7 @@
   }
 
   .urlbarView-row[selected] & {
-    color: color-mix(in srgb, var(--urlbarView-result-button-selected-color, var(--zen-accent-button-color, currentColor)) 80%, transparent);
+    color: var(--whimsy-on-accent);
   }
 }
 
@@ -994,7 +994,7 @@
   }
 
   .urlbarView-row[selected] & {
-    color: color-mix(in srgb, var(--urlbarView-result-button-selected-color, var(--zen-accent-button-color, currentColor)) 90%, transparent);
+    color: var(--whimsy-on-accent);
   }
 }
 
@@ -1039,7 +1039,7 @@
     background-color: var(--whimsy-ask-fail) !important;
 
     .whimsy-cmdk-row-title {
-      color: var(--urlbarView-result-button-selected-color, var(--zen-accent-button-color, currentColor));
+      color: var(--whimsy-on-accent);
     }
   }
 }
@@ -1178,11 +1178,11 @@
 }
 
 .whimsy-cmdk-approve {
-  background: var(--zen-accent-button-background, var(--whimsy-ask-accent));
-  color: var(--zen-accent-button-color, white);
+  background: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
 
   &:hover {
-    background: color-mix(in srgb, var(--zen-accent-button-background, var(--whimsy-ask-accent)), black 8%);
+    background: color-mix(in srgb, var(--whimsy-accent-fill), black 8%);
   }
 
   .whimsy-cmdbar-key {

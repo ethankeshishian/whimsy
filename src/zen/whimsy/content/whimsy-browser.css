@@ -17,6 +17,13 @@
   /* The one live/error red: chat's errors and every "live" dot (Granola's
      card and its tab dot). whimsy-chat.css's --whimsy-chat-error is this. */
   --whimsy-live-red: light-dark(rgb(200, 55, 45), rgb(255, 122, 110));
+  /* W25 designfix: the one accent fill and its on-accent text, for every
+     accent-filled pill, selected row, and key on it. The fill is the space's
+     accent held dark enough (OKLCH lightness at most 0.5, chroma at most
+     0.2) that the on-accent text clears WCAG AA (4.5:1) for any accent, in
+     both themes. */
+  --whimsy-accent-fill: oklch(from var(--zen-primary-color, AccentColor) clamp(0.3, l, 0.5) clamp(0, c, 0.2) h);
+  --whimsy-on-accent: white;
 
   /* W24 chatmotion: a sliding panel (the chat) matches the tabs sidebar's
      own compact-mode show/hide motion exactly, speed and ease both. These
@@ -8008,4 +8015,24 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
 }
 .whimsy-annotations-item-btn.danger:hover {
   color: var(--button-background-color-destructive);
+}
+
+/* W25 designfix: command-bar contrast. The mode chip (Actions, a search
+   mode) and the selected result row are accent-filled, so they take the
+   shared pair: --whimsy-accent-fill under --whimsy-on-accent text. Zen's
+   own rules (zen-omnibox.css: a 50% mix under white, and the selected row's
+   60%-opacity accent) fell below 4.5:1 on light accents. */
+#urlbar #urlbar-search-mode-indicator {
+  background-color: var(--whimsy-accent-fill) !important;
+  color: var(--whimsy-on-accent) !important;
+  & #urlbar-search-mode-indicator-title {
+    color: inherit !important;
+  }
+}
+#urlbar .urlbarView-row[selected] {
+  --zen-selected-bg: var(--whimsy-accent-fill);
+  & *,
+  & .urlbarView-title-separator::before {
+    color: var(--whimsy-on-accent) !important;
+  }
 }
