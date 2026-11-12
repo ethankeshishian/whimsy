@@ -26,7 +26,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   on_TabSelect() {
-    dump(`LOADDIAG TabSelect ${this.window.gBrowser.selectedTab._tPos}\n`);
+    dump(`LOADDIAG TabSelect ${this.window.gBrowser.selectedTab._tPos} ${this.window.gBrowser.selectedTab.linkedBrowser.currentURI.spec} ${new Error().stack.split("\n").slice(0, 12).join(" | ")}\n`);
     const gBrowser = this.window.gBrowser;
     const selectedTab = gBrowser.selectedTab;
     this.onLocationChange(gBrowser.getBrowserForTab(selectedTab));
