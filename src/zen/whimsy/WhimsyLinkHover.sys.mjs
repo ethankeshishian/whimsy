@@ -251,6 +251,9 @@ class LinkHover {
       return;
     }
     target.shown = true;
+    // An earlier card's exit may still be timed to hide the panel: this card
+    // replaces it, so that close must not land on the new one.
+    this.closing = null;
     const panel = this.#ensurePanel();
     const stack = panel.querySelector(".whimsy-link-hover-stack");
     stack.replaceChildren(target.kind == "people" ? this.#peopleCard(target) : this.#hoverCard(target, ai));
@@ -423,6 +426,7 @@ class LinkHover {
       return;
     }
     if (!animate || !panel.hasAttribute(OPEN_ATTR)) {
+      this.closing = null;
       panel.hidePopup();
       return;
     }
