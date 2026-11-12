@@ -20,6 +20,8 @@ export class ZenProgressBar extends ZenUIComponent {
   onStateChange(aWebProgress, webProgress, request, stateFlags) {
     const { STATE_STOP, STATE_IS_NETWORK } = Ci.nsIWebProgressListener; // Whimsy hotfix
     const stopped = webProgress?.isTopLevel && stateFlags & STATE_STOP && stateFlags & STATE_IS_NETWORK;
+    let __n = "?"; try { __n = request?.QueryInterface(Ci.nsIChannel).originalURI.spec; } catch { __n = request?.name; }
+    dump(`LOADDIAG state 0x${stateFlags?.toString(16)} top=${webProgress?.isTopLevel} req=${__n}\n`);
     this.#checkBrowserProgress(aWebProgress, stopped);
   }
 
@@ -28,6 +30,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   on_TabSelect() {
+    dump(`LOADDIAG TabSelect\n`);
     const gBrowser = this.window.gBrowser;
     const selectedTab = gBrowser.selectedTab;
     this.onLocationChange(gBrowser.getBrowserForTab(selectedTab));
@@ -73,6 +76,7 @@ export class ZenProgressBar extends ZenUIComponent {
       (tab.hasAttribute("busy") ||
         tab.hasAttribute("progress") ||
         (!stopped && !!tab.linkedBrowser?.webProgress?.isLoadingDocument)); // Whimsy hotfix
+    dump(`LOADDIAG check sel=${tab?.selected} busy=${tab?.hasAttribute("busy")} doc=${tab?.linkedBrowser?.webProgress?.isLoadingDocument} stopped=${stopped} el=${!!this.#element}\n`);
     if (isLoading) {
       this.#showProgressBar(tab);
     } else {
@@ -81,6 +85,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   #hideProgressBar(aInstant = false) {
+    dump(`LOADDIAG hide el=${!!this.#element}\n`);
     const progressBar = this.#element;
     const window = this.window;
     if (this.#longLoadTimer) {
@@ -119,6 +124,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   #showProgressBar(aTab) {
+    dump(`LOADDIAG show same=${this.#loadingTab === aTab} el=${!!this.#element}\n`);
     if (this.#loadingTab === aTab) {
       return;
     }
@@ -133,6 +139,7 @@ export class ZenProgressBar extends ZenUIComponent {
     progressBar.removeAttribute("long-load");
     this.#longLoadTimer = this.window.setTimeout(() => {
       if (this.#loadingTab === aTab) {
+        dump(`LOADDIAG longload\n`);
         progressBar.setAttribute("long-load", "true");
       }
       this.#longLoadTimer = null;
