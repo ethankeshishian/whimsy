@@ -26,7 +26,6 @@
   border-radius: 13px;
   background: transparent;
   box-shadow: inset 0 0 0 0.5px var(--whimsy-chat-hairline);
-  font-size: 12px;
   &[live] {
     background: transparent;
     box-shadow: inset 0 0 0 1px var(--whimsy-chat-hairline);

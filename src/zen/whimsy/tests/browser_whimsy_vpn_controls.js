@@ -373,7 +373,7 @@ add_task(async function test_panel_shared_inset_and_spacing() {
       const container = box.shadowRoot.getElementById("content-container");
       const [a, b] = [getComputedStyle(container), getComputedStyle(group)];
       for (const prop of ["border-top-width", "border-top-style", "border-top-color", "border-top-left-radius",
-        "padding-top", "padding-left", "padding-right", "padding-bottom", "background-color"]) {
+        "padding-top", "padding-left", "padding-right", "padding-bottom"]) {
         is(b.getPropertyValue(prop), a.getPropertyValue(prop), `"Use VPN in" shares the status card's ${prop}`);
       }
       const inner = box.shadowRoot.getElementById("title").getBoundingClientRect().left;

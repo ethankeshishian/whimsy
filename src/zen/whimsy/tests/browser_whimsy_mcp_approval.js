@@ -13,7 +13,7 @@ const call = (session, name = "tabs_create", args = { url: PAGE }) =>
   WhimsyClaude.callTool(name, args, { session, clientName: "Approval test" });
 const prompt = win => win.document.getElementById("whimsy-mcp-approvals");
 const visiblePrompt = win => TestUtils.waitForCondition(() =>
-  prompt(win)?.querySelector("article") && prompt(win).getBoundingClientRect().width > 0,
+  prompt(win)?.querySelector("article") && prompt(win).state == "open" && prompt(win).getBoundingClientRect().width > 0,
 "The approval is visible in browser chrome");
 function choose(win, choice) {
   EventUtils.synthesizeMouseAtCenter(prompt(win).querySelector(`[data-choice="${choice}"]`), {}, win);

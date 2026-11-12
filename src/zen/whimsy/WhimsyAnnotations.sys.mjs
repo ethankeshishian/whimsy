@@ -9,7 +9,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
-  WhimsyNotesSection: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
+  WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
@@ -1277,7 +1277,7 @@ export const WhimsyAnnotations = {
     const browser = win?.gBrowser?.selectedBrowser;
     const normUrl = this.normalizeURL(browser?.currentURI?.spec || "");
     const rec = normUrl ? this.getPageRecord(normUrl, { win, browser }) : null;
-    return lazy.WhimsyNotesSection.openInLibrary(win, rec?.noteId ?? null);
+    return lazy.WhimsyNotes.openInLibrary(win, rec?.noteId ?? null);
   },
 
   async openPagePanel(win, anchorEl = null) {

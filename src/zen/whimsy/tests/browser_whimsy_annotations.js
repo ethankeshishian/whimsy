@@ -322,10 +322,10 @@ add_task(async function test_page_note_and_revisit_cue_and_screenshots() {
     is(getComputedStyle(btn).visibility, "visible", "The cue shows without hovering the toolbar");
     is(getComputedStyle(btn).opacity, "1", "...at full opacity");
     is(btn.querySelector(".whimsy-annotations-button-count").value, "1", "The pill shows the count");
-    const { WhimsyNotesSection } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
-    const realOpen = WhimsyNotesSection.openInLibrary;
+    const { WhimsyNotes } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
+    const realOpen = WhimsyNotes.openInLibrary;
     let openedNote;
-    WhimsyNotesSection.openInLibrary = (w, noteId) => {
+    WhimsyNotes.openInLibrary = (w, noteId) => {
       openedNote = { w, noteId };
       return true;
     };
@@ -334,7 +334,7 @@ add_task(async function test_page_note_and_revisit_cue_and_screenshots() {
       await TestUtils.waitForCondition(() => openedNote, "Clicking the cue opens Notes");
       is(openedNote.noteId, WhimsyAnnotations.getPageRecord(TEST_URL)?.noteId, "...at this page's note");
     } finally {
-      WhimsyNotesSection.openInLibrary = realOpen;
+      WhimsyNotes.openInLibrary = realOpen;
     }
 
     // Add a highlight with a note for rich popover & panel state

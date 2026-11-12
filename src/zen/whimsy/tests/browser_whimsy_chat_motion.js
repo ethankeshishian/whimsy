@@ -179,6 +179,10 @@ add_task(async function cmd_s_and_cmd_e_share_one_motion() {
     ],
   });
   await closeChat();
+  // Zen skips the animation over an empty tab (the sidebar stays shown for
+  // it) and on the first toggle after startup; neither is what's measured.
+  const page = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  delete gZenCompactModeManager._wasInCompactMode;
   const motion = chat().panelMotion();
   const sidebar = gZenCompactModeManager.sidebar;
   const timings = {};
@@ -225,5 +229,6 @@ add_task(async function cmd_s_and_cmd_e_share_one_motion() {
       }
     }
   }
+  BrowserTestUtils.removeTab(page);
   await SpecialPowers.popPrefEnv();
 });

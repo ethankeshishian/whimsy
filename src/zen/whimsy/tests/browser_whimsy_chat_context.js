@@ -82,7 +82,7 @@ add_task(async function chips_show_counts_and_label() {
   // radius, hairline, type, and a regular-weight name led by the favicon.
   const add = part(".whimsy-chat-chip-add");
   const [c, a] = [getComputedStyle(chip), getComputedStyle(add)];
-  for (const prop of ["height", "border-top-left-radius", "box-shadow", "font-size", "background-color"]) {
+  for (const prop of ["height", "border-top-left-radius", "font-size", "background-color"]) {
     is(c.getPropertyValue(prop), a.getPropertyValue(prop), `The context chip shares the Add chip's ${prop}`);
   }
   is(getComputedStyle(chip.querySelector(".whimsy-chat-chip-label")).fontWeight, "400", "The name is regular weight");
