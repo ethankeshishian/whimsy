@@ -202,7 +202,15 @@ add_task(async function connect_from_the_chat_card() {
   is(card().dataset.kind, "off", "One line and one button");
   ok(!tab.hasAttribute("whimsy-meeting-following"), "No red dot until Granola follows");
   const settingsOpened = BrowserTestUtils.waitForNewTab(gBrowser, url => url.startsWith("about:preferences"), true);
+  const diagRect = button.getBoundingClientRect();
+  const diagHit = document.elementFromPoint(diagRect.left + diagRect.width / 2, diagRect.top + diagRect.height / 2);
+  const diagConnect = WhimsyMeetingNotes.connect;
+  WhimsyMeetingNotes.connect = function (w) { info(`DIAG connect called win=${!!w} openPrefs=${typeof w?.openPreferences}`); return diagConnect.call(this, w); };
+  info(`DIAG rect=${JSON.stringify(diagRect)} hit=${diagHit?.localName}#${diagHit?.id}.${diagHit?.className} inDoc=${button.ownerDocument == document} panelOpen=${panel().isOpen} popups=${[...document.querySelectorAll("panel,menupopup")].filter(p => p.state == "open").map(p => p.id).join(",")}`);
   EventUtils.synthesizeMouseAtCenter(button, {});
+  await new Promise(r => setTimeout(r, 3000));
+  info(`DIAG after tabs=${gBrowser.tabs.map(t => t.linkedBrowser.currentURI.spec).join(" ")} sel=${gBrowser.selectedBrowser.currentURI.spec}`);
+  WhimsyMeetingNotes.connect = diagConnect;
   const settings = await settingsOpened;
   const doc = settings.linkedBrowser.contentDocument;
   // Granola's own row runs its sign-in: Signing in…, then connected.
