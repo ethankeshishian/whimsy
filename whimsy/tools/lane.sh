@@ -136,7 +136,7 @@ fault precheck
 
 # 3. Import (ffprefs, patches, links, strings, engine overrides).
 ts=$(date +%s)
-npm run import > $run/import.log 2>&1 || { step import red $(( $(date +%s) - ts )); red "import failed: $(grep -m1 -iE 'error|failed|panicked' $run/import.log | cut -c1-200) ($run/import.log)"; }
+{ npx surfer set brand release && npm run import; } > $run/import.log 2>&1 || { step import red $(( $(date +%s) - ts )); red "import failed: $(grep -m1 -iE 'error|failed|panicked' $run/import.log | cut -c1-200) ($run/import.log)"; }
 git checkout -q -- $REWRITES 2>/dev/null
 dirtied=$(git status --porcelain --untracked-files=no)
 [ -z "$dirtied" ] || { step import red $(( $(date +%s) - ts )); red "import changed tracked files (commit them or fix the overlay): $(echo $dirtied | tr '\n' ' ')"; }

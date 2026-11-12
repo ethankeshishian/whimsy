@@ -409,7 +409,13 @@ def record_verify(repo, mode, status):
     entry = {"mode": mode, "status": int(status), "dirty": dirty, "at": now(),
              "built_commit": build.get("commit"), "build_dirty": build.get("dirty")}
     records = _read_record(repo, "verified.json", {})
-    records.pop(sha, None)
+    # Keep the commit's earlier runs: W24's quick red at 20:07 replaced the
+    # full green of the same commit from two hours earlier, and the record
+    # could no longer say that both had happened.
+    previous = records.pop(sha, None)
+    if previous:
+        entry["previous"] = ([{k: v for k, v in previous.items() if k != "previous"}]
+                             + previous.get("previous", []))[:8]
     records[sha] = entry
     # Newest last; keep the newest few.
     records = dict(list(records.items())[-VERIFIED_KEPT:])

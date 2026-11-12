@@ -58,7 +58,7 @@ build_kind=$(sed -n 's/^BUILD: //p' $run/precheck.log | tail -1); [ -n "$since" 
 step precheck ok $(( $(date +%s) - ts )) "build=$build_kind since ${since:-(none)}"
 
 ts=$(date +%s)
-npm run import > $run/import.log 2>&1 || { step import red $(( $(date +%s) - ts )); red "import failed ($run/import.log)"; }
+{ npx surfer set brand release && npm run import; } > $run/import.log 2>&1 || { step import red $(( $(date +%s) - ts )); red "import failed ($run/import.log)"; }
 git checkout -q -- $REWRITES 2>/dev/null
 dirtied=$(git status --porcelain --untracked-files=no)
 [ -z "$dirtied" ] || { step import red $(( $(date +%s) - ts )); red "import changed tracked files: $(echo $dirtied | tr '\n' ' ')"; }
