@@ -33,23 +33,25 @@ add_task(async function screenshots_site_panel() {
         Math.round(el.getBoundingClientRect().height)];
     };
     Assert.deepEqual(style(row), style(autoplay), "Same padding, font, and height as Autoplay");
-    const control = row.querySelector("button");
-    is(control.className, autoplay.querySelector("button").className, "Same dropdown as Autoplay");
-    ok(!row.querySelector(".whimsy-surface-seg"), "No segmented control");
+    const reader = document.querySelector('[whimsy-site-setting="reader"]');
+    const control = row.querySelector("input.whimsy-surface-switch");
+    ok(control, "An on/off switch");
+    is(control.className, reader.querySelector("input").className, "The same switch as Always Open in Reader View");
+    ok(!row.querySelector("button, .whimsy-surface-seg"), "No dropdown or segmented control");
     is(row.parentNode, autoplay.parentNode, "A row of the site list, not a separate tinted box");
     ok(!row.querySelector(".whimsy-surface-group, .whimsy-surface-caption"), "No box, heading, or subtitle");
     is(document.getElementById("whimsy-dark-page-site-label").textContent, "Automatic dark mode", "The row's label");
-    // The moon and the row stay in sync live.
+    const switchOn = () => document.getElementById("whimsy-site-settings-dark-pages-switch")?.checked;
+    ok(switchOn(), "On while the page is dark");
+    // The moon and the switch flip the same state, live.
     WhimsyDarkPages.toggle(tab.linkedBrowser);
     await darkState(tab.linkedBrowser, "original");
-    await TestUtils.waitForCondition(() =>
-      document.getElementById("whimsy-site-settings-dark-pages-button")?.querySelector(".whimsy-surface-dropdown-value")
-        ?.getAttribute("data-l10n-id") == "whimsy-dark-pages-original", "The row follows the moon live");
-    WhimsyDarkPages.setChoice(tab.linkedBrowser, "automatic");
+    await TestUtils.waitForCondition(() => switchOn() === false, "The switch follows the moon live");
+    EventUtils.synthesizeMouseAtCenter(document.getElementById("whimsy-site-settings-dark-pages-switch"), {});
     await darkState(tab.linkedBrowser, "generated");
-    await TestUtils.waitForCondition(() =>
-      document.getElementById("whimsy-site-settings-dark-pages-button")?.querySelector(".whimsy-surface-dropdown-value")
-        ?.getAttribute("data-l10n-id") == "whimsy-dark-pages-automatic", "The row is back on Automatic");
+    ok(WhimsyDarkPages.isDark(tab.linkedBrowser), "The switch turns the page dark live");
+    is(WhimsyDarkPages.choice(tab.linkedBrowser), "automatic", "On is the default here, so nothing is remembered");
+    await TestUtils.waitForCondition(switchOn, "The switch is on again");
     const undo = whimsyStandInPopups();
     return async () => {
       undo();

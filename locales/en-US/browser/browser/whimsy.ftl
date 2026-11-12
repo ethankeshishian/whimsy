@@ -7877,7 +7877,6 @@ whimsy-dark-pages-dim-description = Photos a little darker on dark pages
 whimsy-dark-pages-sites = Sites you changed
 whimsy-dark-pages-reset = Reset
 whimsy-dark-pages-site-title = Automatic dark mode
-whimsy-dark-pages-automatic = Automatic
 whimsy-dark-pages-dark = Dark
 whimsy-dark-pages-original = Original
 whimsy-dark-pages-button-dark =

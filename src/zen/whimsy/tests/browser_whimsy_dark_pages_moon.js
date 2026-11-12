@@ -65,3 +65,32 @@ add_task(async function moon_toggles_live_without_reload() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+add_task(async function screenshots_moon_rest_and_hover() {
+  await SpecialPowers.pushPrefEnv({ set: [[MODE, "off"]] });
+  const moon = document.getElementById("whimsy-dark-page-button");
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async browser => {
+      await darkState(browser, "original");
+      for (const dark of [false, true]) {
+        await whimsySetScheme(dark);
+        try {
+          gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
+          await TestUtils.waitForCondition(() => getComputedStyle(moon).opacity == "1", "The moon shows on toolbar hover");
+          await whimsySettled(document);
+          await whimsyShot(`w25-moon-rest-${dark ? "dark" : "light"}`);
+          EventUtils.synthesizeMouseAtCenter(moon, { type: "mousemove" });
+          await TestUtils.waitForCondition(() => moon.matches(":hover"), "The pointer is on the moon");
+          await whimsySettled(document);
+          await whimsyShot(`w25-moon-hover-${dark ? "dark" : "light"}`);
+          EventUtils.synthesizeMouseAtCenter(gBrowser.selectedBrowser, { type: "mousemove" });
+        } finally {
+          await SpecialPowers.popPrefEnv();
+        }
+      }
+    });
+  } finally {
+    gNavToolbox.removeAttribute("zen-has-implicit-hover");
+    await SpecialPowers.popPrefEnv();
+  }
+});

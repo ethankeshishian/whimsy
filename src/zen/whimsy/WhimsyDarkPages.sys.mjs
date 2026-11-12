@@ -188,8 +188,20 @@ export const WhimsyDarkPages = {
     anchor.append(button);
   },
 
+  // Two states per site (owner, W25): dark or not. Off is the default
+  // (nothing remembered) when the global setting leaves the site light;
+  // otherwise the site's choice is remembered.
+  isDark(browser) {
+    const choice = this.choice(browser);
+    return choice == "on" || (choice == "automatic" && this.active);
+  },
+
+  setDark(browser, dark) {
+    this.setChoice(browser, dark == this.active ? "automatic" : dark ? "on" : "off");
+  },
+
   toggle(browser) {
-    this.setChoice(browser, this.state(browser) == "original" ? "on" : "off");
+    this.setDark(browser, !this.isDark(browser));
   },
 
   updateButton(win) {
@@ -198,7 +210,7 @@ export const WhimsyDarkPages = {
     if (!button) {
       return;
     }
-    const dark = this.state(browser) != "original";
+    const dark = this.isDark(browser);
     button.hidden = !this.enabled || !this.siteKey(browser);
     button.toggleAttribute("active", dark);
     // Keep an open site panel's row in step, only when this site's choice
@@ -253,32 +265,26 @@ export const WhimsyDarkPages = {
     }
   },
 
-  // A row like Autoplay's (WhimsySiteSettings.render): label left, the
-  // shared dropdown right.
+  // A switch row like Always Open in Reader View (WhimsySiteSettings.render).
   siteRow(win, browser) {
     if (!this.enabled) {
       return null;
     }
     const doc = win.document;
-    const choice = this.choice(browser);
-    const dropdown = lazy.WhimsySurface.dropdown(doc, {
-      id: "whimsy-site-settings-dark-pages-button",
-      label: "whimsy-dark-page-site-label",
-      width: 240,
-      value: choice,
-      options: [
-        { value: "automatic", l10nId: "whimsy-dark-pages-automatic" },
-        { value: "on", l10nId: "whimsy-dark-pages-dark" },
-        { value: "off", l10nId: "whimsy-dark-pages-original" },
-      ],
-      onPick: value => this.setChoice(browser, value),
+    const dark = this.isDark(browser);
+    const labelId = "whimsy-dark-page-site-label";
+    const toggle = lazy.WhimsySurface.switch(doc, {
+      checked: dark,
+      labelledBy: labelId,
+      id: "whimsy-site-settings-dark-pages-switch",
+      onChange: checked => this.setDark(browser, checked),
     });
     return lazy.WhimsySiteSettings.row(doc, {
       kind: "dark-pages",
       l10nId: "whimsy-dark-pages-site-title",
-      labelId: "whimsy-dark-page-site-label",
-      on: choice != "automatic",
-      trailing: [dropdown.button],
+      labelId,
+      on: this.choice(browser) != "automatic",
+      trailing: [toggle],
     });
   },
 };
