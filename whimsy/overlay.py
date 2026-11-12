@@ -136,7 +136,20 @@ HOTFIXES = [
                "      tab?.selected &&\n"
                "      (tab.hasAttribute(\"busy\") ||\n"
                "        tab.hasAttribute(\"progress\") ||\n"
-               "        (!stopped && !!tab.linkedBrowser?.webProgress?.isLoadingDocument)); // Whimsy hotfix\n",
+               "        (!stopped && whimsyDocumentLoading(tab.linkedBrowser))); // Whimsy hotfix\n",
+    },
+    {
+        "id": "loading-indicator-document-helper",
+        "file": "src/zen/common/sys/ui/ZenProgressBar.sys.mjs",
+        "why": "A new tab's own about:blank is not a load worth an indicator.",
+        "old": "const WAIT_BEFORE_SHOWING_LONG_LOAD = 3000;\n",
+        "new": "const WAIT_BEFORE_SHOWING_LONG_LOAD = 3000;\n"
+               "\n"
+               "// Whimsy hotfix: the document is loading a real page (not the new tab's\n"
+               "// initial about:blank).\n"
+               "function whimsyDocumentLoading(browser) {\n"
+               "  return !!browser?.webProgress?.isLoadingDocument && browser.currentURI?.spec != \"about:blank\";\n"
+               "}\n",
     },
     # W24: share Zen's existing native color inversion with adaptive pages.
     # An async boost lookup must preserve adaptation and track the user's
