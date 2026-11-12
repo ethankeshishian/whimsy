@@ -30,6 +30,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
   WhimsyChatAnswer: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyCommandBarAgent: "resource:///modules/whimsy/WhimsyCommandBarAgent.sys.mjs",
 });
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -305,7 +306,8 @@ export class WhimsyAskProvider extends UrlbarProvider {
     if (!lazy.WhimsyAI.enabled) {
       return this.setupMatch(text);
     }
-    return aiOn() && looksLikeQuestion(text);
+    // W25: something to do gets the ⌘K agent's row instead; one top row.
+    return aiOn() && looksLikeQuestion(text) && !lazy.WhimsyCommandBarAgent.takes(win, text);
   }
 
   setupMatch(text) {
@@ -435,6 +437,7 @@ export const WhimsyCommandBarAI = {
     win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
     this.micSlot(win);
     this.modePill(win);
+    lazy.WhimsyCommandBarAgent.initWindow(win);
     const urlbar = win.gURLBar;
     urlbar?.inputField?.addEventListener("keydown", event => this.onInputKey(win, event), true);
     urlbar?.inputField?.addEventListener("input", () => this.onInput(win));
@@ -977,6 +980,13 @@ export const WhimsyCommandBarAI = {
   // ---- Keys ----
 
   onInputKey(win, event) {
+    // W25: while the ⌘K agent has the bar, its keys come first. On a plan
+    // ⌘↩ runs it in the background (not "continue in chat"), Tab moves to
+    // the next model (not the next row, or Zen's commands mode), and Esc
+    // cancels the plan.
+    if (lazy.WhimsyCommandBarAgent.onInputKey(win, event)) {
+      return;
+    }
     if (event.key != "Enter" || event.altKey || event.shiftKey) {
       return;
     }

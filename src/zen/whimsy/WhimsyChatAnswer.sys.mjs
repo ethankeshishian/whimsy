@@ -950,6 +950,18 @@ export const WhimsyChatAnswer = {
   },
 
   sheetURL: SHEET,
+  _sheetWindows: new WeakSet(),
+
+  /**
+   * Loads the answer sheet into a window once. Chat and ⌘K's plan both draw
+   * these rows, and loading an additional sheet twice throws.
+   */
+  loadSheet(win) {
+    if (!this._sheetWindows.has(win)) {
+      this._sheetWindows.add(win);
+      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+    }
+  },
   brands: BRANDS,
   who: whoLabel,
 
@@ -1028,6 +1040,49 @@ export const WhimsyChatAnswer = {
     start.replaceChildren(button, extra ?? "");
   },
 
+  /**
+   * The model menu's rows: Auto first (your order in Settings), then each
+   * switched-on model and how it's connected; models that can't do what's
+   * needed are dimmed. Chat's model menu and ⌘K's plan (W25) both use it.
+   */
+  modelOptions(doc, { selected = "auto", needs = {}, onPick }) {
+    const P = lazy.WhimsyAIProviders;
+    const enabled = lazy.WhimsyAIRouter._enabled();
+    const row = (id, label, detail, { dim = null } = {}) =>
+      h(
+        doc,
+        "div",
+        {
+          class: "whimsy-chat-option",
+          role: "option",
+          tabindex: "-1",
+          "data-provider": id,
+          "aria-selected": String(selected == id),
+          "aria-disabled": dim ? "true" : null,
+          onclick: () => !dim && onPick(id),
+        },
+        h(doc, "span", { class: "whimsy-chat-option-check" }),
+        id == "auto" ? h(doc, "span", { class: "whimsy-chat-brand" }) : brand(doc, id),
+        h(doc, "span", { class: "whimsy-chat-option-label" }, typeof label == "string" ? label : h(doc, "span", { l10n: label })),
+        h(doc, "span", { class: "whimsy-chat-option-detail", l10n: dim ?? detail })
+      );
+    const methodL10n = id => `whimsy-chat-model-method-${lazy.WhimsyAIContext.describeDestination(id).method}`;
+    const reason = id => {
+      const caps = P.capabilities(id);
+      for (const need of ["images", "video", "research"]) {
+        if (needs[need] && !caps[need]) {
+          return `whimsy-chat-model-cannot-${need}`;
+        }
+      }
+      return needs.chars > caps.maxInputChars ? "whimsy-chat-model-cannot-long" : null;
+    };
+    return [
+      row("auto", ["whimsy-chat-model-auto"], "whimsy-chat-model-auto-detail"),
+      h(doc, "hr", { class: "whimsy-chat-menu-rule" }),
+      ...enabled.map(id => row(id, whoLabel(id), methodL10n(id), { dim: reason(id) })),
+    ];
+  },
+
   openModelMenu(panel, anchor) {
     const { doc, win } = panel;
     panel.el.querySelector(".whimsy-chat-menu")?.remove();
@@ -1049,39 +1104,11 @@ export const WhimsyChatAnswer = {
       this.renderModelLine(panel);
       doc.l10n.translateFragment(panel.modelRow);
     };
-    const row = (id, label, detail, { dim = null, selected = false } = {}) =>
-      h(
-        doc,
-        "div",
-        {
-          class: "whimsy-chat-option",
-          role: "option",
-          tabindex: "-1",
-          "data-provider": id,
-          "aria-selected": String(selected),
-          "aria-disabled": dim ? "true" : null,
-          onclick: () => !dim && pick(id),
-        },
-        h(doc, "span", { class: "whimsy-chat-option-check" }),
-        id == "auto" ? h(doc, "span", { class: "whimsy-chat-brand" }) : brand(doc, id),
-        h(doc, "span", { class: "whimsy-chat-option-label" }, typeof label == "string" ? label : h(doc, "span", { l10n: label })),
-        h(doc, "span", { class: "whimsy-chat-option-detail", l10n: dim ?? detail })
-      );
-    const methodL10n = id => `whimsy-chat-model-method-${lazy.WhimsyAIContext.describeDestination(id).method}`;
-    const reason = id => {
-      const caps = P.capabilities(id);
-      for (const need of ["images", "video", "research"]) {
-        if (needs[need] && !caps[need]) {
-          return `whimsy-chat-model-cannot-${need}`;
-        }
-      }
-      return needs.chars > caps.maxInputChars ? "whimsy-chat-model-cannot-long" : null;
-    };
-    const rows = [
-      row("auto", ["whimsy-chat-model-auto"], "whimsy-chat-model-auto-detail", { selected: choice.provider == "auto" || !enabled.includes(choice.provider) }),
-      h(doc, "hr", { class: "whimsy-chat-menu-rule" }),
-      ...enabled.map(id => row(id, whoLabel(id), methodL10n(id), { dim: reason(id), selected: choice.provider == id })),
-    ];
+    const rows = this.modelOptions(doc, {
+      selected: choice.provider == "auto" || !enabled.includes(choice.provider) ? "auto" : choice.provider,
+      needs,
+      onPick: pick,
+    });
     const resolved = this.resolve(thread, needs);
     const levels = this.thinkingLevels(resolved.provider, resolved.model);
     let seg = null;

@@ -250,7 +250,7 @@ class ChatPanel {
     }
     const { doc, win } = this;
     win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-    win.windowUtils.loadSheetUsingURIString(lazy.WhimsyChatAnswer.sheetURL, win.windowUtils.AUTHOR_SHEET);
+    lazy.WhimsyChatAnswer.loadSheet(win);
     lazy.WhimsyChatAnswer.init();
 
     this.header = h(

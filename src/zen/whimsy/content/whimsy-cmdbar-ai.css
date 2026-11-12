@@ -939,3 +939,292 @@
     display: none;
   }
 }
+
+/* ---- W25 ⌘K agent (tab-commands.html K.1–K.11) ---- */
+
+/* The top row: Do this, Planning…, the one-step confirm, and can't. */
+.urlbarView-row[dynamicType="whimsy-cmdk-agent"] > .urlbarView-row-inner {
+  align-items: center;
+}
+
+.whimsy-cmdk-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.whimsy-cmdk-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &[wrap] {
+    white-space: normal;
+  }
+}
+
+.whimsy-cmdk-row-detail {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--whimsy-ask-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &[hidden] {
+    display: none;
+  }
+
+  .urlbarView-row[selected] & {
+    color: rgba(255, 255, 255, 0.8);
+  }
+}
+
+.whimsy-cmdk-row-tag,
+.whimsy-cmdk-row-action {
+  flex: none;
+  margin-inline: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
+  white-space: nowrap;
+
+  &[hidden] {
+    display: none;
+  }
+
+  .urlbarView-row[selected] & {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+.whimsy-cmdk-row-key {
+  margin-inline-end: 6px;
+}
+
+/* Planning…: the spinner only once it takes a while. */
+.whimsy-cmdk-row-action[slow]::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-inline-end: 6px;
+  border: 1.5px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-cmdk-row-action[slow]::before {
+    animation: whimsy-cmdk-spin 0.8s linear infinite;
+  }
+}
+
+@keyframes whimsy-cmdk-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* 15 tabs or more: red, and ⌘↩. */
+.urlbarView-row[dynamicType="whimsy-cmdk-agent"]:has(.whimsy-cmdk-row-title[danger]) {
+  --whimsy-ask-accent: var(--whimsy-ask-fail);
+
+  .whimsy-cmdk-row-title {
+    color: var(--whimsy-ask-fail);
+  }
+
+  &[selected] {
+    background-color: var(--whimsy-ask-fail) !important;
+
+    .whimsy-cmdk-row-title {
+      color: white;
+    }
+  }
+}
+
+/* The tabs a one-step action will touch. */
+.tabbrowser-tab[whimsy-cmdk-ring] > .tab-stack > .tab-background {
+  outline: 2px solid var(--zen-primary-color, AccentColor);
+  outline-offset: -2px;
+}
+
+/* The plan card: the only row while it's up. */
+.urlbarView-row[dynamicType="whimsy-cmdk-plan"] {
+  padding: 0 !important;
+  background: none !important;
+  border: 0 !important;
+  cursor: default;
+
+  & > .urlbarView-row-inner {
+    display: block;
+    padding: 0 !important;
+    background: none !important;
+  }
+}
+
+.whimsy-cmdk-card {
+  /* Chat's menu rows, in the bar's tokens. */
+  --whimsy-chat-muted: var(--whimsy-ask-muted);
+  --whimsy-chat-text: var(--whimsy-ask-text);
+  --whimsy-chat-hover: var(--whimsy-ask-hover);
+  --whimsy-chat-hairline: var(--whimsy-ask-hairline);
+  --whimsy-chat-focus: 2px solid var(--focus-outline-color, var(--whimsy-ask-accent));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 12px 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--whimsy-ask-text);
+  white-space: normal;
+  overflow-wrap: break-word;
+  cursor: auto;
+  transform-origin: top center;
+}
+
+.whimsy-cmdk-title {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.whimsy-cmdk-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.whimsy-cmdk-step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.whimsy-cmdk-num {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--whimsy-ask-hover);
+  color: var(--whimsy-ask-text-2);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.whimsy-cmdk-step-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.whimsy-cmdk-asks {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--whimsy-ask-warn) 14%, transparent);
+  color: var(--whimsy-ask-warn);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.whimsy-cmdk-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 0.5px solid var(--whimsy-ask-hairline);
+  font-size: 12px;
+  color: var(--whimsy-ask-muted);
+}
+
+.whimsy-cmdk-drop {
+  height: 24px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--whimsy-ask-text-2);
+}
+
+.whimsy-cmdk-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.whimsy-cmdk-quiet {
+  background: none;
+  color: var(--whimsy-ask-text-2);
+}
+
+.whimsy-cmdk-approve {
+  background: var(--zen-accent-button-background, var(--whimsy-ask-accent));
+  color: var(--zen-accent-button-color, white);
+
+  &:hover {
+    background: color-mix(in srgb, var(--zen-accent-button-background, var(--whimsy-ask-accent)), black 8%);
+  }
+
+  .whimsy-cmdbar-key {
+    border-color: rgba(255, 255, 255, 0.45);
+    color: inherit;
+  }
+}
+
+/* ↓ moves into the footer: the field keeps focus, this shows where. */
+.whimsy-cmdk-card [data-kbd-focus] {
+  outline: 2px solid var(--focus-outline-color, var(--whimsy-ask-accent));
+  outline-offset: 1px;
+}
+
+/* K.5a, K.5b: chat's menu, under its button, inside the card. */
+.whimsy-chat-menu.whimsy-cmdk-menu {
+  position: static;
+  align-self: flex-start;
+  width: max-content;
+  min-width: 220px;
+  max-width: calc(100% - 8px);
+  max-height: none;
+  margin-top: -2px;
+  background: light-dark(#f5f5f7, #2a2a2c);
+
+  .whimsy-chat-option[data-active] {
+    background: var(--whimsy-chat-hover);
+  }
+}
+
+@media not (prefers-reduced-motion: reduce) {
+  .whimsy-cmdk-menu {
+    animation: whimsy-ask-in 150ms var(--whimsy-ask-ease);
+  }
+}
+
+/* K.8: exactly what an approval sends, in the status card. */
+.zen-toast[whimsy-cmdk-status] .whimsy-toast-body {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 10px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.whimsy-cmdk-field {
+  display: contents;
+
+  &[data-strong] .whimsy-cmdk-field-value {
+    font-weight: 650;
+  }
+}
+
+.whimsy-cmdk-field-label {
+  opacity: 0.65;
+}
+
+.whimsy-cmdk-field-value {
+  overflow-wrap: anywhere;
+}

@@ -81,6 +81,16 @@ const ACT_VERBS = /^(?:please\s+|can you\s+|could you\s+|would you\s+|go\s+(?:an
 // Not agent tasks: page-act's own (owner, 2026-11-08).
 const NOT_TASKS = /^(?:please\s+|can you\s+|could you\s+)*(?:fill(?:\s+(?:in|out))?\b|auto-?fill\b|draft\b|write a (?:reply|response)\b|translate\b|compare\b)|\b(?:fill (?:in |out )?(?:this|the|my) form|this form for me)\b/i;
 const PRIVATE_ASK = /\bprivate (?:tabs?|windows?|browsing)\b/i;
+// W25 ⌘K: what the planner adds for a request from the command bar.
+// Connectors only read (Google reads Calendar), so a plan that sends mail
+// or makes events is out of reach, and says so plainly.
+const CMDK_PLANNER = [
+  "This request came from the command bar. Also put these in the JSON:",
+  '"web": true when any step uses a website, false when it only uses Whimsy or connected apps; "apps": ["each connected app it uses, like Google Calendar"].',
+  "Connected apps (Gmail, Google Calendar, Drive, Outlook, and the rest) can only be read. Sending email, inviting people, and making, changing, or deleting calendar events or files can't be done, on their websites too.",
+  "Whimsy also can't change the Mac's settings or work in other apps.",
+  'When it can\'t be done, reply {"act": true, "can": false, "reason": "Two short plain sentences: what is out of reach, then the closest thing Whimsy can do."}',
+].join("\n");
 
 // The three verbs per pause kind: [do, self, skip] (fu-agent 5.5).
 const VERBS = {
@@ -694,35 +704,68 @@ export const WhimsyChatAgent = {
     const { win } = panel;
     const mode = this.mode;
     const card = await this.append(panel, thread.id, { role: "card", card: "agent-plan", state: "drafting", mode, request: text });
-    let plan = null;
-    let tabs = { found: [], missing: [] };
     // The tab the request starts from: the planner reads its address, and
     // its site counts as visited (H2).
     const tab = lazy.WhimsyChatThreads.tabOf(thread) ?? win.gBrowser.selectedTab;
+    const drafted = await this.draft(win, text, { tab, named, mode });
+    if (!drafted) {
+      await this.update(thread.id, card.id, { state: "none" });
+      return false;
+    }
+    await this.adopt(win, thread, card, text, drafted, { tab, named, mode });
+    return true;
+  },
+
+  /**
+   * Asks the planner about `text`. Returns {plan, steps, tabs}, or null
+   * when it's a question after all (or the planner failed). W25 ⌘K passes
+   * `cmdk`: the plan also says whether it needs a website and which
+   * connected apps it uses, or that it can't be done ({can: false, reason}).
+   */
+  async draft(win, text, { tab = null, named = [], mode = this.mode, provider = null, model = null, cmdk = false, signal = null } = {}) {
+    let plan = null;
+    let tabs = { found: [], missing: [] };
     try {
       const page = tab && !lazy.WhimsyAIContext.isOffLimits(tab) ? `${tab.label} (${tab.linkedBrowser.currentURI.spec})` : "";
       const hidden = named.filter(uuid => lazy.WhimsyAIContext.isHiddenSpace(win, uuid))
         .map(uuid => lazy.WhimsyAIContext.spaces(win).find(s => s.uuid == uuid)?.name).filter(Boolean);
       tabs = this.tabsNamedIn(win, text, tab);
+      const system = this.plannerPrompt(mode, page, hidden, tabs.found) + (cmdk ? `\n${CMDK_PLANNER}` : "");
       const result = await lazy.WhimsyAIRouter.run({
         task: "agent",
-        system: this.plannerPrompt(mode, page, hidden, tabs.found),
+        system,
         messages: [{ role: "user", content: text }],
         tools: [],
         userStarted: true,
+        provider: provider ?? undefined,
+        model: model ?? undefined,
+        signal: signal ?? undefined,
       });
       plan = jsonIn(result.text);
     } catch (e) {
+      if (signal?.aborted) {
+        return null;
+      }
       console.error("Whimsy agent: plan", e);
     }
+    if (cmdk && plan?.act !== false && plan?.can === false) {
+      return { plan, steps: [], tabs, cant: String(plan.reason ?? "").slice(0, 300) };
+    }
     if (!plan || plan.act === false || !Array.isArray(plan.steps) || !plan.steps.length) {
-      await this.update(thread.id, card.id, { state: "none" });
-      return false;
+      return null;
     }
     const steps = plan.steps.slice(0, 12).map(s => {
       const pause = lazy.WhimsyAgentTasks.ALLOW_KINDS.has(s?.pauses) || VERBS[s?.pauses] ? s.pauses : null;
       return { text: sentenceCase(String(s?.text ?? s ?? "").slice(0, 200)), pause };
     });
+    return { plan, steps, tabs, cant: null };
+  },
+
+  /**
+   * Makes a drafted plan a task waiting for Start (or ⌘K's Approve), and
+   * fills its plan card in the thread.
+   */
+  async adopt(win, thread, card, text, { plan, steps, tabs }, { tab = null, named = [], mode = this.mode, cmdk = false } = {}) {
     const startUri = tab && !lazy.WhimsyAIContext.isOffLimits(tab) ? tab.linkedBrowser.currentURI : null;
     const sites = this.startSites(text, startUri);
     const task = lazy.WhimsyAgentTasks.start({
@@ -742,12 +785,15 @@ export const WhimsyChatAgent = {
       // no open tab matched, and what the outcome check tracks.
       named: tabs.found.map(f => f.tab), missing: tabs.missing, openedFor: [],
       searchGoal: SEARCH_GOAL.test(text), searched: false, edits: new Map(), calls: new Map(),
+      // W25 ⌘K: the tab it was asked from (Drive works there), and its own
+      // status card instead of chat's needs-you toast.
+      tab: cmdk ? tab : null, cmdk,
     });
     await this.update(thread.id, card.id, {
       state: "ready", taskId: task.id, line: String(plan.line ?? "").slice(0, 400), steps, mode,
       readsOnly: !!plan.readsOnly, tabs: Number(plan.tabs) || 0,
     });
-    return true;
+    return task;
   },
 
   /**
@@ -810,15 +856,50 @@ export const WhimsyChatAgent = {
 
   // ---- Start, edit, run ----
 
-  async start(win, taskId) {
+  /**
+   * Start (or ⌘K's Approve). W25 ⌘K may pass `mode` (⌘↩ runs it in the
+   * background this once) and the model picked for this run.
+   */
+  async start(win, taskId, { mode = null, provider = null, model = null } = {}) {
     const run = state.runs.get(taskId);
     const task = lazy.WhimsyAgentTasks.get(taskId);
     if (!run || task?.state != "planning") {
       return;
     }
+    if (mode && task.mode != mode) {
+      task.mode = mode == "background" ? "background" : "drive";
+    }
+    if (provider && provider != "auto") {
+      run.provider = provider;
+      run.model = model || lazy.WhimsyAIProviders.modelOf(provider);
+    }
     lazy.WhimsyAgentTasks.begin(taskId);
-    await this.update(run.threadId, run.cardId, { state: "running", current: 0 });
+    await this.update(run.threadId, run.cardId, { state: "running", current: run.current, mode: task.mode });
     run.loop = this.loop(win, task, run).catch(e => console.error("Whimsy agent: run", e));
+  },
+
+  /**
+   * W25 ⌘K's Try again: the same plan as a new task, picking up at the
+   * step that failed. Returns the new task's id.
+   */
+  async retry(win, taskId) {
+    const old = state.runs.get(taskId);
+    const was = lazy.WhimsyAgentTasks.get(taskId);
+    if (!old || !was) {
+      return null;
+    }
+    const thread = await lazy.WhimsyAIStore.thread(old.threadId);
+    if (!thread) {
+      return null;
+    }
+    const card = await this.append(null, thread.id, { role: "card", card: "agent-plan", state: "drafting", mode: was.mode, request: old.request });
+    const plan = { title: was.title, line: was.plan?.line ?? "", template: old.template };
+    const task = await this.adopt(win, thread, card, old.request, { plan, steps: old.steps, tabs: { found: (old.named ?? []).map(tab => ({ tab })), missing: old.missing ?? [] } },
+      { tab: old.tab, named: was.namedSpaceIds ?? [], mode: was.mode, cmdk: old.cmdk });
+    const run = state.runs.get(task.id);
+    run.current = old.failedAt ?? 0;
+    await this.start(win, task.id, { provider: old.provider ?? null, model: old.model ?? null });
+    return task.id;
   },
 
   async editPlan(panel, taskId, msg) {
@@ -838,6 +919,14 @@ export const WhimsyChatAgent = {
     await this.update(threadId, msgId, { state: "dismissed" });
   },
 
+  // Drive works in the chat's tab, or (⌘K) the tab it was asked from.
+  ownTab(run, thread) {
+    if (run.tab) {
+      return run.tab.isConnected && !run.tab.closing ? run.tab : null;
+    }
+    return lazy.WhimsyChatThreads.tabOf(thread);
+  },
+
   executorPrompt(task, run, tabId) {
     const tools = lazy.WhimsyClaude.TOOLS.map(t => `- ${t.name}: ${t.description} Args: ${JSON.stringify(t.inputSchema?.properties ?? {})}`).join("\n");
     const named = (run.named ?? []).filter(tab => tab.isConnected && !tab.closing)
@@ -849,6 +938,7 @@ export const WhimsyChatAgent = {
       "Tools:",
       tools,
       `Plan: ${run.steps.map((s, i) => `${i}. ${s.text}`).join(" ")}`,
+      run.current > 0 ? `Steps 0 to ${run.current - 1} are already done; start at step ${run.current}.` : "",
       task.mode == "drive" && tabId != null ? `Work in the person's tab, tabId ${tabId}.` : "Open your own tabs with tabs_create; don't use the person's tabs.",
       named.length ? `Open tabs the person named, yours to use: ${named.join(", ")}. To switch to one, act in it by its tabId. Never open a new tab for a site that's already open.` : "",
       "Finish only when the goal is met. Typing a search or filling a form isn't the end: submit it (key Enter, or click its button) and check the page changed.",
@@ -883,7 +973,7 @@ export const WhimsyChatAgent = {
   async loop(win, task, run) {
     const Tasks = lazy.WhimsyAgentTasks;
     const thread = await lazy.WhimsyAIStore.thread(run.threadId);
-    const ownTab = lazy.WhimsyChatThreads.tabOf(thread) ?? win.gBrowser.selectedTab;
+    const ownTab = this.ownTab(run, thread) ?? win.gBrowser.selectedTab;
     const tabId = ownTab ? lazy.WhimsyClaude.tabId(ownTab) : null;
     if (task.mode == "drive" && ownTab && !lazy.WhimsyAIContext.isOffLimits(ownTab)) {
       Tasks.addTab(task, ownTab);
@@ -916,7 +1006,7 @@ export const WhimsyChatAgent = {
       const system = this.executorPrompt(task, run, tabId);
       const asked = Date.now();
       try {
-        reply = await lazy.WhimsyAIRouter.run({ task: "agent", system, messages: this.fitHistory(history, system), tools: [] });
+        reply = await lazy.WhimsyAIRouter.run({ task: "agent", system, messages: this.fitHistory(history, system), tools: [], provider: run.provider ?? undefined, model: run.model ?? undefined });
       } catch (e) {
         console.error("Whimsy agent: turn", e);
         shortfall = "error";
@@ -1251,7 +1341,7 @@ export const WhimsyChatAgent = {
         continue;
       }
       const id = String(lazy.WhimsyClaude.tabId(tab));
-      const own = task.mode == "drive" && tab == lazy.WhimsyChatThreads.tabOf(await lazy.WhimsyAIStore.thread(run.threadId));
+      const own = task.mode == "drive" && tab == this.ownTab(run, await lazy.WhimsyAIStore.thread(run.threadId));
       const row = { tabId: id, title: tab.label, url: tab.linkedBrowser.currentURI?.spec ?? "" };
       // Tabs the person lent (attached or named) are theirs: never archived.
       if (own || keepIds.has(id) || task.attached?.has(tab)) {
@@ -1295,6 +1385,10 @@ export const WhimsyChatAgent = {
       ? { state: "done", current: run.current, failedAt: Math.min(run.current, run.steps.length - 1) }
       : { state: "done", current: run.steps.length });
     run.endId = end.id;
+    // W25 ⌘K: its status card turns into the done toast or the error.
+    run.summary = shortfall ? "" : String(summary?.done ?? "").slice(0, 300);
+    run.shortfall = shortfall;
+    run.failedAt = shortfall ? Math.min(run.current, run.steps.length - 1) : null;
     Tasks.finish(task.id);
   },
 
@@ -1383,6 +1477,10 @@ export const WhimsyChatAgent = {
   // ---- Needs you while chat is hidden: a toast with ⌘E ----
 
   needsYou(task) {
+    // W25: a ⌘K run asks on its own status card, not here too.
+    if (state.runs.get(task.id)?.cmdk) {
+      return;
+    }
     for (const win of browserWindows()) {
       const panel = panelOf(win);
       if (panel.isOpen && panel.thread?.id == task.threadId) {
@@ -2034,6 +2132,11 @@ export const WhimsyChatAgent = {
   },
 
   // ---- Tests ----
+
+  /** W25 ⌘K: a task's run, read-only (summary, steps, current step). */
+  runOf(taskId) {
+    return state.runs.get(taskId) ?? null;
+  },
 
   _runFor(taskId) {
     return state.runs.get(taskId) ?? null;

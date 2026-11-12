@@ -257,6 +257,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyCommandBarUpdates.sys.mjs",
 ]
 
+# W25 the ⌘K agent
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyCommandBarAgent.sys.mjs",
+]
+
 # W23 agent-core
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyAgentGuard.sys.mjs",
