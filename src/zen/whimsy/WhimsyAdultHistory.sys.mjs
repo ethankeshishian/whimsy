@@ -33,7 +33,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   FilterAdultComponent: "moz-src:///toolkit/components/uniffi-bindgen-gecko-js/components/generated/RustFilterAdult.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-  SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
+  SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
 });
 
