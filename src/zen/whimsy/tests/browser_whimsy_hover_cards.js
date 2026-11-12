@@ -122,7 +122,7 @@ function shadowExtent(el) {
 function windowShadow(el) {
   let value = "auto";
   let important = false;
-  for (const rule of InspectorUtils.getCSSStyleRules(el)) {
+  for (const rule of InspectorUtils.getMatchingCSSRules(el)) {
     for (const [, v, imp] of rule.style.cssText.matchAll(/-moz-window-shadow:\s*([a-z-]+)\s*(!important)?/g)) {
       if (imp || !important) {
         value = v;
