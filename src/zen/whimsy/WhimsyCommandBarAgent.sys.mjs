@@ -285,7 +285,7 @@ export const WhimsyCommandBarAgent = {
   initWindow(win) {
     this.init();
     // Chat's menu rows (the model menu) are drawn in the bar too.
-    win.windowUtils.loadSheetUsingURIString(lazy.WhimsyChatAnswer.sheetURL, win.windowUtils.AUTHOR_SHEET);
+    lazy.WhimsyChatAnswer.loadSheet(win);
     const urlbar = win.gURLBar;
     urlbar?.controller?.addListener({ onViewClose: () => this.onViewClose(win) });
     // Before the bar's own input handler starts the next query: editing the
@@ -1021,8 +1021,9 @@ export const WhimsyCommandBarAgent = {
         el.querySelector("#cmdk-pause-skip, #cmdk-pause-stop")?.focus();
       }
     } else if (kind == "done") {
+      // Tracked until the done card closes (onToastClose lets it go), so a
+      // later change to the task still reaches the card on screen.
       this.notify(win, "whimsy-cmdk-notify-done", task);
-      tracked.delete(taskId);
     }
   },
 

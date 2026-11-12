@@ -950,6 +950,18 @@ export const WhimsyChatAnswer = {
   },
 
   sheetURL: SHEET,
+  _sheetWindows: new WeakSet(),
+
+  /**
+   * Loads the answer sheet into a window once. Chat and ⌘K's plan both draw
+   * these rows, and loading an additional sheet twice throws.
+   */
+  loadSheet(win) {
+    if (!this._sheetWindows.has(win)) {
+      this._sheetWindows.add(win);
+      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+    }
+  },
   brands: BRANDS,
   who: whoLabel,
 
