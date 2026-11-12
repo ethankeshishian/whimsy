@@ -307,6 +307,17 @@ add_task(async function unavailable_greyed_with_reason() {
     const row = rows.find(r => r.id == "ai:summarize-page");
     ok(row?.off, "Summarize page shows greyed");
     is(row.detail, "There’s no text here to summarize.", "with the reason");
+    // W25 designfix: a row's description is the bar's one secondary line:
+    // no larger than the title, in the muted token, with no joiner.
+    const detail = row.element.row.querySelector(".whimsy-cmdk-detail");
+    const title = row.element.row.querySelector(".urlbarView-title");
+    Assert.lessOrEqual(parseFloat(getComputedStyle(detail).fontSize), parseFloat(getComputedStyle(title).fontSize), "The description is no larger than the title");
+    const probe = document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    probe.style.color = "var(--whimsy-ask-muted)";
+    detail.parentElement.append(probe);
+    is(getComputedStyle(detail).color, getComputedStyle(probe).color, "...in the secondary (muted) colour");
+    probe.remove();
+    is(getComputedStyle(detail, "::before").content, "none", "No em-dash joiner");
     ok(!row.element.row.querySelector("[selectable]") && !row.element.row.hasAttribute("row-selectable"), "and can't be selected");
     ok(rows.some(r => r.id == "web-search"), "Search is still there");
     await closeBar();
