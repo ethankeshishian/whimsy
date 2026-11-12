@@ -58,7 +58,7 @@ const REDUCED = "(prefers-reduced-motion: reduce)";
 // Something to do: an imperative that isn't what the bar already does
 // (open, go to, search, find, look up), at least three words long. General
 // verbs only; never a list of sites.
-const DO_VERBS = /^(?:please\s+|can you\s+|could you\s+|would you\s+)*(?:order|re-?order|buy|purchase|book|reserve|schedule|add|remove|delete|cancel|unsubscribe|send|post|reply|email|e-mail|message|text|invite|sign (?:up|in|out)|subscribe|download|install|make|set|set up|change|move|rename|archive|clean up|tidy|collect|gather|research|plan|pay|apply|register|rsvp|accept|decline|follow|share|upload|save|close|pin|unpin|mute|unmute|group|put|organi[sz]e|sort|turn (?:on|off)|switch|enable|disable|create|remind|start)\b/i;
+const DO_VERBS = /^(?:please\s+|can you\s+|could you\s+|would you\s+)*(?:order|re-?order|buy|purchase|book|reserve|schedule|add|remove|delete|cancel|unsubscribe|send|post|reply|email|e-mail|message|text|invite|sign (?:up|in|out)|subscribe|download|install|make|set|set up|change|move|rename|archive|clean up|tidy|collect|gather|research|plan|pay|apply|register|rsvp|accept|decline|follow|share|upload|save|close|pin|unpin|mute|unmute|group|put|organi[sz]e|sort|turn (?:on|off)|switch|enable|disable|create|remind|start|go to|go on|navigate to|visit|open|find|look up|search|summari[sz]e|compare|check|get|fill (?:out|in)|read|translate)\b/i;
 
 const OBJECT_WORDS = /\b(?:my|me|our|us|this|these|that|those|the|a|an|all|every|tabs?)\b/i;
 
@@ -145,7 +145,10 @@ export class WhimsyCmdkProvider extends UrlbarProvider {
 
   async isActive(context) {
     const win = topWindow();
-    if (!win || isPrivateContext(context, win) || context.searchMode || context.restrictSource) {
+    // Actions mode (⌘K with text selected, or "/") still takes a request:
+    // when no action matches, what was typed is something to do.
+    const actions = context.searchMode?.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS;
+    if (!win || isPrivateContext(context, win) || (context.searchMode && !actions) || context.restrictSource) {
       return false;
     }
     return !!stateOf(win) || WhimsyCommandBarAgent.takes(win, context.searchString ?? "");

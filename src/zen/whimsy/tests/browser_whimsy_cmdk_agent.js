@@ -107,6 +107,32 @@ add_task(async function do_this_row_only_for_something_to_do() {
   await closeBar();
 });
 
+add_task(async function website_requests_get_the_row_in_actions_mode_too() {
+  await freshAgent();
+  // Requests that go to a site, find, or summarize are something to do.
+  for (const text of [
+    "go to wikipedia.org find the eiffel tower article, and summarize its history in three bullets",
+    "search amazon for a usb-c charger and add the cheapest one to my cart",
+  ]) {
+    await typeTask(text);
+    ok(agentRow(), `Do this for "${text}"`);
+  }
+  await typeInBar("find my iphone");
+  ok(!agentRow(), "A short search stays a search");
+  await closeBar();
+
+  // ⌘K with text selected opens Actions mode; a request still gets the row.
+  await typeInBar("x");
+  const searching = UrlbarTestUtils.promiseSearchComplete(window);
+  const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
+  gURLBar.searchMode = { source: UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, isPreview: false };
+  gURLBar.value = "go to wikipedia.org and summarize the eiffel tower article";
+  gURLBar.startQuery({ allowAutofill: false, event: new Event("input") });
+  await searching;
+  await TestUtils.waitForCondition(() => agentRow(), "Do this is up in Actions mode");
+  await closeBar();
+});
+
 add_task(async function one_step_confirm_then_undo() {
   await freshAgent();
   const tabs = [];
