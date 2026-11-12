@@ -397,3 +397,29 @@ add_task(async function no_microphone_notes_from_the_call() {
   WhimsyMeetingNotes.graceMs = 2 * MINUTE;
   await endMeeting(tab);
 });
+
+// Stop while macOS asks for the microphone: it never starts, and a content
+// process can't start the call's sound for notes on its own.
+add_task(async function stop_during_microphone_prompt() {
+  const { mic } = speechStandIns();
+  let answer;
+  WhimsyMeetingNotes.testSpeech.microphoneStatus = "notDetermined";
+  WhimsyMeetingNotes.testSpeech.requestMicrophoneAccess = cb => (answer = cb);
+  WhimsyMeetingNotes.graceMs = 0;
+  const tab = await startMeeting();
+  granola.meetings = [];
+  ok(!WhimsyMeetingNotes.listeningTo(tab.linkedBrowser), "Not listening before Take notes");
+  await WhimsyMeetingNotes.tick();
+  const taking = WhimsyMeetingNotes.takeNotes();
+  await TestUtils.waitForCondition(() => answer, "macOS asks");
+  ok(WhimsyMeetingNotes.listeningTo(tab.linkedBrowser), "Listening after Take notes");
+  await WhimsyMeetingNotes.stop();
+  ok(!WhimsyMeetingNotes.listeningTo(tab.linkedBrowser), "Not listening after Stop");
+  answer(true, "authorized");
+  is(await taking, false, "Take notes gives way to Stop");
+  is(mic.sessions.length, 0, "The microphone never starts");
+  WhimsyMeetingNotes.heard("late words", "call");
+  is(WhimsyMeetingNotes.state.transcript.length, 0, "Nothing is heard after Stop");
+  WhimsyMeetingNotes.graceMs = 2 * MINUTE;
+  await endMeeting(tab);
+});

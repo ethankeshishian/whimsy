@@ -200,6 +200,11 @@ export class WhimsyVideoSpeedParent extends JSWindowActorParent {
         return lazy.WhimsyCaptions.translate(message.data);
       // w7native: live captions from speech (a video without captions).
       case "WhimsyCaptions:SpeechStart":
+        // The call's sound for meeting notes only while Take notes is on
+        // for this tab: never at a content process's asking.
+        if (message.data?.notes && !lazy.WhimsyMeetingNotes.listeningTo(this.browsingContext.top?.embedderElement)) {
+          return { error: "off" };
+        }
         this._speechStarted = true;
         return lazy.WhimsyLiveSpeech.start(this, message.data);
       case "WhimsyCaptions:SpeechAudio":

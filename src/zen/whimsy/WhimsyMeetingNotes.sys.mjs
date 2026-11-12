@@ -633,7 +633,8 @@ export const WhimsyMeetingNotes = {
     }
     // And the microphone.
     const mic = await this._access(speech, "microphone");
-    if (s.own != own) {
+    // Stop pressed while macOS asked: the microphone never starts.
+    if (s.own != own || own.stopped || s.phase == "ended") {
       return false;
     }
     if (mic == "authorized") {
@@ -690,11 +691,17 @@ export const WhimsyMeetingNotes = {
   heard(text, who = "call") {
     const s = this.state;
     const clean = String(text ?? "").replace(/\s+/g, " ").trim();
-    if (!s?.own || !clean) {
+    if (!s?.own || s.own.stopped || !clean) {
       return;
     }
     s.transcript.push({ at: this.now(), who, text: clean });
     s.notesText = s.transcript.map(l => l.text).join("\n");
+  },
+
+  /** Whether Take notes is on for the call in `browser` (and not stopped). */
+  listeningTo(browser) {
+    const s = this.state;
+    return !!(browser && s?.own && !s.own.stopped && s.phase != "ended" && s.tab?.linkedBrowser == browser);
   },
 
   /** The call tab's sound couldn't be taken (no audio, unavailable). */
@@ -800,7 +807,9 @@ export const WhimsyMeetingNotes = {
     const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
     const markdown = `# ${s.meeting.title}\n\n${date}${range ? ` · ${range}` : ""}\n\n${body}\n`;
     const dir = await lazy.Downloads.getPreferredDownloadsDirectory();
-    const safe = `${String(s.meeting.title || "Meeting").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80)} ${date}.md`;
+    const name = String(s.meeting.title || "Meeting").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+    // DownloadPaths.sanitize also drops leading dots and direction marks.
+    const safe = lazy.DownloadPaths.sanitize(`${name} ${date}.md`);
     const file = lazy.DownloadPaths.createNiceUniqueFile(new lazy.FileUtils.File(PathUtils.join(dir, safe)));
     await IOUtils.writeUTF8(file.path, markdown);
     win.gZenUIManager?.toasts?.open("whimsy-meeting-downloaded", {
