@@ -21,6 +21,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   buildPersonCard: "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyHoverCards: "resource:///modules/whimsy/WhimsyHoverCards.sys.mjs",
   WhimsyPeople: "resource:///modules/whimsy/WhimsyPeople.sys.mjs",
 });
