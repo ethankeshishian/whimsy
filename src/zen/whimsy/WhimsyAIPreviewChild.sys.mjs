@@ -335,11 +335,18 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     if (this.link) {
       this.leave();
     }
-    if (!link || !/^https?:/i.test(link.href) || !this.enabled) {
+    if (!link || !/^https?:/i.test(link.href) || !this.enabled || this.isSamePage(link)) {
       return;
     }
     this.link = link;
     this.show();
+  }
+
+  // In-page links (href="#", a table of contents) point at the page that's
+  // already open: a card about it says nothing new.
+  isSamePage(link) {
+    const strip = url => url.split("#")[0];
+    return strip(link.href) == strip(this.document?.documentURI ?? "");
   }
 
   show() {
