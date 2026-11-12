@@ -191,9 +191,9 @@ add_task(async function cmd_s_and_cmd_e_share_one_motion() {
     try {
       pressShortcut("zen-compact-mode-toggle");
       await TestUtils.waitForCondition(() => gZenCompactModeManager.preference == wantCompact, `⌘S ${name}`);
-      await TestUtils.waitForCondition(() => rec.seen.length, `⌘S ${name} animates the sidebar`);
-      timings[`s-${name}`] = rec.seen.map(a => a.effect.getTiming());
-      await Promise.all(rec.seen.map(a => a.finished.catch(() => {})));
+      const slide = () => rec.seen.filter(a => a.effect.getKeyframes().some(k => "marginLeft" in k || "marginRight" in k));
+      await TestUtils.waitForCondition(() => slide().length, `⌘S ${name} animates the sidebar`);
+      timings[`s-${name}`] = slide().map(a => a.effect.getTiming());
       await TestUtils.waitForCondition(() => !document.documentElement.hasAttribute("zen-compact-animating"), "Sidebar settled");
     } finally {
       rec.stop();
