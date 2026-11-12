@@ -155,6 +155,7 @@ add_task(async function tab_request_on_settings_is_the_top_row_with_undo() {
       is(r.result.payload.tag, "", `${r.verb}: no space tag`);
       is(r.result.payload.key, "↩", `${r.verb}: the ↩ hint`);
     }
+    await whimsySettled();
     await whimsyShot("w25-cmdk-tab-request-light");
     EventUtils.synthesizeKey("KEY_Enter");
     await TestUtils.waitForCondition(() => tabs.every(t => !t.isConnected), "Enter closed them");

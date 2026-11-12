@@ -92,6 +92,7 @@ add_task(async function chips_show_counts_and_label() {
   ok(x.localName == "button" && x.tabIndex >= 0 && x.checkVisibility(), "× is a visible button in the tab order");
   await whimsyBothSchemes("w25-chat-chip-this-tab", async () => {});
   EventUtils.synthesizeMouseAtCenter(chip.querySelector(".whimsy-chat-chip-body"), { type: "mousemove" });
+  await whimsySettled();
   await whimsyShot("w25-chat-chip-this-tab-hover-light");
   await closeAll(tab);
 });

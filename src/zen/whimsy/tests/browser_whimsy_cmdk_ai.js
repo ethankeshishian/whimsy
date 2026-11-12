@@ -318,6 +318,7 @@ add_task(async function unavailable_greyed_with_reason() {
     is(getComputedStyle(detail).color, getComputedStyle(probe).color, "...in the secondary (muted) colour");
     probe.remove();
     is(getComputedStyle(detail, "::before").content, "none", "No em-dash joiner");
+    await whimsySettled();
     await whimsyShot("w25-cmdbar-row-description-light");
     ok(!row.element.row.querySelector("[selectable]") && !row.element.row.hasAttribute("row-selectable"), "and can't be selected");
     ok(rows.some(r => r.id == "web-search"), "Search is still there");
@@ -403,6 +404,7 @@ add_task(async function accent_pills_and_selected_rows_meet_aa() {
           Assert.greaterOrEqual(ratio, 4.5, `${scheme}: ${name} contrast is ${ratio.toFixed(2)}:1`);
         }
         is(srgb(getComputedStyle(chip).backgroundColor).join(), srgb(getComputedStyle(row).backgroundColor).join(), `${scheme}: the chip and the selected row share one accent fill`);
+        await whimsySettled();
         await whimsyShot(`w25-cmdbar-contrast-${scheme}`);
         await closeBar();
       } finally {
@@ -459,6 +461,7 @@ add_task(async function long_query_keeps_key_hints_whole() {
     await withPage(PAGE("empty"), async () => {
       await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: LONG_QUERY });
       await checkHints(`plain bar, ${scheme}`);
+      await whimsySettled();
       await whimsyShot(`w25-cmdbar-long-query-${scheme}`);
       gURLBar.view.close();
       gURLBar.handleRevert();
@@ -467,6 +470,7 @@ add_task(async function long_query_keeps_key_hints_whole() {
       await cmdK();
       await type(LONG_QUERY);
       await checkHints(`Actions mode, ${scheme}`);
+      await whimsySettled();
       await whimsyShot(`w25-cmdbar-long-query-actions-${scheme}`);
       await closeBar();
     });
