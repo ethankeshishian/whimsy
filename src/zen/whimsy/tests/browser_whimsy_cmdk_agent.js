@@ -263,6 +263,7 @@ add_task(async function one_step_confirm_then_undo() {
   const ringBg = getComputedStyle(tabs[0].querySelector(".tab-background"));
   ok(ringBg.boxShadow.includes("inset"), `The ring is an inset line (${ringBg.boxShadow})`);
   ok(ringBg.backgroundImage.includes("gradient"), "...over a tint");
+  await whimsyShot("w25-cmdk-ring-light");
   is(gBrowser.tabs.length, before, "Nothing has changed yet");
 
   EventUtils.synthesizeKey("KEY_Enter");

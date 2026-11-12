@@ -153,3 +153,13 @@
     opacity: 0.45;
   }
 }
+
+/* A verb row's key hint (a tab request's ↩, K.3) sits at the row's end,
+   after its tag when there is one, like the ⌘K agent's rows. */
+.urlbarView-row .whimsy-cmdk-row-key {
+  flex: none;
+  margin-inline-start: auto;
+}
+.urlbarView-row .whimsy-cmdk-tag:not([hidden]) + .whimsy-cmdk-row-key {
+  margin-inline-start: 0;
+}

@@ -42,6 +42,7 @@ add_task(async function frontmost_approval_and_repeat_open_once() {
   const task = WhimsyAgentTasks.forSession("approval-create");
   const pauseId = task.pause.id;
   const surface = prompt(window);
+  await whimsyBothSchemes("w25-mcp-approvals", async () => {});
   const repeat = call("approval-create");
   is(prompt(window), surface, "Repeat reuses the visible surface");
   is(task.pause.id, pauseId, "Repeat reuses the same pending request");

@@ -213,8 +213,10 @@ add_task(async function cmd_s_and_cmd_e_share_one_motion() {
   };
 
   await sidebarStep("hide", true);
+  await whimsyShot("w25-cmd-s-sidebar-hidden-light");
   await sidebarStep("show", false);
   await chatStep("show", true);
+  await whimsyShot("w25-cmd-e-chat-open-light");
   await chatStep("hide", false);
 
   for (const dir of ["show", "hide"]) {

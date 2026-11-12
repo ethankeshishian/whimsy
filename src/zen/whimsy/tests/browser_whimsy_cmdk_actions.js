@@ -146,7 +146,16 @@ add_task(async function tab_request_on_settings_is_the_top_row_with_undo() {
     is(rows[0]?.verb, "typed:tabs-close", "The tab request is the top row on a settings page");
     is(rows[0].result.payload.title, "Close 2 “youtube” tabs", "and says what will happen");
     ok(rows[0].element.row.hasAttribute("selected"), "selected, so Enter does it");
-    ok(!rows.some(r => r.verb == "ask" || r.verb == "web-search"), "No Ask or Search with Google rows");
+    // W25 designfix (K.3): its hint is ↩ as a key, like Do this; never the
+    // space's name as a tag.
+    const key = rows[0].element.row.querySelector(".whimsy-cmdbar-key");
+    ok(key?.checkVisibility() && key.textContent == "↩", "The top row shows the ↩ key");
+    ok(rows[0].element.row.querySelector(".whimsy-cmdk-tag").hidden, "and no tag");
+    for (const r of rows.filter(r => r.verb?.startsWith("typed:tabs-"))) {
+      is(r.result.payload.tag, "", `${r.verb}: no space tag`);
+      is(r.result.payload.key, "↩", `${r.verb}: the ↩ hint`);
+    }
+    await whimsyShot("w25-cmdk-tab-request-light");
     EventUtils.synthesizeKey("KEY_Enter");
     await TestUtils.waitForCondition(() => tabs.every(t => !t.isConnected), "Enter closed them");
     ok(!gURLBar.searchMode, "and left Actions mode");

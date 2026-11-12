@@ -318,6 +318,7 @@ add_task(async function unavailable_greyed_with_reason() {
     is(getComputedStyle(detail).color, getComputedStyle(probe).color, "...in the secondary (muted) colour");
     probe.remove();
     is(getComputedStyle(detail, "::before").content, "none", "No em-dash joiner");
+    await whimsyShot("w25-cmdbar-row-description-light");
     ok(!row.element.row.querySelector("[selectable]") && !row.element.row.hasAttribute("row-selectable"), "and can't be selected");
     ok(rows.some(r => r.id == "web-search"), "Search is still there");
     await closeBar();
@@ -412,31 +413,62 @@ add_task(async function accent_pills_and_selected_rows_meet_aa() {
 });
 
 // W25 designfix, part of the truncation guard: with a very long query, a
-// row's key hint keeps its full text inside the row's padding box and
-// never overlaps the title, which ellipses instead.
-add_task(async function long_query_keeps_key_hints_whole() {
-  await withPage(PAGE("empty"), async () => {
-    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: "lorem ipsum ".repeat(17).slice(0, 200) });
-    let checked = 0;
-    for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
-      const { element } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
-      const inner = element.row.querySelector(".urlbarView-row-inner");
-      const action = inner?.querySelector(".urlbarView-action");
-      const title = inner?.querySelector(".urlbarView-title");
-      if (!action?.textContent.trim() || !action.checkVisibility() || !title) {
+// row's hint (Firefox's action text, a verb row's tag such as "Search with
+// Google", or a key) keeps its full text inside the row's padding box and
+// never overlaps the title, which ellipses instead. In the plain bar and in
+// Actions mode.
+async function checkHints(where) {
+  let checked = 0;
+  for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+    const { element } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+    const inner = element.row.querySelector(".urlbarView-row-inner") ?? element.row;
+    const title = inner.querySelector(".urlbarView-title");
+    for (const hint of inner.querySelectorAll(".urlbarView-action, .whimsy-cmdk-tag, .whimsy-cmdbar-key")) {
+      if (!hint.textContent.trim() || !hint.checkVisibility() || !title) {
         continue;
       }
       checked++;
-      const name = action.textContent.trim();
-      ok(action.scrollWidth <= action.clientWidth, `"${name}" isn't truncated`);
+      const name = hint.textContent.trim();
+      ok(hint.scrollWidth <= hint.clientWidth, `${where}: "${name}" isn't truncated`);
       const box = inner.getBoundingClientRect();
       const end = box.right - parseFloat(getComputedStyle(inner).paddingRight);
-      const a = action.getBoundingClientRect();
-      Assert.lessOrEqual(a.right, end + 0.5, `"${name}" sits inside the row's padding box`);
-      Assert.greaterOrEqual(a.left, title.getBoundingClientRect().right - 0.5, `"${name}" doesn't overlap the title`);
+      const a = hint.getBoundingClientRect();
+      Assert.lessOrEqual(a.right, end + 0.5, `${where}: "${name}" sits inside the row's padding box`);
+      Assert.greaterOrEqual(a.left, title.getBoundingClientRect().right - 0.5, `${where}: "${name}" doesn't overlap the title`);
     }
-    Assert.greater(checked, 0, "At least one row shows a key hint");
-    gURLBar.view.close();
-    gURLBar.handleRevert();
+  }
+  Assert.greater(checked, 0, `${where}: at least one row shows a hint`);
+}
+
+const LONG_QUERY = ("what does wikipedia say about the history of the transcontinental railroad and the " +
+  "workers who built it across the sierra nevada mountains in the winter of eighteen sixty six ").repeat(2).slice(0, 200);
+
+async function inSchemes(fn) {
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    try {
+      await fn(dark ? "dark" : "light");
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+add_task(async function long_query_keeps_key_hints_whole() {
+  await inSchemes(async scheme => {
+    await withPage(PAGE("empty"), async () => {
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: LONG_QUERY });
+      await checkHints(`plain bar, ${scheme}`);
+      await whimsyShot(`w25-cmdbar-long-query-${scheme}`);
+      gURLBar.view.close();
+      gURLBar.handleRevert();
+    });
+    await withPage(PAGE("article"), async () => {
+      await cmdK();
+      await type(LONG_QUERY);
+      await checkHints(`Actions mode, ${scheme}`);
+      await whimsyShot(`w25-cmdbar-long-query-actions-${scheme}`);
+      await closeBar();
+    });
   });
 });

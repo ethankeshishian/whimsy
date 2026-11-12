@@ -415,6 +415,7 @@ const inside = (rect, box) => rect.top >= box.top - 1 && rect.bottom <= box.bott
 
 add_task(async function test_arrows_keep_selection_visible_without_jumps() {
   const el = await openEmoji("face");
+  await whimsyShot("w25-emoji-grid-light");
   const cells = () => [...el.querySelectorAll(".whimsy-emoji-cell")];
   const count = cells().length;
   Assert.greater(count, 16, `Enough results to scroll (${count})`);
@@ -433,6 +434,7 @@ add_task(async function test_arrows_keep_selection_visible_without_jumps() {
       is(scroller?.scrollTop ?? 0, top, `No scroll for a move to a visible cell (${i})`);
     }
   }
+  await whimsyShot("w25-emoji-grid-last-row-light");
   for (let i = count - 1; i > 0; i--) {
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
     ok(inside(el.querySelector(".whimsy-emoji-cell.on").getBoundingClientRect(), view()), `← keeps cell ${i - 1} visible`);
