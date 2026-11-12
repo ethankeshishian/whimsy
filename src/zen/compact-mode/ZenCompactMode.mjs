@@ -424,28 +424,6 @@ window.gZenCompactModeManager = {
     );
   },
 
-  /**
-   * Whimsy (W25 designfix): Hide Sidebar (⌘S) runs with the chat panel's
-   * (⌘E) duration and easing, the --whimsy-dur-panel(-exit) and
-   * --whimsy-ease-panel(-exit) tokens (whimsy-browser.css) that
-   * WhimsyChatPanel.panelMotion() reads, instead of a 0.1s spring. A Web
-   * Animation, since Motion can't take a CSS linear() easing. `then(cb)`
-   * runs cb when it ends, then lets go of the held end state.
-   */
-  whimsyAnimateSidebar(keyframes, enter) {
-    const style = window.getComputedStyle(document.documentElement);
-    const suffix = enter ? "" : "-exit";
-    const raw = style.getPropertyValue(`--whimsy-dur-panel${suffix}`).trim();
-    const duration = raw.endsWith("ms") ? parseFloat(raw) : parseFloat(raw) * 1000;
-    const anim = this.sidebar.animate(keyframes, {
-      duration: Number.isFinite(duration) ? duration : 0,
-      easing: style.getPropertyValue(`--whimsy-ease-panel${suffix}`).trim() || "linear",
-      fill: "forwards",
-    });
-    const ended = anim.finished.catch(() => {});
-    return { then: cb => ended.then(cb).finally(() => anim.cancel()) };
-  },
-
   animateCompactMode(isCompactMode) {
     return new Promise(resolve => {
       document.documentElement.setAttribute("zen-compact-animating", "true");
@@ -490,8 +468,9 @@ window.gZenCompactModeManager = {
       sidebarWidth -= elementSeparation * (isCompactMode ? 1 : 3);
       if (canHideSidebar && isCompactMode) {
         this._setElementExpandAttribute(this.sidebar, false);
-        // Whimsy: see whimsyAnimateSidebar.
-        this.whimsyAnimateSidebar(
+        (window.gWhimsySidebarMotion ?? gZenUIManager.motion) // Whimsy hotfix
+          .animate(
+            this.sidebar,
             {
               marginRight: [
                 0,
@@ -499,7 +478,12 @@ window.gZenCompactModeManager = {
               ],
               marginLeft: [0, this.sidebarIsOnRight ? 0 : `-${sidebarWidth}px`],
             },
-            false
+            {
+              ease: "easeIn",
+              type: "spring",
+              bounce: 0,
+              duration: 0.1,
+            }
           )
           .then(() => {
             this.sidebar.style.transition = "none";
@@ -533,15 +517,21 @@ window.gZenCompactModeManager = {
         } else {
           this.sidebar.style.marginLeft = `-${sidebarWidth}px`;
         }
-        // Whimsy: see whimsyAnimateSidebar.
-        this.whimsyAnimateSidebar(
+        (window.gWhimsySidebarMotion ?? gZenUIManager.motion) // Whimsy hotfix
+          .animate(
+            this.sidebar,
             this.sidebarIsOnRight
               ? {
                   marginRight: [`-${sidebarWidth}px`, 0],
                   transform: ["translateX(100%)", "translateX(0)"],
                 }
               : { marginLeft: [`-${sidebarWidth}px`, 0] },
-            true
+            {
+              ease: "easeOut",
+              type: "spring",
+              bounce: 0,
+              duration: 0.1,
+            }
           )
           .then(() => {
             this.sidebar.removeAttribute("animate");

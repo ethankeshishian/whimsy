@@ -2134,6 +2134,25 @@ export const WhimsyChatPanel = {
   },
 
   initWindow(win) {
+    // W25 designfix: Zen's compact-mode toggle (Hide Sidebar, ⌘S) asks this
+    // first (overlay.py "compact-sidebar-*-motion"), so the sidebar moves
+    // with the chat panel's own tokens (⌘E): the same keyframes Zen passes,
+    // its ease "easeOut" being the show. A Web Animation, since Motion can't
+    // take a CSS linear() easing; then(cb) runs when it ends, and the held
+    // end state is let go after cb.
+    win.gWhimsySidebarMotion = {
+      animate(el, keyframes, options) {
+        const style = win.getComputedStyle(win.document.documentElement);
+        const suffix = options?.ease == "easeOut" ? "" : "-exit";
+        const anim = el.animate(keyframes, {
+          duration: cssMs(style.getPropertyValue(`--whimsy-dur-panel${suffix}`)),
+          easing: style.getPropertyValue(`--whimsy-ease-panel${suffix}`).trim() || "linear",
+          fill: "forwards",
+        });
+        const ended = anim.finished.catch(() => {});
+        return { then: cb => ended.then(cb).finally(() => anim.cancel()) };
+      },
+    };
     if (!featureOn() || !win.gBrowser) {
       return;
     }

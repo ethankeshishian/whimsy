@@ -77,6 +77,40 @@ HOOKS = [
 ]
 
 HOTFIXES = [
+    # W25 designfix: Hide Sidebar (⌘S) and the chat panel (⌘E) move with
+    # one duration and easing. Zen's compact-mode toggle runs a 0.1s spring;
+    # it asks Whimsy's window.gWhimsySidebarMotion (WhimsyChatPanel.initWindow)
+    # first, which plays the same keyframes with the chat's panel tokens
+    # (--whimsy-dur-panel(-exit), --whimsy-ease-panel(-exit)). Without the
+    # hook, Zen's own motion runs unchanged.
+    {
+        "id": "compact-sidebar-hide-motion",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "⌘S hides the sidebar with the chat panel's motion tokens.",
+        "old": "        gZenUIManager.motion\n"
+               "          .animate(\n"
+               "            this.sidebar,\n"
+               "            {\n"
+               "              marginRight: [\n",
+        "new": "        (window.gWhimsySidebarMotion ?? gZenUIManager.motion) // Whimsy hotfix\n"
+               "          .animate(\n"
+               "            this.sidebar,\n"
+               "            {\n"
+               "              marginRight: [\n",
+    },
+    {
+        "id": "compact-sidebar-show-motion",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "⌘S shows the sidebar with the chat panel's motion tokens.",
+        "old": "        gZenUIManager.motion\n"
+               "          .animate(\n"
+               "            this.sidebar,\n"
+               "            this.sidebarIsOnRight\n",
+        "new": "        (window.gWhimsySidebarMotion ?? gZenUIManager.motion) // Whimsy hotfix\n"
+               "          .animate(\n"
+               "            this.sidebar,\n"
+               "            this.sidebarIsOnRight\n",
+    },
     # Drain a retired store before a later init opens another writer for it.
     {
         "id": "live-folders-finalize-store",
