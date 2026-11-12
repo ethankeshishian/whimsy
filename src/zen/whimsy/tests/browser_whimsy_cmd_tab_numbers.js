@@ -215,6 +215,58 @@ add_task(async function cancel_on_release_key_pointer_and_deactivate() {
   release();
 });
 
+// Real key synthesis routed by focus (web page, URL bar, sidebar), not a
+// window-dispatched event: the release must fade the badges out to opacity 0.
+add_task(async function release_fades_out_in_every_focus_state() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser,
+    "data:text/html,<input id=field>");
+  const browser = tab.linkedBrowser;
+  const faded = () => [...win.gBrowser.tabContainer.querySelectorAll(".whimsy-tab-number")]
+    .every(b => win.getComputedStyle(b).opacity == "0");
+  const synth = type => EventUtils.synthesizeKey("KEY_Meta", { type }, win);
+  const focusers = {
+    async page() {
+      browser.focus();
+      await SpecialPowers.spawn(browser, [], () => content.document.getElementById("field").focus());
+      await TestUtils.waitForCondition(() => win.document.activeElement == browser, "The web page has focus");
+    },
+    async urlbar() {
+      win.gURLBar.inputField.focus();
+      await TestUtils.waitForCondition(() => win.gURLBar.focused, "The URL bar has focus");
+      win.gURLBar.view.close();
+    },
+    async sidebar() {
+      win.gBrowser.selectedTab.focus();
+      await TestUtils.waitForCondition(() => win.gNavToolbox.contains(win.document.activeElement),
+        "The sidebar has focus");
+    },
+  };
+  try {
+    for (const [where, focusIt] of Object.entries(focusers)) {
+      await focusIt();
+      let contentKeyup;
+      if (where == "page") {
+        contentKeyup = SpecialPowers.spawn(browser, [], () => new Promise(resolve =>
+          content.addEventListener("keyup", e => e.key == "Meta" && resolve(), { once: false })));
+      }
+      synth("keydown");
+      await TestUtils.waitForCondition(showing, `Holding Command with the ${where} focused reveals numbers`);
+      await TestUtils.waitForCondition(() => !faded(), `Badges are visible with the ${where} focused`);
+      synth("keyup");
+      if (contentKeyup) {
+        await contentKeyup;
+        ok(true, "The release went through the web page");
+      }
+      await TestUtils.waitForCondition(faded, `Releasing Command with the ${where} focused fades the badges out`);
+      ok(!showing(), `The hold ended with the ${where} focused`);
+    }
+  } finally {
+    synth("keyup");
+    release();
+    await BrowserTestUtils.removeTab(tab, { animate: false });
+  }
+});
+
 add_task(async function quick_tap_and_chords_never_reveal() {
   key("KEY_Meta", { type: "keydown", metaKey: true });
   release();
