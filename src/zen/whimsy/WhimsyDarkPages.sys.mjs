@@ -14,7 +14,6 @@ import { DARK_PAGES_KEY } from "resource:///modules/whimsy/WhimsyDarkPagesConfig
 const PREFIX = "whimsy.dark-pages.";
 const privateSites = new Map();
 const states = new WeakMap();
-const windows = new Set();
 const ICON = "chrome://browser/content/whimsy/icons/moon.svg";
 
 export const WhimsyDarkPages = {
@@ -116,14 +115,10 @@ export const WhimsyDarkPages = {
       manual: this._manual,
     });
     Services.ppmm.sharedData.flush();
-    for (const win of windows) {
-      this.updateButton(win);
-    }
   },
 
   initWindow(win) {
     this.init();
-    windows.add(win);
     const media = win.matchMedia("(prefers-color-scheme: dark)");
     const theme = () => {
       const previous = this.active;
@@ -135,26 +130,13 @@ export const WhimsyDarkPages = {
     };
     media.addEventListener("change", theme);
     theme();
-    const doc = win.document;
-    const anchor = doc.getElementById("page-action-buttons");
-    if (anchor) {
-      const button = doc.createXULElement("toolbarbutton");
-      button.id = "whimsy-dark-page-button";
-      button.className = "urlbar-icon";
-      button.setAttribute("image", ICON);
-      doc.l10n.setAttributes(button, "whimsy-dark-pages-button");
-      button.addEventListener("command", () => lazy.WhimsySiteSettings.open(win, { focus: "dark-pages" }));
-      anchor.append(button);
-    }
-    const update = () => {
-      this.updateButton(win);
-      this.offer(win, win.gBrowser.selectedBrowser);
-    };
+    // No address-bar button: the global setting, the first-time toast, the
+    // site panel's row, and the command palette are the only controls.
+    const update = () => this.offer(win, win.gBrowser.selectedBrowser);
     win.gBrowser.tabContainer.addEventListener("TabSelect", update);
     const progress = { onLocationChange: (browser, webProgress, request, location, flags) => {
       if (webProgress?.isTopLevel && !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT)) {
         states.delete(browser);
-        this.updateButton(win);
       }
     } };
     win.gBrowser.addTabsProgressListener(progress);
@@ -169,7 +151,6 @@ export const WhimsyDarkPages = {
       },
     });
     win.addEventListener("unload", () => {
-      windows.delete(win);
       media.removeEventListener("change", theme);
       win.gBrowser.tabContainer.removeEventListener("TabSelect", update);
       win.gBrowser.removeTabsProgressListener(progress);
@@ -188,20 +169,10 @@ export const WhimsyDarkPages = {
     const changed = states.get(browser) != state;
     states.set(browser, state);
     const win = browser.ownerDocument.defaultView;
-    this.updateButton(win);
     this.offer(win, browser);
     if (changed && win.gBrowser.selectedBrowser == browser &&
         win.document.getElementById("zen-unified-site-data-panel")?.state == "open") {
       lazy.WhimsySiteSettings.render(win);
-    }
-  },
-
-  updateButton(win) {
-    const browser = win.gBrowser.selectedBrowser;
-    const button = win.document.getElementById("whimsy-dark-page-button");
-    if (button) {
-      button.hidden = !this.enabled || !this.siteKey(browser);
-      button.toggleAttribute("active", this.state(browser) != "original");
     }
   },
 
