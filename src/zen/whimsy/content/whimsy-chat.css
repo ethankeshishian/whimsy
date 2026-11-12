@@ -1016,3 +1016,172 @@
     color: var(--whimsy-chat-muted);
   }
 }
+
+/* ---- W25 Granola meeting notes: the card at the top of the call tab's
+   chat (WhimsyMeetingNotes). One line and one button when Granola isn't
+   connected; key points while the meeting runs; frozen with Download
+   transcript after. ---- */
+.whimsy-chat-icon[data-icon="mic"] { --whimsy-chat-icon: url("chrome://browser/content/whimsy/icons/mic.svg"); }
+.whimsy-chat-icon[data-icon="download"] { --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/downloads.svg"); }
+
+.whimsy-meeting-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-end: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.04));
+  box-shadow: 0 0 0 0.5px var(--whimsy-chat-hairline);
+  line-height: 1.45;
+  &[data-kind="folded"] {
+    padding-block: 6px;
+  }
+}
+.whimsy-meeting-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  font-weight: 600;
+  & .whimsy-chat-btn {
+    width: 22px;
+    height: 22px;
+    color: var(--whimsy-chat-muted);
+  }
+  & .whimsy-chat-btn > .whimsy-chat-icon {
+    width: 12px;
+    height: 12px;
+  }
+}
+.whimsy-meeting-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.whimsy-meeting-time {
+  margin-inline-start: auto;
+  flex: none;
+  color: var(--whimsy-chat-muted);
+  font-weight: 400;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-meeting-mark {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.whimsy-meeting-live {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: light-dark(rgb(220, 50, 40), rgb(255, 99, 88));
+}
+.whimsy-meeting-fold > .whimsy-chat-icon {
+  transition: rotate 150ms ease-out;
+}
+.whimsy-meeting-fold[aria-expanded="false"] > .whimsy-chat-icon {
+  rotate: -90deg;
+}
+.whimsy-meeting-line,
+.whimsy-meeting-meta {
+  margin: 0;
+}
+.whimsy-meeting-meta {
+  color: var(--whimsy-chat-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.whimsy-meeting-points {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-inline-start: 16px;
+  & li.is-new::marker {
+    color: var(--whimsy-chat-accent);
+  }
+  & li.is-new {
+    animation: whimsy-meeting-fade 150ms ease-out;
+  }
+}
+.whimsy-meeting-new {
+  margin-inline-start: 5px;
+  color: var(--whimsy-chat-accent);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+@keyframes whimsy-meeting-fade {
+  from { opacity: 0; }
+}
+.whimsy-meeting-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: var(--whimsy-chat-track);
+  font-size: 12px;
+  line-height: 1.4;
+  & > .whimsy-chat-icon {
+    width: 13px;
+    height: 13px;
+    margin-block-start: 1px;
+  }
+  & > span:not(.whimsy-chat-icon) {
+    flex: 1;
+    min-width: 0;
+  }
+  & > button {
+    flex: none;
+    align-self: center;
+  }
+  &[data-tone="warn"] > .whimsy-chat-icon {
+    color: var(--whimsy-chat-warning);
+  }
+  &[data-tone="err"] > .whimsy-chat-icon {
+    color: var(--whimsy-chat-error);
+  }
+}
+.whimsy-meeting-skel {
+  display: grid;
+  gap: 8px;
+  padding-block: 2px;
+  & > i {
+    display: block;
+    height: 9px;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 9%, transparent);
+  }
+  & > i:nth-child(2) {
+    width: 78%;
+  }
+  & > i:nth-child(3) {
+    width: 58%;
+  }
+}
+.whimsy-meeting-btns {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  & .whimsy-chat-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  & .whimsy-chat-icon {
+    width: 12px;
+    height: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-meeting-points li.is-new {
+    animation: none;
+  }
+  .whimsy-meeting-fold > .whimsy-chat-icon {
+    transition: none;
+  }
+}

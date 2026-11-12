@@ -272,6 +272,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyMCPClient.sys.mjs",
 ]
 
+# W25 Granola meeting notes
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyMeetingNotes.sys.mjs",
+]
+
 # W23 commands
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyAICommands.sys.mjs",

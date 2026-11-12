@@ -16,6 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
   WhimsyCaptions: "resource:///modules/whimsy/WhimsyCaptions.sys.mjs",
   WhimsyLiveSpeech: "resource:///modules/whimsy/WhimsyLiveSpeech.sys.mjs",
+  WhimsyMeetingNotes: "resource:///modules/whimsy/WhimsyMeetingNotes.sys.mjs",
   WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
 });
 
@@ -199,6 +200,11 @@ export class WhimsyVideoSpeedParent extends JSWindowActorParent {
         return lazy.WhimsyCaptions.translate(message.data);
       // w7native: live captions from speech (a video without captions).
       case "WhimsyCaptions:SpeechStart":
+        // The call's sound for meeting notes only while Take notes is on
+        // for this tab: never at a content process's asking.
+        if (message.data?.notes && !lazy.WhimsyMeetingNotes.listeningTo(this.browsingContext.top?.embedderElement)) {
+          return { error: "off" };
+        }
         this._speechStarted = true;
         return lazy.WhimsyLiveSpeech.start(this, message.data);
       case "WhimsyCaptions:SpeechAudio":
@@ -210,6 +216,17 @@ export class WhimsyVideoSpeedParent extends JSWindowActorParent {
       // F31: a call's captions, for its picture-in-picture window too.
       case "WhimsyCaptions:CallText":
         lazy.WhimsyCallPip.showCaption(this.browsingContext.top?.embedderElement, String(message.data?.text ?? ""));
+        break;
+      // W25: Whimsy's own meeting notes, from the call's sound.
+      case "WhimsyVideoSpeed:NotesHeard":
+        if (lazy.WhimsyMeetingNotes.state?.tab?.linkedBrowser == this.browsingContext.top?.embedderElement) {
+          lazy.WhimsyMeetingNotes.heard(String(message.data?.text ?? "").slice(0, 4000), "call");
+        }
+        break;
+      case "WhimsyVideoSpeed:NotesFailed":
+        if (lazy.WhimsyMeetingNotes.state?.tab?.linkedBrowser == this.browsingContext.top?.embedderElement) {
+          lazy.WhimsyMeetingNotes.callFailed(String(message.data?.reason ?? ""));
+        }
         break;
     }
     return null;

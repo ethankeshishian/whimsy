@@ -606,6 +606,14 @@ var WhimsyAISettings = {
     if (!action) {
       return;
     }
+    // W25: "connector:<id>" (Connect Granola on the meeting card): the
+    // Connectors section, starting that row's own Connect.
+    const connector = /^connector:([\w-]+)$/.exec(action)?.[1];
+    if (connector) {
+      this.jumpTo("connectors");
+      this.connectorAction?.(connector);
+      return;
+    }
     const [sheet, method] = { connect: ["add-provider"], "plan-openai": ["openai", "plan"], "plan-claude": ["claude", "plan"] }[action] ?? [action];
     if (this._sheet?.id == sheet) {
       return;

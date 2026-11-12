@@ -121,10 +121,21 @@ export class VideoCaptions {
 
   // W23 video: a silent instance listens for Summarize without drawing
   // anything; each final stretch of speech goes to onHeard.
-  constructor(actor, { silent = false, onHeard = null } = {}) {
+  constructor(actor, { silent = false, onHeard = null, onFailed = null } = {}) {
     this.actor = actor;
     this.silent = silent;
     this.onHeard = onHeard;
+    this.onFailed = onFailed;
+  }
+
+  // W25: Whimsy's own meeting notes: the call's sound (every remote voice,
+  // as for call captions), silently, under the meeting notes' switch.
+  listenCall() {
+    this.stop();
+    const source = { kind: "speech", call: true, notes: true, video: null, id: null, lang: null, text: "", final: false, tap: null, capture: null, timer: null };
+    this.source = source;
+    this.startSpeech(source);
+    return true;
   }
 
   listen(video) {
@@ -258,7 +269,7 @@ export class VideoCaptions {
     const video = source.video;
     let result;
     try {
-      result = await this.actor.sendQuery("WhimsyCaptions:SpeechStart", { lang: this.languageHint(video) });
+      result = await this.actor.sendQuery("WhimsyCaptions:SpeechStart", { lang: video ? this.languageHint(video) : null, notes: !!source.notes });
     } catch (e) {
       result = { error: "failed" };
     }
@@ -429,6 +440,9 @@ export class VideoCaptions {
     }
     const video = this.video;
     this.stop();
+    if (this.silent) {
+      this.onFailed?.(reason || "failed");
+    }
     this.notice(this.speechNote(reason), video);
     this.actor.render?.();
   }

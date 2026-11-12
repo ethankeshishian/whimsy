@@ -101,9 +101,15 @@ export const WhimsyLiveSpeech = {
     return tags;
   },
 
-  // { lang } -> { id, lang } or { error: "off" | "unavailable" | "denied" }.
-  async start(actor, { lang } = {}) {
-    if (!this.enabled) {
+  // W25: Whimsy's own meeting notes use the same sessions, under their
+  // own switch.
+  get notesEnabled() {
+    return Services.prefs.getBoolPref("whimsy.feature.meeting-notes", true);
+  },
+
+  // { lang, notes } -> { id, lang } or { error: "off" | "unavailable" | "denied" }.
+  async start(actor, { lang, notes = false } = {}) {
+    if (!(notes ? this.notesEnabled : this.enabled)) {
       return { error: "off" };
     }
     const speech = this.speech();
@@ -145,7 +151,7 @@ export const WhimsyLiveSpeech = {
     } catch (e) {
       return { error: "unavailable" };
     }
-    this.sessions.set(id, { actor, session });
+    this.sessions.set(id, { actor, session, notes: !!notes });
     return { id, lang: locale };
   },
 
@@ -163,7 +169,7 @@ export const WhimsyLiveSpeech = {
 
   audio(actor, { id, rate, samples } = {}) {
     const entry = this.sessions.get(id);
-    if (!entry || entry.actor !== actor || !this.enabled) {
+    if (!entry || entry.actor !== actor || !(entry.notes ? this.notesEnabled : this.enabled)) {
       return;
     }
     rate = Number(rate);

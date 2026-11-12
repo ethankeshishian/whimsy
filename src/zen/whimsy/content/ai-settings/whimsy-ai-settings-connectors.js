@@ -26,7 +26,7 @@
     google: "https://console.cloud.google.com/apis/credentials",
     microsoft: "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
   };
-  const view = { list: null, open: new Set(), byId: new Map() };
+  const view = { list: null, open: new Set(), byId: new Map(), rendered: null };
   const logoOf = c => `${ICONS}${c.logo == "apple" ? "apple" : c.logo}.svg`;
   const nameId = id => (id.startsWith("mcp:") ? null : `whimsy-connectors-name-${id}`);
 
@@ -86,7 +86,26 @@
       }
     }
     list.dataset.ready = "true";
+    view.rendered?.();
   }
+
+  // W25: Connect Granola (and Sign in again) on the meeting card opens this
+  // section and starts the row's own Connect, exactly as pressing it does.
+  S.connectorAction = async id => {
+    if (view.list?.dataset.ready != "true") {
+      await new Promise(resolve => (view.rendered = resolve));
+      view.rendered = null;
+    }
+    const r = view.list?.querySelector(`.whimsy-ai-item[data-connector="${CSS.escape(id)}"]`);
+    const c = view.byId.get(id);
+    if (!r || !c || C().busy) {
+      return;
+    }
+    r.scrollIntoView({ block: "center", behavior: S.reducedMotion() ? "instant" : "smooth" });
+    if (!c.connected || c.problem?.action == "sign-in") {
+      startConnect(id, r);
+    }
+  };
 
   function detailFor(node, c) {
     if (c.problem && (c.connected || c.status == "needs-client-id" || c.status == "unavailable")) {
