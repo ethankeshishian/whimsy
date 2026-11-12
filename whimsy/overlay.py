@@ -1945,6 +1945,8 @@ FEATURES = [
     # W24 annotations
     {"id": "annotations", "title": "Annotations: highlight passages in four colors and keep a note on any page",
      "detect": [("src/zen", r"(?i)zen[-_.]?annotations?\b")]},
+    {"id": "meeting-notes", "title": "Meeting notes: Granola's key points in chat during calendar meetings, or Whimsy's own notes when Granola can't help",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(meeting[-_.]?notes|granola)")]},
 ]
 
 

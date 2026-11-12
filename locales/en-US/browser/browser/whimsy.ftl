@@ -7962,3 +7962,65 @@ whimsy-annotations-toast-note-deleted = Note deleted
 whimsy-tabs-cmd-numbers =
     .label = Show tab numbers while holding ⌘
     .accesskey = S
+
+## W25 Granola meeting notes: the card in the call tab's chat, the offer to
+## take Whimsy's own notes, and Download transcript.
+## Variables:
+##   $meeting (String) - the calendar meeting's title
+##   $minutes (Number) - minutes since the meeting started
+##   $updated (Number) - minutes since the points last changed
+##   $count (Number) - how many key points there are
+##   $time (String) - a time of day, like 3:24 PM
+##   $name (String) - the downloaded file's name
+
+whimsy-meeting-connect-text = See Granola’s key points here during your meetings.
+whimsy-meeting-connect = Connect Granola
+whimsy-meeting-time = { $minutes } min
+whimsy-meeting-time-updated =
+    { $updated ->
+        [0] { $minutes } min · updated within the minute
+       *[other] { $minutes } min · updated { $updated } min ago
+    }
+whimsy-meeting-time-points =
+    { $count ->
+        [one] { $minutes } min · 1 point
+       *[other] { $minutes } min · { $count } points
+    }
+whimsy-meeting-waiting = Started with the meeting at { $time }. Points appear as Granola’s notes grow.
+whimsy-meeting-waiting-own = Started at { $time }. Points appear as Whimsy’s notes grow.
+whimsy-meeting-new = New
+whimsy-meeting-from-granola = From Granola’s notes. Points refresh each minute while the meeting runs.
+whimsy-meeting-from-own = From Whimsy’s own notes. Points refresh each minute while the meeting runs.
+whimsy-meeting-suggest-missed = What did I miss?
+whimsy-meeting-suggest-actions = Action items so far
+whimsy-meeting-unreachable = Couldn’t reach Granola at { $time }. Trying again in 1 minute.
+whimsy-meeting-signed-out = Granola signed you out. Points so far are kept.
+whimsy-meeting-stop =
+    .title = Stop taking notes
+    .aria-label = Stop taking notes
+whimsy-meeting-fold =
+    .title = Hide key points
+    .aria-label = Hide key points
+whimsy-meeting-unfold =
+    .title = Show key points
+    .aria-label = Show key points
+whimsy-meeting-offer-title = Granola can’t share notes for { $meeting }
+whimsy-meeting-offer-text = Whimsy can take its own, from the call and your microphone.
+whimsy-meeting-take-notes = Take notes
+whimsy-meeting-own-on = Whimsy is taking notes from the call and your microphone.
+whimsy-meeting-own-no-mic = Whimsy can’t use the microphone, so these notes have the call but not your words.
+whimsy-meeting-own-mic-only = Whimsy is taking notes from your microphone; the call’s sound isn’t available.
+whimsy-meeting-own-nothing = Whimsy can’t hear the call or your microphone, so it isn’t taking notes.
+whimsy-meeting-own-speech-denied = Whimsy can’t use speech recognition, so it can’t take notes.
+whimsy-meeting-own-unavailable = Whimsy can’t take notes in your language on this Mac.
+whimsy-meeting-ended-title = Notes from { $meeting }
+whimsy-meeting-from-granola-ended = From Granola’s notes.
+whimsy-meeting-from-own-ended = From Whimsy’s own notes.
+whimsy-meeting-download = Download transcript
+whimsy-meeting-downloaded = Downloaded “{ $name }”
+whimsy-meeting-reveal =
+    { PLATFORM() ->
+        [macos] Show in Finder
+       *[other] Show in Folder
+    }
+whimsy-meeting-transcript-failed = Couldn’t get the transcript from Granola

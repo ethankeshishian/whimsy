@@ -200,13 +200,17 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       case "WhimsyCaptions:SpeechText":
         this._captions?.onSpeechText(message.data);
         this._listener?.onSpeechText(message.data);
+        this._notes?.onSpeechText(message.data);
         break;
       case "WhimsyCaptions:SpeechError":
         this._captions?.onSpeechError(message.data);
         this._listener?.onSpeechError(message.data);
+        this._notes?.onSpeechError(message.data);
         break;
       case "WhimsyVideoSpeed:CallCaptions":
         return this.toggleCallCaptions();
+      case "WhimsyVideoSpeed:NotesListen":
+        return this.notesListen(!!message.data?.on);
       case "WhimsyVideoSpeed:SummaryState":
         if (message.data?.videoId && this.current && this.idOf(this.current) == message.data.videoId) {
           this.summaryState = message.data.state;
@@ -423,6 +427,20 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     return this._listener.listen(video);
   }
 
+  // W25: Whimsy's own meeting notes hear the call (WhimsyMeetingNotes).
+  notesListen(on) {
+    if (!on) {
+      this._notes?.stop();
+      return false;
+    }
+    this._notes ??= new lazy.VideoCaptions(this, {
+      silent: true,
+      onHeard: text => this.sendAsyncMessage("WhimsyVideoSpeed:NotesHeard", { text }),
+      onFailed: reason => this.sendAsyncMessage("WhimsyVideoSpeed:NotesFailed", { reason }),
+    });
+    return this._notes.listenCall();
+  }
+
   // Chapters in chat follow playback.
   followTime(video) {
     if (this.followed?.has(video)) {
@@ -481,6 +499,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.clearTimers();
     this._captions?.stop();
     this._listener?.stop();
+    this._notes?.stop();
     if (this.anon) {
       try {
         this.document?.removeAnonymousContent(this.anon);

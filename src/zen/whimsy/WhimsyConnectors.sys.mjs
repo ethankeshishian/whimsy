@@ -25,6 +25,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyChatContextUI: "resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs",
+  WhimsyMeetingNotes: "resource:///modules/whimsy/WhimsyMeetingNotes.sys.mjs",
   WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
   whimsyPostFetch: "resource:///modules/whimsy/WhimsyLiveFolderFetch.sys.mjs",
 });
@@ -541,6 +542,19 @@ export const WhimsyConnectors = {
     });
   },
 
+  /** A server refused the sign-in (401): its row says Sign in again. */
+  async markExpired(id) {
+    if (!(await this._read()).connectors[id]) {
+      return;
+    }
+    this._secrets.delete(id);
+    await this._update(file => {
+      if (file.connectors[id]) {
+        file.connectors[id].status = "expired";
+      }
+    });
+  },
+
   async setClientId(id, value) {
     Services.prefs.setStringPref(`whimsy.connectors.${id}.client-id`, String(value ?? "").trim());
     this._changed();
@@ -964,7 +978,8 @@ export const WhimsyConnectors = {
       await this._refreshCalendars().catch(() => {});
     }
     for (const win of this._windows) {
-      const chip = await this.granolaNow(win).catch(() => null);
+      // W25: while Whimsy follows a meeting, its notes are the chip.
+      const chip = lazy.WhimsyMeetingNotes.chipFor(win) ?? (await this.granolaNow(win).catch(() => null));
       if (!win.closed) {
         lazy.WhimsyChatContextUI.setLiveChip(win, chip);
       }

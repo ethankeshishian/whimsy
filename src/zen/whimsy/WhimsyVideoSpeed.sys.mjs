@@ -16,6 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
   WhimsyCaptions: "resource:///modules/whimsy/WhimsyCaptions.sys.mjs",
   WhimsyLiveSpeech: "resource:///modules/whimsy/WhimsyLiveSpeech.sys.mjs",
+  WhimsyMeetingNotes: "resource:///modules/whimsy/WhimsyMeetingNotes.sys.mjs",
   WhimsyVideoSummary: "resource:///modules/whimsy/WhimsyVideoSummary.sys.mjs",
 });
 
@@ -210,6 +211,17 @@ export class WhimsyVideoSpeedParent extends JSWindowActorParent {
       // F31: a call's captions, for its picture-in-picture window too.
       case "WhimsyCaptions:CallText":
         lazy.WhimsyCallPip.showCaption(this.browsingContext.top?.embedderElement, String(message.data?.text ?? ""));
+        break;
+      // W25: Whimsy's own meeting notes, from the call's sound.
+      case "WhimsyVideoSpeed:NotesHeard":
+        if (lazy.WhimsyMeetingNotes.state?.tab?.linkedBrowser == this.browsingContext.top?.embedderElement) {
+          lazy.WhimsyMeetingNotes.heard(String(message.data?.text ?? "").slice(0, 4000), "call");
+        }
+        break;
+      case "WhimsyVideoSpeed:NotesFailed":
+        if (lazy.WhimsyMeetingNotes.state?.tab?.linkedBrowser == this.browsingContext.top?.embedderElement) {
+          lazy.WhimsyMeetingNotes.callFailed(String(message.data?.reason ?? ""));
+        }
         break;
     }
     return null;

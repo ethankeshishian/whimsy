@@ -955,6 +955,11 @@ support-files = ["whimsy_highlight.html"]
 ["browser_whimsy_call_captions.js"]
 support-files = ["whimsy_call_captions.html"]
 
+# W25: Granola meeting notes: a stand-in Granola MCP server, the card in
+# the call tab's chat, the offer, Whimsy's own notes, and Stop.
+["browser_whimsy_meeting_notes.js"]
+support-files = ["whimsy_call_captions.html"]
+
 # B7: one "Tabs Below" row in the real tab menu and the command bar.
 ["browser_whimsy_tab_menu_below.js"]
 

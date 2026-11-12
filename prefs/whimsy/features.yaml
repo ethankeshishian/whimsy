@@ -687,6 +687,9 @@
 - name: whimsy.feature.annotations
   value: true
 
+- name: whimsy.feature.meeting-notes
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true
