@@ -26,6 +26,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   on_TabSelect() {
+    dump(`LOADDIAG TabSelect ${this.window.gBrowser.selectedTab._tPos}\n`);
     const gBrowser = this.window.gBrowser;
     const selectedTab = gBrowser.selectedTab;
     this.onLocationChange(gBrowser.getBrowserForTab(selectedTab));
@@ -62,7 +63,10 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   async #checkBrowserProgress(webProgress) {
+    const __t = this.window.gBrowser.getTabForBrowser(webProgress);
+    dump(`LOADDIAG check-pre tab=${__t?._tPos} sel=${__t?.selected} busy=${__t?.hasAttribute("busy")} prog=${__t?.hasAttribute("progress")} el=${!!this.#element} lt=${this.#loadingTab?._tPos}\n`);
     await this.#promise;
+    dump(`LOADDIAG check-post tab=${__t?._tPos} sel=${__t?.selected} busy=${__t?.hasAttribute("busy")} prog=${__t?.hasAttribute("progress")} el=${!!this.#element} lt=${this.#loadingTab?._tPos}\n`);
     const window = this.window;
     const gBrowser = window.gBrowser;
     const tab = gBrowser.getTabForBrowser(webProgress);
@@ -77,6 +81,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   #hideProgressBar(aInstant = false) {
+    dump(`LOADDIAG hide el=${!!this.#element}\n`);
     const progressBar = this.#element;
     const window = this.window;
     if (this.#longLoadTimer) {
@@ -115,6 +120,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   #showProgressBar(aTab) {
+    dump(`LOADDIAG show tab=${aTab._tPos} lt=${this.#loadingTab?._tPos} el=${!!this.#element}\n`);
     if (this.#loadingTab === aTab) {
       return;
     }

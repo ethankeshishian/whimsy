@@ -556,6 +556,7 @@ class TabHover {
   }
 
   enter(tab) {
+    dump(`LOADDIAG hovercard enter ${tab?._tPos}\n`);
     if (!tab || tab.localName != "tab" || !WhimsyHoverCards.enabled) {
       return;
     }
@@ -627,6 +628,7 @@ class TabHover {
   }
 
   async show(tab) {
+    dump(`LOADDIAG hovercard show ${tab._tPos}\n`);
     if (!tab.isConnected || !WhimsyHoverCards.enabled || this.win.closed) {
       return;
     }
