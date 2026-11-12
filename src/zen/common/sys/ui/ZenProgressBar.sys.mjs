@@ -17,7 +17,9 @@ export class ZenProgressBar extends ZenUIComponent {
     this.addEventListener("TabSelect");
   }
 
-  onStateChange(aWebProgress) {
+  onStateChange(aWebProgress, wp, req, flags) {
+    let __n = "?"; try { __n = req?.QueryInterface(Ci.nsIChannel).originalURI.spec; } catch { __n = req?.name; }
+    dump(`LOADDIAG state flags=0x${flags?.toString(16)} top=${wp?.isTopLevel} req=${__n} from=${req?.constructor?.name}\n`);
     this.#checkBrowserProgress(aWebProgress);
   }
 
