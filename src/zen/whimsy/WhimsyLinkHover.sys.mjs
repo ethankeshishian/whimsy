@@ -239,6 +239,14 @@ class LinkHover {
     if (this.target != target || target.shown || this.win.closed) {
       return;
     }
+    // The last card may still be closing: a panel that's hiding can't open
+    // again, and its popuphidden would end this card.
+    if (this.panel?.state == "hiding") {
+      await new Promise(resolve => this.panel.addEventListener("popuphidden", resolve, { once: true }));
+      if (this.target != target || target.shown || this.win.closed) {
+        return;
+      }
+    }
     if (target.browser != this.win.gBrowser.selectedBrowser) {
       return;
     }
