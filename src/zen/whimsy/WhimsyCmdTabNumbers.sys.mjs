@@ -215,8 +215,8 @@ export const WhimsyCmdTabNumbers = {
       const { width, height } = node.getBoundingClientRect();
       const iconOnly = tab.hasAttribute("zen-essential") ||
         win.document.documentElement.getAttribute("zen-sidebar-expanded") != "true";
-      const x = iconOnly ? r.right - width + 4 : r.right - width - 28;
-      const y = iconOnly ? r.top - 4 : r.top + (r.height - height) / 2;
+      const x = iconOnly ? r.right - width - 2 : r.right - width - 28;
+      const y = iconOnly ? r.top + 2 : r.top + (r.height - height) / 2;
       lazy.placeHint(node, Math.max(0, x), Math.max(0, y), node.textContent, win);
     }
   },

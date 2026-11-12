@@ -444,6 +444,7 @@ add_task(async function expanded_and_compact_screenshots() {
           const before = flags.map(attr => win.gNavToolbox.hasAttribute(attr));
           await hold();
           Assert.deepEqual(flags.map(attr => win.gNavToolbox.hasAttribute(attr)), before, "Hints never force compact mode open");
+          await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "The hints finished fading in");
           await whimsySettled(win.document);
           await whimsyShot(`w24-cmdhints-${state}-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
         } finally {
