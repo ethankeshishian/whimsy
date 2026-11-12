@@ -310,7 +310,13 @@ add_task(async function private_space_excludes_essentials() {
   await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(win), "Private Space active");
   // Tabs opened mid-slide are overridden by the slide's own selection.
   await settled("The switch to the Private Space finished");
-  const scratchId = WhimsyPrivate.getScratch(win).uuid;
+  // This window is synced with the suite's main window, which lists the
+  // Private Space too without showing it: it must not close it as left empty.
+  await new Promise(resolve => win.setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  await settled("No space switch follows the Private Space opening");
+  ok(WhimsyPrivate.activeSpaceIsScratch(win), "The empty Private Space stays open");
+  const scratchId = WhimsyPrivate.getScratch(win)?.uuid;
+  ok(scratchId, "The Private Space exists");
   const tabs = [];
   try {
     for (let i = 0; i < 10; i++) {
