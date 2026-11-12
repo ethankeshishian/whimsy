@@ -424,6 +424,23 @@ window.gZenCompactModeManager = {
     );
   },
 
+  /**
+   * Whimsy: Hide Sidebar (this toggle, ⌘S) and the chat panel (⌘E) move
+   * with one motion source, the --whimsy-dur-panel(-exit) and
+   * --whimsy-ease-panel(-exit) tokens in whimsy-browser.css, which
+   * WhimsyChatPanel.panelMotion() also reads. `enter` is the show.
+   */
+  whimsyPanelMotion(enter) {
+    const style = window.getComputedStyle(document.documentElement);
+    const suffix = enter ? "" : "-exit";
+    const raw = style.getPropertyValue(`--whimsy-dur-panel${suffix}`).trim();
+    const duration = raw.endsWith("ms") ? parseFloat(raw) : parseFloat(raw) * 1000;
+    return {
+      duration: Number.isFinite(duration) ? duration : 0,
+      easing: style.getPropertyValue(`--whimsy-ease-panel${suffix}`).trim() || "linear",
+    };
+  },
+
   animateCompactMode(isCompactMode) {
     return new Promise(resolve => {
       document.documentElement.setAttribute("zen-compact-animating", "true");
@@ -468,46 +485,38 @@ window.gZenCompactModeManager = {
       sidebarWidth -= elementSeparation * (isCompactMode ? 1 : 3);
       if (canHideSidebar && isCompactMode) {
         this._setElementExpandAttribute(this.sidebar, false);
-        gZenUIManager.motion
-          .animate(
-            this.sidebar,
-            {
-              marginRight: [
-                0,
-                this.sidebarIsOnRight ? `-${sidebarWidth}px` : 0,
-              ],
-              marginLeft: [0, this.sidebarIsOnRight ? 0 : `-${sidebarWidth}px`],
-            },
-            {
-              ease: "easeIn",
-              type: "spring",
-              bounce: 0,
-              duration: 0.1,
-            }
-          )
-          .then(() => {
-            this.sidebar.style.transition = "none";
-            this.sidebar.style.pointEvents = "none";
-            this.sidebar.removeAttribute("animate");
+        const hide = this.sidebar.animate(
+          {
+            marginRight: ["0px", this.sidebarIsOnRight ? `-${sidebarWidth}px` : "0px"],
+            marginLeft: ["0px", this.sidebarIsOnRight ? "0px" : `-${sidebarWidth}px`],
+          },
+          { ...this.whimsyPanelMotion(false), fill: "forwards" }
+        );
+        const hidden = () => {
+          this.sidebar.style.transition = "none";
+          this.sidebar.style.pointEvents = "none";
+          this.sidebar.removeAttribute("animate");
 
-            if (this._ignoreNextHover) {
-              setTimeout(() => {
-                delete this._ignoreNextHover;
-              });
-            }
-
-            document.documentElement.removeAttribute("zen-compact-animating");
-            this.sidebar.style.removeProperty("margin-right");
-            this.sidebar.style.removeProperty("margin-left");
-            this.sidebar.style.removeProperty("transform");
-            this.sidebar.style.removeProperty("point-events");
-
-            requestAnimationFrame(() => {
-              this.sidebar.style.removeProperty("transition");
+          if (this._ignoreNextHover) {
+            setTimeout(() => {
+              delete this._ignoreNextHover;
             });
+          }
 
-            resolve();
+          document.documentElement.removeAttribute("zen-compact-animating");
+          this.sidebar.style.removeProperty("margin-right");
+          this.sidebar.style.removeProperty("margin-left");
+          this.sidebar.style.removeProperty("transform");
+          this.sidebar.style.removeProperty("point-events");
+
+          requestAnimationFrame(() => {
+            this.sidebar.style.removeProperty("transition");
           });
+          hide.cancel();
+
+          resolve();
+        };
+        hide.finished.then(hidden, hidden);
       } else if (canHideSidebar && !isCompactMode) {
         // Shouldn't be ever true, but just in case
         delete this._ignoreNextHover;
@@ -517,35 +526,30 @@ window.gZenCompactModeManager = {
         } else {
           this.sidebar.style.marginLeft = `-${sidebarWidth}px`;
         }
-        gZenUIManager.motion
-          .animate(
-            this.sidebar,
-            this.sidebarIsOnRight
-              ? {
-                  marginRight: [`-${sidebarWidth}px`, 0],
-                  transform: ["translateX(100%)", "translateX(0)"],
-                }
-              : { marginLeft: [`-${sidebarWidth}px`, 0] },
-            {
-              ease: "easeOut",
-              type: "spring",
-              bounce: 0,
-              duration: 0.1,
-            }
-          )
-          .then(() => {
-            this.sidebar.removeAttribute("animate");
-            document.getElementById("browser").style.removeProperty("overflow");
-            this.sidebar.style.transition = "none";
-            this.sidebar.style.removeProperty("margin-right");
-            this.sidebar.style.removeProperty("margin-left");
-            this.sidebar.style.removeProperty("transform");
-            document.documentElement.removeAttribute("zen-compact-animating");
-            setTimeout(() => {
-              this.sidebar.style.removeProperty("transition");
-            });
-            resolve();
+        const show = this.sidebar.animate(
+          this.sidebarIsOnRight
+            ? {
+                marginRight: [`-${sidebarWidth}px`, "0px"],
+                transform: ["translateX(100%)", "translateX(0)"],
+              }
+            : { marginLeft: [`-${sidebarWidth}px`, "0px"] },
+          { ...this.whimsyPanelMotion(true), fill: "forwards" }
+        );
+        const shown = () => {
+          this.sidebar.removeAttribute("animate");
+          document.getElementById("browser").style.removeProperty("overflow");
+          this.sidebar.style.transition = "none";
+          this.sidebar.style.removeProperty("margin-right");
+          this.sidebar.style.removeProperty("margin-left");
+          this.sidebar.style.removeProperty("transform");
+          document.documentElement.removeAttribute("zen-compact-animating");
+          setTimeout(() => {
+            this.sidebar.style.removeProperty("transition");
           });
+          show.cancel();
+          resolve();
+        };
+        show.finished.then(shown, shown);
       } else {
         this.sidebar.removeAttribute("animate"); // remove the attribute if we are not animating
         document.documentElement.removeAttribute("zen-compact-animating");

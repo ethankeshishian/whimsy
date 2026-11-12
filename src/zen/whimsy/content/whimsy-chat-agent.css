@@ -45,11 +45,16 @@
     white-space: nowrap;
   }
 }
+/* W25 designfix: the switch sizes to its content (both columns as wide as
+   the widest bold label, like .whimsy-surface-seg, whimsy-surface.css:147)
+   and never shrinks; the model line beside it gives way instead. The
+   fixed 170px/150px widths that clipped "Background" are gone. */
 .whimsy-agent-mode {
   position: relative;
-  display: grid;
+  flex: none;
+  display: inline-grid;
   grid-template-columns: 1fr 1fr;
-  width: 170px;
+  width: max-content;
   padding: 2px;
   border-radius: 8px;
   background: var(--whimsy-chat-track);
@@ -72,7 +77,6 @@
     translate: calc(var(--index, 0) * -100%) 0;
   }
   @media (max-width: 999px) {
-    width: 150px;
     & .whimsy-agent-icon {
       display: none;
     }
@@ -110,13 +114,11 @@
 .whimsy-agent-segment-text {
   position: relative;
   display: grid;
-  min-width: 0;
 }
 .whimsy-agent-segment-label,
 .whimsy-agent-segment-ghost {
   grid-area: 1 / 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .whimsy-agent-segment-ghost {
   visibility: hidden;

@@ -934,7 +934,7 @@ class ChatPanel {
     }
     const dir = this.side == "right" ? 1 : -1;
     if (reducedMotion(this.win)) {
-      this.panel.animate({ opacity: [0, 1] }, { duration: DUR_IN, easing: "linear" });
+      this.panel.animate({ opacity: [0, 1] }, { duration: this.panelMotion().in.duration, easing: "linear" });
       return;
     }
     // Same duration and easing as the tabs sidebar's own show (W24
@@ -965,7 +965,7 @@ class ChatPanel {
       }
     };
     if (reducedMotion(this.win)) {
-      this.panel.animate({ opacity: [1, 0] }, { duration: DUR_OUT, easing: "linear" }).finished.then(done, () => {});
+      this.panel.animate({ opacity: [1, 0] }, { duration: this.panelMotion().out.duration, easing: "linear" }).finished.then(done, () => {});
       return;
     }
     // Same duration and easing as the tabs sidebar's own hide (W24

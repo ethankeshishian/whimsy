@@ -59,8 +59,23 @@ mark.whimsy-annotation-mark[data-has-note="true"][data-color="blue"] {
 mark.whimsy-annotation-mark[data-has-note="true"][data-color="pink"] {
   box-shadow: inset 0 -1.5px 0 light-dark(rgba(219, 39, 119, 0.55), rgba(244, 114, 182, 0.55));
 }
+/* W25 designfix: the pulse and the note pin wear their highlight's own
+   colour (one of the four approved ones), as the mockup's pins do, never
+   an off-system accent. Page content can't read chrome tokens. */
+:is(mark.whimsy-annotation-mark, span.whimsy-annotation-pin)[data-color="yellow"] {
+  --whimsy-hl-edge: light-dark(#eab308, #facc15);
+}
+:is(mark.whimsy-annotation-mark, span.whimsy-annotation-pin)[data-color="green"] {
+  --whimsy-hl-edge: light-dark(#22c55e, #4ade80);
+}
+:is(mark.whimsy-annotation-mark, span.whimsy-annotation-pin)[data-color="blue"] {
+  --whimsy-hl-edge: light-dark(#3b82f6, #60a5fa);
+}
+:is(mark.whimsy-annotation-mark, span.whimsy-annotation-pin)[data-color="pink"] {
+  --whimsy-hl-edge: light-dark(#ec4899, #f472b6);
+}
 mark.whimsy-annotation-mark[data-pulse="true"] {
-  outline: 2px solid light-dark(#4f46e5, #818cf8);
+  outline: 2px solid var(--whimsy-hl-edge, light-dark(#eab308, #facc15));
   outline-offset: 1px;
 }
 span.whimsy-annotation-pin {
@@ -71,7 +86,7 @@ span.whimsy-annotation-pin {
   margin-left: 2px;
   vertical-align: super;
   border-radius: 999px;
-  background-color: light-dark(#4f46e5, #818cf8);
+  background-color: var(--whimsy-hl-edge, light-dark(#eab308, #facc15));
   cursor: pointer;
   user-select: none;
 }
@@ -547,6 +562,7 @@ export class WhimsyAnnotationsChild extends JSWindowActorChild {
       const lastMark = createdMarks[createdMarks.length - 1];
       const pin = doc.createElement("span");
       pin.className = "whimsy-annotation-pin";
+      pin.setAttribute("data-color", color);
       pin.setAttribute("data-whimsy-highlight-id", highlight.id);
       pin.setAttribute("title", String(highlight.note).trim());
       lastMark.after(pin);

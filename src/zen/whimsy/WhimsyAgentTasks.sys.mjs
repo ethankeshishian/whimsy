@@ -24,6 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyAIUpdates: "resource:///modules/whimsy/WhimsyAIUpdates.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -340,7 +341,7 @@ export const WhimsyAgentTasks = {
     }
     this.refreshApprovalSurface();
     const surface = win.document.getElementById("whimsy-mcp-approvals");
-    if (!surface?.getBoundingClientRect().width) {
+    if (!["showing", "open"].includes(surface?.state)) {
       this.settle(task, "unavailable");
       return false;
     }
@@ -362,17 +363,32 @@ export const WhimsyAgentTasks = {
       return;
     }
     const bundle = new Localization(["browser/whimsy.ftl"], true);
-    const el = (tag, parent, text = "") => {
+    const el = (tag, parent, text = "", className = "") => {
       const node = doc.createElementNS("http://www.w3.org/1999/xhtml", tag);
       node.textContent = text;
+      if (className) {
+        node.className = className;
+      }
       parent.append(node);
       return node;
     };
+    let body = surface?.querySelector(".whimsy-mcp-requests");
     if (!surface) {
-      surface = el("section", doc.documentElement);
-      surface.id = "whimsy-mcp-approvals";
-      surface.setAttribute("role", "region");
-      surface.setAttribute("aria-label", bundle.formatValueSync("whimsy-mcp-pending"));
+      // The standard Whimsy surface, at the page's top end corner like the
+      // page tools (it never covers the toolbar). It stays until answered:
+      // no outside-click dismissal, and Esc in the page stays the page's.
+      const parts = lazy.WhimsySurface.create(approvalWindow, {
+        id: "whimsy-mcp-approvals",
+        titleL10nId: "whimsy-mcp-pending",
+        closeOnOutsideClick: false,
+        pageEscape: false,
+        onEscape: () => true,
+      });
+      surface = parts.panel;
+      body = approvalWindow.document.createXULElement("vbox");
+      body.className = "whimsy-mcp-requests";
+      parts.view.append(body);
+      lazy.WhimsySurface.open(approvalWindow, surface, { at: "page-top-end" });
     }
     // Keep the same controls on repeated calls and unrelated task updates.
     const key = pending.map(t => `${t.id}:${t.pause.id}:${t.pause.yours}`).join("|");
@@ -380,30 +396,39 @@ export const WhimsyAgentTasks = {
       return;
     }
     surface.dataset.requests = key;
-    surface.replaceChildren();
-    el("h3", surface, bundle.formatValueSync("whimsy-mcp-pending"));
+    body.replaceChildren();
     for (const task of pending) {
       const pause = task.pause;
-      const card = el("article", surface);
+      const card = el("article", body, "", "whimsy-mcp-request");
       card.dataset.pauseId = pause.id;
-      el("strong", card, task.clientName);
-      el("p", card, pause.preview?.title || pause.kind);
+      card.append(lazy.WhimsySurface.caption(doc, { text: task.clientName }).caption);
+      el("p", card, pause.preview?.title || pause.kind, "whimsy-mcp-line");
       for (const field of pause.preview?.fields ?? []) {
-        el("p", card, `${field.label}: ${field.value}${field.note ? ` — ${field.note}` : ""}`);
+        el("p", card, `${field.label}: ${field.value}${field.note ? ` — ${field.note}` : ""}`, "whimsy-mcp-line whimsy-mcp-field");
       }
-      const buttons = el("div", card);
+      const footer = doc.createXULElement("hbox");
+      footer.className = "panel-footer whimsy-surface-footer";
+      footer.setAttribute("align", "center");
+      footer.setAttribute("pack", "end");
+      card.append(footer);
       const choices = pause.yours ? ["continue", "skip"] : pause.choices;
       for (const choice of choices) {
         const id = { do: "approve", skip: "deny", self: "self", stop: "stop", continue: "continue" }[choice];
-        const button = el("button", buttons, bundle.formatValueSync(`whimsy-mcp-${id}`));
-        button.type = "button";
-        button.dataset.choice = choice;
-        button.addEventListener("click", () => {
-          // A stale rendered control cannot approve a subsequent request.
-          if (task.pause == pause && !pause.choice) {
-            choice == "continue" ? this.resume(task.id) : this.decide(task.id, choice);
-          }
+        const button = lazy.WhimsySurface.footerButton(doc, {
+          l10nId: null,
+          primary: choice == "do" || choice == "continue",
+          destructive: choice == "stop",
+          onCommand: () => {
+            // A stale rendered control cannot approve a subsequent request.
+            if (task.pause == pause && !pause.choice) {
+              choice == "continue" ? this.resume(task.id) : this.decide(task.id, choice);
+            }
+          },
         });
+        // The same value strings as Settings' approvals list.
+        button.setAttribute("label", bundle.formatValueSync(`whimsy-mcp-${id}`));
+        button.dataset.choice = choice;
+        footer.append(button);
       }
     }
   },

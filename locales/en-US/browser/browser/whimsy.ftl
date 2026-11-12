@@ -7922,14 +7922,21 @@ whimsy-verb-highlight-blue = Highlight Blue
 whimsy-verb-highlight-pink = Highlight Pink
 whimsy-verb-annotate = Add Note…
 
+# $count (Number) - the page's highlights, plus one for its page note
 whimsy-annotations-urlbar-button =
-    .tooltiptext = Notes and highlights on this page
-    .aria-label = Notes and highlights on this page
+    .tooltiptext = { $count ->
+        [one] 1 note or highlight · Open in Notes
+       *[other] { $count } notes and highlights · Open in Notes
+    }
+    .aria-label = { $count ->
+        [one] 1 note or highlight. Open in Notes
+       *[other] { $count } notes and highlights. Open in Notes
+    }
 
-whimsy-annotations-popover-title = Highlight & note
-whimsy-annotations-panel-title = Notes & highlights
-whimsy-annotations-panel-heading = Notes & highlights
-whimsy-annotations-open-in-notes = Open in Notes
+whimsy-annotations-popover-title = Highlight and note
+whimsy-annotations-panel-title = Notes and highlights
+whimsy-annotations-open-in-notes =
+    .label = Open in Notes
 whimsy-annotations-color-label = Highlight color
 whimsy-annotations-note-placeholder =
     .placeholder = Write a note about this passage…
@@ -7938,13 +7945,18 @@ whimsy-annotations-page-note-placeholder =
 whimsy-annotations-highlights-label = Highlights
 whimsy-annotations-no-highlights = No highlights on this page yet.
 whimsy-annotations-return-hint = Return to save
-whimsy-annotations-remove-highlight = Remove
-whimsy-annotations-cancel = Cancel
-whimsy-annotations-save = Save
+whimsy-annotations-remove-highlight =
+    .label = Remove
+whimsy-annotations-cancel =
+    .label = Cancel
+whimsy-annotations-save =
+    .label = Save
 whimsy-annotations-edit-item = Edit note
 whimsy-annotations-delete-item = Remove
-whimsy-annotations-clear-page = Clear page
-whimsy-annotations-done = Done
+whimsy-annotations-clear-page =
+    .label = Clear page
+whimsy-annotations-done =
+    .label = Done
 
 # $color (String) - the highlight color name, e.g. "Yellow"
 whimsy-annotations-toast-highlighted = Highlighted in { $color }
