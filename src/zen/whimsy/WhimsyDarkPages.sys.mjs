@@ -201,8 +201,15 @@ export const WhimsyDarkPages = {
     const dark = this.state(browser) != "original";
     button.hidden = !this.enabled || !this.siteKey(browser);
     button.toggleAttribute("active", dark);
-    if (win.document.getElementById("zen-unified-site-data-panel")?.state == "open") {
-      lazy.WhimsySiteSettings.render(win);
+    // Keep an open site panel's row in step, only when this site's choice
+    // or state actually changed (a re-render would close other controls).
+    const shown = `${browser.browserId}|${this.siteKey(browser)}|${this.choice(browser)}|${this.state(browser)}`;
+    if (button._shown != shown) {
+      const panelOpen = win.document.getElementById("zen-unified-site-data-panel")?.state == "open";
+      if (panelOpen && button._shown?.startsWith(`${browser.browserId}|${this.siteKey(browser)}|`)) {
+        lazy.WhimsySiteSettings.render(win);
+      }
+      button._shown = shown;
     }
     button.setAttribute("aria-pressed", dark);
     win.document.l10n.setAttributes(button, dark ? "whimsy-dark-pages-button-original" : "whimsy-dark-pages-button-dark");

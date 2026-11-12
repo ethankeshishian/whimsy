@@ -1206,6 +1206,9 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 ["browser_whimsy_dark_pages_sites.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
+["browser_whimsy_dark_pages_moon.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
 ["browser_whimsy_dark_pages_sites_private.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 

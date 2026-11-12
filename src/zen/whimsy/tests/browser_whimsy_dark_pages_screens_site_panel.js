@@ -36,8 +36,8 @@ add_task(async function screenshots_site_panel() {
     const control = row.querySelector("button");
     is(control.className, autoplay.querySelector("button").className, "Same dropdown as Autoplay");
     ok(!row.querySelector(".whimsy-surface-seg"), "No segmented control");
-    ok(!row.closest(".whimsy-surface-group") && !document.querySelector(".whimsy-surface-group [whimsy-site-setting='dark-pages']"),
-      "No separate tinted box");
+    is(row.parentNode, autoplay.parentNode, "A row of the site list, not a separate tinted box");
+    ok(!row.querySelector(".whimsy-surface-group, .whimsy-surface-caption"), "No box, heading, or subtitle");
     is(document.getElementById("whimsy-dark-page-site-label").textContent, "Automatic dark mode", "The row's label");
     // The moon and the row stay in sync live.
     WhimsyDarkPages.toggle(tab.linkedBrowser);

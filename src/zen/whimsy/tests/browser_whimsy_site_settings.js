@@ -112,7 +112,7 @@ add_task(async function test_section_rows_and_command() {
     is(zenSettings.nextElementSibling, section(), "right after Zen's Settings section");
     Assert.deepEqual(
       [...section().querySelectorAll("[whimsy-site-setting]")].map(r => r.getAttribute("whimsy-site-setting")),
-      ["zoom", "autoplay", "dark-pages", "reader", "fullscreen", "useragent"],
+      ["zoom", "autoplay", "reader", "fullscreen", "useragent"],
       "Rows in a fixed order, the optional one last"
     );
     ok(section().contains(document.activeElement), "The command puts focus in the section");
