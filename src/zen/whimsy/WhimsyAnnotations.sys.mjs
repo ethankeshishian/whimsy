@@ -9,6 +9,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -366,6 +367,18 @@ export const WhimsyAnnotations = {
 
     this._ensureContextMenu(win);
     this._ensureUrlbarButton(win);
+    // The way to the Notes and highlights panel: the approved address-bar
+    // cue opens the page's note in Notes (gen-w24.py 2.4, 2.6), so the panel
+    // that edits this page's note and highlights is a command-bar action,
+    // offered while the page has any.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyAnnotationsPanel",
+      l10nId: "whimsy-annotations-cmd-panel",
+      icon: "chrome://browser/content/whimsy/icons/highlighter.svg",
+      key: null,
+      isAvailable: w => !w.document.getElementById(BUTTON_ID)?.hidden,
+      run: w => this.openPagePanel(w),
+    });
 
     const onTabSelect = () => {
       this.updateUrlbarButton(win);

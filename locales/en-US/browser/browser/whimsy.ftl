@@ -7955,6 +7955,8 @@ whimsy-annotations-urlbar-button =
 
 whimsy-annotations-popover-title = Highlight and note
 whimsy-annotations-panel-title = Notes and highlights
+# The command-bar action that opens the panel above (Title Case: a command).
+whimsy-annotations-cmd-panel = Notes and Highlights on This Page
 whimsy-annotations-open-in-notes =
     .label = Open in Notes
 whimsy-annotations-color-label = Highlight color
