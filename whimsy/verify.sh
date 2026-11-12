@@ -7,12 +7,22 @@
 #                                test files once
 # A failing Whimsy test file gets one retry in every mode. A file that passes
 # on retry is listed in .surfer/verify/flaky.txt for the next wave to fix.
-cd "$(dirname "$0")/.."
+# $WHIMSY_ROOT names the checkout to verify when this file runs from a
+# worktree (whimsy/tools/verify-dev.sh).
+cd "${WHIMSY_ROOT:-$(dirname "$0")/..}"
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH" _ZO_DOCTOR=0
 export WHIMSY_SHOTS="${WHIMSY_SHOTS:-$PWD/.surfer/shots}"
 MODE="${1:-all}"
 rm -rf "$WHIMSY_SHOTS" && mkdir -p "$WHIMSY_SHOTS" .surfer/verify
+# Only this run's logs: vfail.py reads every .raw in the folder, and old
+# retries made W24's handoff count 9 failing files after a green run.
+rm -f .surfer/verify/*.log .surfer/verify/*.raw .surfer/verify/failed.txt
 : > .surfer/verify/flaky.txt
+# vfail.py reads every *.raw here, so a run must start without the last
+# runs' logs: a retry log left from an earlier run (or a suite this mode
+# skips) would be reported as tonight's failure.
+rm -f .surfer/verify/*.raw .surfer/verify/*-retry-*.log
+: > .surfer/verify/run-started.txt
 # The sandbox read path must be the src/ the engine links into: in a
 # worktree, engine/ is a symlink to the main checkout's engine.
 ROOT=$(cd "$(dirname "$(cd engine && pwd -P)")" && pwd -P)

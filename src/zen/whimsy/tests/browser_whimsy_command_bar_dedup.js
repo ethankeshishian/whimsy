@@ -97,11 +97,11 @@ add_task(function test_search_favicons_known_engines() {
     type: UrlbarShared.RESULT_TYPE.SEARCH,
     payload: {
       engine: "YouTube",
-      icon: "chrome://custom/icon.png",
+      icon: "chrome://custom/icon.png", // precheck: ignore-url (never loaded)
     },
   };
   attachSearchFavicons([customResult]);
-  is(customResult.payload.icon, "chrome://custom/icon.png", "Custom icon is not overwritten");
+  is(customResult.payload.icon, "chrome://custom/icon.png", "Custom icon is not overwritten"); // precheck: ignore-url
 
   // URL result with missing icon for known domain
   const urlResult = {
