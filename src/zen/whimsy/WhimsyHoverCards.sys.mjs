@@ -361,7 +361,8 @@ export const WhimsyHoverCards = {
       triggeringPrincipal: principal,
       securityFlags: Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_INHERITS_SEC_CONTEXT,
     }).QueryInterface(Ci.nsIHttpChannel);
-    channel.loadFlags |= Ci.nsIRequest.LOAD_ANONYMOUS;
+    // Never from or into the cache: each fetch's address is checked below.
+    channel.loadFlags |= Ci.nsIRequest.LOAD_ANONYMOUS | Ci.nsIRequest.LOAD_BYPASS_CACHE | Ci.nsIRequest.INHIBIT_CACHING;
     channel.setRequestHeader("Accept", isImage ? IMAGE_TYPES.join(", ") : "text/html", false);
     channel.notificationCallbacks = {
       QueryInterface: ChromeUtils.generateQI(["nsIInterfaceRequestor", "nsIChannelEventSink"]),
@@ -391,7 +392,13 @@ export const WhimsyHoverCards = {
         return bytes;
       };
       channel.asyncOpen({
-        onStartRequest() {},
+        onStartRequest(request) {
+          // A public name can resolve to a private address (DNS rebinding):
+          // the address actually connected to must be public too.
+          if (!WhimsyHoverCards.connectedPublicly(request)) {
+            request.cancel(Cr.NS_ERROR_CONNECTION_REFUSED);
+          }
+        },
         onDataAvailable(request, stream, _offset, count) {
           const chunk = new Uint8Array(lazy.NetUtil.readInputStream(stream, count));
           if (size + count > max) {
@@ -427,6 +434,29 @@ export const WhimsyHoverCards = {
         },
       });
     });
+  },
+
+  /** Whether `ip` (the address a fetch connected to) is a public one. */
+  isPublicAddress(ip) {
+    if (!ip) {
+      return false;
+    }
+    return lazy.WhimsyAIReader.isPublicUrl(`http://${ip.includes(":") ? `[${ip}]` : ip}/`);
+  },
+
+  // Through a proxy the proxy resolves the name, so only a direct
+  // connection's address can be checked.
+  connectedPublicly(request) {
+    try {
+      if (request.QueryInterface(Ci.nsIProxiedChannel).proxyInfo) {
+        return true;
+      }
+    } catch {}
+    try {
+      return this.isPublicAddress(request.QueryInterface(Ci.nsIHttpChannelInternal).remoteAddress);
+    } catch {
+      return false;
+    }
   },
 
   // ---- A tab's picture ----

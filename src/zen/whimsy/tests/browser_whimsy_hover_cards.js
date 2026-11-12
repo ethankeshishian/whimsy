@@ -304,6 +304,17 @@ add_task(async function local_links_load_nothing() {
   await closeAll();
 });
 
+// A public name that resolves to a private address is refused when the
+// fetch connects (DNS rebinding).
+add_task(async function connected_address_must_be_public() {
+  for (const ip of ["127.0.0.1", "10.0.0.2", "192.168.1.1", "169.254.169.254", "::1", "fd00::1", ""]) {
+    ok(!WhimsyHoverCards.isPublicAddress(ip), `${ip || "(none)"} is not public`);
+  }
+  for (const ip of ["93.184.215.14", "2606:2800:21f:cb07:6820:80da:af6b:8b2c"]) {
+    ok(WhimsyHoverCards.isPublicAddress(ip), `${ip} is public`);
+  }
+});
+
 // H.5: with AI off, the card keeps the picture, title, and address, and
 // drops the description, with no note.
 add_task(async function ai_off() {
