@@ -12,7 +12,10 @@
 
 const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs");
 
+let startTabs;
+
 add_setup(async function () {
+  startTabs = new Set(gBrowser.tabs);
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.quick-window.size", ""]] });
 });
 
@@ -20,6 +23,11 @@ registerCleanupFunction(async () => {
   for (const win of WhimsyQuickWindow.windows()) {
     await WhimsyQuickWindow.whenReady(win);
     await BrowserTestUtils.closeWindow(win);
+  }
+  for (const tab of [...gBrowser.tabs]) {
+    if (!startTabs.has(tab) && !tab.closing) {
+      await BrowserTestUtils.removeTab(tab, { animate: false });
+    }
   }
 });
 
@@ -73,13 +81,19 @@ add_task(async function test_open_in_highlight_covers_the_keycap() {
     await TestUtils.waitForCondition(() => caret.matches(":hover"), "Pointer over the caret");
     isnot(win.getComputedStyle(kbd).backgroundColor, hover, "The caret keeps its own highlight");
 
-    const tabCountBefore = gBrowser.tabs.length;
+    const before = new Set(gBrowser.tabs);
     EventUtils.synthesizeMouseAtCenter(kbd, {}, win);
     await TestUtils.waitForCondition(() => win.closed, "Clicking ⌘O opens the page in the space");
-    is(gBrowser.tabs.length, tabCountBefore + 1, "The tab landed in the current space");
-    const adopted = gBrowser.tabs[gBrowser.tabs.length - 1];
+    // Space placement can put the adopted tab before existing rows. The
+    // selected destination is the move command's result, not the last row.
+    await TestUtils.waitForCondition(() =>
+      !before.has(gBrowser.selectedTab) &&
+      gBrowser.selectedBrowser.currentURI.spec == "https://example.com/",
+    "The moved page is selected in the destination");
+    is(gBrowser.tabs.length, before.size + 1, "The tab landed in the current space");
+    const adopted = gBrowser.selectedTab;
     is(adopted.linkedBrowser.currentURI.spec, "https://example.com/", "It's Mini's page");
-    BrowserTestUtils.removeTab(adopted);
+    await BrowserTestUtils.removeTab(adopted);
   } finally {
     if (!win.closed) {
       await BrowserTestUtils.closeWindow(win);

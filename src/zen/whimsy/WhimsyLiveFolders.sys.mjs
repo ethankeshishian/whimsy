@@ -660,6 +660,7 @@ export const WhimsyLiveFolders = {
       // so #restoreState() finds its type. Zen's init() fills its registry
       // with set(), so these entries stay. The store is read up front, before
       // anything Zen restores can save over it.
+      await this.whimsyStoreClosed;
       WhimsyLiveFolders.registerProviders(this);
       const saved = WhimsyLiveFolders.readSavedFolders();
       const result = await original.apply(this, args);

@@ -7,7 +7,7 @@ const { WhimsyCmdTabNumbers: Numbers } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyCmdTabNumbers.sys.mjs"
 );
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
-const root = document.documentElement;
+let win, root;
 const showing = () => root.hasAttribute("whimsy-tab-numbers");
 const badge = tab => tab.querySelector(".whimsy-tab-number");
 let originalSpace, startTabs, essential, pinned, focus;
@@ -16,7 +16,7 @@ let originalSpace, startTabs, essential, pinned, focus;
 // can be routed to another Firefox instance by the OS during full verify.
 function key(key, options = {}) {
   const { type = "keydown", ...modifiers } = options;
-  window.dispatchEvent(new KeyboardEvent(type, {
+  win.dispatchEvent(new win.KeyboardEvent(type, {
     key: key.replace(/^KEY_/, ""), code: key == "KEY_Meta" ? "MetaLeft" : key,
     bubbles: true, ...modifiers,
   }));
@@ -33,13 +33,13 @@ async function hold() {
 // Negative cases wait for the production deadline, rather than asserting
 // immediately before a still-pending reveal timer could have fired.
 async function pastDeadline() {
-  await new Promise(resolve => window.setTimeout(resolve, Numbers.HOLD_MS + 1)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+  await new Promise(resolve => win.setTimeout(resolve, Numbers.HOLD_MS + 1)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
 }
 
 async function assertShortcutTargets() {
   await hold();
-  const tabs = [...gBrowser.visibleTabs];
-  const entries = [...Numbers.targets(window)];
+  const tabs = [...win.gBrowser.visibleTabs];
+  const entries = [...Numbers.targets(win)];
   for (const [tab, label] of entries) {
     is(badge(tab)?.textContent, label, "A badge marks the shortcut's actual row");
     is(badge(tab).getAttribute("aria-hidden"), "true", "Numbers are decorative");
@@ -63,9 +63,9 @@ async function assertShortcutTargets() {
     // listener can see it. waitForEvent resolves on a later main-thread turn,
     // after that handler has selected the tab.
     const keyId = digit == 9 ? "key_selectLastTab" : `key_selectTab${digit}`;
-    const commanded = BrowserTestUtils.waitForEvent(document, "command", true,
+    const commanded = BrowserTestUtils.waitForEvent(win.document, "command", true,
       event => event.target.id == keyId);
-    const nativeKey = document.getElementById(keyId);
+    const nativeKey = win.document.getElementById(keyId);
     is(nativeKey.getAttribute("key"), String(digit), "The native key binds this digit");
     ok(nativeKey.getAttribute("modifiers").split(/[ ,]+/).includes("accel"), "The native shortcut uses Command");
     key(String(digit), { metaKey: true });
@@ -73,44 +73,57 @@ async function assertShortcutTargets() {
     key(String(digit), { type: "keyup", metaKey: true });
     ok(!showing(), "A digit hides the badges immediately");
     await commanded;
-    is(gBrowser.selectedTab, expected, `⌘${digit} selected the badged tab`);
+    is(win.gBrowser.selectedTab, expected, `⌘${digit} selected the badged tab`);
     release();
   }
   for (const tab of tabs.filter(t => !entries.some(([target]) => target == t))) {
-    ok(!badge(tab) || getComputedStyle(badge(tab)).opacity == "0", "Unreachable middle tabs have no visible badge");
+    ok(!badge(tab) || win.getComputedStyle(badge(tab)).opacity == "0", "Unreachable middle tabs have no visible badge");
   }
 }
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [[Numbers.PREF, true]] });
-  Numbers.initWindow(window);
+  // The suite's main window has already received other tests' key/pointer
+  // events. A fresh window gives this input-listener test a fresh hold state.
+  win = await BrowserTestUtils.openNewBrowserWindow();
+  registerCleanupFunction(async () => {
+    release();
+    Numbers.hide(win);
+    focus?.restore();
+    try {
+      if (originalSpace) {
+        await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
+      }
+      for (const tab of [...win.gBrowser.tabs]) {
+        if (startTabs && !startTabs.has(tab) && !tab.closing) {
+          if (tab.hasAttribute("zen-essential")) {
+            win.gZenPinnedTabManager.removeEssentials(tab);
+          }
+          await BrowserTestUtils.removeTab(tab, { animate: false });
+        }
+      }
+    } finally {
+      await BrowserTestUtils.closeWindow(win);
+    }
+  });
+  root = win.document.documentElement;
+  await win.gZenWorkspaces.promiseInitialized;
+  win.gURLBar.view.close();
+  await TestUtils.waitForCondition(() => !win.gURLBar.view.isOpen, "The command bar is closed before holding Command");
+  Numbers.initWindow(win);
   const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
   // Every task exercises delivered input in an OS-background window. Real
   // activation changes from concurrent Firefox instances cannot race a hold.
   focus = sinon.stub(Numbers, "isActiveWindow").returns(false);
-  originalSpace = gZenWorkspaces.activeWorkspace;
-  startTabs = new Set(gBrowser.tabs);
-  registerCleanupFunction(async () => {
-    release();
-    Numbers.hide(window);
-    focus.restore();
-    await gZenWorkspaces.changeWorkspaceWithID(originalSpace);
-    for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
-      if (tab.isConnected && !tab.closing) {
-        if (tab.hasAttribute("zen-essential")) {
-          gZenPinnedTabManager.removeEssentials(tab);
-        }
-        BrowserTestUtils.removeTab(tab, { animate: false });
-      }
-    }
-  });
-  essential = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
-  gZenPinnedTabManager.addToEssentials(essential);
+  originalSpace = win.gZenWorkspaces.activeWorkspace;
+  startTabs = new Set(win.gBrowser.tabs);
+  essential = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank");
+  win.gZenPinnedTabManager.addToEssentials(essential);
   await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential exists");
-  pinned = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
-  gBrowser.pinTab(pinned);
+  pinned = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank");
+  win.gBrowser.pinTab(pinned);
   for (let i = 0; i < 11; i++) {
-    await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+    await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank");
   }
 });
 
@@ -128,9 +141,9 @@ add_task(async function chrome_document_blur_preserves_hold() {
     // Reproduce the window-targeted blur delivered as chrome hands focus to
     // content after a tab switch. No top-level window deactivation occurs.
     // Dispatch during the pending hold so cancelling its timer is observable.
-    window.dispatchEvent(new FocusEvent("blur"));
+    win.dispatchEvent(new win.FocusEvent("blur"));
     await TestUtils.waitForCondition(showing, "Document blur preserves the pending Command hold");
-    window.dispatchEvent(new FocusEvent("blur"));
+    win.dispatchEvent(new win.FocusEvent("blur"));
     ok(showing(), "Document blur preserves visible badges in the active window");
   } finally {
     release();
@@ -148,22 +161,22 @@ add_task(async function cancel_on_release_key_pointer_and_deactivate() {
   key("KEY_Shift", { type: "keyup", metaKey: true });
   release();
   await hold();
-  const tab = gBrowser.selectedTab;
-  tab.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
+  const tab = win.gBrowser.selectedTab;
+  tab.dispatchEvent(new win.PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
   ok(!showing(), "Pointer press hides immediately");
-  tab.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
+  tab.dispatchEvent(new win.PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
   release();
   // Model activation transitions without competing for the OS-active window.
   focus.returns(true);
   try {
     await hold();
     focus.returns(false);
-    window.dispatchEvent(new Event("deactivate"));
-    ok(!showing(), "Losing window activation hides immediately");
+    win.dispatchEvent(new win.Event("deactivate"));
+    ok(!showing(), "Losing win activation hides immediately");
     key("KEY_Meta", { metaKey: true });
-    window.dispatchEvent(new Event("deactivate"));
+    win.dispatchEvent(new win.Event("deactivate"));
     await TestUtils.waitForCondition(showing, "Keys delivered without activation survive pending deactivation");
-    window.dispatchEvent(new Event("deactivate"));
+    win.dispatchEvent(new win.Event("deactivate"));
     ok(showing(), "Keys delivered without activation survive visible deactivation");
     // No keyup and no activation transition: a new non-repeat keydown is
     // evidence of a new physical press and must repair the missed release.
@@ -204,16 +217,16 @@ add_task(async function quick_tap_and_chords_never_reveal() {
 });
 
 add_task(async function pointer_down_before_command_and_pending_cancellation() {
-  const tab = gBrowser.selectedTab;
-  tab.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
+  const tab = win.gBrowser.selectedTab;
+  tab.dispatchEvent(new win.PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
   key("KEY_Meta", { type: "keydown", metaKey: true });
   await pastDeadline();
   ok(!showing(), "Command with a mouse button held never reveals numbers");
   release();
-  tab.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
+  tab.dispatchEvent(new win.PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
   key("KEY_Meta", { type: "keydown", metaKey: true });
-  tab.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
-  tab.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
+  tab.dispatchEvent(new win.PointerEvent("pointerdown", { bubbles: true, buttons: 1 }));
+  tab.dispatchEvent(new win.PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
   await pastDeadline();
   ok(!showing(), "A pointer press cancels the pending timer");
   release();
@@ -238,43 +251,43 @@ add_task(async function preference_disables_pending_and_visible_hints() {
 });
 
 add_task(async function other_spaces_have_no_badges() {
-  const other = await gZenWorkspaces.createAndSaveWorkspace("Tab numbers test", undefined, true);
+  const other = await win.gZenWorkspaces.createAndSaveWorkspace("Tab numbers test", undefined, true);
   try {
-    await gZenWorkspaces.changeWorkspaceWithID(other.uuid);
+    await win.gZenWorkspaces.changeWorkspaceWithID(other.uuid);
     const foreign = [];
     for (let i = 0; i < 2; i++) {
-      foreign.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank"));
+      foreign.push(await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank"));
     }
     await assertShortcutTargets(); // Also checks Firefox's short-list clamp.
     for (let i = 0; i < 9; i++) {
-      foreign.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank"));
+      foreign.push(await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank"));
     }
     await assertShortcutTargets();
-    await gZenWorkspaces.changeWorkspaceWithID(originalSpace);
+    await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
     await hold();
     for (const tab of foreign) {
-      ok(!Numbers.targets(window).has(tab), "Other-space tabs are unreachable");
+      ok(!Numbers.targets(win).has(tab), "Other-space tabs are unreachable");
       ok(!badge(tab), "No stale badge on an unreachable tab");
     }
     release();
     await assertShortcutTargets();
   } finally {
     release();
-    await gZenWorkspaces.changeWorkspaceWithID(originalSpace);
-    await gZenWorkspaces.removeWorkspace(other.uuid);
+    await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
+    await win.gZenWorkspaces.removeWorkspace(other.uuid);
   }
 });
 
 add_task(async function private_space_excludes_essentials() {
-  document.getElementById("cmd_whimsyNewScratch").doCommand();
-  await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(window), "Private Space active");
+  win.document.getElementById("cmd_whimsyNewScratch").doCommand();
+  await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(win), "Private Space active");
   const tabs = [];
   try {
     for (let i = 0; i < 10; i++) {
-      tabs.push(WhimsyPrivate.openPrivateTab(window, { url: "about:blank" }));
+      tabs.push(WhimsyPrivate.openPrivateTab(win, { url: "about:blank" }));
     }
     await hold();
-    for (const tab of Numbers.targets(window).keys()) {
+    for (const tab of Numbers.targets(win).keys()) {
       ok(!tab.hasAttribute("zen-essential") && !tab.hasAttribute("zen-empty-tab"), "Only Private Space tabs are badged");
     }
     release();
@@ -283,31 +296,41 @@ add_task(async function private_space_excludes_essentials() {
     release();
     for (const tab of tabs) {
       if (tab.isConnected && !tab.closing) {
-        BrowserTestUtils.removeTab(tab, { animate: false });
+        await BrowserTestUtils.removeTab(tab, { animate: false });
       }
     }
-    await gZenWorkspaces.changeWorkspaceWithID(originalSpace);
+    await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
   }
 });
 
 add_task(async function expanded_and_compact_screenshots() {
   const expanded = root.getAttribute("zen-sidebar-expanded");
-  const compact = gZenCompactModeManager.preference;
+  const compact = win.gZenCompactModeManager.preference;
   try {
     for (const state of ["expanded", "compact"]) {
-      gZenCompactModeManager.preference = state == "compact";
+      win.gZenCompactModeManager.preference = state == "compact";
       root.setAttribute("zen-sidebar-expanded", state == "expanded" ? "true" : "false");
-      await whimsyBothSchemes(`w24-cmdhints-${state}`, async () => {
-        const flags = ["zen-has-hover", "has-popup-menu", "flash-popup", "zen-user-show"];
-        const before = flags.map(attr => gNavToolbox.hasAttribute(attr));
-        await hold();
-        Assert.deepEqual(flags.map(attr => gNavToolbox.hasAttribute(attr)), before, "Hints never force compact mode open");
-        return release;
-      });
+      for (const dark of [false, true]) {
+        await whimsySetScheme(dark);
+        try {
+          await TestUtils.waitForCondition(() =>
+            win.matchMedia(`(prefers-color-scheme: ${dark ? "dark" : "light"})`).matches,
+          "The hints window has the requested color scheme");
+          const flags = ["zen-has-hover", "has-popup-menu", "flash-popup", "zen-user-show"];
+          const before = flags.map(attr => win.gNavToolbox.hasAttribute(attr));
+          await hold();
+          Assert.deepEqual(flags.map(attr => win.gNavToolbox.hasAttribute(attr)), before, "Hints never force compact mode open");
+          await whimsySettled(win.document);
+          await whimsyShot(`w24-cmdhints-${state}-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
+        } finally {
+          release();
+          await SpecialPowers.popPrefEnv();
+        }
+      }
     }
   } finally {
     release();
-    gZenCompactModeManager.preference = compact;
+    win.gZenCompactModeManager.preference = compact;
     if (expanded == null) {
       root.removeAttribute("zen-sidebar-expanded");
     } else {
