@@ -18,6 +18,11 @@ rm -rf "$WHIMSY_SHOTS" && mkdir -p "$WHIMSY_SHOTS" .surfer/verify
 # retries made W24's handoff count 9 failing files after a green run.
 rm -f .surfer/verify/*.log .surfer/verify/*.raw .surfer/verify/failed.txt
 : > .surfer/verify/flaky.txt
+# vfail.py reads every *.raw here, so a run must start without the last
+# runs' logs: a retry log left from an earlier run (or a suite this mode
+# skips) would be reported as tonight's failure.
+rm -f .surfer/verify/*.raw .surfer/verify/*-retry-*.log
+: > .surfer/verify/run-started.txt
 # The sandbox read path must be the src/ the engine links into: in a
 # worktree, engine/ is a symlink to the main checkout's engine.
 ROOT=$(cd "$(dirname "$(cd engine && pwd -P)")" && pwd -P)
