@@ -52,7 +52,8 @@ function provider(request) {
     return JSON.stringify({ sections: [0, 12] });
   }
   if (/hover card/.test(request.system ?? "")) {
-    return JSON.stringify({ title: "Quarterly planning notes", description: "The Lisbon offsite is on March 14; the espresso machine is out of stock, and Priya owns the budget." });
+    return JSON.stringify({ title: "Quarterly planning notes", description: "The Lisbon offsite is on March 14; the espresso machine is out of stock, and Priya owns the budget.",
+      points: ["The offsite is in Lisbon on March 14.", "The espresso machine is out of stock.", "Priya owns the budget."] });
   }
   if (/Ask on Page/.test(request.system ?? "")) {
     return JSON.stringify({ answer: "The offsite is in Lisbon on March 14.", quote: "The offsite is on March 14 in Lisbon." });

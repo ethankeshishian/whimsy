@@ -6,7 +6,8 @@
 // approved, intake-w25 hover-summary.html). A picture on top (the tab
 // itself, or the link's own preview image; with no image, a tile with the
 // site's icon in the same space, so nothing below moves), then the title,
-// the address, and a one- or two-sentence AI description. It opens after
+// the address, and the AI summary: a one- or two-sentence description and
+// three bullets, from one request. It opens after
 // resting 500ms and swaps with no delay as you move along. No buttons, no
 // menu, and one switch (whimsy.feature.hover-cards, Settings › General ›
 // Hover cards), on by default.
@@ -46,6 +47,8 @@ const SWAP_MS = 300;
 // Leaving a tab: a moment to reach the next one before the card closes.
 const TAB_LEAVE_MS = 100;
 const OPEN_ATTR = "whimsy-open";
+// Between the tab and its card.
+const TAB_GAP_PX = 8;
 // The picture's size in CSS pixels (the card is 300 wide, 12px padding).
 const PICTURE = { width: 276, height: 140 };
 const PAGE_MAX_BYTES = 1024 * 1024;
@@ -183,6 +186,26 @@ export const WhimsyHoverCards = {
     return img;
   },
 
+  /**
+   * The popup a card shows in, for tabs and links alike: no surface, border,
+   * or shadow of its own (whimsy-ai.css), only room around the card for the
+   * card's shadow. Not yet in the document.
+   */
+  createHost(doc, id) {
+    const panel = doc.createXULElement("panel");
+    panel.id = id;
+    panel.classList.add("whimsy-hc-host-panel");
+    panel.setAttribute("noautofocus", "true");
+    panel.setAttribute("consumeoutsideclicks", "false");
+    panel.setAttribute("animate", "false");
+    panel.setAttribute("flip", "both");
+    panel.setAttribute("role", "group");
+    const stack = doc.createElementNS(HTML, "div");
+    stack.className = "whimsy-link-hover-stack";
+    panel.append(stack);
+    return panel;
+  },
+
   // No picture: a tile with the site's icon, in the picture's space.
   fillSiteTile(win, card) {
     const picture = card.querySelector(".whimsy-hc-picture");
@@ -204,11 +227,13 @@ export const WhimsyHoverCards = {
     }
   },
 
-  // The description's place: "loading" (two quiet lines), text, a note
-  // ("private", "unloaded", "private-link", "failed"), or nothing.
-  fillDescription(win, card, { loading = false, text = null, note = null } = {}) {
+  // The AI summary's place: "loading" (quiet lines), the description with
+  // its three bullets (`points`, from the same answer), a note ("private",
+  // "unloaded", "private-link", "failed"), or nothing.
+  fillDescription(win, card, { loading = false, text = null, points = null, note = null } = {}) {
     const doc = win.document;
     card.querySelector(".whimsy-hc-desc")?.remove();
+    card.querySelector(".whimsy-hc-points")?.remove();
     if (!loading && !text && !note) {
       card.removeAttribute("aria-busy");
       return;
@@ -233,6 +258,30 @@ export const WhimsyHoverCards = {
       card.removeAttribute("aria-busy");
     }
     card.append(desc);
+    if (loading) {
+      // The bullets' place while the summary loads.
+      const list = doc.createElementNS(HTML, "div");
+      list.className = "whimsy-hc-points is-loading";
+      list.setAttribute("aria-hidden", "true");
+      for (let i = 0; i < 3; i++) {
+        list.append(doc.createElementNS(HTML, "i"));
+      }
+      card.append(list);
+    } else if (text && Array.isArray(points) && points.length) {
+      const list = doc.createElementNS(HTML, "ul");
+      list.className = "whimsy-hc-points";
+      for (const point of points.slice(0, 3)) {
+        const item = doc.createElementNS(HTML, "li");
+        item.textContent = String(point).slice(0, 160);
+        list.append(item);
+      }
+      card.append(list);
+    }
+  },
+
+  // A described page: the description and its bullets, from one answer.
+  fillSummary(win, card, found) {
+    this.fillDescription(win, card, { text: found?.description, points: found?.points });
   },
 
   /**
@@ -277,7 +326,7 @@ export const WhimsyHoverCards = {
     if (target.ai) {
       this.fillDescription(win, card, { loading: true });
       lazy.WhimsyAIPage.describe(url, { anonymous: true, signal })
-        .then(found => !signal.aborted && this.fillDescription(win, card, { text: found.description }))
+        .then(found => !signal.aborted && this.fillSummary(win, card, found))
         .catch(() => !signal.aborted && this.fillDescription(win, card, { note: "failed" }));
     }
     return card;
@@ -599,18 +648,8 @@ class TabHover {
       return panel;
     }
     const doc = this.win.document;
-    panel = doc.createXULElement("panel");
-    panel.id = TAB_PANEL_ID;
-    panel.setAttribute("noautofocus", "true");
-    panel.setAttribute("consumeoutsideclicks", "false");
-    panel.setAttribute("animate", "false");
-    panel.setAttribute("flip", "both");
-    panel.setAttribute("level", "parent");
-    panel.setAttribute("role", "group");
-    // The link card's frame (whimsy-ai.css): one look for both.
-    const stack = doc.createElementNS(HTML, "div");
-    stack.className = "whimsy-link-hover-stack";
-    panel.append(stack);
+    // The link card's host, made the same way: one look for both.
+    panel = WhimsyHoverCards.createHost(doc, TAB_PANEL_ID);
     panel.addEventListener("popupshown", () => {
       this.win.requestAnimationFrame(() => {
         if (panel.state == "open") {
@@ -665,11 +704,12 @@ class TabHover {
     panel.querySelector(".whimsy-link-hover-stack").replaceChildren(frame);
     if (swap) {
       // Moving along: the card is already there; it follows the tab.
+      const { position, x, y } = this.#position(tab);
       panel.setAttribute(OPEN_ATTR, "true");
-      panel.moveToAnchor(tab, this.#position(tab), 0, 3);
+      panel.moveToAnchor(tab, position, x, y);
     } else {
       panel.removeAttribute(OPEN_ATTR);
-      panel.openPopup(tab, { position: this.#position(tab), x: 0, y: 3 });
+      panel.openPopup(tab, this.#position(tab));
     }
     WhimsyHoverCards.tabPicture(win, tab).then(node => {
       if (node && !signal.aborted) {
@@ -679,19 +719,22 @@ class TabHover {
     if (describe && (await lazy.WhimsyAIPage.canDescribe()) && !signal.aborted) {
       WhimsyHoverCards.fillDescription(win, card, { loading: true });
       lazy.WhimsyAIPage.describeTab(tab, { signal })
-        .then(found => !signal.aborted && WhimsyHoverCards.fillDescription(win, card, { text: found.description }))
+        .then(found => !signal.aborted && WhimsyHoverCards.fillSummary(win, card, found))
         .catch(() => !signal.aborted && WhimsyHoverCards.fillDescription(win, card, { note: "failed" }));
     }
   }
 
   // Beside the tab, away from the window's edge: right of a sidebar on the
-  // left, left of one on the right, under tabs along the top.
+  // left, left of one on the right, under tabs along the top, with a small
+  // gap (the popup's shadow room is outside the card, see whimsy-ai.css).
   #position(tab) {
     if (!this.win.gBrowser.tabContainer.verticalMode) {
-      return "after_start";
+      return { position: "after_start", x: 0, y: TAB_GAP_PX };
     }
     const box = tab.getBoundingClientRect();
-    return box.left + box.width / 2 < this.win.innerWidth / 2 ? "end_before" : "start_before";
+    return box.left + box.width / 2 < this.win.innerWidth / 2
+      ? { position: "end_before", x: TAB_GAP_PX, y: 0 }
+      : { position: "start_before", x: -TAB_GAP_PX, y: 0 };
   }
 
   hide() {
