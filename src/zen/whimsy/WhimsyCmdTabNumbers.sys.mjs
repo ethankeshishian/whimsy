@@ -44,11 +44,15 @@ export const WhimsyCmdTabNumbers = {
     return targets;
   },
 
+  isActiveWindow(win) {
+    return Services.focus.activeWindow == win;
+  },
+
   initWindow(win) {
     if (AppConstants.platform != "macosx" || states.has(win)) {
       return;
     }
-    const state = { timer: 0, meta: false, buttons: 0, keys: new Set(), badges: new Map(), observer: null };
+    const state = { active: this.isActiveWindow(win), timer: 0, meta: false, buttons: 0, keys: new Set(), badges: new Map(), observer: null };
     states.set(win, state);
     const on = () => Services.prefs.getBoolPref(PREF, true);
     const hide = () => this.hide(win);
@@ -59,12 +63,23 @@ export const WhimsyCmdTabNumbers = {
       if (event.isReplyEventFromRemoteContent) {
         return;
       }
+      // Key delivery is authoritative even when this window is not OS-active.
+      // A fresh Meta press also repairs a missed release while another window
+      // owned input. Never let stale bookkeeping veto a new physical press.
+      state.active = this.isActiveWindow(win);
+      if (event.key == "Meta" && !event.repeat &&
+          (state.meta && state.keys.has(event.code || event.key))) {
+        hide();
+        state.meta = false;
+        state.keys.clear();
+      }
       state.keys.add(event.code || event.key);
       if (event.key != "Meta") {
         hide();
         return;
       }
-      // A second Meta, auto-repeat, or a chord cannot restart the delay.
+      // Auto-repeat cannot restart the delay. A second physical Meta while
+      // one is already held is a chord (metaKey is true on both presses).
       if (state.meta) {
         return;
       }
@@ -96,13 +111,14 @@ export const WhimsyCmdTabNumbers = {
     };
     const pointerup = event => { state.buttons = event.buttons; };
     const deactivate = event => {
-      // Window blur also fires when focus leaves the chrome document for
-      // content, including after a tab/space switch. That is still the same
-      // active browser window, and must not cancel a newly started hold.
-      // Gecko's deactivate event tracks top-level window activation instead.
-      if (event.target != win) {
+      // Only an actual active -> inactive transition ends input ownership.
+      // Background windows can receive keys without an activate event; a
+      // stray deactivate there must not erase that newly delivered input.
+      // Document blur (chrome handing focus to content) is not deactivation.
+      if (event.target != win || !state.active || this.isActiveWindow(win)) {
         return;
       }
+      state.active = false;
       state.meta = false;
       state.buttons = 0;
       state.keys.clear();

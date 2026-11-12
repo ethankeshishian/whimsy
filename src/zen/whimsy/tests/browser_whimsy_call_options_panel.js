@@ -236,6 +236,21 @@ function clickPage(browser, kind) {
   });
 }
 
+// The hidden bold twin reserves width and is excluded from the accessible
+// name; textContent on the whole button includes that non-visible copy.
+function segmentText(button) {
+  return button.querySelector(".whimsy-surface-segment-label").textContent;
+}
+
+function checkSegmentLabel(button) {
+  ok(!button.hasAttribute("data-l10n-id"), "Fluent does not replace the segment's children");
+  is(button.children.length, 2, "Only the visible label and its sizing twin exist");
+  const ghost = button.querySelector(".whimsy-surface-segment-ghost");
+  is(ghost.textContent, segmentText(button), "The bold sizing twin follows the visible label");
+  is(ghost.getAttribute("aria-hidden"), "true", "The sizing twin is hidden from accessibility");
+  is(button.ownerDocument.defaultView.getComputedStyle(ghost).visibility, "hidden", "The sizing twin is invisible");
+}
+
 // W14-6: layout A — "Buttons mute: <app> | This Device" on top, then a
 // switch per mute under a fixed label, no letters, nothing cut off.
 add_task(async function test_panel_layout() {
@@ -246,9 +261,10 @@ add_task(async function test_panel_layout() {
     const seg = panel.querySelector(".whimsy-call-options-default");
     is(seg.querySelector("[aria-checked=true]").dataset.value, "call", "defaults to the call's own buttons");
     const segments = [...seg.querySelectorAll(".whimsy-surface-segment")];
-    Assert.deepEqual(segments.map(b => b.textContent), ["The Call", "This Device"], "a page without a name: The Call");
+    Assert.deepEqual(segments.map(segmentText), ["The Call", "This Device"], "a page without a name: The Call");
     for (const b of segments) {
-      Assert.lessOrEqual(b.scrollWidth, b.clientWidth, `"${b.textContent}" isn't cut off`);
+      checkSegmentLabel(b);
+      Assert.lessOrEqual(b.scrollWidth, b.clientWidth, `"${segmentText(b)}" isn't cut off`);
     }
     for (const name of ["mic-in-call", "mic-device", "camera-in-call", "camera-device"]) {
       ok(rowSwitch(panel, name), `${name} has a switch`);
@@ -280,7 +296,9 @@ add_task(async function test_panel_names_the_app() {
     await clickPage(browser, "mic");
     await TestUtils.waitForCondition(() => WhimsyCallPip.appName(browser) == "Meet", "the page's name arrives");
     const first = panel.querySelector(".whimsy-call-options-default .whimsy-surface-segment");
-    await TestUtils.waitForCondition(() => first.textContent == "Meet", "Buttons mute: Meet | This Device");
+    await TestUtils.waitForCondition(() => segmentText(first) == "Meet", "Buttons mute: Meet | This Device");
+    await panel.ownerDocument.l10n.translateFragment(first);
+    checkSegmentLabel(first);
     await clickPage(browser, "mic");
     await TestUtils.waitForCondition(() => WhimsyCallPip.shownState(browser, "mic") == "on", "back on");
   } finally {
@@ -402,7 +420,7 @@ function snapshot(panel) {
   return {
     rows: [...panel.querySelectorAll("[data-row]")].map(r => r.dataset.row),
     captions: [...panel.querySelectorAll(".whimsy-surface-caption-label")].map(c => c.textContent),
-    segments: [...panel.querySelectorAll(".whimsy-surface-segment")].map(c => c.textContent),
+    segments: [...panel.querySelectorAll(".whimsy-surface-segment")].map(segmentText),
     primary: win.getComputedStyle(panel).getPropertyValue("--zen-primary-color"),
     panelBackground: win.getComputedStyle(panel).backgroundColor,
     panelRadius: win.getComputedStyle(panel).borderRadius,

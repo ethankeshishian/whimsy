@@ -198,6 +198,9 @@ const ICONS = {
   "context-delete": ZEN("trash"),
   "context-selectall": SELECTABLE("checkbox"),
   "context-print-selection": ZEN("print"),
+  // W24 annotations: Highlight and Add Note on the selection menu.
+  "context-whimsy-highlight": ZEN("paintbrush"),
+  "context-whimsy-add-note": ZEN("edit-theme"),
   "context-whimsy-verb-map": ZEN("geo"),
   "context-whimsy-verb-email": ZEN("mail"),
   "context-whimsy-verb-note": ZEN("reader-mode"),
