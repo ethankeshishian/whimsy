@@ -157,7 +157,7 @@ export const WhimsyUploadBadges = {
       l10nId: "whimsy-action-paste-to-upload",
       run: w => this.pasteCommand(w),
       icon: ICON,
-      isAvailable: () => Services.prefs.getBoolPref(FEATURE_PREF, true),
+      isAvailable: w => Services.prefs.getBoolPref(FEATURE_PREF, true) && lazy.WhimsyCommands.hasPage(w),
     });
   },
 

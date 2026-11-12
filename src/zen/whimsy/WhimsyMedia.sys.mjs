@@ -804,7 +804,7 @@ export const WhimsyMedia = {
         keyId,
         key: this.playbackSpeedEnabled ? { key, modifiers: "accel,alt" } : null,
         icon: "chrome://browser/skin/zen-icons/media-play.svg",
-        isAvailable: w => this.playbackSpeedEnabled && !!w.gBrowser.selectedTab.linkedPanel,
+        isAvailable: w => this.playbackSpeedEnabled && lazy.WhimsyCommands.hasPage(w),
       });
     }
   },

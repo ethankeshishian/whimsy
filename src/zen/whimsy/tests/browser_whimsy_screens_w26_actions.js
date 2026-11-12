@@ -101,6 +101,7 @@ function audit(context, win = window) {
       .some(el => el.scrollWidth > el.clientWidth + 1);
     return [row.getAttribute("dynamicType") ?? row.getAttribute("type") ?? "?", row.getAttribute("label") ?? "", title, key, row.hasAttribute("selected") ? "sel" : "", clipped ? "CLIPPED" : ""].join("|");
   });
+  ok(urlbar.view.isOpen, `${context}: the bar is open`);
   info(`AUDIT ${context} mode=${mode} open=${urlbar.view.isOpen} session=${!!WhimsyVerbs.sessions.get(win)} agent=${WhimsyCommandBarAgent.state?.(win)?.phase ?? "-"} rows=${JSON.stringify(rows)}`);
 }
 

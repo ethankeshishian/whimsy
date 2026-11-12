@@ -18,6 +18,10 @@ const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/ur
 const YOUTUBE = n => `data:text/html,<title>YouTube - video ${n}</title><p>video ${n}`;
 // Rows that act on a page or a selection: never with no page.
 const PAGE_ONLY = /^(ai:|translate$|copy-markdown$|note$|email$|zap$|pip$|change-page$|ask$|web-search$|cmd:|edit-commands$)/;
+// Whimsy commands that act on a page: never listed with no page (W26 audit).
+const PAGE_COMMANDS = ["Summarize This Page", "Summarize This Video", "Speed Up Video", "Slow Down Video", "Reset Video Speed", "Capture Full Page", "Capture in Portrait Mode", "Edit Text on Page", "Translate Selection", "Save Video to Playlist", "Paste Image to Upload", "Find Options", "Turn Developer Mode On for This Site"];
+// Whimsy commands that act on a tab: never listed with no tab.
+const TAB_COMMANDS = ["Mute Tab", "Rename Tab", "Reveal Tab in Sidebar", "Snooze Tab…", "Snooze Tab Until Tonight"];
 
 add_setup(async function () {
   await setupAI();
@@ -80,6 +84,10 @@ async function expectActions(context) {
   ok(rows.every(r => r.result.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS), `${context}: every row is an action`);
   ok(!rows.some(r => r.type == UrlbarShared.RESULT_TYPE.SEARCH || r.verb == "web-search"), `${context}: no search or Google rows`);
   ok(!rows.some(r => r.verb && PAGE_ONLY.test(r.verb)), `${context}: no page or selection rows`);
+  const labels = rows.map(r => r.result.payload.title);
+  const shown = PAGE_COMMANDS.filter(l => labels.includes(l));
+  is(shown.join(", "), "", `${context}: no command that needs a page is listed`);
+  is(labels.filter(l => l == "Next Tab").length, 1, `${context}: Next Tab is listed once`);
   return rows;
 }
 
@@ -96,11 +104,13 @@ async function noTabs() {
 add_task(async function no_tabs_opens_actions_not_google() {
   await noTabs();
   await cmdK();
-  await expectActions("no tabs");
+  const rows = await expectActions("no tabs");
+  const labels = rows.map(r => r.result.payload.title);
+  is(TAB_COMMANDS.filter(l => labels.includes(l)).join(", "), "", "no tabs: no command that needs a tab is listed");
   // Nothing matches: still no search row, no Ask row.
   await typeInActions("zzqx");
-  const rows = await results();
-  ok(!rows.some(r => r.verb || r.type == UrlbarShared.RESULT_TYPE.SEARCH), "no tabs, no match: no Ask or search rows");
+  const after = await results();
+  ok(!after.some(r => r.verb || r.type == UrlbarShared.RESULT_TYPE.SEARCH), "no tabs, no match: no Ask or search rows");
   await leaveBar();
   await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
 });
@@ -135,7 +145,7 @@ add_task(async function tab_request_on_settings_is_the_top_row_with_undo() {
     const rows = await results();
     is(rows[0]?.verb, "typed:tabs-close", "The tab request is the top row on a settings page");
     is(rows[0].result.payload.title, "Close 2 “youtube” tabs", "and says what will happen");
-    ok(rows[0].element.hasAttribute("selected"), "selected, so Enter does it");
+    ok(rows[0].element.row.hasAttribute("selected"), "selected, so Enter does it");
     ok(!rows.some(r => r.verb == "ask" || r.verb == "web-search"), "No Ask or Search with Google rows");
     EventUtils.synthesizeKey("KEY_Enter");
     await TestUtils.waitForCondition(() => tabs.every(t => !t.isConnected), "Enter closed them");
@@ -169,6 +179,20 @@ add_task(async function reader_view_opens_like_a_page() {
     is(gURLBar.searchMode?.source, UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, "Reader view: ⌘K opened Actions mode");
     const rows = await results();
     ok(rows.some(r => r.verb == "copy-markdown"), "with the page's rows");
+    ok(!rows.some(r => r.verb == "translate"), "but no Translate Page: Firefox won't translate reader view");
+    await leaveBar();
+  });
+});
+
+add_task(async function pdf_hides_what_cannot_apply_to_a_document() {
+  await BrowserTestUtils.withNewTab("https://example.com/browser/zen/whimsy/tests/whimsy_ai_lease.pdf", async browser => {
+    await TestUtils.waitForCondition(() => browser.documentContentType == "application/pdf", "The PDF is open");
+    await cmdK();
+    is(gURLBar.searchMode?.source, UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, "PDF: ⌘K opened Actions mode");
+    const rows = await results();
+    ok(rows.some(r => r.verb == "copy-markdown"), "with the document's rows");
+    ok(!rows.some(r => r.verb == "translate"), "no Translate Page: Firefox won't translate a PDF");
+    ok(!rows.some(r => r.verb == "change-page"), "no Change This Page: a PDF is a document, not a site");
     await leaveBar();
   });
 });

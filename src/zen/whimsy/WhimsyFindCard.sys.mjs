@@ -46,7 +46,7 @@ export const WhimsyFindCard = {
       id: COMMAND,
       l10nId: "whimsy-find-options-command",
       icon: MENU_ICON,
-      isAvailable: () => this.enabled,
+      isAvailable: w => this.enabled && lazy.WhimsyCommands.hasPage(w),
       run: async w => {
         const findbar = await w.gBrowser.getFindBar();
         if (!findbar) {

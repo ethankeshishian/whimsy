@@ -158,6 +158,19 @@ const MENU_OF = {
 const MENU_BY_ID = new Map(Object.entries(MENU_OF).flatMap(([menu, ids]) => ids.map(id => [id, menu])));
 
 export const WhimsyCommands = {
+  // W26 audit: the command bar hides what can't apply. A tab command needs
+  // a tab (not a space's empty tab); a page command needs a web page (an
+  // http, https, or file page, or reader view), never a settings or other
+  // privileged page.
+  hasTab(win) {
+    const tab = win?.gBrowser?.selectedTab;
+    return !!tab?.linkedPanel && !tab.hasAttribute("zen-empty-tab") && !tab.closing;
+  },
+  hasPage(win) {
+    const spec = win?.gBrowser?.selectedBrowser?.currentURI?.spec ?? "";
+    return this.hasTab(win) && /^(https?|file):|^about:reader/.test(spec);
+  },
+
   get listed() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },

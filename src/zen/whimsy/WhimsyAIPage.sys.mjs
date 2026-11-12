@@ -411,7 +411,7 @@ export const WhimsyAIPage = {
       id: SUMMARY_COMMAND,
       l10nId: "whimsy-summary-command",
       icon: SUMMARY_ICON,
-      isAvailable: w => this.summaryEnabled && !lazy.WhimsyAIContext.isOffLimits(w.gBrowser.selectedTab),
+      isAvailable: w => this.summaryEnabled && lazy.WhimsyCommands.hasPage(w) && !lazy.WhimsyAIContext.isOffLimits(w.gBrowser.selectedTab),
       run: w => this.summarizeInChat(w, w.gBrowser.selectedTab).catch(error => console.error("Whimsy: summary", error)),
     });
     lazy.WhimsyChat.registerCard("summary", (doc, msg, ctx) => this.renderSummaryCard(doc, msg, ctx));

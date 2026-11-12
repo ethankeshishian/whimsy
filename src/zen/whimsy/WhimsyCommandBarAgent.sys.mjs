@@ -159,8 +159,10 @@ export class WhimsyCmdkProvider extends UrlbarProvider {
   async isActive(context) {
     const win = topWindow();
     // Actions mode (⌘K, or "/") still takes a request: when no action
-    // matches, what was typed is something to do.
-    if (!win || isPrivateContext(context, win) || (context.searchMode && !inActions(context)) || context.restrictSource) {
+    // matches, what was typed is something to do. Its one source makes the
+    // query a restricted one (UrlbarProvidersManager: restrictSource).
+    const actions = inActions(context);
+    if (!win || isPrivateContext(context, win) || (context.searchMode && !actions) || (context.restrictSource && !actions)) {
       return false;
     }
     return !!stateOf(win) || WhimsyCommandBarAgent.takes(win, context.searchString ?? "");

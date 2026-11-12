@@ -59,6 +59,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDictation: "resource:///modules/whimsy/WhimsyDictation.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   LanguageDetector: "resource://gre/modules/translations/LanguageDetector.sys.mjs",
+  TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
 
@@ -318,6 +319,16 @@ function defaultEngineName(win) {
   }
 }
 
+// Firefox's own rule for the full-page translation (PDFs and about: pages
+// are out).
+function translationRestricted(win) {
+  try {
+    return lazy.TranslationsParent.isFullPageTranslationsRestrictedForPage(win.gBrowser);
+  } catch (e) {
+    return true;
+  }
+}
+
 function isWebPage(win) {
   const tab = win?.gBrowser?.selectedTab;
   const spec = tab?.linkedBrowser?.currentURI?.spec ?? "";
@@ -381,9 +392,12 @@ const BUILT_IN = [
     pageL10nId: "whimsy-verb-translate-page",
     icon: `${ICONS}translations.svg`,
     scope: "both",
+    // W26 audit: a page Firefox won't translate (a PDF, reader view) has no
+    // Translate Page row.
     isAvailable: (win, s) =>
       Services.prefs.getBoolPref("browser.translations.enable", true) &&
-      !!(s.kind == "selection" ? win.SelectTranslationsPanel : win.FullPageTranslationsPanel),
+      !!(s.kind == "selection" ? win.SelectTranslationsPanel : win.FullPageTranslationsPanel) &&
+      (s.kind == "selection" || !translationRestricted(win)),
     run(win, s) {
       if (s.kind == "selection") {
         // Firefox Translations' selection panel, languages auto-detected
