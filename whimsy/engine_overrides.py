@@ -27,6 +27,7 @@ which src/ can't patch as text). Runs at the end of `npm run import`.
 import glob
 import json
 import os
+import sys
 import re
 import shutil
 import subprocess
@@ -353,7 +354,9 @@ def main():
         shutil.copyfile(CERT, path)
         changed += 1
     print(f"engine_overrides: updater trusts Whimsy's certificate ({changed} files updated)")
-    restore_previous_overrides()
+    # The ledger was restored by `--restore` before `surfer import`. Restoring
+    # here, after the import, would also check out the Whimsy patches surfer
+    # just applied to those files (PictureInPicture's muted-tab check).
     copy_builtin_addons()
     override_branding_prefs()
     override_default_bookmarks()
@@ -365,4 +368,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:] == ["--restore"]:
+        # Before `surfer import`: the files the last run rewrote go back to
+        # Firefox's text, and the import then applies Whimsy's patches to them.
+        if os.path.isdir(os.path.join(ROOT, "engine")):
+            restore_previous_overrides()
+    else:
+        main()

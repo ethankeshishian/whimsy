@@ -152,6 +152,22 @@ add_task(async function shots_speed() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// Clicks a chip under the summary once a person could: the panel has
+// finished opening (dec-3 just reopened it), and the chip is the live,
+// enabled one, in view. Clicking the moment isOpen flips can land on the
+// panel mid-slide or on a node the reopen is about to replace.
+async function clickChip(id) {
+  const panel = chatPanel();
+  await Promise.all((panel.el?.getAnimations({ subtree: true }) ?? []).map(a => a.finished));
+  const chip = await TestUtils.waitForCondition(() => {
+    const found = panel.body.querySelector(`.whimsy-video-chip[data-chip='${id}']`);
+    return found?.isConnected && !found.hasAttribute("disabled") && found.checkVisibility() ? found : null;
+  }, `The ${id} chip is ready`);
+  chip.scrollIntoView({ block: "nearest" });
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  EventUtils.synthesizeMouseAtCenter(chip, {});
+}
+
 add_task(async function shots_summary() {
   await freshChatStore();
   stubProvider("Night trains nearly vanished from Europe by 2016, then came back as flying got pricier.\n\nChapters\n- 0:00 Why they disappeared\n- 0:01 ÖBB’s bet on Nightjet\n- 0:02 Riding Vienna to Paris");
@@ -184,12 +200,12 @@ add_task(async function shots_summary() {
       await TestUtils.waitForCondition(() => chatPanel().isOpen, "The summary is back");
     };
   });
-  EventUtils.synthesizeMouseAtCenter(body.querySelector(".whimsy-video-chip[data-chip='transcript']"), {});
-  await TestUtils.waitForCondition(() => body.querySelector(".whimsy-video-transcript > li"), "The transcript is in");
+  await clickChip("transcript");
+  await TestUtils.waitForCondition(() => chatPanel().body.querySelector(".whimsy-video-transcript > li"), "The transcript is in");
   await shootPage("w23-video-media-1.9", browser, () => hoverVideo(browser));
   stubProvider("- 0:00 “Night trains nearly vanished from Europe.”\n- 0:01 “Then Austria bought the sleepers.”");
-  EventUtils.synthesizeMouseAtCenter(body.querySelector(".whimsy-video-chip[data-chip='quotes']"), {});
-  await TestUtils.waitForCondition(() => body.querySelectorAll(".whimsy-chat-msg[data-role='ai']:not([busy])").length == 2, "The quotes are in");
+  await clickChip("quotes");
+  await TestUtils.waitForCondition(() => chatPanel().body.querySelectorAll(".whimsy-chat-msg[data-role='ai']:not([busy])").length == 2, "The quotes are in");
   await shootPage("w23-video-key-quotes", browser, () => hoverVideo(browser));
   await closeChat();
   BrowserTestUtils.removeTab(tab);
