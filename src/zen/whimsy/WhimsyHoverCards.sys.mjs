@@ -190,11 +190,19 @@ export const WhimsyHoverCards = {
    * The popup a card shows in, for tabs and links alike: no surface, border,
    * or shadow of its own (whimsy-ai.css), only room around the card for the
    * card's shadow. Not yet in the document.
+   *
+   * Nonnative: Zen turns on widget.macos.native-popovers, which shows a
+   * panel opened against an anchor (the tab card's openPopup(tab)) as an
+   * NSPopover, with its own translucent material, tail arrow, and shadow
+   * around the card: two stacked cards. A link card opens at a screen rect,
+   * which never becomes a popover, so it looked right. Both are plain
+   * windows now (as WhimsySurface.openOver does for its panels).
    */
   createHost(doc, id) {
     const panel = doc.createXULElement("panel");
     panel.id = id;
     panel.classList.add("whimsy-hc-host-panel");
+    panel.setAttribute("nonnative", "true");
     panel.setAttribute("noautofocus", "true");
     panel.setAttribute("consumeoutsideclicks", "false");
     panel.setAttribute("animate", "false");

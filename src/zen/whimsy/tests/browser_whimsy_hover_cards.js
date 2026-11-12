@@ -535,6 +535,11 @@ add_task(async function tab_and_link_cards_look_the_same() {
     Assert.deepEqual(tabLook.content, linkLook.content, "...with the same (bare) content box");
     Assert.deepEqual(tabLook.stack, linkLook.stack, "...and the same room around the card");
     Assert.deepEqual(tabLook.attributes, linkLook.attributes, "...made the same way");
+    // Zen's widget.macos.native-popovers shows an anchored panel (the tab's)
+    // as an NSPopover with its own material, arrow, and shadow, unless it
+    // is nonnative.
+    ok(tabPanel().hasAttribute("nonnative"), "The tab's card is never a native popover");
+    ok(linkPanel().hasAttribute("nonnative"), "...nor is the link's");
     // One surface: nothing around the card paints a background, border, or shadow.
     for (const [what, look] of [["tab", tabLook], ["link", linkLook]]) {
       ok(/rgba\(0, 0, 0, 0\)|transparent/.test(look.content["background-color"]), `${what}: the popup's box has no background`);
