@@ -13,7 +13,9 @@
 //     Previews nobody asked for (resting on a search result) are read
 //     `anonymous`: in Firefox's internal thumbnail container, without the
 //     person's cookies, and never on local or private-network hosts
-//     (security M5).
+//     (security M5). The address each of their requests actually connects
+//     to must be public too, so a public name that resolves to a private
+//     address (DNS rebinding) is refused as well.
 
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
@@ -82,6 +84,70 @@ export const WhimsyAIReader = {
     return host.includes(".");
   },
 
+  /** Whether `ip` (an address a request connected to) is a public one. */
+  isPublicAddress(ip) {
+    if (!ip) {
+      return false;
+    }
+    return this.isPublicUrl(`http://${ip.includes(":") ? `[${ip}]` : ip}/`);
+  },
+
+  /**
+   * Whether `request` connected to a public address. Through a proxy the
+   * proxy resolves the name, so only a direct connection can be checked.
+   * A response with no address (from the cache) fails closed.
+   */
+  connectedPublicly(request) {
+    try {
+      if (request.QueryInterface(Ci.nsIProxiedChannel).proxyInfo) {
+        return true;
+      }
+    } catch {}
+    try {
+      return this.isPublicAddress(request.QueryInterface(Ci.nsIHttpChannelInternal).remoteAddress);
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Cancels every HTTP response loaded for the browser with `browserId` (the
+   * page, its redirects, frames, and subresources) that came from a
+   * private or local address. Returns a function that stops watching.
+   */
+  _guardConnections(browserId) {
+    const topics = ["http-on-examine-response", "http-on-examine-merged-response", "http-on-examine-cached-response"];
+    const observer = {
+      observe: subject => {
+        let channel;
+        try {
+          channel = subject.QueryInterface(Ci.nsIHttpChannel);
+        } catch {
+          return;
+        }
+        const loadInfo = channel.loadInfo;
+        let context = loadInfo?.browsingContext;
+        if (!context && loadInfo?.workerAssociatedBrowsingContextID) {
+          context = BrowsingContext.get(loadInfo.workerAssociatedBrowsingContextID);
+        }
+        if (context?.browserId != browserId) {
+          return;
+        }
+        if (!this.connectedPublicly(channel)) {
+          channel.cancel(Cr.NS_ERROR_CONNECTION_REFUSED);
+        }
+      },
+    };
+    for (const topic of topics) {
+      Services.obs.addObserver(observer, topic);
+    }
+    return () => {
+      for (const topic of topics) {
+        Services.obs.removeObserver(observer, topic);
+      }
+    };
+  },
+
   // Firefox's own internal container for background loads (page
   // thumbnails): none of the person's cookies, cleared after each read.
   anonymousContextId() {
@@ -132,7 +198,7 @@ export const WhimsyAIReader = {
       return { text: String(text ?? ""), title: "", url };
     }
     try {
-      return await this._readHidden(url, { userContextId, signal, sufficientLength, removeBoilerplate });
+      return await this._readHidden(url, { userContextId, signal, sufficientLength, removeBoilerplate, publicOnly: anonymous });
     } finally {
       if (anonymous) {
         Services.clearData.deleteDataFromOriginAttributesPattern({ userContextId });
@@ -140,8 +206,8 @@ export const WhimsyAIReader = {
     }
   },
 
-  _readHidden(url, { userContextId, signal, sufficientLength, removeBoilerplate }) {
-    return this.withHiddenPage(url, { userContextId, signal }, async browser => {
+  _readHidden(url, { userContextId, signal, sufficientLength, removeBoilerplate, publicOnly }) {
+    return this.withHiddenPage(url, { userContextId, signal, publicOnly }, async browser => {
       const actor = browser.browsingContext.currentWindowGlobal.getActor("PageExtractor");
       // Lets client-rendered pages (most logged-in apps) fill in.
       await actor.waitForPageReady(undefined, 1500);
@@ -173,6 +239,9 @@ export const WhimsyAIReader = {
    *   after it (downloads, app-protocol launches, forms, other pages) is
    *   still blocked; a page nobody sees never gets the user activation
    *   popups need.
+   * @param {boolean} [options.publicOnly] Cancel every request the page
+   *   makes (the page, redirects, frames, subresources) that connects to a
+   *   private or local address, whatever its name resolved from.
    * @param {(browser: Element) => Promise<any>} fn
    */
   async withHiddenPage(url, options = {}, fn) {
@@ -188,7 +257,7 @@ export const WhimsyAIReader = {
     }
   },
 
-  async _withHiddenPageOnce(url, { userContextId = 0, signal, messageManagerGroup = "headless-browsers", sandbox = true } = {}, fn) {
+  async _withHiddenPageOnce(url, { userContextId = 0, signal, messageManagerGroup = "headless-browsers", sandbox = true, publicOnly = false } = {}, fn) {
     if (!this.isReadableUrl(url)) {
       throw new Error("Only http(s) pages can be read");
     }
@@ -197,6 +266,7 @@ export const WhimsyAIReader = {
     let timer;
     let listener;
     let browser;
+    let unguard;
     const onAbort = () => frame.destroy();
     try {
       const win = await frame.get();
@@ -215,6 +285,9 @@ export const WhimsyAIReader = {
       browser.style.width = browser.style.minWidth = `${BROWSER_SIZE.width}px`;
       browser.style.height = browser.style.minHeight = `${BROWSER_SIZE.height}px`;
       doc.documentElement.appendChild(browser);
+      if (publicOnly) {
+        unguard = this._guardConnections(browser.browserId);
+      }
       // Match PageExtractor's capability restrictions, while retaining the
       // container's authenticated session and scripts needed for rendering.
       // wave7/security L7: and no zoommtg:/slack:/vscode: launches from a
@@ -270,6 +343,7 @@ export const WhimsyAIReader = {
       return await fn(browser);
     } finally {
       clearTimeout(timer);
+      unguard?.();
       signal?.removeEventListener("abort", onAbort);
       if (listener && browser) {
         try {
