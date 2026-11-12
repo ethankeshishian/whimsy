@@ -1,7 +1,16 @@
 # Fast checks to run before spending build time. Run from the repo root:
-#   python3 whimsy/precheck.py            # files changed vs HEAD
-#   python3 whimsy/precheck.py --all-ids  # also check every l10n id in src/
-# Exits non-zero on any problem and says which build is needed.
+#   python3 whimsy/precheck.py             # files changed vs HEAD
+#   python3 whimsy/precheck.py --since REF # files changed since REF (a lane's merge)
+#   python3 whimsy/precheck.py --all       # no per-file checks; build = full
+#   python3 whimsy/precheck.py --all-ids   # also check every l10n id in src/
+# Exits non-zero on any problem and says which build is needed, as a line
+#   BUILD: faster|backend|binaries|full
+# that whimsy/tools/lane.sh reads. Always, whatever changed: every
+# whimsy-*.patch must apply after Zen's patch (whimsy/tools/patchtools.py),
+# every chrome://, resource:// and moz-src:/// URL in Whimsy's code must name
+# a packaged file (whimsy/tools/urlcheck.py), and overlay.py check must pass.
+# $WHIMSY_ROOT runs the checks against another checkout (the one with the
+# engine) when this file lives in a worktree.
 import glob
 import os
 import re
@@ -9,12 +18,23 @@ import subprocess
 import sys
 import xml.dom.minidom
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.environ.get("WHIMSY_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
+import buildkind  # noqa: E402
+import patchtools  # noqa: E402
+import urlcheck  # noqa: E402
 os.chdir(ROOT)
 problems = []
 
 
 def changed_files():
+    if "--all" in sys.argv:
+        return []
+    if "--since" in sys.argv:
+        ref = sys.argv[sys.argv.index("--since") + 1]
+        out = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACMR", ref, "HEAD"],
+                             capture_output=True, text=True, check=True).stdout
+        return out.split()
     out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"],
                          capture_output=True, text=True, check=True).stdout
     return [line[3:].split(" -> ")[-1] for line in out.splitlines()]
@@ -181,14 +201,18 @@ def check_moved_modules():
 
 
 def needed_build(files):
-    full = [f for f in files if f in ("surfer.json", "configs/common/mozconfig") or f.startswith("configs/")]
-    native = [f for f in files if f.endswith((".patch", ".cpp", ".h", ".mm", ".idl", ".rs"))
-              or f.endswith("moz.build")]
-    if full:
-        return "FULL build (npm run build, ~1h): " + ", ".join(full[:3])
-    if native:
-        return "binaries build (cd engine && ./mach build binaries, minutes): " + ", ".join(native[:3])
-    return "front-end only (cd engine && ./mach build faster, ~2 min)"
+    """(kind, text) for a set of changed files (whimsy/tools/buildkind.py)."""
+    if "--all" in sys.argv:
+        return "full", "FULL build (nothing recorded to build on top of)"
+    return buildkind.needed(files)
+
+
+def check_patches():
+    problems.extend(patchtools.check(engine=os.path.join(ROOT, "engine")))
+
+
+def check_urls():
+    problems.extend(urlcheck.check(ROOT))
 
 
 files = changed_files()
@@ -204,6 +228,8 @@ check_app_icons(known)
 check_l10n_containers(files)
 check_owner_global()
 check_moved_modules()
+check_patches()
+check_urls()
 
 overlay = subprocess.run([sys.executable, "whimsy/overlay.py", "check"], capture_output=True, text=True)
 if overlay.returncode:
@@ -223,5 +249,7 @@ if missing_strings:
 print(f"Checked {len(files)} changed files.")
 for p in problems:
     print("PROBLEM:", p)
-print("Needs:", needed_build(files))
+kind, how = needed_build(files)
+print("Needs:", how)
+print("BUILD:", kind)
 sys.exit(1 if problems else 0)

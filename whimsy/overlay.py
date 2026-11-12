@@ -2095,6 +2095,13 @@ def apply_json_overrides(report, dry):
         # fresh clone can't build Nightly.app from surfer's default brand.
         "build": "surfer set brand release && surfer build",
         "build:ui": "surfer set brand release && surfer build --ui",
+        # W25 pipeline: the lane runner, the dev verify, the engine queue and
+        # the tooling's own tests (whimsy/tools/README.md).
+        "precheck": "python3 whimsy/precheck.py",
+        "lane": "zsh whimsy/tools/lane.sh",
+        "verify:dev": "zsh whimsy/tools/verify-dev.sh",
+        "queue": "zsh whimsy/tools/queue.sh",
+        "test:tools": "python3 -m unittest discover -s whimsy/tests -p 'test_*.py'",
     }
     if "import:strings" not in s.get("import", ""):
         s["import"] = s["import"] + " && npm run import:strings"

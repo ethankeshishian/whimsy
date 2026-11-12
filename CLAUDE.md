@@ -22,9 +22,11 @@ Each feature has a `whimsy.feature.<id>` switch. `overlay.py` turns a feature of
    - XHTML well-formedness and jar entries;
    - the app icons;
    - that no element with `data-l10n-id` is also filled by code;
+   - that every `whimsy-*.patch` applies after Zen's patch for the same file;
+   - that every `chrome://`, `resource://` and `moz-src:///` URL in Whimsy's code names a packaged file (a missing one crashes a test build with no message);
    - that `overlay.py check` passes.
 
-   It prints which build the change needs. For lint, run `cd engine && ./mach lint -l eslint <paths>` and ignore Prettier-only errors.
+   It prints which build the change needs (`BUILD: faster|backend|binaries|full`). For lint, run `cd engine && ./mach lint -l eslint <paths>` and ignore Prettier-only errors.
 2. **Sync into the engine:** `npm run import`. It applies patches, prefs and links, and copies the en-US strings. A new file under `src/` needs an import.
 3. **Build:** pick the smallest one.
    - JS, CSS, FTL or XHTML only: `cd engine && ./mach build faster` (minutes).
@@ -32,7 +34,8 @@ Each feature has a `whimsy.feature.<id>` switch. `overlay.py` turns a feature of
    - `surfer.json`, `configs/` or mozconfig: `npm run build`. sccache is on, so after the first build this takes less than an hour.
 4. **Verify:** `sh whimsy/verify.sh`, or `quick` for Whimsy tests and screenshots only. Read the PNGs in `.surfer/shots/`. Gecko draws them itself, so no Screen Recording permission is needed.
 5. **Install:** `npm run build` and `build:ui` stage the app via the updater automatically. After `mach build faster`, run `npm run install:app`. It installs right away if Whimsy is closed, otherwise when it next quits, and keeps the old app for rollback.
-6. **Ship (every finished change):** commit on `dev`, then `npm run ship`. It builds, runs `verify.sh quick`, pushes `dev`, installs here, and publishes to the Dev channel in the background (`logs/publish-dev.log`). It never merges Zen (the nightly does) and never publishes to Release.
+6. **Ship (every finished change):** commit on `dev`, then `whimsy/tools/ship.sh` (refuses unless the full verify of exactly that commit is green; it runs `npm run ship` as a queue ticket). It builds, runs `verify.sh quick`, pushes `dev`, installs here, and publishes to the Dev channel in the background (`logs/publish-dev.log`). It never merges Zen (the nightly does) and never publishes to Release.
+   **Lanes:** work on a `lane/<wave>-<name>` branch in a worktree and land it with `npm run lane -- land <name>`: it merges onto `dev` (derived files merge through drivers), runs the precheck, imports, builds the smallest build, lints, runs the lane's tests, and fast-forwards `dev` only on green, then queues the full verify. Everything that touches the engine goes through the queue (`whimsy/tools/lock.sh CMD`). See `whimsy/tools/README.md`.
 7. **Release (when dev is ready for everyone):** after a ship, run the full `sh whimsy/verify.sh` (it records the result in `.surfer/verify/verified.json`), then `npm run promote` (or `npm run promote -- <commit>`). It moves the annotated `release` tag there and pushes it; the nightly publishes it.
 
 ## Branches and channels

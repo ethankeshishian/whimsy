@@ -18,14 +18,21 @@ which src/ can't patch as text). Runs at the end of `npm run import`.
   folder of Mozilla help and community links.
 - legacy: small text fixes in Firefox's own files (ENGINE_TEXT_FIXES), each
   applied only while Firefox's original text is still there.
+- The engine files this script rewrites are listed in
+  .surfer/engine-overrides.json and restored from the engine's git HEAD at
+  the start of the next run, so a text fix from one lane never stays in the
+  engine when another lane is imported (W24: uifix2's @import of a sheet the
+  next lane didn't have crashed every test of that lane at startup).
 """
 import glob
 import json
 import os
 import re
 import shutil
+import subprocess
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.environ.get("WHIMSY_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LEDGER = os.path.join(ROOT, ".surfer", "engine-overrides.json")
 CERT = os.path.join(ROOT, "whimsy", "signing", "whimsy-mar.der")
 UPDATER = os.path.join(ROOT, "engine", "toolkit", "mozapps", "update", "updater")
 BUILTIN_ADDONS = ["src/zen/whimsy/cookie-banners"]
@@ -265,6 +272,45 @@ def apply_engine_text_fixes():
     print(f"engine_overrides: Firefox text fixes ({changed} applied)")
 
 
+def text_fix_paths():
+    return sorted({rel for _id, rel, _old, _new, _why in ENGINE_TEXT_FIXES})
+
+
+def tracked_in_engine(rels):
+    """Those of rels that the engine's git tracks (restorable from HEAD)."""
+    engine = os.path.join(ROOT, "engine")
+    if not rels or not os.path.exists(os.path.join(engine, ".git")):
+        return []
+    r = subprocess.run(["git", "-C", engine, "ls-files", "--error-unmatch", "--", *rels],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        return list(rels)
+    return [rel for rel in rels if subprocess.run(["git", "-C", engine, "ls-files", "--error-unmatch", "--", rel],
+                                                  capture_output=True).returncode == 0]
+
+
+def restore_previous_overrides():
+    """Put back Firefox's text for every engine file the last run rewrote."""
+    try:
+        with open(LEDGER) as f:
+            previous = json.load(f).get("paths", [])
+    except (OSError, ValueError):
+        previous = []
+    engine = os.path.join(ROOT, "engine")
+    rels = [rel for rel in tracked_in_engine(previous) if os.path.exists(os.path.join(engine, rel))]
+    if rels:
+        subprocess.run(["git", "-C", engine, "checkout", "-q", "--", *rels], check=True)
+    print(f"engine_overrides: restored {len(rels)} engine file(s) from the last run's ledger")
+
+
+def record_overrides(paths):
+    os.makedirs(os.path.dirname(LEDGER), exist_ok=True)
+    with open(LEDGER + ".tmp", "w") as f:
+        json.dump({"paths": sorted(set(paths)), "note": "engine files whimsy/engine_overrides.py rewrites; "
+                   "restored from engine HEAD before the next import"}, f, indent=2)
+    os.replace(LEDGER + ".tmp", LEDGER)
+
+
 # wave7/ux: the private page said data goes "when you close all your
 # private windows", but Whimsy's private tabs and Scratch live in normal
 # windows and are wiped when the last private tab closes (WhimsyPrivate).
@@ -307,10 +353,15 @@ def main():
         shutil.copyfile(CERT, path)
         changed += 1
     print(f"engine_overrides: updater trusts Whimsy's certificate ({changed} files updated)")
+    restore_previous_overrides()
     copy_builtin_addons()
     override_branding_prefs()
     override_default_bookmarks()
     apply_engine_text_fixes()
+    # Not the branding prefs files: surfer writes those during import, before
+    # this runs, and restoring them would drop its lines.
+    touched = text_fix_paths() + ["browser/base/content/default-bookmarks.html"]
+    record_overrides(tracked_in_engine(touched))
 
 
 if __name__ == "__main__":
