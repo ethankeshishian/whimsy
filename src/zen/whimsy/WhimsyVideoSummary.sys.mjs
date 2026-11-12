@@ -176,7 +176,7 @@ export const WhimsyVideoSummary = {
       l10nId: "whimsy-video-summarize-command",
       icon: ICON,
       run: w => this.summarizeSelected(w),
-      isAvailable: w => this.enabled && !lazy.WhimsyAIContext.isPrivate(w.gBrowser.selectedTab),
+      isAvailable: w => this.enabled && lazy.WhimsyCommands.hasPage(w) && !lazy.WhimsyAIContext.isPrivate(w.gBrowser.selectedTab),
     });
     if (this._registered) {
       return;

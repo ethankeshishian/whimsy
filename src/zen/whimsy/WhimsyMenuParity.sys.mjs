@@ -102,6 +102,7 @@ function commandSpecs() {
       icon: ICON("text-title-case"),
       run: w => WhimsyMenuParity.startRename(w, currentTab(w)),
       isAvailable: w =>
+        lazy.WhimsyCommands.hasTab(w) &&
         !!w.gZenTabRenamer &&
         Services.prefs.getBoolPref("zen.tabs.rename-tabs", true) &&
         !!w.gZenVerticalTabsManager?._prefsSidebarExpanded &&
@@ -163,11 +164,11 @@ function commandSpecs() {
       variants: [
         {
           l10nId: "whimsy-action-mute-tab",
-          isAvailable: w => !currentSplit(w) && !currentTab(w).hasAttribute("muted"),
+          isAvailable: w => lazy.WhimsyCommands.hasTab(w) && !currentSplit(w) && !currentTab(w).hasAttribute("muted"),
         },
         {
           l10nId: "whimsy-action-unmute-tab",
-          isAvailable: w => !currentSplit(w) && currentTab(w).hasAttribute("muted"),
+          isAvailable: w => lazy.WhimsyCommands.hasTab(w) && !currentSplit(w) && currentTab(w).hasAttribute("muted"),
         },
       ],
     },
