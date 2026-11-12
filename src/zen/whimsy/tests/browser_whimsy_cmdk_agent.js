@@ -120,17 +120,121 @@ add_task(async function website_requests_get_the_row_in_actions_mode_too() {
   await typeInBar("find my iphone");
   ok(!agentRow(), "A short search stays a search");
   await closeBar();
+});
 
-  // ⌘K with text selected opens Actions mode; a request still gets the row.
-  await typeInBar("x");
-  const searching = UrlbarTestUtils.promiseSearchComplete(window);
-  const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
-  gURLBar.searchMode = { source: UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, isPreview: false };
-  gURLBar.value = "go to wikipedia.org and summarize the eiffel tower article";
-  gURLBar.startQuery({ allowAutofill: false, event: new Event("input") });
-  await searching;
-  await TestUtils.waitForCondition(() => agentRow(), "Do this is up in Actions mode");
-  await closeBar();
+// ---- W26: the real ⌘K (Actions mode), nothing selected and with text selected ----
+
+const { WhimsyVerbs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVerbs.sys.mjs");
+const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
+const YOUTUBE = n => `data:text/html,<title>YouTube - video ${n}</title><p>video ${n}`;
+const WIKI = "go to wikipedia.org find the eiffel tower article, and summarize its history in three bullets";
+
+/** The real ⌘K: its Actions mode, with a verb session. */
+async function cmdK() {
+  WhimsyVerbs.sessions.delete(window);
+  gBrowser.selectedBrowser.focus();
+  EventUtils.synthesizeKey("k", { accelKey: true });
+  await TestUtils.waitForCondition(() => WhimsyVerbs.sessions.get(window) && gURLBar.focused, "⌘K opened Actions");
+  await gURLBar.lastQueryContextPromise;
+  is(gURLBar.searchMode?.source, UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, "The bar is in Actions mode");
+}
+
+/** Types `text` into the open Actions bar with real keys. */
+async function typeInActions(text) {
+  for (let i = 0; i < 3 && gURLBar.value != text; i++) {
+    gURLBar.select();
+    const done = UrlbarTestUtils.promiseSearchComplete(window);
+    EventUtils.sendString(text);
+    await done;
+  }
+  await TestUtils.waitForCondition(() => gURLBar.value == text, `typed "${text}"`);
+  await gURLBar.lastQueryContextPromise;
+}
+
+async function selectHeading(browser) {
+  await SpecialPowers.spawn(browser, [], () => {
+    const range = content.document.createRange();
+    range.selectNodeContents(content.document.querySelector("h1"));
+    content.getSelection().removeAllRanges();
+    content.getSelection().addRange(range);
+  });
+}
+
+async function clearSelection(browser) {
+  await SpecialPowers.spawn(browser, [], () => content.getSelection().removeAllRanges());
+}
+
+const verbRows = () => rows().filter(r => r.getAttribute("dynamicType")?.startsWith("whimsy-verb"));
+const verbRow = id => verbRows().find(r => r.result?.payload.whimsyVerb == id) ?? null;
+
+add_task(async function cmdk_tab_request_is_the_top_row_then_undo() {
+  await freshAgent();
+  const browser = gBrowser.selectedBrowser;
+  for (const selected of [false, true]) {
+    const tabs = [await BrowserTestUtils.openNewForegroundTab(gBrowser, YOUTUBE(1)), await BrowserTestUtils.openNewForegroundTab(gBrowser, YOUTUBE(2))];
+    await BrowserTestUtils.switchTab(gBrowser, gBrowser.getTabForBrowser(browser));
+    const before = gBrowser.tabs.length;
+    if (selected) {
+      await selectHeading(browser);
+    }
+    await cmdK();
+    is(WhimsyVerbs.sessions.get(window)?.kind, selected ? "selection" : "page", selected ? "With text selected" : "With nothing selected");
+    await typeInActions("close all my youtube tabs");
+    const top = await TestUtils.waitForCondition(() => rows()[0], "A row is up");
+    is(top.result?.payload.whimsyVerb, "typed:tabs-close", "The tab request is the top row");
+    is(top.querySelector(".urlbarView-title").textContent, "Close 2 “youtube” tabs", "and says what will happen");
+    ok(top.hasAttribute("selected"), "It's selected, so Enter does it");
+    ok(!agentRow(), "No Do this row beside it (one top row)");
+    ok(!verbRow("ask") && !verbRow("web-search"), "No Ask or Search with Google rows");
+    is(gBrowser.tabs.length, before, "Nothing has changed yet");
+
+    EventUtils.synthesizeKey("KEY_Enter");
+    await TestUtils.waitForCondition(() => tabs.every(t => !t.isConnected), "Enter closed them");
+    await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "The bar closed");
+    ok(!gURLBar.searchMode, "and left Actions mode");
+    const undo = await TestUtils.waitForCondition(() => document.getElementById("whimsy-undo-toast-button"), "The toast offers Undo");
+    undo.click();
+    await TestUtils.waitForCondition(() => gBrowser.tabs.length == before, "Undo restored them");
+    for (const t of [...gBrowser.tabs].filter(t => /YouTube/.test(t.label))) {
+      BrowserTestUtils.removeTab(t);
+    }
+    if (selected) {
+      await clearSelection(browser);
+    }
+    closeToasts();
+  }
+});
+
+add_task(async function cmdk_request_gets_do_this_then_the_plan() {
+  await freshAgent();
+  const browser = gBrowser.selectedBrowser;
+  for (const selected of [false, true]) {
+    if (selected) {
+      await selectHeading(browser);
+    }
+    await cmdK();
+    await typeInActions(WIKI);
+    const row = await TestUtils.waitForCondition(() => agentRow(), "Do this is up in Actions mode");
+    is(rows()[0], row, "and it's the top row");
+    ok(row.hasAttribute("selected"), "selected, so Enter does it");
+    is(row.querySelector(".whimsy-cmdk-row-key").textContent, "↩︎", "with its key hint");
+    ok(!verbRow("ask") && !askRow(), "No Ask row beside it (one top row)");
+    ok(!verbRows().some(r => r.hasAttribute("selected")), "No action row is selected too");
+    ok(verbRow("web-search"), "The web search stays, as the last row");
+    is(rows().at(-1).result?.payload.whimsyVerb, "web-search", "after everything else");
+
+    EventUtils.synthesizeKey("KEY_Enter");
+    await TestUtils.waitForCondition(() => planCard()?.querySelector(".whimsy-cmdk-step") && control("approve"), "The plan with Approve is up");
+    is(gURLBar.searchMode?.source, UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, "still in Actions mode");
+    is(document.activeElement, gURLBar.inputField, "Focus stays in the request field");
+    EventUtils.synthesizeKey("KEY_Escape");
+    await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "Esc cancelled the plan");
+    ok(!gURLBar.searchMode, "and left Actions mode");
+    ok(!WhimsyCommandBarAgent.state(window), "Nothing is planned");
+    if (selected) {
+      await clearSelection(browser);
+    }
+  }
 });
 
 add_task(async function one_step_confirm_then_undo() {

@@ -54,6 +54,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIHints: "resource:///modules/whimsy/WhimsyAIHints.sys.mjs",
   WhimsyAIViewShare: "resource:///modules/whimsy/WhimsyAIViewShare.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyCommandBarAgent: "resource:///modules/whimsy/WhimsyCommandBarAgent.sys.mjs",
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
   WhimsyDictation: "resource:///modules/whimsy/WhimsyDictation.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
@@ -1058,14 +1059,36 @@ export const WhimsyVerbs = {
   },
 
   /**
+   * W26: ⌘K with no page to act on (an empty space, a settings or other
+   * privileged page) is still Actions: the commands that apply there
+   * (Zen's list, through its own provider), a tab request typed in, and
+   * the ⌘K agent's row. Never the web search, and no page rows.
+   */
+  emptySubject(win) {
+    const tab = win.gBrowser?.selectedTab;
+    const url = tab?.linkedBrowser?.currentURI?.spec ?? "";
+    return { kind: "page", web: false, text: "", markdown: "", url, title: tab?.label ?? "", event: null, groups: [] };
+  },
+
+  /**
    * Cmd+K: with text selected, its verbs (Search first); otherwise exactly
    * Firefox's Cmd+K, the web search. With AI on in a normal tab, the
-   * context-aware menu (WhimsyContextCommands), selection or not.
+   * context-aware menu (WhimsyContextCommands), selection or not. With
+   * no page at all (W26), Actions with what applies there.
    */
   async openFromKey(win, { textOnly = false } = {}) {
-    const subject = this.enabled ? await this.subjectFor(win) : null;
-    const aware = !!subject && contextOn(win);
-    if (subject?.kind != "selection" && !aware) {
+    if (!this.enabled) {
+      this.search(win);
+      return null;
+    }
+    const subject = await this.subjectFor(win);
+    if (!subject) {
+      const empty = this.emptySubject(win);
+      await this.start(win, empty);
+      return empty;
+    }
+    const aware = contextOn(win);
+    if (subject.kind != "selection" && !aware) {
       this.search(win);
       return null;
     }
@@ -1087,6 +1110,20 @@ export const WhimsyVerbs = {
   /** The ⌘K groups for a subject and the view's share (cmd dec-11). */
   rank(subject, viewShare, win = lazy.BrowserWindowTracker.getTopWindow()) {
     return WhimsyContextCommands.rank(win, subject, viewShare);
+  },
+
+  /**
+   * The urlbar priority of the window's ⌘K session: 10 on a page (the
+   * verbs are the bar's only rows), 0 with no page (Zen's actions list
+   * beside them), and null with no session. The ⌘K agent's provider
+   * matches it so its row can lead in Actions mode.
+   */
+  sessionPriority(win) {
+    const subject = win && this.sessions.get(win);
+    if (!subject) {
+      return null;
+    }
+    return subject.web === false ? 0 : 10;
   },
 
   /**
@@ -1182,7 +1219,7 @@ export const WhimsyVerbs = {
     win.windowUtils.loadSheetUsingURIString("chrome://browser/content/whimsy/whimsy-cmdk.css", win.windowUtils.AUTHOR_SHEET);
     lazy.WhimsyAIHints.register({
       id: "context-commands",
-      isVisible: w => !!this.sessions.get(w)?.groups && !!w.gURLBar?.view.isOpen,
+      isVisible: w => !!this.sessions.get(w)?.groups?.length && !!w.gURLBar?.view.isOpen,
     });
     const shortcuts = lazy.WhimsyShortcuts;
     // The command bar's "Actions for Selection" (selection or page verbs)
@@ -1487,9 +1524,10 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
   }
 
   // Above Zen's actions (0) and recent tabs (2): while a verb session is
-  // on, the bar lists only the verbs.
+  // on, the bar lists only the verbs. With no page (W26) there are no
+  // verbs: Zen's actions list alongside, at its own priority.
   getPriority() {
-    return 10;
+    return WhimsyVerbs.sessionPriority(this.#session()?.win) ?? 10;
   }
 
   #session() {
@@ -1590,10 +1628,17 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
       return;
     }
     // W23 page-act: rows built from the typed words ("Change this page:
-    // …", "Close 3 YouTube tabs") lead.
-    const typed = WhimsyVerbs.typedRowsFor(lazy.BrowserWindowTracker.getTopWindow(), query.trim());
+    // …", "Close 3 YouTube tabs") lead. W26 (tab-commands.html K.1, K.3):
+    // one top row for a request, whatever the subject. A reversible tab
+    // request is that row (Enter does it, Undo in the toast); anything
+    // bigger is the ⌘K agent's Do this row, from its own provider
+    // (WhimsyCmdkProvider), so none of these rows is the heuristic then.
+    const win = lazy.BrowserWindowTracker.getTopWindow();
+    const text = query.trim();
+    const typed = WhimsyVerbs.typedRowsFor(win, text);
     subject.typed = new Map(typed.map(row => [row.id, row]));
-    let first = true;
+    const agent = !typed.length && lazy.WhimsyCommandBarAgent.takes(win, text);
+    let first = !agent;
     for (const row of typed) {
       addCallback(this, this.#result(subject, row, { id: "whimsy-cmdk-group-commands" }, first));
       first = false;
@@ -1603,19 +1648,24 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
       addCallback(this, this.#result(subject, row, { id: "whimsy-cmdk-group-commands" }, first && !row.unavailable));
       first &&= !!row.unavailable;
     }
-    if (!first && !typed.length) {
+    // A tab request is understood: nothing else to offer. With no page
+    // (W26) there's nothing to ask about, and never the web search.
+    if (typed.length || subject.web === false) {
       return;
     }
-    const text = query.trim();
-    const search = { id: "web-search", icon: `${ICONS}search-glass.svg`, label: text, tag: lazy.l10n.formatValueSync("whimsy-cmdk-search-with", { engine: subject.engineName || defaultEngineName(lazy.BrowserWindowTracker.getTopWindow()) }) };
-    if (!rows.length) {
-      const scope = subject.groups[0]?.kind == "video" ? "video" : "page";
-      const ask = { id: "ask", icon: SPARKLE, label: text, tag: lazy.l10n.formatValueSync(scope == "video" ? "whimsy-cmdbar-ask-video" : "whimsy-cmdk-ask-page") };
-      addCallback(this, this.#result(subject, ask, { id: "whimsy-cmdk-no-match" }, first, { query: text, scope }));
-      addCallback(this, this.#result(subject, search, { id: "whimsy-cmdk-no-match" }, false, { query: text }));
+    const search = { id: "web-search", icon: `${ICONS}search-glass.svg`, label: text, tag: lazy.l10n.formatValueSync("whimsy-cmdk-search-with", { engine: subject.engineName || defaultEngineName(win) }) };
+    if (rows.length || agent) {
+      // The web search only as the last fallback: under the Do this row
+      // with nothing else matching (K.1), or when every match is greyed.
+      if (!rows.some(row => !row.unavailable)) {
+        addCallback(this, this.#result(subject, search, { id: "whimsy-cmdk-group-search" }, false, { query: text }));
+      }
       return;
     }
-    addCallback(this, this.#result(subject, search, { id: "whimsy-cmdk-group-search" }, false, { query: text }));
+    const scope = subject.groups[0]?.kind == "video" ? "video" : "page";
+    const ask = { id: "ask", icon: SPARKLE, label: text, tag: lazy.l10n.formatValueSync(scope == "video" ? "whimsy-cmdbar-ask-video" : "whimsy-cmdk-ask-page") };
+    addCallback(this, this.#result(subject, ask, { id: "whimsy-cmdk-no-match" }, first, { query: text, scope }));
+    addCallback(this, this.#result(subject, search, { id: "whimsy-cmdk-no-match" }, false, { query: text }));
   }
 
   getViewTemplate(result) {
