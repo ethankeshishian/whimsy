@@ -490,6 +490,24 @@ def packaged(app_path):
     raise RuntimeError("mach package produced no packaged Whimsy.app")
 
 
+def sign_stable(app):
+    """Sign a build installed on this Mac with Whimsy's stable identity
+    (whimsy/signing/sign.sh), as publish.py signs the DMG and .mar. mach
+    package signs ad-hoc, and an ad-hoc signature's designated requirement
+    is the cdhash, so every local update looked like a new app and the
+    keychain asked for the login password again. Without the identity here
+    the build keeps its ad-hoc signature, with a warning: staging still
+    works, it just prompts once more."""
+    repo = config().get("repo") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sign = os.path.join(repo, "whimsy", "signing", "sign.sh")
+    if not os.path.exists(sign) or subprocess.run(["sh", sign, "--check"], capture_output=True).returncode:
+        log("Staged with an ad-hoc signature: Whimsy's signing identity isn't set up on this Mac, "
+            "so the keychain will ask for the login password after this update")
+        return
+    sh(["sh", sign, app], quiet=True)
+    sh(["/usr/bin/codesign", "--verify", "--deep", "--strict", app], quiet=True)
+
+
 def stage(app_path, meta, info=None):
     """Copy the packaged app for a build into staged/ (never a dev bundle)."""
     app_path = packaged(app_path)
@@ -500,6 +518,7 @@ def stage(app_path, meta, info=None):
                     ignore=shutil.ignore_patterns(".DS_Store"))
     if info:
         version.write_bundle(tmp, info)
+    sign_stable(tmp)
     shutil.rmtree(STAGED, ignore_errors=True)
     os.replace(tmp, STAGED)
     meta = dict(meta, id=uuid.uuid4().hex, staged_at=now())
