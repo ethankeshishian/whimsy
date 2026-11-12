@@ -564,11 +564,14 @@ async function atPanelWidth(width) {
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 }
 
-// Elements that hold their own text, measured on the nearest box that can
-// clip it (an inline span has no client box of its own).
+// Control labels (buttons, segments, tabs) that hold their own text,
+// measured on the nearest box that can clip it (an inline span has no client
+// box of its own). A page title may ellipse by design; a control's label may
+// not.
 function clippedLabels(root) {
   const out = [];
-  for (const node of root.querySelectorAll("*")) {
+  const controls = "button, [role='button'], [role='radio'], [role='tab'], [role='menuitem']";
+  for (const node of root.querySelectorAll(`:is(${controls}), :is(${controls}) *`)) {
     const text = [...node.childNodes].filter(n => n.nodeType == Node.TEXT_NODE).map(n => n.data).join("").trim();
     if (!text || !node.checkVisibility({ visibilityProperty: true })) {
       continue;
@@ -612,8 +615,8 @@ add_task(async function mode_switch_labels_never_clip() {
   await closeAll(tab);
 });
 
-// The general guard: no visible label in the chat panel's header or model
-// line (where the switch sits) is truncated at the default width.
+// The general guard: no visible control label in the chat panel's header or
+// model line (where the switch sits) is truncated at the default width.
 add_task(async function chat_header_labels_never_truncate() {
   await fresh();
   const tab = await openOn();
