@@ -164,6 +164,9 @@ export const SETTINGS = [
     when: aiAllowed },
   { name: "ask-on-page", setting: "whimsyAIAskOnPage", pref: "whimsy.feature.ask-on-page", feature: ["ai-providers"],
     when: aiAllowed },
+  // W24 chat hover: open the chat panel at the window edge.
+  { name: "chat-edge-hover", setting: "whimsyAIChatHover", pref: "whimsy.ai.chat.edge-hover", feature: ["ai-providers"],
+    when: aiAllowed },
   { name: "link-previews", setting: "whimsyAILinkPreviews", pref: "whimsy.feature.link-previews",
     feature: ["ai-providers"], when: aiAllowed },
   { name: "page-watch", setting: "whimsyAIPageWatch", pref: "whimsy.feature.page-watch", feature: ["ai-providers"],
@@ -249,6 +252,9 @@ export const SETTINGS = [
     ] },
 
   // Tab Management
+  // W24: tab numbers while holding Command.
+  { name: "cmd-tab-numbers", setting: "whimsyCmdTabNumbers", pref: "whimsy.feature.cmd-tab-numbers",
+    feature: ["cmd-tab-numbers"] },
   { name: "new-tab-below", setting: "whimsyNewTabBelow", pref: "browser.tabs.insertAfterCurrent",
     feature: ["new-tab-position"] },
   { name: "new-tab-in-folder", setting: "whimsyNewTabInFolder", pref: "zen.folders.owned-tabs-in-folder",
