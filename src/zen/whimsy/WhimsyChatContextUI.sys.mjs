@@ -26,6 +26,7 @@ const ICONS = "chrome://browser/content/whimsy/icons/";
 const EASE = "cubic-bezier(0.075, 0.82, 0.165, 1)";
 const REDACTED = /\[(card number|secret|hidden)\]/g;
 const FILE_CHARS = 200000;
+const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
 const KIND_ICON = {
   text: `${ICONS}text-chip.svg`,
   images: `${ICONS}image-chip.svg`,
@@ -279,15 +280,26 @@ export const WhimsyChatContextUI = {
   chip(panel, chip) {
     const { doc } = panel;
     const counts = chip.counts ?? {};
+    // W25 designfix: a tab leads with its own favicon (Firefox's default
+    // one when the page has none); All my tabs keeps its tabs icon.
+    const mark = chip.icon || (chip.kind == "tab" || chip.kind == "pane" ? DEFAULT_FAVICON : KIND_ICON.text);
     const lead =
-      chip.icon && !/^chrome:\/\/browser\/content\/whimsy\/icons\//.test(chip.icon)
-        ? h(doc, "img", { class: "whimsy-chat-chip-mark", src: chip.icon, alt: "" })
-        : icon(doc, chip.icon || KIND_ICON.text, "whimsy-chat-chip-mark");
+      !/^chrome:\/\/browser\/content\/whimsy\/icons\//.test(mark)
+        ? h(doc, "img", { class: "whimsy-chat-chip-mark", src: mark, alt: "" })
+        : icon(doc, mark, "whimsy-chat-chip-mark");
     const label =
       chip.kind == "tab" ? h(doc, "span", { class: "whimsy-chat-chip-label", l10n: "whimsy-chat-chip-this-tab" })
         : chip.kind == "tabs" ? h(doc, "span", { class: "whimsy-chat-chip-label", l10n: "whimsy-chat-chip-all-tabs" })
           : h(doc, "span", { class: "whimsy-chat-chip-label" }, chip.label ?? "");
-    const count = (kind, n) => h(doc, "span", { class: "whimsy-chat-chip-count", "data-kind": kind }, icon(doc, KIND_ICON[kind]), n ? String(n) : "");
+    // The contents as one quiet line ("60 images"), words not glyphs; the
+    // full breakdown stays in the body's tooltip (whimsy-chat-chip-words).
+    const count = (kind, n) => h(doc, "span", { class: "whimsy-chat-chip-count", "data-kind": kind, l10n: ["whimsy-chat-chip-count", { kind: n && kind == "text" ? "pages" : kind, count: n || 0 }] });
+    const summary = [
+      counts.text && chip.kind != "tabs" ? count("text", chip.kind == "file" || chip.kind == "pdf" ? counts.pages : 0) : null,
+      counts.images ? count("images", counts.images) : null,
+      counts.videos ? count("videos", counts.videos) : null,
+      chip.kind == "tabs" ? count("tabs", counts.pages) : null,
+    ].filter(Boolean);
     return h(
       doc,
       "span",
@@ -309,10 +321,7 @@ export const WhimsyChatContextUI = {
         lead,
         label,
         chip.live ? h(doc, "span", { class: "whimsy-chat-chip-live", "aria-hidden": "true" }) : null,
-        counts.text && chip.kind != "tabs" ? count("text", chip.kind == "file" || chip.kind == "pdf" ? counts.pages : 0) : null,
-        counts.images ? count("images", counts.images) : null,
-        counts.videos ? count("videos", counts.videos) : null,
-        chip.kind == "tabs" ? count("tabs", counts.pages) : null
+        summary.length ? h(doc, "span", { class: "whimsy-chat-chip-summary", "aria-hidden": "true" }, ...summary) : null
       ),
       h(doc, "button", { class: "whimsy-chat-chip-x", l10n: ["whimsy-chat-chip-remove", { label: chip.label ?? "" }], onclick: () => this.removeChip(panel.win, chip.id) }, icon(doc, "chrome://browser/skin/zen-icons/close.svg"))
     );

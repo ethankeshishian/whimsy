@@ -5445,6 +5445,27 @@ whimsy-chat-chip-words =
         [one] {", "}1 page
        *[other] {", "}{ $pages } pages
     }. Show what AI sees
+# One part of a chip's contents line, after its name. $kind is text,
+# images, videos, pages, or tabs; $count how many.
+whimsy-chat-chip-count = { $kind ->
+        [images] { $count ->
+            [one] 1 image
+           *[other] { $count } images
+        }
+        [videos] { $count ->
+            [one] 1 video
+           *[other] { $count } videos
+        }
+        [pages] { $count ->
+            [one] 1 page
+           *[other] { $count } pages
+        }
+        [tabs] { $count ->
+            [one] 1 tab
+           *[other] { $count } tabs
+        }
+       *[text] text
+    }
 whimsy-chat-chip-remove =
     .title = Leave out of this chat
     .aria-label = Leave { $label } out of this chat

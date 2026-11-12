@@ -13,14 +13,18 @@
   object-fit: contain;
 }
 
-/* ---- Chips ---- */
+/* ---- Chips ----
+   W25 designfix: a context chip is the composer's Add chip
+   (.whimsy-chat-chip-add below): the same 26px height, 13px radius, hairline,
+   12px regular type, hover, and focus ring. It leads with the source's mark
+   (a tab's favicon), then its name, then one quiet line of contents. */
 .whimsy-chat-chip {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
   height: 26px;
   border-radius: 13px;
-  background: var(--whimsy-chat-track);
+  background: transparent;
   box-shadow: inset 0 0 0 0.5px var(--whimsy-chat-hairline);
   font-size: 12px;
   &[live] {
@@ -71,20 +75,17 @@
 }
 .whimsy-chat-chip-label {
   overflow: hidden;
-  font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.whimsy-chat-chip-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+.whimsy-chat-chip-summary {
+  flex: none;
   color: var(--whimsy-chat-muted);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  & > .whimsy-chat-icon {
-    width: 12px;
-    height: 12px;
-  }
+}
+.whimsy-chat-chip-count + .whimsy-chat-chip-count::before {
+  content: " · ";
 }
 .whimsy-chat-chip-live {
   width: 6px;
@@ -1053,27 +1054,49 @@
   letter-spacing: 0.04em;
 }
 
-/* W24 memexpand (was chat-4.4): the disclosure shared by "Used N memories"
-   and "Saved N facts": a chevron that rotates open, and the list it
-   reveals in place. */
-.whimsy-chat-disclosure {
+/* The chat's one disclosure: the agent's (agent steps, W23) and memory's
+   "Used N memories" and "Saved N facts" (W24 memexpand, BUGS.md #14), so
+   all wear one component: a 12px stroked chevron before the label, the
+   accent colour, a focus ring, and a rotation that reduced motion drops.
+   W24 agentdone (bug 9d): the stroked chevron, since the filled arrow
+   read as an odd curve once rotated at 12px. */
+:is(.whimsy-agent-disclose, .whimsy-chat-disclosure) {
   display: inline-flex;
   align-items: center;
+  align-self: flex-start;
   gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--whimsy-chat-accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  &::before {
+    content: "";
+    display: inline-block;
+    flex: none;
+    width: 12px;
+    height: 12px;
+    background: url("chrome://browser/content/whimsy/icons/chevron-down.svg") center / contain no-repeat;
+    -moz-context-properties: fill, fill-opacity, stroke, stroke-opacity;
+    fill: currentColor;
+    stroke: currentColor;
+    transition: rotate var(--whimsy-dur-fast) var(--whimsy-ease, ease);
+  }
+  &[aria-expanded="false"]::before {
+    rotate: -90deg;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-chat-focus);
+    border-radius: 4px;
+  }
 }
-.whimsy-chat-disclosure::after {
-  content: "";
-  width: 10px;
-  height: 10px;
-  background: url("chrome://browser/content/whimsy/icons/chevron-down.svg") center / contain no-repeat;
-  -moz-context-properties: fill, stroke;
-  fill: currentColor;
-  stroke: currentColor;
-  rotate: -90deg;
-  transition: rotate 150ms cubic-bezier(0.2, 0, 0, 1);
-}
-.whimsy-chat-disclosure[aria-expanded="true"]::after {
-  rotate: 0deg;
+@media (prefers-reduced-motion: reduce) {
+  :is(.whimsy-agent-disclose, .whimsy-chat-disclosure)::before {
+    transition: none;
+  }
 }
 .whimsy-chat-memory-list {
   display: grid;

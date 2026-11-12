@@ -14,6 +14,9 @@
   --whimsy-dur-fast: 150ms;
   --whimsy-dur-base: 240ms;
   --whimsy-dur-exit: 180ms;
+  /* The one live/error red: chat's errors and every "live" dot (Granola's
+     card and its tab dot). whimsy-chat.css's --whimsy-chat-error is this. */
+  --whimsy-live-red: light-dark(rgb(200, 55, 45), rgb(255, 122, 110));
 
   /* W24 chatmotion: a sliding panel (the chat) matches the tabs sidebar's
      own compact-mode show/hide motion exactly, speed and ease both. These
@@ -2056,13 +2059,31 @@ tab[whimsy-devmode][selected] {
   /* The native panel view owns the inset; its wrapper owns section gaps. */
   padding: 0;
 }
-.whimsy-vpn-panel-group {
-  /* Align the caption and segmented control with the other section edges. */
-  padding: 0;
+/* W25 designfix: "Use VPN in" is a card like Firefox's status card above
+   it. One rule with that container's own tokens
+   (ipprotection-status-box.css #content-container and #title): the same
+   border, radius, background for the state, inner padding, and title
+   spacing, so its title and control sit inset like the card's. */
+.whimsy-vpn-panel-section > .whimsy-vpn-panel-group {
+  gap: 0;
+  border: var(--border-width) solid var(--card-border-color);
+  border-radius: var(--border-radius-medium);
+  padding: var(--space-medium);
+  background-color: var(--background-color-box-info);
+  @media (prefers-contrast) {
+    background-color: var(--background-color-box);
+  }
+}
+.whimsy-vpn-panel-section[state="on"] > .whimsy-vpn-panel-group {
+  background-color: var(--background-color-success);
+  @media (prefers-contrast) {
+    background-color: var(--background-color-box);
+  }
 }
 .whimsy-vpn-scope-heading {
-  margin-bottom: 4px;
-  font-weight: 600;
+  margin: 0;
+  padding-bottom: var(--space-xsmall);
+  font-weight: var(--font-weight-semibold);
 }
 .whimsy-vpn-panel-section[state="paused"] #whimsy-vpn-panel-detail {
   color: var(--whimsy-vpn-paused);
@@ -2077,7 +2098,13 @@ tab[whimsy-devmode][selected] {
 
   & > .whimsy-surface-seg {
     flex: 1;
-    margin: 4px 0 2px;
+    margin: var(--space-xsmall) 0 0;
+    /* The card's own buttons' radius (moz-button), the thumb nested in it. */
+    border-radius: var(--button-border-radius);
+    & > .whimsy-surface-seg-thumb,
+    & > .whimsy-surface-segment {
+      border-radius: max(0px, calc(var(--button-border-radius) - 2px));
+    }
 
     /* A long profile name wraps to a second line before it is cut. */
     & > .whimsy-surface-segment {
@@ -7718,7 +7745,7 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: light-dark(rgb(220, 50, 40), rgb(255, 99, 88));
+  background: var(--whimsy-live-red);
   box-shadow: 0 0 0 1.5px var(--zen-colors-tertiary, Canvas);
   pointer-events: none;
   animation: whimsy-meeting-pulse 600ms ease-out 1;

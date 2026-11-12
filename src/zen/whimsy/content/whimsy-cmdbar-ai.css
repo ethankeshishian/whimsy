@@ -976,7 +976,7 @@
   }
 
   .urlbarView-row[selected] & {
-    color: rgba(255, 255, 255, 0.8);
+    color: color-mix(in srgb, var(--urlbarView-result-button-selected-color, var(--zen-accent-button-color, currentColor)) 80%, transparent);
   }
 }
 
@@ -994,7 +994,7 @@
   }
 
   .urlbarView-row[selected] & {
-    color: rgba(255, 255, 255, 0.9);
+    color: color-mix(in srgb, var(--urlbarView-result-button-selected-color, var(--zen-accent-button-color, currentColor)) 90%, transparent);
   }
 }
 
@@ -1039,15 +1039,28 @@
     background-color: var(--whimsy-ask-fail) !important;
 
     .whimsy-cmdk-row-title {
-      color: white;
+      color: var(--urlbarView-result-button-selected-color, var(--zen-accent-button-color, currentColor));
     }
   }
 }
 
-/* The tabs a one-step action will touch. */
-.tabbrowser-tab[whimsy-cmdk-ring] > .tab-stack > .tab-background {
-  outline: 2px solid var(--zen-primary-color, AccentColor);
-  outline-offset: -2px;
+/* The tabs a one-step action will touch: the approved K.3 ring
+   (gen-w24.py .w-ring), an inset 1.5px accent over a 10% tint; at 15 tabs
+   or more it turns red with the row (gen-w25.py .w-ring-red, 8% tint). */
+.tabbrowser-tab[whimsy-cmdk-ring] {
+  --whimsy-cmdk-ring: var(--zen-primary-color, AccentColor);
+  --whimsy-cmdk-ring-tint: color-mix(in srgb, var(--zen-primary-color, AccentColor) 10%, transparent);
+  &[whimsy-cmdk-ring="danger"] {
+    --whimsy-cmdk-ring: color-mix(in srgb, var(--text-color-error) 70%, transparent);
+    --whimsy-cmdk-ring-tint: color-mix(in srgb, var(--text-color-error) 8%, transparent);
+  }
+  & > .tab-stack > .tab-background {
+    box-shadow: inset 0 0 0 1.5px var(--whimsy-cmdk-ring) !important;
+    background-image: linear-gradient(var(--whimsy-cmdk-ring-tint), var(--whimsy-cmdk-ring-tint)) !important;
+  }
+  & .tab-label {
+    font-weight: 500;
+  }
 }
 
 /* The plan card: the only row while it's up. */
@@ -1143,12 +1156,14 @@
   color: var(--whimsy-ask-muted);
 }
 
+/* Chat's model button (.whimsy-chat-model-button: its hover, open, and
+   focus), at the mockup's .kp-dd size: 500 weight, muted at rest. */
 .whimsy-cmdk-drop {
   height: 24px;
   padding: 0 6px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--whimsy-ask-text-2);
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
 }
 
 .whimsy-cmdk-hint {
@@ -1171,7 +1186,7 @@
   }
 
   .whimsy-cmdbar-key {
-    border-color: rgba(255, 255, 255, 0.45);
+    border-color: color-mix(in srgb, currentColor 45%, transparent);
     color: inherit;
   }
 }
@@ -1191,7 +1206,6 @@
   max-width: calc(100% - 8px);
   max-height: none;
   margin-top: -2px;
-  background: light-dark(#f5f5f7, #2a2a2c);
 
   .whimsy-chat-option[data-active] {
     background: var(--whimsy-chat-hover);

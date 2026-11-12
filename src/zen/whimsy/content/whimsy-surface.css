@@ -14,7 +14,10 @@
    someone else's panel (This Site in Zen's site panel). */
 panel.whimsy-surface,
 .whimsy-surface-tokens,
-#ctrlTab-panel[whimsy-look] {
+#ctrlTab-panel[whimsy-look],
+#urlbar[whimsy-emoji-open],
+#whimsy-link-hover,
+#whimsy-tab-hover {
   --whimsy-surface-muted: color-mix(in srgb, currentColor 62%, transparent);
   --whimsy-surface-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
   --whimsy-surface-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));

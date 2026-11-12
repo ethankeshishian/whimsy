@@ -8,12 +8,9 @@
    urlbar view's own row selection — keyboard is handled on the input
    itself so the grid keeps its own 2-D cursor. */
 
-#urlbar {
-  --whimsy-emoji-muted: light-dark(rgba(0, 0, 0, 0.55), rgba(255, 255, 255, 0.55));
-  --whimsy-emoji-hover: color-mix(in srgb, var(--zen-branding-bg-reverse, currentColor) 7%, transparent);
-  --whimsy-emoji-selected: color-mix(in srgb, var(--zen-primary-color, #3d7bfd) 22%, transparent);
-  --whimsy-emoji-hairline: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
-}
+/* W25 designfix: the grid wears WhimsySurface's tokens (whimsy-surface.css
+   defines them on #urlbar[whimsy-emoji-open]): muted, hover, selected,
+   hairline, and the keyboard focus ring. */
 
 /* The real identity box (the loaded page's favicon) can keep showing next
    to the floating bar's input while the grid is open, since this is a
@@ -41,7 +38,7 @@
   width: 16px;
   height: 16px;
   -moz-context-properties: fill;
-  fill: var(--whimsy-emoji-muted);
+  fill: var(--whimsy-surface-muted);
   padding-inline-start: 2px;
   align-self: center;
   display: block;
@@ -74,7 +71,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: var(--whimsy-emoji-muted);
+  color: var(--whimsy-surface-muted);
 }
 
 .whimsy-emoji-grid {
@@ -101,12 +98,12 @@
   cursor: pointer;
 
   &:hover {
-    background: var(--whimsy-emoji-hover);
+    background: var(--whimsy-surface-hover);
   }
 
   &.on {
-    background: var(--whimsy-emoji-selected);
-    outline: 2px solid var(--zen-primary-color, #3d7bfd);
+    background: var(--whimsy-surface-selected);
+    outline: var(--whimsy-surface-focus);
     outline-offset: -1px;
   }
 }
@@ -115,7 +112,7 @@
   display: flex;
   gap: 4px;
   padding: 4px 2px;
-  border-top: 1px solid var(--whimsy-emoji-hairline);
+  border-top: 1px solid var(--whimsy-surface-hairline);
   margin-top: 4px;
 }
 
@@ -129,12 +126,12 @@
   cursor: pointer;
 
   &:hover {
-    background: var(--whimsy-emoji-hover);
+    background: var(--whimsy-surface-hover);
   }
 
   &.on {
-    background: var(--whimsy-emoji-selected);
-    outline: 2px solid var(--zen-primary-color, #3d7bfd);
+    background: var(--whimsy-surface-selected);
+    outline: var(--whimsy-surface-focus);
     outline-offset: -1px;
   }
 }
@@ -144,7 +141,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 2px 10px;
-  border-top: 1px solid var(--whimsy-emoji-hairline);
+  border-top: 1px solid var(--whimsy-surface-hairline);
   margin-top: 4px;
   font-size: 13px;
 }
@@ -162,7 +159,7 @@
 .whimsy-emoji-footer-keys {
   display: flex;
   gap: 12px;
-  color: var(--whimsy-emoji-muted);
+  color: var(--whimsy-surface-muted);
   font-size: 12px;
 
   & > span {
@@ -175,7 +172,7 @@
 .whimsy-emoji-footer-keys kbd {
   padding: 1px 5px;
   border-radius: 5px;
-  background: var(--whimsy-emoji-hover);
+  background: var(--whimsy-surface-hover);
   font-family: inherit;
   font-size: 11px;
 }
@@ -184,12 +181,12 @@
 .whimsy-emoji-search-web {
   padding: 10px 2px;
   font-size: 13px;
-  color: var(--whimsy-emoji-muted);
+  color: var(--whimsy-surface-muted);
 }
 
 .whimsy-emoji-search-web {
   cursor: pointer;
-  color: var(--zen-primary-color, #3d7bfd);
+  color: var(--zen-primary-color, AccentColor);
 
   &:hover {
     text-decoration: underline;

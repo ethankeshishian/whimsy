@@ -494,8 +494,10 @@ export const WhimsyCommandBarAgent = {
     }
     const st = stateOf(win);
     if (st?.phase == "confirm") {
-      for (const tab of st.options[st.index]?.tabs ?? []) {
-        tab.setAttribute("whimsy-cmdk-ring", "");
+      // K.3: at MANY_TABS or more the row turns red, and the ring with it.
+      const tabs = st.options[st.index]?.tabs ?? [];
+      for (const tab of tabs) {
+        tab.setAttribute("whimsy-cmdk-ring", tabs.length >= MANY_TABS ? "danger" : "");
       }
     }
   },
