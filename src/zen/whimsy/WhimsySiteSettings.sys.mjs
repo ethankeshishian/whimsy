@@ -489,11 +489,6 @@ export const WhimsySiteSettings = {
     section._site = site;
     let remembered = 0;
 
-    const darkRow = lazy.WhimsyDarkPages.siteRow(win, browser);
-    if (darkRow) {
-      list.append(darkRow);
-      remembered += lazy.WhimsyDarkPages.choice(browser) != "automatic" ? 1 : 0;
-    }
     list.append(this.zoomRow(win, browser, section));
 
     // Autoplay (Firefox's permission).
@@ -540,6 +535,13 @@ export const WhimsySiteSettings = {
       trailing: [autoplay.button],
     });
     list.append(autoplayRow);
+
+    // Automatic dark mode (WhimsyDarkPages), directly below Autoplay.
+    const darkRow = lazy.WhimsyDarkPages.siteRow(win, browser);
+    if (darkRow) {
+      list.append(darkRow);
+      remembered += lazy.WhimsyDarkPages.choice(browser) != "automatic" ? 1 : 0;
+    }
 
     // Reader View and Full Screen: switches. B9: Reader's does nothing on
     // a page Reader View can't open (not readerable), so it's disabled

@@ -204,6 +204,8 @@ add_task(async function cancel_on_release_key_pointer_and_deactivate() {
     focus.returns(false);
     win.dispatchEvent(new win.Event("deactivate"));
     ok(!showing(), "Losing win activation hides immediately");
+    await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "0",
+      "Window blur while Command is held fades the hints out");
     key("KEY_Meta", { metaKey: true });
     win.dispatchEvent(new win.Event("deactivate"));
     await TestUtils.waitForCondition(showing, "Keys delivered without activation survive pending deactivation");
@@ -353,6 +355,23 @@ add_task(async function other_spaces_have_no_badges() {
     }
     release();
     await assertShortcutTargets();
+    // Hold Command through a space switch, then release in the new space:
+    // the hints follow the current space and no space keeps any.
+    const faded = () => win.getComputedStyle(Numbers.layer(win)).opacity == "0";
+    await hold();
+    await win.gZenWorkspaces.changeWorkspaceWithID(other.uuid);
+    await settled("Switched space while holding Command");
+    if (showing()) {
+      await TestUtils.waitForCondition(() => foreign.some(tab => badge(tab)), "Hints follow the new space");
+      for (const tab of startTabs) {
+        ok(!badge(tab) || win.gBrowser.visibleTabs.includes(tab), "No hint stays on the previous space's tabs");
+      }
+    }
+    release();
+    await TestUtils.waitForCondition(faded, "Releasing after a space switch fades every hint");
+    await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
+    await settled("Back on the original space");
+    ok(faded() && !showing(), "No hint is left in the original space either");
   } finally {
     release();
     await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);

@@ -19,9 +19,37 @@ add_task(async function screenshots_site_panel() {
     WhimsySiteSettings.open(window, { focus: "dark-pages" });
     await shown;
     const row = document.querySelector('[whimsy-site-setting="dark-pages"]');
-    ok(row?.checkVisibility(), "Dark page control is visible above Zoom");
-    const zoom = document.querySelector('[whimsy-site-setting="zoom"]');
-    ok(row.getBoundingClientRect().bottom <= zoom.getBoundingClientRect().top, "Matches the mockup's position");
+    ok(row?.checkVisibility(), "The Automatic dark mode row is visible");
+    const autoplay = document.querySelector('[whimsy-site-setting="autoplay"]');
+    const kinds = [...row.parentNode.querySelectorAll(":scope > [whimsy-site-setting]")]
+      .map(el => el.getAttribute("whimsy-site-setting"));
+    Assert.deepEqual(kinds.slice(0, 4), ["zoom", "autoplay", "dark-pages", "reader"],
+      "Zoom, Autoplay, Automatic dark mode, then Reader View");
+    is(row.className.replace("whimsy-site-settings-dark-pages", ""),
+      autoplay.className.replace("whimsy-site-settings-autoplay", ""), "The row uses Autoplay's row classes");
+    const style = el => {
+      const cs = getComputedStyle(el);
+      return [cs.paddingTop, cs.paddingBottom, cs.paddingInlineStart, cs.paddingInlineEnd, cs.font,
+        Math.round(el.getBoundingClientRect().height)];
+    };
+    Assert.deepEqual(style(row), style(autoplay), "Same padding, font, and height as Autoplay");
+    const control = row.querySelector("button");
+    is(control.className, autoplay.querySelector("button").className, "Same dropdown as Autoplay");
+    ok(!row.querySelector(".whimsy-surface-seg"), "No segmented control");
+    ok(!row.closest(".whimsy-surface-group") && !document.querySelector(".whimsy-surface-group [whimsy-site-setting='dark-pages']"),
+      "No separate tinted box");
+    is(document.getElementById("whimsy-dark-page-site-label").textContent, "Automatic dark mode", "The row's label");
+    // The moon and the row stay in sync live.
+    WhimsyDarkPages.toggle(tab.linkedBrowser);
+    await darkState(tab.linkedBrowser, "original");
+    await TestUtils.waitForCondition(() =>
+      document.getElementById("whimsy-site-settings-dark-pages-button")?.querySelector(".whimsy-surface-dropdown-value")
+        ?.getAttribute("data-l10n-id") == "whimsy-dark-pages-original", "The row follows the moon live");
+    WhimsyDarkPages.setChoice(tab.linkedBrowser, "automatic");
+    await darkState(tab.linkedBrowser, "generated");
+    await TestUtils.waitForCondition(() =>
+      document.getElementById("whimsy-site-settings-dark-pages-button")?.querySelector(".whimsy-surface-dropdown-value")
+        ?.getAttribute("data-l10n-id") == "whimsy-dark-pages-automatic", "The row is back on Automatic");
     const undo = whimsyStandInPopups();
     return async () => {
       undo();

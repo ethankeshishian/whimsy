@@ -201,6 +201,9 @@ export const WhimsyDarkPages = {
     const dark = this.state(browser) != "original";
     button.hidden = !this.enabled || !this.siteKey(browser);
     button.toggleAttribute("active", dark);
+    if (win.document.getElementById("zen-unified-site-data-panel")?.state == "open") {
+      lazy.WhimsySiteSettings.render(win);
+    }
     button.setAttribute("aria-pressed", dark);
     win.document.l10n.setAttributes(button, dark ? "whimsy-dark-pages-button-original" : "whimsy-dark-pages-button-dark");
   },
@@ -213,15 +216,10 @@ export const WhimsyDarkPages = {
     if (!["native", "generated", "original"].includes(state)) {
       return;
     }
-    const changed = states.get(browser) != state;
     states.set(browser, state);
     const win = browser.ownerDocument.defaultView;
     this.updateButton(win);
     this.offer(win, browser);
-    if (changed && win.gBrowser.selectedBrowser == browser &&
-        win.document.getElementById("zen-unified-site-data-panel")?.state == "open") {
-      lazy.WhimsySiteSettings.render(win);
-    }
   },
 
   offer(win, browser) {
@@ -248,34 +246,32 @@ export const WhimsyDarkPages = {
     }
   },
 
+  // A row like Autoplay's (WhimsySiteSettings.render): label left, the
+  // shared dropdown right.
   siteRow(win, browser) {
     if (!this.enabled) {
       return null;
     }
     const doc = win.document;
-    const { WhimsySurface } = lazy;
-    const box = WhimsySurface.group(doc);
-    box.setAttribute("whimsy-site-setting", "dark-pages");
-    const { caption, label } = WhimsySurface.caption(doc, {
-      l10nId: "whimsy-dark-pages-site-title",
-      detailL10nId: `whimsy-dark-pages-state-${this.state(browser)}`,
-    });
-    const seg = WhimsySurface.seg(doc, {
-      name: "dark-page", label: "Dark page",
+    const choice = this.choice(browser);
+    const dropdown = lazy.WhimsySurface.dropdown(doc, {
+      id: "whimsy-site-settings-dark-pages-button",
+      label: "whimsy-dark-page-site-label",
+      width: 240,
+      value: choice,
       options: [
         { value: "automatic", l10nId: "whimsy-dark-pages-automatic" },
         { value: "on", l10nId: "whimsy-dark-pages-dark" },
         { value: "off", l10nId: "whimsy-dark-pages-original" },
       ],
-      onPick: value => {
-        this.setChoice(browser, value);
-        seg.select(value);
-      },
+      onPick: value => this.setChoice(browser, value),
     });
-    label.id = "whimsy-dark-page-site-label";
-    seg.group.setAttribute("aria-labelledby", label.id);
-    seg.select(this.choice(browser));
-    box.append(caption, seg.group);
-    return box;
+    return lazy.WhimsySiteSettings.row(doc, {
+      kind: "dark-pages",
+      l10nId: "whimsy-dark-pages-site-title",
+      labelId: "whimsy-dark-page-site-label",
+      on: choice != "automatic",
+      trailing: [dropdown.button],
+    });
   },
 };
