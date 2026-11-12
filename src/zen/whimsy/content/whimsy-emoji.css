@@ -192,3 +192,11 @@
     text-decoration: underline;
   }
 }
+
+/* W25 designfix: Tab and ⇧Tab move between the card's stops with focus
+   kept in the field (WhimsyEmoji.stopsOf). Only the current stop shows its
+   keyboard ring; in the field, the caret is the focus. */
+.whimsy-emoji-card:not([data-stop="grid"]) .whimsy-emoji-cell.on,
+.whimsy-emoji-card:not([data-stop="tones"]) .whimsy-emoji-tone.on {
+  outline: none;
+}

@@ -118,11 +118,11 @@ function computeState(query) {
       sections.push({ labelId: "whimsy-emoji-section-frequent", items: frequent });
     }
     sections.push({ labelId: "whimsy-emoji-section-smileys", items: SMILEYS_DEFAULT });
-    return { query: text, sections, flat: sections.flatMap(s => s.items), selected: 0, tones: false, toneIndex: tonePref(), noMatch: false };
+    return { query: text, sections, flat: sections.flatMap(s => s.items), selected: 0, tones: false, stop: "grid", toneIndex: tonePref(), noMatch: false };
   }
   const results = lazy.WhimsyEmojiIndex.search(text);
   const sections = results.length ? [{ labelId: "whimsy-emoji-section-results", items: results }] : [];
-  return { query: text, sections, flat: results, selected: 0, tones: false, toneIndex: tonePref(), noMatch: !results.length };
+  return { query: text, sections, flat: results, selected: 0, tones: false, stop: "grid", toneIndex: tonePref(), noMatch: !results.length };
 }
 
 export class WhimsyEmojiProvider extends UrlbarProvider {
@@ -343,6 +343,7 @@ export const WhimsyEmoji = {
     const doc = el.ownerDocument;
     el.replaceChildren();
     el.setAttribute("role", "group");
+    el.dataset.stop = state.stop ?? "grid";
     if (state.noMatch) {
       el.append(
         h(doc, "div", { class: "whimsy-emoji-empty", l10n: ["whimsy-emoji-no-match", { query: state.query }] }),
@@ -407,6 +408,56 @@ export const WhimsyEmoji = {
         )
       )
     );
+    this.revealSelection(el);
+  },
+
+  // W25 designfix (owner: "every arrow-key move glitches and jumps", and
+  // the bottom row's selection went off screen). Root cause: every move
+  // re-ran render(), which rebuilt the whole card; its section headings and
+  // footer are localized asynchronously, so for a frame they were empty and
+  // the rows above the selection collapsed and sprang back, and nothing
+  // ever scrolled the selection into view. A move now only moves the
+  // highlight and the footer's name, then scrolls the results by the least
+  // amount that shows the cell (none when it's already visible).
+  moveSelection(win, state) {
+    const el = mounts.get(win)?.el;
+    if (!el?.isConnected) {
+      return;
+    }
+    const cells = el.querySelectorAll(".whimsy-emoji-cell");
+    for (const cell of el.querySelectorAll(".whimsy-emoji-cell.on")) {
+      cell.classList.remove("on");
+      cell.setAttribute("aria-selected", "false");
+    }
+    const cell = cells[state.selected];
+    const selected = state.flat[state.selected];
+    if (!cell || !selected) {
+      return;
+    }
+    cell.classList.add("on");
+    cell.setAttribute("aria-selected", "true");
+    const icon = el.querySelector(".whimsy-emoji-footer-icon");
+    if (icon) {
+      icon.textContent = state.tones ? lazy.WhimsySpaceIcons.withTone(selected, state.toneIndex) : selected;
+    }
+    const name = el.querySelector(".whimsy-emoji-footer > b");
+    if (name) {
+      name.textContent = lazy.WhimsyEmojiIndex.nameOf(selected);
+    }
+    this.revealSelection(el);
+  },
+
+  revealSelection(el) {
+    el.querySelector(".whimsy-emoji-cell.on")?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+  },
+
+  // Tab and ⇧Tab move between the card's stops (the grid, the skin-tone
+  // row when the selected emoji has tones, and the search field), with
+  // focus kept in the field and the stop shown by a ring: the command
+  // bar's own footer pattern (WhimsyCommandBarAgent.sys.mjs, data-kbd-focus).
+  stopsOf(state) {
+    const selected = state.flat[state.selected];
+    return ["grid", ...(selected && hasTone(selected) ? ["tones"] : []), "field"];
   },
 
   onInputKey(win, event) {
@@ -430,14 +481,21 @@ export const WhimsyEmoji = {
       this.unmountGrid(win);
       return;
     }
-    if (event.key == "Tab" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
-      const selected = state.flat[state.selected];
-      if (selected && hasTone(selected)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        state.tones = !state.tones;
-        this.render(win, state);
+    if (event.key == "Tab" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (state.noMatch || !state.flat.length) {
+        return;
       }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const stops = this.stopsOf(state);
+      const at = Math.max(0, stops.indexOf(state.stop ?? "grid"));
+      state.stop = stops[(at + (event.shiftKey ? -1 : 1) + stops.length) % stops.length];
+      state.tones = state.stop == "tones";
+      this.render(win, state);
+      return;
+    }
+    if (state.stop == "field" && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+      // The field's own caret.
       return;
     }
     if (state.tones && (event.key == "ArrowLeft" || event.key == "ArrowRight")) {
@@ -445,7 +503,14 @@ export const WhimsyEmoji = {
       event.stopImmediatePropagation();
       const dir = event.key == "ArrowRight" ? 1 : -1;
       state.toneIndex = Math.max(0, Math.min(MAX_TONE, state.toneIndex + dir));
-      this.render(win, state);
+      // In place, like a grid move (see moveSelection).
+      const card = mounts.get(win)?.el;
+      const tones = card?.querySelectorAll(".whimsy-emoji-tone") ?? [];
+      tones.forEach((t, i) => t.classList.toggle("on", i == state.toneIndex));
+      const icon = card?.querySelector(".whimsy-emoji-footer-icon");
+      if (icon) {
+        icon.textContent = lazy.WhimsySpaceIcons.withTone(state.flat[state.selected], state.toneIndex);
+      }
       return;
     }
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
@@ -465,8 +530,17 @@ export const WhimsyEmoji = {
         next -= COLUMNS;
       }
       state.selected = Math.max(0, Math.min(state.flat.length - 1, next));
-      state.tones = false;
-      this.render(win, state);
+      state.stop = "grid";
+      if (state.tones) {
+        state.tones = false;
+        this.render(win, state);
+      } else {
+        const card = mounts.get(win)?.el;
+        if (card) {
+          card.dataset.stop = "grid";
+        }
+        this.moveSelection(win, state);
+      }
       return;
     }
     if (event.key == "Enter") {
