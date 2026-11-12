@@ -2090,6 +2090,8 @@ def apply_json_overrides(report, dry):
         s["import"] = s["import"].replace("surfer import", "python3 whimsy/engine_prepare.py && surfer import", 1)
     if "whimsy/engine_overrides.py" not in s["import"]:
         s["import"] = s["import"] + " && python3 whimsy/engine_overrides.py"
+    if "whimsy/engine_overrides.py --restore" not in s["import"]:
+        s["import"] = s["import"].replace("surfer import", "python3 whimsy/engine_overrides.py --restore && surfer import", 1)
     items = list(s.items())
     for key, value in wanted.items():
         if s.get(key) != value:
