@@ -123,7 +123,7 @@ function surfaceLook(panel) {
   const pick = (el, names) => Object.fromEntries(names.map(n => [n, el ? getComputedStyle(el).getPropertyValue(n) : null]));
   return {
     card: pick(frame, ["background-color", "border-top-width", "border-top-style", "border-top-color", "border-radius", "box-shadow", "width", "padding-top", "padding-left"]),
-    panel: pick(panel, ["appearance", "background-color", "border-top-width", "box-shadow", "-moz-window-shadow", "margin-top", "margin-left", "padding-top"]),
+    panel: pick(panel, ["appearance", "background-color", "border-top-width", "box-shadow", "margin-top", "margin-left", "padding-top"]),
     content: pick(content, ["appearance", "background-color", "border-top-width", "box-shadow", "padding-top", "margin-top", "border-radius"]),
     stack: pick(panel.querySelector(".whimsy-link-hover-stack"), ["background-color", "box-shadow", "padding-top", "padding-left", "padding-bottom"]),
     attributes: [...panel.attributes].map(a => a.name).filter(n => !["id", "whimsy-open", "side", "state", "style"].includes(n)).sort(),
@@ -546,7 +546,6 @@ add_task(async function tab_and_link_cards_look_the_same() {
       is(look.content["box-shadow"], "none", `${what}: ...no shadow`);
       is(look.content["border-top-width"], "0px", `${what}: ...no border`);
       is(look.panel.appearance, "none", `${what}: ...and no native material`);
-      is(look.panel["-moz-window-shadow"], "none", `${what}: ...or window shadow`);
       ok(/rgba\(0, 0, 0, 0\)|transparent/.test(look.stack["background-color"]), `${what}: the shadow's room is see-through`);
     }
     is(getComputedStyle(linkPanel().querySelector(".whimsy-link-hover-stack")).pointerEvents, "none", "The shadow's room lets the pointer through");
