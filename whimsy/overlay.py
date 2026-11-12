@@ -77,6 +77,25 @@ HOOKS = [
 ]
 
 HOTFIXES = [
+    # Drain a retired store before a later init opens another writer for it.
+    {
+        "id": "live-folders-finalize-store",
+        "file": "src/zen/live-folders/ZenLiveFoldersManager.sys.mjs",
+        "why": "uninit must retire its deferred JSONFile writer before a new restore.",
+        "old": '    Services.obs.removeObserver(this, "wake_notification");',
+        "new": '    this.whimsyStoreClosed = this.#file?.finalize(); // Whimsy hotfix\n'
+               '    this.#file = null;\n'
+               '    Services.obs.removeObserver(this, "wake_notification");',
+    },
+    {
+        "id": "live-folders-await-store",
+        "file": "src/zen/live-folders/ZenLiveFoldersManager.sys.mjs",
+        "why": "Do not load a snapshot while the previous writer can still replace it.",
+        "old": '  async #readStateFromDisk() {\n    this.#file = new lazy.JSONFile({',
+        "new": '  async #readStateFromDisk() {\n'
+               '    await this.whimsyStoreClosed; // Whimsy hotfix\n'
+               '    this.#file = new lazy.JSONFile({',
+    },
     # W24: share Zen's existing native color inversion with adaptive pages.
     # An async boost lookup must preserve adaptation and track the user's
     # own Smart Invert so disabling Dark pages restores their boost.
@@ -2089,6 +2108,8 @@ def apply_json_overrides(report, dry):
         s["import"] = s["import"].replace("surfer import", "python3 whimsy/engine_prepare.py && surfer import", 1)
     if "whimsy/engine_overrides.py" not in s["import"]:
         s["import"] = s["import"] + " && python3 whimsy/engine_overrides.py"
+    if "whimsy/engine_overrides.py --restore" not in s["import"]:
+        s["import"] = s["import"].replace("surfer import", "python3 whimsy/engine_overrides.py --restore && surfer import", 1)
     items = list(s.items())
     for key, value in wanted.items():
         if s.get(key) != value:

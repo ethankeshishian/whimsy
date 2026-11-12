@@ -528,12 +528,30 @@ class EngineOverridesLedgerTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp)
 
-    def run_fixes(self, fixes):
+    def run_fixes(self, fixes, patch=None):
         m = self.mod
         m.ENGINE_TEXT_FIXES = fixes
-        m.restore_previous_overrides()
+        m.restore_previous_overrides()  # `engine_overrides.py --restore`, before the import
+        if patch:  # what `surfer import` applies to the file
+            path = self.engine / "toolkit" / "a.css"
+            path.write_text(path.read_text() + patch)
         m.apply_engine_text_fixes()
         m.record_overrides(m.tracked_in_engine(m.text_fix_paths()))
+
+    def test_main_keeps_the_patches_the_import_applied(self):
+        # W25: main() ran the restore after `surfer import`, which checked out
+        # Whimsy's patch to PictureInPicture.sys.mjs (its muted-tab check).
+        fix = [("vpn-sheet", "toolkit/a.css", '@import "x.css";', '@import "y.css";', "why")]
+        self.run_fixes(fix, patch="/* whimsy patch */\n")
+        self.run_fixes(fix, patch="/* whimsy patch */\n")
+        self.assertEqual((self.engine / "toolkit/a.css").read_text(), '@import "y.css";\n/* whimsy patch */\n')
+        m = self.mod
+        m.UPDATER = str(self.engine / "toolkit")  # main() skips without an updater dir
+        m.CERT_FILES = []
+        m.CERT = str(self.engine / "toolkit" / "a.css")
+        m.copy_builtin_addons = m.override_branding_prefs = m.override_default_bookmarks = lambda: None
+        m.main()
+        self.assertIn("/* whimsy patch */", (self.engine / "toolkit/a.css").read_text(), "main() leaves the import's patches alone")
 
     def test_one_lanes_fix_is_reverted_before_the_next_lane(self):
         lane_a = [("vpn-sheet", "toolkit/a.css", '@import "x.css";', '@import "x.css";\n@import "chrome://browser/content/whimsy/only-in-a.css";', "why")]

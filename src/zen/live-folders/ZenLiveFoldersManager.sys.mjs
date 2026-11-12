@@ -72,6 +72,8 @@ class nsZenLiveFoldersManager {
       return;
     }
 
+    this.whimsyStoreClosed = this.#file?.finalize(); // Whimsy hotfix
+    this.#file = null;
     Services.obs.removeObserver(this, "wake_notification");
     if (this.#boundHandleEvent) {
       lazy.ZenWindowSync.removeSyncHandler(this.#boundHandleEvent);
@@ -614,6 +616,7 @@ class nsZenLiveFoldersManager {
   }
 
   async #readStateFromDisk() {
+    await this.whimsyStoreClosed; // Whimsy hotfix
     this.#file = new lazy.JSONFile({
       path: this.#storePath,
       compression: "lz4",
