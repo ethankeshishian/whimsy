@@ -57,7 +57,19 @@
   white-space: nowrap;
 }
 
+/* W25: hold-⌘ tab hints (WhimsyCmdTabNumbers) are these hints in the
+   browser chrome, coloured from the sidebar's text token instead of the
+   accent. Kept between holds: .leaving fades them out, and removing it
+   fades back in from the current opacity. */
+#whimsy-hints.tab-shortcuts.leaving {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: no-preference) {
+  #whimsy-hints.tab-shortcuts {
+    transition: opacity 96ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
   .hint {
     animation: whimsy-hint-in 96ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
     transition:
@@ -94,6 +106,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  #whimsy-hints.tab-shortcuts {
+    transition: opacity 60ms ease-out;
+  }
+
   .hint,
   #whimsy-hints-help {
     animation: whimsy-hint-fade 60ms ease-out backwards;

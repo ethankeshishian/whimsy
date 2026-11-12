@@ -9,7 +9,10 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
+  STYLESHEET: "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs",
+  placeHint: "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs",
 });
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 const PREF = "whimsy.feature.cmd-tab-numbers";
 const states = new WeakMap();
 
@@ -52,7 +55,7 @@ export const WhimsyCmdTabNumbers = {
     if (AppConstants.platform != "macosx" || states.has(win)) {
       return;
     }
-    const state = { active: this.isActiveWindow(win), timer: 0, meta: false, buttons: 0, keys: new Set(), badges: new Map(), observer: null };
+    const state = { active: this.isActiveWindow(win), timer: 0, meta: false, buttons: 0, keys: new Set(), badges: new Map(), observer: null, layer: null, reposition: null };
     states.set(win, state);
     const on = () => Services.prefs.getBoolPref(PREF, true);
     const hide = () => this.hide(win);
@@ -75,6 +78,9 @@ export const WhimsyCmdTabNumbers = {
       }
       state.keys.add(event.code || event.key);
       if (event.key != "Meta") {
+        if (!event.metaKey) {
+          state.meta = false;
+        }
         hide();
         return;
       }
@@ -95,14 +101,29 @@ export const WhimsyCmdTabNumbers = {
         }
       }, MODIFIER_HOLD_MS);
     };
+    const release = () => {
+      state.meta = false;
+      hide();
+    };
     const keyup = event => {
+      // A release must never be lost: a Meta keyup ends the hold even when
+      // it is the copy web content sends back. Other replies may be stale.
       if (event.isReplyEventFromRemoteContent) {
+        if (event.key == "Meta") {
+          release();
+        }
         return;
       }
       state.keys.delete(event.code || event.key);
       if (event.key == "Meta" || !event.metaKey) {
-        state.meta = false;
-        hide();
+        release();
+      }
+    };
+    // Any later input that reports Command up proves a missed release
+    // (macOS can swallow the keyup, e.g. after a system shortcut).
+    const moved = event => {
+      if (state.meta && !event.metaKey) {
+        release();
       }
     };
     const pointerdown = event => {
@@ -129,7 +150,8 @@ export const WhimsyCmdTabNumbers = {
         this.show(win);
       }
     };
-    const listeners = { keydown, keyup, pointerdown, pointerup, deactivate, ZenWorkspacesUIUpdate: workspace };
+    const listeners = { keydown, keyup, pointerdown, pointerup, mousemove: moved, wheel: moved, deactivate,
+      ZenWorkspacesUIUpdate: workspace };
     for (const [type, listener] of Object.entries(listeners)) {
       win.addEventListener(type, listener, true);
     }
@@ -144,44 +166,98 @@ export const WhimsyCmdTabNumbers = {
     }, { once: true });
   },
 
+  // The ⌘J link-hint overlay (whimsy-link-hints.css, .hint), drawn in the
+  // browser chrome inside a shadow root so its selectors stay scoped.
+  layer(win) {
+    return states.get(win)?.layer ?? null;
+  },
+
+  hint(win, tab) {
+    return states.get(win)?.badges.get(tab) ?? null;
+  },
+
+  ensureLayer(win, state) {
+    if (state.layer?.isConnected) {
+      return state.layer;
+    }
+    const doc = win.document;
+    const host = doc.createElementNS(HTML_NS, "div");
+    host.id = "whimsy-tab-hints";
+    host.setAttribute("aria-hidden", "true");
+    host.style.display = "contents";
+    const shadow = host.attachShadow({ mode: "open" });
+    const link = doc.createElementNS(HTML_NS, "link");
+    link.rel = "stylesheet";
+    link.href = lazy.STYLESHEET;
+    const layer = doc.createElementNS(HTML_NS, "div");
+    layer.id = "whimsy-hints";
+    layer.className = "tab-shortcuts leaving";
+    shadow.append(link, layer);
+    doc.documentElement.append(host);
+    state.layer = layer;
+    state.badges.clear();
+    return layer;
+  },
+
+  // Beside the title, clear of the close button; icon-only tabs (Essentials,
+  // the collapsed sidebar) get it on their trailing corner.
+  place(win, state) {
+    const box = win.gBrowser.tabContainer.arrowScrollbox?.getBoundingClientRect?.();
+    for (const [tab, node] of state.badges) {
+      const content = tab.querySelector(".tab-content") ?? tab;
+      const r = content.getBoundingClientRect();
+      const visible = r.width > 0 && r.height > 0 && (tab.pinned || tab.hasAttribute("zen-essential") || !box ||
+        (r.bottom > box.top && r.top < box.bottom));
+      node.hidden = !visible;
+      if (!visible) {
+        continue;
+      }
+      const { width, height } = node.getBoundingClientRect();
+      const iconOnly = tab.hasAttribute("zen-essential") ||
+        win.document.documentElement.getAttribute("zen-sidebar-expanded") != "true";
+      const x = iconOnly ? r.right - width + 4 : r.right - width - 28;
+      const y = iconOnly ? r.top - 4 : r.top + (r.height - height) / 2;
+      lazy.placeHint(node, Math.max(0, x), Math.max(0, y), node.textContent, win);
+    }
+  },
+
   show(win) {
     const state = states.get(win);
     if (!state || !Services.prefs.getBoolPref(PREF, true)) {
       return;
     }
-    const { accent, ink } = lazy.WhimsyLinkHints.colors(win);
+    const layer = this.ensureLayer(win, state);
+    // The sidebar's text colour, not the accent: tab shortcuts, not links.
+    const { accent, ink } = lazy.WhimsyLinkHints.colors(win, "--toolbox-textcolor");
+    layer.style.setProperty("--hint-bg", accent);
+    layer.style.setProperty("--hint-ink", ink);
     const root = win.document.documentElement;
-    root.style.setProperty("--whimsy-tab-number-bg", accent);
-    root.style.setProperty("--whimsy-tab-number-ink", ink);
     const refresh = () => {
       const targets = this.targets(win);
-      for (const [tab, badge] of state.badges) {
+      for (const [tab, node] of state.badges) {
         if (!targets.has(tab)) {
-          badge.remove();
+          node.remove();
           state.badges.delete(tab);
         }
       }
       for (const [tab, label] of targets) {
-        let badge = state.badges.get(tab);
-        if (!badge) {
-          const content = tab.querySelector(".tab-content");
-          if (!content) {
-            continue;
-          }
-          badge = win.document.createElementNS("http://www.w3.org/1999/xhtml", "span");
-          badge.className = "whimsy-tab-number";
-          badge.setAttribute("aria-hidden", "true");
-          content.append(badge);
-          state.badges.set(tab, badge);
+        let node = state.badges.get(tab);
+        if (!node) {
+          node = win.document.createElementNS(HTML_NS, "span");
+          node.className = "hint";
+          layer.append(node);
+          state.badges.set(tab, node);
         }
-        if (badge.textContent != label) {
-          badge.textContent = label;
+        if (node.textContent != label) {
+          node.textContent = label;
         }
       }
+      this.place(win, state);
     };
     refresh();
     // Establish the transparent starting style before fading in.
-    root.getBoundingClientRect();
+    layer.getBoundingClientRect();
+    layer.classList.remove("leaving");
     root.setAttribute("whimsy-tab-numbers", "");
     if (!state.observer) {
       state.observer = new win.MutationObserver(refresh);
@@ -189,6 +265,9 @@ export const WhimsyCmdTabNumbers = {
         subtree: true, childList: true, attributes: true,
         attributeFilter: ["hidden", "collapsed", "selected", "multiselected", "zen-workspace-id", "zen-essential", "zen-empty-tab"],
       });
+      state.reposition = () => this.place(win, state);
+      win.addEventListener("resize", state.reposition);
+      win.gBrowser.tabContainer.addEventListener("scroll", state.reposition, true);
     }
   },
 
@@ -201,8 +280,13 @@ export const WhimsyCmdTabNumbers = {
     state.timer = 0;
     state.observer?.disconnect();
     state.observer = null;
+    if (state.reposition) {
+      win.removeEventListener("resize", state.reposition);
+      win.gBrowser.tabContainer.removeEventListener("scroll", state.reposition, true);
+      state.reposition = null;
+    }
     win.document.documentElement.removeAttribute("whimsy-tab-numbers");
-    // Keep the aria-hidden spans for the fade out, and reuse them on the
-    // next hold. They take no layout space and never alter the tab's name.
+    // Keep the hints for the fade out, and reuse them on the next hold.
+    state.layer?.classList.add("leaving");
   },
 };

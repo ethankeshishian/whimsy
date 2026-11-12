@@ -12,7 +12,7 @@ const { WhimsySpaceSwitchQueue } = ChromeUtils.importESModule(
 );
 let win, root;
 const showing = () => root.hasAttribute("whimsy-tab-numbers");
-const badge = tab => tab.querySelector(".whimsy-tab-number");
+const badge = tab => Numbers.hint(win, tab);
 let originalSpace, startTabs, mainStartTabs, essential, pinned, focus;
 
 // A space switch sets activeWorkspace first and selects its tab when the
@@ -55,7 +55,8 @@ async function assertShortcutTargets() {
   const entries = [...Numbers.targets(win)];
   for (const [tab, label] of entries) {
     is(badge(tab)?.textContent, label, "A badge marks the shortcut's actual row");
-    is(badge(tab).getAttribute("aria-hidden"), "true", "Numbers are decorative");
+    is(badge(tab).className, "hint", "Each number is a ⌘J link hint");
+    is(badge(tab).getRootNode().host.getAttribute("aria-hidden"), "true", "Numbers are decorative");
     ok(!tab.getAttribute("aria-label")?.includes(" · 9"), "No number is added to the tab's accessible label");
   }
   // Check all nine real commands against the visible badges, not just a
@@ -90,7 +91,7 @@ async function assertShortcutTargets() {
     release();
   }
   for (const tab of tabs.filter(t => !entries.some(([target]) => target == t))) {
-    ok(!badge(tab) || win.getComputedStyle(badge(tab)).opacity == "0", "Unreachable middle tabs have no visible badge");
+    ok(!badge(tab), "Unreachable middle tabs have no hint");
   }
 }
 
@@ -190,6 +191,12 @@ add_task(async function cancel_on_release_key_pointer_and_deactivate() {
   ok(!showing(), "Pointer press hides immediately");
   tab.dispatchEvent(new win.PointerEvent("pointerup", { bubbles: true, buttons: 0 }));
   release();
+  await hold();
+  win.dispatchEvent(new win.MouseEvent("mousemove", { bubbles: true, metaKey: true }));
+  ok(showing(), "Moving the pointer while Command is held keeps the numbers");
+  win.dispatchEvent(new win.MouseEvent("mousemove", { bubbles: true }));
+  ok(!showing(), "Any later input with Command up repairs a missed release");
+  release();
   // Model activation transitions without competing for the OS-active window.
   focus.returns(true);
   try {
@@ -221,8 +228,7 @@ add_task(async function release_fades_out_in_every_focus_state() {
   const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser,
     "data:text/html,<input id=field>");
   const browser = tab.linkedBrowser;
-  const faded = () => [...win.gBrowser.tabContainer.querySelectorAll(".whimsy-tab-number")]
-    .every(b => win.getComputedStyle(b).opacity == "0");
+  const faded = () => win.getComputedStyle(Numbers.layer(win)).opacity == "0";
   const synth = type => EventUtils.synthesizeKey("KEY_Meta", { type }, win);
   const focusers = {
     async page() {
