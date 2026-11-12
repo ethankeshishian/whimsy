@@ -310,7 +310,7 @@ export const WhimsyPlaylist = {
       l10nId: "whimsy-action-playlist-save",
       run: w => this.saveFromPage(w).catch(e => console.error("Whimsy: playlist", e)),
       icon: "chrome://browser/skin/zen-icons/selectable/video.svg",
-      isAvailable: () => this.enabled,
+      isAvailable: w => this.enabled && lazy.WhimsyCommands.hasPage(w),
     });
   },
 };

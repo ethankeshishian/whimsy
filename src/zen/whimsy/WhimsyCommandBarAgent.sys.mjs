@@ -41,6 +41,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
   WhimsyChatAgent: "resource:///modules/whimsy/WhimsyChatAgent.sys.mjs",
   WhimsyChatAnswer: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
+  WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true));
 
@@ -58,7 +59,7 @@ const REDUCED = "(prefers-reduced-motion: reduce)";
 // Something to do: an imperative that isn't what the bar already does
 // (open, go to, search, find, look up), at least three words long. General
 // verbs only; never a list of sites.
-const DO_VERBS = /^(?:please\s+|can you\s+|could you\s+|would you\s+)*(?:order|re-?order|buy|purchase|book|reserve|schedule|add|remove|delete|cancel|unsubscribe|send|post|reply|email|e-mail|message|text|invite|sign (?:up|in|out)|subscribe|download|install|make|set|set up|change|move|rename|archive|clean up|tidy|collect|gather|research|plan|pay|apply|register|rsvp|accept|decline|follow|share|upload|save|close|pin|unpin|mute|unmute|group|put|organi[sz]e|sort|turn (?:on|off)|switch|enable|disable|create|remind|start)\b/i;
+const DO_VERBS = /^(?:please\s+|can you\s+|could you\s+|would you\s+)*(?:order|re-?order|buy|purchase|book|reserve|schedule|add|remove|delete|cancel|unsubscribe|send|post|reply|email|e-mail|message|text|invite|sign (?:up|in|out)|subscribe|download|install|make|set|set up|change|move|rename|archive|clean up|tidy|collect|gather|research|plan|pay|apply|register|rsvp|accept|decline|follow|share|upload|save|close|pin|unpin|mute|unmute|group|put|organi[sz]e|sort|turn (?:on|off)|switch|enable|disable|create|remind|start|go to|go on|navigate to|visit|open|find|look up|search|summari[sz]e|compare|check|get|fill (?:out|in)|read|translate)\b/i;
 
 const OBJECT_WORDS = /\b(?:my|me|our|us|this|these|that|those|the|a|an|all|every|tabs?)\b/i;
 
@@ -81,6 +82,11 @@ function stateOf(win) {
 
 function isPrivateContext(context, win) {
   return !!context?.isPrivate || (win ? lazy.WhimsyAIContext.isPrivate(win.gBrowser?.selectedTab) : false);
+}
+
+// ⌘K's Actions mode (WhimsyVerbs), also "/" commands.
+function inActions(context) {
+  return context?.searchMode?.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS;
 }
 
 function h(doc, tag, attrs = {}, ...kids) {
@@ -138,14 +144,25 @@ export class WhimsyCmdkProvider extends UrlbarProvider {
     return UrlbarShared.PROVIDER_TYPE.PROFILE;
   }
 
-  // While a request is being planned or shown, it's the only result.
-  getPriority() {
-    return stateOf(topWindow()) ? 60 : 0;
+  // While a request is being planned or shown, it's the only result. In
+  // ⌘K's Actions mode (W26) the urlbar runs only the providers at the top
+  // priority, and the verbs' provider (WhimsyVerbs) sits at 10 on a page:
+  // match it, so the Do this row can lead there too.
+  getPriority(context) {
+    const win = topWindow();
+    if (stateOf(win)) {
+      return 60;
+    }
+    return (inActions(context) && lazy.WhimsyVerbs.sessionPriority(win)) || 0;
   }
 
   async isActive(context) {
     const win = topWindow();
-    if (!win || isPrivateContext(context, win) || context.searchMode || context.restrictSource) {
+    // Actions mode (⌘K, or "/") still takes a request: when no action
+    // matches, what was typed is something to do. Its one source makes the
+    // query a restricted one (UrlbarProvidersManager: restrictSource).
+    const actions = inActions(context);
+    if (!win || isPrivateContext(context, win) || (context.searchMode && !actions) || (context.restrictSource && !actions)) {
       return false;
     }
     return !!stateOf(win) || WhimsyCommandBarAgent.takes(win, context.searchString ?? "");
@@ -154,15 +171,20 @@ export class WhimsyCmdkProvider extends UrlbarProvider {
   startQuery(context, addCallback) {
     const win = topWindow();
     const st = stateOf(win);
-    const add = (payload, suggestedIndex = 0) =>
+    // Actions mode lists only its own source, and keeps a heuristic row
+    // only when it's a zenAction (UrlbarProvidersManager): there, the Do
+    // this row is the heuristic, so it's the top row and Enter's.
+    const actions = inActions(context);
+    const add = (payload, suggestedIndex = 0, heuristic = false) =>
       addCallback(this, new lazy.UrlbarResult({
         type: UrlbarShared.RESULT_TYPE.DYNAMIC,
-        source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
-        suggestedIndex,
-        payload: { dynamicType: ROW_TYPE, query: ++nextQuery, ...payload },
+        source: actions ? UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS : UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
+        suggestedIndex: heuristic ? undefined : suggestedIndex,
+        heuristic,
+        payload: { dynamicType: ROW_TYPE, query: ++nextQuery, ...(actions ? { zenAction: true } : {}), ...payload },
       }));
     if (!st) {
-      add({ kind: "do", text: context.searchString.trim() });
+      add({ kind: "do", text: context.searchString.trim() }, 0, actions);
     } else if (st.phase == "plan") {
       add({ dynamicType: CARD_TYPE });
     } else if (st.phase == "confirm") {
@@ -532,6 +554,11 @@ export const WhimsyCommandBarAgent = {
     try {
       urlbar.view.close();
       urlbar.handleRevert?.();
+      // The request ends ⌘K's Actions mode with it (as picking one of its
+      // rows does, WhimsyVerbs): the bar is the address bar again.
+      if (urlbar.searchMode?.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS) {
+        urlbar.searchMode = null;
+      }
     } finally {
       this._closing = false;
     }

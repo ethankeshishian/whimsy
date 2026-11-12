@@ -178,7 +178,7 @@ export const WhimsyArcMenus = {
       l10nId: "whimsy-action-reveal-tab",
       run: w => this.revealTab(w),
       icon: "chrome://browser/skin/zen-icons/sidebar.svg",
-      isAvailable: () => enabled(),
+      isAvailable: w => enabled() && WhimsyCommands.hasTab(w),
     });
     WhimsyCommands.addCommandElement(win, "cmd_whimsyUndoTabAction", w => lazy.WhimsyUndo.undo(w));
     this.ensureMenus(win);

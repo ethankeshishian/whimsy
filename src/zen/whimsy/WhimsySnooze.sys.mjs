@@ -72,7 +72,7 @@ export const WhimsySnooze = {
     }
     this.initMenu(win);
     // wave5: the tab menu's "Snooze…" as a command for the current tab.
-    const canSnooze = tab => !!tab && !tab.pinned && !tab.hasAttribute("zen-essential") && !this.isPrivate(tab);
+    const canSnooze = tab => !!tab && !tab.pinned && !tab.hasAttribute("zen-essential") && !tab.hasAttribute("zen-empty-tab") && !this.isPrivate(tab);
     const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
     WhimsyCommands.register(win, {
       id: "cmd_whimsySnoozeTab",

@@ -117,10 +117,10 @@ export const READER_FONTS = [
   "Seravek",
 ];
 
+// W26 audit: a web page (not a settings or other privileged page), the
+// command bar's own rule.
 function isWebPage(win) {
-  const tab = win.gBrowser.selectedTab;
-  const uri = tab.linkedBrowser?.currentURI;
-  return !!tab.linkedPanel && !tab.hasAttribute("zen-empty-tab") && !!uri && !uri.spec.startsWith("about:blank");
+  return lazy.WhimsyCommands.hasPage(win);
 }
 
 export const WhimsyPage = {

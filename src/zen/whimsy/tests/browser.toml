@@ -1068,6 +1068,14 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 ["browser_whimsy_cmdk_agent.js"]
 support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 
+# W26 actions: ⌘K (the real key) in every context, the rows it lists, and
+# screenshots light and dark (intake-w26/audit-actions.md).
+["browser_whimsy_screens_w26_actions.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html", "whimsy_ai_lease.pdf"]
+
+["browser_whimsy_cmdk_actions.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html", "whimsy_ai_lease.pdf"]
+
 # W23 commands: the store, Link commands, Settings › AI › Commands, and screenshots
 ["browser_whimsy_ai_commands.js"]
 ["browser_whimsy_screens_w23_commands.js"]

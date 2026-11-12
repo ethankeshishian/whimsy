@@ -35,9 +35,11 @@ export const WhimsyAIViewShare = {
    * or null where it can't be read.
    */
   async measure(win) {
-    const actor = win?.gBrowser?.selectedBrowser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyAIViewShare");
     let view = null;
     try {
+      // getActor throws where the actor isn't registered (about:reader):
+      // W26, ⌘K opened nothing there.
+      const actor = win?.gBrowser?.selectedBrowser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyAIViewShare");
       view = await actor?.sendQuery("Whimsy:ViewShare");
     } catch (e) {
       return null;

@@ -961,8 +961,8 @@ export const Whimsy = {
         },
         icon: "chrome://browser/skin/zen-icons/selectable/code.svg",
         variants: [
-          { l10nId: "whimsy-action-devmode-on", isAvailable: w => lazy.WhimsyDevMode.enabled && !siteIsDev(w) },
-          { l10nId: "whimsy-action-devmode-off", isAvailable: w => lazy.WhimsyDevMode.enabled && siteIsDev(w) },
+          { l10nId: "whimsy-action-devmode-on", isAvailable: w => lazy.WhimsyDevMode.enabled && lazy.WhimsyCommands.hasPage(w) && !siteIsDev(w) },
+          { l10nId: "whimsy-action-devmode-off", isAvailable: w => lazy.WhimsyDevMode.enabled && lazy.WhimsyCommands.hasPage(w) && siteIsDev(w) },
         ],
       });
     });
