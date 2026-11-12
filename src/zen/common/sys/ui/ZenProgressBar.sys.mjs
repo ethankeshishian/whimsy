@@ -18,6 +18,8 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   onStateChange(aWebProgress, webProgress, request, stateFlags) {
+    let __n = "?"; try { __n = request?.QueryInterface(Ci.nsIChannel).originalURI.spec; } catch { __n = request?.name; }
+    dump(`LOADDIAG state 0x${stateFlags?.toString(16)} top=${webProgress?.isTopLevel} req=${__n}\n`);
     this.#whimsyTrackLoad(aWebProgress, webProgress, request, stateFlags); // Whimsy hotfix
     this.#checkBrowserProgress(aWebProgress);
   }
@@ -53,6 +55,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   on_TabSelect() {
+    dump(`LOADDIAG TabSelect pos=${this.window.gBrowser.selectedTab._tPos}\n`);
     const gBrowser = this.window.gBrowser;
     const selectedTab = gBrowser.selectedTab;
     this.onLocationChange(gBrowser.getBrowserForTab(selectedTab));
@@ -89,7 +92,10 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   async #checkBrowserProgress(webProgress) {
+    const __t = this.window.gBrowser.getTabForBrowser(webProgress);
+    dump(`LOADDIAG pre pos=${__t?._tPos} sel=${__t?.selected} busy=${__t?.hasAttribute("busy")} loads=${this.#whimsyLoads.has(webProgress)} el=${!!this.#element}\n`);
     await this.#promise;
+    dump(`LOADDIAG post pos=${__t?._tPos} sel=${__t?.selected} busy=${__t?.hasAttribute("busy")} loads=${this.#whimsyLoads.has(webProgress)} el=${!!this.#element} url=${webProgress?.currentURI?.spec}\n`);
     const window = this.window;
     const gBrowser = window.gBrowser;
     const tab = gBrowser.getTabForBrowser(webProgress);
@@ -106,6 +112,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   #hideProgressBar(aInstant = false) {
+    dump(`LOADDIAG hide el=${!!this.#element}\n`);
     const progressBar = this.#element;
     const window = this.window;
     if (this.#longLoadTimer) {
@@ -120,6 +127,7 @@ export class ZenProgressBar extends ZenUIComponent {
     let { promise, resolve } = Promise.withResolvers();
     this.#promise = promise;
     const callback = () => {
+      dump(`LOADDIAG hide-done\n`);
       delete progressBar._loadingTab;
       progressBar.remove();
       this.#element = null;
@@ -144,6 +152,7 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   #showProgressBar(aTab) {
+    dump(`LOADDIAG show same=${this.#loadingTab === aTab} el=${!!this.#element}\n`);
     if (this.#loadingTab === aTab) {
       return;
     }
