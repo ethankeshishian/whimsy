@@ -351,7 +351,9 @@ export const WhimsyAIPageEdits = {
   },
 
   canEdit(win, tab = win?.gBrowser?.selectedTab) {
-    return this.enabled && !!tab && !lazy.WhimsyAIContext.isOffLimits(tab) && !!this.domainFor(tab.linkedBrowser);
+    // W26 audit: a PDF is a document, not a site to change.
+    return this.enabled && !!tab && !lazy.WhimsyAIContext.isOffLimits(tab) && !!this.domainFor(tab.linkedBrowser) &&
+      tab.linkedBrowser.documentContentType != "application/pdf";
   },
 
   /** Whether chat hands this message to page edits (not the agent). */

@@ -60,6 +60,8 @@ export const WhimsySidebarNav = {
       keyId: "key_whimsyTabNext",
       key: { modifiers: "accel,alt", keycode: "VK_DOWN" },
       icon,
+      // W26 audit: Zen's bar already lists Next Tab and Previous Tab; one row each.
+      commandBar: false,
       isAvailable: () => this.enabled,
     });
     lazy.WhimsyCommands.register(win, {
@@ -69,6 +71,7 @@ export const WhimsySidebarNav = {
       keyId: "key_whimsyTabPrev",
       key: { modifiers: "accel,alt", keycode: "VK_UP" },
       icon,
+      commandBar: false,
       isAvailable: () => this.enabled,
     });
     // wave5: in the command bar and about:keyboard, unbound by default:
