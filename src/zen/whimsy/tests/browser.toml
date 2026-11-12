@@ -1050,6 +1050,11 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 ["browser_whimsy_screens_w23_cmdbar-ai.js"]
 support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 
+# W25: the ⌘K agent (Do this, the one-step confirm with Undo, the plan with
+# Approve, ⌘↩ in the background, Tab through models, guard pauses, Esc).
+["browser_whimsy_cmdk_agent.js"]
+support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
+
 # W23 commands: the store, Link commands, Settings › AI › Commands, and screenshots
 ["browser_whimsy_ai_commands.js"]
 ["browser_whimsy_screens_w23_commands.js"]

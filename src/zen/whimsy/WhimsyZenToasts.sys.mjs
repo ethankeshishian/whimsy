@@ -14,6 +14,7 @@
 //   - a leading icon (an image or an SVG mark, with a badge)
 //   - a toast about one tab goes when you leave the tab
 //   - toasts with the same key are one toast, updated in place
+//   - a body under the second line (W25 ⌘K: what an approval sends)
 //
 // and two fixes for every toast: they stack in the corner instead of
 // overlapping, and Reduce Motion gets a short fade instead of the spring.
@@ -97,6 +98,7 @@ class ZenToast {
       ...("buttons" in options && { buttons: options.buttons }),
       ...("busy" in options && { busy: options.busy }),
       ...("browser" in options && { browser: options.browser }),
+      ...("body" in options && { body: options.body }),
       closable: options.closable ?? this.persistent,
     });
     this.#updateRole();
@@ -254,6 +256,7 @@ class ZenToast {
       "closable",
       "browser",
       "busy",
+      "body",
     ]) {
       if (keyed || name in options) {
         changes[name] = options[name];
@@ -287,7 +290,8 @@ class ZenToast {
    *
    * @param {object} changes - Any of messageId, l10nArgs, description,
    *   descriptionId, descriptionArgs, buttons (null removes them), icon
-   *   (null removes it), closable, browser, timeout, busy.
+   *   (null removes it), closable, browser, timeout, busy, body (null
+   *   removes it).
    */
   update(changes = {}) {
     if (this.#closing || this.#closed) {
@@ -312,6 +316,9 @@ class ZenToast {
     }
     if ("icon" in changes) {
       this.#setIcon(changes.icon);
+    }
+    if ("body" in changes) {
+      this.#setBody(changes.body);
     }
     if ("buttons" in changes) {
       this.#setButtons(changes.buttons);
@@ -383,6 +390,16 @@ class ZenToast {
       description.textContent = options.description;
       // Cropped to one line; the whole text on hover.
       description.setAttribute("tooltiptext", options.description);
+    }
+  }
+
+  // An element under the text (rows of what will be sent); null removes it.
+  #setBody(body) {
+    const box = this.#textBox;
+    box.querySelector(":scope > .whimsy-toast-body")?.remove();
+    if (body) {
+      body.classList.add("whimsy-toast-body");
+      box.appendChild(body);
     }
   }
 
@@ -715,6 +732,7 @@ export class ZenToastManager {
    * @param {string} [options.key] - Toasts with the same key are one toast,
    *   replaced in place. Defaults to the message id (Zen's reuse).
    * @param {boolean} [options.busy] - Holds the toast, buttons disabled.
+   * @param {Element} [options.body] - Shown under the second line.
    * @param {Function} [options.onClose] - Called with why it went:
    *   "timeout", "dismissed", "owner" or "closed".
    * @returns {ZenToast}

@@ -5582,7 +5582,7 @@ whimsy-chat-model-button =
     .title = Model for this chat: { $who }
     .aria-label = Model for this chat: { $who }
 whimsy-chat-model-title = For this chat only
-whimsy-chat-model-auto = Automatic
+whimsy-chat-model-auto = Auto
 whimsy-chat-model-auto-detail = your order in Settings
 whimsy-chat-model-method-plan = plan
 whimsy-chat-model-method-key = API key
@@ -7962,3 +7962,98 @@ whimsy-annotations-toast-note-deleted = Note deleted
 whimsy-tabs-cmd-numbers =
     .label = Show tab numbers while holding ⌘
     .accesskey = S
+
+## W25 ⌘K agent: the top row, the plan with Approve, the status card, and
+## the done, can’t, and error states.
+
+whimsy-cmdk-do-this = Do this
+whimsy-cmdk-planning = Planning…
+# Text that comes from the plan or the page, shown as is.
+whimsy-cmdk-text = { $text }
+whimsy-cmdk-thread-detail = From ⌘K
+# $count (number) - tabs the one step touches; $name (string) - the new folder’s name
+whimsy-cmdk-one-close = { $count ->
+    [one] Close 1 tab
+   *[other] Close { $count } tabs
+}
+whimsy-cmdk-one-group = { $count ->
+    [one] Move 1 tab into “{ $name }”
+   *[other] Move { $count } tabs into “{ $name }”
+}
+whimsy-cmdk-one-pin = { $count ->
+    [one] Pin 1 tab
+   *[other] Pin { $count } tabs
+}
+whimsy-cmdk-one-unpin = { $count ->
+    [one] Unpin 1 tab
+   *[other] Unpin { $count } tabs
+}
+whimsy-cmdk-one-mute = { $count ->
+    [one] Mute 1 tab
+   *[other] Mute { $count } tabs
+}
+whimsy-cmdk-one-unmute = { $count ->
+    [one] Unmute 1 tab
+   *[other] Unmute { $count } tabs
+}
+# $list (string) - the tabs’ sites, as a list; $action (string) - close, group, pin, unpin, mute, or unmute
+whimsy-cmdk-one-detail = { $action ->
+    [close] { $list }. Undo reopens them.
+    [group] { $list }. Undo takes them out.
+   *[other] { $list }. Undo puts them back.
+}
+# $count (number) - sites not named in the list
+whimsy-cmdk-more = { $count ->
+    [one] 1 more
+   *[other] { $count } more
+}
+whimsy-cmdk-tabs-none = No open tabs match that. Try naming a site or a title.
+whimsy-cmdk-cant-fallback = { -brand-short-name } can’t do this. It works with your tabs, pages, { -brand-short-name }’s commands, and connected apps.
+whimsy-cmdk-ask-in-chat = Ask in chat
+whimsy-cmdk-asks-first = Asks you first
+whimsy-cmdk-where-drive = In this tab
+whimsy-cmdk-where-drive-detail = you watch it work
+whimsy-cmdk-where-background = In the background
+whimsy-cmdk-where-background-detail = its own tabs, in a task folder
+# $where (string) - In this tab or In the background
+whimsy-cmdk-where-button =
+    .title = Where it runs: { $where }
+    .aria-label = Where it runs: { $where }
+# $who (string) - the model, like Claude · Sonnet 4.5, or Auto
+whimsy-cmdk-model-button =
+    .title = Model for this run: { $who }
+    .aria-label = Model for this run: { $who }
+whimsy-cmdk-where-menu =
+    .aria-label = Where it runs
+whimsy-cmdk-model-menu =
+    .aria-label = Model for this run
+# $apps (string) - the connected apps it uses, as a list
+whimsy-cmdk-apps-only = Runs in the background: it only uses { $apps }
+whimsy-cmdk-apps-fallback = connected apps
+whimsy-cmdk-next-model = next model
+whimsy-cmdk-cancel = Cancel
+whimsy-cmdk-run-background = Run in background
+whimsy-cmdk-approve = Approve
+# $step, $total (number) - the plan’s step; $what (string) - what it’s doing
+whimsy-cmdk-run-step = { $step } of { $total } · { $what }
+# $task (string) - the plan’s title
+whimsy-cmdk-pause-step = { $task } · { $step } of { $total }
+whimsy-cmdk-stop = Stop
+whimsy-cmdk-continue = Continue
+whimsy-cmdk-took-over = You have the tab. Continue when you’re done.
+whimsy-cmdk-done = Done: { $task }
+whimsy-cmdk-failed = Couldn’t finish “{ $task }”
+# $why (string) - error, turns, repeat, typed, or search; $sent (string) - yes or no
+whimsy-cmdk-failed-why = { $why ->
+    [error] The AI didn’t answer.
+    [turns] It took too many steps.
+    [repeat] It kept trying the same thing.
+   *[other] It didn’t reach the goal.
+} { $sent ->
+    [no] Nothing was sent.
+   *[yes] { "" }
+}
+whimsy-cmdk-dismiss = Dismiss
+whimsy-cmdk-try-again = Try again
+whimsy-cmdk-notify-done = { $task } is done
+whimsy-cmdk-notify-needs-you = { $task } needs you
