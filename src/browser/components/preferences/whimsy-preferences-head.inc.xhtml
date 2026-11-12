@@ -499,19 +499,22 @@
   </groupbox>
 </html:template>
 
-# batch hover: hover cards. Tabs use Firefox's own tab preview pref.
+# W25: Settings › General › Hover cards. The one switch for the hover card
+# on tabs and links (on by default), then the History and People cards.
 <html:template id="template-whimsyHover" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <groupbox id="whimsyHoverGroup" data-category="paneZenTabManagement" hidden="true" class="highlighting-group">
+  <groupbox id="whimsyHoverGroup" data-category="paneGeneral" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-hover-header"/></label>
+    <checkbox id="whimsyHoverCards" data-whimsy-feature="hover-cards"
+              data-l10n-id="whimsy-hover-cards" preference="whimsy.feature.hover-cards"
+              aria-describedby="whimsyHoverCardsHelp"/>
+    <description id="whimsyHoverCardsHelp" data-whimsy-feature="hover-cards"
+                 class="description-deemphasized indent" data-l10n-id="whimsy-hover-cards-help"/>
     <checkbox id="whimsyHoverHistory" data-whimsy-feature="history-preview"
               data-l10n-id="whimsy-hover-history" preference="whimsy.feature.history-preview"/>
     <checkbox id="whimsyHoverPeople" data-whimsy-feature="people-cards"
               data-l10n-id="whimsy-hover-people" preference="whimsy.feature.people-cards"/>
     <description id="whimsyHoverPeopleHelp" data-whimsy-feature="people-cards"
                  class="description-deemphasized" data-l10n-id="whimsy-hover-people-help"/>
-    <!-- wave7/ux: link cards -->
-    <checkbox id="whimsyHoverLinks" data-whimsy-feature="link-cards"
-              data-l10n-id="whimsy-hover-links" preference="whimsy.feature.link-cards"/>
   </groupbox>
 </html:template>
 

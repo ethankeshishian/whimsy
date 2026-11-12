@@ -1079,15 +1079,16 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// batch hover: Settings → Tabs → "Hover cards", after Whimsy's Tabs group.
+// W25: Settings › General › Hover cards (it was under Tab Management),
+// after General's own groups.
 document.addEventListener("paneshown", event => {
-  if (event.detail.category == "paneZenTabManagement") {
-    gWhimsySettings.insertHoverGroup();
+  if (event.detail.category == whimsyGeneralPane()) {
+    gWhimsySettings.insertHoverGroup(event.detail.category);
   }
 });
 
 Object.assign(gWhimsySettings, {
-  insertHoverGroup() {
+  insertHoverGroup(pane = whimsyGeneralPane()) {
     const template = document.getElementById("template-whimsyHover");
     if (!template) {
       return;
@@ -1103,21 +1104,19 @@ Object.assign(gWhimsySettings, {
       }
     }
     template.remove();
-    // Firefox's own Tabs settings already register
-    // browser.tabs.hoverPreview.enabled; adding a pref twice throws.
+    // Adding a pref twice throws.
     Preferences.addAll(
       [...group.querySelectorAll("[preference]")]
         .map(el => el.getAttribute("preference"))
         .filter(id => !Preferences.get(id))
         .map(id => ({ id, type: "bool" }))
     );
-    const anchor =
-      document.getElementById("whimsyTabsGroup") ?? document.getElementById("zenWorkspacesGroup");
-    if (anchor) {
-      anchor.after(fragment);
-    } else {
-      document.getElementById("mainPrefPane")?.append(fragment);
-    }
+    group.dataset.category = pane;
+    // After the last General group, so it sits with General's own groups.
+    const anchor = [...document.querySelectorAll(`#mainPrefPane > [data-category="${pane}"]`)].at(-1);
+    (anchor?.parentElement || document.getElementById("mainPrefPane"))?.insertBefore(
+      fragment, anchor?.nextSibling || null
+    );
     group.hidden = false;
     Preferences.queueUpdateOfAllElements();
   },
@@ -1960,6 +1959,7 @@ Object.assign(gWhimsySettings, {
       // Look and Feel
       () => this.insertGroups(),
       () => this.insertNextMeetingGroup(),
+      () => this.insertHoverGroup(), // W25: General › Hover cards
       () => this.adoptZenGlance(),
       () => this.insertTeachGroup(), // wave9/designfix (H2)
       // Privacy & Security
@@ -1970,7 +1970,6 @@ Object.assign(gWhimsySettings, {
       () => this.insertSplitNewTabRow(),
       () => this.insertSpacesGroup(),
       () => this.insertExtensionsGroup(),
-      () => this.insertHoverGroup(),
       () => this.insertNavigationRows(), // wave9/designfix (M8): Trails, Page actions, ...
       () => this.insertProfilesGroup(), // wave9/designfix (M8)
       // Search

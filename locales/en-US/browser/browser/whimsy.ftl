@@ -1336,8 +1336,15 @@ whimsy-cheatsheet-empty-hint = Search by name, menu, or keys like “cmd shift d
 
 # batch hover: hover cards (tabs, History, People).
 whimsy-hover-header = Hover cards
-whimsy-hover-tabs =
-    .label = Show a card with the title, address and preview when you hover a tab
+# W25: Settings › General › Hover cards, the one switch for tabs and links.
+whimsy-hover-cards =
+    .label = Show hover cards on tabs and links
+whimsy-hover-cards-help = Rest on a tab or a link to see a picture, its title and address, and an AI description. Descriptions follow the AI switch and never run in private tabs.
+# W25: the hover card's quiet line where the description would be.
+whimsy-hover-card-private = Private tabs don’t get descriptions.
+whimsy-hover-card-private-link = Private tab: no picture or description, so the page isn’t loaded.
+whimsy-hover-card-unloaded = Not loaded. A description appears once the tab has loaded.
+whimsy-hover-card-failed = Couldn’t describe this page.
 whimsy-hover-history =
     .label = Show a preview when you hover a page in History
 whimsy-hover-no-preview = No saved preview
@@ -1772,9 +1779,6 @@ whimsy-tidy-done =
 whimsy-ai-feature-ask-on-page =
     .label = Ask on Page
     .description = When Find on Page (⌘F) finds nothing, ask a question about the page instead.
-whimsy-ai-feature-link-previews =
-    .label = 5-second previews
-    .description = Whenever a link card opens, a three-point summary of the page opens with it. Resting on a link reads public pages only, without your sign-ins; Shift reads any page with them. Never in private tabs.
 whimsy-ask-button =
     .label = Ask
     .tooltiptext = Ask about this page
@@ -1782,8 +1786,6 @@ whimsy-ask-reading = Reading this page…
 whimsy-ask-no-text = This page has no text to answer from.
 whimsy-ask-find-on-page = Find on Page
 whimsy-ask-manage-usage = Manage usage
-whimsy-preview-unreadable = Couldn’t read this page.
-whimsy-preview-not-ready = Set up an AI provider in Settings → AI to see previews.
 
 ## wave3/ai: Watch a page (like Safari's Notify Me)
 
@@ -2986,10 +2988,6 @@ whimsy-tab-audio-unmute = Unmute tab
 
 ## wave7/ux: link hover cards (WhimsyLinkHover)
 
-whimsy-hover-links =
-    .label = Show where a link goes when you Shift-hover it
-# Above the AI summary card, under the link or People card.
-whimsy-link-hover-ai-label = Summary
 
 # fix7 settings: command bar actions for History, Liquid Glass and Glance size.
 whimsy-action-view-history = View History
@@ -4470,8 +4468,6 @@ whimsy-setting-ask-on-page = Ask on Page
     .keywords = ask, question, find on page, chat with page, ai find, arc max
 whimsy-setting-chat-edge-hover = Chat at Window Edge
     .keywords = chat panel, hover, pointer, window edge, open chat, sidebar chat
-whimsy-setting-link-previews = 5-Second Previews
-    .keywords = five second previews, link previews, link summary, hover preview, ai previews, arc max
 whimsy-setting-page-watch = Watch Pages
     .keywords = page watch, monitor a page, page changes, alert, notify
 whimsy-setting-strip-tracking = Clean Links
@@ -4604,12 +4600,12 @@ whimsy-setting-space-extensions = Extensions per Profile
     .keywords = extensions, add-ons, profile extensions, space extensions
 whimsy-setting-split-new-tab = New Tab in the Focused Pane
     .keywords = split view, new tab in split, focused pane
+whimsy-setting-hover-cards = Hover Cards
+    .keywords = hover card, tab preview, link preview, page preview, thumbnail, ai description, summary
 whimsy-setting-history-preview = History Previews
     .keywords = hover card, history hover, page preview
 whimsy-setting-people-cards = People Cards
     .keywords = github, linkedin, x, twitter, profile preview, hover card
-whimsy-setting-link-cards = Link Cards
-    .keywords = link preview, shift hover, where a link goes, hover card
 whimsy-setting-already-open = Go to Open Tab
     .keywords = already open, switch to tab, duplicate tabs
 whimsy-setting-trails = Trails
@@ -5889,9 +5885,6 @@ whimsy-ai-features-tidy-titles =
 whimsy-ai-features-ask-on-page =
     .label = Ask on page
     .description = ⌘F answers a question about the page when it finds nothing.
-whimsy-ai-features-link-previews =
-    .label = Link preview summaries
-    .description = Link previews show a one-line summary with the card.
 whimsy-ai-features-page-watch =
     .label = Watch pages
     .description = Checks a page you’re watching and tells you when it changes the way you asked.

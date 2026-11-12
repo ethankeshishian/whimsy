@@ -1281,9 +1281,9 @@ PREF_OVERRIDES = {
     # Automatic picture-in-picture when you leave a playing video (Arc);
     # Zen kept it off "until a settings page"; Firefox's Media settings has it.
     "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled": True,
-    # batch hover: Arc's tab hover card (title, address, page preview) is
-    # Firefox's tab hover preview, which Zen ships off.
-    "browser.tabs.hoverPreview.enabled": True,
+    # W25: Whimsy's hover cards (WhimsyHoverCards) replace Firefox's tab
+    # hover preview, so it stays off (Zen ships it off; this keeps it so).
+    "browser.tabs.hoverPreview.enabled": False,
     # W10-31: the theme keeps its colors when the window loses focus, like
     # Arc. Zen greys an inactive window out: #zen-main-app-wrapper turns
     # InactiveCaption (zen-browser-ui.css) and the macOS window material
@@ -1647,8 +1647,6 @@ FEATURES = [
     # previews (Shift-hover a link; plain hover on search results, X, HN).
     {"id": "ask-on-page", "title": "Ask on Page: when Cmd+F finds nothing, ask the AI about the page instead (Arc Max)",
      "detect": [("src/zen", r"(?i)ask-?on-?page|find-?or-?ask")]},
-    {"id": "link-previews", "title": "5-second previews: Shift-hover a link for an AI summary of the page behind it (Arc Max)",
-     "detect": [("src/zen", r"(?i)five-?second|5-?second-?preview|link-?preview[\w-]*summar")]},
     # wave3/ai: Watch a page (Safari's Notify Me): a plain-words condition,
     # checked on a schedule only while Whimsy runs, with the person's session.
     {"id": "page-watch", "title": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
@@ -1761,10 +1759,6 @@ FEATURES = [
     # wave7/menus2: archive-tab-menu
     {"id": "archive-tab-menu", "title": "Tab menu in Arc's words: Archive Tab, Archive Tabs Below, Restore Last Closed Tab (closed tabs go to the Archive)",
      "detect": [("src/zen/tabs", r"(?i)archive-?tabs?-?below")]},
-    # wave7/ux: link cards. One hover host for page links: the People card
-    # or a link card, and the AI summary stacked beneath when that's on.
-    {"id": "link-cards", "title": "Link cards: Shift over a link (or rest on a result link) shows where it goes, with the AI summary beneath",
-     "detect": [("src/zen", r"(?i)zen-?link-?(hover-?)?card|zenLinkPreview")]},
     # wave7/focus: Do Not Disturb: one command pauses site notifications
     # (Firefox's "pause until restart"; macOS Focus already silences them
     # through Notification Center) and holds Whimsy's unprompted toasts.
@@ -1945,6 +1939,11 @@ FEATURES = [
     # W24 annotations
     {"id": "annotations", "title": "Annotations: highlight passages in four colors and keep a note on any page",
      "detect": [("src/zen", r"(?i)zen[-_.]?annotations?\b")]},
+    # W25 hover cards: one card for tabs and links (picture, title, address,
+    # AI description); replaces W23's link-cards and link-previews and
+    # Firefox's tab hover preview.
+    {"id": "hover-cards", "title": "Hover cards: rest on a tab or a link to see a picture, its title and address, and an AI description",
+     "detect": [("src/zen", r"(?i)zen[-_.]?hover[-_.]?cards?|link[-_.]?hover[-_.]?summar")]},
 ]
 
 

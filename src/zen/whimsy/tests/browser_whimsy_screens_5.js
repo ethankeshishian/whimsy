@@ -624,38 +624,42 @@ add_task(async function ai_provider_and_tidy_tabs() {
   }
 });
 
-// wave3/ai: the 5-second preview card and the Watch a page dialog.
+// W25: the hover card on a link (formerly the 5-second preview), and the
+// Watch a page dialog.
 add_task(async function ai_preview_and_watch() {
   const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
   const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   try {
-    // wave7/ux: the link card with the AI summary stacked beneath it.
+    // W25: one card, the description inside it.
     const { WhimsyLinkHover } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHover.sys.mjs");
-    const { previewMode, summarize } = WhimsyAIPage;
-    WhimsyAIPage.previewMode = async () => "ready";
-    WhimsyAIPage.summarize = async () => ({
+    const { WhimsyHoverCards } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHoverCards.sys.mjs");
+    const { canDescribe, describe } = WhimsyAIPage;
+    WhimsyAIPage.canDescribe = async () => true;
+    WhimsyAIPage.describe = async () => ({
       title: "How espresso machines work",
-      points: ["Pumps push water at 9 bars", "Boilers hold it near 93 °C", "Grind size sets the flow"],
+      description: "How a pump, a boiler, and the grind work together to pull a shot of espresso.",
     });
+    WhimsyHoverCards.setTestFetcher(async () => ({ text: "<html><head><title>Espresso</title></head></html>" }));
     const host = WhimsyLinkHover.forWindow(window);
     try {
       host.enter({
-        source: "link", browser: gBrowser.selectedBrowser, how: "shift",
+        source: "link", browser: gBrowser.selectedBrowser,
         url: "https://example.org/article", title: "How espresso machines work",
         x: window.mozInnerScreenX + 300, y: window.mozInnerScreenY + 200, width: 160, height: 18,
       });
       const panel = await TestUtils.waitForCondition(() => {
         const p = document.getElementById(WhimsyLinkHover.PANEL_ID);
-        return p?.hasAttribute("whimsy-open") && p.querySelector(".whimsy-preview-points") && p;
-      }, "Both cards are open");
+        return p?.hasAttribute("whimsy-open") && p.querySelector(".whimsy-hc-desc.is-text") && p;
+      }, "The card is open, described");
       await document.l10n.translateFragment(panel);
       await settled();
       await shot("wave3-ai-preview-card");
     } finally {
       host.hide({ animate: false });
-      WhimsyAIPage.previewMode = previewMode;
-      WhimsyAIPage.summarize = summarize;
+      WhimsyAIPage.canDescribe = canDescribe;
+      WhimsyAIPage.describe = describe;
+      WhimsyHoverCards.setTestFetcher(null);
     }
 
     // Watch This Page builds its panel after reading the watch list.

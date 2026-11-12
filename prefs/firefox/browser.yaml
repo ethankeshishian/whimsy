@@ -9,7 +9,7 @@
   value: true
 
 - name: browser.tabs.hoverPreview.enabled
-  value: true # Whimsy override
+  value: false # Whimsy override
 
 - name: browser.tabs.unloadTabInContextMenu
   value: true

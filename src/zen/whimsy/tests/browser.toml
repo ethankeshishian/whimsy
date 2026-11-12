@@ -389,8 +389,12 @@ support-files = ["whimsy_call.html"]
 
 # wave3/tree: cheat sheet lists Zen and Firefox shortcuts from keysets, grouped
 ["browser_whimsy_cheatsheet_catalogue.js"]
-# batch hover: hover cards (Firefox tab preview on; History card).
+# batch hover: History hover card; Firefox's tab preview stays off (W25); hover settings in General.
 ["browser_whimsy_hover_card.js"]
+
+# W25 hover cards: one card for tabs and links (picture, title, address, AI description), 500ms then swap at once, AI off, private tabs, the one switch.
+["browser_whimsy_hover_cards.js"]
+support-files = ["whimsy_ai_page.html", "whimsy_ai_links.html", "whimsy_test_image.png"]
 
 # batch hover: People cards (GitHub, LinkedIn, X profile links).
 ["browser_whimsy_people.js"]
@@ -552,7 +556,7 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 # wave7/ux: private page copy
 ["browser_whimsy_private_page_copy.js"]
 
-# wave7/ux: one hover host for links (People or link card, AI summary beneath)
+# wave7/ux, W25: one hover host for links (People card or the hover card, never stacked)
 ["browser_whimsy_link_hover.js"]
 
 # wave7/ux: the pinned/normal separator sits below expanded folder children

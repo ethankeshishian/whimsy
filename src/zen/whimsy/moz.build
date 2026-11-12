@@ -91,6 +91,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyHold.sys.mjs",
     "WhimsyHome.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
+    "WhimsyHoverCards.sys.mjs",
     "WhimsyInspector.sys.mjs",
     "WhimsyInspectorChild.sys.mjs",
     "WhimsyInspectorParent.sys.mjs",

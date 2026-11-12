@@ -299,7 +299,7 @@ add_task(async function shots_header_and_features() {
       .map(node => node.getAttribute("preference"))
       .filter(pref => /^browser\.(ml\.|tabs\.groups\.smart)/.test(pref));
     Assert.deepEqual(firefox, [], "No Firefox chatbot, link preview, or tab group suggestion controls");
-    ok(visible(page.$("whimsyAILinkPreviews")) && visible(page.$("whimsyAITidyTabs")), "Whimsy's own versions show");
+    ok(visible(page.$("whimsyAITidyTabs")), "Whimsy's own versions show");
   });
 });
 

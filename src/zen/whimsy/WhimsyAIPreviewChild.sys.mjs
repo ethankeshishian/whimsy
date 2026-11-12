@@ -2,35 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// AI v1: 5-second previews (Arc Max), the page side. Shift while pointing at
-// a link asks for a preview; on the sites Arc named (search results, X,
-// Threads, Hacker News), resting on a link to another site is enough. The
-// parent (WhimsyAIPage) checks the switches again, fetches and draws.
+// W25 hover cards, the page side: every http(s) link the pointer enters is
+// reported at once (the parent's WhimsyLinkHover waits the one 500ms delay
+// and draws the card), and leaving it is reported too. Private tabs
+// included: there the card shows only the link's text and address. Also the
+// AI summary's page helpers (passages, PDF pages) and wheel forwarding.
 
 import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
-const PREF = "whimsy.feature.link-previews";
-// W10-28: Settings → AI's Enable AI (WhimsyAI.PREF).
-const AI_ENABLED_PREF = "whimsy.ai.enabled";
-// wave7/ux: the link card (where a link goes) shows on the same triggers,
-// with or without AI. The parent's hover host waits its one delay, so this
-// side reports a hover right away.
-const LINK_CARDS_PREF = "whimsy.feature.link-cards";
-// Arc: "Google, DuckDuckGo, Bing, X, Threads and Hacker News".
+const PREF = "whimsy.feature.hover-cards";
 // page-1.3: a passage's tint eases from 32% to 18% over 600ms.
 const LEVELS = [32, 30, 28, 26, 24, 22, 20, 18];
 const TINT_MS = 600;
-const HOVER_SITES =
-  /(^|\.)(google\.[a-z.]+|duckduckgo\.com|bing\.com|x\.com|twitter\.com|threads\.net|threads\.com|news\.ycombinator\.com)$/i;
 
 export class WhimsyAIPreviewChild extends JSWindowActorChild {
   link = null;
 
   get enabled() {
-    return (
-      Services.prefs.getBoolPref(LINK_CARDS_PREF, true) ||
-      (Services.prefs.getBoolPref(PREF, true) && Services.prefs.getBoolPref(AI_ENABLED_PREF, false))
-    );
+    return Services.prefs.getBoolPref(PREF, true);
   }
 
   handleEvent(event) {
@@ -41,11 +30,6 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       case "mouseout":
         if (this.link && !this.link.contains(event.relatedTarget)) {
           this.leave();
-        }
-        break;
-      case "keydown":
-        if (event.key == "Shift" && !event.repeat && this.link) {
-          this.show("shift");
         }
         break;
       case "pagehide":
@@ -355,33 +339,10 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       return;
     }
     this.link = link;
-    if (event.shiftKey) {
-      this.show("shift");
-    } else if (this.isHoverSite() && this.isOutbound(link)) {
-      this.show("hover");
-    }
+    this.show();
   }
 
-  isHoverSite() {
-    try {
-      return HOVER_SITES.test(this.document.location.hostname);
-    } catch {
-      return false;
-    }
-  }
-
-  // Result links, not the site's own navigation.
-  isOutbound(link) {
-    try {
-      const here = this.document.location.hostname.replace(/^www\./, "");
-      const there = new URL(link.href).hostname.replace(/^www\./, "");
-      return there != here && !there.endsWith(`.${here}`) && !here.endsWith(`.${there}`);
-    } catch {
-      return false;
-    }
-  }
-
-  show(how) {
+  show() {
     const link = this.link;
     const win = this.contentWindow;
     if (!link?.isConnected || !win) {
@@ -391,8 +352,11 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     this.shown = true;
     this.sendAsyncMessage("WhimsyAIPreview:Show", {
       url: link.href,
-      how,
-      title: (link.title || link.textContent || "").replace(/\s+/g, " ").trim().slice(0, 200),
+      // The link's own words: its text, else its image's alt text.
+      title: (link.textContent.trim() ? link.textContent : link.querySelector("img[alt]")?.alt || link.title || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 200),
       x: win.mozInnerScreenX + rect.left,
       y: win.mozInnerScreenY + rect.top,
       width: rect.width,

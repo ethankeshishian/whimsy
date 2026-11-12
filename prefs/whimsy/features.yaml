@@ -393,9 +393,6 @@
 - name: whimsy.feature.ask-on-page
   value: true
 
-- name: whimsy.feature.link-previews
-  value: true
-
 - name: whimsy.feature.page-watch
   value: true
 
@@ -490,9 +487,6 @@
   value: true
 
 - name: whimsy.feature.archive-tab-menu
-  value: true
-
-- name: whimsy.feature.link-cards
   value: true
 
 - name: whimsy.feature.do-not-disturb
@@ -685,6 +679,9 @@
   value: true
 
 - name: whimsy.feature.annotations
+  value: true
+
+- name: whimsy.feature.hover-cards
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

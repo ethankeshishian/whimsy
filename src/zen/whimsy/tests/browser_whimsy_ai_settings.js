@@ -33,7 +33,6 @@ const TOUCHED = [
   "whimsy.feature.tidy-tabs",
   "whimsy.feature.tidy-titles",
   "whimsy.feature.ask-on-page",
-  "whimsy.feature.link-previews",
   "whimsy.feature.page-watch",
   "whimsy.ai.hints.seen",
   "whimsy.ai.hints.today",
@@ -529,7 +528,6 @@ add_task(async function features_rows_toggle_prefs() {
     ["whimsyAITidyTitles", "whimsy.feature.tidy-titles"],
     ["whimsyAIChatHover", "whimsy.ai.chat.edge-hover"],
     ["whimsyAIAskOnPage", "whimsy.feature.ask-on-page"],
-    ["whimsyAILinkPreviews", "whimsy.feature.link-previews"],
     ["whimsyAIPageWatch", "whimsy.feature.page-watch"],
   ]) {
     const toggle = page.$(id);

@@ -26,7 +26,7 @@ add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["whimsy.feature.people-cards", true],
-      ["whimsy.feature.link-previews", false],
+      ["whimsy.feature.hover-cards", false],
     ],
   });
   originalFetch = WhimsyPeople.fetchProfile;

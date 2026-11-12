@@ -90,7 +90,8 @@ add_task(async function parse_meta_only() {
 
 add_task(async function hover_in_page_shows_card() {
   WhimsyPeople._resetForTests();
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.people-cards", true]] });
+  // W25: every link gets a hover card while that's on; this checks People alone.
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.people-cards", true], ["whimsy.feature.hover-cards", false]] });
   const original = WhimsyPeople.fetchProfile;
   let fetches = 0;
   WhimsyPeople.fetchProfile = async (_win, url) => {
@@ -180,7 +181,7 @@ add_task(async function dwell_placeholder_and_cancel() {
   Assert.lessOrEqual(WhimsyLinkHover.ENTER_DELAY_MS, 500, "People cards open within 500ms");
   Assert.greaterOrEqual(WhimsyLinkHover.ENTER_DELAY_MS, 300, "...but not on a pass-over");
   await SimpleTest.promiseFocus(window);
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.people-cards", true], ["whimsy.feature.link-previews", false]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.people-cards", true], ["whimsy.feature.hover-cards", false]] });
   WhimsyPeople._resetForTests();
   const original = WhimsyPeople.fetchProfile;
   let resolve;

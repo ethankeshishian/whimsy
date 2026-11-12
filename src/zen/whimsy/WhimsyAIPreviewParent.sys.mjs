@@ -2,11 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// AI v1: 5-second previews, the window side's entry point.
+// W25 hover cards: the window side of a link's hover (WhimsyAIPreviewChild
+// reports it; WhimsyLinkHover shows the card). Also answers the AI summary's
+// PDF text-recognition stand-in for tests.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
+  WhimsyLinkHover: "resource:///modules/whimsy/WhimsyLinkHover.sys.mjs",
 });
 
 export class WhimsyAIPreviewParent extends JSWindowActorParent {
@@ -30,11 +33,9 @@ export class WhimsyAIPreviewParent extends JSWindowActorParent {
       return undefined;
     }
     if (name == "WhimsyAIPreview:Show") {
-      lazy.WhimsyAIPage.showPreview(win, browser, data).catch(error =>
-        console.error("Whimsy: link preview", error)
-      );
+      lazy.WhimsyLinkHover.forWindow(win).enter({ ...data, source: "link", how: "hover", browser });
     } else if (name == "WhimsyAIPreview:Leave") {
-      lazy.WhimsyAIPage.leavePreview(win, data?.url);
+      lazy.WhimsyLinkHover.forWindow(win).leave(null, data?.url);
     }
     return undefined;
   }
