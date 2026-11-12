@@ -201,23 +201,32 @@ export const WhimsyCmdTabNumbers = {
 
   // Beside the title, clear of the close button; icon-only tabs (Essentials,
   // the collapsed sidebar) get it on their trailing corner.
+  // A hint goes only on a tab row the person can see, inside that row: a
+  // tab in a collapsed pinned section or folder, scrolled out, or under
+  // other chrome gets none. ⌘N's target is unchanged (tabsForShortcut, the
+  // list Tabbrowser.selectTabAtIndex uses).
   place(win, state) {
-    const box = win.gBrowser.tabContainer.arrowScrollbox?.getBoundingClientRect?.();
+    const doc = win.document;
+    const iconOnlyStrip = doc.documentElement.getAttribute("zen-sidebar-expanded") != "true";
+    const onTab = (tab, x, y) => {
+      const hit = doc.elementFromPoint(x, y);
+      return !!hit && (hit == tab || tab.contains(hit));
+    };
     for (const [tab, node] of state.badges) {
-      const content = tab.querySelector(".tab-content") ?? tab;
-      const r = content.getBoundingClientRect();
-      const visible = r.width > 0 && r.height > 0 && (tab.pinned || tab.hasAttribute("zen-essential") || !box ||
-        (r.bottom > box.top && r.top < box.bottom));
-      node.hidden = !visible;
-      if (!visible) {
-        continue;
-      }
+      const r = tab.getBoundingClientRect();
+      node.hidden = false;
       const { width, height } = node.getBoundingClientRect();
-      const iconOnly = tab.hasAttribute("zen-essential") ||
-        win.document.documentElement.getAttribute("zen-sidebar-expanded") != "true";
-      const x = iconOnly ? r.right - width - 2 : r.right - width - 28;
+      const iconOnly = iconOnlyStrip || tab.hasAttribute("zen-essential");
+      const x = Math.max(r.left + 2, iconOnly ? r.right - width - 2 : r.right - width - 28);
       const y = iconOnly ? r.top + 2 : r.top + (r.height - height) / 2;
-      lazy.placeHint(node, Math.max(0, x), Math.max(0, y), node.textContent, win);
+      const fits = r.width >= width + 4 && r.height >= height && x + width <= r.right && y + height <= r.bottom;
+      const visible = fits && tab.checkVisibility({ visibilityProperty: true }) &&
+        onTab(tab, x + 1, y + 1) && onTab(tab, x + width - 1, y + height - 1) &&
+        onTab(tab, r.left + r.width / 2, r.top + r.height / 2);
+      node.hidden = !visible;
+      if (visible) {
+        lazy.placeHint(node, x, y, node.textContent, win);
+      }
     }
   },
 

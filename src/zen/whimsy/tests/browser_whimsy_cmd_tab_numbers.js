@@ -152,6 +152,48 @@ add_setup(async function () {
   }
 });
 
+// A hint sits only on a visible tab row, inside it, never on another row
+// (the Space header, a collapsed pinned section, a folder header).
+add_task(async function hints_only_on_visible_tab_rows() {
+  const pins = win.gZenWorkspaces.activeWorkspaceElement?.collapsiblePins;
+  ok(pins, "The space has a collapsible pinned section");
+  try {
+    for (const collapse of [false, true]) {
+      pins.collapsed = collapse;
+      await TestUtils.waitForCondition(() => pins.collapsed == collapse, "The pinned section changed");
+      await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
+      await new Promise(resolve => win.setTimeout(resolve, 400)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      await hold();
+      await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "Hints faded in");
+      const state = collapse ? "collapsed" : "expanded";
+      let shown = 0;
+      for (const [tab] of Numbers.targets(win)) {
+        const node = badge(tab);
+        if (!node || node.hidden) {
+          continue;
+        }
+        shown++;
+        const h = node.getBoundingClientRect();
+        const t = tab.getBoundingClientRect();
+        ok(h.width > 0 && h.left >= t.left && h.right <= t.right && h.top >= t.top && h.bottom <= t.bottom,
+          `Pinned section ${state}: hint "${node.textContent}" sits inside its tab's row`);
+        for (const [x, y] of [[h.left + 1, h.top + 1], [h.right - 1, h.bottom - 1], [h.left + h.width / 2, h.top + h.height / 2]]) {
+          const hit = win.document.elementFromPoint(x, y);
+          is(hit?.closest(".tabbrowser-tab"), tab, `Pinned section ${state}: hint "${node.textContent}" overlaps only its own tab row`);
+        }
+      }
+      ok(shown > 0, `Pinned section ${state}: some hints show`);
+      if (collapse) {
+        ok(!badge(pinned) || badge(pinned).hidden, "A pinned tab in a collapsed section shows no hint");
+      }
+      release();
+    }
+  } finally {
+    release();
+    pins.collapsed = false;
+  }
+});
+
 add_task(async function real_digits_match_badges() {
   await hold();
   ok(badge(essential), "Essentials follow the native shortcut order");
