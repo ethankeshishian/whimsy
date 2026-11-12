@@ -590,6 +590,21 @@ class QueueTests(unittest.TestCase):
         time.sleep(4)
         self.assertIn("worker: stopped", self.q("status").stdout)
 
+    def test_a_live_holder_of_the_mkdir_lock_is_waited_for(self):
+        lock = Path(self.tmp) / "lock.d"
+        lock.mkdir()
+        (lock / "pid").write_text(str(os.getpid()))  # this test process: alive
+        out = Path(self.tmp) / "ran.txt"
+        t = self.q("submit", "--name", "waits", "--", "sh", "-c", f"echo ran > {out}").stdout.strip()
+        time.sleep(6)
+        self.assertFalse(out.exists(), "the worker must not take the engine from a live holder")
+        self.assertTrue((Path(self.tmp) / "queue" / "pending" / f"{t}.job").exists())
+        shutil.rmtree(lock)  # the holder releases
+        self.assertEqual(self.q("wait", t).returncode, 0)
+        self.assertEqual(out.read_text().strip(), "ran")
+        self.assertFalse(lock.exists(), "released after the ticket")
+        self.q("stop")
+
     def test_inside_a_ticket_run_executes_directly(self):
         env = dict(self.env, WHIMSY_TICKET="1-000001-outer")
         r = subprocess.run(["zsh", str(TOOLS / "queue.sh"), "run", "--", "sh", "-c", "echo inner; exit 5"], env=env,

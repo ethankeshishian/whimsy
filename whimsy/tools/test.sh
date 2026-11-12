@@ -51,11 +51,14 @@ for f in $files; do n=$((i % jobs + 1)); chunk[$n]="${chunk[$n]} $f"; i=$((i+1))
 
 SP="--setpref=security.sandbox.content.mac.testing_read_path2=$ROOT/src"
 headless=$([ -n "${WHIMSY_HEADED:-}" ] || echo --headless)
+# Parallel harness runs each need their own manifest file (a plain name:
+# the harness writes it under _tests/testing/mochitest).
+mname=${name//[^A-Za-z0-9_.-]/-}
 pids=(); started=$(date +%s)
 for n in {1..$jobs}; do
   [ $n -gt 1 ] && sleep 20
   log=$run/test-p$n.log
-  ( ./mach test $headless $SP --testrun-manifest-file=tests-whimsy-$name-p$n.json ${=WHIMSY_ARGS:-} ${=chunk[$n]} > $log 2>&1; echo $? > $run/test-p$n.exit ) &
+  ( ./mach test $headless $SP --testrun-manifest-file=tests-whimsy-$mname-p$n.json ${=WHIMSY_ARGS:-} ${=chunk[$n]} > $log 2>&1; echo $? > $run/test-p$n.exit ) &
   pids+=$!
 done
 for p in $pids; do wait $p; done

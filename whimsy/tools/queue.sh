@@ -71,9 +71,24 @@ wait_for() {
   return $(cat $Q/out/$t.exit)
 }
 
+# Another process may use the engine without the queue: wave13/lock.sh (an
+# mkdir on the same dir with its pid inside), or a build, test, verify or
+# ship someone started by hand. The worker waits while the lock dir exists
+# and its pid is alive, and never breaks a dead holder's lock while any
+# engine process is still running (a killed lock.sh can leave its mach or
+# verify.sh alive).
+engine_busy() { pgrep -f 'mach (build|test|mochitest|package|lint)|whimsy/verify\.sh|surfer build|updater\.py (ship|nightly|publish)' >/dev/null 2>&1; }
 take_lock() {
-  while ! mkdir $L 2>/dev/null; do
-    if [ -f $L/pid ] && ! kill -0 $(cat $L/pid) 2>/dev/null; then rm -rf $L; continue; fi
+  while :; do
+    if mkdir $L 2>/dev/null; then
+      if engine_busy; then rmdir $L 2>/dev/null; sleep 5; continue; fi
+      break
+    fi
+    holder=$(cat $L/pid 2>/dev/null)
+    if [ -n "$holder" ] && ! kill -0 $holder 2>/dev/null && ! engine_busy; then
+      echo "lock: holder $holder is gone and no engine process runs; taking over $(date '+%F %T')"
+      rm -rf $L; continue
+    fi
     sleep 2
   done
   echo $$ > $L/pid

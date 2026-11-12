@@ -114,7 +114,7 @@ if grep -q "^NOT APPLIED: .*'id'" $run/overlay-check.log || grep -q '^PROBLEM' $
 fi
 if [ $orc != 0 ]; then
   python3 whimsy/overlay.py apply >> $run/overlay-check.log 2>&1
-  git add -u -- prefs/whimsy locales/en-US 2>/dev/null
+  git add -u -- prefs locales/en-US surfer.json package.json configs/common/mozconfig src/build 2>/dev/null
   regen=" (regenerated $(grep -c "^NOT APPLIED" $run/overlay-check.log) derived file(s))"
 fi
 [ -n "$message" ] || message="Merge $LANE: $(git log -1 --format=%s $LANE)"
