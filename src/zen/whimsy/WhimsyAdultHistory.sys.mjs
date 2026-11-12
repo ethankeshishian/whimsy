@@ -99,9 +99,6 @@ export const WhimsyAdultHistory = {
     if (labelled.has(uri.specIgnoringRef)) {
       return true;
     }
-    if (!Services.prefs.getBoolPref("whimsy.adultHistory.debug.nativeFilter", true)) {
-      return false;
-    }
     const domain = baseDomain(uri);
     if (!domain) {
       return false;
@@ -128,7 +125,7 @@ export const WhimsyAdultHistory = {
   },
 
   init() {
-    if (!Services.prefs.getBoolPref("whimsy.adultHistory.debug.observers", true) || this._initialized) {
+    if (this._initialized) {
       return;
     }
     this._initialized = true;
@@ -232,7 +229,7 @@ export const WhimsyAdultHistory = {
   // Recently Closed (and the Archive over it): a closed tab that had an
   // adult page anywhere in its back/forward list is forgotten.
   scrubClosedTabs() {
-    if (!Services.prefs.getBoolPref("whimsy.adultHistory.debug.closedTabs", true) || this._scrubbing) {
+    if (this._scrubbing) {
       return;
     }
     this._scrubbing = true;

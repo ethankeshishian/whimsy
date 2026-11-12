@@ -589,18 +589,16 @@ export const Whimsy = {
 
     // W24: a top-level page labelled adult (meta rating or RTA) is taken
     // back out of history (WhimsyAdultHistory). Only the fact crosses over.
-    if (Services.prefs.getBoolPref("whimsy.adultHistory.debug.actor", true)) {
-      ChromeUtils.registerWindowActor("WhimsyAdultHistory", {
-        parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAdultHistory.sys.mjs" },
-        child: {
-          esModuleURI: "resource:///modules/whimsy/WhimsyAdultHistoryChild.sys.mjs",
-          events: { DOMContentLoaded: {}, pageshow: {} },
-        },
-        matches: ["https://*/*", "http://*/*"],
-        messageManagerGroups: ["browsers"],
-        safeForUntrustedWebProcess: true,
-      });
-    }
+    ChromeUtils.registerWindowActor("WhimsyAdultHistory", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyAdultHistory.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyAdultHistoryChild.sys.mjs",
+        events: { DOMContentLoaded: {}, pageshow: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
 
     // W23 ⌘K: the view's make-up when ⌘K opens, and what the selection sits in.
     ChromeUtils.registerWindowActor("WhimsyAIViewShare", {

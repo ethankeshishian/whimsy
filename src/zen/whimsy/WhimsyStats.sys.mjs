@@ -109,8 +109,7 @@ export const WhimsyStats = {
       const tab = event.target;
       const openedAt = parseInt(tab.getAttribute(OPENED_ATTR), 10);
       // W24: an adult site's page is never Year in tabs' longest tab.
-      if (!this.enabled || !openedAt || isPrivateTab(tab) ||
-          (Services.prefs.getBoolPref("whimsy.adultHistory.debug.stats", true) && !lazy.WhimsyAdultHistory.keepsTab(tab))) {
+      if (!this.enabled || !openedAt || isPrivateTab(tab) || !lazy.WhimsyAdultHistory.keepsTab(tab)) {
         return;
       }
       this._recordIfLongest(tab, Date.now() - openedAt);
