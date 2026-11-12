@@ -90,7 +90,7 @@ add_task(async function chips_show_counts_and_label() {
   is(getComputedStyle(chip.querySelector(".whimsy-chat-chip-summary")).color, getComputedStyle(chip.querySelector(".whimsy-chat-chip-count")).color, "The contents line is one colour");
   const x = chip.querySelector(".whimsy-chat-chip-x");
   ok(x.localName == "button" && x.tabIndex >= 0 && x.checkVisibility(), "× is a visible button in the tab order");
-  await whimsyBothSchemes("w25-chat-chip-this-tab", async () => {});
+  await whimsyShot("w25-chat-chip-this-tab-light");
   await closeAll(tab);
 });
 
