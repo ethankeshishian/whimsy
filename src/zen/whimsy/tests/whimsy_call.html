@@ -6,6 +6,9 @@
      tests), shown in a muted video the way Meet shows its tiles. -->
 <video id="speaker" muted autoplay playsinline style="width: 480px; height: 360px"></video>
 <video id="self" muted autoplay playsinline style="width: 160px; height: 120px; transform: scaleX(-1)"></video>
+<!-- W26: other people's tiles (joinOthers) and your call bar (addCallBar). -->
+<div id="others" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: start"></div>
+<div id="bar" role="toolbar" style="display: flex; gap: 12px; padding: 12px"></div>
 <script>
   // Camera only: a fake microphone stream never resolved in a headless run
   // after earlier tests had played audio. A camera alone already makes the
@@ -21,11 +24,190 @@
   };
   // Hang up: release the camera and microphone.
   window.endCall = function () {
+    window.leaveOthers();
     for (const id of ["speaker", "self"]) {
       const video = document.getElementById(id);
       video.srcObject?.getTracks().forEach(track => track.stop());
       video.srcObject = null;
     }
+    return true;
+  };
+
+  // W26: other people in the call. Each participant's camera is a canvas
+  // with their name, sent over a real RTCPeerConnection loopback in this
+  // page, so their tile plays a received WebRTC track (Gecko labels it
+  // "remote video"), as a call app's remote tiles do. The active speaker
+  // gets the big tile, as Meet's, Zoom's and Teams's speaker layouts do.
+  const others = new Map();
+  const COLORS = ["#2f6f4f", "#6b3fa0", "#a0522d", "#2f5f8f"];
+  function paintedCamera(name, color) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext("2d");
+    let frame = 0;
+    const paint = () => {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "white";
+      ctx.font = "600 64px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(name, canvas.width / 2, canvas.height / 2);
+      // Something changes every frame, so the stream keeps sending.
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.fillRect((frame++ * 8) % canvas.width, canvas.height - 8, 48, 8);
+    };
+    paint();
+    const timer = setInterval(paint, 100);
+    const stream = canvas.captureStream(10);
+    return { stream, stop: () => { clearInterval(timer); stream.getTracks().forEach(t => t.stop()); } };
+  }
+
+  async function loopback(stream) {
+    const sender = new RTCPeerConnection();
+    const receiver = new RTCPeerConnection();
+    sender.onicecandidate = e => e.candidate && receiver.addIceCandidate(e.candidate).catch(() => {});
+    receiver.onicecandidate = e => e.candidate && sender.addIceCandidate(e.candidate).catch(() => {});
+    const received = new Promise(resolve => {
+      receiver.ontrack = e => resolve(e.streams[0] ?? new MediaStream([e.track]));
+    });
+    for (const track of stream.getTracks()) {
+      sender.addTrack(track, stream);
+    }
+    await sender.setLocalDescription(await sender.createOffer());
+    await receiver.setRemoteDescription(sender.localDescription);
+    await receiver.setLocalDescription(await receiver.createAnswer());
+    await sender.setRemoteDescription(receiver.localDescription);
+    return { remote: await received, close: () => { sender.close(); receiver.close(); } };
+  }
+
+  function tile(id) {
+    const video = document.createElement("video");
+    video.id = id;
+    video.muted = true;
+    video.autoplay = true;
+    video.playsInline = true;
+    return video;
+  }
+
+  // Adds remote participants; the first is the active speaker.
+  window.joinOthers = async function (names) {
+    const grid = document.getElementById("others");
+    for (const name of names) {
+      const camera = paintedCamera(name, COLORS[others.size % COLORS.length]);
+      const link = await loopback(camera.stream);
+      const video = tile(`remote-${name}`);
+      grid.append(video);
+      video.srcObject = link.remote;
+      others.set(name, { video, camera, link });
+    }
+    window.setSpeaker(names[0]);
+    await Promise.all([...others.values()].map(({ video }) =>
+      video.readyState >= 2 && video.videoWidth > 0 ? null :
+        new Promise(resolve => video.addEventListener("loadeddata", resolve, { once: true }))));
+    for (const { video } of others.values()) {
+      await video.play();
+    }
+    return [...others.values()].map(({ video }) =>
+      video.srcObject.getVideoTracks().map(track => track.label).join());
+  };
+
+  // Speaker layout: the speaker's tile is big, everyone else's small.
+  window.setSpeaker = function (name) {
+    for (const [who, { video }] of others) {
+      video.style.cssText = who == name ? "width: 640px; height: 360px" : "width: 160px; height: 90px";
+    }
+    return true;
+  };
+
+  // Someone leaves: their tile goes.
+  window.leave = function (name) {
+    const other = others.get(name);
+    if (!other) {
+      return false;
+    }
+    other.video.remove();
+    other.link.close();
+    other.camera.stop();
+    others.delete(name);
+    return true;
+  };
+
+  window.leaveOthers = function () {
+    for (const name of [...others.keys()]) {
+      window.leave(name);
+    }
+    document.getElementById("processed")?.parentElement.remove();
+    document.getElementById("decoded")?.remove();
+    return true;
+  };
+
+  // A processed self-view (background blur): drawn through a canvas, so
+  // its track has no camera device, and mirrored on its wrapper, not on
+  // the video. Bigger than anyone else's tile.
+  window.showProcessedSelf = async function () {
+    const camera = paintedCamera("Me", "#444");
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "transform: scaleX(-1); width: 800px; height: 450px";
+    const video = tile("processed");
+    video.style.cssText = "width: 800px; height: 450px";
+    wrap.append(video);
+    document.body.append(wrap);
+    video.srcObject = camera.stream;
+    await video.play();
+    return true;
+  };
+
+  // A participant decoded by the page itself (WebCodecs/wasm into a
+  // canvas), so their track isn't a WebRTC one either.
+  window.showDecodedOther = async function () {
+    const camera = paintedCamera("Dee", "#1f4f6f");
+    const video = tile("decoded");
+    video.style.cssText = "width: 320px; height: 180px";
+    document.body.append(video);
+    video.srcObject = camera.stream;
+    await video.play();
+    return true;
+  };
+
+  // Hides (or shows) every WebRTC participant's tile.
+  window.hideOthers = function (hidden) {
+    document.getElementById("others").hidden = hidden;
+    return true;
+  };
+
+  // W26: a call bar with Meet's mechanics (data-is-muted and Meet's
+  // labels), so the browser knows when your camera is off. Turning it off
+  // disables your camera track, as Meet does.
+  window.addCallBar = function () {
+    const bar = document.getElementById("bar");
+    const state = { mic: "on", camera: "on" };
+    const NAME = { mic: "microphone", camera: "camera" };
+    const KEY = { mic: "d", camera: "e" };
+    const render = () => {
+      bar.textContent = "";
+      for (const kind of ["mic", "camera"]) {
+        const button = document.createElement("button");
+        const on = state[kind] == "on";
+        button.setAttribute("data-is-muted", String(!on));
+        button.setAttribute("aria-label", `Turn ${on ? "off" : "on"} ${NAME[kind]} (ctrl + ${KEY[kind]})`);
+        button.textContent = kind;
+        button.addEventListener("click", () => window.setDevice(kind, !on));
+        bar.append(button);
+      }
+    };
+    window.setDevice = function (kind, on) {
+      state[kind] = on ? "on" : "off";
+      if (kind == "camera") {
+        for (const track of document.getElementById("self").srcObject?.getVideoTracks() ?? []) {
+          track.enabled = on;
+        }
+      }
+      render();
+      return true;
+    };
+    render();
     return true;
   };
 </script>

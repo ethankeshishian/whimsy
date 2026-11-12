@@ -57,6 +57,11 @@ const KINDS = ["mic", "camera"];
 const CAMERA_INTENT_MS = 10000;
 const RETRY_MS = 500;
 const RETRY_TRIES = 7200;
+// W26: how often an open call PiP asks its page which video should float,
+// and how long another video must lead before the window follows it (no
+// flicker while speakers trade the big tile).
+const FOLLOW_MS = 500;
+const FOLLOW_HOLD_MS = 1500;
 const PERMISSION = { mic: "microphone", camera: "camera" };
 // Zen's sharing card: its buttons and its muted attributes (Zen's icons).
 const CARD_BUTTON = { mic: ".zen-media-mute-mic-button", camera: ".zen-media-mute-camera-button" };
@@ -507,13 +512,17 @@ export const WhimsyCallPip = {
         }
       }, true);
       pipWin.addEventListener("unload", () => {
-        pipWin.clearInterval(pipWin._whimsyLiveVideoTimer);
-        pipWin._whimsyLiveVideoTimer = null;
+        pipWin.clearInterval(pipWin._whimsyFollowTimer);
+        pipWin._whimsyFollowTimer = null;
         this.onCallPipClosed(pipWin._whimsyCallBrowser);
       }, { once: true });
     }
     this.showCaptionsButton(pipWin, browser);
     this.renderCameraOff(pipWin, browser);
+    if (!pipWin._whimsyFollowTimer) {
+      pipWin._whimsyFollowTimer = pipWin.setInterval(() => this.followCall(pipWin, pipWin._whimsyCallBrowser), FOLLOW_MS);
+      this.followCall(pipWin, browser);
+    }
     if (this.controlsEnabled) {
       this.addPipButtons(pipWin);
       this.watch(browser);
@@ -550,37 +559,34 @@ export const WhimsyCallPip = {
       }
       doc.body.insertBefore(box, doc.body.firstChild);
     }
-    box.hidden = !this.isInCallBrowser(browser) || this.shownState(browser, "camera") != "off";
-    if (box.hidden) {
-      pipWin.clearInterval(pipWin._whimsyLiveVideoTimer);
-      pipWin._whimsyLiveVideoTimer = null;
-    } else if (!pipWin._whimsyLiveVideoTimer) {
-      pipWin._whimsyLiveVideoTimer = pipWin.setInterval(() => this.checkCallLiveVideo(pipWin, browser), 1000);
-    }
+    // W26: the cover stands in for your own preview only. Someone else's
+    // video is never covered, whatever your camera does.
+    box.hidden = !this.isInCallBrowser(browser) || this.shownState(browser, "camera") != "off" ||
+      pipWin._whimsyFloatingSelf !== true;
   },
 
-  async checkCallLiveVideo(pipWin, browser) {
-    if (pipWin.closed || pipWin._whimsyLiveVideoPending || pipWin._whimsySwappingVideo ||
-        pipWin.document.getElementById("whimsy-call-camera-off")?.hidden ||
-        !this.enabled || !this.isInCallBrowser(browser) || !this.isBackground(browser)) {
+  // W26: keeps the open call PiP on the call's main video (WhimsyPageChild
+  // callFollow): another participant over your own preview, then the
+  // active speaker's (biggest) tile once it has led for FOLLOW_HOLD_MS.
+  // The window stays open and shows the new video in place. It also learns
+  // whether the floating video is your own preview, for the cover.
+  async followCall(pipWin, browser) {
+    if (pipWin.closed || pipWin._whimsyFollowPending || !this.enabled || !this.isInCallBrowser(browser)) {
       return;
     }
-    pipWin._whimsyLiveVideoPending = true;
+    pipWin._whimsyFollowPending = true;
     try {
       const actor = browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
-      const live = await actor?.sendQuery("Whimsy:CallLiveVideo");
-      if (live && !pipWin.closed && !pipWin.document.getElementById("whimsy-call-camera-off")?.hidden &&
-          this.enabled && this.isInCallBrowser(browser) && this.isBackground(browser) &&
-          !this._closedByHand.has(browser)) {
-        pipWin._whimsySwappingVideo = true;
-        // Programmatic close has no deliberate-close reason. The unload hook
-        // reuses floatWhenReady(browser, { tries: 6 }) after the clone detaches.
-        pipWin.close();
+      const follow = this.isBackground(browser) && !this._closedByHand.has(browser);
+      const floating = await actor?.sendQuery("Whimsy:CallFollow", { holdMs: FOLLOW_HOLD_MS, follow });
+      if (!pipWin.closed) {
+        pipWin._whimsyFloatingSelf = floating ? !!floating.self : null;
+        this.renderCameraOff(pipWin, browser);
       }
     } catch (e) {
       // Navigation or teardown while the page was answering.
     } finally {
-      pipWin._whimsyLiveVideoPending = false;
+      pipWin._whimsyFollowPending = false;
     }
   },
 

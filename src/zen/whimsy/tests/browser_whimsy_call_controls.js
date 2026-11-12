@@ -1165,13 +1165,11 @@ add_task(async function test_emptied_call_pip_stays_open_and_resumes() {
 
 add_task(async function test_camera_off_pip_moves_to_a_new_live_tile() {
   const call = await openCall();
-  let floating = await float(call);
+  const floating = await float(call);
   try {
     await emptyCallVideos(call);
     await TestUtils.waitForCondition(() => floating.pip.document.getElementById("whimsy-call-camera-off")?.hidden === false,
       "The camera-off placeholder is visible");
-    const closed = BrowserTestUtils.domWindowClosed(floating.pip);
-    const reopened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
     await SpecialPowers.spawn(call.linkedBrowser, [], async () => {
       const source = content.document.querySelector("video");
       const video = content.document.createElement("video");
@@ -1182,11 +1180,11 @@ add_task(async function test_camera_off_pip_moves_to_a_new_live_tile() {
       video.srcObject = source.wrappedJSObject.whimsySavedStream;
       await video.play();
     });
-    await closed;
-    floating = { ...floating, pip: await reopened };
     await TestUtils.waitForCondition(async () => SpecialPowers.spawn(call.linkedBrowser, [], () =>
       content.document.getElementById("whimsy-replacement-video").isCloningElementVisually),
     "The new live tile floats");
+    // W26: in the same window (the player shows the new video in place).
+    ok(!floating.pip.closed, "The same PiP window shows the new tile");
     ok(!WhimsyCallPip._closedByHand.has(call.linkedBrowser), "A video swap is not a deliberate close");
   } finally {
     await selectTab(call);
