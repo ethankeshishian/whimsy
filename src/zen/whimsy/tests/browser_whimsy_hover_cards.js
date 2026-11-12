@@ -116,6 +116,23 @@ function shadowExtent(el) {
   return extent;
 }
 
+// -moz-window-shadow is chrome-only, so getComputedStyle can't read it:
+// take the winning declaration from the rules that match `el` (cascade
+// order, !important last).
+function windowShadow(el) {
+  let value = "auto";
+  let important = false;
+  for (const rule of InspectorUtils.getCSSStyleRules(el)) {
+    for (const [, v, imp] of rule.style.cssText.matchAll(/-moz-window-shadow:\s*([a-z-]+)\s*(!important)?/g)) {
+      if (imp || !important) {
+        value = v;
+        important ||= !!imp;
+      }
+    }
+  }
+  return value;
+}
+
 // The look of a card's surface and of everything around it in its popup.
 function surfaceLook(panel) {
   const frame = panel.querySelector(".whimsy-link-hover-card");
@@ -126,6 +143,7 @@ function surfaceLook(panel) {
     panel: pick(panel, ["appearance", "background-color", "border-top-width", "box-shadow", "margin-top", "margin-left", "padding-top"]),
     content: pick(content, ["appearance", "background-color", "border-top-width", "box-shadow", "padding-top", "margin-top", "border-radius"]),
     stack: pick(panel.querySelector(".whimsy-link-hover-stack"), ["background-color", "box-shadow", "padding-top", "padding-left", "padding-bottom"]),
+    windowShadow: windowShadow(panel),
     attributes: [...panel.attributes].map(a => a.name).filter(n => !["id", "whimsy-open", "side", "state", "style"].includes(n)).sort(),
   };
 }
@@ -233,7 +251,11 @@ add_task(async function tab_card() {
     const desc = await TestUtils.waitForCondition(
       () => card.querySelector(".whimsy-hc-desc.is-text"),
       "The description arrives"
-    );
+    ).catch(error => {
+      const now = card.querySelector(".whimsy-hc-desc");
+      info(`Description state: ${now?.className} "${now?.textContent}"; asked ${asked.length}; card connected ${card.isConnected}`);
+      throw error;
+    });
     is(desc.textContent, DESCRIPTION, "It's the AI's description");
     checkPoints(card, "A tab");
     is(asked.filter(described).length, 1, "The description and its bullets came from one request");
@@ -546,6 +568,7 @@ add_task(async function tab_and_link_cards_look_the_same() {
       is(look.content["box-shadow"], "none", `${what}: ...no shadow`);
       is(look.content["border-top-width"], "0px", `${what}: ...no border`);
       is(look.panel.appearance, "none", `${what}: ...and no native material`);
+      is(look.windowShadow, "none", `${what}: ...or window shadow`);
       ok(/rgba\(0, 0, 0, 0\)|transparent/.test(look.stack["background-color"]), `${what}: the shadow's room is see-through`);
     }
     is(getComputedStyle(linkPanel().querySelector(".whimsy-link-hover-stack")).pointerEvents, "none", "The shadow's room lets the pointer through");
