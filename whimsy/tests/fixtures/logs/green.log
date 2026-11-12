@@ -1,0 +1,40 @@
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80105
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80106
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80107
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80108
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80109
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80110
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80111
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80112
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80113
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80114
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80115
+ 0:12.17 INFO zombiecheck | Checking for orphan process with PID: 80090
+ 0:12.17 INFO runtests.py | Running http tests: end. status: 0
+ 0:12.17 INFO Stopping web server
+ 0:12.19 INFO Server shut down.
+ 0:12.19 INFO Web server killed.
+ 0:12.19 INFO Stopping web socket server
+ 0:12.19 INFO Stopping ssltunnel
+ 0:12.19 WARNING leakcheck | refcount logging is off, so leaks can't be detected!
+ 0:12.21 INFO Buffered messages finished
+TEST-INFO | checking window state
+Browser Chrome Test Summary
+	Passed: 21
+	Failed: 0
+	Todo: 2
+	Retried: 0
+	Mode: e10s
+*** End BrowserChrome Test Results ***
+ 0:12.21 INFO Buffered messages finished
+ 0:12.21 SUITE_END
+ 0:12.21 
+Overall Summary
+===============
+
+mochitest-browser
+~~~~~~~~~~~~~~~~~
+Ran 24 checks (23 subtests, 1 tests)
+Expected results: 24
+Unexpected results: 0
+OK

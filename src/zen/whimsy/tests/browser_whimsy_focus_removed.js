@@ -33,7 +33,7 @@ async function shipped(url) {
 
 add_task(async function test_focus_feature_gone() {
   ok(await shipped("resource:///modules/whimsy/WhimsyStartup.sys.mjs"), "(Whimsy's modules are found this way)");
-  ok(!(await shipped("resource:///modules/whimsy/WhimsyFocus.sys.mjs")), "WhimsyFocus.sys.mjs isn't shipped");
+  ok(!(await shipped("resource:///modules/whimsy/WhimsyFocus.sys.mjs")), "WhimsyFocus.sys.mjs isn't shipped"); // precheck: ignore-url (proves it is gone)
   ok(!("@whimsy/focus;1" in Cc), "The native Focus component isn't built");
   is(Services.prefs.getDefaultBranch("").getPrefType(PREF), Services.prefs.PREF_INVALID, "No default for the old switch");
 });

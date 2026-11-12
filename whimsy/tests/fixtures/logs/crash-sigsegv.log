@@ -1,0 +1,37 @@
+ 0:03.23 TEST_START: zen/whimsy/tests/browser_whimsy_screens.js
+ 0:28.24 GECKO(69837) console.warn: "Key element" <key id="addBookmarkAsKb" command="Browser:AddBookmarkAs"> "is missing \"key\" and \"keycode\" attributes necessary to define a shortcut"
+ 0:28.25 GECKO(69837) console.warn: "Key element" <key id="addBookmarkAsKb" command="Browser:AddBookmarkAs"> "is missing \"key\" and \"keycode\" attributes necessary to define a shortcut"
+ 0:28.39 INFO Saved /tmp/w13/shots-tidy/21-changelog-dark.png
+ 0:28.42 GECKO(69837) console.warn: "Key element" <key id="addBookmarkAsKb" command="Browser:AddBookmarkAs"> "is missing \"key\" and \"keycode\" attributes necessary to define a shortcut"
+ 0:28.43 GECKO(69837) console.warn: "Key element" <key id="addBookmarkAsKb" command="Browser:AddBookmarkAs"> "is missing \"key\" and \"keycode\" attributes necessary to define a shortcut"
+ 0:28.46 INFO Saved /tmp/w13/shots-tidy/22-privacy-dark.png
+ 0:28.48 GECKO(69837) console.warn: "Key element" <key id="addBookmarkAsKb" command="Browser:AddBookmarkAs"> "is missing \"key\" and \"keycode\" attributes necessary to define a shortcut"
+ 0:28.50 INFO Leaving test whimsy_home_and_changelog
+ 0:28.50 INFO Entering test vpn_panel
+ 0:28.52 GECKO(69837) Exiting due to channel error.
+ 0:28.52 GECKO(69837) Exiting due to channel error.
+ 0:28.52 GECKO(69837) Exiting due to channel error.
+ 0:28.52 GECKO(69837) Exiting due to channel error.
+ 0:28.52 GECKO(69837) Exiting due to channel error.
+ 0:28.52 GECKO(69837) Exiting due to channel error.
+ 0:28.52 GECKO(69837) Exiting due to channel error.
+ 0:28.52 GECKO(69837) Exiting due to channel error.
+ 0:28.53 GECKO(69837) Exiting due to channel error.
+ 0:28.53 GECKO(69837) Exiting due to channel error.
+ 0:28.53 GECKO(69837) Exiting due to channel error.
+ 0:28.53 Main app process: killed by SIGSEGV
+ 0:28.53 INFO Buffered messages finished
+ 0:28.53 INFO runtests.py | Application ran for: 0:00:27.930766
+ 0:28.53 INFO zombiecheck | Reading PID log: /var/folders/mt/nhfr35b92413mwl_9_kqg31c0000gn/T/tmpkgl4n11xpidlog
+ 0:28.53 INFO ==> process 69837 launched child process 69841
+ 0:28.53 INFO ==> process 69837 launched child process 69842
+ 0:28.53 INFO ==> process 69837 launched child process 69843
+ 0:28.53 INFO ==> process 69837 launched child process 69845
+ 0:28.53 INFO ==> process 69837 launched child process 69846
+ 0:28.53 INFO ==> process 69837 launched child process 69847
+ 0:28.53 INFO ==> process 69837 launched child process 69849
+ 0:28.53 INFO ==> process 69837 launched child process 69850
+ 0:28.53 INFO ==> process 69837 launched child process 69851
+ 0:28.53 INFO ==> process 69837 launched child process 69855
+ 0:28.53 INFO ==> process 69837 launched child process 69856
+ 0:28.53 INFO ==> process 69837 launched child process 69857
