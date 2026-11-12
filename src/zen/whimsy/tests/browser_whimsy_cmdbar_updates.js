@@ -226,7 +226,7 @@ add_task(async function needs_you_leads_with_next_step() {
 });
 
 add_task(async function word_now_never_appears() {
-  const ftl = await (await fetch("chrome://browser/locale/browser/whimsy.ftl").catch(() => null))?.text?.();
+  const ftl = await (await fetch("chrome://browser/locale/browser/whimsy.ftl").catch(() => null))?.text?.(); // precheck: ignore-url (tolerates a missing file)
   if (ftl) {
     const block = ftl.slice(ftl.indexOf("## W23 cmdbar-ai"));
     const end = block.indexOf("\n## ", 5);

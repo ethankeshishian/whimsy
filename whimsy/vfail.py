@@ -95,6 +95,16 @@ def collect(directory):
         warnings.append("whimsy.log missing")
 
     raws = sorted(directory.glob("*.raw"))
+    # Only this run's raws: verify.sh clears the folder and touches
+    # run-started.txt as it starts, so a raw older than that marker is from an
+    # earlier run and would read as tonight's failure.
+    marker = directory / "run-started.txt"
+    if marker.exists():
+        began = marker.stat().st_mtime
+        stale = [raw for raw in raws if raw.stat().st_mtime < began]
+        if stale:
+            warnings.append(f"ignored {len(stale)} raw log(s) from an earlier run")
+        raws = [raw for raw in raws if raw not in stale]
     for raw in raws:
         current = None
         starts = {}
@@ -148,6 +158,11 @@ def main():
     if not args.log_dir.is_dir():
         parser.error(f"not a log directory: {args.log_dir}")
     tests, raws, warnings = collect(args.log_dir)
+    # A file that passed its retry didn't fail the run (verify.sh lists it in
+    # flaky.txt); keep it out of failed.txt so the list is what blocked.
+    flaky_list = args.log_dir / "flaky.txt"
+    flaky_names = set(flaky_list.read_text().split()) if flaky_list.exists() else set()
+    flaky = {path: tests.pop(path) for path in sorted(flaky_names) if path in tests}
     output = args.log_dir / "failed.txt"
     output.write_text("".join(path + "\n" for path in sorted(tests)))
     print(f"vfail: {len(tests)} failing file(s); whimsy.log + {len(raws)} raw log(s)")
@@ -159,6 +174,8 @@ def main():
         details = [pair for pair in row["failures"] if pair[0] != "test_end"]
         for subtest, message in details or row["failures"]:
             print(f"  {subtest}: {message}")
+    for path in flaky:
+        print(f"flaky (passed on retry): {path}")
     for warning in warnings:
         print(f"NOTE: {warning}")
     print(f"List: {output.relative_to(ROOT) if output.is_relative_to(ROOT) else output}")

@@ -39,7 +39,12 @@
     "postbuild:ui": "sh whimsy/install_app.sh",
     "install:app": "sh whimsy/install_app.sh",
     "ship": "python3 whimsy/updater/updater.py ship",
-    "promote": "python3 whimsy/updater/updater.py promote"
+    "promote": "python3 whimsy/updater/updater.py promote",
+    "precheck": "python3 whimsy/precheck.py",
+    "lane": "zsh whimsy/tools/lane.sh",
+    "verify:dev": "zsh whimsy/tools/verify-dev.sh",
+    "queue": "zsh whimsy/tools/queue.sh",
+    "test:tools": "python3 -m unittest discover -s whimsy/tests -p 'test_*.py'"
   },
   "repository": {
     "type": "git",

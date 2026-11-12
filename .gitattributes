@@ -6,3 +6,10 @@
 *.d.ts linguist-language=TypeScript
 
 src/zen/tests/** linguist-language=C++
+
+# Whimsy's derived files merge through whimsy/tools (installed by
+# whimsy/tools/env.sh: whimsy_git_setup), not as text.
+src/**/whimsy-*.patch merge=whimsy-patch
+prefs/whimsy/features.yaml merge=whimsy-features
+whimsy/overlay.py merge=whimsy-list
+src/zen/whimsy/moz.build merge=whimsy-list

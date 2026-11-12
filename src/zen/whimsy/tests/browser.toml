@@ -136,6 +136,10 @@ support-files = ["whimsy_video.html", "whimsy_video.mp4"]
 ["browser_whimsy_reader_fonts.js"]
 support-files = ["whimsy_article.html"]
 
+# W25 security: anonymous reads refuse connections to private addresses (DNS rebinding): the page, redirects, subresources.
+["browser_whimsy_reader_rebind.js"]
+support-files = ["whimsy_reader_rebind.sjs"]
+
 ["browser_whimsy_reading_time.js"]
 support-files = ["whimsy_article.html"]
 
