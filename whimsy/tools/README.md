@@ -98,9 +98,18 @@ ticket, `queue.sh run` executes the command directly.
 
 ## Ship
 
-Shipping is unchanged: on a green `dev`, `npm run ship` (through the queue:
-`whimsy/tools/lock.sh npm run ship`). `verify-dev.sh` records its build and
-result the way `ship` does, so `npm run promote` accepts a verified `dev`.
+```sh
+whimsy/tools/ship.sh            # npm run ship as a queue ticket, after the gate
+whimsy/tools/ship.sh --check    # the gate alone
+```
+
+The gate: main checkout on `dev` and clean, no `.surfer/verify/red-dev`,
+and `verified.json` holds a green full verify (`all` or `gate`) of exactly
+`dev`'s HEAD built from that commit (what `npm run promote` needs too).
+W24 shipped a commit whose landing had never been verified; the ship's own
+quick verify then found two real failures. `verify-dev.sh` after every
+landing produces that record, so the usual path is: land, wait for the
+verify ticket, ship. A plain `npm run ship` still works but does not check.
 
 ## Environment and git setup
 

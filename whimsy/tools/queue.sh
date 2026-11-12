@@ -119,6 +119,9 @@ worker() {
     mv $Q/running/$job $Q/done/$job
     drop_lock
     echo "done $t exit $rc $(date '+%F %T')"
+    # Take turns: a script still using wave13/lock.sh polls every 15 s, so
+    # give it that long to win the lock before the next ticket tries.
+    sleep ${WHIMSY_QUEUE_YIELD:-16}
     # Keep the newest 200 finished tickets.
     ls -t $Q/done | tail -n +201 | while read -r old; do rm -f $Q/done/$old $Q/out/${old%.job}.*; done
   done
