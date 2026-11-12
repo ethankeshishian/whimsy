@@ -7,10 +7,23 @@ const { WhimsyCmdTabNumbers: Numbers } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyCmdTabNumbers.sys.mjs"
 );
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+const { WhimsySpaceSwitchQueue } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsySpaceSwitchQueue.sys.mjs"
+);
 let win, root;
 const showing = () => root.hasAttribute("whimsy-tab-numbers");
 const badge = tab => tab.querySelector(".whimsy-tab-number");
-let originalSpace, startTabs, essential, pinned, focus;
+let originalSpace, startTabs, mainStartTabs, essential, pinned, focus;
+
+// A space switch sets activeWorkspace first and selects its tab when the
+// slide ends; queued switches play after it. Wait for all of that, so a tab
+// opened or a hint read afterwards sees the space the test asked for.
+async function settled(what) {
+  await TestUtils.waitForCondition(
+    () => !win.gZenWorkspaces.isChangingWorkspace && !WhimsySpaceSwitchQueue.isSwitching(win),
+    what
+  );
+}
 
 // Exercise this window's input listener directly: native synthesized keys
 // can be routed to another Firefox instance by the OS during full verify.
@@ -83,6 +96,7 @@ async function assertShortcutTargets() {
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [[Numbers.PREF, true]] });
+  mainStartTabs = new Set(gBrowser.tabs);
   // The suite's main window has already received other tests' key/pointer
   // events. A fresh window gives this input-listener test a fresh hold state.
   win = await BrowserTestUtils.openNewBrowserWindow();
@@ -104,6 +118,16 @@ add_setup(async function () {
       }
     } finally {
       await BrowserTestUtils.closeWindow(win);
+      // Pinned tabs and Essentials are mirrored into the main window; drop
+      // any copy whose original was closed with this window.
+      for (const tab of [...gBrowser.tabs]) {
+        if (mainStartTabs && !mainStartTabs.has(tab) && !tab.closing) {
+          if (tab.hasAttribute("zen-essential")) {
+            gZenPinnedTabManager.removeEssentials(tab);
+          }
+          await BrowserTestUtils.removeTab(tab, { animate: false });
+        }
+      }
     }
   });
   root = win.document.documentElement;
@@ -279,13 +303,25 @@ add_task(async function other_spaces_have_no_badges() {
 });
 
 add_task(async function private_space_excludes_essentials() {
+  // The previous task's space removal and switch back must be over, or its
+  // queued switch lands after the Private Space opens.
+  await settled("The previous space switch finished");
   win.document.getElementById("cmd_whimsyNewScratch").doCommand();
   await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(win), "Private Space active");
+  // Tabs opened mid-slide are overridden by the slide's own selection.
+  await settled("The switch to the Private Space finished");
+  const scratchId = WhimsyPrivate.getScratch(win).uuid;
   const tabs = [];
   try {
     for (let i = 0; i < 10; i++) {
       tabs.push(WhimsyPrivate.openPrivateTab(win, { url: "about:blank" }));
     }
+    await TestUtils.waitForCondition(() =>
+      tabs.every(tab => tab?.getAttribute("zen-workspace-id") == scratchId) &&
+      win.gBrowser.selectedTab == tabs.at(-1),
+    "Every private tab is in the Private Space, the last one selected");
+    await settled("No space switch follows the private tabs");
+    ok(WhimsyPrivate.activeSpaceIsScratch(win), "Still on the Private Space");
     await hold();
     for (const tab of Numbers.targets(win).keys()) {
       ok(!tab.hasAttribute("zen-essential") && !tab.hasAttribute("zen-empty-tab"), "Only Private Space tabs are badged");
@@ -295,11 +331,16 @@ add_task(async function private_space_excludes_essentials() {
   } finally {
     release();
     for (const tab of tabs) {
-      if (tab.isConnected && !tab.closing) {
+      if (tab?.isConnected && !tab.closing) {
         await BrowserTestUtils.removeTab(tab, { animate: false });
       }
     }
-    await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
+    await WhimsyPrivate.closeScratch(win);
+    await settled("Back from the Private Space");
+    if (win.gZenWorkspaces.activeWorkspace != originalSpace) {
+      await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
+      await settled("Back on the original space");
+    }
   }
 });
 
