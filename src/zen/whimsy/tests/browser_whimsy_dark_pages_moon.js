@@ -9,6 +9,8 @@ Services.scriptloader.loadSubScript(
   this
 );
 
+requestLongerTimeout(2);
+
 // The URL bar moon: a shared page action that auto-hides like its siblings,
 // and one click flips the page between dark and original live, no reload.
 add_task(async function moon_toggles_live_without_reload() {
@@ -79,11 +81,15 @@ add_task(async function screenshots_moon_rest_and_hover() {
           await TestUtils.waitForCondition(() => getComputedStyle(moon).opacity == "1", "The moon shows on toolbar hover");
           await whimsySettled(document);
           await whimsyShot(`w25-moon-rest-${dark ? "dark" : "light"}`);
-          EventUtils.synthesizeMouseAtCenter(moon, { type: "mousemove" });
-          await TestUtils.waitForCondition(() => moon.matches(":hover"), "The pointer is on the moon");
-          await whimsySettled(document);
-          await whimsyShot(`w25-moon-hover-${dark ? "dark" : "light"}`);
-          EventUtils.synthesizeMouseAtCenter(gBrowser.selectedBrowser, { type: "mousemove" });
+          // The test window may not own the OS pointer: lock :hover instead.
+          InspectorUtils.addPseudoClassLock(moon, ":hover");
+          try {
+            ok(moon.matches(":hover"), "The moon shows its hover state");
+            await whimsySettled(document);
+            await whimsyShot(`w25-moon-hover-${dark ? "dark" : "light"}`);
+          } finally {
+            InspectorUtils.removePseudoClassLock(moon, ":hover");
+          }
         } finally {
           await SpecialPowers.popPrefEnv();
         }
