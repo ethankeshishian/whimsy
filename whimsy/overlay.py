@@ -96,57 +96,47 @@ HOTFIXES = [
                '    await this.whimsyStoreClosed; // Whimsy hotfix\n'
                '    this.#file = new lazy.JSONFile({',
     },
-    # W25: a new tab's initial about:blank can report its STATE_STOP after
-    # the real load's STATE_START (the stop comes from the content process,
-    # the start from the parent), and Firefox then drops the tab's busy
-    # attribute while the load still runs. Zen's loading indicator read only
-    # busy, so selecting such a tab showed nothing until the load ended.
+    # W25: a load that starts before a new tab's initial about:blank has
+    # finished never reaches tabs progress listeners as its own STATE_START
+    # (tabbrowser counts it as a nested request and drops it), so the tab
+    # never gets busy. Zen's loading indicator read only busy, so selecting
+    # such a background tab showed nothing while it loaded. The browser's
+    # own web progress still knows the document is loading.
     {
-        "id": "loading-indicator-stale-blank-stop",
+        "id": "loading-indicator-stop-flag",
         "file": "src/zen/common/sys/ui/ZenProgressBar.sys.mjs",
-        "why": "Keep the indicator for a load whose busy a late about:blank stop cleared.",
+        "why": "A top-level network stop ends the load even if the document flag lags.",
         "old": "  onStateChange(aWebProgress) {\n"
                "    this.#checkBrowserProgress(aWebProgress);\n"
                "  }\n",
         "new": "  onStateChange(aWebProgress, webProgress, request, stateFlags) {\n"
-               "    this.#whimsyTrackLoad(aWebProgress, webProgress, request, stateFlags); // Whimsy hotfix\n"
-               "    this.#checkBrowserProgress(aWebProgress);\n"
-               "  }\n"
-               "\n"
-               "  // Whimsy hotfix: the top-level load each browser is running. A stop\n"
-               "  // for about:blank while another load runs is the new tab's initial\n"
-               "  // page finishing late, so it doesn't end that load.\n"
-               "  #whimsyLoads = new WeakMap();\n"
-               "\n"
-               "  #whimsyTrackLoad(browser, webProgress, request, stateFlags) {\n"
-               "    const { STATE_START, STATE_STOP, STATE_IS_NETWORK } = Ci.nsIWebProgressListener;\n"
-               "    if (!browser || !webProgress?.isTopLevel || !(stateFlags & STATE_IS_NETWORK)) {\n"
-               "      return;\n"
-               "    }\n"
-               "    let spec = \"\";\n"
-               "    try {\n"
-               "      spec = request.QueryInterface(Ci.nsIChannel).originalURI.spec;\n"
-               "    } catch {\n"
-               "      spec = request?.name || \"\";\n"
-               "    }\n"
-               "    const blank = spec == \"about:blank\";\n"
-               "    if (stateFlags & STATE_START) {\n"
-               "      if (!blank) {\n"
-               "        this.#whimsyLoads.set(browser, spec);\n"
-               "      }\n"
-               "    } else if (stateFlags & STATE_STOP && !(blank && this.#whimsyLoads.has(browser))) {\n"
-               "      this.#whimsyLoads.delete(browser);\n"
-               "    }\n"
+               "    const { STATE_STOP, STATE_IS_NETWORK } = Ci.nsIWebProgressListener; // Whimsy hotfix\n"
+               "    const stopped = webProgress?.isTopLevel && stateFlags & STATE_STOP && stateFlags & STATE_IS_NETWORK;\n"
+               "    this.#checkBrowserProgress(aWebProgress, stopped);\n"
                "  }\n",
     },
     {
-        "id": "loading-indicator-running-load",
+        "id": "loading-indicator-document-loading",
         "file": "src/zen/common/sys/ui/ZenProgressBar.sys.mjs",
-        "why": "A running top-level load counts as loading even after busy was dropped.",
-        "old": "      (tab.hasAttribute(\"busy\") || tab.hasAttribute(\"progress\"));\n",
-        "new": "      (tab.hasAttribute(\"busy\") ||\n"
+        "why": "Count a tab as loading while its document loads, even when busy was never set.",
+        "old": "  async #checkBrowserProgress(webProgress) {\n"
+               "    await this.#promise;\n"
+               "    const window = this.window;\n"
+               "    const gBrowser = window.gBrowser;\n"
+               "    const tab = gBrowser.getTabForBrowser(webProgress);\n"
+               "    const isLoading =\n"
+               "      tab?.selected &&\n"
+               "      (tab.hasAttribute(\"busy\") || tab.hasAttribute(\"progress\"));\n",
+        "new": "  async #checkBrowserProgress(webProgress, stopped = false) {\n"
+               "    await this.#promise;\n"
+               "    const window = this.window;\n"
+               "    const gBrowser = window.gBrowser;\n"
+               "    const tab = gBrowser.getTabForBrowser(webProgress);\n"
+               "    const isLoading =\n"
+               "      tab?.selected &&\n"
+               "      (tab.hasAttribute(\"busy\") ||\n"
                "        tab.hasAttribute(\"progress\") ||\n"
-               "        this.#whimsyLoads.has(tab.linkedBrowser)); // Whimsy hotfix\n",
+               "        (!stopped && !!tab.linkedBrowser?.webProgress?.isLoadingDocument)); // Whimsy hotfix\n",
     },
     # W24: share Zen's existing native color inversion with adaptive pages.
     # An async boost lookup must preserve adaptation and track the user's

@@ -18,36 +18,9 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   onStateChange(aWebProgress, webProgress, request, stateFlags) {
-    let __n = "?"; try { __n = request?.QueryInterface(Ci.nsIChannel).originalURI.spec; } catch { __n = request?.name; }
-    dump(`LOADDIAG state 0x${stateFlags?.toString(16)} top=${webProgress?.isTopLevel} req=${__n}\n`);
-    this.#whimsyTrackLoad(aWebProgress, webProgress, request, stateFlags); // Whimsy hotfix
-    this.#checkBrowserProgress(aWebProgress);
-  }
-
-  // Whimsy hotfix: the top-level load each browser is running. A stop
-  // for about:blank while another load runs is the new tab's initial
-  // page finishing late, so it doesn't end that load.
-  #whimsyLoads = new WeakMap();
-
-  #whimsyTrackLoad(browser, webProgress, request, stateFlags) {
-    const { STATE_START, STATE_STOP, STATE_IS_NETWORK } = Ci.nsIWebProgressListener;
-    if (!browser || !webProgress?.isTopLevel || !(stateFlags & STATE_IS_NETWORK)) {
-      return;
-    }
-    let spec = "";
-    try {
-      spec = request.QueryInterface(Ci.nsIChannel).originalURI.spec;
-    } catch {
-      spec = request?.name || "";
-    }
-    const blank = spec == "about:blank";
-    if (stateFlags & STATE_START) {
-      if (!blank) {
-        this.#whimsyLoads.set(browser, spec);
-      }
-    } else if (stateFlags & STATE_STOP && !(blank && this.#whimsyLoads.has(browser))) {
-      this.#whimsyLoads.delete(browser);
-    }
+    const { STATE_STOP, STATE_IS_NETWORK } = Ci.nsIWebProgressListener; // Whimsy hotfix
+    const stopped = webProgress?.isTopLevel && stateFlags & STATE_STOP && stateFlags & STATE_IS_NETWORK;
+    this.#checkBrowserProgress(aWebProgress, stopped);
   }
 
   onLocationChange(webProgress) {
@@ -55,7 +28,6 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   on_TabSelect() {
-    dump(`LOADDIAG TabSelect pos=${this.window.gBrowser.selectedTab._tPos}\n`);
     const gBrowser = this.window.gBrowser;
     const selectedTab = gBrowser.selectedTab;
     this.onLocationChange(gBrowser.getBrowserForTab(selectedTab));
@@ -91,11 +63,8 @@ export class ZenProgressBar extends ZenUIComponent {
     return this.#element;
   }
 
-  async #checkBrowserProgress(webProgress) {
-    const __t = this.window.gBrowser.getTabForBrowser(webProgress);
-    dump(`LOADDIAG pre pos=${__t?._tPos} sel=${__t?.selected} busy=${__t?.hasAttribute("busy")} loads=${this.#whimsyLoads.has(webProgress)} el=${!!this.#element}\n`);
+  async #checkBrowserProgress(webProgress, stopped = false) {
     await this.#promise;
-    dump(`LOADDIAG post pos=${__t?._tPos} sel=${__t?.selected} busy=${__t?.hasAttribute("busy")} loads=${this.#whimsyLoads.has(webProgress)} el=${!!this.#element} url=${webProgress?.currentURI?.spec}\n`);
     const window = this.window;
     const gBrowser = window.gBrowser;
     const tab = gBrowser.getTabForBrowser(webProgress);
@@ -103,7 +72,7 @@ export class ZenProgressBar extends ZenUIComponent {
       tab?.selected &&
       (tab.hasAttribute("busy") ||
         tab.hasAttribute("progress") ||
-        this.#whimsyLoads.has(tab.linkedBrowser)); // Whimsy hotfix
+        (!stopped && !!tab.linkedBrowser?.webProgress?.isLoadingDocument)); // Whimsy hotfix
     if (isLoading) {
       this.#showProgressBar(tab);
     } else {
@@ -112,7 +81,6 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   #hideProgressBar(aInstant = false) {
-    dump(`LOADDIAG hide el=${!!this.#element}\n`);
     const progressBar = this.#element;
     const window = this.window;
     if (this.#longLoadTimer) {
@@ -127,7 +95,6 @@ export class ZenProgressBar extends ZenUIComponent {
     let { promise, resolve } = Promise.withResolvers();
     this.#promise = promise;
     const callback = () => {
-      dump(`LOADDIAG hide-done\n`);
       delete progressBar._loadingTab;
       progressBar.remove();
       this.#element = null;
@@ -152,7 +119,6 @@ export class ZenProgressBar extends ZenUIComponent {
   }
 
   #showProgressBar(aTab) {
-    dump(`LOADDIAG show same=${this.#loadingTab === aTab} el=${!!this.#element}\n`);
     if (this.#loadingTab === aTab) {
       return;
     }
