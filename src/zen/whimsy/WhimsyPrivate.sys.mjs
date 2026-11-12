@@ -1433,6 +1433,27 @@ export const WhimsyPrivate = {
     }, 0);
   },
 
+  // Zen shares a space with every synced window, so the Private Space
+  // opened in one window is also in the others' lists. A window that isn't
+  // showing it must not close it while another window shows it, is opening
+  // or keeping it, or holds its tabs.
+  scratchInUseElsewhere(win, scratch) {
+    for (const other of Services.wm.getEnumerator("navigator:browser")) {
+      if (other == win || other.closed || this.getScratch(other)?.uuid != scratch.uuid) {
+        continue;
+      }
+      if (
+        openingScratch.get(other) ||
+        other._whimsyScratchSave ||
+        other.gZenWorkspaces?.activeWorkspace == scratch.uuid ||
+        this.scratchTabs(other, scratch).length
+      ) {
+        return true;
+      }
+    }
+    return false;
+  },
+
   closeIfLeftEmpty(win) {
     const scratch = this.getScratch(win);
     if (
@@ -1442,7 +1463,8 @@ export const WhimsyPrivate = {
       openingScratch.get(win) ||
       win._whimsyScratchSave ||
       win.gZenWorkspaces?.activeWorkspace == scratch.uuid ||
-      this.scratchTabs(win, scratch).length
+      this.scratchTabs(win, scratch).length ||
+      this.scratchInUseElsewhere(win, scratch)
     ) {
       return false;
     }

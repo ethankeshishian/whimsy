@@ -39,14 +39,50 @@ add_task(async function test_hooks_installed_before_restore() {
 });
 
 add_task(async function test_late_provider_keeps_folder() {
-  const folder = await gZenFolders.createFolder([], {
+  const startTabs = new Set(gBrowser.tabs);
+  const stopManager = async () => {
+    ZenLiveFoldersManager.uninit();
+    // uninit is synchronous for its event listeners; its retired disk writer
+    // must finish before this simulated restart replaces the store.
+    await ZenLiveFoldersManager.whimsyStoreClosed;
+  };
+  await stopManager();
+  const original = await readStore();
+  let folder;
+  let prefPushed = false;
+  registerCleanupFunction(async () => {
+    await stopManager();
+    if (prefPushed) {
+      await SpecialPowers.popPrefEnv();
+    }
+    try {
+      if (folder?.isConnected) {
+        await folder.delete();
+      }
+    } finally {
+      for (const tab of [...gBrowser.tabs]) {
+        if (!startTabs.has(tab) && !tab.closing) {
+          await BrowserTestUtils.removeTab(tab, { animate: false });
+        }
+      }
+      if (original !== null) {
+        await IOUtils.writeJSON(STORE, original, { compress: true });
+      } else {
+        await IOUtils.remove(STORE, { ignoreAbsent: true });
+      }
+      await ZenLiveFoldersManager.init();
+    }
+  });
+  folder = gZenFolders.createFolder([], {
     renameFolder: false,
     label: "Jira restore",
     isLiveFolder: true,
     collapsed: true,
   });
   const id = folder.id;
-  const original = await readStore();
+  await TestUtils.waitForCondition(() =>
+    ZenLiveFoldersManager.window.gZenWorkspaces.allTabGroups.some(f => f.id == id),
+  "The manager's synced window has the test folder");
   const entry = {
     id,
     type: "jira",
@@ -65,7 +101,8 @@ add_task(async function test_late_provider_keeps_folder() {
   };
 
   // "Restart": Zen's restore runs with Jira not registered.
-  ZenLiveFoldersManager.uninit();
+  await stopManager();
+  prefPushed = true;
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.live-folders-jira", false]] });
   await IOUtils.writeJSON(STORE, [entry], { compress: true });
   await ZenLiveFoldersManager.init();
@@ -77,17 +114,21 @@ add_task(async function test_late_provider_keeps_folder() {
   is(held.constructor.type, "jira", "with its saved type");
   ok(ZenLiveFoldersManager.dismissedItems.has(`${id}:ABC-9`), "Its dismissed items are kept");
 
+  // Remove the fixture so observing it cannot masquerade as a completed save.
+  await IOUtils.remove(STORE);
   ZenLiveFoldersManager.saveState(false);
+  let saved;
   await TestUtils.waitForCondition(async () => {
     const data = await readStore();
-    return Array.isArray(data) && data.some(e => e.id === id);
+    saved = Array.isArray(data) && data.find(e => e.id === id);
+    return !!saved;
   }, "Saving keeps the held folder on disk instead of dropping it");
-  const saved = (await readStore()).find(e => e.id === id);
   is(saved.type, "jira", "Saved with its type");
   is(saved.data.state.jql, JQL, "and its own settings, unchanged");
 
   // Jira registers late (its switch turns back on).
   await SpecialPowers.popPrefEnv();
+  prefPushed = false;
   WhimsyLiveFolders.registerProviders(ZenLiveFoldersManager);
   const attached = ZenLiveFoldersManager.getFolder(id);
   ok(attached instanceof WhimsyJiraLiveFolderProvider, "Re-attached to a real Jira provider");
@@ -96,20 +137,13 @@ add_task(async function test_late_provider_keeps_folder() {
   is(attached.state.site, "https://example.atlassian.net", "and site");
 
   // A held folder whose folder is gone is not held.
-  ZenLiveFoldersManager.uninit();
+  await stopManager();
   await IOUtils.writeJSON(STORE, [{ ...entry, id: "whimsy-missing-folder" }], { compress: true });
+  prefPushed = true;
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.live-folders-jira", false]] });
   await ZenLiveFoldersManager.init();
   ok(!ZenLiveFoldersManager.getFolder("whimsy-missing-folder"), "An entry without its folder isn't held");
   await SpecialPowers.popPrefEnv();
 
-  // Clean up: restore the store and the manager as they were.
-  ZenLiveFoldersManager.uninit();
-  if (original) {
-    await IOUtils.writeJSON(STORE, original, { compress: true });
-  } else {
-    await IOUtils.remove(STORE, { ignoreAbsent: true });
-  }
-  await ZenLiveFoldersManager.init();
-  folder.delete();
+  prefPushed = false;
 });

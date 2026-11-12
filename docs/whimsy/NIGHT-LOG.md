@@ -372,3 +372,22 @@ authorized targeted run; isolated old passes are not validation of these edits.
   feature-pref order. Browser tests/builds remain unrun at the user's request;
   animation, native dragging, and split-view interactions need runtime review.
   No mach/mochitest, commit, control.json or whimsy/updater changes.
+
+
+## 2026-11-11 — W25 flakes source fixes (Codex)
+
+- Followed the intake W25 flakes brief; left changes uncommitted on the lane.
+- Mini bar now identifies the selected moved page rather than the last tab,
+  awaits removal, and registers failure-safe cleanup of newly created tabs.
+- Live-folder uninit finalizes its old deferred JSONFile writer through
+  overlay hotfixes; both restore reads await completion. The simulated restart
+  drains writers, waits for the synced folder, checks a newly written save
+  snapshot, and restores folder/tabs/prefs/store/manager through cleanup.
+- Command hints now exercise a fresh window's real listener and native
+  commands; its screenshots and cleanup target the same window. Logs establish
+  a first-hold-only failure but do not identify the exact inherited input veto.
+- Static JS/Python syntax, diff whitespace, and overlay check (0 problems)
+  pass. Browser tests,
+  builds, import, verify, install, ship, and commits were not run as directed.
+- Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
+  the worktree root (handoff directory is outside writable roots).
