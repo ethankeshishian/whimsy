@@ -794,6 +794,10 @@ export const WhimsyCommandBarAgent = {
       return true;
     };
     const accel = event.metaKey || event.ctrlKey;
+    // An IME's Enter, or a held one, never confirms or approves.
+    if (st && event.key == "Enter" && (event.isComposing || event.repeat)) {
+      return take();
+    }
     if (!st) {
       if (["ArrowDown", "ArrowUp", "Tab"].includes(event.key)) {
         moved.add(win);
@@ -945,7 +949,7 @@ export const WhimsyCommandBarAgent = {
   // ---- K.6–K.11: the status card where toasts appear ----
 
   track(win, taskId) {
-    tracked.set(taskId, { win, toast: null, sig: "", hidden: false, keyListener: false });
+    tracked.set(taskId, { win, toast: null, sig: "", hidden: false, keyEl: null });
     this.refresh(taskId);
   },
 
@@ -1000,8 +1004,9 @@ export const WhimsyCommandBarAgent = {
     const el = t.toast.element;
     el.setAttribute("whimsy-cmdk-status", kind);
     el.dataset.taskId = taskId;
-    if (!t.keyListener) {
-      t.keyListener = true;
+    // Once per card: a card closed and opened again is a new element.
+    if (t.keyEl != el) {
+      t.keyEl = el;
       // Enter never answers a pause: a stray key can't send (K.8).
       el.addEventListener("keydown", event => {
         if (event.key == "Enter" && el.getAttribute("whimsy-cmdk-status") == "pause") {
@@ -1099,7 +1104,13 @@ export const WhimsyCommandBarAgent = {
           id: `cmdk-pause-${v.choice}`,
           l10nId: v.l10n,
           l10nArgs: { amount },
-          command: () => (lazy.WhimsyAgentTasks.decide(task.id, v.choice), "keep"),
+          // Only this pause: a stale card's button never answers the next one.
+          command: () => {
+            if (lazy.WhimsyAgentTasks.get(task.id)?.pause?.id === pause.id) {
+              lazy.WhimsyAgentTasks.decide(task.id, v.choice);
+            }
+            return "keep";
+          },
         }));
         const fields = (preview.fields ?? []).filter(f => f && (f.label || f.value));
         const body = fields.length

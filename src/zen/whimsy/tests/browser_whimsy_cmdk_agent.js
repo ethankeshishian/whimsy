@@ -155,6 +155,12 @@ add_task(async function approve_runs_the_plan_as_set() {
   is(document.activeElement, gURLBar.inputField, "Focus stays in the request field");
   const task = WhimsyAgentTasks.get(st.taskId);
   is(task.state, "planning", "Nothing runs before Approve");
+  // A held Enter, or an IME's, never approves.
+  const enter = more => ({ key: "Enter", metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, preventDefault() {}, stopImmediatePropagation() {}, ...more });
+  ok(WhimsyCommandBarAgent.onInputKey(window, enter({ repeat: true })), "A held Enter is taken");
+  ok(WhimsyCommandBarAgent.onInputKey(window, enter({ isComposing: true })), "An IME's Enter is taken");
+  is(task.state, "planning", "Neither approved");
+  ok(gURLBar.view.isOpen, "The plan is still there");
 
   EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(() => !gURLBar.view.isOpen, "Approve closed the bar");
