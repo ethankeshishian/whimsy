@@ -196,6 +196,82 @@ add_task(async function no_field_opens_bar_listening() {
   });
 });
 
+// K's auto-repeat while it stays down (macOS sends repeats with ⌘ held, but
+// no keyup for a key let go while ⌘ is down).
+function repeatK() {
+  const timer = setInterval(() => EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown", repeat: true }), 30);
+  return { stop: () => clearInterval(timer) };
+}
+
+const listening = () => WhimsyDictation.active?.target == "cmdk";
+async function wait(ms) {
+  await new Promise(resolve => setTimeout(resolve, ms)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+}
+
+// The owner's spec: listening only while BOTH ⌘ and K are down, from chrome
+// and from web content focus.
+add_task(async function cmd_k_listens_only_while_both_keys_are_down() {
+  await setup();
+  await BrowserTestUtils.withNewTab("https://example.com/browser/zen/whimsy/tests/whimsy_cmdk.html", async browser => {
+    const focusers = {
+      content: () => browser.focus(),
+      chrome: () => gBrowser.selectedTab.focus(),
+    };
+    for (const [where, focusIt] of Object.entries(focusers)) {
+      const finish = async () => {
+        const session = speech.sessions.at(-1);
+        session?.say("x", true);
+        await TestUtils.waitForCondition(() => !WhimsyDictation.active, `Listening ends (${where})`);
+      };
+      await closeBar();
+      focusIt();
+      // A ⌘K tap, ⌘ still held: no listening, with or without K's keyup.
+      EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown" });
+      EventUtils.synthesizeKey("k", { accelKey: true, type: "keyup" });
+      await wait(500);
+      ok(!WhimsyDictation.active, `A ⌘K tap with ⌘ held doesn't listen (${where})`);
+      EventUtils.synthesizeKey("KEY_Meta", { type: "keyup" });
+      await closeBar();
+      focusIt();
+      EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown" });
+      await wait(600);
+      ok(!WhimsyDictation.active, `A tap whose keyup macOS swallowed doesn't listen (${where})`);
+      EventUtils.synthesizeKey("KEY_Meta", { type: "keyup" });
+      await closeBar();
+
+      // Hold both: listening. Let go of K with ⌘ held: stopped at once.
+      focusIt();
+      EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown" });
+      let holding = repeatK();
+      await TestUtils.waitForCondition(listening, `Holding ⌘K listens (${where})`, 30, 60);
+      holding.stop();
+      EventUtils.synthesizeKey("k", { accelKey: true, type: "keyup" });
+      ok(speech.sessions.at(-1).finished, `Letting go of K with ⌘ held stops at once (${where})`);
+      await finish();
+
+      // K pressed again with ⌘ still held: listening again. Then K's
+      // repeats stop with no keyup (macOS): stopped.
+      EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown" });
+      holding = repeatK();
+      await TestUtils.waitForCondition(listening, `K pressed again with ⌘ held listens (${where})`, 30, 60);
+      holding.stop();
+      await TestUtils.waitForCondition(() => speech.sessions.at(-1).finished,
+        `K let go with no keyup still stops (${where})`, 20, 50);
+      await finish();
+
+      // And again; then letting go of ⌘ stops.
+      EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown" });
+      holding = repeatK();
+      await TestUtils.waitForCondition(listening, `Held once more, it listens (${where})`, 30, 60);
+      holding.stop();
+      EventUtils.synthesizeKey("KEY_Meta", { type: "keyup" });
+      ok(speech.sessions.at(-1).finished, `Letting go of ⌘ stops at once (${where})`);
+      await finish();
+    }
+    await closeBar();
+  });
+});
+
 add_task(async function hold_cmd_k_listens_release_selects_top() {
   await setup();
   await BrowserTestUtils.withNewTab("https://example.com/browser/zen/whimsy/tests/whimsy_cmdk.html", async browser => {
@@ -203,7 +279,7 @@ add_task(async function hold_cmd_k_listens_release_selects_top() {
     EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown" });
     await TestUtils.waitForCondition(() => gURLBar.view.isOpen || gURLBar.focused, "⌘K opens on key down");
     ok(!WhimsyDictation.active, "Not listening before 300ms");
-    EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown", repeat: true });
+    const holding = repeatK();
     await TestUtils.waitForCondition(() => WhimsyDictation.active?.target == "cmdk", "Held 300ms, the menu listens", 50, 40);
     ok(gURLBar.hasAttribute("whimsy-holding-k"), "K is held");
     ok(!gURLBar.hasAttribute("whimsy-numbers"), "Row numbers stay hidden while K is held");
@@ -215,6 +291,7 @@ add_task(async function hold_cmd_k_listens_release_selects_top() {
     EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown", repeat: true });
     is(gURLBar.value, "example", "Key repeat doesn't reopen the menu");
 
+    holding.stop();
     EventUtils.synthesizeKey("k", { accelKey: true, type: "keyup" });
     ok(speech.sessions[0].finished, "Letting go stops listening");
     speech.sessions[0].say("example", true);

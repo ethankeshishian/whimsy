@@ -291,13 +291,28 @@ findbar .whimsy-ask-button {
      the card sits where the anchor puts it. */
   --panel-box-shadow-margin: 0;
   --whimsy-link-hover-width: 300px;
+  /* The card's shadow (0 10px 30px -6px) reaches 34px below it, 24px to
+     each side, and 14px above. The popup's window has this much room on
+     every side, so no edge clips it; the negative margin keeps the card
+     where the anchor puts it (Gecko's own shadow-margin pattern), and the
+     room lets the pointer through to the page below. */
+  --whimsy-hc-shadow-room: 34px;
+  margin: calc(-1 * var(--whimsy-hc-shadow-room));
+  -moz-window-input-region-margin: var(--whimsy-hc-shadow-room);
+  /* The OS adds no shadow or material of its own: the card's is the one. */
+  -moz-window-shadow: none;
+  pointer-events: none;
 
   &::part(content) {
     appearance: none;
     background: transparent;
     border: none;
+    border-radius: 0;
     box-shadow: none;
     padding: 0;
+    margin: 0;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -305,7 +320,8 @@ findbar .whimsy-ask-button {
   display: flex;
   flex-direction: column;
   /* Room for the card's shadow inside the popup's own window. */
-  padding: 2px 10px 14px;
+  padding: var(--whimsy-hc-shadow-room);
+  pointer-events: none;
 }
 
 .whimsy-link-hover-card {
@@ -324,6 +340,12 @@ findbar .whimsy-ask-button {
   line-height: 1.4;
   overflow-wrap: anywhere;
   cursor: default;
+  pointer-events: auto;
+  /* Tall summaries scroll inside the card. */
+  max-height: 520px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   /* Closed: the card fades out, a little quicker than it came: the motion
      tokens' exit, 0.75 of the enter (whimsy-browser.css). */
   opacity: 0;
@@ -503,6 +525,61 @@ findbar .whimsy-ask-button {
   @media not (prefers-reduced-motion: reduce) {
     &.is-text,
     &.is-note {
+      animation: whimsy-hc-fade 150ms ease-out;
+    }
+  }
+}
+
+/* The AI summary's three bullets, under the description (da77ad03's list
+   in the card's tokens). */
+.whimsy-hc-points {
+  margin: 2px 0 0;
+  padding-inline-start: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 1.4;
+  text-wrap: pretty;
+
+  & > li {
+    padding-inline-start: 2px;
+  }
+
+  & > li::marker {
+    color: var(--whimsy-surface-muted);
+  }
+
+  /* Three short quiet lines hold the bullets' place while they load. */
+  &.is-loading {
+    padding: 0;
+    gap: 7px;
+
+    & > i {
+      display: block;
+      height: 8px;
+      width: 85%;
+      border-radius: 4px;
+      background: color-mix(in srgb, currentColor 7%, transparent);
+    }
+
+    & > i:nth-child(2) {
+      width: 70%;
+    }
+
+    & > i:nth-child(3) {
+      width: 78%;
+    }
+
+    @media not (prefers-reduced-motion: reduce) {
+      & > i {
+        animation: whimsy-hc-pulse 1.2s ease-in-out infinite alternate;
+      }
+    }
+  }
+
+  @media not (prefers-reduced-motion: reduce) {
+    &:not(.is-loading) {
       animation: whimsy-hc-fade 150ms ease-out;
     }
   }
