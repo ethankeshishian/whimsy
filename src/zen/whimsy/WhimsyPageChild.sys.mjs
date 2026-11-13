@@ -352,6 +352,10 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return this.watchCallControls(!!message.data?.on);
       case "Whimsy:CallControlsToggle":
         return this.toggleCallControl(message.data?.kind);
+      // W26: the PiP window's Leave call button presses the page's own
+      // hang-up control (WhimsyCallControls.findLeave).
+      case "Whimsy:CallLeave":
+        return this.leaveCall();
       // fix7: automatic picture-in-picture fallback (WhimsyMedia).
       case "Whimsy:AutoPip":
         return this.autoPip();
@@ -466,6 +470,20 @@ export class WhimsyPageChild extends JSWindowActorChild {
       this.reportCallControls();
     }
     return { ok, state, reason: ok ? undefined : "no-change" };
+  }
+
+  // W26: presses the page's hang-up control. Resolves to whether there
+  // was one to press.
+  leaveCall() {
+    const win = this.contentWindow;
+    const el = lazy.WhimsyCallControls.findLeave(this.document);
+    if (!el || !win) {
+      this.callLog("leave: no control");
+      return false;
+    }
+    lazy.WhimsyCallControls.press(win, el);
+    this.callLog("leave: pressed");
+    return true;
   }
 
   callLog(...args) {
@@ -628,7 +646,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
     } else {
       this._callLeader = null;
     }
-    return { self: this.callVideoKind(floating) == "local" };
+    // W26: whether the page has a hang-up control the PiP's Leave call
+    // button can press (it hides when there's none).
+    return { self: this.callVideoKind(floating) == "local", leave: !!lazy.WhimsyCallControls.findLeave(doc) };
   }
 
   swapCallVideo(from, to) {

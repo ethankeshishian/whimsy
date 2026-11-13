@@ -236,6 +236,159 @@ add_task(async function test_camera_off_never_covers_others() {
   }
 });
 
+// W26: Arc-style Leave Call. The PiP's red button presses the call page's
+// own hang-up control and shows only while the page has one.
+
+function leaveButton(pip) {
+  return pip.document.getElementById("whimsy-call-leave");
+}
+
+// A follow round has answered since now (it reports the hang-up control).
+async function followRound(pip, browser) {
+  await TestUtils.waitForCondition(() => !pip._whimsyFollowPending, "No follow round in flight");
+  await WhimsyCallPip.followCall(pip, browser);
+}
+
+async function pressInPip(pip, button) {
+  EventUtils.synthesizeMouseAtCenter(pip.document.getElementById("controls"), { type: "mousemove" }, pip);
+  EventUtils.synthesizeMouseAtCenter(button, {}, pip);
+}
+
+// The colour `css` resolves to, as [r, g, b] (0-255), through a canvas.
+function resolveColor(pip, css) {
+  const canvas = pip.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = css;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+}
+
+function contrast(a, b) {
+  const lum = rgb => {
+    const [r, g, b2] = rgb.map(v => {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+// No hang-up control on the page: no Leave call button (never a dead one).
+// It comes and goes with the page's control.
+add_task(async function test_leave_hidden_without_hang_up() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  await page(call, "addCallBar", false);
+  const floating = await float(call);
+  try {
+    await TestUtils.waitForCondition(() => leaveButton(floating.pip), "The call buttons are in the window");
+    await followRound(floating.pip, browser);
+    is(floating.pip._whimsyCanLeave, false, "The page has no hang-up control");
+    ok(leaveButton(floating.pip).hidden, "So the Leave call button is hidden");
+    is(floating.pip.getComputedStyle(floating.pip.document.getElementById("playpause")).display, "none",
+      "Play/pause stays hidden in a call window anyway");
+    ok(!floating.pip.document.getElementById("whimsy-call-mic").hidden, "The microphone button shows");
+
+    await page(call, "addCallBar", true);
+    await TestUtils.waitForCondition(() => !leaveButton(floating.pip).hidden, "A hang-up control appears: so does Leave call");
+    await page(call, "removeHangUp");
+    await TestUtils.waitForCondition(() => leaveButton(floating.pip).hidden, "It goes: Leave call hides again");
+    ok(!floating.pip.closed, "The window stays open");
+  } finally {
+    await unfloat(call, floating);
+  }
+});
+
+// The × only closes the window: the call goes on.
+add_task(async function test_close_keeps_the_call() {
+  const call = await openCall();
+  await page(call, "addCallBar", true);
+  const floating = await float(call);
+  try {
+    await TestUtils.waitForCondition(() => leaveButton(floating.pip) && !leaveButton(floating.pip).hidden,
+      "Leave call shows");
+    const closed = BrowserTestUtils.domWindowClosed(floating.pip);
+    await pressInPip(floating.pip, floating.pip.document.getElementById("close"));
+    await closed;
+    ok(WhimsyCallPip.isInCall(call), "The call goes on");
+    is(await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.hungUp ?? 0), 0,
+      "The page's hang-up control was not pressed");
+  } finally {
+    await unfloat(call, floating);
+  }
+});
+
+// Leave call presses the page's hang-up control and closes the window.
+// Last in the file: it ends the shared call.
+add_task(async function test_leave_hangs_up_and_closes() {
+  const call = await openCall();
+  const browser = call.linkedBrowser;
+  await page(call, "addCallBar", true);
+  const found = await SpecialPowers.spawn(browser, [], () => {
+    const { findLeave } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCallControls.sys.mjs");
+    const doc = content.document;
+    // Decoys: one that ends the call for everyone, one in someone else's
+    // row, and a bare "Leave" outside the call bar.
+    const decoys = document => {
+      const box = document.createElement("div");
+      box.id = "decoys";
+      box.innerHTML = '<button aria-label="End call for everyone">x</button>' +
+        '<div role="listitem"><button aria-label="Hang up">x</button></div><button>Leave</button>';
+      document.body.prepend(box);
+    };
+    decoys(doc);
+    const id = findLeave(doc)?.id ?? null;
+    doc.getElementById("decoys").remove();
+    return id;
+  });
+  is(found, "hang-up", "The finder picks the call bar's hang-up control, not the decoys");
+
+  const floating = await float(call);
+  const { pip } = floating;
+  try {
+    await TestUtils.waitForCondition(() => leaveButton(pip) && !leaveButton(pip).hidden, "Leave call shows");
+    const button = leaveButton(pip);
+    await TestUtils.waitForCondition(() => button.getAttribute("tooltip") == "Leave Call", "Its tooltip is filled");
+    is(button.getAttribute("aria-label"), "Leave Call", "Its accessible name");
+    const playpause = pip.document.getElementById("playpause");
+    ok(button.parentElement == playpause.parentElement, "It sits with play/pause's controls");
+    is(pip.getComputedStyle(playpause).display, "none", "Play/pause is gone from the call window");
+    is(pip.getComputedStyle(button).gridArea.split(" / ")[0], "playpause", "Leave Call takes play/pause's spot");
+    ok(button.classList.contains("control-button"), "Styled as the player's own buttons");
+    const style = pip.getComputedStyle(button);
+    const background = resolveColor(pip, style.backgroundColor);
+    const icon = resolveColor(pip, style.fill);
+    // The destructive pair's light-scheme values: solid red, white glyph.
+    const probe = pip.document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    probe.style.cssText = "color-scheme: light; background-color: var(--button-background-color-destructive); " +
+      "color: var(--button-text-color-destructive)";
+    pip.document.body.append(probe);
+    const probeStyle = pip.getComputedStyle(probe);
+    const token = resolveColor(pip, probeStyle.backgroundColor);
+    const onToken = resolveColor(pip, probeStyle.color);
+    probe.remove();
+    Assert.deepEqual(background, token, "Filled with the design system's destructive colour (light scheme)");
+    Assert.deepEqual(icon, onToken, "Its glyph is the pair's text colour");
+    ok(icon.every(v => v >= 240), `The glyph is white (${icon})`);
+    Assert.greaterOrEqual(contrast(background, icon), 4.5, "Its icon meets WCAG AA on the red");
+    await shoot(pip, "call-pip-leave");
+
+    const closed = BrowserTestUtils.domWindowClosed(pip);
+    await pressInPip(pip, button);
+    await closed;
+    await TestUtils.waitForCondition(async () =>
+      (await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.hungUp ?? 0)) == 1,
+    "The page's hang-up control was pressed once");
+    await TestUtils.waitForCondition(() => !WhimsyCallPip.isInCall(call), "The call ended");
+    is(pipWindows().length, 0, "No floating window is left");
+  } finally {
+    await unfloat(call, floating);
+  }
+});
+
 // Light and dark shots of the floating window, controls showing.
 async function shoot(pip, name) {
   for (const dark of [false, true]) {
