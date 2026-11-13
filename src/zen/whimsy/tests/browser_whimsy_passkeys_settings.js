@@ -13,7 +13,7 @@ const { WhimsyUndo } = ChromeUtils.importESModule("resource:///modules/whimsy/Wh
 const { ContextualIdentityService } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
 );
-const { OSKeyStoreTestUtils } = ChromeUtils.importESModule("resource://testing-common/OSKeyStoreTestUtils.sys.mjs");
+// head.js gives this file its own throwaway Keychain item for OSKeyStore.
 
 const DAY = 86_400_000;
 let workProfile, workKey;
@@ -40,7 +40,6 @@ function record(fields) {
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.passkeys", true]] });
-  OSKeyStoreTestUtils.setup();
   WhimsyPasskeys._signer = { available: async () => ({ se: true, biometry: true, biometryType: "touchID" }) };
   WhimsyPasskeys.resetAvailability();
   WhimsyPasskeys.init();
@@ -59,7 +58,6 @@ add_setup(async function () {
     if (WhimsyProfiles.exists(workProfile)) {
       ContextualIdentityService.remove(workProfile);
     }
-    OSKeyStoreTestUtils.cleanup();
   });
 });
 
@@ -68,7 +66,11 @@ async function withSettings(callback) {
     const doc = browser.contentDocument;
     const win = browser.contentWindow;
     await TestUtils.waitForCondition(() => doc.getElementById("whimsyPasskeysGroup") && !doc.getElementById("whimsyPasskeysGroup").hidden, "The Passkeys card is shown");
-    await TestUtils.waitForCondition(() => doc.querySelectorAll("#whimsyPasskeysList .whimsy-passkey-row").length == 2, "Both passkeys are listed");
+    is((await WhimsyPasskeys.list()).length, 2, "The store lists both passkeys");
+    // Rendering throws silently inside the page's init; on a miss, render by
+    // hand so the exception (if any) reaches the log.
+    await TestUtils.waitForCondition(() => doc.querySelectorAll("#whimsyPasskeysList .whimsy-passkey-row").length == 2, "Both passkeys are listed")
+      .catch(async e => { await win.gWhimsySettings.renderPasskeys(); throw e; });
     await callback(win, doc);
   });
 }

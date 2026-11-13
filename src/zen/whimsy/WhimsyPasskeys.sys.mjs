@@ -45,6 +45,12 @@ const PRIVATE_CREATE_PREF = "whimsy.passkeys.private.create";
 const FILE_NAME = "whimsy-passkeys.json";
 const PROMPT_ID = "whimsy-passkeys-prompt";
 const ES256 = -7;
+// Components.results only names the DOM errors listed in xpc.msg, and these
+// two aren't (an undefined nsresult reads as NS_OK, which the C++ side turns
+// into NotAllowedError). Values from ErrorList.h: NS_ERROR_MODULE_DOM (21)
+// with DOMException codes 9 and 11.
+const NS_ERROR_DOM_NOT_SUPPORTED_ERR = 0x80530009;
+const NS_ERROR_DOM_INVALID_STATE_ERR = 0x8053000b;
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const KEY_ICON = "chrome://browser/skin/zen-icons/selectable/key.svg";
 const WARNING_ICON = "chrome://global/skin/icons/warning.svg";
@@ -473,7 +479,7 @@ export const WhimsyPasskeys = {
         return;
       }
       if (!Array.isArray(req.coseAlgs) || !req.coseAlgs.includes(ES256)) {
-        answer("onError", Cr.NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+        answer("onError", NS_ERROR_DOM_NOT_SUPPORTED_ERR);
         return;
       }
       const win = this.windowFor(browsingContextId);
@@ -492,7 +498,9 @@ export const WhimsyPasskeys = {
         securityKey,
       };
       if (req.privateBrowsing && !Services.prefs.getBoolPref(PRIVATE_CREATE_PREF, false)) {
-        const prompt = this._openPrompt(win, active, ctx);
+        // P9 (design §8.2): a security key is the way to save one here,
+        // whatever attachment the site asked for.
+        const prompt = this._openPrompt(win, active, { ...ctx, securityKey: true });
         prompt.render("private");
         return;
       }
@@ -904,7 +912,7 @@ export const WhimsyPasskeys = {
         id: "whimsy-passkeys-ok",
         l10nId: "whimsy-passkeys-ok",
         primary: true,
-        onCommand: () => this._answer(active, "onError", Cr.NS_ERROR_DOM_INVALID_STATE_ERR),
+        onCommand: () => this._answer(active, "onError", NS_ERROR_DOM_INVALID_STATE_ERR),
       }));
     } else {
       if (ctx.securityKey) {

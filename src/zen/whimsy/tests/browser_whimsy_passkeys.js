@@ -16,7 +16,8 @@ const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whims
 const { ContextualIdentityService } = ChromeUtils.importESModule(
   "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
 );
-const { OSKeyStoreTestUtils } = ChromeUtils.importESModule("resource://testing-common/OSKeyStoreTestUtils.sys.mjs");
+// The store is OSKeyStore-encrypted; head.js gives this file its own throwaway
+// Keychain item and deletes it after the cleanups, so nothing is set up here.
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const PAGE = ROOT + "whimsy_passkeys.sjs";
@@ -133,6 +134,17 @@ async function promptIn(state, win = window) {
     () => prompt(win)?.state == "open" && prompt(win).dataset.state == state,
     `The prompt shows ${state}`
   );
+  // Fluent fills the new elements on the next refresh tick; a bad id or
+  // argument would blank the whole batch (strict l10n), so a blank title
+  // after that is re-translated by hand to surface the error.
+  const panel = prompt(win);
+  await TestUtils.waitForCondition(
+    () => panel.querySelector(".whimsy-surface-title")?.textContent,
+    `The ${state} prompt's title is translated`
+  ).catch(async e => {
+    await win.document.l10n.translateFragment(panel);
+    throw e;
+  });
   await whimsySettled(win.document);
   return prompt(win);
 }
@@ -168,7 +180,7 @@ async function watchNative(callback) {
   };
   Services.obs.addObserver(observer, "webauthn-prompt");
   try {
-    const value = await callback();
+    const value = await callback(prompts);
     await TestUtils.waitForTick();
     return { value, prompts };
   } finally {
@@ -179,9 +191,9 @@ async function watchNative(callback) {
 // A request that goes to authenticator-rs waits for a security key that
 // isn't there: the page aborts it once Firefox's prompt has appeared.
 async function expectDelegated(browser, method, opts, label) {
-  const { value, prompts } = await watchNative(async () => {
+  const { value, prompts } = await watchNative(async native => {
     const result = request(browser, method, opts);
-    await TestUtils.waitForCondition(() => prompts.length > 0 || prompt(), `${label}: something asked`);
+    await TestUtils.waitForCondition(() => native.length > 0 || prompt(), `${label}: something asked`);
     await TestUtils.waitForTick();
     ok(!prompt(), `${label}: no Whimsy prompt`);
     await abortRequest(browser);
@@ -208,7 +220,6 @@ add_setup(async function () {
       ["security.webauthn.enable_conditional_mediation", true],
     ],
   });
-  OSKeyStoreTestUtils.setup();
   WhimsyPasskeys._signer = signer;
   WhimsyPasskeys.resetAvailability();
   WhimsyPasskeys.init();
@@ -226,8 +237,8 @@ add_setup(async function () {
   registerCleanupFunction(async () => {
     WhimsyPasskeys.cancel(0);
     for (const tab of tabs) {
-      if (tab.isConnected && !tab.closing) {
-        await BrowserTestUtils.removeTab(tab);
+      if (tab.isConnected && !tab.closing && tab.linkedBrowser?.webProgress) {
+        await BrowserTestUtils.removeTab(tab).catch(e => info(`Closing a leftover tab: ${e}`));
       }
     }
     await gZenWorkspaces.changeWorkspace(home);
@@ -240,7 +251,6 @@ add_setup(async function () {
     await WhimsyPasskeys.save([]);
     WhimsyPasskeys._signer = null;
     WhimsyPasskeys.resetAvailability();
-    OSKeyStoreTestUtils.cleanup();
   });
 });
 
@@ -302,13 +312,13 @@ add_task(async function create_unspecified_offers_security_key() {
   fresh();
   const tab = await openPage();
   const browser = tab.linkedBrowser;
-  const { value, prompts } = await watchNative(async () => {
+  const { value, prompts } = await watchNative(async native => {
     const result = request(browser, "create", { userId: "BAUG", name: "hubot", displayName: "Hubot" });
     await promptIn("create");
     Assert.deepEqual(footerIds(), ["whimsy-passkeys-security-key", "whimsy-passkeys-cancel", "whimsy-passkeys-primary"], "Use a security key, Cancel, Save");
     press("whimsy-passkeys-security-key");
     await promptGone();
-    await TestUtils.waitForCondition(() => prompts.length > 0, "Firefox's security-key prompt appeared");
+    await TestUtils.waitForCondition(() => native.length > 0, "Firefox's security-key prompt appeared");
     await abortRequest(browser);
     return result;
   });
@@ -613,9 +623,13 @@ add_task(async function cancel_abort_and_teardown() {
   await focusPage(browser);
   result = request(browser, "get", { allow: [mona.id] });
   await promptIn("sign");
+  // The page goes with the tab, so its answer never arrives (the spawn
+  // rejects with AbortError); that is the point, not a leak.
+  const closed = result.catch(e => e);
   BrowserTestUtils.removeTab(tab);
   await promptGone();
   ok(true, "Closing the tab closes the prompt");
+  await closed;
 });
 
 // 13. prompt spam: after three cancels in a minute the origin is refused
@@ -645,11 +659,19 @@ add_task(async function feature_off_is_yesterday() {
   fresh();
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.passkeys", false]] });
   const tab = await openPage();
-  await expectDelegated(tab.linkedBrowser, "get", { allow: [mona.id] }, "feature off");
-  await focusPage(tab.linkedBrowser);
-  await expectDelegated(tab.linkedBrowser, "create", { attachment: "platform", userId: "DAwN" }, "feature off, create");
-  await SpecialPowers.popPrefEnv();
-  BrowserTestUtils.removeTab(tab);
+  try {
+    ok(!WhimsyPasskeys.available, "Off means not available");
+    await expectDelegated(tab.linkedBrowser, "get", { allow: [mona.id] }, "feature off");
+    await focusPage(tab.linkedBrowser);
+    await expectDelegated(tab.linkedBrowser, "create", { attachment: "platform", userId: "DAwN" }, "feature off, create");
+  } finally {
+    // The switch must come back whatever happened above: the later tasks
+    // (and Firefox's own prompts, left open by a delegated request) depend
+    // on it.
+    await SpecialPowers.popPrefEnv();
+    BrowserTestUtils.removeTab(tab);
+  }
+  ok(WhimsyPasskeys.available, "and on again after");
 });
 
 // 15. conditional mediation: the login autocomplete gets this profile's
@@ -659,6 +681,12 @@ add_task(async function conditional_mediation_autofill() {
   const tab = await openPage();
   const browser = tab.linkedBrowser;
   const service = Cc["@mozilla.org/webauthn/service;1"].getService(Ci.nsIWebAuthnService);
+  ok(WhimsyPasskeys.available, "Whimsy's passkeys are available");
+  // The module's half on its own first, so a miss below says which half.
+  const direct = await new Promise((resolve, reject) =>
+    WhimsyPasskeys.getAutoFillEntries(RP, browser.browsingContext.id, [], { resolve, reject })
+  );
+  is(direct.length, 3, "The module lists Default's three for this tab");
   const result = request(browser, "get", { allow: [], mediation: "conditional", publicKey: mona });
   let tid = 0;
   await TestUtils.waitForCondition(() => {
