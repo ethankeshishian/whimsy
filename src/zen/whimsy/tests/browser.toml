@@ -405,6 +405,10 @@ support-files = ["whimsy_call.html"]
 ["browser_whimsy_hover_cards.js"]
 support-files = ["whimsy_ai_page.html", "whimsy_ai_links.html", "whimsy_test_image.png"]
 
+# W26: every way a hover card's description fails, one fixture each: retried once, read from the address, title, link text, and summary when the page can't be, any answer shape, cancels aren't failures.
+["browser_whimsy_hover_describe.js"]
+support-files = ["whimsy_ai_page.html"]
+
 # batch hover: People cards (GitHub, LinkedIn, X profile links).
 ["browser_whimsy_people.js"]
 # fixB: Delete Space confirms inside the window.

@@ -58,8 +58,8 @@ const META_CACHE_MAX = 60;
 const META_CACHE_MS = 30 * 60 * 1000;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"];
 
-// url -> { at, data: { title, image } }: a link's own title and preview
-// image address (never the page's text).
+// url -> { at, data: { title, image, description } }: a link's own title,
+// preview image address, and summary from its tags (never the page's text).
 const metaCache = new Map();
 Services.obs.addObserver(() => metaCache.clear(), "browser:purge-session-history");
 
@@ -289,7 +289,23 @@ export const WhimsyHoverCards = {
 
   // A described page: the description and its bullets, from one answer.
   fillSummary(win, card, found) {
-    this.fillDescription(win, card, { text: found?.description, points: found?.points });
+    if (!found?.description) {
+      this.fillDescription(win, card, { note: "failed" });
+      return;
+    }
+    this.fillDescription(win, card, { text: found.description, points: found.points });
+  },
+
+  // W26: no description. A hover that was let go (the pointer moved on, the
+  // card closed) isn't a failure and changes nothing; anything else is a
+  // real dead end: WhimsyAIPage has already retried, and fallen back on
+  // the title, address, link text, and the page's own summary.
+  describeFailed(win, card, error, signal) {
+    if (signal?.aborted || error?.code == "aborted" || error?.name == "AbortError") {
+      return;
+    }
+    console.debug("Whimsy: hover card not described", error?.code ?? "", error?.message ?? error);
+    this.fillDescription(win, card, { note: "failed" });
   },
 
   /**
@@ -314,7 +330,11 @@ export const WhimsyHoverCards = {
     if (!lazy.WhimsyAIReader.isPublicUrl(url)) {
       return card;
     }
-    this.linkMeta(win, url, { signal })
+    // One fetch of the page's tags: its title and preview image, and its
+    // own summary for a description when the page itself can't be read.
+    const metaRead = this.linkMeta(win, url, { signal });
+    metaRead.catch(() => {});
+    metaRead
       .then(meta => {
         if (signal.aborted || !meta) {
           return;
@@ -333,9 +353,15 @@ export const WhimsyHoverCards = {
       .catch(() => {});
     if (target.ai) {
       this.fillDescription(win, card, { loading: true });
-      lazy.WhimsyAIPage.describe(url, { anonymous: true, signal })
-        .then(found => !signal.aborted && this.fillSummary(win, card, found))
-        .catch(() => !signal.aborted && this.fillDescription(win, card, { note: "failed" }));
+      lazy.WhimsyAIPage.describe(url, {
+        anonymous: true,
+        signal,
+        linkText: target.title || "",
+        pageMeta: () => metaRead,
+      }).then(
+        found => !signal.aborted && this.fillSummary(win, card, found),
+        error => this.describeFailed(win, card, error, signal)
+      );
     }
     return card;
   },
@@ -360,7 +386,7 @@ export const WhimsyHoverCards = {
     }
     const { text } = await this.fetch(url, { kind: "page", signal });
     const found = lazy.WhimsyPeople.parseMeta(win, text);
-    const data = { title: found.title || null, image: found.image || null };
+    const data = { title: found.title || null, image: found.image || null, description: found.description || null };
     metaCache.set(url, { at: Date.now(), data });
     if (metaCache.size > META_CACHE_MAX) {
       metaCache.delete(metaCache.keys().next().value);
@@ -727,8 +753,10 @@ class TabHover {
     if (describe && (await lazy.WhimsyAIPage.canDescribe()) && !signal.aborted) {
       WhimsyHoverCards.fillDescription(win, card, { loading: true });
       lazy.WhimsyAIPage.describeTab(tab, { signal })
-        .then(found => !signal.aborted && WhimsyHoverCards.fillSummary(win, card, found))
-        .catch(() => !signal.aborted && WhimsyHoverCards.fillDescription(win, card, { note: "failed" }));
+        .then(
+          found => !signal.aborted && WhimsyHoverCards.fillSummary(win, card, found),
+          error => WhimsyHoverCards.describeFailed(win, card, error, signal)
+        );
     }
   }
 
