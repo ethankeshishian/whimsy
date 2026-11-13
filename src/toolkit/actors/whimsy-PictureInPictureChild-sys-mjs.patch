@@ -1,0 +1,59 @@
+diff --git a/toolkit/actors/PictureInPictureChild.sys.mjs b/toolkit/actors/PictureInPictureChild.sys.mjs
+--- a/toolkit/actors/PictureInPictureChild.sys.mjs
++++ b/toolkit/actors/PictureInPictureChild.sys.mjs
+@@ -2255,7 +2255,55 @@
+         }
+         this.closePictureInPicture({ reason });
+       })
++    );
++  }
++
++  /**
++   * Whimsy (call-pip): shows another <video> from the same page in this
++   * open player, without closing the window, when a call's main video
++   * changes (another participant becomes the active speaker). It reuses
++   * the re-clone path above and moves the tracking to the new video.
++   *
++   * @param {Element} video The <video> to show instead.
++   * @returns {boolean} Whether the player now shows it.
++   */
++  whimsySwapVideo(video) {
++    const old = this.getWeakVideo();
++    const playerVideo = this.document?.getElementById("playervideo");
++    if (
++      !old ||
++      !video ||
++      !playerVideo ||
++      video === old ||
++      video.isCloningElementVisually ||
++      video.ownerDocument !== old.ownerDocument
++    ) {
++      return false;
++    }
++    if (this.emptiedTimeout) {
++      clearTimeout(this.emptiedTimeout);
++      this.emptiedTimeout = null;
++    }
++    gOriginatingVideoMap.delete(old);
++    this.untrackOriginatingVideo(old);
++    old.stopCloningElementVisually();
++    this.weakVideo = Cu.getWeakReference(video);
++    gOriginatingVideoMap.set(video, this);
++    this.videoWrapper = applyWrapper(this, video);
++    playerVideo.style.transform = "";
++    video.cloneElementVisually(playerVideo);
++    this.stylePlayerVideo(video, playerVideo);
++    this.trackOriginatingVideo(video);
++    if (video.videoWidth && video.videoHeight) {
++      this.sendAsyncMessage("PictureInPicture:Resize", {
++        videoHeight: video.videoHeight,
++        videoWidth: video.videoWidth,
++      });
++    }
++    this.sendAsyncMessage(
++      video.paused ? "PictureInPicture:Paused" : "PictureInPicture:Playing"
+     );
++    return true;
+   }
+ 
+   async receiveMessage(message) {

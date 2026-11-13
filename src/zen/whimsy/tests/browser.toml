@@ -365,6 +365,11 @@ support-files = ["whimsy_slow_download.sjs"]
 # wave3/private: floating calls (call video goes PiP when you leave its tab).
 ["browser_whimsy_call_pip.js"]
 support-files = ["whimsy_call.html"]
+
+# W26: a floating call shows another participant (never covered by your
+# "Camera off"), and follows the active speaker in the same window.
+["browser_whimsy_call_pip_follow.js"]
+support-files = ["whimsy_call.html"]
 # batch3glance: Glance size (Compact / Standard / Wide).
 ["browser_whimsy_glance_size.js"]
 

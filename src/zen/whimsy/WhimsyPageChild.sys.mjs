@@ -10,6 +10,7 @@ import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PictureInPictureChild: "moz-src:///toolkit/actors/PictureInPictureChild.sys.mjs",
+  getActorFor: "moz-src:///toolkit/actors/PictureInPictureChild.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   // W10-61: press again.
@@ -334,6 +335,9 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // wave3: floating calls (WhimsyCallPip).
       case "Whimsy:CallPip":
         return this.callPip();
+      // W26: follow the call's main video in the open PiP window.
+      case "Whimsy:CallFollow":
+        return this.callFollow(message.data ?? {});
       case "Whimsy:CallLiveVideo": {
         const live = this.liveCallVideos();
         // Muting your camera can show the placeholder while the floated
@@ -480,9 +484,10 @@ export class WhimsyPageChild extends JSWindowActorChild {
     );
   }
 
-  // wave3: floating calls. Puts the call's main video (the active speaker's
-  // tile, the biggest playing one, preferring others over your own mirrored
-  // self-view) in picture-in-picture, the way Firefox's own tab-switch PiP
+  // wave3: floating calls. Puts the call's main video (W26: another
+  // participant's before your own preview, then the biggest playing one,
+  // which is the active speaker's tile; see rankCallVideos) in
+  // picture-in-picture, the way Firefox's own tab-switch PiP
   // does for a playing video. Call videos don't qualify for that one: their
   // sound plays from separate audio elements, so the videos are muted or
   // have no audio track. Returns whether it opened.
@@ -500,26 +505,144 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return false;
       }
     }
-    if (videos.some(v => v.isCloningElementVisually)) {
+    // W26: one open at a time. Leaving the call again right after coming
+    // back asks twice (the tab switch, and the closed window's retry)
+    // before either window exists, which opened two windows.
+    if (videos.some(v => v.isCloningElementVisually) || this._callPipOpening) {
       return false; // Already in picture-in-picture.
     }
-    const win = this.contentWindow;
-    const mirrored = v => {
+    const [best] = this.rankCallVideos(this.liveCallVideos());
+    if (!best) {
+      return false;
+    }
+    const launcher = this.manager.getActor("PictureInPictureLauncher");
+    lazy.callVideos.add(best);
+    this._callLeader = null;
+    this._callPipOpening = true;
+    launcher
+      .togglePictureInPicture({ video: best, reason: "AutoPip" }, false)
+      .catch(console.error)
+      .finally(() => {
+        this._callPipOpening = false;
+      });
+    return true;
+  }
+
+  // W26: who a call video shows, on any site (no class names):
+  //  - "remote": another participant. Every track received over WebRTC is
+  //    labelled "remote video" by Gecko (RTCRtpReceiver.cpp).
+  //  - "local": your own preview: a capture track (it has a deviceId), or a
+  //    video mirrored on itself or on any ancestor (a selfie view).
+  //  - "unknown": anything else (canvas, captureStream, MSE).
+  // A tile that lost its stream (camera off) keeps what it last showed.
+  callVideoKind(video) {
+    this._callVideoKinds ??= new WeakMap();
+    let kind = null;
+    let tracks = null;
+    try {
+      tracks = video.srcObject?.getVideoTracks?.() ?? null;
+    } catch (e) {}
+    if (tracks?.some(track => track.label == "remote video")) {
+      kind = "remote";
+    } else if (tracks?.some(track => {
       try {
-        return new win.DOMMatrixReadOnly(win.getComputedStyle(v).transform).a < 0;
+        return !!track.getSettings().deviceId;
       } catch (e) {
         return false;
       }
-    };
+    })) {
+      kind = "local";
+    } else if (this.isMirrored(video)) {
+      kind = "local";
+    }
+    if (kind) {
+      this._callVideoKinds.set(video, kind);
+      return kind;
+    }
+    return (!tracks?.length && this._callVideoKinds.get(video)) || "unknown";
+  }
+
+  // Mirrored on the video or any ancestor (two flips cancel out).
+  isMirrored(video) {
+    try {
+      return video.getTransformToViewport().a < 0;
+    } catch (e) {}
+    const win = this.contentWindow;
+    let flips = 0;
+    for (let el = video; el && el.nodeType == 1; el = el.parentElement) {
+      try {
+        if (new win.DOMMatrixReadOnly(win.getComputedStyle(el).transform).a < 0) {
+          flips++;
+        }
+      } catch (e) {}
+    }
+    return flips % 2 == 1;
+  }
+
+  // Other people first, then unknown videos, then your own preview; within
+  // each, a playing tile before a stopped one (`stalled`), then the larger
+  // (a call's active speaker gets the big tile).
+  rankCallVideos(videos, stalled = null) {
+    const TIER = { remote: 0, unknown: 1, local: 2 };
+    return videos
+      .map(video => ({
+        video,
+        tier: TIER[this.callVideoKind(video)],
+        stopped: Number(video == stalled),
+        area: this.area(video),
+      }))
+      .sort((a, b) => a.tier - b.tier || a.stopped - b.stopped || b.area - a.area)
+      .map(entry => entry.video);
+  }
+
+  // W26: while the call floats, keeps the PiP on the call's main video. A
+  // different video takes over once it has led for `holdMs` (no flicker as
+  // speakers trade the big tile), at once when it's someone else and the
+  // window shows your own preview, or when the floated tile has stopped.
+  // The window stays open: the player re-clones the new video
+  // (whimsy-PictureInPictureChild-sys-mjs.patch). With `follow` false (the
+  // call's tab is showing) it only reports. Returns what floats ({ self }:
+  // your own preview), or null with no call PiP here.
+  callFollow({ holdMs = 0, follow = true }) {
+    const doc = this.document;
+    const current = [...(doc?.querySelectorAll("video") ?? [])].find(video => video.isCloningElementVisually);
+    if (!current) {
+      this._callLeader = null;
+      return null;
+    }
     const live = this.liveCallVideos();
-    if (!live.length) {
+    const playing = live.includes(current);
+    const [best] = this.rankCallVideos(playing ? live : [...live, current], playing ? null : current);
+    let floating = current;
+    if (follow && best && best != current) {
+      const leader = this._callLeader?.video?.get?.();
+      if (leader != best) {
+        this._callLeader = { video: Cu.getWeakReference(best), since: ChromeUtils.now() };
+      }
+      const kind = this.callVideoKind(current);
+      const urgent = !playing || (kind == "local" && this.callVideoKind(best) != "local");
+      if ((urgent || ChromeUtils.now() - this._callLeader.since >= holdMs) && this.swapCallVideo(current, best)) {
+        floating = best;
+        this._callLeader = null;
+      }
+    } else {
+      this._callLeader = null;
+    }
+    return { self: this.callVideoKind(floating) == "local" };
+  }
+
+  swapCallVideo(from, to) {
+    const actor = lazy.getActorFor(from);
+    if (typeof actor?.whimsySwapVideo != "function") {
       return false;
     }
-    live.sort((a, b) => Number(mirrored(a)) - Number(mirrored(b)) || this.area(b) - this.area(a));
-    const launcher = this.manager.getActor("PictureInPictureLauncher");
-    lazy.callVideos.add(live[0]);
-    launcher.togglePictureInPicture({ video: live[0], reason: "AutoPip" }, false).catch(console.error);
-    return true;
+    lazy.callVideos.add(to);
+    try {
+      return actor.whimsySwapVideo(to);
+    } catch (e) {
+      console.error("Whimsy: call PiP swap", e);
+      return false;
+    }
   }
 
   // fix7: the tab was switched away from while its video played. Firefox
