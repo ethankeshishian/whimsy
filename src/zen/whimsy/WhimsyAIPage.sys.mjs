@@ -1006,7 +1006,7 @@ export const WhimsyAIPage = {
         return found;
       } catch (error) {
         throwIfAborted(signal);
-        if (attempt >= 1 || !RETRY_CODES.has(error?.code)) {
+        if (attempt >= 1 || !RETRY_CODES.has(error?.code) || error?.transient === false) {
           throw error;
         }
         await new Promise((resolve, reject) => {

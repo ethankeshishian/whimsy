@@ -331,3 +331,60 @@ add_task(async function coming_back_picks_up_the_same_request() {
   is((await back).description, DESCRIPTION, "Coming back gets the answer");
   is(asked.filter(described).length, 1, "...from the one request");
 });
+
+// ---- Apple's on-device model ----
+
+// Seen on the owner's Mac: after a burst of requests macOS refuses every
+// one for several minutes (ModelManagerError 1013), and its guardrail
+// refuses some pages outright. The first is a rate limit (the provider
+// rests instead of being asked on every hover); the second isn't worth a
+// second try.
+add_task(async function apple_helper_failures() {
+  if (Services.appinfo.OS != "Darwin") {
+    ok(true, "macOS only");
+    return;
+  }
+  const root = await IOUtils.createUniqueDirectory(PathUtils.tempDir, "whimsy-fm-w26");
+  const helper = PathUtils.join(root, "whimsy-fm-test");
+  const descriptor = Object.getOwnPropertyDescriptor(WhimsyAIProviders, "_helperPath");
+  Object.defineProperty(WhimsyAIProviders, "_helperPath", { get: () => helper, configurable: true });
+  const run = async stderr => {
+    await IOUtils.writeUTF8(helper, `#!/bin/sh\ncat >/dev/null\nprintf '%s\\n' '${stderr}' >&2\nexit 1\n`);
+    await IOUtils.setPermissions(helper, 0o755);
+    try {
+      await WhimsyAIProviders._apple({ prompt: "x", system: "", signal: new AbortController().signal });
+    } catch (error) {
+      return error;
+    }
+    return null;
+  };
+  try {
+    WhimsyAIProviders._helperPromise = null;
+    const throttled = await run(
+      'Error Domain=FoundationModels.LanguageModelError Code=-1 "(com.apple.SensitiveContentAnalysisML error 15.)" "Error Domain=ModelManagerServices.ModelManagerError Code=1013"'
+    );
+    is(throttled?.code, "rate-limited", "macOS refusing after a burst is a rate limit");
+    is(throttled?.detail, "", "...without the helper's raw error as the rest message");
+    const unsafe = await run("May contain unsafe content");
+    is(unsafe?.code, "failed", "The guardrail is a failure");
+    is(unsafe?.transient, false, "...that isn't tried again");
+    const other = await run("Something else went wrong");
+    is(other?.code, "failed", "Anything else is a failure");
+    isnot(other?.transient, false, "...worth one more try");
+  } finally {
+    Object.defineProperty(WhimsyAIProviders, "_helperPath", descriptor);
+    WhimsyAIProviders._helperPromise = null;
+    await IOUtils.remove(root, { recursive: true });
+  }
+});
+
+add_task(async function a_guardrail_refusal_is_asked_once() {
+  reset();
+  answer = () => {
+    throw Object.assign(new WhimsyAIError("failed", "May contain unsafe content"), { transient: false });
+  };
+  const { card } = linkCard();
+  const result = await settled(card);
+  is(asked.filter(described).length, 1, "Asked once");
+  is(result.text, META_SUMMARY, "The page's own summary stands in");
+});
