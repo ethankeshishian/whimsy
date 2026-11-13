@@ -304,10 +304,11 @@ findbar .whimsy-ask-button {
      IsMouseTransparent) until the pointer is on the card itself
      ([whimsy-hc-input], set by WhimsyHoverCards' HostPointer). macOS ignores
      the input-region margin above, so without this the see-through room
-     took the clicks and wheel meant for the link, the tabs, and the page. */
+     took the clicks and wheel meant for the link, the tabs, and the page.
+     A card fading out (no [whimsy-open]) lets everything through too. */
   pointer-events: none;
 
-  &[whimsy-hc-input] {
+  &[whimsy-hc-input][whimsy-open] {
     pointer-events: auto;
   }
 

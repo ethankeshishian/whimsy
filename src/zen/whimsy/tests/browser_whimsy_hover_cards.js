@@ -587,15 +587,21 @@ add_task(async function tab_and_link_cards_look_the_same() {
 // scroll that way itself. And a click on the next tab lands the first time.
 const pageY = browser => SpecialPowers.spawn(browser, [], () => content.scrollY);
 
-// Scrolls the page and waits for its scroll event, which comes a frame
-// later and would otherwise land on the next hover (a scroll ends a hover).
+// Scrolls the page and waits until it has stopped: no scroll event for
+// three frames. A scroll still settling (a smooth wheel scroll, or the
+// event for a jump, which comes a frame later) would otherwise land on the
+// next hover, and a scroll ends a hover.
 function scrollPageTo(browser, y) {
   return SpecialPowers.spawn(browser, [y], async y => {
-    if (content.scrollY != y) {
-      const scrolled = new Promise(r => content.addEventListener("scroll", r, { once: true }));
-      content.scrollTo(0, y);
-      await scrolled;
+    let quiet = 0;
+    const moved = () => (quiet = 0);
+    content.addEventListener("scroll", moved, true);
+    content.scrollTo({ top: y, behavior: "instant" });
+    while (quiet < 3) {
+      await new Promise(r => content.requestAnimationFrame(r));
+      quiet++;
     }
+    content.removeEventListener("scroll", moved, true);
   });
 }
 
