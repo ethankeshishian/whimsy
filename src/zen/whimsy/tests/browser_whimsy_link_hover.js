@@ -66,6 +66,15 @@ function enterAt({ x, y, url = "https://example.org/article" }) {
   return link;
 }
 
+// The card as drawn, on screen. The popup's window is bigger than the card:
+// it keeps --whimsy-hc-shadow-room on every side for the card's shadow
+// (whimsy-ai.css), transparent and click-through, so the window's own rect
+// isn't what covers anything.
+function cardRect(p) {
+  const room = parseFloat(getComputedStyle(p).getPropertyValue("--whimsy-hc-shadow-room")) || 0;
+  const r = p.getOuterScreenRect();
+  return { x: r.x + room, y: r.y + room, width: r.width - 2 * room, height: r.height - 2 * room };
+}
 function intersects(a, b) {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
@@ -110,7 +119,7 @@ add_task(async function one_card_one_motion() {
     const p = await openCards();
     Assert.deepEqual(cards(), ["link"], "AI on: still one card, the description inside it");
     ok(p.querySelector(".whimsy-hc-desc.is-loading"), "It opened with the description's place loading");
-    ok(!intersects(p.getOuterScreenRect(), link), "The card doesn't cover the link");
+    ok(!intersects(cardRect(p), link), "The card doesn't cover the link");
 
     const card = p.querySelector(".whimsy-link-hover-card");
     const motion = () => card.getAnimations().filter(a => a.transitionProperty == "opacity");
@@ -132,7 +141,7 @@ add_task(async function no_room_below_flips_above() {
     const link = enterAt({ x: window.mozInnerScreenX + 200, y: bottom - 30 });
     const p = await openCards();
     Assert.deepEqual(cards(), ["link"], "One card");
-    const box = p.getOuterScreenRect();
+    const box = cardRect(p);
     Assert.lessOrEqual(box.y + box.height, link.y + 1, "The card flips above the link");
     ok(!intersects(box, link), "...and still doesn't cover it");
     is(p.getAttribute("side"), "top", "...rising from below");
