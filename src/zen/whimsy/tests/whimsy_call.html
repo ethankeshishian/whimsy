@@ -180,8 +180,10 @@
 
   // W26: a call bar with Meet's mechanics (data-is-muted and Meet's
   // labels), so the browser knows when your camera is off. Turning it off
-  // disables your camera track, as Meet does.
-  window.addCallBar = function () {
+  // disables your camera track, as Meet does. With `leave`, the bar also
+  // has Meet's hang-up button (its icon ligature and label), which ends
+  // the call.
+  window.addCallBar = function (leave = false) {
     const bar = document.getElementById("bar");
     const state = { mic: "on", camera: "on" };
     const NAME = { mic: "microphone", camera: "camera" };
@@ -197,6 +199,22 @@
         button.addEventListener("click", () => window.setDevice(kind, !on));
         bar.append(button);
       }
+      if (leave) {
+        const hangUp = document.createElement("button");
+        hangUp.id = "hang-up";
+        hangUp.setAttribute("aria-label", "Leave call");
+        hangUp.innerHTML = '<i aria-hidden="true">call_end</i>';
+        hangUp.addEventListener("click", () => {
+          window.hungUp = (window.hungUp ?? 0) + 1;
+          window.endCall();
+        });
+        bar.append(hangUp);
+      }
+    };
+    window.removeHangUp = function () {
+      leave = false;
+      render();
+      return true;
     };
     window.setDevice = function (kind, on) {
       state[kind] = on ? "on" : "off";

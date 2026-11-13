@@ -22,8 +22,11 @@
 // PiP), and closing the window by hand keeps it closed until you return
 // to the call's tab, as Firefox does for videos.
 //
-// Not covered: Arc's floating window also has a leave button. Zoom's web
-// client draws video on a <canvas>, which picture-in-picture can't show.
+// W26: like Arc's floating window, a red Leave call button presses the
+// call page's own hang-up control (WhimsyCallControls.findLeave) and closes
+// the window; with no such control on the page it's hidden. The × still
+// only closes the window. Not covered: Zoom's web client draws video on a
+// <canvas>, which picture-in-picture can't show.
 //
 // W13-R3 (whimsy.feature.call-controls): the call's microphone and camera,
 // in sync three ways: the page's own toggles (Meet) are the only state;
@@ -134,6 +137,19 @@ panel.whimsy-surface { --panel-background-color: var(--arrowpanel-background); }
   margin-inline-start: 4px;
   padding-inline-start: 8px;
 }
+/* W26: Leave call, last in the row (it comes and goes with the page's
+   hang-up control): the player's button, filled with the design system's
+   destructive pair (tokens-shared.css), as Arc's and the call apps' own
+   red hang-up buttons are. */
+#whimsy-call-leave {
+  background-image: url("chrome://browser/content/whimsy/icons/call-end.svg");
+  background-color: var(--button-background-color-destructive);
+  fill: var(--button-text-color-destructive);
+  margin-inline-start: 4px;
+}
+#whimsy-call-leave:hover:enabled { background-color: var(--button-background-color-destructive-hover); }
+#whimsy-call-leave:hover:active:enabled { background-color: var(--button-background-color-destructive-active); }
+#whimsy-call-leave[aria-busy="true"] { cursor: progress; }
 body[whimsy-call] :is(#audio, #audio-scrubber, #timestamp, #playbackRate) { display: none !important; }
 body[whimsy-call] .end-controls,
 body[whimsy-call] .end-controls:has(#playbackRate:not([hidden])) {
@@ -464,6 +480,14 @@ export const WhimsyCallPip = {
           this.toggleCaptions(browser);
           return;
         }
+        if (id == "whimsy-call-leave") {
+          event.stopPropagation();
+          event.preventDefault();
+          if (this.isPlainPress(event)) {
+            this.leaveCall(pipWin, browser);
+          }
+          return;
+        }
         if (id == "whimsy-call-options") {
           event.stopPropagation();
           event.preventDefault();
@@ -491,7 +515,7 @@ export const WhimsyCallPip = {
       // buttons do nothing; the panel opens only from its own ⋯ button.
       pipWin.addEventListener("contextmenu", event => {
         const id = event.target?.id;
-        if (["whimsy-call-mic", "whimsy-call-camera", "whimsy-call-options"].includes(id) && this.isInCall(tab)) {
+        if (["whimsy-call-mic", "whimsy-call-camera", "whimsy-call-options", "whimsy-call-leave"].includes(id) && this.isInCall(tab)) {
           event.stopPropagation();
           event.preventDefault();
         }
@@ -581,12 +605,53 @@ export const WhimsyCallPip = {
       const floating = await actor?.sendQuery("Whimsy:CallFollow", { holdMs: FOLLOW_HOLD_MS, follow });
       if (!pipWin.closed) {
         pipWin._whimsyFloatingSelf = floating ? !!floating.self : null;
+        pipWin._whimsyCanLeave = !!floating?.leave;
         this.renderCameraOff(pipWin, browser);
+        this.renderLeave(pipWin, browser);
       }
     } catch (e) {
       // Navigation or teardown while the page was answering.
     } finally {
       pipWin._whimsyFollowPending = false;
+    }
+  },
+
+  // W26: the Leave call button shows only while the page has a hang-up
+  // control to press (followCall asks every FOLLOW_MS), never as a dead
+  // button.
+  renderLeave(pipWin, browser) {
+    const button = pipWin.document?.getElementById("whimsy-call-leave");
+    if (button) {
+      button.hidden = !this.controlsEnabled || !this.isInCallBrowser(browser) || pipWin._whimsyCanLeave !== true;
+    }
+  },
+
+  // W26: presses the call page's own hang-up control, then closes the
+  // window. Counted as closed by hand, so it doesn't float again while the
+  // page is still hanging up. With no control left to press, the button
+  // hides and the window stays.
+  async leaveCall(pipWin, browser) {
+    const button = pipWin.document.getElementById("whimsy-call-leave");
+    if (button?.getAttribute("aria-busy") == "true") {
+      return;
+    }
+    button?.setAttribute("aria-busy", "true");
+    let left = false;
+    try {
+      const actor = browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyPage");
+      left = !!(await actor?.sendQuery("Whimsy:CallLeave"));
+    } catch (e) {
+      console.error("Whimsy: leave call", e);
+    }
+    button?.removeAttribute("aria-busy");
+    if (!left) {
+      pipWin._whimsyCanLeave = false;
+      this.renderLeave(pipWin, browser);
+      return;
+    }
+    this._closedByHand.add(browser);
+    if (!pipWin.closed) {
+      pipWin.close();
     }
   },
 
@@ -708,6 +773,14 @@ export const WhimsyCallPip = {
     options.setAttribute("aria-haspopup", "menu");
     doc.l10n.setAttributes(options, "whimsy-call-pip-options-button");
     group.append(options);
+    // W26: Leave call, hidden until the page shows a hang-up control.
+    const leave = doc.createElement("button");
+    leave.id = "whimsy-call-leave";
+    leave.className = "control-item control-button tooltip-over-controls center-tooltip";
+    leave.setAttribute("data-l10n-attrs", "tooltip");
+    leave.hidden = true;
+    doc.l10n.setAttributes(leave, "whimsy-call-pip-leave");
+    group.append(leave);
     start.prepend(group);
     doc.body.setAttribute("whimsy-call", "");
   },
@@ -1279,6 +1352,7 @@ export const WhimsyCallPip = {
     }
     // Firefox's speaker and volume come back when the switch is off.
     doc.body.toggleAttribute("whimsy-call", this.controlsEnabled);
+    this.renderLeave(pipWin, browser);
     for (const kind of KINDS) {
       const button = doc?.getElementById(`whimsy-call-${kind}`);
       if (!button) {

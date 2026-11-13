@@ -203,6 +203,104 @@ export function press(win, el) {
   return "trusted";
 }
 
+// W26: the call page's own hang-up control, for the PiP window's Leave
+// call button. General to any call page: a button (or role=button), not
+// disabled, whose accessible name, tooltip or title says leave call, hang
+// up or end call. The page's language counts where it shows: besides
+// English, the common phrasings in the languages Meet, Zoom, Teams and
+// Webex ship most, and Material's "call_end" icon ligature, which several
+// call apps put inside the button whatever the language. A bare "Leave" or
+// "End" only counts inside the call bar (it says nothing on its own).
+// Never one that ends the call for others ("End call for everyone", "for
+// all") or sits in someone else's row (isYours). No per-site list.
+const LEAVE_WORDS = new RegExp(
+  [
+    "\\bleave\\s+(the\\s+)?(call|meeting|huddle)\\b",
+    "\\bhang\\s*-?\\s*up\\b",
+    "\\bend\\s+(the\\s+)?(call|meeting)\\b",
+    "\\bcall_end\\b",
+    // es, pt, fr, de, it, nl
+    "\\b(salir|abandonar)\\s+de\\s+la\\s+(llamada|reuni[oó]n)\\b",
+    "\\bcolgar\\b",
+    "\\bfinalizar\\s+(la\\s+)?(llamada|chamada|reuni[aã]o)\\b",
+    "\\bsair\\s+da\\s+(chamada|reuni[aã]o)\\b",
+    "\\bdesligar\\b",
+    "\\bquitter\\s+(l['’]appel|la\\s+r[ée]union)\\b",
+    "\\braccrocher\\b",
+    "\\b(anruf|besprechung|meeting)\\s+(verlassen|beenden)\\b",
+    "\\bauflegen\\b",
+    "\\b(abbandona|lascia|termina)\\s+(la\\s+)?(chiamata|riunione)\\b",
+    "\\briaggancia\\b",
+    "\\b(gesprek|vergadering)\\s+(verlaten|be[eë]indigen)\\b",
+    "\\bophangen\\b",
+  ].join("|"),
+  "iu"
+);
+const BARE_LEAVE_WORDS = /^\s*(leave|end)\s*$/i;
+
+// The control's accessible name as a page usually gives it, plus its
+// tooltip and title.
+function leaveLabelOf(el) {
+  const labelledBy = (el.getAttribute("aria-labelledby") ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(id => el.ownerDocument.getElementById(id)?.textContent ?? "")
+    .join(" ");
+  const own = el.getAttribute("aria-label") || labelledBy || el.textContent || "";
+  return [own, el.getAttribute("data-tooltip"), el.getAttribute("title")]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isDisabled(el) {
+  return el.disabled === true || el.getAttribute("aria-disabled") == "true";
+}
+
+// How many levels up from `from` until an ancestor also holds `el`.
+function distance(from, el) {
+  let steps = 0;
+  for (let node = from; node; node = node.parentElement, steps++) {
+    if (node.contains(el)) {
+      return steps;
+    }
+  }
+  return Infinity;
+}
+
+// The hang-up control, or null. Among several (the join screen's and the
+// call bar's, or a decoy elsewhere): the one closest to your mic and camera
+// toggles (the call's toolbar), then one with a layout box, then the last
+// in the document.
+export function findLeave(doc) {
+  if (!doc) {
+    return null;
+  }
+  const { mic, camera } = findControls(doc);
+  const anchor = mic ?? camera;
+  const bar = mic && camera ? commonAncestor(mic, camera) : anchor?.parentElement ?? null;
+  let best = null;
+  let bestRank = null;
+  for (const el of doc.querySelectorAll("button, [role=button]")) {
+    if (isDisabled(el) || !isYours(el)) {
+      continue;
+    }
+    const label = leaveLabelOf(el);
+    const inBar = !!bar?.contains(el);
+    if (!LEAVE_WORDS.test(label) && !(inBar && BARE_LEAVE_WORDS.test(label))) {
+      continue;
+    }
+    // Lower is better: closeness to the toolbar, then a layout box.
+    const rank = [anchor ? distance(anchor, el) : 0, el.getClientRects().length > 0 ? 0 : 1];
+    if (!best || rank[0] < bestRank[0] || (rank[0] == bestRank[0] && rank[1] <= bestRank[1])) {
+      best = el;
+      bestRank = rank;
+    }
+  }
+  return best;
+}
+
 // W14-6: the call app's name as the page gives it (Meet, Zoom, Teams...),
 // for "Buttons mute: <app>"; null when the page doesn't say.
 const APP_NAME_SELECTOR = [
@@ -223,4 +321,4 @@ export function appName(doc) {
 
 // The module's API as one object (the name WhimsyPageChild's lazy getter
 // imports).
-export const WhimsyCallControls = { KINDS, kindOf, findControls, readState, isRelevant, press, appName };
+export const WhimsyCallControls = { KINDS, kindOf, findControls, findLeave, readState, isRelevant, press, appName };
