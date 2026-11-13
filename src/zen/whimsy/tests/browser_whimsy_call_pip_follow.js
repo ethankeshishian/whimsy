@@ -180,7 +180,9 @@ add_task(async function test_speaker_swap_keeps_window() {
       Assert.greaterOrEqual(ChromeUtils.now() - start, 1000, "It waits for the new speaker to hold the big tile");
       Assert.deepEqual(await floated(call), ["remote-Ben"], "Only the new speaker is cloned");
       ok(!pip.closed, "The same window stays open");
-      Assert.deepEqual(pipWindows(), [pip], "No other window opened");
+      const windows = pipWindows();
+      is(windows.length, 1, "One floating window");
+      ok(windows[0] === pip, "It is the window that opened first");
       ok(!reopened, "No window was closed and opened again");
       ok(!WhimsyCallPip._closedByHand.has(call.linkedBrowser), "A swap is not a deliberate close");
     } finally {
