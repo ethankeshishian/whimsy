@@ -56,10 +56,18 @@ const SLOW_MS = 300;
 // A one-step action on this many tabs or more takes ⌘↩, not ↩ (K.3).
 const MANY_TABS = 15;
 const REDUCED = "(prefers-reduced-motion: reduce)";
-// Something to do: an imperative that isn't what the bar already does
-// (open, go to, search, find, look up), at least three words long. General
-// verbs only; never a list of sites.
-const DO_VERBS = /^(?:please\s+|can you\s+|could you\s+|would you\s+)*(?:order|re-?order|buy|purchase|book|reserve|schedule|add|remove|delete|cancel|unsubscribe|send|post|reply|email|e-mail|message|text|invite|sign (?:up|in|out)|subscribe|download|install|make|set|set up|change|move|rename|archive|clean up|tidy|collect|gather|research|plan|pay|apply|register|rsvp|accept|decline|follow|share|upload|save|close|pin|unpin|mute|unmute|group|put|organi[sz]e|sort|turn (?:on|off)|switch|enable|disable|create|remind|start|go to|go on|navigate to|visit|open|find|look up|search|summari[sz]e|compare|check|get|fill (?:out|in)|read|translate)\b/i;
+// Something to do: an imperative, at least three words long. General verbs
+// only; never a list of sites. Acting verbs change something or go somewhere.
+const ACT_VERBS = "order|re-?order|buy|purchase|book|reserve|schedule|add|remove|delete|cancel|unsubscribe|send|post|reply|email|e-mail|message|text|invite|sign (?:up|in|out)|subscribe|download|install|make|set|set up|change|move|rename|archive|clean up|tidy|collect|gather|research|plan|pay|apply|register|rsvp|accept|decline|follow|share|upload|save|close|pin|unpin|mute|unmute|group|put|organi[sz]e|sort|turn (?:on|off)|switch|enable|disable|create|remind|start|go to|go on|navigate to|visit|open|fill (?:out|in)";
+// Reading verbs only look something up. On their own they ask about the
+// page you're on ("summarize the battery section here"), which is Ask; they
+// are something to do when the request also names a site or acts
+// ("go to wikipedia.org … and summarize", "search amazon … and add …").
+const READ_VERBS = "find|look up|search|summari[sz]e|compare|check|get|read|translate";
+const LEAD = String.raw`^(?:please\s+|can you\s+|could you\s+|would you\s+)*`;
+const DO_VERBS = new RegExp(`${LEAD}(?:${ACT_VERBS}|${READ_VERBS})\\b`, "i");
+const READ_LEAD = new RegExp(`${LEAD}(?:${READ_VERBS})\\b`, "i");
+const GOES_OR_ACTS = new RegExp(String.raw`\b[a-z0-9-]+\.[a-z]{2,}\b|(?:\band|\bthen|,)\s+(?:then\s+)?(?:${ACT_VERBS})\b`, "i");
 
 const OBJECT_WORDS = /\b(?:my|me|our|us|this|these|that|those|the|a|an|all|every|tabs?)\b/i;
 
@@ -334,6 +342,9 @@ export const WhimsyCommandBarAgent = {
     // An instruction names what it acts on ("my", "the", "a"): "book a
     // table for 4" is something to do, "book review hunger games" a search.
     if (!DO_VERBS.test(t) || !OBJECT_WORDS.test(t)) {
+      return false;
+    }
+    if (READ_LEAD.test(t) && !GOES_OR_ACTS.test(t)) {
       return false;
     }
     // "close the youtube tabs" already has its own row, from the words alone.

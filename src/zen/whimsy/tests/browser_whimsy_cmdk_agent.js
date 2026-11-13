@@ -119,6 +119,9 @@ add_task(async function website_requests_get_the_row_in_actions_mode_too() {
   }
   await typeInBar("find my iphone");
   ok(!agentRow(), "A short search stays a search");
+  // Reading about the page you're on is a question for Ask, not a task.
+  await typeInBar("summarize the battery section here");
+  ok(!agentRow(), "A request about this page alone gets Ask, not Do this");
   await closeBar();
 });
 
