@@ -77,7 +77,9 @@ wait_for() {
 # and its pid is alive, and never breaks a dead holder's lock while any
 # engine process is still running (a killed lock.sh can leave its mach or
 # verify.sh alive).
-engine_busy() { pgrep -f 'mach (build|test|mochitest|package|lint)|whimsy/verify\.sh|surfer build|updater\.py (ship|nightly|publish)' >/dev/null 2>&1; }
+# WHIMSY_ENGINE_BUSY overrides the pattern, so the tools' tests can run a
+# private queue while the real engine is building.
+engine_busy() { pgrep -f "${WHIMSY_ENGINE_BUSY:-mach (build|test|mochitest|package|lint)|whimsy/verify\.sh|surfer build|updater\.py (ship|nightly|publish)}" >/dev/null 2>&1; }
 take_lock() {
   while :; do
     if mkdir $L 2>/dev/null; then
