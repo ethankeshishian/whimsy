@@ -301,7 +301,10 @@ findbar .whimsy-ask-button {
   -moz-window-input-region-margin: var(--whimsy-hc-shadow-room);
   /* The OS adds no shadow or material of its own: the card's is the one. */
   -moz-window-shadow: none;
-  pointer-events: none;
+  /* No pointer-events: none here. On a popup it makes the whole window
+     ignore the mouse (nsMenuPopupFrame::IsMouseTransparent), so the pointer
+     could never reach the card, its links, or its buttons. The input-region
+     margin above is what lets the pointer through the shadow room. */
 
   &::part(content) {
     appearance: none;
