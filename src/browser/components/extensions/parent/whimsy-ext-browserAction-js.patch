@@ -1,8 +1,42 @@
 diff --git a/browser/components/extensions/parent/ext-browserAction.js b/browser/components/extensions/parent/ext-browserAction.js
-index 45ce82b..0328643 100644
+index 45ce82b..2a54295 100644
 --- a/browser/components/extensions/parent/ext-browserAction.js
 +++ b/browser/components/extensions/parent/ext-browserAction.js
-@@ -1102,10 +1102,25 @@ this.browserAction = class extends ExtensionAPIPersistent {
+@@ -192,6 +192,12 @@ this.browserAction = class extends ExtensionAPIPersistent {
+ 
+   build() {
+     let { extension } = this;
++    // Whimsy (W26 extpin): a new extension's button starts in the site
++    // panel's Extensions section, whatever its manifest's default_area; the
++    // user pins it with Pin to Toolbar (WhimsyExtensionPins.sys.mjs).
++    const { WhimsyExtensionPins } = ChromeUtils.importESModule(
++      "resource:///modules/whimsy/WhimsyExtensionPins.sys.mjs"
++    );
+     let widget = CustomizableUI.createWidget({
+       id: this.id,
+       viewId: this.viewId,
+@@ -200,7 +206,10 @@ this.browserAction = class extends ExtensionAPIPersistent {
+       removable: true,
+       label: this.action.getProperty(null, "title"),
+       tooltiptext: this.action.getProperty(null, "title"),
+-      defaultArea: browserAreas[this.action.getDefaultArea()],
++      defaultArea: WhimsyExtensionPins.defaultArea(
++        extension,
++        browserAreas[this.action.getDefaultArea()]
++      ),
+       showInPrivateBrowsing: extension.privateBrowsingAllowed,
+       disallowSubView: true,
+ 
+@@ -470,6 +479,8 @@ this.browserAction = class extends ExtensionAPIPersistent {
+       },
+     });
+ 
++    WhimsyExtensionPins.migrate(extension, widget.id);
++
+     if (this.extension.startupReason != "APP_STARTUP") {
+       // Make sure the browser telemetry has the correct state for this widget.
+       // Defer loading BrowserUsageTelemetry until after startup is complete.
+@@ -1102,10 +1113,25 @@ this.browserAction = class extends ExtensionAPIPersistent {
              throw new ExtensionError("openPopup requires a user gesture");
            }
  

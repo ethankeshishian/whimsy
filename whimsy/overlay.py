@@ -1657,6 +1657,11 @@ FEATURES = [
     # space has its own container). Zen has nothing for this.
     {"id": "space-extensions", "title": "Extensions per profile: \"Run in Profiles\" on each extension's menu; outside them its tabs/webRequest/proxy APIs and content scripts are kept out (shared storage stays shared)",
      "detect": [("src/zen", r"(?i)per-?space[\w-]*extension|extension[\w-]*per-?space|space[\w-]*scoped[\w-]*extension")]},
+    # w26 extpin: extension buttons start in the site panel, not the URL bar
+    # (WhimsyExtensionPins.sys.mjs + whimsy-ext-browserAction-js.patch).
+    {"id": "extensions-in-panel", "title": "New extensions start in the site panel's Extensions section, not the URL bar or toolbar, even when the extension asks for the toolbar; Pin to Toolbar still pins them",
+     "detect": [("src/browser/components/extensions", r"(?i)default_?area[^\n]*menupanel|AREA_ADDONS[^\n]*default"),
+                ("src/zen", r"(?i)extensions?[\w-]*(?:unpinned|in-?panel)[\w-]*by-?default")]},
     # batch hist: per-visit space metadata and Library filter.
     {"id": "space-history", "title": "Space-aware History: where was the tab, and filter by space",
      "detect": [("src/zen/library", r"(?i)history[^\n]*(?:workspaceId|spaceId)|(?:workspaceId|spaceId)[^\n]*history")]},

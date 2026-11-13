@@ -303,6 +303,9 @@
 - name: whimsy.feature.space-extensions
   value: true
 
+- name: whimsy.feature.extensions-in-panel
+  value: true
+
 - name: whimsy.feature.space-history
   value: true
 
