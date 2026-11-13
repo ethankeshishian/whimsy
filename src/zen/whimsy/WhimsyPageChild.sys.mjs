@@ -505,7 +505,10 @@ export class WhimsyPageChild extends JSWindowActorChild {
         return false;
       }
     }
-    if (videos.some(v => v.isCloningElementVisually)) {
+    // W26: one open at a time. Leaving the call again right after coming
+    // back asks twice (the tab switch, and the closed window's retry)
+    // before either window exists, which opened two windows.
+    if (videos.some(v => v.isCloningElementVisually) || this._callPipOpening) {
       return false; // Already in picture-in-picture.
     }
     const [best] = this.rankCallVideos(this.liveCallVideos());
@@ -515,7 +518,13 @@ export class WhimsyPageChild extends JSWindowActorChild {
     const launcher = this.manager.getActor("PictureInPictureLauncher");
     lazy.callVideos.add(best);
     this._callLeader = null;
-    launcher.togglePictureInPicture({ video: best, reason: "AutoPip" }, false).catch(console.error);
+    this._callPipOpening = true;
+    launcher
+      .togglePictureInPicture({ video: best, reason: "AutoPip" }, false)
+      .catch(console.error)
+      .finally(() => {
+        this._callPipOpening = false;
+      });
     return true;
   }
 
