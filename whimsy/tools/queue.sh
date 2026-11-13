@@ -77,7 +77,14 @@ wait_for() {
 # and its pid is alive, and never breaks a dead holder's lock while any
 # engine process is still running (a killed lock.sh can leave its mach or
 # verify.sh alive).
-engine_busy() { pgrep -f 'mach (build|test|mochitest|package|lint)|whimsy/verify\.sh|surfer build|updater\.py (ship|nightly|publish)' >/dev/null 2>&1; }
+# The pattern is anchored to the start of the command line: the program, or
+# an interpreter (python, node, a shell) and its flags, then the tool. So a
+# process that only mentions the words, such as a shell running a commit
+# whose message says "mach build", never counts as engine work.
+# WHIMSY_ENGINE_BUSY overrides the pattern, so the tools' tests can run a
+# private queue while the real engine is building.
+ENGINE_WORK='^([^ ]*/)?(([Pp]ython[0-9.]*|node|zsh|bash|sh)( -[^ ]+)* +([^ ]*/)?)?(mach (build|test|mochitest|package|lint)|whimsy/verify\.sh|surfer build|updater\.py (ship|nightly|publish))'
+engine_busy() { pgrep -f "${WHIMSY_ENGINE_BUSY:-$ENGINE_WORK}" >/dev/null 2>&1; }
 take_lock() {
   while :; do
     if mkdir $L 2>/dev/null; then

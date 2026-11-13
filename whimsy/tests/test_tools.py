@@ -573,7 +573,11 @@ class QueueTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.env = dict(os.environ, WHIMSY_QUEUE=f"{self.tmp}/queue", WHIMSY_LOCK=f"{self.tmp}/lock.d",
-                        WHIMSY_MAIN=self.tmp, WHIMSY_RUNS=f"{self.tmp}/runs")
+                        WHIMSY_MAIN=self.tmp, WHIMSY_RUNS=f"{self.tmp}/runs",
+                        # No 16 s turn-taking between tickets, and only this
+                        # test's own processes count as engine work: a real
+                        # build elsewhere on the machine must not stall it.
+                        WHIMSY_QUEUE_YIELD="0", WHIMSY_ENGINE_BUSY=f"whimsy-test-engine-{os.path.basename(self.tmp)}")
         self.env.pop("WHIMSY_TICKET", None)
 
     def q(self, *args, timeout=60):
@@ -605,8 +609,39 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(r.returncode, 4)
         self.assertIn("streamed", r.stdout)
         self.q("stop")
-        time.sleep(4)
+        deadline = time.time() + 20  # the idle worker checks for stop every 3 s
+        while "worker: stopped" not in self.q("status").stdout and time.time() < deadline:
+            time.sleep(0.5)
         self.assertIn("worker: stopped", self.q("status").stdout)
+
+    def test_engine_work_matches_the_tools_not_text_that_mentions_them(self):
+        import re
+        script = (TOOLS / "queue.sh").read_text()
+        pattern = re.search(r"^ENGINE_WORK='(.*)'$", script, re.M).group(1)
+        busy = [
+            "/opt/homebrew/Cellar/python@3.13/3.13.1/Frameworks/Python.framework/Versions/3.13/Resources/Python.app/Contents/MacOS/Python ./mach test --headless",
+            "python3 /Users/me/whimsy/engine/mach build faster",
+            "./mach lint -l eslint",
+            "/bin/zsh /Users/me/whimsy/whimsy/verify.sh --quick",
+            "zsh whimsy/verify.sh",
+            "node /Users/me/whimsy/node_modules/.bin/surfer build",
+            "sh -c surfer build",
+            "python3 whimsy/updater.py ship --channel dev",
+        ]
+        idle = [
+            "zsh -c git commit -m fix the test that failed after mach build",
+            "git commit -m queue: mach test waits now",
+            "grep -n whimsy/verify.sh notes.txt",
+            "vim whimsy/updater.py ship",
+            "python3 ./mach run",
+        ]
+        # The samples go in on stdin, so this test's own processes never look
+        # like engine work to a live queue on the same machine.
+        def matches(lines):
+            r = subprocess.run(["grep", "-E", pattern], input="\n".join(lines) + "\n", capture_output=True, text=True)
+            return r.stdout.splitlines()
+        self.assertEqual(matches(busy), busy)
+        self.assertEqual(matches(idle), [])
 
     def test_a_live_holder_of_the_mkdir_lock_is_waited_for(self):
         lock = Path(self.tmp) / "lock.d"
