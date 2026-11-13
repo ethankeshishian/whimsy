@@ -66,8 +66,14 @@ async function cmdK() {
   is(gURLBar.searchMode, null, "⌘K opened the bar in no mode");
 }
 
+// "/" in the bar lists every action. On a page ⌘K is the page's commands, so
+// the list is opened from the bar itself, as clicking into it would.
 async function actionsList() {
-  await cmdK();
+  WhimsyVerbs.sessions.delete(window);
+  gURLBar.searchMode = null;
+  gURLBar.focus();
+  gURLBar.select();
+  await TestUtils.waitForCondition(() => gURLBar.focused, "the bar is focused");
   const done = UrlbarTestUtils.promiseSearchComplete(window);
   EventUtils.sendString("/");
   await TestUtils.waitForCondition(() => gURLBar.searchMode?.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, "\"/\" entered Actions");
@@ -213,7 +219,7 @@ add_task(async function settings_keeps_what_works_there() {
   // Each kept row really works here.
   await runRow("Capture Screenshot");
   await TestUtils.waitForCondition(() => ScreenshotsUtils.getUIPhase(browser) != UIPhases.CLOSED, "Capture Screenshot opened its overlay on Settings");
-  ScreenshotsUtils.cancel(browser, "test");
+  ScreenshotsUtils.cancel(browser, "Escape");
   await TestUtils.waitForCondition(() => ScreenshotsUtils.getUIPhase(browser) == UIPhases.CLOSED, "and closed");
 
   await runRow("Find in Page");
