@@ -153,12 +153,14 @@ class LinkHover {
       // place already there (no jump when it arrives).
       ai: kind == "link" ? lazy.WhimsyHoverCards.linkDescribes(browser, url).catch(() => false) : false,
     };
-    if (target?.shown && target.kind == "people") {
+    if (target?.shown && (target.kind == "people" || this.overPanel)) {
       // wave9/mini W8-28, the hover bridge: the pointer is probably on its
       // way to the open People card and crossing other links (LinkedIn
       // stacks a person's photo, name and headline as separate links). The
       // card stays; this link takes over only if the pointer rests on it for
-      // the whole delay, and never once the pointer reaches the card.
+      // the whole delay, and never once the pointer reaches the card. Any
+      // card under the pointer stays the same way: the page under the
+      // card's edge sees the pointer arrive before the card does.
       this.pending = next;
       next.enterTimer = this.win.setTimeout(() => this.#promote(next), ENTER_DELAY_MS);
       return;
@@ -277,7 +279,22 @@ class LinkHover {
     }
     const doc = this.win.document;
     // The tab card's host too (WhimsyHoverCards.createHost): one look.
-    panel = lazy.WhimsyHoverCards.createHost(doc, PANEL_ID);
+    panel = lazy.WhimsyHoverCards.createHost(doc, PANEL_ID, {
+      // The pointer reached the card (or left it) while the popup was still
+      // see-through: what its mouseenter and mouseleave below would say.
+      onCard: over => (over ? this.#enterPanel() : this.#leavePanel()),
+      // A wheel the card doesn't take scrolls the page, which moves the link
+      // away: the card goes at once, so the rest of the gesture lands on
+      // the page itself.
+      wheelOut: event => {
+        if (this.target?.shown) {
+          lazy.WhimsyHoverCards.forwardWheel(this.target.browser, event);
+        }
+        this.cancelPending();
+        this.hide({ animate: false });
+      },
+      close: this.onDismiss,
+    });
     panel.addEventListener("popupshown", () => {
       // Flipped above the link: the cards rise from below instead.
       const target = this.target;
@@ -302,39 +319,24 @@ class LinkHover {
     });
     // wave9/mini W8-28: tracked here rather than read from :hover, which
     // the popup's own widget doesn't always report in time.
-    panel.addEventListener("mouseenter", () => {
-      this.overPanel = true;
-      this.win.clearTimeout(this.target?.leaveTimer);
-      this.cancelPending();
-    });
-    panel.addEventListener("mouseleave", () => {
-      this.overPanel = false;
-      this.leave();
-    });
-    // A native popup owns wheel input over its rect; forward it to the page (B3).
-    panel.addEventListener("wheel", event => this.#forwardWheel(event), { passive: true });
+    panel.addEventListener("mouseenter", () => this.#enterPanel());
+    panel.addEventListener("mouseleave", () => this.#leavePanel());
     doc.getElementById("mainPopupSet").append(panel);
     return panel;
   }
 
-  #forwardWheel(event) {
-    const target = this.target;
-    if (!target?.shown) {
+  #enterPanel() {
+    this.overPanel = true;
+    this.win.clearTimeout(this.target?.leaveTimer);
+    this.cancelPending();
+  }
+
+  #leavePanel() {
+    if (!this.overPanel) {
       return;
     }
-    try {
-      const actor = target.browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyAIPreview");
-      actor?.sendAsyncMessage("WhimsyAIPreview:Scroll", {
-        screenX: event.screenX,
-        screenY: event.screenY,
-        deltaX: event.deltaX,
-        deltaY: event.deltaY,
-        deltaZ: event.deltaZ,
-        deltaMode: event.deltaMode,
-      });
-    } catch {
-      // The tab's process may already be gone.
-    }
+    this.overPanel = false;
+    this.leave();
   }
 
   #card(kind) {

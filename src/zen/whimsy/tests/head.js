@@ -440,3 +440,50 @@ function whimsyCaptureMotion(match, win = window) {
     },
   };
 }
+
+// W26 hover-scroll: a wheel notch at a point on screen (CSS px), from the
+// OS's side of Gecko on macOS: it goes through the window's own scrollWheel
+// handling (and a rollup popup's chance to swallow it), as a real mouse
+// wheel does. Elsewhere, the window's synthesized wheel at that point.
+async function whimsyNativeWheel(screenX, screenY, deltaY, win = window) {
+  if (AppConstants.platform != "macosx") {
+    await new Promise(resolve =>
+      EventUtils.synthesizeWheel(win.document.documentElement, screenX - win.mozInnerScreenX, screenY - win.mozInnerScreenY,
+        { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY }, win, resolve)
+    );
+    return;
+  }
+  const scale = win.devicePixelRatio;
+  const utils = win.windowUtils;
+  await new Promise(resolve =>
+    utils.sendNativeMouseScrollEvent(
+      Math.round(screenX * scale), Math.round(screenY * scale),
+      0, 0, deltaY, 0, 0, utils.MOUSESCROLL_SCROLL_LINES,
+      win.document.documentElement, { observe: () => resolve() }
+    )
+  );
+}
+
+// The window's own synthesized wheel at a point on screen (CSS px): it goes
+// to whatever takes the mouse there, a popup that does or the page under it.
+async function whimsyWheelAt(screenX, screenY, deltaY, win = window) {
+  await new Promise(resolve =>
+    EventUtils.synthesizeWheel(win.document.documentElement, screenX - win.mozInnerScreenX, screenY - win.mozInnerScreenY,
+      { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY }, win, resolve)
+  );
+}
+
+// A pointer event at a point on screen (CSS px), through the window, so an
+// open popup that takes the mouse there gets it.
+function whimsyMouseAt(screenX, screenY, event = {}, win = window) {
+  EventUtils.synthesizeMouse(win.document.documentElement, screenX - win.mozInnerScreenX, screenY - win.mozInnerScreenY, event, win);
+}
+
+// The screen box (CSS px) of an element in a tab's page.
+async function whimsyContentRect(browser, selector) {
+  const r = await SpecialPowers.spawn(browser, [selector], sel => {
+    const box = content.document.querySelector(sel).getBoundingClientRect();
+    return { x: content.mozInnerScreenX + box.left, y: content.mozInnerScreenY + box.top, width: box.width, height: box.height };
+  });
+  return r;
+}

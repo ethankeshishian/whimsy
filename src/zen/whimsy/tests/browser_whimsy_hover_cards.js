@@ -144,7 +144,7 @@ function surfaceLook(panel) {
     content: pick(content, ["appearance", "background-color", "border-top-width", "box-shadow", "padding-top", "margin-top", "border-radius"]),
     stack: pick(panel.querySelector(".whimsy-link-hover-stack"), ["background-color", "box-shadow", "padding-top", "padding-left", "padding-bottom"]),
     windowShadow: windowShadow(panel),
-    attributes: [...panel.attributes].map(a => a.name).filter(n => !["id", "whimsy-open", "side", "state", "style"].includes(n)).sort(),
+    attributes: [...panel.attributes].map(a => a.name).filter(n => !["id", "whimsy-open", "whimsy-hc-input", "side", "state", "style"].includes(n)).sort(),
   };
 }
 
@@ -577,6 +577,170 @@ add_task(async function tab_and_link_cards_look_the_same() {
     await closeAll();
     BrowserTestUtils.removeTab(other);
     BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W26 hover-scroll: an open card never stops the page from scrolling
+// ("scrolling breaks when the hover popup comes up"), loading or loaded:
+// over the page, over the card's see-through shadow room, or over the card
+// itself, which hands the wheel to the page (and closes) unless it can
+// scroll that way itself. And a click on the next tab lands the first time.
+const pageY = browser => SpecialPowers.spawn(browser, [], () => content.scrollY);
+
+async function tallAndScrolled(browser) {
+  await SpecialPowers.spawn(browser, [], () => {
+    content.document.body.style.minHeight = "4000px";
+    content.scrollTo(0, 200);
+  });
+}
+
+async function pageScrolls(browser, what, wheel) {
+  const before = await pageY(browser);
+  await wheel();
+  await TestUtils.waitForCondition(async () => (await pageY(browser)) != before, `${what}: the page scrolls`);
+}
+
+// The card on screen (its popup's window minus the shadow room).
+function cardOnScreen(panel) {
+  const room = parseFloat(getComputedStyle(panel).getPropertyValue("--whimsy-hc-shadow-room")) || 0;
+  const r = panel.getOuterScreenRect();
+  return { x: r.x + room, y: r.y + room, width: r.width - 2 * room, height: r.height - 2 * room };
+}
+
+async function wheelEverywhere(panel, browser, what) {
+  ok(panel.hasAttribute("noautohide"), `${what}: not a rollup popup, so nothing outside it is swallowed`);
+  is(getComputedStyle(panel).pointerEvents, "none", `${what}: its window lets the pointer through`);
+  const card = cardOnScreen(panel);
+  const box = browser.getBoundingClientRect();
+  const page = { x: window.mozInnerScreenX + box.right - 60, y: window.mozInnerScreenY + box.bottom - 60 };
+  await pageScrolls(browser, `${what}, over the page`, () => whimsyNativeWheel(page.x, page.y, -3));
+  const room = { x: card.x + card.width + 12, y: card.y + Math.min(40, card.height / 2) };
+  await pageScrolls(browser, `${what}, over the shadow room`, () => whimsyWheelAt(room.x, room.y, 3));
+  await pageScrolls(browser, `${what}, a real wheel over the shadow room`, () => whimsyNativeWheel(room.x, room.y, -3));
+}
+
+add_task(async function page_scrolls_under_open_cards() {
+  reset();
+  let release;
+  const gate = new Promise(r => (release = r));
+  answer = async () => {
+    await gate;
+    return JSON.stringify({ title: "Planning notes", description: DESCRIPTION, points: POINTS });
+  };
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?scroll");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINKS);
+  const browser = other.linkedBrowser;
+  try {
+    await tallAndScrolled(browser);
+
+    // The tab's card, still loading, then loaded with its bullets.
+    hoverTab(tab);
+    const card = await openTabCard();
+    await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-loading"), "The tab's card is loading");
+    await wheelEverywhere(tabPanel(), browser, "Tab card loading");
+    release();
+    await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-text"), "The tab's card has loaded");
+    checkPoints(card, "Tab card");
+    await wheelEverywhere(tabPanel(), browser, "Tab card loaded");
+    is(tabPanel().state, "open", "The tab's card stays while the page scrolls beside it");
+
+    // Over the card itself, which has nothing more to show: the page.
+    const frame = tabPanel().querySelector(".whimsy-link-hover-card");
+    EventUtils.synthesizeMouseAtCenter(frame, { type: "mousemove" });
+    await TestUtils.waitForCondition(() => getComputedStyle(tabPanel()).pointerEvents == "auto", "On the card, its popup takes the mouse");
+    const over = cardOnScreen(tabPanel());
+    await pageScrolls(browser, "Over the tab's card", () => whimsyWheelAt(over.x + 20, over.y + 20, 3));
+    await TestUtils.waitForCondition(() => tabPanel().state == "closed", "...and the card closed");
+    leaveTab(tab);
+
+    // A link's card, loaded with its bullets (from the cache now).
+    await SpecialPowers.spawn(browser, [], () => content.scrollTo(0, 0));
+    await hoverLink(browser);
+    const linkCard = await openLinkCard();
+    await TestUtils.waitForCondition(() => linkCard.querySelector(".whimsy-hc-desc.is-text"), "The link's card has loaded");
+    checkPoints(linkCard, "Link card");
+    const box = browser.getBoundingClientRect();
+    await pageScrolls(browser, "Link card loaded, over the page", () =>
+      whimsyNativeWheel(window.mozInnerScreenX + box.right - 60, window.mozInnerScreenY + box.bottom - 60, -3)
+    );
+    await TestUtils.waitForCondition(() => linkPanel().state == "closed", "The link scrolled away: its card closed");
+  } finally {
+    release();
+    await closeAll();
+    BrowserTestUtils.removeTab(other);
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// A card taller than its 520px scrolls first; at its end, the next wheel
+// goes to the page.
+add_task(async function card_scrolls_first() {
+  reset();
+  await BrowserTestUtils.withNewTab(LINKS, async browser => {
+    await tallAndScrolled(browser);
+    host.enter({ source: "link", browser, url: PAGE + "?tall", title: "Tall", x: window.mozInnerScreenX + 200, y: window.mozInnerScreenY + 60, width: 80, height: 18 });
+    await openLinkCard();
+    const frame = linkPanel().querySelector(".whimsy-link-hover-card");
+    const filler = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    filler.style.height = "1200px";
+    frame.append(filler);
+    await TestUtils.waitForCondition(() => frame.scrollHeight > frame.clientHeight + 100, "The card overflows");
+
+    EventUtils.synthesizeMouseAtCenter(frame, { type: "mousemove" });
+    await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
+    const at = cardOnScreen(linkPanel());
+    const before = await pageY(browser);
+    await whimsyWheelAt(at.x + 40, at.y + 40, 3);
+    await TestUtils.waitForCondition(() => frame.scrollTop > 0, "The card scrolls first");
+    is(await pageY(browser), before, "...and the page doesn't");
+    is(linkPanel().state, "open", "...and the card stays");
+
+    // At its end: once that wheel run is over, the next goes to the page.
+    frame.scrollTop = frame.scrollHeight;
+    await TestUtils.waitForCondition(() => frame.scrollTop >= frame.scrollHeight - frame.clientHeight - 1, "The card is at its end");
+    await TestUtils.waitForCondition(() => !WhimsyHoverCards.cardHoldsWheel(linkPanel()), "The card's wheel run is over");
+    await pageScrolls(browser, "Past the card's end", () => whimsyWheelAt(at.x + 40, at.y + 40, 3));
+    await TestUtils.waitForCondition(() => linkPanel().state == "closed", "...and the card closed");
+  });
+  await closeAll();
+});
+
+// One click on the tab beside an open tab card, where the card's
+// see-through room overlaps the tab strip.
+add_task(async function one_click_on_the_next_tab() {
+  reset();
+  const first = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?first");
+  const hovered = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?hovered");
+  const last = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINKS);
+  try {
+    hoverTab(hovered);
+    await openTabCard();
+    const room = tabPanel().getOuterScreenRect();
+    const t = first.getBoundingClientRect();
+    const tabBox = { x: window.mozInnerScreenX + t.left, y: window.mozInnerScreenY + t.top, width: t.width, height: t.height };
+    const left = Math.max(room.x, tabBox.x);
+    const right = Math.min(room.x + room.width, tabBox.x + tabBox.width);
+    const top = Math.max(room.y, tabBox.y);
+    const bottom = Math.min(room.y + room.height, tabBox.y + tabBox.height);
+    Assert.less(left, right, "The card's popup window overlaps the next tab across");
+    Assert.less(top, bottom, "...and down");
+    // A spot there on the tab itself, not its close button.
+    let at = null;
+    for (let x = left + 1; x < right - 1 && !at; x += 2) {
+      const y = (top + bottom) / 2;
+      const hit = document.elementFromPoint(x - window.mozInnerScreenX, y - window.mozInnerScreenY);
+      if (hit?.closest?.("tab") == first && !hit.closest(".tab-close-button")) {
+        at = { x, y };
+      }
+    }
+    ok(at, "A spot on the tab under the card's room");
+    whimsyMouseAt(at.x, at.y);
+    await TestUtils.waitForCondition(() => gBrowser.selectedTab == first, "One click selected the tab");
+  } finally {
+    await closeAll();
+    BrowserTestUtils.removeTab(last);
+    BrowserTestUtils.removeTab(hovered);
+    BrowserTestUtils.removeTab(first);
   }
 });
 

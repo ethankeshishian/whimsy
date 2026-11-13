@@ -152,37 +152,160 @@ add_task(async function no_room_below_flips_above() {
   }
 });
 
-// B3: wheel scrolling reaches the page both beside and over an open card.
-add_task(async function page_still_scrolls_under_an_open_card() {
+// W26 hover-scroll: an open card never stops the page from scrolling, and
+// never takes a click meant for the page. "Scrolling breaks when the hover
+// popup comes up" and "I always have to click on links twice": the card's
+// popup was a rollup popup, and macOS swallows every wheel outside an open
+// rollup popup that isn't an arrow panel; and its see-through shadow room
+// (34px all round, over the link itself) took the mouse, since macOS can't
+// let the pointer through part of a window.
+const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+const TARGET = ROOT + "whimsy_ai_page.html";
+
+// A tall page with the link 400px down, scrolled 200px so a wheel either
+// way moves it; a second link right beside the first.
+async function tallPage(browser) {
+  await SpecialPowers.spawn(browser, [TARGET], target => {
+    content.document.body.style.cssText = "margin: 0; height: 4000px";
+    content.document.body.innerHTML = `
+      <p style="margin: 0; padding: 20px"><a id="away" href="#">away</a></p>
+      <p style="margin: 380px 40px 0"><a id="link" href="${target}?clicked">a link</a> <a id="next" href="${target}?next">next link</a></p>`;
+    content.scrollTo(0, 200);
+  });
+}
+
+const pageY = browser => SpecialPowers.spawn(browser, [], () => content.scrollY);
+
+async function hoverLinkCard(browser, { loading = false } = {}) {
+  await SpecialPowers.spawn(browser, [], () => content.scrollTo(0, 200));
+  await BrowserTestUtils.synthesizeMouseAtCenter("#away", { type: "mousemove" }, browser);
+  await closed();
+  await BrowserTestUtils.synthesizeMouseAtCenter("#link", { type: "mousemove" }, browser);
+  const p = await openCards();
+  if (loading) {
+    await TestUtils.waitForCondition(() => p.querySelector(".whimsy-hc-desc.is-loading"), "The card is still loading");
+  }
+  ok(p.hasAttribute("noautohide"), "The card's popup isn't a rollup popup, so nothing outside it is swallowed");
+  is(getComputedStyle(p).pointerEvents, "none", "...and its window lets the pointer through until it's on the card");
+  return p;
+}
+
+async function pageScrolls(browser, what, wheel) {
+  const before = await pageY(browser);
+  await wheel();
+  await TestUtils.waitForCondition(async () => (await pageY(browser)) != before, `${what}: the page scrolls`);
+}
+
+// The card on screen, and a point in its see-through room beside it.
+function roomBeside(p) {
+  const card = cardRect(p);
+  const outer = p.getOuterScreenRect();
+  const point = { x: card.x + card.width + 12, y: card.y + Math.min(40, card.height / 2) };
+  Assert.less(point.x, outer.x + outer.width, "The point is in the card's popup window");
+  return point;
+}
+
+add_task(async function page_scrolls_under_an_open_card() {
+  const restore = stubAI(true);
+  try {
+    await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
+      await tallPage(browser);
+
+      // Over the page, away from the card, while it loads: the bug itself.
+      let p = await hoverLinkCard(browser, { loading: true });
+      const box = browser.getBoundingClientRect();
+      await pageScrolls(browser, "A wheel over the page", () =>
+        whimsyNativeWheel(window.mozInnerScreenX + box.right - 60, window.mozInnerScreenY + box.bottom - 60, -3)
+      );
+      // The link moved out from under the pointer: the card goes.
+      await closed();
+
+      // Over the card's see-through room.
+      p = await hoverLinkCard(browser, { loading: true });
+      const room = roomBeside(p);
+      await pageScrolls(browser, "A wheel over the card's shadow room", () => whimsyWheelAt(room.x, room.y, 3));
+      await closed();
+      p = await hoverLinkCard(browser);
+      await pageScrolls(browser, "A real wheel over the card's shadow room", () => whimsyNativeWheel(room.x, room.y, -3));
+      await closed();
+
+      // Over the card itself, which has nothing to scroll: the page scrolls,
+      // and the card goes at once so the rest of the gesture lands there.
+      p = await hoverLinkCard(browser, { loading: true });
+      const card = p.querySelector(".whimsy-link-hover-card");
+      EventUtils.synthesizeMouseAtCenter(card, { type: "mousemove" });
+      await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
+      is(getComputedStyle(p).pointerEvents, "auto", "...which takes the mouse now");
+      await pageScrolls(browser, "A wheel over the card", () => whimsyWheelAt(cardRect(p).x + 20, cardRect(p).y + 20, 3));
+      await closed();
+    });
+  } finally {
+    host.hide({ animate: false });
+    await closed();
+    restore();
+  }
+});
+
+// While the page underneath is still loading.
+add_task(async function page_scrolls_under_a_card_while_loading() {
+  const restore = stubAI(true);
+  const tab = await BrowserTestUtils.openNewForegroundTab({
+    gBrowser,
+    url: ROOT + "whimsy_slow_load.sjs?delay=20000",
+    waitForLoad: false,
+  });
+  try {
+    const browser = tab.linkedBrowser;
+    await TestUtils.waitForCondition(
+      () => SpecialPowers.spawn(browser, [], () => !!content.document.body && content.location.href.includes("slow_load")).catch(() => false),
+      "The page has started"
+    );
+    await tallPage(browser);
+    is(await SpecialPowers.spawn(browser, [], () => content.document.readyState), "loading", "The page is still loading");
+    await hoverLinkCard(browser, { loading: true });
+    const box = browser.getBoundingClientRect();
+    await pageScrolls(browser, "Mid-load, a wheel over the page", () =>
+      whimsyNativeWheel(window.mozInnerScreenX + box.right - 60, window.mozInnerScreenY + box.bottom - 60, -3)
+    );
+    await closed();
+  } finally {
+    host.hide({ animate: false });
+    BrowserTestUtils.removeTab(tab);
+    restore();
+  }
+});
+
+// One click: on the link under the card's room, on the link beside it, and
+// on the card itself (which opens the link).
+add_task(async function one_click_with_a_card_open() {
   const restore = stubAI(false);
   try {
     await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
-      await SpecialPowers.spawn(browser, [], () => {
-        content.document.body.style.height = "4000px";
-      });
+      for (const [selector, query] of [["#link", "?clicked"], ["#next", "?next"]]) {
+        await tallPage(browser);
+        const p = await hoverLinkCard(browser);
+        const link = await whimsyContentRect(browser, selector);
+        const at = { x: link.x + link.width / 2, y: link.y + link.height / 2 };
+        ok(intersects({ ...at, width: 1, height: 1 }, p.getOuterScreenRect()), `${selector}: the card's popup window covers it`);
+        const loaded = BrowserTestUtils.browserLoaded(browser, false, url => url.endsWith(query));
+        whimsyMouseAt(at.x, at.y);
+        await loaded;
+        ok(true, `${selector}: one click followed it`);
+        await closed();
+        BrowserTestUtils.startLoadingURIString(browser, "https://example.com/browser/");
+        await BrowserTestUtils.browserLoaded(browser);
+      }
 
-      enterAt({ x: window.mozInnerScreenX + 20, y: window.mozInnerScreenY + 20, url: "https://example.org/page" });
-      const p = await openCards();
-      Assert.deepEqual(cards(), ["link"], "The hover card is open");
-
-      const scrollY = () => SpecialPowers.spawn(browser, [], () => content.scrollY);
-      is(await scrollY(), 0, "Starts unscrolled");
-
-      await new Promise(resolve =>
-        EventUtils.synthesizeWheel(browser, 400, 500, { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY: 10 }, window, resolve)
-      );
-      await TestUtils.waitForCondition(async () => (await scrollY()) > 0, "The page scrolled away from the card");
-
-      const before = await scrollY();
+      // The card itself still takes the click.
+      await tallPage(browser);
+      const p = await hoverLinkCard(browser);
       const card = p.querySelector(".whimsy-link-hover-card");
-      await new Promise(resolve =>
-        EventUtils.synthesizeWheel(card, 10, 10, { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY: 10 }, window, resolve)
-      );
-      await TestUtils.waitForCondition(
-        async () => (await scrollY()) > before,
-        "The page scrolled further while the wheel was over the card itself"
-      );
-      ok(p.state == "open", "...and the card was still open while it happened");
+      EventUtils.synthesizeMouseAtCenter(card, { type: "mousemove" });
+      await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
+      const loaded = BrowserTestUtils.browserLoaded(browser, false, url => url.endsWith("?clicked"));
+      EventUtils.synthesizeMouseAtCenter(card, {});
+      await loaded;
+      ok(true, "Clicking the card opens its link");
     });
   } finally {
     host.hide({ animate: false });
