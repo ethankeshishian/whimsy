@@ -181,6 +181,61 @@ def summary(label, files):
             + (f" ({', '.join(files[:5])}{'…' if len(files) > 5 else ''})" if files else ""))
 
 
+def expected_blobs(groups):
+    """{path: blob} of every group's files after applying its patches to HEAD.
+
+    Works in a scratch index holding only those paths, so it is quick and
+    never touches the engine's own index or files. A group whose patches
+    don't apply to HEAD maps its files to None (it is restored either way)."""
+    index = os.path.join(ENGINE, ".git", "whimsy-prepare.index")
+    env = dict(os.environ, GIT_INDEX_FILE=index)
+    files = set().union(*(group[1] for group in groups)) if groups else set()
+
+    def reset():
+        if os.path.exists(index):
+            os.remove(index)
+        tree = literal("ls-tree", "-r", "-z", "--full-tree", "HEAD", paths=files).stdout
+        subprocess.run(["git", "update-index", "-z", "--index-info"], cwd=ENGINE, env=env, input=tree,
+                       capture_output=True, check=True)
+
+    def apply(patches):
+        return subprocess.run(["git", "apply", "--cached", *ARGS, *patches], cwd=ENGINE, env=env,
+                              capture_output=True).returncode == 0
+
+    failed = set()
+    try:
+        reset()
+        if not apply([patch for group in groups for patch in sorted(group[0])]):
+            # One bad group fails the batch: apply them one by one instead.
+            reset()
+            for members, group_files in groups:
+                if not apply(sorted(members)):
+                    failed |= group_files
+        listed = subprocess.run(["git", "ls-files", "-s", "-z"], cwd=ENGINE, env=env,
+                                capture_output=True, check=True).stdout.decode("utf-8", "replace")
+    finally:
+        if os.path.exists(index):
+            os.remove(index)
+    blobs = {}
+    for entry in filter(None, listed.split("\0")):
+        meta, path = entry.split("\t", 1)
+        blobs[path] = meta.split()[1]
+    for path in failed:
+        blobs[path] = "unappliable"
+    return blobs
+
+
+def actual_blobs(files):
+    """{path: blob} of the engine's working files (None when missing)."""
+    files = sorted(files)
+    present = [f for f in files if os.path.isfile(os.path.join(ENGINE, f))]
+    hashed = git("hash-object", "--stdin-paths", stdin="".join(f + "\n" for f in present).encode(),
+                 check=True).stdout.decode().split() if present else []
+    blobs = dict.fromkeys(files)
+    blobs.update(zip(present, hashed))
+    return blobs
+
+
 def main():
     if not os.path.isdir(os.path.join(ENGINE, ".git")):
         print("engine_prepare: no engine yet, skipping")
@@ -208,12 +263,16 @@ def main():
             groups.remove(group)
         groups.append((members, files))
 
+    expected = expected_blobs(groups)
+    actual = actual_blobs(set().union(*(g[1] for g in groups if len(g[0]) == 1)) if groups else set())
     restored = []
     for members, targets_in_group in groups:
-        if len(members) == 1:
-            applied = git("apply", "-R", "--check", *ARGS, members[0]).returncode == 0
-            if applied:
-                continue
+        # A lone patch is left alone only when its files are exactly HEAD plus
+        # this patch. A reverse check isn't enough: another branch's patch to
+        # the same file (a lane's whimsy-nsImageFrame-cpp.patch next to Zen's
+        # nsImageFrame-cpp.patch) can sit on top and still let it reverse.
+        if len(members) == 1 and all(expected.get(f) == actual[f] for f in targets_in_group):
+            continue
         # Always replay overlapping patches together, in surfer's normal
         # order, rather than asking surfer to reverse them independently.
         files = sorted(f for f in targets_in_group

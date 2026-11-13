@@ -208,5 +208,39 @@ class StaleEngineTests(unittest.TestCase):
         self.assertNotEqual((self.engine / "b.cpp").stat().st_mtime_ns, old)
 
 
+    def test_a_lanes_patch_stacked_on_an_owned_file_is_removed(self):
+        """dev patches nsImageFrame.cpp too; the lane's extra patch on top must still go."""
+        lines = [f"line {n}\n" for n in range(12)]
+        self.engine.mkdir()
+        run(self.engine, "git", "init", "-q")
+        self.write(self.engine, "layout/nsImageFrame.cpp", "".join(lines))
+        run(self.engine, "git", "add", ".")
+        commit(self.engine, "Firefox")
+        run(self.root, "git", "init", "-q", "-b", "dev")
+        self.make_patch("layout/nsImageFrame-cpp.patch", {"layout/nsImageFrame.cpp": "".join(["zen\n"] + lines)})
+        run(self.root, "git", "add", "src")
+        commit(self.root, "dev")
+        self.surfer_import()
+        dev_text = (self.engine / "layout/nsImageFrame.cpp").read_text()
+
+        run(self.root, "git", "checkout", "-q", "-b", "lane/darkmode")
+        self.make_patch("layout/whimsy-nsImageFrame-cpp.patch", {
+            "layout/nsImageFrame.cpp": "".join(lines + ["#include \"mozilla/WhimsyAdaptiveDarkImage.h\"\n"])})
+        run(self.root, "git", "add", "src")
+        commit(self.root, "lane")
+        self.surfer_import()
+        self.assertIn("WhimsyAdaptiveDarkImage", (self.engine / "layout/nsImageFrame.cpp").read_text())
+
+        run(self.root, "git", "checkout", "-q", "dev")
+        self.surfer_import()
+        self.assertEqual((self.engine / "layout/nsImageFrame.cpp").read_text(), dev_text)
+
+        # An intact lone patch is left alone: same contents, same timestamp.
+        old = 1_600_000_000_000_000_000
+        os.utime(self.engine / "layout/nsImageFrame.cpp", ns=(old, old))
+        self.surfer_import()
+        self.assertEqual((self.engine / "layout/nsImageFrame.cpp").stat().st_mtime_ns, old)
+
+
 if __name__ == "__main__":
     unittest.main()
