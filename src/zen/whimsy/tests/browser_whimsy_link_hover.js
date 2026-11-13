@@ -168,7 +168,7 @@ async function tallPage(browser) {
   await SpecialPowers.spawn(browser, [TARGET], target => {
     content.document.body.style.cssText = "margin: 0; height: 4000px";
     content.document.body.innerHTML = `
-      <p style="margin: 0; padding: 20px"><a id="away" href="#">away</a></p>
+      <p style="margin: 0; padding: 20px; position: fixed; top: 0; left: 0"><a id="away" href="#">away</a></p>
       <p style="margin: 380px 40px 0"><a id="link" href="${target}?clicked">a link</a> <a id="next" href="${target}?next">next link</a></p>`;
     content.scrollTo(0, 200);
   });
@@ -307,6 +307,28 @@ add_task(async function page_zooms_with_a_card_open() {
     await closed();
     restore();
     await SpecialPowers.popPrefEnv();
+  }
+});
+
+// A scroll under a pointer resting on the link ends its card; the
+// pointer's next move on the link brings it back (no new mouseover comes
+// while the pointer stays on it).
+add_task(async function card_comes_back_after_a_scroll_under_a_still_pointer() {
+  const restore = stubAI(true);
+  try {
+    await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
+      await tallPage(browser);
+      await hoverLinkCard(browser);
+      await scrollPageTo(browser, 202);
+      await closed();
+      await BrowserTestUtils.synthesizeMouse("#link", 4, 4, { type: "mousemove" }, browser);
+      await openCards();
+      ok(true, "The pointer moved on the link: its card is back");
+    });
+  } finally {
+    host.hide({ animate: false });
+    await closed();
+    restore();
   }
 });
 

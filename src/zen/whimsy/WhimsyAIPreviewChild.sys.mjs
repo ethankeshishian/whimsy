@@ -18,6 +18,8 @@ const TINT_MS = 600;
 export class WhimsyAIPreviewChild extends JSWindowActorChild {
   link = null;
   scrollWatch = null;
+  // A link a scroll took the card from, while the pointer is still on it.
+  rearm = null;
 
   get enabled() {
     return Services.prefs.getBoolPref(PREF, true);
@@ -32,9 +34,13 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
         if (this.link && !this.link.contains(event.relatedTarget)) {
           this.leave();
         }
+        if (this.rearm && !this.rearm.link.contains(event.relatedTarget)) {
+          this.watchRearm(null);
+        }
         break;
       case "pagehide":
         this.leave();
+        this.watchRearm(null);
         break;
     }
   }
@@ -57,6 +63,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
   didDestroy() {
     this.clearPassage();
     this.watchScroll(false);
+    this.watchRearm(null);
   }
 
   // ---- A summary's passage chip (page-1.3) ----
@@ -363,6 +370,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
         const target = event.target;
         if (link && (target == link.ownerDocument || (target?.nodeType == 1 && target.contains(link)))) {
           this.leave();
+          this.watchRearm(link);
         }
       };
       win.addEventListener("scroll", onScroll, { capture: true, passive: true });
@@ -376,6 +384,33 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
         // The page is already gone.
       }
     }
+  }
+
+  // The page scrolled under a pointer that stayed on a link: no mouseover
+  // comes again while it stays there, so the pointer's next real move on
+  // that link counts as arriving on it (once the page has stopped).
+  watchRearm(link) {
+    if (this.rearm) {
+      const { win, onMove } = this.rearm;
+      this.rearm = null;
+      try {
+        win.removeEventListener("mousemove", onMove, { capture: true });
+      } catch {
+        // The page is already gone.
+      }
+    }
+    const win = link && this.contentWindow;
+    if (!win) {
+      return;
+    }
+    const onMove = event => {
+      if (event.target?.closest?.("a[href]") == link && this.link != link) {
+        this.watchRearm(null);
+        this.onOver(event);
+      }
+    };
+    win.addEventListener("mousemove", onMove, { capture: true, passive: true });
+    this.rearm = { win, link, onMove };
   }
 
   // In-page links (href="#", a table of contents) point at the page that's
