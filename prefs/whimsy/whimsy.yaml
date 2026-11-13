@@ -895,6 +895,22 @@
 - name: whimsy.dark-pages.sites
   value: "{}"
 
+# W26 site panel: each profile's Automatic Dark Mode, {userContextId: true
+# or false}; a profile not listed follows whimsy.dark-pages.mode.
+- name: whimsy.dark-pages.profiles
+  value: "{}"
+
+# W26 site panel: profiles keep their own site permissions (Firefox's
+# permission manager keys them by container). Cookie exceptions, HTTPS-Only
+# exceptions, and VPN rules stay shared (Firefox always strips those).
+- name: permissions.isolateBy.userContext
+  value: true
+
+# W26 site panel: set once every existing profile has its copy of the
+# permissions it shared before (WhimsySiteSettings.migratePermissions).
+- name: whimsy.site-settings.profile-permissions-migrated
+  value: false
+
 - name: whimsy.dark-pages.offered
   value: false
 # W24 annotations: last highlight color chosen ("yellow", "green", "blue", "pink").

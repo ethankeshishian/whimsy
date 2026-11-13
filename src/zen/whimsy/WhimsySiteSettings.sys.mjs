@@ -43,15 +43,32 @@
 // "Forget All" in the caption forgets every row plus the tracking
 // protection exception, with Undo.
 //
+// W26 (site panel, the owner's "profile first" mockup): the panel has two
+// headings in place of Zen's "Settings" and the old "This Site":
+//   Profile Settings  <profile>   Automatic Dark Mode (WhimsyDarkPages), the
+//                                 profile's default for every site.
+//   Site Settings     <host>      Dark Mode, Tracking Protection, Zoom,
+//                                 Autoplay, every stored permission (Zen's
+//                                 list, as Allow / Block dropdowns), Always
+//                                 Open in Reader, Open in Full Screen, and
+//                                 Pretend to Be. Zen's "More" (Page Info's
+//                                 permissions) moves into this heading, by
+//                                 Forget All; Zen's own section stays hidden
+//                                 while these show.
+// Profiles keep their own permissions (permissions.isolateBy.userContext,
+// with migratePermissions copying what they shared before) and their own
+// zoom (WhimsyProfileZoom).
+//
 // Storage follows the underlying stores, so private tabs and Scratch never
-// persist and profiles (containers) stay apart where the store allows:
-// Reader and Full Screen are permissions on the site's principal with the
-// tab's userContextId and privateBrowsingId (the permission manager keeps
-// private ones in memory and drops them when the last private tab closes);
-// autoplay is the same; the user agent is per profile with private choices
-// in memory (WhimsyUserAgent); zoom is Firefox's content prefs, per site
-// but not per container, in memory for private tabs; the tracking
-// protection exception is Firefox's own (private ones in memory).
+// persist and profiles (containers) stay apart: Reader and Full Screen are
+// permissions on the site's principal with the tab's userContextId and
+// privateBrowsingId (the permission manager keeps private ones in memory
+// and drops them when the last private tab closes); autoplay and every
+// other permission are the same; the user agent is per profile with
+// private choices in memory (WhimsyUserAgent); zoom is Firefox's content
+// prefs under a per-profile name (WhimsyProfileZoom), in memory for private
+// tabs; the tracking protection exception is Firefox's own, per profile
+// (private ones in memory).
 //
 // The "Site Settings…" command opens the panel on this section.
 // whimsy.feature.site-settings.
@@ -68,6 +85,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDarkPages: "resource:///modules/whimsy/WhimsyDarkPages.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  WhimsyProfileZoom: "resource:///modules/whimsy/WhimsyProfileZoom.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
   ZoomUI: "resource:///modules/ZoomUI.sys.mjs",
@@ -76,6 +94,15 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const FEATURE_PREF = "whimsy.feature.site-settings";
 export const COMMAND_ID = "cmd_whimsySiteSettings";
 const SECTION_ID = "whimsy-site-settings-section";
+const PROFILE_SECTION_ID = "whimsy-site-settings-profile-section";
+const MORE_ID = "zen-site-data-settings-more";
+const MIGRATED_PREF = "whimsy.site-settings.profile-permissions-migrated";
+// Permissions Firefox never keys by container (PermissionManager's
+// kStripOAPermissions): they stay shared, so there is nothing to copy.
+const SHARED_PERMISSIONS = new Set(["cookie", "https-only-load-insecure", "ipp-vpn"]);
+// Permission ids Zen's list leaves out (per embedding site, the content
+// blocking panel's) and the one this section shows in its own row.
+const SKIPPED_PERMISSIONS = new Set(["storage-access", "3rdPartyStorage", "autoplay-media"]);
 const PANEL_ID = "zen-unified-site-data-panel";
 const PRETEND_PANEL_ID = "whimsy-pretend-panel";
 const AUTOPLAY = "autoplay-media";
@@ -176,13 +203,75 @@ export const WhimsySiteSettings = {
   // ---------------------------------------------------------------------
   // Reader View and Full Screen (Whimsy's own, as permissions).
 
-  // The permission type for a setting in a profile. Firefox's permission
-  // manager ignores containers (permissions.isolateBy.userContext is off),
-  // so a profile's own settings carry its container in the type; Default's
-  // keep the plain type. Private browsing stays apart by its principal.
-  permType(kind, oa) {
-    const userContextId = oa?.userContextId || 0;
-    return userContextId ? `${PERM_TYPES[kind]}.uc${userContextId}` : PERM_TYPES[kind];
+  // The permission type for a setting. W26: the permission manager keys
+  // permissions by container (permissions.isolateBy.userContext), so a
+  // profile's settings are on its own principal; the ".ucN" types profiles
+  // used before are folded in by migratePermissions.
+  permType(kind) {
+    return PERM_TYPES[kind];
+  },
+
+  // ---------------------------------------------------------------------
+  // W26: profiles keep their own permissions. Before, every profile shared
+  // Default's (the permission manager dropped the container); with
+  // permissions.isolateBy.userContext on, a profile sees only its own. Once,
+  // every existing profile gets a copy of what it saw before, so nothing a
+  // person allowed or blocked goes missing, and Reader and Full Screen's
+  // per-profile ".ucN" types become the plain type on the profile's
+  // principal. Idempotent: a profile's own entry is never overwritten, a
+  // copy that already exists is skipped, and the pref records it's done.
+  // Private permissions are in memory only and never copied.
+  migratePermissions({ force = false, userContextIds = null } = {}) {
+    if (!force && Services.prefs.getBoolPref(MIGRATED_PREF, false)) {
+      return { copied: 0, folded: 0 };
+    }
+    const ids = (userContextIds ?? lazy.WhimsyProfiles.list().map(profile => profile.id)).filter(id => id > 0);
+    const legacy = new RegExp(`^(${Object.values(PERM_TYPES).join("|")})\\.uc(\\d+)$`);
+    let copied = 0;
+    let folded = 0;
+    const add = (principal, permission, type) => {
+      if (Services.perms.getPermissionObject(principal, type, true)) {
+        return false;
+      }
+      Services.perms.addFromPrincipal(principal, type, permission.capability, permission.expireType, permission.expireTime);
+      return true;
+    };
+    for (const permission of Services.perms.all) {
+      const { principal, type } = permission;
+      const attrs = principal.originAttributes;
+      if (attrs.userContextId || attrs.privateBrowsingId || SHARED_PERMISSIONS.has(type)) {
+        continue;
+      }
+      if (permission.expireType == Services.perms.EXPIRE_TIME && permission.expireTime <= Date.now()) {
+        continue;
+      }
+      try {
+        const match = legacy.exec(type);
+        if (match) {
+          // A profile's own Reader or Full Screen: onto its principal.
+          const userContextId = Number(match[2]);
+          const target = Services.scriptSecurityManager.principalWithOA(principal, { ...attrs, userContextId });
+          folded += add(target, permission, match[1]) ? 1 : 0;
+          Services.perms.removePermission(permission);
+          continue;
+        }
+        if (type.startsWith("whimsy-")) {
+          // Whimsy's own: Default's Reader and Full Screen were never
+          // shared, and the rest choose their own principal (Mute Site,
+          // Allow Copy, and Dev Mode stay shared; Pretend to Be is per
+          // profile in its own store).
+          continue;
+        }
+        for (const userContextId of ids) {
+          const target = Services.scriptSecurityManager.principalWithOA(principal, { ...attrs, userContextId });
+          copied += add(target, permission, type) ? 1 : 0;
+        }
+      } catch (e) {
+        console.error("Whimsy: site settings (profile permissions)", type, e);
+      }
+    }
+    Services.prefs.setBoolPref(MIGRATED_PREF, true);
+    return { copied, folded };
   },
 
   getFlag(kind, host, oa) {
@@ -210,6 +299,11 @@ export const WhimsySiteSettings = {
 
   initWindow(win) {
     this.initReaderListener();
+    try {
+      this.migratePermissions();
+    } catch (e) {
+      console.error("Whimsy: site settings (profile permissions)", e);
+    }
     const { gBrowser } = win;
     const listener = {
       QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
@@ -432,24 +526,33 @@ export const WhimsySiteSettings = {
     if (!zenSection) {
       return null;
     }
-    section = doc.createXULElement("vbox");
-    section.id = SECTION_ID;
-    section.className = "zen-site-data-section whimsy-site-settings-section whimsy-surface-tokens";
-    const { caption } = lazy.WhimsySurface.caption(doc, {
-      l10nId: "whimsy-site-settings-title",
-      id: "whimsy-site-settings-heading",
-    });
-    caption.classList.add("whimsy-site-settings-caption");
+    // W26: Profile Settings, then Site Settings, where Zen's Settings was.
+    const heading = (id, l10nId, sectionId, listId) => {
+      const box = doc.createXULElement("vbox");
+      box.id = sectionId;
+      box.className = "zen-site-data-section whimsy-site-settings-section whimsy-surface-tokens";
+      const { caption, detail } = lazy.WhimsySurface.caption(doc, { l10nId, id, detail: "" });
+      caption.classList.add("whimsy-site-settings-caption");
+      detail.classList.add("whimsy-site-settings-caption-who");
+      const list = lazy.WhimsySurface.group(doc);
+      list.id = listId;
+      list.setAttribute("role", "group");
+      list.setAttribute("aria-labelledby", id);
+      box.append(caption, list);
+      return { box, caption, list };
+    };
+    const profile = heading("whimsy-site-settings-profile-heading", "whimsy-site-settings-profile-heading",
+      PROFILE_SECTION_ID, "whimsy-site-settings-profile-list");
+    profile.box.hidden = true;
+    const site = heading("whimsy-site-settings-heading", "whimsy-site-settings-site-heading",
+      SECTION_ID, "whimsy-site-settings-list");
+    section = site.box;
     const forgetAll = lazy.WhimsySurface.textButton(doc, {
       l10nId: "whimsy-site-settings-forget-all",
       id: "whimsy-site-settings-forget-all",
       onCommand: () => this.forgetAll(win),
     });
-    caption.append(forgetAll);
-    const list = lazy.WhimsySurface.group(doc);
-    list.id = "whimsy-site-settings-list";
-    list.setAttribute("role", "group");
-    list.setAttribute("aria-labelledby", "whimsy-site-settings-heading");
+    site.caption.append(forgetAll);
     // Custom user agent: a field under the list, only while it's chosen.
     const custom = doc.createXULElement("hbox");
     custom.className = "whimsy-site-settings-custom";
@@ -459,9 +562,28 @@ export const WhimsySiteSettings = {
     note.className = "whimsy-site-settings-private-note";
     doc.l10n.setAttributes(note, "whimsy-site-settings-private-note");
     note.hidden = true;
-    section.append(caption, list, custom, note);
-    zenSection.after(section);
+    section.append(custom, note);
+    zenSection.after(profile.box, section);
     return section;
+  },
+
+  // Zen's "More" (Page Info's permissions) sits beside Site Settings while
+  // it shows, and goes back to Zen's heading otherwise. Zen's click handler
+  // goes by the element's id, so it works in either place.
+  placeMore(win, inSite) {
+    const doc = win.document;
+    const more = doc.getElementById(MORE_ID);
+    if (!more) {
+      return;
+    }
+    const caption = doc.getElementById(SECTION_ID)?.querySelector(".whimsy-site-settings-caption");
+    const zenHeader = doc.getElementById("zen-site-data-settings-list")
+      ?.closest(".zen-site-data-section")?.querySelector(".zen-site-data-section-header");
+    const home = inSite ? caption : zenHeader;
+    if (home && more.parentNode != home) {
+      home.append(more);
+    }
+    more.classList.toggle("whimsy-site-settings-more", !!inSite);
   },
 
   // Rebuilds the section for the selected tab. Runs on the panel's
@@ -471,23 +593,56 @@ export const WhimsySiteSettings = {
     const browser = win.gBrowser.selectedBrowser;
     const site = this.enabled ? this.siteOf(browser) : null;
     const section = this.sectionOf(win);
-    this.hideZenAutoplay(win, !!(site && section));
+    this.showZenSection(win, !(site && section));
+    this.placeMore(win, !!(site && section));
     if (!section) {
       return;
     }
+    const profileSection = doc.getElementById(PROFILE_SECTION_ID);
+    const profileList = profileSection.querySelector("#whimsy-site-settings-profile-list");
     const list = section.querySelector("#whimsy-site-settings-list");
     const customBox = section.querySelector(".whimsy-site-settings-custom");
-    const hadFocus = section.contains(doc.activeElement) ?
-      doc.activeElement.closest("[whimsy-site-setting]")?.getAttribute("whimsy-site-setting") : null;
+    const focused = doc.activeElement;
+    const hadFocus = focused && (section.contains(focused) || profileSection.contains(focused)) ?
+      focused.closest("[whimsy-site-setting]")?.getAttribute("whimsy-site-setting") : null;
     list.replaceChildren();
+    profileList.replaceChildren();
     customBox.replaceChildren();
     customBox.hidden = true;
     section.hidden = !site;
+    profileSection.hidden = true;
     if (!site) {
       return;
     }
     section._site = site;
     let remembered = 0;
+
+    // Profile Settings: what the profile does by default.
+    const userContextId = site.oa.userContextId || 0;
+    const profileDark = lazy.WhimsyDarkPages.profileRow(win, userContextId);
+    if (profileDark) {
+      profileList.append(profileDark);
+      profileSection.querySelector(".whimsy-site-settings-caption-who").textContent =
+        lazy.WhimsyProfiles.nameOf(userContextId);
+      profileSection.hidden = false;
+    }
+    section.querySelector(".whimsy-site-settings-caption-who").textContent = site.host;
+
+    // Dark Mode (WhimsyDarkPages): starts at the profile's Automatic Dark
+    // Mode; switching it remembers the site.
+    const darkRow = lazy.WhimsyDarkPages.siteRow(win, browser);
+    if (darkRow) {
+      list.append(darkRow);
+      remembered += lazy.WhimsyDarkPages.storedChoice(browser) != null ? 1 : 0;
+    }
+
+    // Tracking Protection: Firefox's content blocking exception, the
+    // shield popup's switch (on while protected).
+    const trackingRow = this.trackingRow(win, browser);
+    if (trackingRow) {
+      list.append(trackingRow);
+      remembered += trackingRow.getAttribute("state") == "allow" ? 1 : 0;
+    }
 
     list.append(this.zoomRow(win, browser, section));
 
@@ -536,11 +691,9 @@ export const WhimsySiteSettings = {
     });
     list.append(autoplayRow);
 
-    // Automatic dark mode (WhimsyDarkPages), directly below Autoplay.
-    const darkRow = lazy.WhimsyDarkPages.siteRow(win, browser);
-    if (darkRow) {
-      list.append(darkRow);
-      remembered += lazy.WhimsyDarkPages.choice(browser) != "automatic" ? 1 : 0;
+    // Every other permission the site has a decision for (Zen's list).
+    for (const row of this.permissionRows(win, browser)) {
+      list.append(row);
     }
 
     // Reader View and Full Screen: switches. B9: Reader's does nothing on
@@ -609,9 +762,97 @@ export const WhimsySiteSettings = {
       })
       .catch(() => {});
     if (hadFocus) {
-      const row = list.querySelector(`[whimsy-site-setting="${hadFocus}"]`);
+      const selector = `[whimsy-site-setting="${win.CSS.escape(hadFocus)}"]`;
+      const row = list.querySelector(selector) || profileList.querySelector(selector);
       row?.querySelector("input, button")?.focus();
     }
+  },
+
+  // Tracking Protection: on while Firefox's protections apply to the site.
+  // Turning it off adds the content blocking exception and reloads, as the
+  // shield popup (and Zen's row) did.
+  trackingRow(win, browser) {
+    const handler = win.gProtectionsHandler;
+    const uri = browser.currentURI;
+    if (!handler || !(uri?.schemeIs("http") || uri?.schemeIs("https"))) {
+      return null;
+    }
+    const doc = win.document;
+    const exception = !!handler.hasException;
+    const labelId = "whimsy-site-settings-tracking-label";
+    const toggle = lazy.WhimsySurface.switch(doc, {
+      checked: !exception,
+      labelledBy: labelId,
+      id: "whimsy-site-settings-tracking-switch",
+      onChange: checked => {
+        if (checked) {
+          handler.enableForCurrentPage();
+        } else {
+          handler.disableForCurrentPage();
+        }
+        this.render(win);
+      },
+    });
+    return this.row(doc, {
+      kind: "tracking",
+      l10nId: "whimsy-site-settings-tracking",
+      labelId,
+      on: exception,
+      trailing: [toggle],
+    });
+  },
+
+  // The permissions Zen listed under its Settings: each stored decision
+  // but "ask", as an Allow / Block dropdown. Autoplay has its own row.
+  permissionRows(win, browser) {
+    const { SitePermissions } = lazy;
+    const doc = win.document;
+    let permissions = [];
+    try {
+      permissions = SitePermissions.getAllPermissionDetailsForBrowser(browser);
+    } catch (e) {
+      return [];
+    }
+    const rows = [];
+    for (const permission of permissions) {
+      const [id] = permission.id.split(SitePermissions.PERM_KEY_DELIMITER);
+      if (SKIPPED_PERMISSIONS.has(id) || permission.state == SitePermissions.PROMPT) {
+        continue;
+      }
+      const states = [SitePermissions.ALLOW, SitePermissions.BLOCK];
+      if (!states.includes(permission.state)) {
+        states.push(permission.state);
+      }
+      const slug = permission.id.replace(/[^A-Za-z0-9_-]/g, "-");
+      const labelId = `whimsy-site-settings-permission-${slug}-label`;
+      const dropdown = lazy.WhimsySurface.dropdown(doc, {
+        id: `whimsy-site-settings-permission-${slug}-button`,
+        label: labelId,
+        width: 200,
+        value: permission.state,
+        options: states.map(value => ({
+          value,
+          text: SitePermissions.getMultichoiceStateLabel(permission.id, value),
+        })),
+        onPick: value => {
+          SitePermissions.setForPrincipal(browser.contentPrincipal, permission.id, Number(value),
+            SitePermissions.SCOPE_PERSISTENT, browser);
+          this.render(win);
+        },
+      });
+      const label = SitePermissions.getPermissionLabel(permission.id);
+      const row = this.row(doc, {
+        kind: `permission-${slug}`,
+        text: label || permission.id,
+        labelId,
+        on: true,
+        trailing: [dropdown.button],
+      });
+      row.classList.add("whimsy-site-settings-permission");
+      row.setAttribute("whimsy-permission", permission.id);
+      rows.push(row);
+    }
+    return rows;
   },
 
   // Zoom: − / the % (resets) / +, on Firefox's zoom steps.
@@ -878,19 +1119,14 @@ export const WhimsySiteSettings = {
     forgetAll.hidden = !show;
   },
 
-  // Zen lists autoplay under "Settings" when the site has a stored
-  // decision; this section always shows it, so Zen's row steps aside.
-  hideZenAutoplay(win, hide) {
+  // W26: Zen's Settings section steps aside while Profile Settings and
+  // Site Settings show (they list everything it did); otherwise it's as
+  // Zen left it (hidden with no rows).
+  showZenSection(win, show) {
     const list = win.document.getElementById("zen-site-data-settings-list");
-    if (!list) {
-      return;
-    }
-    for (const item of list.querySelectorAll(`.permission-popup-permission-item-${AUTOPLAY}`)) {
-      item.hidden = hide;
-    }
-    const zenSection = list.closest(".zen-site-data-section");
-    if (hide && zenSection && ![...list.children].some(child => !child.hidden)) {
-      zenSection.hidden = true;
+    const zenSection = list?.closest(".zen-site-data-section");
+    if (zenSection) {
+      zenSection.hidden = !show || !list.childElementCount;
     }
   },
 
@@ -1018,7 +1254,7 @@ export const WhimsySiteSettings = {
       return false;
     }
     const before = this.snapshot(win, browser, site);
-    before.darkPages = lazy.WhimsyDarkPages.choice(browser);
+    before.darkPages = lazy.WhimsyDarkPages.storedChoice(browser);
     const reload = this.clear(win, browser, site, before);
     await this.resetZoom(win, browser);
     await this.hidePanel(win);
@@ -1041,7 +1277,7 @@ export const WhimsySiteSettings = {
   // Clears everything but zoom (async, done by the caller). Returns
   // whether the page needs a reload to drop what it loaded with.
   clear(win, browser, site, before) {
-    lazy.WhimsyDarkPages.setChoice(browser, "automatic");
+    lazy.WhimsyDarkPages.forget(browser);
     let reload = false;
     if (before.autoplay != null) {
       lazy.SitePermissions.removeFromPrincipal(this.originPrincipal(site), AUTOPLAY, browser);
@@ -1060,7 +1296,7 @@ export const WhimsySiteSettings = {
   },
 
   restore(win, browser, site, before) {
-    lazy.WhimsyDarkPages.setChoice(browser, before.darkPages || "automatic");
+    lazy.WhimsyDarkPages.restoreChoice(browser, before.darkPages);
     let reload = false;
     if (before.autoplay != null) {
       lazy.SitePermissions.setForPrincipal(

@@ -910,7 +910,7 @@ support-files = ["whimsy_mini_links.html", "whimsy_oauth_opener.html", "whimsy_o
 
 # Mini windows archive after inactivity; manual closes share the Mini reason.
 ["browser_whimsy_mini_archive.js"]
-# wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
+# wave9: W9-04 site settings ("Site Settings" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
 ["browser_whimsy_site_settings.js"]
 head = "head.js head-leakcheck.js"
 support-files = ["whimsy_article.html"]
@@ -1241,6 +1241,10 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
 ["browser_whimsy_dark_pages_screens_site_panel.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+# W26 site panel: Profile Settings + Site Settings, profiles keep their own permissions, dark mode, and zoom; the migration.
+["browser_whimsy_site_panel_profiles.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
 ["browser_whimsy_dark_pages_screens_settings.js"]

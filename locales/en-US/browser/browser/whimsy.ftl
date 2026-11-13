@@ -4321,7 +4321,13 @@ whimsy-pagedev-evidence =
     }
 ## wave9: W9-04 site settings ("This Site" in the site panel)
 whimsy-action-site-settings = Site Settings…
-whimsy-site-settings-title = This Site
+# W26: the site panel's two headings. Each is followed by the profile's
+# name or the site's host.
+whimsy-site-settings-profile-heading = Profile Settings
+whimsy-site-settings-site-heading = Site Settings
+whimsy-site-settings-profile-dark-mode = Automatic Dark Mode
+whimsy-site-settings-dark-mode = Dark Mode
+whimsy-site-settings-tracking = Tracking Protection
 whimsy-site-settings-forget-all = Forget All
 whimsy-site-settings-zoom = Zoom
 # W10-16: the zoom stepper (− / the % / +); the % resets.
@@ -7901,7 +7907,6 @@ whimsy-dark-pages-dim = Dim images
 whimsy-dark-pages-dim-description = Photos a little darker on dark pages
 whimsy-dark-pages-sites = Sites you changed
 whimsy-dark-pages-reset = Reset
-whimsy-dark-pages-site-title = Automatic dark mode
 whimsy-dark-pages-dark = Dark
 whimsy-dark-pages-original = Original
 whimsy-dark-pages-button-dark =
