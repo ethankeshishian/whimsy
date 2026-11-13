@@ -573,6 +573,21 @@ export class CommandBarMotion {
   }
 }
 
+// What Zen's rows need beyond Zen's own rules (W26 audit 16): Copy URL,
+// Reload, and Add to Essentials act on the tab (with no tabs, the space's
+// empty tab is no tab); Next Tab and Previous Tab move to another tab.
+// Rows Zen already gates (Pin, Close, Duplicate, Find, Print, Capture
+// Screenshot) and the window-wide ones need nothing more; each still
+// works on a settings or error page.
+const ZEN_ACTION_NEEDS = {
+  "zen-action-copy-current-url": "tab",
+  "zen-action-reload-tab": "tab",
+  "zen-action-reload-tab-without-cache": "tab",
+  "zen-action-add-to-essentials": "tab",
+  "zen-action-next-tab": "otherTab",
+  "zen-action-previous-tab": "otherTab",
+};
+
 export const WhimsyCommandBar = {
   NEW_THINGS,
   GLANCE_SIZES,
@@ -582,6 +597,26 @@ export const WhimsyCommandBar = {
     const l10n = new Localization(["browser/whimsy.ftl"], true);
     Object.defineProperty(this, "l10n", { value: l10n });
     return l10n;
+  },
+
+  /**
+   * W26 audit 16: Zen's own rows that can't do anything on this screen
+   * hide there, by what each needs: a tab (not a space's empty tab) or
+   * another tab to move to. Zen's rules (ZenUBGlobalActions) stay as
+   * they are; this only adds the need on top of them.
+   */
+  gateZenActions() {
+    const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+    const checks = { tab: w => lazy.WhimsyCommands.hasTab(w), otherTab: w => lazy.WhimsyCommands.hasOtherTab(w) };
+    for (const action of globalActions) {
+      const need = ZEN_ACTION_NEEDS[action.l10nId];
+      if (!need || action.whimsyNeeds) {
+        continue;
+      }
+      const zen = action.isAvailable;
+      action.whimsyNeeds = need;
+      action.isAvailable = win => checks[need](win) && zen.call(action, win);
+    }
   },
 
   linkAppearanceActions() {
@@ -611,6 +646,7 @@ export const WhimsyCommandBar = {
     this.initSlashFilter(win);
     this.initDedup(win);
     this.linkAppearanceActions();
+    this.gateZenActions();
     const documentKeywords = [this.l10n.formatValueSync("whimsy-action-new-document-keyword")];
     for (const thing of NEW_THINGS) {
       lazy.WhimsyCommands.register(win, {

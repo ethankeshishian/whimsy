@@ -329,10 +329,11 @@ function translationRestricted(win) {
   }
 }
 
+// A page with content to act on (WhimsyCommands.hasPage): never a
+// settings page, and never a "Problem loading page", where only the
+// address commands apply (W26 audit 17).
 function isWebPage(win) {
-  const tab = win?.gBrowser?.selectedTab;
-  const spec = tab?.linkedBrowser?.currentURI?.spec ?? "";
-  return !!tab?.linkedPanel && !tab.hasAttribute("zen-empty-tab") && /^(https?|file):|^about:reader/.test(spec);
+  return lazy.WhimsyCommands.hasPage(win);
 }
 
 // The workspace slug of the person's Linear, for its search page: from any
