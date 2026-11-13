@@ -17,7 +17,9 @@ function handleRequest(request, response) {
   }
   const replace = /(?:^|&)replace=([^&]+)/.exec(request.queryString);
   response.processAsync();
-  response.setHeader("Content-Type", "text/html", false);
+  // A charset, so the parser starts on the first chunk instead of waiting
+  // to sniff one.
+  response.setHeader("Content-Type", "text/html; charset=utf-8", false);
   response.setHeader("Cache-Control", "no-cache", false);
   response.write("<!DOCTYPE html><title>slow load</title><p>loading</p>");
   if (replace) {

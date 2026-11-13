@@ -587,11 +587,23 @@ add_task(async function tab_and_link_cards_look_the_same() {
 // scroll that way itself. And a click on the next tab lands the first time.
 const pageY = browser => SpecialPowers.spawn(browser, [], () => content.scrollY);
 
+// Scrolls the page and waits for its scroll event, which comes a frame
+// later and would otherwise land on the next hover (a scroll ends a hover).
+function scrollPageTo(browser, y) {
+  return SpecialPowers.spawn(browser, [y], async y => {
+    if (content.scrollY != y) {
+      const scrolled = new Promise(r => content.addEventListener("scroll", r, { once: true }));
+      content.scrollTo(0, y);
+      await scrolled;
+    }
+  });
+}
+
 async function tallAndScrolled(browser) {
   await SpecialPowers.spawn(browser, [], () => {
     content.document.body.style.minHeight = "4000px";
-    content.scrollTo(0, 200);
   });
+  await scrollPageTo(browser, 200);
 }
 
 async function pageScrolls(browser, what, wheel) {
@@ -654,7 +666,7 @@ add_task(async function page_scrolls_under_open_cards() {
     leaveTab(tab);
 
     // A link's card, loaded with its bullets (from the cache now).
-    await SpecialPowers.spawn(browser, [], () => content.scrollTo(0, 0));
+    await scrollPageTo(browser, 0);
     await hoverLink(browser);
     const linkCard = await openLinkCard();
     await TestUtils.waitForCondition(() => linkCard.querySelector(".whimsy-hc-desc.is-text"), "The link's card has loaded");
@@ -676,33 +688,37 @@ add_task(async function page_scrolls_under_open_cards() {
 // goes to the page.
 add_task(async function card_scrolls_first() {
   reset();
-  await BrowserTestUtils.withNewTab(LINKS, async browser => {
-    await tallAndScrolled(browser);
-    host.enter({ source: "link", browser, url: PAGE + "?tall", title: "Tall", x: window.mozInnerScreenX + 200, y: window.mozInnerScreenY + 60, width: 80, height: 18 });
-    await openLinkCard();
-    const frame = linkPanel().querySelector(".whimsy-link-hover-card");
-    const filler = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-    filler.style.height = "1200px";
-    frame.append(filler);
-    await TestUtils.waitForCondition(() => frame.scrollHeight > frame.clientHeight + 100, "The card overflows");
+  try {
+    await BrowserTestUtils.withNewTab(LINKS, async browser => {
+      await tallAndScrolled(browser);
+      host.enter({ source: "link", browser, url: PAGE + "?tall", title: "Tall", x: window.mozInnerScreenX + 200, y: window.mozInnerScreenY + 60, width: 80, height: 18 });
+      await openLinkCard();
+      const frame = linkPanel().querySelector(".whimsy-link-hover-card");
+      const filler = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      // Rigid, as real text is: the card is a flex column and would squeeze it.
+      filler.style.cssText = "height: 1200px; flex-shrink: 0";
+      frame.append(filler);
+      await TestUtils.waitForCondition(() => frame.scrollHeight > frame.clientHeight + 100, "The card overflows");
 
-    EventUtils.synthesizeMouseAtCenter(frame, { type: "mousemove" });
-    await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
-    const at = cardOnScreen(linkPanel());
-    const before = await pageY(browser);
-    await whimsyWheelAt(at.x + 40, at.y + 40, 3);
-    await TestUtils.waitForCondition(() => frame.scrollTop > 0, "The card scrolls first");
-    is(await pageY(browser), before, "...and the page doesn't");
-    is(linkPanel().state, "open", "...and the card stays");
+      EventUtils.synthesizeMouseAtCenter(frame, { type: "mousemove" });
+      await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
+      const at = cardOnScreen(linkPanel());
+      const before = await pageY(browser);
+      await whimsyWheelAt(at.x + 40, at.y + 40, 3);
+      await TestUtils.waitForCondition(() => frame.scrollTop > 0, "The card scrolls first");
+      is(await pageY(browser), before, "...and the page doesn't");
+      is(linkPanel().state, "open", "...and the card stays");
 
-    // At its end: once that wheel run is over, the next goes to the page.
-    frame.scrollTop = frame.scrollHeight;
-    await TestUtils.waitForCondition(() => frame.scrollTop >= frame.scrollHeight - frame.clientHeight - 1, "The card is at its end");
-    await TestUtils.waitForCondition(() => !WhimsyHoverCards.cardHoldsWheel(linkPanel()), "The card's wheel run is over");
-    await pageScrolls(browser, "Past the card's end", () => whimsyWheelAt(at.x + 40, at.y + 40, 3));
-    await TestUtils.waitForCondition(() => linkPanel().state == "closed", "...and the card closed");
-  });
-  await closeAll();
+      // At its end: once that wheel run is over, the next goes to the page.
+      frame.scrollTop = frame.scrollHeight;
+      await TestUtils.waitForCondition(() => frame.scrollTop >= frame.scrollHeight - frame.clientHeight - 1, "The card is at its end");
+      await TestUtils.waitForCondition(() => !WhimsyHoverCards.cardHoldsWheel(linkPanel()), "The card's wheel run is over");
+      await pageScrolls(browser, "Past the card's end", () => whimsyWheelAt(at.x + 40, at.y + 40, 3));
+      await TestUtils.waitForCondition(() => linkPanel().state == "closed", "...and the card closed");
+    });
+  } finally {
+    await closeAll();
+  }
 });
 
 // One click on the tab beside an open tab card, where the card's

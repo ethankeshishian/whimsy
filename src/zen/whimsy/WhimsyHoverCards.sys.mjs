@@ -250,7 +250,8 @@ export const WhimsyHoverCards = {
         deltaY: event.deltaY,
         deltaZ: event.deltaZ,
         deltaMode: event.deltaMode,
-        // Ctrl or Cmd: the page zooms, as the wheel would have done there.
+        // The modifiers go along, so the page does what this wheel does there
+        // (zoom, history, or a scroll).
         modifiers:
           (event.altKey ? 0x01 : 0) | (event.ctrlKey ? 0x02 : 0) | (event.shiftKey ? 0x04 : 0) | (event.metaKey ? 0x08 : 0),
       });
@@ -592,6 +593,14 @@ export const WhimsyHoverCards = {
   },
 };
 
+// Whether this wheel zooms rather than scrolls, per the
+// mousewheel.with_<modifier>.action prefs (3 and 5 zoom).
+function wheelZooms(event) {
+  const mod = event.ctrlKey ? "control" : event.metaKey ? "meta" : event.altKey ? "alt" : event.shiftKey ? "shift" : "default";
+  const action = Services.prefs.getIntPref(`mousewheel.with_${mod}.action`, 1);
+  return action == 3 || action == 5;
+}
+
 /**
  * Where a card's popup takes the mouse. Its window is bigger than the card
  * (room for the shadow, whimsy-ai.css), and macOS can't let the pointer
@@ -711,9 +720,9 @@ class HostPointer {
 
   wheel(event) {
     const now = Date.now();
-    // Ctrl or Cmd with the wheel zooms the page (as does a pinch on some
-    // trackpads): never the card's to keep.
-    const zoom = event.ctrlKey || event.metaKey;
+    // A wheel the prefs make a zoom (Ctrl on Windows and Linux; whatever the
+    // user set on macOS) zooms the page: never the card's to keep.
+    const zoom = wheelZooms(event);
     if (!zoom && (this.scrollerFor(event) || now - this.cardRunAt < WHEEL_RUN_MS)) {
       this.cardRunAt = now;
       return;

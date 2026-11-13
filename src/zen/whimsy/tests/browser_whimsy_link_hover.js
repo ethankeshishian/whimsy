@@ -176,8 +176,20 @@ async function tallPage(browser) {
 
 const pageY = browser => SpecialPowers.spawn(browser, [], () => content.scrollY);
 
+// Scrolls the page and waits for its scroll event, which comes a frame
+// later and would otherwise land on the next hover (a scroll ends a hover).
+function scrollPageTo(browser, y) {
+  return SpecialPowers.spawn(browser, [y], async y => {
+    if (content.scrollY != y) {
+      const scrolled = new Promise(r => content.addEventListener("scroll", r, { once: true }));
+      content.scrollTo(0, y);
+      await scrolled;
+    }
+  });
+}
+
 async function hoverLinkCard(browser, { loading = false } = {}) {
-  await SpecialPowers.spawn(browser, [], () => content.scrollTo(0, 200));
+  await scrollPageTo(browser, 200);
   await BrowserTestUtils.synthesizeMouseAtCenter("#away", { type: "mousemove" }, browser);
   await closed();
   await BrowserTestUtils.synthesizeMouseAtCenter("#link", { type: "mousemove" }, browser);
@@ -250,7 +262,9 @@ add_task(async function page_scrolls_under_an_open_card() {
 // rollup check in nsCocoaWindow, which the card's popup no longer has)
 // reaches the page with a card open, and from over the card itself.
 add_task(async function page_zooms_with_a_card_open() {
-  await SpecialPowers.pushPrefEnv({ set: [["browser.zoom.siteSpecific", false]] });
+  // macOS keeps Ctrl with the wheel a scroll by default (firefox.js); make it
+  // the zoom it is elsewhere, so the forwarded modifiers show.
+  await SpecialPowers.pushPrefEnv({ set: [["browser.zoom.siteSpecific", false], ["mousewheel.with_control.action", 3]] });
   const restore = stubAI(true);
   try {
     await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
@@ -322,7 +336,7 @@ add_task(async function page_scrolls_under_a_card_while_loading() {
 // One click: on the link under the card's room, on the link beside it, and
 // on the card itself (which opens the link).
 add_task(async function one_click_with_a_card_open() {
-  const restore = stubAI(false);
+  const restore = stubAI(true);
   try {
     await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
       for (const [selector, query] of [["#link", "?clicked"], ["#next", "?next"]]) {
