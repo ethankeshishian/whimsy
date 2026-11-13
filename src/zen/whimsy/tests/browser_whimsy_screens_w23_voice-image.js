@@ -260,15 +260,25 @@ add_task(async function shots_command_bar_mic() {
     // fu-media dec-15: hold ⌘K, the open menu listens.
     await whimsyBothSchemes("w23-voice-image-fu-dec-15", async () => {
       gBrowser.selectedBrowser.focus();
+      // A held key auto-repeats, and K counts as held only while its
+      // repeats arrive (macOS drops K's keyup while ⌘ is down): hold it the
+      // way a keyboard does, until the shot is taken.
       EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown" });
-      await TestUtils.waitForCondition(() => WhimsyDictation.active?.target == "cmdk", "The menu listens");
-      speech.sessions.at(-1).say("summarize this");
-      speech.sessions.at(-1).say("summarize this page");
-      await TestUtils.waitForCondition(() => gURLBar.value == "summarize this page", "Words in the menu");
-      await translateBar();
-      await frames(3);
-      ok(!gURLBar.querySelector(".whimsy-dictation-key").hidden, "It says release ⌘K");
+      const holding = setInterval(() => EventUtils.synthesizeKey("k", { accelKey: true, type: "keydown", repeat: true }), 30);
+      try {
+        await TestUtils.waitForCondition(() => WhimsyDictation.active?.target == "cmdk", "The menu listens");
+        speech.sessions.at(-1).say("summarize this");
+        speech.sessions.at(-1).say("summarize this page");
+        await TestUtils.waitForCondition(() => gURLBar.value == "summarize this page", "Words in the menu");
+        await translateBar();
+        await frames(3);
+        ok(!gURLBar.querySelector(".whimsy-dictation-key").hidden, "It says release ⌘K");
+      } catch (e) {
+        clearInterval(holding);
+        throw e;
+      }
       return async () => {
+        clearInterval(holding);
         EventUtils.synthesizeKey("k", { accelKey: true, type: "keyup" });
         await closeBar();
       };
