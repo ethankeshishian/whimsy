@@ -22,10 +22,10 @@
 // PiP), and closing the window by hand keeps it closed until you return
 // to the call's tab, as Firefox does for videos.
 //
-// W26: like Arc's floating window, a red Leave call button presses the
-// call page's own hang-up control (WhimsyCallControls.findLeave) and closes
-// the window; with no such control on the page it's hidden. The × still
-// only closes the window. Not covered: Zoom's web client draws video on a
+// W26: like Arc's floating window, a red Leave Call button, in play/pause's
+// spot, presses the call page's own hang-up control
+// (WhimsyCallControls.findLeave) and closes the window; with no such
+// control on the page it's hidden. The × still only closes the window. Not covered: Zoom's web client draws video on a
 // <canvas>, which picture-in-picture can't show.
 //
 // W13-R3 (whimsy.feature.call-controls): the call's microphone and camera,
@@ -137,15 +137,20 @@ panel.whimsy-surface { --panel-background-color: var(--arrowpanel-background); }
   margin-inline-start: 4px;
   padding-inline-start: 8px;
 }
-/* W26: Leave call, last in the row (it comes and goes with the page's
-   hang-up control): the player's button, filled with the design system's
-   destructive pair (tokens-shared.css), as Arc's and the call apps' own
-   red hang-up buttons are. */
+/* W26: Leave Call takes play/pause's spot (pausing a call does nothing
+   useful), and a call window never shows play/pause, even with no hang-up
+   control to offer. The player's button, filled with the design system's
+   destructive pair (tokens-shared.css). The player is always dark, where
+   that pair is a pale pink with a dark glyph; the owner asked for a solid
+   red with a white handset, the pair's light-scheme values (red-60 on
+   white), so the button takes the light scheme. */
+body[whimsy-call-pip] #playpause { display: none !important; }
 #whimsy-call-leave {
+  grid-area: playpause;
+  color-scheme: light;
   background-image: url("chrome://browser/content/whimsy/icons/call-end.svg");
   background-color: var(--button-background-color-destructive);
   fill: var(--button-text-color-destructive);
-  margin-inline-start: 4px;
 }
 #whimsy-call-leave:hover:enabled { background-color: var(--button-background-color-destructive-hover); }
 #whimsy-call-leave:hover:active:enabled { background-color: var(--button-background-color-destructive-active); }
@@ -541,6 +546,9 @@ export const WhimsyCallPip = {
         this.onCallPipClosed(pipWin._whimsyCallBrowser);
       }, { once: true });
     }
+    // W26: a call window, whatever the call-controls switch: no play/pause.
+    this.loadPipSheets(pipWin);
+    pipWin.document.body?.setAttribute("whimsy-call-pip", "");
     this.showCaptionsButton(pipWin, browser);
     this.renderCameraOff(pipWin, browser);
     if (!pipWin._whimsyFollowTimer) {
@@ -735,6 +743,22 @@ export const WhimsyCallPip = {
     return null;
   },
 
+  // The call window's sheets, once per window.
+  loadPipSheets(pipWin) {
+    if (pipWin._whimsyCallSheets) {
+      return;
+    }
+    pipWin._whimsyCallSheets = true;
+    try {
+      for (const sheet of [...PANEL_SHEETS, SURFACE_SHEET]) {
+        pipWin.windowUtils.loadSheetUsingURIString(sheet, pipWin.windowUtils.AUTHOR_SHEET);
+      }
+      pipWin.windowUtils.loadSheetUsingURIString(PIP_SHEET, pipWin.windowUtils.AUTHOR_SHEET);
+    } catch (e) {
+      console.error("Whimsy: call PiP sheet", e);
+    }
+  },
+
   addPipButtons(pipWin) {
     const doc = pipWin.document;
     if (doc.getElementById("whimsy-call-controls")) {
@@ -744,14 +768,7 @@ export const WhimsyCallPip = {
     if (!start) {
       return;
     }
-    try {
-      for (const sheet of [...PANEL_SHEETS, SURFACE_SHEET]) {
-        pipWin.windowUtils.loadSheetUsingURIString(sheet, pipWin.windowUtils.AUTHOR_SHEET);
-      }
-      pipWin.windowUtils.loadSheetUsingURIString(PIP_SHEET, pipWin.windowUtils.AUTHOR_SHEET);
-    } catch (e) {
-      console.error("Whimsy: call PiP sheet", e);
-    }
+    this.loadPipSheets(pipWin);
     doc.l10n?.addResourceIds(["browser/whimsy.ftl"]);
     const group = doc.createElement("div");
     group.id = "whimsy-call-controls";
@@ -773,15 +790,21 @@ export const WhimsyCallPip = {
     options.setAttribute("aria-haspopup", "menu");
     doc.l10n.setAttributes(options, "whimsy-call-pip-options-button");
     group.append(options);
-    // W26: Leave call, hidden until the page shows a hang-up control.
+    start.prepend(group);
+    // W26: Leave Call, in play/pause's spot (the sheet hides play/pause in
+    // a call window), hidden until the page shows a hang-up control.
     const leave = doc.createElement("button");
     leave.id = "whimsy-call-leave";
     leave.className = "control-item control-button tooltip-over-controls center-tooltip";
     leave.setAttribute("data-l10n-attrs", "tooltip");
     leave.hidden = true;
     doc.l10n.setAttributes(leave, "whimsy-call-pip-leave");
-    group.append(leave);
-    start.prepend(group);
+    const playpause = doc.getElementById("playpause");
+    if (playpause) {
+      playpause.after(leave);
+    } else {
+      group.append(leave);
+    }
     doc.body.setAttribute("whimsy-call", "");
   },
 

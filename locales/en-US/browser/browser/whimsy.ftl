@@ -5150,8 +5150,8 @@ whimsy-call-pip-options-button =
 # W26: the PiP window's red button; presses the call page's own hang-up
 # button, then closes the window.
 whimsy-call-pip-leave =
-    .tooltip = Leave call
-    .aria-label = Leave call
+    .tooltip = Leave Call
+    .aria-label = Leave Call
 whimsy-call-options-buttons-heading = Buttons mute
 whimsy-call-options-default-call =
     { $known ->

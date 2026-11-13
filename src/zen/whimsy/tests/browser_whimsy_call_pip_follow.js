@@ -236,7 +236,7 @@ add_task(async function test_camera_off_never_covers_others() {
   }
 });
 
-// W26: Arc-style Leave call. The PiP's red button presses the call page's
+// W26: Arc-style Leave Call. The PiP's red button presses the call page's
 // own hang-up control and shows only while the page has one.
 
 function leaveButton(pip) {
@@ -288,6 +288,8 @@ add_task(async function test_leave_hidden_without_hang_up() {
     await followRound(floating.pip, browser);
     is(floating.pip._whimsyCanLeave, false, "The page has no hang-up control");
     ok(leaveButton(floating.pip).hidden, "So the Leave call button is hidden");
+    is(floating.pip.getComputedStyle(floating.pip.document.getElementById("playpause")).display, "none",
+      "Play/pause stays hidden in a call window anyway");
     ok(!floating.pip.document.getElementById("whimsy-call-mic").hidden, "The microphone button shows");
 
     await page(call, "addCallBar", true);
@@ -349,17 +351,28 @@ add_task(async function test_leave_hangs_up_and_closes() {
   try {
     await TestUtils.waitForCondition(() => leaveButton(pip) && !leaveButton(pip).hidden, "Leave call shows");
     const button = leaveButton(pip);
-    await TestUtils.waitForCondition(() => button.getAttribute("tooltip") == "Leave call", "Its tooltip is filled");
-    is(button.getAttribute("aria-label"), "Leave call", "Its accessible name");
-    const group = pip.document.getElementById("whimsy-call-controls");
-    ok(group.lastElementChild == button, "It sits last in the call buttons");
+    await TestUtils.waitForCondition(() => button.getAttribute("tooltip") == "Leave Call", "Its tooltip is filled");
+    is(button.getAttribute("aria-label"), "Leave Call", "Its accessible name");
+    const playpause = pip.document.getElementById("playpause");
+    ok(button.parentElement == playpause.parentElement, "It sits with play/pause's controls");
+    is(pip.getComputedStyle(playpause).display, "none", "Play/pause is gone from the call window");
+    is(pip.getComputedStyle(button).gridArea.split(" / ")[0], "playpause", "Leave Call takes play/pause's spot");
     ok(button.classList.contains("control-button"), "Styled as the player's own buttons");
     const style = pip.getComputedStyle(button);
     const background = resolveColor(pip, style.backgroundColor);
     const icon = resolveColor(pip, style.fill);
-    const token = resolveColor(pip, pip.getComputedStyle(pip.document.documentElement)
-      .getPropertyValue("--button-background-color-destructive"));
-    Assert.deepEqual(background, token, "Filled with the design system's destructive colour");
+    // The destructive pair's light-scheme values: solid red, white glyph.
+    const probe = pip.document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    probe.style.cssText = "color-scheme: light; background-color: var(--button-background-color-destructive); " +
+      "color: var(--button-text-color-destructive)";
+    pip.document.body.append(probe);
+    const probeStyle = pip.getComputedStyle(probe);
+    const token = resolveColor(pip, probeStyle.backgroundColor);
+    const onToken = resolveColor(pip, probeStyle.color);
+    probe.remove();
+    Assert.deepEqual(background, token, "Filled with the design system's destructive colour (light scheme)");
+    Assert.deepEqual(icon, onToken, "Its glyph is the pair's text colour");
+    ok(icon.every(v => v >= 240), `The glyph is white (${icon})`);
     Assert.greaterOrEqual(contrast(background, icon), 4.5, "Its icon meets WCAG AA on the red");
     await shoot(pip, "call-pip-leave");
 
