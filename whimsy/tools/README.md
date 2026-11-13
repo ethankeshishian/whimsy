@@ -28,7 +28,11 @@ npm run lane -- land w25-foo --message "Merge W25 foo: ..."
    `whimsy-*.patch` applies after Zen's, every `chrome://`, `resource://`
    and `moz-src:///` URL names a packaged file, `overlay.py check`. It
    prints `BUILD: faster|backend|binaries|full`;
-4. `npm run import`, which must leave no tracked file changed;
+4. `npm run import`, which must leave no tracked file changed. It starts
+   with `engine_prepare.py`, which puts back every engine file a patch or
+   `src/` link of another branch (any ref, or the previous import) left
+   behind, so lanes sharing the engine never build each other's patches;
+   restored files that come back byte-identical keep their timestamps;
 5. the build the change needs: `faster` (JS/CSS/FTL/XHTML, ~20 s),
    `backend` + `faster` (a moz.build changed), `binaries` + `faster`
    (native code or IDL), or full (surfer.json, configs, build patches);

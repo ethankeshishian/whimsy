@@ -2195,12 +2195,20 @@ def apply_json_overrides(report, dry):
     }
     if "import:strings" not in s.get("import", ""):
         s["import"] = s["import"] + " && npm run import:strings"
-    if "whimsy/engine_prepare.py" not in s["import"]:
-        s["import"] = s["import"].replace("surfer import", "python3 whimsy/engine_prepare.py && surfer import", 1)
+    # First: engine_prepare puts back other branches' engine files, so it
+    # runs before every step that writes the engine (ffprefs writes
+    # firefox.js, which an old patch once targeted).
+    prepare = "python3 whimsy/engine_prepare.py && "
+    if not s["import"].startswith(prepare):
+        s["import"] = prepare + s["import"].replace(prepare, "", 1)
     if "whimsy/engine_overrides.py" not in s["import"]:
         s["import"] = s["import"] + " && python3 whimsy/engine_overrides.py"
     if "whimsy/engine_overrides.py --restore" not in s["import"]:
         s["import"] = s["import"].replace("surfer import", "python3 whimsy/engine_overrides.py --restore && surfer import", 1)
+    # Last: files engine_prepare restored that the import wrote back
+    # byte-identical get their old timestamps, so they don't rebuild.
+    if "whimsy/engine_prepare.py --finish" not in s["import"]:
+        s["import"] = s["import"] + " && python3 whimsy/engine_prepare.py --finish"
     items = list(s.items())
     for key, value in wanted.items():
         if s.get(key) != value:
