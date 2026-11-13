@@ -145,6 +145,12 @@ panel.whimsy-surface { --panel-background-color: var(--arrowpanel-background); }
    red with a white handset, the pair's light-scheme values (red-60 on
    white), so the button takes the light scheme. */
 body[whimsy-call-pip] #playpause { display: none !important; }
+/* W26: a call window keeps only Zen's minimize ("—"). Firefox's × also
+   pauses the floated video, a call tile in the page, so it goes; "—" moves
+   into ×'s corner (both are absolutely placed, 10px from the edge). */
+body[whimsy-call-pip] #close { display: none !important; }
+body[whimsy-call-pip] #minimize:not([mac="true"]) { right: 10px; }
+body[whimsy-call-pip] #minimize[mac="true"] { left: 10px; }
 #whimsy-call-leave {
   grid-area: playpause;
   color-scheme: light;

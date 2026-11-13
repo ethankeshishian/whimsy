@@ -302,16 +302,25 @@ add_task(async function test_leave_hidden_without_hang_up() {
   }
 });
 
-// The × only closes the window: the call goes on.
-add_task(async function test_close_keeps_the_call() {
+// A call window has no ×: Firefox's × also pauses the floated video, a call
+// tile in the page. Zen's "—" takes its corner and only closes the window:
+// the call goes on.
+add_task(async function test_close_is_hidden_and_minimize_keeps_the_call() {
   const call = await openCall();
   await page(call, "addCallBar", true);
   const floating = await float(call);
   try {
-    await TestUtils.waitForCondition(() => leaveButton(floating.pip) && !leaveButton(floating.pip).hidden,
-      "Leave call shows");
-    const closed = BrowserTestUtils.domWindowClosed(floating.pip);
-    await pressInPip(floating.pip, floating.pip.document.getElementById("close"));
+    const pip = floating.pip;
+    await TestUtils.waitForCondition(() => leaveButton(pip) && !leaveButton(pip).hidden, "Leave call shows");
+    const close = pip.document.getElementById("close");
+    const minimize = pip.document.getElementById("minimize");
+    is(pip.getComputedStyle(close).display, "none", "The call window hides ×");
+    isnot(pip.getComputedStyle(minimize).display, "none", "The call window keeps —");
+    const corner = minimize.getAttribute("mac") == "true" ? "left" : "right";
+    is(pip.getComputedStyle(minimize)[corner], "10px", "— sits in ×'s corner");
+    await shoot(pip, "call-pip-no-close");
+    const closed = BrowserTestUtils.domWindowClosed(pip);
+    await pressInPip(pip, minimize);
     await closed;
     ok(WhimsyCallPip.isInCall(call), "The call goes on");
     is(await SpecialPowers.spawn(call.linkedBrowser, [], () => content.wrappedJSObject.hungUp ?? 0), 0,
