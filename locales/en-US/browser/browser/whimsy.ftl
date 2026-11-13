@@ -8007,6 +8007,18 @@ whimsy-meeting-own-unavailable = Whimsy can’t take notes in your language on t
 whimsy-meeting-ended-title = Notes from { $meeting }
 whimsy-meeting-from-granola-ended = From Granola’s notes.
 whimsy-meeting-from-own-ended = From Whimsy’s own notes.
+# W26: the meeting card's title on a call with no calendar event, named
+# after the call's site. $service is meet, zoom, teams, webex, other, or
+# none; $site is the page's host, for example whereby.com.
+whimsy-meeting-call-title =
+    { $service ->
+        [meet] Meet call
+        [zoom] Zoom call
+        [teams] Teams call
+        [webex] Webex call
+        [none] Call
+       *[other] { $site } call
+    }
 whimsy-meeting-download = Download transcript
 whimsy-meeting-downloaded = Downloaded “{ $name }”
 whimsy-meeting-reveal =

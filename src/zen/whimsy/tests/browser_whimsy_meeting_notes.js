@@ -15,7 +15,7 @@ requestLongerTimeout(3);
 
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_call_captions.html";
 
-const { WhimsyMeetingNotes, parseMeetingList, matchMeeting, argsFor, parsePoints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMeetingNotes.sys.mjs");
+const { WhimsyMeetingNotes, parseMeetingList, matchMeeting, matchByStart, callSite, argsFor, parsePoints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMeetingNotes.sys.mjs");
 const { WhimsyConnectors } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectors.sys.mjs");
 const { WhimsyConnectorOAuth } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectorOAuth.sys.mjs");
 const { WhimsyNextMeeting } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs");
@@ -34,6 +34,14 @@ let clock = Date.now();
 const granola = { mode: "ok", meetings: [], transcript: "", notes: "", calls: [] };
 let aiCalls = [];
 let aiReply = "- Onboarding v3 ships behind a flag on Dec 2.\n- Priya wants the empty state rewritten.";
+
+// W26: calls with no calendar event. Tests can't load a real call site, so
+// a tab's address can be stood in for (WhimsyMeetingNotes.tabUrl), and a
+// WebRTC call is the tab's sharing state, set the way Firefox's webrtcUI
+// sets it.
+const MEET = "https://meet.google.com/abc-defg-hij?authuser=0";
+const RTC = { camera: 1, microphone: 1, paused: false, sharing: "camera", showCameraIndicator: true, showMicrophoneIndicator: true, showScreenSharingIndicator: "", windowId: 0 };
+const fakeUrls = new Map();
 
 const panel = () => WhimsyChatPanel.forWindow(window);
 const card = () => panel().body?.querySelector(":scope > .whimsy-meeting-card");
@@ -137,12 +145,15 @@ add_setup(async function () {
   });
   const realNow = WhimsyMeetingNotes.now;
   const realPoll = WhimsyMeetingNotes.pollMs;
+  const realTabUrl = WhimsyMeetingNotes.tabUrl;
+  WhimsyMeetingNotes.tabUrl = tab => fakeUrls.get(tab?.linkedBrowser) ?? realTabUrl(tab);
   WhimsyMeetingNotes.now = () => clock;
   WhimsyMeetingNotes.initWindow(window);
   registerCleanupFunction(async () => {
     WhimsyConnectorOAuth.openSignIn = realOpen;
     WhimsyMeetingNotes._resetForTest();
     WhimsyMeetingNotes.now = realNow;
+    WhimsyMeetingNotes.tabUrl = realTabUrl;
     WhimsyMeetingNotes.pollMs = realPoll;
     WhimsyMeetingNotes.testSpeech = null;
     WhimsyMeetingNotes.graceMs = 2 * MINUTE;
@@ -434,5 +445,190 @@ add_task(async function stop_during_microphone_prompt() {
   WhimsyMeetingNotes.heard("late words", "call");
   is(WhimsyMeetingNotes.state.transcript.length, 0, "Nothing is heard after Stop");
   WhimsyMeetingNotes.graceMs = 2 * MINUTE;
+  await endMeeting(tab);
+});
+
+// ---- W26: any call, with no calendar event ----
+
+add_task(function calls_and_start_times_are_read() {
+  const meet = callSite(MEET);
+  is(meet.service, "meet", "A Meet join link is a call");
+  is(meet.key, "meet.google.com/abc-defg-hij", "Its key is the call's host and path");
+  is(callSite("https://us02web.zoom.us/j/123456789?pwd=x").service, "zoom", "So is Zoom's");
+  is(callSite("https://teams.microsoft.com/l/meetup-join/19%3ameeting_x/0").service, "teams", "Teams'");
+  is(callSite("https://acme.webex.com/meet/ana").service, "webex", "and Webex's");
+  is(callSite("https://example.com/?next=https://meet.google.com/abc-defg-hij").service, "", "A page that only mentions a join link isn't");
+  is(callSite("https://www.example.com/room").site, "example.com", "Other sites are named by their host");
+  is(callSite("about:blank"), null, "Pages off the web aren't calls");
+
+  const joined = Date.parse("2026-11-12T17:00:00Z");
+  const list = [
+    { id: "standup", title: "Standup", date: joined - 40 * MINUTE },
+    { id: "sync", title: "Sync", date: joined - 7 * MINUTE },
+    { id: "joined", title: "", date: joined + 1 * MINUTE },
+    { id: "later", title: "1:1", date: joined + 12 * MINUTE },
+  ];
+  is(matchByStart(list, joined)?.id, "joined", "The meeting that started closest to the join");
+  is(matchByStart(list.filter(m => m.id != "joined" && m.id != "sync" && m.id != "later"), joined), null, "None started near the join: no match");
+  is(matchByStart([{ id: "x", title: "", date: 0 }], joined), null, "A meeting with no start never matches");
+});
+
+// A call tab with no calendar event: a stood-in address and/or WebRTC.
+async function startCall({ url = null, rtc = false, meetings = () => [] } = {}) {
+  WhimsyMeetingNotes._resetForTest();
+  closeToasts();
+  clock = Date.now();
+  aiCalls = [];
+  granola.mode = "ok";
+  granola.calls = [];
+  granola.meetings = meetings(clock);
+  granola.transcript = "";
+  granola.notes = "";
+  if (!(await WhimsyConnectors.list()).find(c => c.id == "granola").connected) {
+    await WhimsyConnectors.connect(window, "granola");
+  }
+  WhimsyNextMeeting.setConnectorEvents("test", null);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  if (url) {
+    fakeUrls.set(tab.linkedBrowser, url);
+  }
+  if (rtc) {
+    gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: RTC });
+  }
+  await panel().open();
+  await TestUtils.waitForCondition(() => panel().ready, "Chat shows the call tab's thread");
+  await WhimsyMeetingNotes.tick();
+  return tab;
+}
+
+async function endCall(tab) {
+  if (tab.linkedBrowser._sharingState?.webRTC) {
+    gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
+  }
+  fakeUrls.delete(tab.linkedBrowser);
+  WhimsyMeetingNotes._resetForTest();
+  closeToasts();
+  BrowserTestUtils.removeTab(tab);
+}
+
+add_task(async function adhoc_call_follows_with_points() {
+  const tab = await startCall({
+    url: MEET,
+    meetings: now => [
+      { id: "standup", title: "Standup", date: now - 40 * MINUTE },
+      { id: "sync", title: "Sync", date: now - 7 * MINUTE },
+      { id: "joined", title: "Untitled meeting", date: now - 1 * MINUTE },
+      { id: "later", title: "1:1", date: now + 12 * MINUTE },
+    ],
+  });
+  ok(WhimsyMeetingNotes.state?.meeting.adhoc, "A tab on a join link is enough: following starts with no calendar event");
+  ok(tab.hasAttribute("whimsy-meeting-following"), "The red dot");
+  await TestUtils.waitForCondition(() => card()?.dataset.kind == "live", "The live card");
+  is(card().querySelector(".whimsy-meeting-title").textContent, "Meet call", "Titled after the call's site");
+
+  granola.transcript = "Ana: Onboarding v3 ships behind a flag on December second. Priya: the empty state needs rewriting before beta.";
+  clock += MINUTE;
+  await WhimsyMeetingNotes.tick();
+  await TestUtils.waitForCondition(() => card()?.querySelectorAll(".whimsy-meeting-points li").length >= 2, "Key points show");
+  const transcriptCall = granola.calls.find(c => c.name == "get_meeting_transcript");
+  is(transcriptCall?.args.meeting_id, "joined", "Granola's meeting is the one that started closest to the join, out of several");
+  is(card().querySelector(".whimsy-meeting-meta").dataset.l10nId, "whimsy-meeting-from-granola", "From Granola's notes");
+  ok(card().querySelector('[data-suggest="missed"]'), "The usual suggestions");
+
+  // Light and dark shots of the card on a call with no event.
+  await whimsySettled();
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    await whimsySettled();
+    await whimsyShot(`granola-adhoc-${dark ? "dark" : "light"}`);
+    await SpecialPowers.popPrefEnv();
+  }
+
+  // The tab navigates away from the call: following stops (G.13).
+  fakeUrls.set(tab.linkedBrowser, "https://example.com/elsewhere");
+  await WhimsyMeetingNotes.tick();
+  await TestUtils.waitForCondition(() => card()?.dataset.kind == "ended", "Notes from the call");
+  ok(!tab.hasAttribute("whimsy-meeting-following"), "The red dot goes");
+  is(WhimsyMeetingNotes.state.endReason, "left", "It ended because the tab left the call");
+  Assert.deepEqual(document.l10n.getAttributes(card().querySelector(".whimsy-meeting-title")).args, { meeting: "Meet call" }, "Notes from Meet call");
+  ok(card().querySelector("#whimsy-meeting-download"), "Download transcript");
+  await endCall(tab);
+});
+
+add_task(async function adhoc_webrtc_call_ending_stops_following() {
+  const tab = await startCall({ rtc: true, meetings: now => [{ id: "rtc", title: "", date: now }] });
+  ok(WhimsyMeetingNotes.state?.meeting.adhoc, "A tab in a WebRTC call is enough");
+  await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-meeting-title"), "The card");
+  is(card().querySelector(".whimsy-meeting-title").textContent, "example.com call", "Another site is named by its host");
+
+  // The call ends but the page stays: following stops, and doesn't restart.
+  gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
+  await WhimsyMeetingNotes.tick();
+  is(WhimsyMeetingNotes.state.phase, "ended", "The call ending stops following");
+  ok(!tab.hasAttribute("whimsy-meeting-following"), "The red dot goes");
+  clock += MINUTE;
+  await WhimsyMeetingNotes.tick();
+  is(WhimsyMeetingNotes.state.phase, "ended", "Still stopped a minute later");
+
+  // A join link the call ended on isn't followed again until the tab rejoins.
+  fakeUrls.set(tab.linkedBrowser, MEET);
+  gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: RTC });
+  await WhimsyMeetingNotes.tick();
+  ok(WhimsyMeetingNotes.state.phase != "ended" && WhimsyMeetingNotes.state.meeting.title == "Meet call", "Joining a call again follows it again");
+  gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
+  await WhimsyMeetingNotes.tick();
+  is(WhimsyMeetingNotes.state.phase, "ended", "Leaving it stops again");
+  clock += MINUTE;
+  await WhimsyMeetingNotes.tick();
+  is(WhimsyMeetingNotes.state.phase, "ended", "Still on the join link, out of the call: not followed again");
+
+  // Rejoining the same call follows it again.
+  gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: RTC });
+  await WhimsyMeetingNotes.tick();
+  ok(WhimsyMeetingNotes.state.phase != "ended", "Rejoined");
+  await endCall(tab);
+
+  // Closing a call tab stops following too.
+  const other = await startCall({ url: MEET });
+  ok(WhimsyMeetingNotes.state?.meeting.adhoc && WhimsyMeetingNotes.state.phase != "ended", "Following a call on a join link");
+  fakeUrls.delete(other.linkedBrowser);
+  BrowserTestUtils.removeTab(other);
+  await TestUtils.waitForCondition(() => WhimsyMeetingNotes.state?.phase == "ended", "Closing the call tab ends it");
+  is(WhimsyMeetingNotes.state.endReason, "tab-closed", "Because the tab closed");
+  WhimsyMeetingNotes._resetForTest();
+});
+
+add_task(async function adhoc_no_follow_in_a_private_window() {
+  WhimsyMeetingNotes._resetForTest();
+  WhimsyNextMeeting.setConnectorEvents("test", null);
+  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+  WhimsyMeetingNotes.initWindow(win);
+  const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, PAGE);
+  fakeUrls.set(tab.linkedBrowser, MEET);
+  win.gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: RTC });
+  await WhimsyMeetingNotes.tick();
+  is(WhimsyMeetingNotes.state, null, "A call in a private window is never followed");
+  ok(!tab.hasAttribute("whimsy-meeting-following"), "No red dot");
+  win.gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
+  fakeUrls.delete(tab.linkedBrowser);
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function calendar_meeting_still_wins() {
+  const tab = await startMeeting();
+  // A Granola meeting that started closer, but under another title.
+  granola.meetings.push({ id: "closer", title: "Something else", date: clock });
+  fakeUrls.set(tab.linkedBrowser, MEET);
+  gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: RTC });
+  granola.transcript = "Ana: first notes.";
+  granola.calls = [];
+  WhimsyMeetingNotes.state.granolaId = null;
+  await WhimsyMeetingNotes.tick();
+  ok(!WhimsyMeetingNotes.state.meeting.adhoc, "The calendar meeting, not a call with no event");
+  await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-meeting-title"), "The card");
+  is(card().querySelector(".whimsy-meeting-title").textContent, "Design review", "Titled after the event");
+  is(granola.calls.find(c => c.name == "get_meeting_transcript")?.args.meeting_id, "m-1", "Matched by title, as before");
+  gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
+  fakeUrls.delete(tab.linkedBrowser);
   await endMeeting(tab);
 });
