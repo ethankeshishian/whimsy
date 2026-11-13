@@ -15,7 +15,7 @@ requestLongerTimeout(3);
 
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_call_captions.html";
 
-const { WhimsyMeetingNotes, parseMeetingList, matchMeeting, matchByStart, callSite, argsFor, parsePoints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMeetingNotes.sys.mjs");
+const { WhimsyMeetingNotes, parseMeetingList, matchMeeting, matchByStart, callSite, sameSite, argsFor, parsePoints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyMeetingNotes.sys.mjs");
 const { WhimsyConnectors } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectors.sys.mjs");
 const { WhimsyConnectorOAuth } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectorOAuth.sys.mjs");
 const { WhimsyNextMeeting } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs");
@@ -146,7 +146,8 @@ add_setup(async function () {
   const realNow = WhimsyMeetingNotes.now;
   const realPoll = WhimsyMeetingNotes.pollMs;
   const realTabUrl = WhimsyMeetingNotes.tabUrl;
-  WhimsyMeetingNotes.tabUrl = tab => fakeUrls.get(tab?.linkedBrowser) ?? realTabUrl(tab);
+  // Stood in by tab, or by the page the tab is really on.
+  WhimsyMeetingNotes.tabUrl = tab => fakeUrls.get(tab?.linkedBrowser) ?? fakeUrls.get(realTabUrl(tab)) ?? realTabUrl(tab);
   WhimsyMeetingNotes.now = () => clock;
   WhimsyMeetingNotes.initWindow(window);
   registerCleanupFunction(async () => {
@@ -460,6 +461,8 @@ add_task(function calls_and_start_times_are_read() {
   is(callSite("https://example.com/?next=https://meet.google.com/abc-defg-hij").service, "", "A page that only mentions a join link isn't");
   is(callSite("https://www.example.com/room").site, "example.com", "Other sites are named by their host");
   is(callSite("about:blank"), null, "Pages off the web aren't calls");
+  ok(sameSite("app.zoom.us", "us02web.zoom.us"), "Pages of one registrable domain are one site");
+  ok(!sameSite("zoom.us", "example.com"), "Other domains aren't");
 
   const joined = Date.parse("2026-11-12T17:00:00Z");
   const list = [
@@ -561,8 +564,21 @@ add_task(async function adhoc_webrtc_call_ending_stops_following() {
   await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-meeting-title"), "The card");
   is(card().querySelector(".whimsy-meeting-title").textContent, "example.com call", "Another site is named by its host");
 
-  // The call ends but the page stays: following stops, and doesn't restart.
+  // The call drops but the page stays: a reconnect within 30 seconds
+  // continues the same follow.
+  const followed = WhimsyMeetingNotes.state;
   gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
+  await WhimsyMeetingNotes.tick();
+  ok(WhimsyMeetingNotes.state == followed && followed.phase != "ended", "Still following while it may reconnect");
+  clock += 20000;
+  gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: RTC });
+  await WhimsyMeetingNotes.tick();
+  ok(WhimsyMeetingNotes.state == followed && followed.phase != "ended", "Reconnected: the same follow");
+
+  // It ends and stays out for 30 seconds: following stops, and doesn't restart.
+  gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
+  await WhimsyMeetingNotes.tick();
+  clock += 30000;
   await WhimsyMeetingNotes.tick();
   is(WhimsyMeetingNotes.state.phase, "ended", "The call ending stops following");
   ok(!tab.hasAttribute("whimsy-meeting-following"), "The red dot goes");
@@ -576,6 +592,8 @@ add_task(async function adhoc_webrtc_call_ending_stops_following() {
   await WhimsyMeetingNotes.tick();
   ok(WhimsyMeetingNotes.state.phase != "ended" && WhimsyMeetingNotes.state.meeting.title == "Meet call", "Joining a call again follows it again");
   gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
+  await WhimsyMeetingNotes.tick();
+  clock += 30000;
   await WhimsyMeetingNotes.tick();
   is(WhimsyMeetingNotes.state.phase, "ended", "Leaving it stops again");
   clock += MINUTE;
@@ -631,4 +649,79 @@ add_task(async function calendar_meeting_still_wins() {
   gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: null });
   fakeUrls.delete(tab.linkedBrowser);
   await endMeeting(tab);
+});
+
+add_task(async function adhoc_not_connected_no_card_no_follow() {
+  WhimsyMeetingNotes._resetForTest();
+  closeToasts();
+  await WhimsyConnectors.disconnect("granola");
+  WhimsyNextMeeting.setConnectorEvents("test", null);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  fakeUrls.set(tab.linkedBrowser, MEET);
+  await panel().open();
+  await TestUtils.waitForCondition(() => panel().ready, "Chat shows the call tab's thread");
+  await WhimsyMeetingNotes.tick();
+  is(WhimsyMeetingNotes.state, null, "Granola not connected: a call with no event isn't followed");
+  ok(!card(), "No Connect Granola card on the call");
+  ok(!tab.hasAttribute("whimsy-meeting-following"), "No red dot");
+  fakeUrls.delete(tab.linkedBrowser);
+  BrowserTestUtils.removeTab(tab);
+});
+
+// A join link that redirects to the site's web client (zoom.us/j/… to
+// app.zoom.us/wc/…/join): the same follow continues, with the same Granola
+// meeting and card, while the client joins the call.
+add_task(async function adhoc_redirect_within_the_site_continues() {
+  const dir = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
+  const link = `${PAGE}?link`;
+  const client = `${PAGE}?client`;
+  fakeUrls.set(link, "https://zoom.us/j/123456789");
+  fakeUrls.set(client, "https://app.zoom.us/wc/123456789/join");
+  try {
+    const tab = await startCall({ meetings: now => [{ id: "zoom", title: "", date: now }] });
+    BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, link);
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, link);
+    await WhimsyMeetingNotes.tick();
+    const followed = WhimsyMeetingNotes.state;
+    ok(followed?.meeting.adhoc && followed.phase != "ended", "Following the call on its join link");
+    is(followed.meeting.title, "Zoom call", "Titled after the call's site");
+    granola.transcript = "Ana: Onboarding v3 ships behind a flag on December second.";
+    await WhimsyMeetingNotes.tick();
+    await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-meeting-points li"), "Points show");
+    is(followed.granolaId, "zoom", "Matched to Granola's meeting");
+
+    // The join link redirects to the web client, on the same site.
+    BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, `${dir}whimsy_meeting_redirect.sjs`);
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, client);
+    await WhimsyMeetingNotes.tick();
+    ok(WhimsyMeetingNotes.state == followed && followed.phase != "ended", "The same follow continues through the redirect");
+    clock += 15000;
+    gBrowser.updateBrowserSharing(tab.linkedBrowser, { webRTC: RTC });
+    await WhimsyMeetingNotes.tick();
+    ok(WhimsyMeetingNotes.state == followed && followed.phase != "ended", "The client joins the call: still the same follow");
+    is(followed.granolaId, "zoom", "The same Granola meeting");
+    await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-meeting-points li"), "The same card, with its points");
+    is(card().querySelector(".whimsy-meeting-title").textContent, "Zoom call", "and its title");
+    is(granola.calls.filter(c => c.name == "list_meetings").length, 1, "Granola's meetings were listed once: no restart");
+    await endCall(tab);
+
+    // A page of the same site that never joins a call ends it after 30 seconds.
+    const other = await startCall({ url: null, meetings: now => [{ id: "zoom", title: "", date: now }] });
+    BrowserTestUtils.startLoadingURIString(other.linkedBrowser, link);
+    await BrowserTestUtils.browserLoaded(other.linkedBrowser, false, link);
+    await WhimsyMeetingNotes.tick();
+    ok(WhimsyMeetingNotes.state?.meeting.adhoc, "Following the join link");
+    BrowserTestUtils.startLoadingURIString(other.linkedBrowser, `${dir}whimsy_meeting_redirect.sjs`);
+    await BrowserTestUtils.browserLoaded(other.linkedBrowser, false, client);
+    await WhimsyMeetingNotes.tick();
+    ok(WhimsyMeetingNotes.state.phase != "ended", "Still following during the grace");
+    clock += 30000;
+    await WhimsyMeetingNotes.tick();
+    is(WhimsyMeetingNotes.state.phase, "ended", "No call within 30 seconds: following stops");
+    is(WhimsyMeetingNotes.state.endReason, "left", "It left the call");
+    await endCall(other);
+  } finally {
+    fakeUrls.delete(link);
+    fakeUrls.delete(client);
+  }
 });
