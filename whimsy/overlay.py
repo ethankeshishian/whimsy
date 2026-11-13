@@ -2054,6 +2054,11 @@ FEATURES = [
     # Firefox's tab hover preview.
     {"id": "hover-cards", "title": "Hover cards: rest on a tab or a link to see a picture, its title and address, and an AI description",
      "detect": [("src/zen", r"(?i)zen[-_.]?hover[-_.]?cards?|link[-_.]?hover[-_.]?summar")]},
+    # W26: superseded if Zen ever installs a platform authenticator of its
+    # own in dom/webauthn (a patch on WebAuthnService) or a passkey module.
+    {"id": "passkeys", "title": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
+     "detect": [("src/dom/webauthn", r"mPlatformService\s*="),
+                ("src/zen", r"(?i)zen[-_.]?passkeys?\.(sys\.)?mjs|SecureEnclave\.P256")]},
 ]
 
 

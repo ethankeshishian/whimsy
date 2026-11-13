@@ -687,6 +687,9 @@
 - name: whimsy.feature.hover-cards
   value: true
 
+- name: whimsy.feature.passkeys
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

@@ -2597,14 +2597,25 @@ whimsy-profiles-create =
 whimsy-profiles-delete-unused =
     .label = Delete Unused Profiles…
 whimsy-profiles-delete-confirm-title = Delete the “{ $name }” profile?
-whimsy-profiles-delete-confirm-body = Its cookies, site data and saved passwords are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+# W26 passkeys: $passkeys is how many Touch ID passkeys Whimsy holds for it.
+whimsy-profiles-delete-confirm-body =
+    { $passkeys ->
+        [0] Its cookies, site data, and saved passwords are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+        [one] Its cookies, site data, saved passwords, and 1 passkey are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+       *[other] Its cookies, site data, saved passwords, and { $passkeys } passkeys are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+    }
 whimsy-profiles-delete-confirm-accept = Delete Profile
 whimsy-profiles-delete-unused-confirm-title =
     { $count ->
         [one] Delete 1 unused profile?
        *[other] Delete { $count } unused profiles?
     }
-whimsy-profiles-delete-unused-confirm-body = Not used by any space: { $names }. Their cookies, site data and saved passwords are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-unused-confirm-body =
+    { $passkeys ->
+        [0] Not used by any space: { $names }. Their cookies, site data, and saved passwords are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+        [one] Not used by any space: { $names }. Their cookies, site data, saved passwords, and 1 passkey are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+       *[other] Not used by any space: { $names }. Their cookies, site data, saved passwords, and { $passkeys } passkeys are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+    }
 whimsy-profiles-delete-unused-confirm-accept =
     { $count ->
         [one] Delete Profile
@@ -8143,3 +8154,56 @@ whimsy-cmdk-dismiss = Dismiss
 whimsy-cmdk-try-again = Try again
 whimsy-cmdk-notify-done = { $task } is done
 whimsy-cmdk-notify-needs-you = { $task } needs you
+
+## W26 passkeys: Whimsy's own Touch ID passkeys (WhimsyPasskeys.sys.mjs).
+## The prompt (one surface, several states) and Settings → Privacy &
+## Security → Passkeys. $site is the validated RP ID (github.com), $profile
+## the Whimsy profile's name, $account the site's display name for the
+## account (else its user name). Sentence case for the buttons: they are in
+## a panel.
+
+whimsy-passkeys-create-title = Save a passkey for { $site }?
+whimsy-passkeys-create-text = You’ll sign in with Touch ID. { -brand-short-name } keeps this passkey on this Mac only, in your { $profile } profile, so keep another way to sign in.
+whimsy-passkeys-signin-title = Sign in to { $site }
+whimsy-passkeys-signin-text = Use Touch ID to sign in as { $account }.
+whimsy-passkeys-choose = Choose an account
+whimsy-passkeys-lid-closed = Touch ID isn’t available while the lid is closed. Your Mac password works instead.
+whimsy-passkeys-no-touch-id = This Mac has no Touch ID. Your Mac password works instead.
+whimsy-passkeys-cancelled = Didn’t sign in. Try again, or use another way.
+whimsy-passkeys-error-title = This passkey can’t be used here
+whimsy-passkeys-error-line = Saved on another Mac, or its key was removed.
+whimsy-passkeys-error-text = Sign in to { $site } another way, then save a new passkey on this Mac. You can delete this one in Settings → Privacy & Security → Passkeys.
+whimsy-passkeys-exists-title = A passkey for { $site } is already saved
+whimsy-passkeys-exists-text = { -brand-short-name } already holds a passkey for { $account } on this Mac. Sign in with it instead of saving another.
+whimsy-passkeys-private-title = Passkeys aren’t saved in private windows
+whimsy-passkeys-private-text = Save the passkey from a normal window, or sign in another way.
+whimsy-passkeys-save =
+    .label = Save with Touch ID
+whimsy-passkeys-continue =
+    .label = Continue with Touch ID
+whimsy-passkeys-password =
+    .label = Use Mac password
+whimsy-passkeys-retry =
+    .label = Try again
+whimsy-passkeys-cancel =
+    .label = Cancel
+whimsy-passkeys-ok =
+    .label = OK
+whimsy-passkeys-security-key = Use a security key
+# The macOS Touch ID sheet's reason: completes “Whimsy is trying to …”.
+whimsy-passkeys-reason-create = save a passkey for { $site }
+whimsy-passkeys-reason-sign = sign in to { $site }
+
+whimsy-passkeys-header = Passkeys
+whimsy-passkeys-description = Passkeys you saved with Touch ID in { -brand-short-name }. They live on this Mac only and aren’t copied to iCloud Keychain, another browser, or another Mac, so keep a second way to sign in to each site. A new Mac means saving them again.
+whimsy-passkeys-empty = No passkeys saved yet.
+whimsy-passkeys-footnote = Passkeys from 1Password and security keys aren’t listed here; those apps keep their own.
+# $date is when it was saved, $when when it was last used (“today”).
+whimsy-passkeys-row-meta = { $account } · { $profile } · Saved { $date } · Last used { $when }
+whimsy-passkeys-row-meta-new = { $account } · { $profile } · Saved { $date }
+whimsy-passkeys-delete =
+    .label = Delete
+    .aria-label = Delete the passkey for { $site }
+whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
+whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
+whimsy-setting-passkeys = Passkeys

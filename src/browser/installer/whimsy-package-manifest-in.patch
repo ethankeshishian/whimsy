@@ -1,0 +1,12 @@
+diff --git a/browser/installer/package-manifest.in b/browser/installer/package-manifest.in
+--- a/browser/installer/package-manifest.in
++++ b/browser/installer/package-manifest.in
+@@ -84,6 +84,8 @@
+ #endif
+ #ifdef XP_MACOSX
+ @BINPATH@/@MOZ_CHILD_PROCESS_NAME@.app/
++; Whimsy: passkeys, the Secure Enclave helper (src/zen/whimsy/passkeys)
++@BINPATH@/whimsy-passkeys.app/
+ @BINPATH@/@MOZ_EME_PROCESS_NAME@.app/
+ @BINPATH@/@MOZ_GPU_PROCESS_NAME@.app/
+ #ifdef NIGHTLY_BUILD

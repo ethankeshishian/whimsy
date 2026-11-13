@@ -201,6 +201,22 @@
   margin: 2px 0 0;
   font-size: 12px;
 }
+/* W26 passkeys: the same rows, with the site's favicon where a profile's
+   colour dot sits, and one Delete at the end. */
+.whimsy-passkeys-list[hidden] {
+  display: none;
+}
+.whimsy-passkey-head {
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+}
+.whimsy-passkey-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+.whimsy-passkey-head > .whimsy-passkey-delete {
+  margin: 0;
+}
 /* The container's own colour, as Firefox draws it on tabs; Default has
    none, so it shows an outline instead. Decorative: the name says it all. */
 .whimsy-profile-dot {

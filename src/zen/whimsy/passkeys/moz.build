@@ -1,0 +1,49 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# W26 passkeys: Whimsy's own Touch ID passkeys, held in this Mac's Secure
+# Enclave. WhimsyPasskeyService is the nsIWebAuthnService WebAuthnService
+# falls back to when Apple's passkey API isn't available to this build
+# (src/dom/webauthn/whimsy-WebAuthnService-h.patch); WhimsyPasskeys.sys.mjs
+# (../) is the front end. The Secure Enclave itself is only reachable from
+# Swift (CryptoKit), so a small helper app is compiled with swiftc and
+# bundled as whimsy-passkeys.app beside plugin-container.app.
+
+XPIDL_SOURCES += [
+    "nsIWhimsyPasskeys.idl",
+]
+
+XPIDL_MODULE = "whimsy_passkeys"
+
+EXPORTS.mozilla += [
+    "WhimsyPasskeyService.h",
+]
+
+UNIFIED_SOURCES += [
+    "WhimsyPasskeyService.cpp",
+]
+
+LOCAL_INCLUDES += [
+    "/dom/webauthn",
+]
+
+include("/ipc/chromium/chromium-config.mozbuild")
+
+FINAL_LIBRARY = "xul"
+
+# The helper: one Swift file, built by helper/build.py, wrapped in an app
+# bundle so the Touch ID sheet names it ("Whimsy is trying to …") and the
+# bundle's signature covers it.
+GeneratedFile(
+    "whimsy-passkeys",
+    script="helper/build.py",
+    entry_point="main",
+    inputs=["helper/main.swift"],
+)
+
+MacOSBundle(
+    f"!/{FINAL_TARGET}/whimsy-passkeys.app",
+    skeleton="helper/macbuild/Contents",
+    binaries=[("!whimsy-passkeys", "whimsy-passkeys")],
+)
