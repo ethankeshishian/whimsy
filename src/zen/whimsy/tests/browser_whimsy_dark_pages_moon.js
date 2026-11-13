@@ -15,6 +15,10 @@ requestLongerTimeout(2);
 // and one click flips the page between dark and original live, no reload.
 add_task(async function moon_toggles_live_without_reload() {
   await SpecialPowers.pushPrefEnv({ set: [[MODE, "off"]] });
+  // A light browser: in a dark one (macOS's automatic appearance after
+  // sunset), a site's own dark theme is already its original look, so the
+  // live change below couldn't be seen.
+  await whimsySetScheme(false);
   const moon = document.getElementById("whimsy-dark-page-button");
   try {
     for (const theme of ["native", "light"]) {
@@ -32,6 +36,7 @@ add_task(async function moon_toggles_live_without_reload() {
         await TestUtils.waitForCondition(() => getComputedStyle(moon).visibility == "visible" &&
           getComputedStyle(moon).opacity == "1", "Hovering the toolbar reveals the moon");
         const before = await colors(browser);
+        ok(!before.scheme, "The browser is light, so the page starts in its light look");
         const windowId = browser.innerWindowID;
         let popups = 0;
         const counter = () => popups++;
@@ -64,6 +69,7 @@ add_task(async function moon_toggles_live_without_reload() {
     }
   } finally {
     gNavToolbox.removeAttribute("zen-has-implicit-hover");
+    await SpecialPowers.popPrefEnv();
     await SpecialPowers.popPrefEnv();
   }
 });
