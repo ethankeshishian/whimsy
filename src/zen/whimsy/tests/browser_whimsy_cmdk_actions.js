@@ -3,11 +3,11 @@
 
 "use strict";
 
-// W26 actions: ⌘K (the real key) with no tabs open and on settings pages is
-// Actions, with the commands that apply there, never the web search; a tab
-// request typed there is still the top row with Undo; a page's rows never
-// show where there's no page; and reader view opens like any page
-// (intake-w26/audit-actions.md).
+// W26 actions: ⌘K (the real key) with no tabs open and on settings pages
+// opens the bar as it always is, in no mode (the owner: no automatic
+// Actions), where a question gets Ask AI and a task the agent's Do this;
+// "/" still enters Actions; a page's rows never show where there's no
+// page; and reader view opens like any page (intake-w26/audit-actions.md).
 
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_cmdbar_ai.js", this);
 
@@ -15,13 +15,8 @@ const { WhimsyVerbs } = ChromeUtils.importESModule("resource:///modules/whimsy/W
 const { WhimsyCommandBarAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommandBarAgent.sys.mjs");
 const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
 
-const YOUTUBE = n => `data:text/html,<title>YouTube - video ${n}</title><p>video ${n}`;
 // Rows that act on a page or a selection: never with no page.
 const PAGE_ONLY = /^(ai:|translate$|copy-markdown$|note$|email$|zap$|pip$|change-page$|ask$|web-search$|cmd:|edit-commands$)/;
-// Whimsy commands that act on a page: never listed with no page (W26 audit).
-const PAGE_COMMANDS = ["Summarize This Page", "Summarize This Video", "Speed Up Video", "Slow Down Video", "Reset Video Speed", "Capture Full Page", "Capture in Portrait Mode", "Edit Text on Page", "Translate Selection", "Save Video to Playlist", "Paste Image to Upload", "Find Options", "Turn Developer Mode On for This Site"];
-// Whimsy commands that act on a tab: never listed with no tab.
-const TAB_COMMANDS = ["Mute Tab", "Rename Tab", "Reveal Tab in Sidebar", "Snooze Tab…", "Snooze Tab Until Tonight"];
 
 add_setup(async function () {
   await setupAI();
@@ -75,20 +70,28 @@ async function results() {
   return out;
 }
 
-/** The checks every no-page context shares (Fix 1 and 2 of the brief). */
-async function expectActions(context) {
-  is(gURLBar.searchMode?.source, UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, `${context}: ⌘K opened Actions mode`);
-  is(WhimsyVerbs.sessions.get(window)?.web, false, `${context}: a session with no page`);
-  const rows = await results();
-  ok(rows.some(r => r.zen), `${context}: at least one action is listed (${rows.length} rows)`);
-  ok(rows.every(r => r.result.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS), `${context}: every row is an action`);
-  ok(!rows.some(r => r.type == UrlbarShared.RESULT_TYPE.SEARCH || r.verb == "web-search"), `${context}: no search or Google rows`);
-  ok(!rows.some(r => r.verb && PAGE_ONLY.test(r.verb)), `${context}: no page or selection rows`);
-  const labels = rows.map(r => r.result.payload.title);
-  const shown = PAGE_COMMANDS.filter(l => labels.includes(l));
-  is(shown.join(", "), "", `${context}: no command that needs a page is listed`);
-  is(labels.filter(l => l == "Next Tab").length, 1, `${context}: Next Tab is listed once`);
-  return rows;
+/**
+ * The checks every no-page context shares (owner, W26): ⌘K opens the bar
+ * as it always is, in no mode (no Actions pill, not Google's search mode),
+ * with no ⌘K session and no page rows.
+ */
+async function expectBar(context) {
+  is(gURLBar.searchMode, null, `${context}: ⌘K opened the bar in no mode`);
+  ok(gURLBar.focused, `${context}: the bar has focus`);
+  ok(!WhimsyVerbs.sessions.get(window), `${context}: no ⌘K session`);
+  ok(!(await results()).some(r => r.verb && PAGE_ONLY.test(r.verb)), `${context}: no page or selection rows`);
+}
+
+/** Typed into the bar ⌘K opened: a question gets Ask, a task Do this. */
+async function expectAskAndAgent(context) {
+  await typeInActions("why is the sky blue?");
+  await TestUtils.waitForCondition(() => askRow(), `${context}: a question gets the Ask AI row`);
+  ok(!rowOf(WhimsyCommandBarAgent.ROW_TYPE), `${context}: and no Do this row`);
+  is(gURLBar.searchMode, null, `${context}: still in no mode`);
+  await typeInActions("book a table for 4 at the cafe on Friday");
+  await TestUtils.waitForCondition(() => rowOf(WhimsyCommandBarAgent.ROW_TYPE), `${context}: a task gets the Do this row`);
+  ok(!askRow(), `${context}: and no Ask AI row beside it`);
+  is(gURLBar.searchMode, null, `${context}: still in no mode`);
 }
 
 async function noTabs() {
@@ -101,84 +104,39 @@ async function noTabs() {
   await TestUtils.waitForCondition(() => gBrowser.selectedTab.hasAttribute("zen-empty-tab"), "Only the space's empty tab is left");
 }
 
-add_task(async function no_tabs_opens_actions_not_google() {
+add_task(async function no_tabs_opens_the_bar() {
   await noTabs();
   await cmdK();
-  const rows = await expectActions("no tabs");
-  const labels = rows.map(r => r.result.payload.title);
-  is(TAB_COMMANDS.filter(l => labels.includes(l)).join(", "), "", "no tabs: no command that needs a tab is listed");
-  // Nothing matches: still no search row, no Ask row.
-  await typeInActions("zzqx");
-  const after = await results();
-  ok(!after.some(r => r.verb || r.type == UrlbarShared.RESULT_TYPE.SEARCH), "no tabs, no match: no Ask or search rows");
+  await expectBar("no tabs");
+  await expectAskAndAgent("no tabs");
   await leaveBar();
   await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
 });
 
-add_task(async function settings_opens_actions_not_google() {
+add_task(async function settings_opens_the_bar() {
   await BrowserTestUtils.withNewTab("about:preferences", async () => {
     await cmdK();
-    await expectActions("settings");
-    await typeInActions("zzqx");
-    const rows = await results();
-    ok(!rows.some(r => r.verb || r.type == UrlbarShared.RESULT_TYPE.SEARCH), "settings, no match: no Ask or search rows");
+    await expectBar("settings");
+    await expectAskAndAgent("settings");
     await leaveBar();
   });
 });
 
-add_task(async function other_privileged_pages_open_actions() {
+add_task(async function other_privileged_pages_open_the_bar() {
   for (const url of ["about:blank", "about:whimsy", "about:about"]) {
     await BrowserTestUtils.withNewTab(url, async () => {
       await cmdK();
-      await expectActions(url);
+      await expectBar(url);
       await leaveBar();
     });
   }
 });
 
-add_task(async function tab_request_on_settings_is_the_top_row_with_undo() {
-  const tabs = [await BrowserTestUtils.openNewForegroundTab(gBrowser, YOUTUBE(1)), await BrowserTestUtils.openNewForegroundTab(gBrowser, YOUTUBE(2))];
-  await BrowserTestUtils.withNewTab("about:preferences", async () => {
-    const before = gBrowser.tabs.length;
-    await cmdK();
-    await typeInActions("close all my youtube tabs");
-    const rows = await results();
-    is(rows[0]?.verb, "typed:tabs-close", "The tab request is the top row on a settings page");
-    is(rows[0].result.payload.title, "Close 2 “youtube” tabs", "and says what will happen");
-    ok(rows[0].element.row.hasAttribute("selected"), "selected, so Enter does it");
-    // W25 designfix (K.3): its hint is ↩ as a key, like Do this; never the
-    // space's name as a tag.
-    const key = rows[0].element.row.querySelector(".whimsy-cmdbar-key");
-    ok(key?.checkVisibility() && key.textContent == "↩", "The top row shows the ↩ key");
-    ok(rows[0].element.row.querySelector(".whimsy-cmdk-tag").hidden, "and no tag");
-    for (const r of rows.filter(r => r.verb?.startsWith("typed:tabs-"))) {
-      is(r.result.payload.tag, "", `${r.verb}: no space tag`);
-      is(r.result.payload.key, "↩", `${r.verb}: the ↩ hint`);
-    }
-    await whimsySettled();
-    await whimsyShot("w25-cmdk-tab-request-light");
-    EventUtils.synthesizeKey("KEY_Enter");
-    await TestUtils.waitForCondition(() => tabs.every(t => !t.isConnected), "Enter closed them");
-    ok(!gURLBar.searchMode, "and left Actions mode");
-    const undo = await TestUtils.waitForCondition(() => document.getElementById("whimsy-undo-toast-button"), "The toast offers Undo");
-    undo.click();
-    await TestUtils.waitForCondition(() => gBrowser.tabs.length == before, "Undo restored them");
-    closeToasts();
-  });
-  for (const t of [...gBrowser.tabs].filter(t => /YouTube/.test(t.label))) {
-    BrowserTestUtils.removeTab(t);
-  }
-});
-
-add_task(async function request_on_settings_gets_do_this() {
+add_task(async function slash_still_enters_actions() {
   await BrowserTestUtils.withNewTab("about:preferences", async () => {
     await cmdK();
-    await typeInActions("book a table for 4 at the cafe on Friday");
-    const row = await TestUtils.waitForCondition(() => rowOf(WhimsyCommandBarAgent.ROW_TYPE), "Do this is up with no page");
-    is(rows()[0], row, "as the top row");
-    ok(row.hasAttribute("selected"), "selected, so Enter does it");
-    const all = await results();
-    ok(!all.some(r => r.verb == "ask" || r.verb == "web-search"), "No Ask or Search with Google rows beside it");
+    EventUtils.sendString("/");
+    await TestUtils.waitForCondition(() => gURLBar.searchMode?.source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS, "\"/\" entered Actions");
     await leaveBar();
   });
 });
