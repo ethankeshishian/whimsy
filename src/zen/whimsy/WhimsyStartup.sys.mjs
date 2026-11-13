@@ -10,6 +10,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   ExtensionPreferencesManager: "resource://gre/modules/ExtensionPreferencesManager.sys.mjs",
+  WhimsyExtensionPins: "resource:///modules/whimsy/WhimsyExtensionPins.sys.mjs",
   WhimsyLibrarySection: "resource:///modules/whimsy/WhimsyLibrarySection.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
@@ -85,6 +86,13 @@ export class WhimsyStartup {
     // History's Closed filter before any window builds its Library.
     lazy.WhimsyLibrarySection.migratePrefs();
     clearRetiredPrefs();
+    // W26 extpin: note which extension buttons were already pinned before
+    // Whimsy stopped pinning them by default, before any extension starts.
+    try {
+      lazy.WhimsyExtensionPins.snapshotAtStartup();
+    } catch (e) {
+      console.error("Whimsy: extension pin snapshot", e);
+    }
     // wave7/folders: Jira, Linear and Local Servers live folders register
     // before the first window's delayed startup runs Zen's live-folder
     // restore, so they come back after a restart.

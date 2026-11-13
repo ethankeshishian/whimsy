@@ -73,6 +73,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyEmojiChild.sys.mjs",
     "WhimsyEmojiFrequent.sys.mjs",
     "WhimsyEmojiIndex.sys.mjs",
+    "WhimsyExtensionPins.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
     "WhimsyFaviconHome.sys.mjs",
     "WhimsyFilesSection.sys.mjs",

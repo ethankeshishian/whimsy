@@ -69,6 +69,11 @@ async function loadPinnedExtension(area = "navbar") {
   });
   await extension.startup();
   await extension.awaitMessage("ready");
+  // W26 extpin: a manifest's "navbar" no longer pins the button by itself;
+  // it's pinned the way the user pins it (Pin to Toolbar).
+  if (area == "navbar") {
+    CustomizableUI.addWidgetToArea(WIDGET_ID, CustomizableUI.AREA_NAVBAR);
+  }
   return extension;
 }
 
