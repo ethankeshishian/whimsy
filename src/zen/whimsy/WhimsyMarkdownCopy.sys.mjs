@@ -39,8 +39,9 @@ export const WhimsyMarkdownCopy = {
     if (!uri || !COPYABLE_SCHEMES.has(uri.scheme)) {
       return false;
     }
-    // about: pages other than Reader View are the browser's own.
-    return uri.scheme != "about" || uri.spec.startsWith("about:reader?");
+    // about: pages other than Reader View are the browser's own, and so
+    // is an error page in place of the site (W26 audit 17).
+    return (uri.scheme != "about" || uri.spec.startsWith("about:reader?")) && !lazy.WhimsyCommands.isErrorPage(browser);
   },
 
   // Converts in the page and copies. `selection`: true, false or "auto".

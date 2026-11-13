@@ -329,10 +329,11 @@ function translationRestricted(win) {
   }
 }
 
+// A page with content to act on (WhimsyCommands.hasPage): never a
+// settings page, and never a "Problem loading page", where only the
+// address commands apply (W26 audit 17).
 function isWebPage(win) {
-  const tab = win?.gBrowser?.selectedTab;
-  const spec = tab?.linkedBrowser?.currentURI?.spec ?? "";
-  return !!tab?.linkedPanel && !tab.hasAttribute("zen-empty-tab") && /^(https?|file):|^about:reader/.test(spec);
+  return lazy.WhimsyCommands.hasPage(win);
 }
 
 // The workspace slug of the person's Linear, for its search page: from any
@@ -1079,22 +1080,25 @@ export const WhimsyVerbs = {
   },
 
   /**
-   * W26: ⌘K with no page to act on (an empty space, a settings or other
-   * privileged page) is still Actions: the commands that apply there
-   * (Zen's list, through its own provider), a tab request typed in, and
-   * the ⌘K agent's row. Never the web search, and no page rows.
+   * ⌘K with no page to act on (no tabs, a settings or other privileged
+   * page, a "Problem loading page"): the bar as it always is, empty and
+   * in no mode (owner, W26: no Actions pill there). Its own providers
+   * fill it: the web search, open tabs, Ask AI, the ⌘K agent's row, and
+   * Zen's actions that apply on this screen. "/" still enters Actions.
    */
-  emptySubject(win) {
-    const tab = win.gBrowser?.selectedTab;
-    const url = tab?.linkedBrowser?.currentURI?.spec ?? "";
-    return { kind: "page", web: false, text: "", markdown: "", url, title: tab?.label ?? "", event: null, groups: [] };
+  openBar(win) {
+    const urlbar = win.gURLBar;
+    urlbar.searchMode = null;
+    urlbar.select();
+    urlbar.value = "";
+    urlbar.startQuery({ allowAutofill: false, event: new win.Event("command") });
   },
 
   /**
    * Cmd+K: with text selected, its verbs (Search first); otherwise exactly
    * Firefox's Cmd+K, the web search. With AI on in a normal tab, the
    * context-aware menu (WhimsyContextCommands), selection or not. With
-   * no page at all (W26), Actions with what applies there.
+   * no page at all, the bar in no mode (openBar).
    */
   async openFromKey(win, { textOnly = false } = {}) {
     if (!this.enabled) {
@@ -1103,9 +1107,8 @@ export const WhimsyVerbs = {
     }
     const subject = await this.subjectFor(win);
     if (!subject) {
-      const empty = this.emptySubject(win);
-      await this.start(win, empty);
-      return empty;
+      this.openBar(win);
+      return null;
     }
     const aware = contextOn(win);
     if (subject.kind != "selection" && !aware) {
@@ -1133,17 +1136,12 @@ export const WhimsyVerbs = {
   },
 
   /**
-   * The urlbar priority of the window's ⌘K session: 10 on a page (the
-   * verbs are the bar's only rows), 0 with no page (Zen's actions list
-   * beside them), and null with no session. The ⌘K agent's provider
+   * The urlbar priority of the window's ⌘K session: 10 (the verbs are the
+   * bar's only rows), and null with no session. The ⌘K agent's provider
    * matches it so its row can lead in Actions mode.
    */
   sessionPriority(win) {
-    const subject = win && this.sessions.get(win);
-    if (!subject) {
-      return null;
-    }
-    return subject.web === false ? 0 : 10;
+    return win && this.sessions.get(win) ? 10 : null;
   },
 
   /**
@@ -1581,8 +1579,7 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
   }
 
   // Above Zen's actions (0) and recent tabs (2): while a verb session is
-  // on, the bar lists only the verbs. With no page (W26) there are no
-  // verbs: Zen's actions list alongside, at its own priority.
+  // on, the bar lists only the verbs.
   getPriority() {
     return WhimsyVerbs.sessionPriority(this.#session()?.win) ?? 10;
   }
@@ -1706,9 +1703,8 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
       addCallback(this, this.#result(subject, row, { id: "whimsy-cmdk-group-commands" }, first && !row.unavailable));
       first &&= !!row.unavailable;
     }
-    // A tab request is understood: nothing else to offer. With no page
-    // (W26) there's nothing to ask about, and never the web search.
-    if (typed.length || subject.web === false) {
+    // A tab request is understood: nothing else to offer.
+    if (typed.length) {
       return;
     }
     const search = { id: "web-search", icon: `${ICONS}search-glass.svg`, label: text, tag: lazy.l10n.formatValueSync("whimsy-cmdk-search-with", { engine: subject.engineName || defaultEngineName(win) }) };
