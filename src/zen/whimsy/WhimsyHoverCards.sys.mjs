@@ -250,6 +250,9 @@ export const WhimsyHoverCards = {
         deltaY: event.deltaY,
         deltaZ: event.deltaZ,
         deltaMode: event.deltaMode,
+        // Ctrl or Cmd: the page zooms, as the wheel would have done there.
+        modifiers:
+          (event.altKey ? 0x01 : 0) | (event.ctrlKey ? 0x02 : 0) | (event.shiftKey ? 0x04 : 0) | (event.metaKey ? 0x08 : 0),
       });
     } catch {
       // Not a web page, or its process is already gone.
@@ -617,6 +620,9 @@ class HostPointer {
     panel.addEventListener("popupshown", this);
     panel.addEventListener("popuphidden", this);
     panel.addEventListener("wheel", this, { passive: true });
+    // A pinch that starts on the card zooms the page, not the card: the
+    // card goes so the rest of the gesture reaches the page.
+    panel.addEventListener("MozMagnifyGestureStart", this);
   }
 
   get holdsWheel() {
@@ -645,6 +651,9 @@ class HostPointer {
         break;
       case "wheel":
         this.wheel(event);
+        break;
+      case "MozMagnifyGestureStart":
+        this.hooks.close?.();
         break;
     }
   }
@@ -702,7 +711,10 @@ class HostPointer {
 
   wheel(event) {
     const now = Date.now();
-    if (this.scrollerFor(event) || now - this.cardRunAt < WHEEL_RUN_MS) {
+    // Ctrl or Cmd with the wheel zooms the page (as does a pinch on some
+    // trackpads): never the card's to keep.
+    const zoom = event.ctrlKey || event.metaKey;
+    if (!zoom && (this.scrollerFor(event) || now - this.cardRunAt < WHEEL_RUN_MS)) {
       this.cardRunAt = now;
       return;
     }

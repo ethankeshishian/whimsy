@@ -466,10 +466,11 @@ async function whimsyNativeWheel(screenX, screenY, deltaY, win = window) {
 
 // The window's own synthesized wheel at a point on screen (CSS px): it goes
 // to whatever takes the mouse there, a popup that does or the page under it.
-async function whimsyWheelAt(screenX, screenY, deltaY, win = window) {
+// `modifiers`: { ctrlKey, metaKey, ... } for a zooming wheel.
+async function whimsyWheelAt(screenX, screenY, deltaY, win = window, modifiers = {}) {
   await new Promise(resolve =>
     EventUtils.synthesizeWheel(win.document.documentElement, screenX - win.mozInnerScreenX, screenY - win.mozInnerScreenY,
-      { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY }, win, resolve)
+      { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY, ...modifiers }, win, resolve)
   );
 }
 

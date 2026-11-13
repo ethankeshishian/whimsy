@@ -246,6 +246,50 @@ add_task(async function page_scrolls_under_an_open_card() {
   }
 });
 
+// Zooming (Ctrl with the wheel; a trackpad pinch goes through the same
+// rollup check in nsCocoaWindow, which the card's popup no longer has)
+// reaches the page with a card open, and from over the card itself.
+add_task(async function page_zooms_with_a_card_open() {
+  await SpecialPowers.pushPrefEnv({ set: [["browser.zoom.siteSpecific", false]] });
+  const restore = stubAI(true);
+  try {
+    await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
+      await tallPage(browser);
+      const zoom = () => ZoomManager.getZoomForBrowser(browser);
+      const zooms = async (what, wheel) => {
+        const before = zoom();
+        await wheel();
+        await TestUtils.waitForCondition(() => zoom() != before, `${what}: the page zooms`);
+      };
+
+      let p = await hoverLinkCard(browser, { loading: true });
+      const box = browser.getBoundingClientRect();
+      await zooms("Ctrl and the wheel over the page, the card loading", () =>
+        whimsyWheelAt(window.mozInnerScreenX + box.right - 60, window.mozInnerScreenY + box.bottom - 60, -1, window, { ctrlKey: true })
+      );
+      FullZoom.reset(browser);
+      await TestUtils.waitForCondition(() => zoom() == 1, "Zoom back to 100%");
+
+      // Over the card: it isn't the card's to scroll; the page zooms.
+      p = await hoverLinkCard(browser, { loading: true });
+      const card = p.querySelector(".whimsy-link-hover-card");
+      EventUtils.synthesizeMouseAtCenter(card, { type: "mousemove" });
+      await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
+      await zooms("Ctrl and the wheel over the card", () =>
+        whimsyWheelAt(cardRect(p).x + 20, cardRect(p).y + 20, -1, window, { ctrlKey: true })
+      );
+      await closed();
+      FullZoom.reset(browser);
+      await TestUtils.waitForCondition(() => zoom() == 1, "Zoom back to 100%");
+    });
+  } finally {
+    host.hide({ animate: false });
+    await closed();
+    restore();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // While the page underneath is still loading.
 add_task(async function page_scrolls_under_a_card_while_loading() {
   const restore = stubAI(true);

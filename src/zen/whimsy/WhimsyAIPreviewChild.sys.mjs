@@ -317,7 +317,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
 
   // A wheel event over a hover card that the card didn't take (it was at
   // its end): replayed on the page underneath, as the card closes.
-  scrollBy({ screenX, screenY, deltaX, deltaY, deltaZ, deltaMode }) {
+  scrollBy({ screenX, screenY, deltaX, deltaY, deltaZ, deltaMode, modifiers = 0 }) {
     const win = this.contentWindow;
     const utils = win?.windowUtils;
     if (!utils) {
@@ -329,7 +329,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     const whole = delta => (deltaMode == 0 ? 0 : Math.trunc(delta));
     const lineOrPageDeltaX = whole(deltaX);
     const lineOrPageDeltaY = whole(deltaY);
-    utils.sendWheelEvent(x, y, deltaX, deltaY, deltaZ, deltaMode, 0, lineOrPageDeltaX, lineOrPageDeltaY, 0);
+    utils.sendWheelEvent(x, y, deltaX, deltaY, deltaZ, deltaMode, modifiers & 0x0f, lineOrPageDeltaX, lineOrPageDeltaY, 0);
   }
 
   onOver(event) {
