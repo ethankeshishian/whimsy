@@ -459,7 +459,7 @@ async function whimsyNativeWheel(screenX, screenY, deltaY, win = window) {
     utils.sendNativeMouseScrollEvent(
       Math.round(screenX * scale), Math.round(screenY * scale),
       0, 0, deltaY, 0, 0, utils.MOUSESCROLL_SCROLL_LINES,
-      win.document.documentElement, { observe: () => resolve() }
+      win.document.documentElement, { onCompleteDispatch: () => resolve() }
     )
   );
 }
