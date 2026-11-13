@@ -87,6 +87,8 @@ export const WhimsySurface = {
    * @param {boolean} [o.closeOnOutsideClick] - default true; false = noautohide
    * @param {string} [o.className] - extra class(es) on the panel
    * @param {Function} [o.onEscape] - return true when it handled Esc itself
+   * @param {boolean} [o.pageEscape] - default true; false = Esc pressed
+   *   outside the surface stays with the page
    * @param {Function} [o.onShown]
    * @param {Function} [o.onHidden]
    * @param {Element|Function|false} [o.initialFocus] - focused on popupshown
@@ -157,7 +159,7 @@ export const WhimsySurface = {
 
     panel.addEventListener("keydown", event => this._onKeyDown(panel, event, o));
     const onWindowKey = event => {
-      if (event.key != "Escape" || event.defaultPrevented || panel.state != "open") {
+      if (o.pageEscape === false || event.key != "Escape" || event.defaultPrevented || panel.state != "open") {
         return;
       }
       // A surface opened from a shortcut or the command bar: focus may

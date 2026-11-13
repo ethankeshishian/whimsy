@@ -38,19 +38,19 @@
   }
 }
 
+/* A row's description: the command bar's one secondary line, as the ⌘K
+   agent rows show it (.whimsy-cmdk-row-detail, whimsy-cmdbar-ai.css): 12px
+   in the muted colour beside the 14px title, with no joiner. Selected
+   rows take the on-accent colour (whimsy-browser.css). */
 .whimsy-cmdk-detail {
   flex: 1 1 auto;
   min-width: 0;
+  margin-inline-start: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--whimsy-ask-text-2);
-
-  &::before {
-    content: "—";
-    margin-inline: 6px;
-    color: var(--whimsy-ask-muted);
-  }
+  font-size: 12px;
+  color: var(--whimsy-ask-muted);
 }
 
 .whimsy-cmdk-tag {
@@ -152,4 +152,14 @@
   button[disabled] {
     opacity: 0.45;
   }
+}
+
+/* A verb row's key hint (a tab request's ↩, K.3) sits at the row's end,
+   after its tag when there is one, like the ⌘K agent's rows. */
+.urlbarView-row .whimsy-cmdk-row-key {
+  flex: none;
+  margin-inline-start: auto;
+}
+.urlbarView-row .whimsy-cmdk-tag:not([hidden]) + .whimsy-cmdk-row-key {
+  margin-inline-start: 0;
 }

@@ -143,3 +143,101 @@ add_task(async function reduced_motion_is_only_a_fade() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// W25 designfix: ⌘S (Hide Sidebar, Zen's compact-mode toggle) and ⌘E (chat)
+// must move identically. Both read the same tokens, so the animations each
+// key starts must have equal duration, easing, and delay, both ways.
+function pressShortcut(id) {
+  const key = document.getElementById(id);
+  ok(key, `${id} is bound`);
+  const mods = key.getAttribute("modifiers") || "";
+  EventUtils.synthesizeKey(key.getAttribute("key").toLowerCase(), {
+    accelKey: /accel/.test(mods),
+    shiftKey: /shift/.test(mods),
+    altKey: /alt/.test(mods),
+    ctrlKey: /control/.test(mods),
+  });
+}
+
+// Records every Web Animation started on `el` until stop() is called.
+function recordAnimations(el) {
+  const seen = [];
+  el.animate = function (...args) {
+    const anim = Element.prototype.animate.apply(this, args);
+    seen.push(anim);
+    return anim;
+  };
+  return { seen, stop: () => delete el.animate };
+}
+
+add_task(async function cmd_s_and_cmd_e_share_one_motion() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["zen.view.compact.animate-sidebar", true],
+      ["zen.view.compact.hide-tabbar", true],
+      ["zen.view.compact.enable-at-startup", false],
+    ],
+  });
+  await closeChat();
+  // Zen skips the animation over an empty tab (the sidebar stays shown for
+  // it) and on the first toggle after startup; neither is what's measured.
+  const page = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  registerCleanupFunction(() => {
+    if (page.isConnected) {
+      BrowserTestUtils.removeTab(page);
+    }
+  });
+  delete gZenCompactModeManager._wasInCompactMode;
+  const motion = chat().panelMotion();
+  const sidebar = gZenCompactModeManager.sidebar;
+  const timings = {};
+  const sidebarStep = async (name, wantCompact) => {
+    const rec = recordAnimations(sidebar);
+    try {
+      pressShortcut("zen-compact-mode-toggle");
+      await TestUtils.waitForCondition(() => gZenCompactModeManager.preference == wantCompact, `⌘S ${name}`);
+      const slide = () => rec.seen.filter(a => a.effect.getKeyframes().some(k => "marginLeft" in k || "marginRight" in k));
+      await TestUtils.waitForCondition(() => slide().length, `⌘S ${name} animates the sidebar`);
+      timings[`s-${name}`] = slide().map(a => a.effect.getTiming());
+      await TestUtils.waitForCondition(() => !document.documentElement.hasAttribute("zen-compact-animating"), "Sidebar settled");
+    } finally {
+      rec.stop();
+    }
+  };
+  const chatStep = async (name, wantOpen) => {
+    const recs = [recordAnimations(chat().el), recordAnimations(chat().panel)];
+    try {
+      pressShortcut("key_cmd_whimsyChatToggle");
+      await TestUtils.waitForCondition(() => chat().isOpen == wantOpen, `⌘E ${name}`);
+      await TestUtils.waitForCondition(() => recs.some(r => r.seen.length), `⌘E ${name} animates the panel`);
+      timings[`e-${name}`] = recs.flatMap(r => r.seen).map(a => a.effect.getTiming());
+    } finally {
+      recs.forEach(r => r.stop());
+    }
+    await settle();
+  };
+
+  await sidebarStep("hide", true);
+  await whimsyBothSchemes("w25-cmd-s-sidebar-hidden", async () => {});
+  await sidebarStep("show", false);
+  await chatStep("show", true);
+  await whimsyBothSchemes("w25-cmd-e-chat-open", async () => {});
+  await chatStep("hide", false);
+
+  for (const dir of ["show", "hide"]) {
+    const want = dir == "show" ? motion.in : motion.out;
+    for (const key of ["s", "e"]) {
+      const list = timings[`${key}-${dir}`];
+      ok(list?.length, `⌘${key.toUpperCase()} ${dir} ran animations`);
+      for (const t of list) {
+        is(t.duration, want.duration, `⌘${key.toUpperCase()} ${dir}: the shared duration`);
+        ok(sameEasing(t.easing, want.easing), `⌘${key.toUpperCase()} ${dir}: the shared easing (${t.easing})`);
+        is(t.delay, 0, `⌘${key.toUpperCase()} ${dir}: no delay`);
+      }
+    }
+  }
+  if (page.isConnected) {
+    BrowserTestUtils.removeTab(page);
+  }
+  await SpecialPowers.popPrefEnv();
+});

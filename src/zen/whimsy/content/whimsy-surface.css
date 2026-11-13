@@ -14,7 +14,8 @@
    someone else's panel (This Site in Zen's site panel). */
 panel.whimsy-surface,
 .whimsy-surface-tokens,
-#ctrlTab-panel[whimsy-look] {
+#ctrlTab-panel[whimsy-look],
+#urlbar[whimsy-emoji-open] {
   --whimsy-surface-muted: color-mix(in srgb, currentColor 62%, transparent);
   --whimsy-surface-track: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
   --whimsy-surface-hover: var(--panel-item-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
@@ -143,7 +144,11 @@ panel.whimsy-surface {
   overflow: hidden;
 }
 
-/* Segmented: equal choices over a track, a thumb slides to the pick. */
+/* Segmented: equal choices over a track, a thumb slides to the pick.
+   W25 designfix: a label is never clipped or ellipsed. Each segment keeps
+   its content's (bold) width as its minimum, the 1fr columns make every
+   segment as wide as the widest, and a control that isn't stretched sizes
+   to its content; when space is tight, the row around it gives way. */
 .whimsy-surface-seg {
   position: relative;
   flex-shrink: 0;
@@ -181,7 +186,6 @@ panel.whimsy-surface {
   position: relative;
   display: grid;
   place-items: center;
-  min-width: 0;
   min-height: 28px;
   margin: 0;
   padding: 4px 6px;
@@ -213,8 +217,7 @@ panel.whimsy-surface {
 .whimsy-surface-segment-label,
 .whimsy-surface-segment-ghost {
   grid-area: 1 / 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .whimsy-surface-segment-ghost {
   visibility: hidden;
@@ -224,7 +227,7 @@ panel.whimsy-surface {
   font-weight: 600;
 }
 .whimsy-surface-seg-small {
-  width: 132px;
+  width: max-content;
   & > .whimsy-surface-segment {
     min-height: 20px;
     padding: 1px 4px;

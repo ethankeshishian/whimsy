@@ -307,6 +307,19 @@ add_task(async function unavailable_greyed_with_reason() {
     const row = rows.find(r => r.id == "ai:summarize-page");
     ok(row?.off, "Summarize page shows greyed");
     is(row.detail, "There’s no text here to summarize.", "with the reason");
+    // W25 designfix: a row's description is the bar's one secondary line:
+    // no larger than the title, in the muted token, with no joiner.
+    const detail = row.element.row.querySelector(".whimsy-cmdk-detail");
+    const title = row.element.row.querySelector(".urlbarView-title");
+    Assert.lessOrEqual(parseFloat(getComputedStyle(detail).fontSize), parseFloat(getComputedStyle(title).fontSize), "The description is no larger than the title");
+    const probe = document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    probe.style.color = "var(--whimsy-ask-muted)";
+    detail.parentElement.append(probe);
+    is(getComputedStyle(detail).color, getComputedStyle(probe).color, "...in the secondary (muted) colour");
+    probe.remove();
+    is(getComputedStyle(detail, "::before").content, "none", "No em-dash joiner");
+    await whimsySettled();
+    await whimsyShot("w25-cmdbar-row-description-light");
     ok(!row.element.row.querySelector("[selectable]") && !row.element.row.hasAttribute("row-selectable"), "and can't be selected");
     ok(rows.some(r => r.id == "web-search"), "Search is still there");
     await closeBar();
@@ -337,4 +350,129 @@ add_task(async function ai_off_and_private_unchanged() {
     WhimsyPrivate.isPrivateTab = real;
     BrowserTestUtils.removeTab(tab);
   }
+});
+
+// W25 designfix: the Actions chip, the selected row, and the key tag on it
+// all take one accent token pair (--whimsy-accent-fill under
+// --whimsy-on-accent), which must clear WCAG AA in both themes.
+function srgb(color) {
+  const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data];
+}
+function luminance([r, g, b]) {
+  const lin = c => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+function contrast(fg, bg) {
+  const [a, b] = [luminance(srgb(fg)), luminance(srgb(bg))].sort((x, y) => y - x);
+  return (a + 0.05) / (b + 0.05);
+}
+// The nearest painted (opaque) background behind `el`.
+function backgroundOf(el) {
+  for (let node = el; node; node = node.parentElement) {
+    const bg = getComputedStyle(node).backgroundColor;
+    if (srgb(bg)[3] == 255) {
+      return bg;
+    }
+  }
+  return "white";
+}
+
+add_task(async function accent_pills_and_selected_rows_meet_aa() {
+  await withPage(PAGE("field"), async browser => {
+    await select(browser, "field");
+    for (const dark of [false, true]) {
+      await whimsySetScheme(dark);
+      try {
+        await cmdK();
+        const rows = await shown();
+        const title = document.getElementById("urlbar-search-mode-indicator-title");
+        await TestUtils.waitForCondition(() => title.textContent == "Actions", "The Actions chip");
+        const chip = document.getElementById("urlbar-search-mode-indicator");
+        const selected = rows[0].element.row ?? rows[0].element;
+        const row = selected.closest(".urlbarView-row");
+        await TestUtils.waitForCondition(() => row.hasAttribute("selected"), "The first row is selected");
+        const tag = row.querySelector(".whimsy-cmdk-tag");
+        const scheme = dark ? "dark" : "light";
+        for (const [name, el] of [["Actions chip", title], ["selected row title", row.querySelector(".urlbarView-title")], ["its key tag", tag]]) {
+          ok(el, `${name} is there`);
+          const ratio = contrast(getComputedStyle(el).color, backgroundOf(el));
+          Assert.greaterOrEqual(ratio, 4.5, `${scheme}: ${name} contrast is ${ratio.toFixed(2)}:1`);
+        }
+        is(srgb(getComputedStyle(chip).backgroundColor).join(), srgb(getComputedStyle(row).backgroundColor).join(), `${scheme}: the chip and the selected row share one accent fill`);
+        await whimsySettled();
+        await whimsyShot(`w25-cmdbar-contrast-${scheme}`);
+        await closeBar();
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+  });
+});
+
+// W25 designfix, part of the truncation guard: with a very long query, a
+// row's hint (Firefox's action text, a verb row's tag such as "Search with
+// Google", or a key) keeps its full text inside the row's padding box and
+// never overlaps the title, which ellipses instead. In the plain bar and in
+// Actions mode.
+async function checkHints(where) {
+  let checked = 0;
+  for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+    const { element } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+    const inner = element.row.querySelector(".urlbarView-row-inner") ?? element.row;
+    const title = inner.querySelector(".urlbarView-title");
+    for (const hint of inner.querySelectorAll(".urlbarView-action, .whimsy-cmdk-tag, .whimsy-cmdbar-key")) {
+      if (!hint.textContent.trim() || !hint.checkVisibility() || !title) {
+        continue;
+      }
+      checked++;
+      const name = hint.textContent.trim();
+      ok(hint.scrollWidth <= hint.clientWidth, `${where}: "${name}" isn't truncated`);
+      const box = inner.getBoundingClientRect();
+      const end = box.right - parseFloat(getComputedStyle(inner).paddingRight);
+      const a = hint.getBoundingClientRect();
+      Assert.lessOrEqual(a.right, end + 0.5, `${where}: "${name}" sits inside the row's padding box`);
+      Assert.greaterOrEqual(a.left, title.getBoundingClientRect().right - 0.5, `${where}: "${name}" doesn't overlap the title`);
+    }
+  }
+  Assert.greater(checked, 0, `${where}: at least one row shows a hint`);
+}
+
+const LONG_QUERY = ("what does wikipedia say about the history of the transcontinental railroad and the " +
+  "workers who built it across the sierra nevada mountains in the winter of eighteen sixty six ").repeat(2).slice(0, 200);
+
+async function inSchemes(fn) {
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    try {
+      await fn(dark ? "dark" : "light");
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+add_task(async function long_query_keeps_key_hints_whole() {
+  await inSchemes(async scheme => {
+    await withPage(PAGE("empty"), async () => {
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: LONG_QUERY });
+      await checkHints(`plain bar, ${scheme}`);
+      await whimsySettled();
+      await whimsyShot(`w25-cmdbar-long-query-${scheme}`);
+      gURLBar.view.close();
+      gURLBar.handleRevert();
+    });
+    await withPage(PAGE("article"), async () => {
+      await cmdK();
+      await type(LONG_QUERY);
+      await checkHints(`Actions mode, ${scheme}`);
+      await whimsySettled();
+      await whimsyShot(`w25-cmdbar-long-query-actions-${scheme}`);
+      await closeBar();
+    });
+  });
 });

@@ -744,11 +744,19 @@ function renderSaved(doc, msg, ctx) {
     // W24 memexpand: a labelled action that opens a list in place (so far
     // only "Used N memories") gets the shared disclosure chevron, and
     // starts collapsed.
-    actions.append(action.labelled
+    // W25 designfix: that disclosure is the chat's one disclosure
+    // (.whimsy-agent-disclose): chevron before the label, no icon.
+    actions.append(action.labelled && action.disclosure
       ? h(doc, "button", {
-        class: `whimsy-chat-btn whimsy-chat-btn-labelled${action.disclosure ? " whimsy-chat-disclosure" : ""}`,
+        class: "whimsy-agent-disclose whimsy-chat-disclosure",
         "data-action": action.id,
-        "aria-expanded": action.disclosure ? "false" : null,
+        "aria-expanded": "false",
+        onclick: run,
+      }, h(doc, "span", { l10n }))
+      : action.labelled
+      ? h(doc, "button", {
+        class: "whimsy-chat-btn whimsy-chat-btn-labelled",
+        "data-action": action.id,
         onclick: run,
       }, icon(doc, action.icon), h(doc, "span", { l10n }))
       : h(doc, "button", { class: "whimsy-chat-btn", l10n, "data-action": action.id, onclick: run }, icon(doc, action.icon)));

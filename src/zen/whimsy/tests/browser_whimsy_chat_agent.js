@@ -549,3 +549,80 @@ add_task(async function primary_buttons_readable_light_and_dark() {
   });
   await closeAll(tab);
 });
+
+// W25 designfix: "Backgro…". The Drive/Background switch had a fixed width
+// (170px, 150px in a narrow window) and ellipsed labels, so the bold
+// "Background" was cut at every panel width. No segment label may clip, at
+// the narrowest, default, or widest panel, in either state.
+async function atPanelWidth(width) {
+  if (width == null) {
+    Services.prefs.clearUserPref("whimsy.chat.width");
+  } else {
+    Services.prefs.setIntPref("whimsy.chat.width", width);
+  }
+  chat().layout();
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+
+// Control labels (buttons, segments, tabs) that hold their own text,
+// measured on the nearest box that can clip it (an inline span has no client
+// box of its own). A page title may ellipse by design; a control's label may
+// not.
+function clippedLabels(root) {
+  const out = [];
+  const controls = "button, [role='button'], [role='radio'], [role='tab'], [role='menuitem']";
+  for (const node of root.querySelectorAll(`:is(${controls}), :is(${controls}) *`)) {
+    const text = [...node.childNodes].filter(n => n.nodeType == Node.TEXT_NODE).map(n => n.data).join("").trim();
+    if (!text || !node.checkVisibility({ visibilityProperty: true })) {
+      continue;
+    }
+    let box = node;
+    while (box != root && getComputedStyle(box).display == "inline") {
+      box = box.parentElement;
+    }
+    if (box.scrollWidth > box.clientWidth) {
+      out.push(`${node.className || node.localName}: "${text}" (${box.scrollWidth} > ${box.clientWidth})`);
+    }
+  }
+  return out;
+}
+
+add_task(async function mode_switch_labels_never_clip() {
+  await fresh();
+  const tab = await openOn();
+  const seg = () => part(".whimsy-chat-model-end .whimsy-agent-mode");
+  ok(seg(), "The switch is shown");
+  const widest = Math.floor(window.innerWidth / 2);
+  for (const [name, width] of [["narrowest", 320], ["default", null], ["widest", widest]]) {
+    await atPanelWidth(width);
+    for (const mode of ["drive", "background"]) {
+      Services.prefs.setStringPref(MODE, mode);
+      await TestUtils.waitForCondition(() => seg().querySelector("[aria-checked='true']")?.dataset.mode == mode, `${mode} selected`);
+      for (const label of seg().querySelectorAll(".whimsy-agent-segment-label")) {
+        await TestUtils.waitForCondition(() => label.textContent.trim(), "The label is translated");
+        ok(label.scrollWidth <= label.clientWidth, `${name}, ${mode} on: "${label.textContent}" fits (${label.scrollWidth} <= ${label.clientWidth})`);
+        is(getComputedStyle(label).textOverflow, "clip", `${name}, ${mode} on: "${label.textContent}" is never ellipsed`);
+        const button = label.closest(".whimsy-agent-segment");
+        ok(button.scrollWidth <= button.clientWidth, `${name}, ${mode} on: its segment holds it`);
+      }
+      const [a, b] = [...seg().querySelectorAll(".whimsy-agent-segment")].map(s => s.getBoundingClientRect().width);
+      ok(Math.abs(a - b) < 1, `${name}, ${mode} on: both segments are as wide as the widest (${a}, ${b})`);
+    }
+    await whimsyBothSchemes(`w25-agent-mode-${name}`, async () => {});
+  }
+  Services.prefs.clearUserPref(MODE);
+  await atPanelWidth(null);
+  await closeAll(tab);
+});
+
+// The general guard: no visible control label in the chat panel's header or
+// model line (where the switch sits) is truncated at the default width.
+add_task(async function chat_header_labels_never_truncate() {
+  await fresh();
+  const tab = await openOn();
+  await atPanelWidth(null);
+  for (const root of [chat().header, chat().modelRow].filter(Boolean)) {
+    is(clippedLabels(root).join("; "), "", `Nothing in ${root.className || root.id} is truncated`);
+  }
+  await closeAll(tab);
+});

@@ -9,7 +9,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   JSONFile: "resource://gre/modules/JSONFile.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyMenuPrefs: "resource:///modules/whimsy/WhimsyMenuPrefs.sys.mjs",
-  WhimsyNotesSection: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyNotes: "resource:///modules/whimsy/WhimsyNotesSection.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
@@ -20,7 +21,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const PREF_ENABLED = "whimsy.feature.annotations";
 const PREF_COLOR = "whimsy.annotations.color";
 const STORE_FILENAME = "whimsy-annotations.json";
-const STYLE_ID = "whimsy-annotations-chrome-style";
 const BUTTON_ID = "whimsy-annotations-button";
 const POPOVER_ID = "whimsy-annotation-popover";
 const PAGE_PANEL_ID = "whimsy-annotations-page-panel";
@@ -42,365 +42,6 @@ const COLOR_LABELS = Object.freeze({
   pink: "Pink",
 });
 
-const CHROME_CSS = `
-#${BUTTON_ID} {
-  -moz-context-properties: fill, fill-opacity;
-  fill: currentColor;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  padding-inline: 5px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-#${BUTTON_ID}[hidden] {
-  display: none !important;
-}
-#${BUTTON_ID}:hover {
-  background-color: var(--urlbar-box-hover-bgcolor, rgba(128, 128, 142, 0.14));
-}
-#${BUTTON_ID}[open="true"] {
-  background-color: light-dark(rgba(79, 70, 229, 0.12), rgba(129, 140, 248, 0.18));
-  color: light-dark(#4f46e5, #818cf8);
-}
-#${BUTTON_ID} .whimsy-annotations-button-icon {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-#${BUTTON_ID} .whimsy-annotations-button-icon svg {
-  width: 14px;
-  height: 14px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-#${BUTTON_ID} .whimsy-annotations-button-count {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  padding: 1px 4px;
-  border-radius: 999px;
-  background-color: light-dark(rgba(234, 179, 8, 0.22), rgba(250, 204, 21, 0.22));
-  color: light-dark(#854d0e, #fde047);
-}
-
-#${POPOVER_ID} .whimsy-surface-view,
-#${PAGE_PANEL_ID} .whimsy-surface-view {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.whimsy-annotation-quote {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--whimsy-surface-muted, light-dark(#52525b, #a1a1aa));
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: light-dark(rgba(0, 0, 0, 0.03), rgba(255, 255, 255, 0.04));
-  border-left: 3px solid #eab308;
-  max-height: 60px;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-}
-.whimsy-annotation-quote[data-color="yellow"] {
-  border-left-color: light-dark(#eab308, #facc15);
-}
-.whimsy-annotation-quote[data-color="green"] {
-  border-left-color: light-dark(#22c55e, #4ade80);
-}
-.whimsy-annotation-quote[data-color="blue"] {
-  border-left-color: light-dark(#3b82f6, #60a5fa);
-}
-.whimsy-annotation-quote[data-color="pink"] {
-  border-left-color: light-dark(#ec4899, #f472b6);
-}
-
-.whimsy-annotation-color-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.whimsy-annotation-color-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--whimsy-surface-muted, light-dark(#71717a, #a1a1aa));
-}
-.whimsy-annotation-swatches {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.whimsy-annotation-swatch {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  transition: transform 100ms ease, box-shadow 100ms ease, border-color 100ms ease;
-}
-.whimsy-annotation-swatch:hover {
-  transform: scale(1.08);
-}
-.whimsy-annotation-swatch[data-color="yellow"] {
-  background-color: light-dark(#fde047, #facc15);
-  border-color: light-dark(#eab308, #ca8a04);
-}
-.whimsy-annotation-swatch[data-color="green"] {
-  background-color: light-dark(#86efac, #4ade80);
-  border-color: light-dark(#22c55e, #16a34a);
-}
-.whimsy-annotation-swatch[data-color="blue"] {
-  background-color: light-dark(#93c5fd, #60a5fa);
-  border-color: light-dark(#3b82f6, #2563eb);
-}
-.whimsy-annotation-swatch[data-color="pink"] {
-  background-color: light-dark(#f9a8d4, #f472b6);
-  border-color: light-dark(#ec4899, #db2777);
-}
-.whimsy-annotation-swatch[aria-checked="true"] {
-  box-shadow: 0 0 0 2px var(--whimsy-surface-bg, light-dark(#fff, #1e1e22)),
-    0 0 0 4px light-dark(#4f46e5, #818cf8);
-}
-
-.whimsy-annotation-note-input,
-.whimsy-annotations-page-note {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 68px;
-  resize: vertical;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--whimsy-surface-border, light-dark(rgba(24, 24, 27, 0.14), rgba(255, 255, 255, 0.14)));
-  background: light-dark(#ffffff, rgba(255, 255, 255, 0.05));
-  color: inherit;
-  font: inherit;
-  font-size: 12.5px;
-  line-height: 1.45;
-}
-.whimsy-annotation-note-input:focus-visible,
-.whimsy-annotations-page-note:focus-visible {
-  outline: 2px solid light-dark(#4f46e5, #818cf8);
-  outline-offset: 0;
-}
-
-.whimsy-annotation-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-top: 2px;
-}
-.whimsy-annotation-footer-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.whimsy-annotation-footer-right {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.whimsy-annotation-hint {
-  font-size: 11px;
-  color: var(--whimsy-surface-muted, light-dark(#71717a, #a1a1aa));
-}
-.whimsy-annotation-delete {
-  appearance: none;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--whimsy-surface-muted, light-dark(#71717a, #a1a1aa));
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  cursor: pointer;
-}
-.whimsy-annotation-delete:hover {
-  color: light-dark(#dc2626, #f87171);
-  background: light-dark(rgba(220, 38, 38, 0.08), rgba(248, 113, 113, 0.12));
-}
-
-.whimsy-annotations-panel-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.whimsy-annotations-panel-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.whimsy-annotations-panel-heading {
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.whimsy-annotations-panel-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: light-dark(rgba(24, 24, 27, 0.07), rgba(255, 255, 255, 0.1));
-  color: var(--whimsy-surface-muted, light-dark(#52525b, #a1a1aa));
-}
-.whimsy-annotations-open-notes {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: light-dark(#4f46e5, #818cf8);
-  font-size: 11.5px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-}
-.whimsy-annotations-open-notes:hover {
-  text-decoration: underline;
-}
-
-.whimsy-annotations-section-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--whimsy-surface-muted, light-dark(#71717a, #a1a1aa));
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.whimsy-annotations-highlights-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 240px;
-  overflow-y: auto;
-}
-.whimsy-annotations-empty-highlights {
-  font-size: 12px;
-  color: var(--whimsy-surface-muted, light-dark(#71717a, #a1a1aa));
-  padding: 6px 2px;
-}
-.whimsy-annotations-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: light-dark(rgba(24, 24, 27, 0.03), rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--whimsy-surface-border, light-dark(rgba(24, 24, 27, 0.08), rgba(255, 255, 255, 0.08)));
-  border-left-width: 3px;
-  cursor: pointer;
-}
-.whimsy-annotations-item[data-color="yellow"] {
-  border-left-color: light-dark(#eab308, #facc15);
-}
-.whimsy-annotations-item[data-color="green"] {
-  border-left-color: light-dark(#22c55e, #4ade80);
-}
-.whimsy-annotations-item[data-color="blue"] {
-  border-left-color: light-dark(#3b82f6, #60a5fa);
-}
-.whimsy-annotations-item[data-color="pink"] {
-  border-left-color: light-dark(#ec4899, #f472b6);
-}
-.whimsy-annotations-item:hover {
-  background: light-dark(rgba(24, 24, 27, 0.055), rgba(255, 255, 255, 0.07));
-}
-.whimsy-annotations-item-quote {
-  font-size: 12px;
-  line-height: 1.4;
-  color: inherit;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.whimsy-annotations-item-note {
-  font-size: 11.5px;
-  line-height: 1.35;
-  color: var(--whimsy-surface-muted, light-dark(#52525b, #a1a1aa));
-}
-.whimsy-annotations-item-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-top: 2px;
-}
-.whimsy-annotations-item-swatches {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.whimsy-annotations-item-swatch {
-  appearance: none;
-  width: 13px;
-  height: 13px;
-  border-radius: 999px;
-  border: 1.5px solid transparent;
-  padding: 0;
-  cursor: pointer;
-}
-.whimsy-annotations-item-swatch[data-color="yellow"] {
-  background-color: light-dark(#fde047, #facc15);
-  border-color: light-dark(#eab308, #ca8a04);
-}
-.whimsy-annotations-item-swatch[data-color="green"] {
-  background-color: light-dark(#86efac, #4ade80);
-  border-color: light-dark(#22c55e, #16a34a);
-}
-.whimsy-annotations-item-swatch[data-color="blue"] {
-  background-color: light-dark(#93c5fd, #60a5fa);
-  border-color: light-dark(#3b82f6, #2563eb);
-}
-.whimsy-annotations-item-swatch[data-color="pink"] {
-  background-color: light-dark(#f9a8d4, #f472b6);
-  border-color: light-dark(#ec4899, #db2777);
-}
-.whimsy-annotations-item-swatch[aria-checked="true"] {
-  box-shadow: 0 0 0 1.5px light-dark(#4f46e5, #818cf8);
-}
-.whimsy-annotations-item-buttons {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.whimsy-annotations-item-btn {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--whimsy-surface-muted, light-dark(#71717a, #a1a1aa));
-  font-size: 11px;
-  padding: 2px 5px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.whimsy-annotations-item-btn:hover {
-  color: inherit;
-  background: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
-}
-.whimsy-annotations-item-btn.danger:hover {
-  color: light-dark(#dc2626, #f87171);
-}
-`;
 
 export class WhimsyAnnotationsParent extends JSWindowActorParent {
   receiveMessage(message) {
@@ -724,16 +365,20 @@ export const WhimsyAnnotations = {
     }
     this._windows.add(win);
 
-    const doc = win.document;
-    if (!doc.getElementById(STYLE_ID)) {
-      const style = doc.createElement("style");
-      style.id = STYLE_ID;
-      style.textContent = CHROME_CSS;
-      (doc.head || doc.documentElement).appendChild(style);
-    }
-
     this._ensureContextMenu(win);
     this._ensureUrlbarButton(win);
+    // The way to the Notes and highlights panel: the approved address-bar
+    // cue opens the page's note in Notes (gen-w24.py 2.4, 2.6), so the panel
+    // that edits this page's note and highlights is a command-bar action,
+    // offered while the page has any.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyAnnotationsPanel",
+      l10nId: "whimsy-annotations-cmd-panel",
+      icon: "chrome://browser/content/whimsy/icons/highlighter.svg",
+      key: null,
+      isAvailable: w => !w.document.getElementById(BUTTON_ID)?.hidden,
+      run: w => this.openPagePanel(w),
+    });
 
     const onTabSelect = () => {
       this.updateUrlbarButton(win);
@@ -868,32 +513,36 @@ export const WhimsyAnnotations = {
       return;
     }
 
+    // A page-action sibling (Reader, Translate): an .urlbar-icon image
+    // from an icon file, plus the count, on the approved yellow pill
+    // (whimsy-browser.css). It's a state cue, so it shows whenever the page
+    // has annotations; clicking it opens the page's note in Notes.
     const btn = doc.createXULElement("hbox");
     btn.id = BUTTON_ID;
     btn.className = "urlbar-page-action whimsy-smart-button";
     btn.setAttribute("role", "button");
     btn.setAttribute("tabindex", "0");
-    btn.setAttribute("data-l10n-id", "whimsy-annotations-urlbar-button");
-    btn.setAttribute("tooltiptext", "Notes and highlights on this page");
+    btn.setAttribute("align", "center");
+    doc.l10n.setAttributes(btn, "whimsy-annotations-urlbar-button", { count: 0 });
     btn.hidden = true;
 
-    const iconWrap = doc.createElement("span");
-    iconWrap.className = "whimsy-annotations-button-icon";
-    iconWrap.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5l4 4L6 14H2v-4L9.5 2.5z"/><path d="M7.5 4.5l4 4"/></svg>`;
-
-    const countEl = doc.createElement("span");
+    const icon = doc.createXULElement("image");
+    icon.className = "urlbar-icon";
+    const countEl = doc.createXULElement("label");
     countEl.className = "whimsy-annotations-button-count";
-    countEl.textContent = "0";
-
-    btn.append(iconWrap, countEl);
+    countEl.setAttribute("value", "0");
+    btn.append(icon, countEl);
 
     const activate = event => {
       if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") {
         return;
       }
+      if (event.type === "click" && event.button !== 0) {
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
-      this.openPagePanel(win, btn);
+      this.openInNotes(win);
     };
     btn.addEventListener("click", activate);
     btn.addEventListener("keydown", activate);
@@ -1397,10 +1046,8 @@ export const WhimsyAnnotations = {
       return;
     }
 
-    const countEl = btn.querySelector(".whimsy-annotations-button-count");
-    if (countEl) {
-      countEl.textContent = String(count);
-    }
+    btn.querySelector(".whimsy-annotations-button-count")?.setAttribute("value", String(count));
+    doc.l10n.setAttributes(btn, "whimsy-annotations-urlbar-button", { count });
     btn.hidden = false;
   },
 
@@ -1431,8 +1078,9 @@ export const WhimsyAnnotations = {
       width: 300,
       titleL10nId: "whimsy-annotations-popover-title",
       close: true,
+      footer: true,
     });
-    const { panel, view: body } = parts;
+    const { panel, view: body, footer } = parts;
 
     let currentColor = this.normalizeColor(existing?.color || this.lastColor);
     const quoteText = existing ? existing.text : draftAnchor.text;
@@ -1497,19 +1145,13 @@ export const WhimsyAnnotations = {
     textarea.placeholder = "Write a note about this passage…";
     textarea.value = existing?.note || "";
 
-    const footer = doc.createElement("div");
-    footer.className = "whimsy-annotation-footer";
-
-    const footerLeft = doc.createElement("div");
-    footerLeft.className = "whimsy-annotation-footer-left";
-
     if (existing) {
-      const delBtn = doc.createElement("button");
-      delBtn.type = "button";
-      delBtn.className = "whimsy-annotation-delete";
-      delBtn.setAttribute("data-l10n-id", "whimsy-annotations-remove-highlight");
-      delBtn.textContent = "Remove";
-      delBtn.addEventListener("click", async () => {
+      const delBtn = lazy.WhimsySurface.footerButton(doc, {
+        l10nId: "whimsy-annotations-remove-highlight",
+        destructive: true,
+      });
+      delBtn.classList.add("whimsy-annotation-delete");
+      delBtn.addEventListener("command", async () => {
         const snapshot = { ...existing };
         lazy.WhimsySurface.close(panel);
         await this.removeHighlight(normUrl, existing.id, { win, browser });
@@ -1534,32 +1176,21 @@ export const WhimsyAnnotations = {
           );
         } catch {}
       });
-      footerLeft.appendChild(delBtn);
+      footer.append(delBtn);
     } else {
       const hint = doc.createElement("span");
       hint.className = "whimsy-annotation-hint";
       hint.setAttribute("data-l10n-id", "whimsy-annotations-return-hint");
-      hint.textContent = "Return to save";
-      footerLeft.appendChild(hint);
+      footer.append(hint);
     }
 
-    const footerRight = doc.createElement("div");
-    footerRight.className = "whimsy-annotation-footer-right";
-
-    const cancelBtn = doc.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.className = "whimsy-annotation-cancel";
-    cancelBtn.setAttribute("data-l10n-id", "whimsy-annotations-cancel");
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.addEventListener("click", () => {
-      lazy.WhimsySurface.close(panel);
+    const cancelBtn = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-annotations-cancel",
+      onCommand: () => lazy.WhimsySurface.close(panel),
     });
-
-    const saveBtn = doc.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.className = "whimsy-annotation-save primary";
-    saveBtn.setAttribute("data-l10n-id", "whimsy-annotations-save");
-    saveBtn.textContent = "Save";
+    cancelBtn.classList.add("whimsy-annotation-cancel");
+    const saveBtn = lazy.WhimsySurface.footerButton(doc, { l10nId: "whimsy-annotations-save", primary: true });
+    saveBtn.classList.add("whimsy-annotation-save");
 
     const commitSave = async () => {
       const noteValue = textarea.value.trim();
@@ -1605,7 +1236,7 @@ export const WhimsyAnnotations = {
       }
     };
 
-    saveBtn.addEventListener("click", commitSave);
+    saveBtn.addEventListener("command", commitSave);
     textarea.addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
@@ -1616,9 +1247,8 @@ export const WhimsyAnnotations = {
       }
     });
 
-    footerRight.append(cancelBtn, saveBtn);
-    footer.append(footerLeft, footerRight);
-    body.append(quoteEl, colorRow, textarea, footer);
+    footer.append(cancelBtn, saveBtn);
+    body.append(quoteEl, colorRow, textarea);
     lazy.WhimsySurface.finish(parts);
 
     panel.addEventListener(
@@ -1655,6 +1285,14 @@ export const WhimsyAnnotations = {
     return panel;
   },
 
+  /** Opens this page's note in Notes (the cue's and the panel's target). */
+  async openInNotes(win) {
+    const browser = win?.gBrowser?.selectedBrowser;
+    const normUrl = this.normalizeURL(browser?.currentURI?.spec || "");
+    const rec = normUrl ? this.getPageRecord(normUrl, { win, browser }) : null;
+    return lazy.WhimsyNotes.openInLibrary(win, rec?.noteId ?? null);
+  },
+
   async openPagePanel(win, anchorEl = null) {
     const browser = win?.gBrowser?.selectedBrowser;
     if (!this.canAnnotate(win, browser)) {
@@ -1674,8 +1312,14 @@ export const WhimsyAnnotations = {
       width: 320,
       titleL10nId: "whimsy-annotations-panel-title",
       close: true,
+      footer: true,
     });
-    const { panel, view: body } = parts;
+    const { panel, view, footer } = parts;
+    // The surface's header holds the title; the body re-renders below it.
+    const body = doc.createXULElement("vbox");
+    body.className = "whimsy-annotations-panel-body";
+    view.append(body);
+    let saveNoteNow = async () => {};
 
     const renderPanelBody = () => {
       body.replaceChildren();
@@ -1683,40 +1327,6 @@ export const WhimsyAnnotations = {
       const rec = this.getPageRecord(normUrl, { win, browser });
       const activeHighlights = this._activeHighlightsForBrowser(win, browser);
       const pageNote = String(rec?.note || "");
-      const totalCount = activeHighlights.length + (pageNote.trim() ? 1 : 0);
-
-      // Header row
-      const topRow = doc.createElement("div");
-      topRow.className = "whimsy-annotations-panel-top";
-
-      const titleWrap = doc.createElement("div");
-      titleWrap.className = "whimsy-annotations-panel-title-wrap";
-
-      const heading = doc.createElement("h2");
-      heading.className = "whimsy-annotations-panel-heading";
-      heading.setAttribute("data-l10n-id", "whimsy-annotations-panel-heading");
-      heading.textContent = "Notes & highlights";
-
-      const badge = doc.createElement("span");
-      badge.className = "whimsy-annotations-panel-badge";
-      badge.textContent = String(totalCount);
-
-      titleWrap.append(heading, badge);
-
-      const openNotesBtn = doc.createElement("button");
-      openNotesBtn.type = "button";
-      openNotesBtn.className = "whimsy-annotations-open-notes";
-      openNotesBtn.setAttribute(
-        "data-l10n-id",
-        "whimsy-annotations-open-in-notes"
-      );
-      openNotesBtn.textContent = "Open in Notes";
-      openNotesBtn.addEventListener("click", () => {
-        lazy.WhimsySurface.close(panel);
-        lazy.WhimsyNotesSection.openInLibrary(win);
-      });
-
-      topRow.append(titleWrap, openNotesBtn);
 
       // Editable page note section (one note per page)
       const noteSection = doc.createElement("div");
@@ -1737,18 +1347,12 @@ export const WhimsyAnnotations = {
       noteArea.placeholder = "Write a note for this page…";
       noteArea.value = pageNote;
 
-      const saveNoteNow = async () => {
+      saveNoteNow = async () => {
         await this.setPageNote(normUrl, noteArea.value, {
           win,
           browser,
           title: browser.contentTitle || rec?.title || normUrl,
         });
-        const updatedRec = this.getPageRecord(normUrl, { win, browser });
-        const updatedHl = this._activeHighlightsForBrowser(win, browser);
-        const newCount =
-          updatedHl.length +
-          (updatedRec?.note && String(updatedRec.note).trim() ? 1 : 0);
-        badge.textContent = String(newCount);
       };
 
       noteArea.addEventListener("change", saveNoteNow);
@@ -1840,7 +1444,7 @@ export const WhimsyAnnotations = {
 
           const editBtn = doc.createElement("button");
           editBtn.type = "button";
-          editBtn.className = "whimsy-annotations-item-btn whimsy-annotations-item-edit";
+          editBtn.className = "whimsy-surface-text-button whimsy-surface-ghost whimsy-annotations-item-btn whimsy-annotations-item-edit";
           editBtn.setAttribute("data-l10n-id", "whimsy-annotations-edit-item");
           editBtn.textContent = hl.note ? "Edit note" : "Add note";
           editBtn.addEventListener("click", async event => {
@@ -1868,7 +1472,7 @@ export const WhimsyAnnotations = {
           const delBtn = doc.createElement("button");
           delBtn.type = "button";
           delBtn.className =
-            "whimsy-annotations-item-btn whimsy-annotations-item-delete danger";
+            "whimsy-surface-text-button whimsy-surface-ghost whimsy-annotations-item-btn whimsy-annotations-item-delete danger";
           delBtn.setAttribute("data-l10n-id", "whimsy-annotations-delete-item");
           delBtn.textContent = "Remove";
           delBtn.addEventListener("click", async event => {
@@ -1905,34 +1509,35 @@ export const WhimsyAnnotations = {
 
       hlSection.appendChild(listEl);
 
-      // Footer
-      const footer = doc.createElement("div");
-      footer.className = "whimsy-annotation-footer";
-
-      const clearBtn = doc.createElement("button");
-      clearBtn.type = "button";
-      clearBtn.className = "whimsy-annotation-delete whimsy-annotations-clear-page";
-      clearBtn.setAttribute("data-l10n-id", "whimsy-annotations-clear-page");
-      clearBtn.textContent = "Clear page";
-      clearBtn.addEventListener("click", async () => {
+      body.append(noteSection, hlSection);
+    };
+    const clearBtn = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-annotations-clear-page",
+      destructive: true,
+      onCommand: async () => {
         lazy.WhimsySurface.close(panel);
         await this.clearPage(normUrl, { win, browser });
-      });
-
-      const doneBtn = doc.createElement("button");
-      doneBtn.type = "button";
-      doneBtn.className = "whimsy-annotations-done primary";
-      doneBtn.setAttribute("data-l10n-id", "whimsy-annotations-done");
-      doneBtn.textContent = "Done";
-      doneBtn.addEventListener("click", async () => {
+      },
+    });
+    clearBtn.classList.add("whimsy-annotation-delete", "whimsy-annotations-clear-page");
+    const openNotesBtn = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-annotations-open-in-notes",
+      onCommand: () => {
+        lazy.WhimsySurface.close(panel);
+        this.openInNotes(win);
+      },
+    });
+    openNotesBtn.classList.add("whimsy-annotations-open-notes");
+    const doneBtn = lazy.WhimsySurface.footerButton(doc, {
+      l10nId: "whimsy-annotations-done",
+      primary: true,
+      onCommand: async () => {
         await saveNoteNow();
         lazy.WhimsySurface.close(panel);
-      });
-
-      footer.append(clearBtn, doneBtn);
-      body.append(topRow, noteSection, hlSection, footer);
-    };
-
+      },
+    });
+    doneBtn.classList.add("whimsy-annotations-done");
+    footer.append(clearBtn, openNotesBtn, doneBtn);
     renderPanelBody();
     lazy.WhimsySurface.finish(parts);
 

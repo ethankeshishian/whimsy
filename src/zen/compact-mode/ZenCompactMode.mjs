@@ -468,7 +468,7 @@ window.gZenCompactModeManager = {
       sidebarWidth -= elementSeparation * (isCompactMode ? 1 : 3);
       if (canHideSidebar && isCompactMode) {
         this._setElementExpandAttribute(this.sidebar, false);
-        gZenUIManager.motion
+        (window.gWhimsySidebarMotion ?? gZenUIManager.motion) // Whimsy hotfix
           .animate(
             this.sidebar,
             {
@@ -517,7 +517,7 @@ window.gZenCompactModeManager = {
         } else {
           this.sidebar.style.marginLeft = `-${sidebarWidth}px`;
         }
-        gZenUIManager.motion
+        (window.gWhimsySidebarMotion ?? gZenUIManager.motion) // Whimsy hotfix
           .animate(
             this.sidebar,
             this.sidebarIsOnRight

@@ -176,8 +176,8 @@ add_task(async function test_footer_label_reflects_insert_target() {
   const tab = await openFieldTab("<textarea id=t></textarea>", "t");
   try {
     await openEmoji("party");
-    await TestUtils.waitForCondition(() => typeLabel() == "whimsy-emoji-footer-type", "↵ says Type into the page when a field is focused");
-    is(shortcutSpans(), 2, "With a field, both ↵ Type into the page and ⌘↵ Copy show");
+    await TestUtils.waitForCondition(() => typeLabel() == "whimsy-emoji-footer-type", "↵ says Insert when a field is focused");
+    is(shortcutSpans(), 2, "With a field, both ↵ Insert and ⌘↵ Copy show");
     closeBar();
   } finally {
     BrowserTestUtils.removeTab(tab);
@@ -396,4 +396,70 @@ add_task(async function test_screenshots() {
 
   closeBar();
   WhimsyEmojiFrequent.clear();
+});
+
+// W25 designfix: arrow moves only move the highlight (no rebuild, so
+// nothing jumps), the selection never leaves the visible results, the
+// results scroll only when they must, Tab and ⇧Tab cycle the card's stops,
+// and the toast says just "Copied emoji".
+function scrollerOf(el) {
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if ((overflowY == "auto" || overflowY == "scroll") && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+  }
+  return null;
+}
+const inside = (rect, box) => rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1;
+
+add_task(async function test_arrows_keep_selection_visible_without_jumps() {
+  const el = await openEmoji("face");
+  await whimsySettled();
+  await whimsyShot("w25-emoji-grid-light");
+  const cells = () => [...el.querySelectorAll(".whimsy-emoji-cell")];
+  const count = cells().length;
+  Assert.greater(count, 16, `Enough results to scroll (${count})`);
+  const scroller = scrollerOf(el);
+  const view = () => (scroller ?? el).getBoundingClientRect();
+  const firstCell = cells()[0];
+  for (let i = 1; i < count; i++) {
+    const next = cells()[i];
+    const visibleBefore = inside(next.getBoundingClientRect(), view());
+    const top = scroller?.scrollTop ?? 0;
+    EventUtils.synthesizeKey("KEY_ArrowRight", {}, window);
+    is(el.querySelector(".whimsy-emoji-cell.on"), next, `→ selects cell ${i}`);
+    is(cells()[0], firstCell, "The grid isn't rebuilt by a move");
+    ok(inside(next.getBoundingClientRect(), view()), `Cell ${i} is inside the visible results`);
+    if (visibleBefore) {
+      is(scroller?.scrollTop ?? 0, top, `No scroll for a move to a visible cell (${i})`);
+    }
+  }
+  await whimsySettled();
+  await whimsyShot("w25-emoji-grid-last-row-light");
+  for (let i = count - 1; i > 0; i--) {
+    EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
+    ok(inside(el.querySelector(".whimsy-emoji-cell.on").getBoundingClientRect(), view()), `← keeps cell ${i - 1} visible`);
+  }
+  closeBar();
+});
+
+add_task(async function test_tab_cycles_stops() {
+  const el = await openEmoji("party");
+  is(el.dataset.stop, "grid", "The grid is the first stop");
+  EventUtils.synthesizeKey("KEY_Tab", {}, window);
+  is(el.dataset.stop, "field", "Tab moves to the search field (🎉 has no tones)");
+  ok(gURLBar.view.isOpen, "...without leaving the bar");
+  EventUtils.synthesizeKey("KEY_Tab", {}, window);
+  is(el.dataset.stop, "grid", "Tab wraps back to the grid");
+  EventUtils.synthesizeKey("KEY_Tab", { shiftKey: true }, window);
+  is(el.dataset.stop, "field", "⇧Tab goes back");
+  EventUtils.synthesizeKey("KEY_Tab", { shiftKey: true }, window);
+  is(el.dataset.stop, "grid", "...and around");
+  closeBar();
+});
+
+add_task(async function test_copied_toast_copy() {
+  is(await document.l10n.formatValue("whimsy-emoji-copied-toast", { name: "party popper" }), "Copied emoji", "The toast says just Copied emoji");
+  is(await document.l10n.formatValue("whimsy-emoji-footer-type"), "Insert", "↵ says Insert");
 });

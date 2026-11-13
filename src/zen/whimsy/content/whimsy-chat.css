@@ -33,7 +33,7 @@
   --whimsy-chat-primary-bg: oklch(from var(--zen-primary-color, AccentColor) clamp(0.38, l, 0.52) c h);
   --whimsy-chat-agent: rgb(217, 119, 87);
   --whimsy-chat-warning: light-dark(rgb(217, 138, 0), rgb(240, 177, 60));
-  --whimsy-chat-error: light-dark(rgb(200, 55, 45), rgb(255, 122, 110));
+  --whimsy-chat-error: var(--whimsy-live-red);
   --whimsy-chat-private: #8a3ffc;
   --whimsy-chat-radius: var(--zen-native-inner-radius, 10px);
   --whimsy-chat-focus: 2px solid var(--focus-outline-color, AccentColor);
@@ -1030,8 +1030,8 @@
   gap: 8px;
   margin-block-end: 4px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: light-dark(#ffffff, rgba(255, 255, 255, 0.04));
+  border-radius: var(--whimsy-chat-radius);
+  background: var(--arrowpanel-background);
   box-shadow: 0 0 0 0.5px var(--whimsy-chat-hairline);
   line-height: 1.45;
   &[data-kind="folded"] {
@@ -1078,10 +1078,10 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: light-dark(rgb(220, 50, 40), rgb(255, 99, 88));
+  background: var(--whimsy-chat-error);
 }
 .whimsy-meeting-fold > .whimsy-chat-icon {
-  transition: rotate 150ms ease-out;
+  transition: rotate var(--whimsy-dur-fast) ease-out;
 }
 .whimsy-meeting-fold[aria-expanded="false"] > .whimsy-chat-icon {
   rotate: -90deg;

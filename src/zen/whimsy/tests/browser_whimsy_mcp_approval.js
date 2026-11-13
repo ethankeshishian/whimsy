@@ -13,7 +13,7 @@ const call = (session, name = "tabs_create", args = { url: PAGE }) =>
   WhimsyClaude.callTool(name, args, { session, clientName: "Approval test" });
 const prompt = win => win.document.getElementById("whimsy-mcp-approvals");
 const visiblePrompt = win => TestUtils.waitForCondition(() =>
-  prompt(win)?.querySelector("article") && prompt(win).getBoundingClientRect().width > 0,
+  prompt(win)?.querySelector("article") && prompt(win).state == "open" && prompt(win).getBoundingClientRect().width > 0,
 "The approval is visible in browser chrome");
 function choose(win, choice) {
   EventUtils.synthesizeMouseAtCenter(prompt(win).querySelector(`[data-choice="${choice}"]`), {}, win);
@@ -42,6 +42,7 @@ add_task(async function frontmost_approval_and_repeat_open_once() {
   const task = WhimsyAgentTasks.forSession("approval-create");
   const pauseId = task.pause.id;
   const surface = prompt(window);
+  await whimsyBothSchemes("w25-mcp-approvals", async () => whimsyStandInPopups());
   const repeat = call("approval-create");
   is(prompt(window), surface, "Repeat reuses the visible surface");
   is(task.pause.id, pauseId, "Repeat reuses the same pending request");

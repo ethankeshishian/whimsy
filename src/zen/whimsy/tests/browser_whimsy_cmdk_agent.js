@@ -258,6 +258,13 @@ add_task(async function one_step_confirm_then_undo() {
   );
   ok(row.querySelector(".whimsy-cmdk-row-detail").textContent.includes("Undo reopens them."), "and that Undo reopens them");
   ok(tabs.every(t => t.hasAttribute("whimsy-cmdk-ring")), "The sidebar rings the tabs");
+  // W25 designfix: K.3's ring, an inset accent with a tint; red only at 15+.
+  ok(tabs.every(t => t.getAttribute("whimsy-cmdk-ring") == ""), "Two tabs: the accent ring, not the red one");
+  const ringBg = getComputedStyle(tabs[0].querySelector(".tab-background"));
+  ok(ringBg.boxShadow.includes("inset"), `The ring is an inset line (${ringBg.boxShadow})`);
+  ok(ringBg.backgroundImage.includes("gradient"), "...over a tint");
+  await whimsySettled();
+  await whimsyShot("w25-cmdk-ring-light");
   is(gBrowser.tabs.length, before, "Nothing has changed yet");
 
   EventUtils.synthesizeKey("KEY_Enter");

@@ -219,7 +219,8 @@ function renderMemorySaved(doc, msg, ctx) {
   textEl.className = "whimsy-chat-note-text";
   const toggle = doc.createElementNS(HTML_NS, "button");
   toggle.type = "button";
-  toggle.className = "whimsy-chat-link whimsy-chat-disclosure";
+  // The chat's one disclosure (.whimsy-agent-disclose, W25 designfix).
+  toggle.className = "whimsy-agent-disclose whimsy-chat-disclosure";
   toggle.setAttribute("aria-expanded", "false");
   doc.l10n.setAttributes(toggle, "whimsy-chat-note-memory-saved", { count: (msg.memoryIds ?? []).length });
   toggle.addEventListener("click", () => WhimsyAIMemory._toggleSavedList(toggle, node, msg, ctx));

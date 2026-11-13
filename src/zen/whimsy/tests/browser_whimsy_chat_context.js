@@ -75,8 +75,22 @@ add_task(async function chips_show_counts_and_label() {
   ok(chip.closest(".whimsy-chat-composer"), "Chips sit inside the composer");
   const body = chip.querySelector(".whimsy-chat-chip-body");
   await TestUtils.waitForCondition(() => body.getAttribute("aria-label")?.startsWith("This tab, text"), "Screen readers get the words");
-  ok(chip.querySelector(".whimsy-chat-chip-count[data-kind='text']"), "Counts are icons");
+  ok(chip.querySelector(".whimsy-chat-chip-summary > .whimsy-chat-chip-count[data-kind='text']"), "Contents are one quiet line of words");
+  ok(!chip.querySelector(".whimsy-chat-chip-count .whimsy-chat-icon"), "...with no glyphs");
   ok(chip.querySelector(".whimsy-chat-chip-mark"), "led by the source's mark");
+  // W25 designfix: the chip is the composer's Add chip: same height,
+  // radius, hairline, type, and a regular-weight name led by the favicon.
+  const add = part(".whimsy-chat-chip-add");
+  const [c, a] = [getComputedStyle(chip), getComputedStyle(add)];
+  for (const prop of ["height", "border-top-left-radius", "font-size", "background-color"]) {
+    is(c.getPropertyValue(prop), a.getPropertyValue(prop), `The context chip shares the Add chip's ${prop}`);
+  }
+  is(getComputedStyle(chip.querySelector(".whimsy-chat-chip-label")).fontWeight, "400", "The name is regular weight");
+  is(chip.querySelector(".whimsy-chat-chip-mark").localName, "img", "A tab leads with its favicon");
+  is(getComputedStyle(chip.querySelector(".whimsy-chat-chip-summary")).color, getComputedStyle(chip.querySelector(".whimsy-chat-chip-count")).color, "The contents line is one colour");
+  const x = chip.querySelector(".whimsy-chat-chip-x");
+  ok(x.localName == "button" && x.tabIndex >= 0 && x.checkVisibility(), "× is a visible button in the tab order");
+  await whimsyShot("w25-chat-chip-this-tab-light");
   await closeAll(tab);
 });
 

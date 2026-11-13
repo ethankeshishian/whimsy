@@ -146,7 +146,9 @@ export const WhimsyAITabRequests = {
         // "Close 3 youtube.com tabs" when the matches are that site's
         // tabs; else the person's words, in curly quotes (page 10.2).
         label: lazy.l10n.formatValueSync(`whimsy-tabs-row-${action}${site ? "-site" : ""}`, { count: tabs.length, what: match[2].trim(), site }),
-        tag: this.spaceName(win, tabs[0]),
+        // K.3 (tab-commands.html): the top row's hint is the key that does
+        // it, ↩, like the ⌘K agent's Do this row; not the space's name.
+        key: "↩",
         run: w => this.apply(w, { action, tabs }),
       },
     ];

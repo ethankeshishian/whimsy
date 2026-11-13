@@ -346,13 +346,14 @@ findbar .whimsy-ask-button {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  /* Closed: the card fades out, a little quicker than it came. */
+  /* Closed: the card fades out, a little quicker than it came: the motion
+     tokens' exit, 0.75 of the enter (whimsy-browser.css). */
   opacity: 0;
   transform: scale(0.97);
   transform-origin: top center;
   transition:
-    opacity 110ms ease-in,
-    transform 110ms ease-in;
+    opacity calc(var(--whimsy-dur-fast) * 0.75) ease-in,
+    transform calc(var(--whimsy-dur-fast) * 0.75) ease-in;
 }
 
 .whimsy-link-hover-card[data-card="link"] {
@@ -372,8 +373,8 @@ findbar .whimsy-ask-button {
   opacity: 1;
   transform: none;
   transition:
-    opacity 160ms cubic-bezier(0.2, 0, 0, 1),
-    transform 160ms cubic-bezier(0.2, 0, 0, 1);
+    opacity var(--whimsy-dur-fast) var(--whimsy-surface-ease),
+    transform var(--whimsy-dur-fast) var(--whimsy-surface-ease);
 }
 
 @media (prefers-reduced-motion: reduce) {

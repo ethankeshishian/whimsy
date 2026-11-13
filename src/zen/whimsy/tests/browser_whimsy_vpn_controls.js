@@ -364,11 +364,26 @@ add_task(async function test_panel_shared_inset_and_spacing() {
         }
         previous = rect;
       }
-      for (const element of [header.querySelector("h1"),
-        group.querySelector("#whimsy-vpn-scope-heading"),
-        group.querySelector(".whimsy-surface-seg")]) {
-        near(element.getBoundingClientRect().left, left, "Section contents share the inset");
+      near(header.querySelector("h1").getBoundingClientRect().left, left, "The header shares the inset");
+      // W25 designfix: "Use VPN in" is a card like the status card: the same
+      // border, radius, padding, and background, and its contents sit at the
+      // status card's inner inset.
+      const box = card.shadowRoot.querySelector("ipprotection-status-box");
+      await box.updateComplete;
+      const container = box.shadowRoot.getElementById("content-container");
+      const [a, b] = [getComputedStyle(container), getComputedStyle(group)];
+      for (const prop of ["border-top-width", "border-top-style", "border-top-color", "border-top-left-radius",
+        "padding-top", "padding-left", "padding-right", "padding-bottom"]) {
+        is(b.getPropertyValue(prop), a.getPropertyValue(prop), `"Use VPN in" shares the status card's ${prop}`);
       }
+      const inner = box.shadowRoot.getElementById("title").getBoundingClientRect().left;
+      for (const element of [group.querySelector("#whimsy-vpn-scope-heading"),
+        group.querySelector(".whimsy-surface-seg")]) {
+        near(element.getBoundingClientRect().left, inner, "Section contents sit at the card's inner inset");
+      }
+      near(group.querySelector(".whimsy-surface-seg").getBoundingClientRect().right,
+        container.getBoundingClientRect().right - (inner - container.getBoundingClientRect().left),
+        "...on both sides");
       near(view.getBoundingClientRect().bottom - previous.bottom, gap,
         "Bottom padding equals the section gap");
 

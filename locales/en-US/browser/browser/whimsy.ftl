@@ -5445,6 +5445,27 @@ whimsy-chat-chip-words =
         [one] {", "}1 page
        *[other] {", "}{ $pages } pages
     }. Show what AI sees
+# One part of a chip's contents line, after its name. $kind is text,
+# images, videos, pages, or tabs; $count how many.
+whimsy-chat-chip-count = { $kind ->
+        [images] { $count ->
+            [one] 1 image
+           *[other] { $count } images
+        }
+        [videos] { $count ->
+            [one] 1 video
+           *[other] { $count } videos
+        }
+        [pages] { $count ->
+            [one] 1 page
+           *[other] { $count } pages
+        }
+        [tabs] { $count ->
+            [one] 1 tab
+           *[other] { $count } tabs
+        }
+       *[text] text
+    }
 whimsy-chat-chip-remove =
     .title = Leave out of this chat
     .aria-label = Leave { $label } out of this chat
@@ -7853,10 +7874,9 @@ whimsy-action-emoji = Emoji
 whimsy-emoji-section-frequent = Frequently used
 whimsy-emoji-section-smileys = Smileys
 whimsy-emoji-section-results = Results
-whimsy-emoji-footer-type = Type into the page
+whimsy-emoji-footer-type = Insert
 whimsy-emoji-footer-copy = Copy
-# $name (string) - the emoji's name, e.g. "party popper"
-whimsy-emoji-copied-toast = Copied { $name } · ⌘V to paste
+whimsy-emoji-copied-toast = Copied emoji
 # $query (string) - what was typed
 whimsy-emoji-no-match = No emoji for “{ $query }”
 # $query (string) - what was typed
@@ -7920,14 +7940,23 @@ whimsy-verb-highlight-blue = Highlight Blue
 whimsy-verb-highlight-pink = Highlight Pink
 whimsy-verb-annotate = Add Note…
 
+# $count (Number) - the page's highlights, plus one for its page note
 whimsy-annotations-urlbar-button =
-    .tooltiptext = Notes and highlights on this page
-    .aria-label = Notes and highlights on this page
+    .tooltiptext = { $count ->
+        [one] 1 note or highlight · Open in Notes
+       *[other] { $count } notes and highlights · Open in Notes
+    }
+    .aria-label = { $count ->
+        [one] 1 note or highlight. Open in Notes
+       *[other] { $count } notes and highlights. Open in Notes
+    }
 
-whimsy-annotations-popover-title = Highlight & note
-whimsy-annotations-panel-title = Notes & highlights
-whimsy-annotations-panel-heading = Notes & highlights
-whimsy-annotations-open-in-notes = Open in Notes
+whimsy-annotations-popover-title = Highlight and note
+whimsy-annotations-panel-title = Notes and highlights
+# The command-bar action that opens the panel above (Title Case: a command).
+whimsy-annotations-cmd-panel = Notes and Highlights on This Page
+whimsy-annotations-open-in-notes =
+    .label = Open in Notes
 whimsy-annotations-color-label = Highlight color
 whimsy-annotations-note-placeholder =
     .placeholder = Write a note about this passage…
@@ -7936,13 +7965,18 @@ whimsy-annotations-page-note-placeholder =
 whimsy-annotations-highlights-label = Highlights
 whimsy-annotations-no-highlights = No highlights on this page yet.
 whimsy-annotations-return-hint = Return to save
-whimsy-annotations-remove-highlight = Remove
-whimsy-annotations-cancel = Cancel
-whimsy-annotations-save = Save
+whimsy-annotations-remove-highlight =
+    .label = Remove
+whimsy-annotations-cancel =
+    .label = Cancel
+whimsy-annotations-save =
+    .label = Save
 whimsy-annotations-edit-item = Edit note
 whimsy-annotations-delete-item = Remove
-whimsy-annotations-clear-page = Clear page
-whimsy-annotations-done = Done
+whimsy-annotations-clear-page =
+    .label = Clear page
+whimsy-annotations-done =
+    .label = Done
 
 # $color (String) - the highlight color name, e.g. "Yellow"
 whimsy-annotations-toast-highlighted = Highlighted in { $color }

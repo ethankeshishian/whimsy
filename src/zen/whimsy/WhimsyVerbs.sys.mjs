@@ -1658,6 +1658,7 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
         title: row.label,
         icon: row.icon ?? "",
         tag: row.tag ?? "",
+        key: row.key ?? "",
         detail: row.unavailable ?? row.detail ?? "",
         ...extra,
       },
@@ -1734,17 +1735,20 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
         { name: "title", tag: "span", classList: ["urlbarView-title"] },
         { name: "detail", tag: "span", classList: ["whimsy-cmdk-detail"] },
         { name: "tag", tag: "span", classList: ["whimsy-cmdk-tag"] },
+        // A key hint (↩) as the ⌘K agent's rows show it (WhimsyCommandBarAgent).
+        { name: "key", tag: "kbd", classList: ["whimsy-cmdbar-key", "whimsy-cmdk-row-key"] },
       ],
     };
   }
 
   getViewUpdate(result) {
-    const { icon, title, tag, detail } = result.payload;
+    const { icon, title, tag, detail, key } = result.payload;
     return {
       icon: { attributes: { src: icon || null, hidden: !icon || null } },
       title: { textContent: title },
       detail: { textContent: detail ?? "", attributes: { hidden: !detail || null } },
       tag: { textContent: tag ?? "", attributes: { hidden: !tag || null } },
+      key: { textContent: key ?? "", attributes: { hidden: !key || null } },
     };
   }
 

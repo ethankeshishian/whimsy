@@ -313,6 +313,29 @@ add_task(async function test_page_note_and_revisit_cue_and_screenshots() {
       }
     );
     ok(!btn.hidden, "Icon appears when a page note is saved even before any highlights");
+    // W25 designfix: the cue is the approved pill, a page-action sibling
+    // with the highlighter icon file, shown while the state is true (not
+    // only on hover), and clicking it opens the page's note in Notes.
+    const cueIcon = btn.querySelector(".urlbar-icon");
+    ok(cueIcon && getComputedStyle(cueIcon).listStyleImage.includes("icons/highlighter.svg"), "The cue draws the highlighter icon file");
+    ok(!btn.querySelector("svg"), "No inline SVG");
+    is(getComputedStyle(btn).visibility, "visible", "The cue shows without hovering the toolbar");
+    is(getComputedStyle(btn).opacity, "1", "...at full opacity");
+    is(btn.querySelector(".whimsy-annotations-button-count").value, "1", "The pill shows the count");
+    const { WhimsyNotes } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyNotesSection.sys.mjs");
+    const realOpen = WhimsyNotes.openInLibrary;
+    let openedNote;
+    WhimsyNotes.openInLibrary = (w, noteId) => {
+      openedNote = { w, noteId };
+      return true;
+    };
+    try {
+      EventUtils.synthesizeMouseAtCenter(btn, {});
+      await TestUtils.waitForCondition(() => openedNote, "Clicking the cue opens Notes");
+      is(openedNote.noteId, WhimsyAnnotations.getPageRecord(TEST_URL)?.noteId, "...at this page's note");
+    } finally {
+      WhimsyNotes.openInLibrary = realOpen;
+    }
 
     // Add a highlight with a note for rich popover & panel state
     await selectInElement(browser, "#p1", "availability of another computer");

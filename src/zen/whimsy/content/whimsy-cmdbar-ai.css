@@ -31,8 +31,8 @@
   margin-inline-end: 8px;
   padding: 4px 8px;
   border-radius: 50px;
-  background-color: color-mix(in srgb, var(--zen-primary-color) 50%, light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.2)) 50%);
-  color: white;
+  background-color: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
@@ -81,7 +81,7 @@
   white-space: nowrap;
 
   .urlbarView-row[selected] & {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--whimsy-on-accent);
   }
 }
 
@@ -108,8 +108,8 @@
   white-space: nowrap;
 
   .urlbarView-row[selected] & {
-    color: white !important;
-    border-color: rgba(255, 255, 255, 0.45);
+    color: var(--whimsy-on-accent) !important;
+    border-color: color-mix(in srgb, var(--whimsy-on-accent) 60%, transparent);
   }
 
   &[hidden] {
@@ -570,7 +570,7 @@
   }
 
   .urlbarView-row[selected] & {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--whimsy-on-accent);
   }
 }
 
@@ -976,7 +976,7 @@
   }
 
   .urlbarView-row[selected] & {
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--whimsy-on-accent);
   }
 }
 
@@ -994,7 +994,7 @@
   }
 
   .urlbarView-row[selected] & {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--whimsy-on-accent);
   }
 }
 
@@ -1039,15 +1039,28 @@
     background-color: var(--whimsy-ask-fail) !important;
 
     .whimsy-cmdk-row-title {
-      color: white;
+      color: var(--whimsy-on-accent);
     }
   }
 }
 
-/* The tabs a one-step action will touch. */
-.tabbrowser-tab[whimsy-cmdk-ring] > .tab-stack > .tab-background {
-  outline: 2px solid var(--zen-primary-color, AccentColor);
-  outline-offset: -2px;
+/* The tabs a one-step action will touch: the approved K.3 ring
+   (gen-w24.py .w-ring), an inset 1.5px accent over a 10% tint; at 15 tabs
+   or more it turns red with the row (gen-w25.py .w-ring-red, 8% tint). */
+.tabbrowser-tab[whimsy-cmdk-ring] {
+  --whimsy-cmdk-ring: var(--zen-primary-color, AccentColor);
+  --whimsy-cmdk-ring-tint: color-mix(in srgb, var(--zen-primary-color, AccentColor) 10%, transparent);
+  &[whimsy-cmdk-ring="danger"] {
+    --whimsy-cmdk-ring: color-mix(in srgb, var(--text-color-error) 70%, transparent);
+    --whimsy-cmdk-ring-tint: color-mix(in srgb, var(--text-color-error) 8%, transparent);
+  }
+  & > .tab-stack > .tab-background {
+    box-shadow: inset 0 0 0 1.5px var(--whimsy-cmdk-ring) !important;
+    background-image: linear-gradient(var(--whimsy-cmdk-ring-tint), var(--whimsy-cmdk-ring-tint)) !important;
+  }
+  & .tab-label {
+    font-weight: 500;
+  }
 }
 
 /* The plan card: the only row while it's up. */
@@ -1143,12 +1156,14 @@
   color: var(--whimsy-ask-muted);
 }
 
+/* Chat's model button (.whimsy-chat-model-button: its hover, open, and
+   focus), at the mockup's .kp-dd size: 500 weight, muted at rest. */
 .whimsy-cmdk-drop {
   height: 24px;
   padding: 0 6px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--whimsy-ask-text-2);
+  font-weight: 500;
+  color: var(--whimsy-ask-muted);
 }
 
 .whimsy-cmdk-hint {
@@ -1163,15 +1178,15 @@
 }
 
 .whimsy-cmdk-approve {
-  background: var(--zen-accent-button-background, var(--whimsy-ask-accent));
-  color: var(--zen-accent-button-color, white);
+  background: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
 
   &:hover {
-    background: color-mix(in srgb, var(--zen-accent-button-background, var(--whimsy-ask-accent)), black 8%);
+    background: color-mix(in srgb, var(--whimsy-accent-fill), black 8%);
   }
 
   .whimsy-cmdbar-key {
-    border-color: rgba(255, 255, 255, 0.45);
+    border-color: color-mix(in srgb, currentColor 45%, transparent);
     color: inherit;
   }
 }
@@ -1191,7 +1206,6 @@
   max-width: calc(100% - 8px);
   max-height: none;
   margin-top: -2px;
-  background: light-dark(#f5f5f7, #2a2a2c);
 
   .whimsy-chat-option[data-active] {
     background: var(--whimsy-chat-hover);
@@ -1227,4 +1241,33 @@
 
 .whimsy-cmdk-field-value {
   overflow-wrap: anywhere;
+}
+
+/* W25 designfix: a long query never pushes a row's key hint ("Search with
+   Google", "Ask About This Page") off the bar. The title gives way with an
+   ellipsis; the hint keeps its full text after the standard gap; the row
+   keeps its end padding. */
+#urlbar .urlbarView-row > .urlbarView-row-inner {
+  padding-inline-end: var(--urlbarview-row-padding-inline, 8px);
+
+  & > .urlbarView-no-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100% !important;
+  }
+  & .urlbarView-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .urlbarView-action:not(:empty) {
+    flex-shrink: 0;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+    margin-inline-start: 8px;
+  }
 }
