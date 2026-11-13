@@ -7,7 +7,14 @@
 //
 // Whimsy follows a calendar meeting that has a call tab (a tab on the
 // event's join link, or a tab in a WebRTC call) by itself: it starts when
-// the meeting starts and stops when it ends. While Granola is connected
+// the meeting starts and stops when it ends. W26: with no calendar event,
+// any call is enough (a tab on a Meet, Zoom, Teams, or Webex join link, as
+// WhimsyNextMeeting finds them, or a tab in a WebRTC call). It follows from
+// the moment the tab joins until the tab leaves the call (with a 30-second
+// grace for redirects within the site and reconnects) or closes, only while
+// Granola is connected (no Connect card on such calls), matches
+// Granola's meeting by its start time, and the card is titled after the
+// call's site ("Meet call"). While Granola is connected
 // (Settings › AI › Connectors, the existing MCP connector) it reads
 // Granola's notes for that meeting through Granola's own MCP tools
 // (list_meetings, then get_meeting_transcript, else get_meetings) once a
@@ -25,12 +32,15 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   DownloadPaths: "resource://gre/modules/DownloadPaths.sys.mjs",
+  findJoinLink: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
   pickLocale: "resource:///modules/whimsy/WhimsyLiveSpeech.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
@@ -55,6 +65,14 @@ const GROWTH_CHARS = 80;
 const NOTES_CHARS = 12000;
 const CHIP_CHARS = 12000;
 const KEEP_MS = 24 * 60 * MINUTE;
+// A call with no calendar event: Granola's meeting is the one that started
+// closest to when the tab joined, at most this long before or after.
+const ADHOC_BEFORE_MS = 10 * MINUTE;
+const ADHOC_AFTER_MS = 15 * MINUTE;
+// A call tab that leaves its call (its WebRTC call drops, or it moves to
+// another page of the same site that isn't a call yet) has this long to be
+// on a call again before following ends: call sites redirect and reconnect.
+const CALL_GRACE_MS = 30 * 1000;
 const MAX_POINTS = 6;
 // A microphone session that ends this many times within a minute without
 // any words is given up on.
@@ -142,6 +160,48 @@ export function matchMeeting(list, event) {
   return timed.length == 1 ? timed[0] : null;
 }
 
+/**
+ * Granola's meeting for a call with no calendar event: the one that started
+ * closest to `joinedAt`, from a little before the tab joined (Granola was
+ * started first) to a while after (Granola was started late). Null when
+ * none started in that window.
+ */
+export function matchByStart(list, joinedAt, { before = ADHOC_BEFORE_MS, after = ADHOC_AFTER_MS } = {}) {
+  return list
+    .filter(m => m.date && m.date >= joinedAt - before && m.date <= joinedAt + after)
+    .sort((a, b) => Math.abs(a.date - joinedAt) - Math.abs(b.date - joinedAt))[0] ?? null;
+}
+
+/**
+ * The call a page is on: `key` (its host and path, which changes when the
+ * tab navigates away), `service` (meet, zoom, teams, or webex when the page
+ * is a join link WhimsyNextMeeting knows, else ""), and `site` (its host).
+ * Null for pages that aren't on the web.
+ */
+export function callSite(spec) {
+  const u = URL.parse(String(spec ?? ""));
+  if (!u || !/^https?:$/.test(u.protocol)) {
+    return null;
+  }
+  const join = lazy.findJoinLink(u.href);
+  // The page itself must be the join link, not a page that mentions one.
+  const service = join && u.href.startsWith(join.url) ? join.service : "";
+  return { key: `${u.host}${u.pathname}`.replace(/\/$/, ""), service, site: u.host.replace(/^www\./, ""), host: u.host };
+}
+
+/** Whether two hosts share a registrable domain (app.zoom.us and zoom.us). */
+export function sameSite(a, b) {
+  const base = host => {
+    try {
+      return Services.eTLD.getBaseDomainFromHost(host);
+    } catch {
+      // IP addresses and single-label hosts are their own site.
+      return host;
+    }
+  };
+  return !!a && !!b && base(a) == base(b);
+}
+
 /** A tool reply's text: plain, or {transcript|text|notes} in JSON, tags dropped. */
 export function replyText(text) {
   const raw = String(text ?? "");
@@ -210,7 +270,10 @@ export const WhimsyMeetingNotes = {
   graceMs: GRACE_MS,
   growthChars: GROWTH_CHARS,
   testSpeech: null,
+  callGraceMs: CALL_GRACE_MS,
   now: () => Date.now(),
+  // The page a tab is on (tests stand in a call site's address).
+  tabUrl: tab => tab?.linkedBrowser?.currentURI?.spec ?? "",
 
   // The meeting followed (or ended) last: see _fresh().
   state: null,
@@ -218,6 +281,10 @@ export const WhimsyMeetingNotes = {
   _timer: null,
   _ticking: null,
   _schemas: null,
+  // The call a followed meeting ended on ({browser, key, inCall}): it isn't
+  // followed again as a call with no event until the tab leaves it, or
+  // rejoins it (W26).
+  _left: null,
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -232,9 +299,25 @@ export const WhimsyMeetingNotes = {
     this._windows.add(win);
     this._init();
     win.gBrowser.tabContainer.addEventListener("TabClose", this);
+    // A tab joining or leaving a call, or navigating, is noticed at once
+    // rather than at the next minute's tick (W26).
+    win.gBrowser.tabContainer.addEventListener("TabAttrModified", this);
+    const progress = {
+      onLocationChange: (browser, webProgress) => {
+        if (!webProgress?.isTopLevel) {
+          return;
+        }
+        if (browser == this.state?.tab?.linkedBrowser || callSite(browser.currentURI?.spec)?.service) {
+          this.tick();
+        }
+      },
+    };
+    win.gBrowser.addTabsProgressListener(progress);
     win.addEventListener("unload", () => {
       this._windows.delete(win);
       win.gBrowser?.tabContainer.removeEventListener("TabClose", this);
+      win.gBrowser?.tabContainer.removeEventListener("TabAttrModified", this);
+      win.gBrowser?.removeTabsProgressListener(progress);
       if (!this._windows.size) {
         lazy.clearInterval(this._timer);
         this._timer = null;
@@ -264,6 +347,9 @@ export const WhimsyMeetingNotes = {
     if (event.type == "TabClose" && this.state?.tab == event.target && this.state.phase != "ended") {
       // The call tab closed after the start: the meeting is over for us.
       this.end("tab-closed");
+    } else if (event.type == "TabAttrModified" && event.detail?.changed?.includes("sharing")) {
+      // A WebRTC call started or ended in this tab.
+      this.tick();
     }
   },
 
@@ -308,7 +394,99 @@ export const WhimsyMeetingNotes = {
     return inCall;
   },
 
-  _key: ev => `${norm(ev.title)}@${Math.round(ev.start / MINUTE)}`,
+  _key: ev => (ev.adhoc ? `call:${ev.callKey}@${ev.start}` : `${norm(ev.title)}@${Math.round(ev.start / MINUTE)}`),
+
+  /**
+   * A tab on a call with no calendar event (W26): one in a WebRTC call,
+   * else one on a call host's join link. Private windows never; nor the
+   * call a followed meeting just ended on (see _left).
+   */
+  adhocCallTab() {
+    const left = this._left;
+    if (left && (!left.browser?.isConnected || callSite(this.tabUrl({ linkedBrowser: left.browser }))?.key != left.key)) {
+      this._left = null;
+    }
+    let onLink = null;
+    for (const win of this._windows) {
+      if (win.closed || lazy.PrivateBrowsingUtils.isWindowPrivate(win)) {
+        continue;
+      }
+      for (const tab of win.gBrowser.tabs) {
+        const inCall = lazy.WhimsyCallPip.isInCall(tab);
+        const site = callSite(this.tabUrl(tab));
+        if (!inCall && !site?.service) {
+          continue;
+        }
+        if (this._left && tab.linkedBrowser == this._left.browser) {
+          if (!inCall) {
+            // Out of the call but still on its page: a later call there is a rejoin.
+            this._left.inCall = false;
+          }
+          if (!inCall || this._left.inCall) {
+            continue;
+          }
+        }
+        if (inCall) {
+          return { tab, site, inCall };
+        }
+        onLink ??= { tab, site, inCall };
+      }
+    }
+    return onLink;
+  },
+
+  /** The meeting for a call with no event: titled after the call's site. */
+  _adhocMeeting({ site }, now) {
+    let title = "";
+    try {
+      title = new Localization(["browser/whimsy.ftl"], true).formatValueSync("whimsy-meeting-call-title", {
+        service: site?.service || (site?.site ? "other" : "none"),
+        site: site?.site ?? "",
+      });
+    } catch (e) {
+      console.error("Whimsy meeting notes: call title", e);
+    }
+    return { adhoc: true, title: title || site?.site || "", start: now, end: Infinity, allDay: false, service: site?.service ?? "", callKey: site?.key ?? "" };
+  },
+
+  /**
+   * Whether a call with no event has left the call. Moving to another site
+   * (not in a call) leaves at once. Moving within the same site, or the
+   * WebRTC call dropping, starts a grace of callGraceMs: being on a call
+   * again in that time (in WebRTC, or on a join link) continues the same
+   * follow, with the same Granola meeting and card.
+   */
+  _leftCall(s, now) {
+    const tab = s.tab;
+    if (!tab?.linkedBrowser) {
+      return true;
+    }
+    const c = s.call;
+    const inCall = lazy.WhimsyCallPip.isInCall(tab);
+    const site = callSite(this.tabUrl(tab));
+    if ((site?.key ?? "") != c.key) {
+      if (!inCall && !sameSite(site?.host, c.host)) {
+        return true;
+      }
+      c.key = site?.key ?? "";
+      c.host = site?.host ?? "";
+      c.inCall = inCall;
+      c.graceSince = inCall || site?.service ? 0 : now;
+    } else if (inCall) {
+      c.inCall = true;
+      c.graceSince = 0;
+    } else if (c.inCall) {
+      // The WebRTC call dropped: it may reconnect.
+      c.inCall = false;
+      c.graceSince = now;
+    }
+    if (c.graceSince && now - c.graceSince >= this.callGraceMs) {
+      return true;
+    }
+    lazy.clearTimeout(this._graceTimer);
+    this._graceTimer = c.graceSince ? lazy.setTimeout(() => this.tick(), c.graceSince + this.callGraceMs - now) : null;
+    return false;
+  },
 
   async _granola() {
     const list = await lazy.WhimsyConnectors.list();
@@ -333,12 +511,25 @@ export const WhimsyMeetingNotes = {
     if (s && s.phase != "ended" && (now >= s.meeting.end || !s.tab?.linkedBrowser)) {
       await this.end(now >= s.meeting.end ? "time" : "tab-closed");
       s = this.state;
+    } else if (s && s.phase != "ended" && s.meeting.adhoc && this._leftCall(s, now)) {
+      // A call with no event ends when its tab leaves the call (W26).
+      await this.end("left");
+      s = this.state;
     }
+    // A calendar meeting, when there is one, wins.
     const meeting = this.meetingNow(now);
-    if (meeting && (!s || s.key != this._key(meeting))) {
-      const tab = this.callTabFor(meeting);
-      if (tab) {
-        s = this._begin(meeting, tab, now);
+    const meetingTab = meeting ? this.callTabFor(meeting) : null;
+    if (meetingTab && (!s || s.key != this._key(meeting))) {
+      s = this._begin(meeting, meetingTab, now);
+    }
+    // Else any call (W26).
+    if (!meetingTab && (!s || s.phase == "ended")) {
+      const call = this.adhocCallTab();
+      // Only with Granola connected: no Connect card on every call for
+      // people who never set Granola up (it stays on calendar meetings).
+      if (call && (await this._granola())?.connected) {
+        s = this._begin(this._adhocMeeting(call, now), call.tab, now);
+        s.call = { key: call.site?.key ?? "", host: call.site?.host ?? "", inCall: call.inCall, graceSince: 0 };
       }
     }
     if (!s || s.phase == "ended") {
@@ -348,6 +539,14 @@ export const WhimsyMeetingNotes = {
     const granola = await this._granola();
     const was = s.connector;
     s.connector = granola?.connected ? (granola.status == "expired" ? "expired" : "on") : "off";
+    if (s.connector == "off" && s.meeting.adhoc && !s.own) {
+      // Granola disconnected during a call with no event: stop, with no card.
+      s.phase = "off";
+      await this.end("disconnected");
+      // Connecting again during the call follows it again.
+      this._left = null;
+      return;
+    }
     if (s.connector == "on" && was != "on") {
       // Connected (again) mid-meeting: following starts at once (G.4).
       s.noNotesSince = now;
@@ -434,7 +633,8 @@ export const WhimsyMeetingNotes = {
         return { text: "", missing: true };
       }
       const listed = parseMeetingList(await this._call(GRANOLA_TOOLS.list, argsFor(GRANOLA_TOOLS.list, schemas[GRANOLA_TOOLS.list], { start: s.meeting.start })));
-      s.granolaId = matchMeeting(listed, s.meeting)?.id ?? null;
+      // A call with no event has no title to match: its start time does (W26).
+      s.granolaId = (s.meeting.adhoc ? matchByStart(listed, s.meeting.start) : matchMeeting(listed, s.meeting))?.id ?? null;
       if (!s.granolaId) {
         return { text: "" };
       }
@@ -758,6 +958,13 @@ export const WhimsyMeetingNotes = {
     }
     this._stopOwn(s);
     this._closeOffer(s);
+    // The call it ended on isn't followed again as a call with no event
+    // while the tab stays on it (W26).
+    const browser = s.tab?.linkedBrowser;
+    this._left = browser ? { browser, key: callSite(this.tabUrl(s.tab))?.key ?? "", inCall: lazy.WhimsyCallPip.isInCall(s.tab) } : null;
+    if (s.meeting.adhoc) {
+      s.meeting.end = this.now();
+    }
     if (s.phase == "off") {
       // Never followed (Granola not connected): nothing to keep.
       this.state = null;
@@ -913,7 +1120,7 @@ export const WhimsyMeetingNotes = {
     const s = this.state;
     const { doc } = panel;
     const tab = panel.currentTab;
-    if (!s || !tab || s.tab != tab) {
+    if (!s || !tab || s.tab != tab || (s.phase == "off" && s.meeting.adhoc)) {
       return null;
     }
     // Not connected: one line and one button (G.1).
@@ -1048,6 +1255,9 @@ export const WhimsyMeetingNotes = {
     this.state?.tab?.removeAttribute("whimsy-meeting-following");
     this.state = null;
     this._schemas = null;
+    this._left = null;
+    lazy.clearTimeout(this._graceTimer);
+    this._graceTimer = null;
     this._publish(null);
   },
 };
