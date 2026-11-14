@@ -706,6 +706,30 @@ HOTFIXES = [
                "        ...(action.whimsyKeywords ?? []).map(k => this.#calculateFuzzyScore(k, query) - 1)\n"
                "      ); // Whimsy hotfix: related actions",
     },
+    # W26 actions: Reload first on a "Problem loading page"
+    {
+        "id": "command-bar-reload-first-on-error",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "On an error page Reload is the row that helps, but \"/\" "
+               "listed it twentieth. An action whose whimsyFirst(window) "
+               "is true (WhimsyCommandBar: Reload and Reload Without Cache "
+               "on an error page) goes first in the untyped \"/\" list; "
+               "every other order is unchanged.",
+        "old": "      result.commandId = action.commandId;\n",
+        "new": "      result.commandId = action.commandId;\n"
+               "      result.whimsyFirst = isPrefixed && !query && !!action.whimsyFirst?.(ownerGlobal); // Whimsy hotfix (W26 actions)\n",
+    },
+    {
+        "id": "command-bar-reload-first-on-error-sort",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "Places the whimsyFirst rows (see command-bar-reload-first-on-error) "
+               "ahead of the rest; the sort is stable, so the rest keep their order.",
+        "old": "      .sortCommandsByPriority(finalResults)\n"
+               "      .forEach(result => {\n",
+        "new": "      .sortCommandsByPriority(finalResults)\n"
+               "      .sort((a, b) => b.whimsyFirst - a.whimsyFirst) // Whimsy hotfix (W26 actions)\n"
+               "      .forEach(result => {\n",
+    },
     # merge3: the first command bar action wasn't placed first
     {
         "id": "command-bar-top-action-first",

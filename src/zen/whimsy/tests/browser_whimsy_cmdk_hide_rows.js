@@ -264,6 +264,50 @@ add_task(async function error_page_hides_the_page_content_rows() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// The "/" list with the reload-first rule switched off, to compare against.
+async function listWithoutReloadFirst(context) {
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const marked = globalActions.filter(a => a.whimsyFirst);
+  is(marked.length, 2, "Reload Tab and Reload Tab Without Cache carry the rule");
+  const saved = marked.map(a => a.whimsyFirst);
+  marked.forEach(a => delete a.whimsyFirst);
+  try {
+    await actionsList();
+    return await labels(`${context}, rule off`);
+  } finally {
+    marked.forEach((a, i) => (a.whimsyFirst = saved[i]));
+    await leaveBar();
+  }
+}
+
+add_task(async function error_page_lists_reload_first() {
+  const tab = BrowserTestUtils.addTab(gBrowser, ERROR_PAGE);
+  gBrowser.selectedTab = tab;
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, null, true);
+  ok(WhimsyCommands.isErrorPage(tab.linkedBrowser), "an error page");
+  await actionsList();
+  const shown = await labels("error page, reload first");
+  await leaveBar();
+  is(shown.slice(0, 2).join(", "), "Reload Tab, Reload Tab Without Cache", "error page: Reload Tab and Reload Tab Without Cache are the first two rows");
+  const before = await listWithoutReloadFirst("error page");
+  const rest = before.filter(l => l != "Reload Tab" && l != "Reload Tab Without Cache");
+  is(shown.slice(2).join(" | "), rest.join(" | "), "error page: every other row keeps its order");
+  await shoot("error-reload");
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function a_normal_page_keeps_its_order() {
+  const tab = await onlyTab("https://example.com/");
+  ok(!WhimsyCommands.isErrorPage(tab.linkedBrowser), "not an error page");
+  await actionsList();
+  const shown = await labels("normal page");
+  await leaveBar();
+  ok(shown.indexOf("Reload Tab") > 1, "normal page: Reload Tab isn't moved up");
+  const before = await listWithoutReloadFirst("normal page");
+  is(shown.join(" | "), before.join(" | "), "normal page: the order is unchanged");
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function a_loaded_page_keeps_its_content_rows() {
   await BrowserTestUtils.withNewTab(ARTICLE, async browser => {
     ok(!WhimsyCommands.isErrorPage(browser) && WhimsyCommands.hasPage(window), "A loaded page is a page");
