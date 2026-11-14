@@ -14,8 +14,9 @@
 //   so it still shows upright (rotating the pixels wouldn't be lossless).
 //   A multi-picture JPEG (an APP2 "MPF" index: iPhone photos, gain maps,
 //   depth maps) carries more images after the primary one's EOI, each with
-//   its own Exif and often GPS; the MPF segment and everything after the
-//   primary EOI go, leaving the primary image alone.
+//   its own Exif and often GPS, so the MPF segment goes. Whatever any JPEG
+//   has after its EOI (secondary images, camera trailers) goes too: it isn't
+//   shown, and it can carry its own Exif.
 // - PNG: drops eXIf, tEXt, iTXt, and zTXt chunks, keeping a minimal eXIf
 //   with only the Orientation tag when it turns the image.
 //
@@ -102,15 +103,17 @@ function concat(parts) {
   return out;
 }
 
-// Where the JPEG image starting with the SOS at `pos` ends: just past its
-// EOI, or -1 when there's none. Walks the scans (entropy-coded data, where
-// FF is followed by a 00 stuffing byte or an RST marker) and the marker
-// segments between them (progressive JPEGs have several scans).
+// Where the JPEG image starting with the SOS at `pos` ends: `end` is just
+// past its EOI, or -1 when there's none; `scanEnd` is where the last scan's
+// data stopped. Walks the scans (entropy-coded data, where FF is followed by
+// a 00 stuffing byte or an RST marker) and the marker segments between them
+// (progressive JPEGs have several scans).
 function endOfImage(bytes, pos) {
   const len = bytes.length;
+  let scanEnd = pos;
   while (pos + 1 < len) {
     if (bytes[pos] != 0xff) {
-      return -1;
+      break;
     }
     const marker = bytes[pos + 1];
     if (marker == 0xff) {
@@ -118,18 +121,18 @@ function endOfImage(bytes, pos) {
       continue;
     }
     if (marker == 0xd9) {
-      return pos + 2;
+      return { end: pos + 2, scanEnd };
     }
     if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
       pos += 2;
       continue;
     }
     if (pos + 4 > len) {
-      return -1;
+      break;
     }
     const size = (bytes[pos + 2] << 8) | bytes[pos + 3];
-    if (size < 2) {
-      return -1;
+    if (size < 2 || pos + 2 + size > len) {
+      break;
     }
     pos += 2 + size;
     if (marker == 0xda) {
@@ -137,9 +140,10 @@ function endOfImage(bytes, pos) {
       while (pos + 1 < len && !(bytes[pos] == 0xff && bytes[pos + 1] != 0x00 && !(bytes[pos + 1] >= 0xd0 && bytes[pos + 1] <= 0xd7))) {
         pos++;
       }
+      scanEnd = pos + 1 < len ? pos : len;
     }
   }
-  return -1;
+  return { end: -1, scanEnd };
 }
 
 /** A JPEG without its metadata segments, or null when nothing changes (or it isn't a JPEG). */
@@ -150,7 +154,6 @@ export function stripJpeg(bytes) {
   const len = bytes.length;
   const parts = [bytes.subarray(0, 2)];
   let changed = false;
-  let multiPicture = false;
   let pos = 2;
   while (pos < len) {
     if (bytes[pos] != 0xff) {
@@ -165,11 +168,21 @@ export function stripJpeg(bytes) {
     }
     const marker = bytes[m];
     if (marker == 0xda || marker == 0xd9) {
-      // SOS (or an early EOI): the image data, byte for byte. In a
-      // multi-picture JPEG it stops at the primary image's EOI, so the
-      // secondary images (and their Exif) don't come along.
-      const end = multiPicture ? endOfImage(bytes, pos) : -1;
-      parts.push(end > 0 ? bytes.subarray(pos, end) : bytes.subarray(pos));
+      // SOS (or an early EOI): the image data, byte for byte, up to the
+      // primary image's EOI; secondary images and trailers (and their Exif)
+      // don't come along.
+      const { end, scanEnd } = endOfImage(bytes, pos);
+      if (end > 0) {
+        parts.push(bytes.subarray(pos, end));
+        changed ||= end < len;
+      } else if (!changed) {
+        // No EOI, and no metadata found before the image: left as it is.
+        return null;
+      } else {
+        // No EOI: the image data up to where its last scan stopped, closed
+        // with an EOI, so nothing that follows can carry details along.
+        parts.push(bytes.subarray(pos, scanEnd), new Uint8Array([0xff, 0xd9]));
+      }
       pos = len;
       break;
     }
@@ -202,7 +215,6 @@ export function stripJpeg(bytes) {
     } else if (marker == 0xe2 && startsWith(bytes, m + 3, MPF_ID)) {
       // The index of the secondary images, which don't stay.
       changed = true;
-      multiPicture = true;
     } else {
       parts.push(bytes.subarray(pos, end));
     }

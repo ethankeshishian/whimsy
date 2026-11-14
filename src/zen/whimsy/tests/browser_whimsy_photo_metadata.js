@@ -157,6 +157,23 @@ add_task(async function multi_picture_jpeg_keeps_only_its_primary_image() {
   is(stripJpeg(out), null, "Stripping it again changes nothing");
 });
 
+add_task(function jpeg_loses_what_follows_its_eoi() {
+  // A JPEG with nothing to strip but a camera trailer after its EOI.
+  const clean = stripJpeg(jpeg);
+  const trailer = new TextEncoder().encode("TRAILER Exif\0\0 WhimsyCam 37.7749");
+  const junk = new Uint8Array([...clean, ...trailer]);
+  const out = stripJpeg(junk);
+  ok(out && same(out, clean), "The bytes after its EOI are gone, and the image is untouched");
+  // Without an EOI: a file with metadata is cut where its scan data stops.
+  const cut = jpeg.subarray(0, jpeg.length - 2);
+  const closed = stripJpeg(cut);
+  ok(closed && same(closed, clean), "A JPEG missing its EOI is closed with one after its scan data");
+  // One with no metadata at all and no EOI is left as it is.
+  const { segments, sos } = jpegSegments(clean);
+  const plain = new Uint8Array([0xff, 0xd8, ...segments.filter(seg => seg.marker != 0xe1).flatMap(seg => [...seg.bytes]), ...clean.subarray(sos, clean.length - 2)]);
+  is(stripJpeg(plain), null, "A JPEG with no metadata and no EOI is left untouched");
+});
+
 add_task(function png_loses_its_text_and_keeps_its_image() {
   ok(has(png, "37.7749") && has(png, "Location") && has(png, "WhimsyCam"), "The fixture carries text and camera details");
   const out = stripPng(png);
