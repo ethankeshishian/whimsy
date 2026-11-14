@@ -218,6 +218,8 @@ add_setup(async function () {
       ["security.webauth.webauthn_enable_softtoken", false],
       ["security.webauth.webauthn_enable_usbtoken", true],
       ["security.webauthn.enable_conditional_mediation", true],
+      // Its "Chat about your tabs" callout would sit in the prompt shots.
+      ["whimsy.feature.ai-hints", false],
     ],
   });
   WhimsyPasskeys._signer = signer;
@@ -238,7 +240,11 @@ add_setup(async function () {
     WhimsyPasskeys.cancel(0);
     for (const tab of tabs) {
       if (tab.isConnected && !tab.closing && tab.linkedBrowser?.webProgress) {
-        await BrowserTestUtils.removeTab(tab).catch(e => info(`Closing a leftover tab: ${e}`));
+        try {
+          await BrowserTestUtils.removeTab(tab);
+        } catch (e) {
+          info(`Closing a leftover tab: ${e}`);
+        }
       }
     }
     await gZenWorkspaces.changeWorkspace(home);
@@ -663,7 +669,13 @@ add_task(async function feature_off_is_yesterday() {
     ok(!WhimsyPasskeys.available, "Off means not available");
     await expectDelegated(tab.linkedBrowser, "get", { allow: [mona.id] }, "feature off");
     await focusPage(tab.linkedBrowser);
-    await expectDelegated(tab.linkedBrowser, "create", { attachment: "platform", userId: "DAwN" }, "feature off, create");
+    // A platform-only create has nowhere to go without Whimsy: Firefox
+    // refuses it at once, with no prompt of either kind (stock behaviour).
+    const { value, prompts } = await watchNative(() =>
+      request(tab.linkedBrowser, "create", { attachment: "platform", userId: "DAwN" }));
+    is(value.ok, false, `feature off, create: refused (${value.error}: ${value.message})`);
+    ok(!prompt(), "feature off, create: no Whimsy prompt");
+    is(prompts.length, 0, "feature off, create: no security-key prompt either");
   } finally {
     // The switch must come back whatever happened above: the later tasks
     // (and Firefox's own prompts, left open by a delegated request) depend
@@ -750,7 +762,7 @@ add_task(async function screenshots_and_guards() {
   };
   const backgroundOf = el => {
     for (let node = el; node; node = node.parentElement ?? node.parentNode?.host ?? null) {
-      const bg = node.nodeType == 1 ? getComputedStyle(node).backgroundColor : null;
+      const bg = node.nodeType == 1 ? node.ownerDocument.defaultView.getComputedStyle(node).backgroundColor : null;
       if (bg && srgb(bg)[3] == 255) {
         return bg;
       }
@@ -768,9 +780,18 @@ add_task(async function screenshots_and_guards() {
 
   const guards = (panel, scheme) => {
     const footer = panel.querySelector(".whimsy-surface-footer");
+    const box = footer.getBoundingClientRect();
     const buttons = [...footer.querySelectorAll("button")];
-    const tops = buttons.map(b => Math.round(b.getBoundingClientRect().top));
-    ok(tops.every(t => Math.abs(t - tops[0]) <= 1), `${scheme}: the footer is one line (${tops.join(", ")})`);
+    const rects = buttons.map(b => b.getBoundingClientRect());
+    info(`${scheme}: footer ${Math.round(box.left)}-${Math.round(box.right)}; ` +
+      buttons.map((b, i) => `${labelOf(b.id)} ${Math.round(rects[i].left)}-${Math.round(rects[i].right)}`).join(", "));
+    // One line: the quiet text button is shorter than the real ones, so
+    // compare their vertical centres, not their tops.
+    const middles = rects.map(r => Math.round(r.top + r.height / 2));
+    ok(middles.every(m => Math.abs(m - middles[0]) <= 1), `${scheme}: the footer is one line (${middles.join(", ")})`);
+    // Nothing spills past the footer: the mockup fits all three at 380px.
+    Assert.greaterOrEqual(Math.min(...rects.map(r => r.left)), box.left - 1, `${scheme}: the first button starts in the footer`);
+    Assert.lessOrEqual(Math.max(...rects.map(r => r.right)), box.right + 1, `${scheme}: the last button ends in the footer`);
     for (const button of buttons) {
       const label = button.querySelector(".button-text") ?? button;
       Assert.lessOrEqual(label.scrollWidth, label.clientWidth + 1, `${scheme}: "${labelOf(button.id)}" isn't cut`);
@@ -779,13 +800,25 @@ add_task(async function screenshots_and_guards() {
     for (const [name, el] of [
       ["title", panel.querySelector(".whimsy-surface-title")],
       ["text", panel.querySelector(".whimsy-passkeys-text")],
+      ["status", panel.querySelector(".whimsy-passkeys-status")],
       ["account", panel.querySelector(".whimsy-surface-row-label")],
-      ["security key", document.getElementById("whimsy-passkeys-security-key")],
-      ["cancel", document.getElementById("whimsy-passkeys-cancel")],
-      ["primary", document.getElementById("whimsy-passkeys-primary")],
+      ["security key", panel.ownerDocument.getElementById("whimsy-passkeys-security-key")],
+      ["cancel", panel.ownerDocument.getElementById("whimsy-passkeys-cancel")],
+      ["ok", panel.ownerDocument.getElementById("whimsy-passkeys-ok")],
+      ["primary", panel.ownerDocument.getElementById("whimsy-passkeys-primary")],
     ]) {
-      const ratio = contrast(getComputedStyle(el).color, backgroundOf(el));
+      if (!el) {
+        continue;
+      }
+      const ratio = contrast(el.ownerDocument.defaultView.getComputedStyle(el).color, backgroundOf(el));
       Assert.greaterOrEqual(ratio, 4.5, `${scheme}: ${name} contrast ${ratio.toFixed(2)}:1`);
+    }
+    // The tile's glyph reads on its tint in both themes (3:1, a graphic).
+    const tile = panel.querySelector(".whimsy-surface-tile");
+    if (tile) {
+      const glyph = tile.ownerDocument.defaultView.getComputedStyle(tile).color;
+      const ratio = contrast(glyph, backgroundOf(tile));
+      Assert.greaterOrEqual(ratio, 3, `${scheme}: tile glyph contrast ${ratio.toFixed(2)}:1`);
     }
   };
 
@@ -794,7 +827,7 @@ add_task(async function screenshots_and_guards() {
   let result = request(browser, "create", { userId: "DAwN", name: "octocat", displayName: "Mona Lisa Octocat" });
   await shoot("p1-create", "create", guards);
   press("whimsy-passkeys-primary");
-  await shoot("p2-waiting", "waiting");
+  await shoot("p2-waiting", "waiting", guards);
   await abortRequest(browser);
   await result;
   await promptGone();
@@ -804,12 +837,12 @@ add_task(async function screenshots_and_guards() {
   await focusPage(browser);
   signer.mode = "cancel";
   result = request(browser, "get", { allow: [mona.id] });
-  await shoot("p3-signin", "sign");
+  await shoot("p3-signin", "sign", guards);
   press("whimsy-passkeys-primary");
-  await shoot("p6-cancelled", "cancelled");
+  await shoot("p6-cancelled", "cancelled", guards);
   signer.mode = "bad-blob";
   press("whimsy-passkeys-primary");
-  await shoot("p7-error", "error");
+  await shoot("p7-error", "error", guards);
   press("whimsy-passkeys-cancel");
   await result;
   await promptGone();
@@ -818,7 +851,7 @@ add_task(async function screenshots_and_guards() {
   // P4 choose.
   await focusPage(browser);
   result = request(browser, "get", { allow: [] });
-  await shoot("p4-choose", "sign");
+  await shoot("p4-choose", "sign", guards);
   press("whimsy-passkeys-cancel");
   await result;
   await promptGone();
@@ -830,6 +863,7 @@ add_task(async function screenshots_and_guards() {
   await focusPage(browser);
   result = request(browser, "get", { allow: [mona.id] });
   await shoot("p5-password", "sign-password", (panel, scheme) => {
+    guards(panel, scheme);
     const line = panel.querySelector(".whimsy-passkeys-fallback span");
     const ratio = contrast(getComputedStyle(line).color, backgroundOf(line));
     Assert.greaterOrEqual(ratio, 4.5, `${scheme}: amber line contrast ${ratio.toFixed(2)}:1`);
@@ -841,10 +875,12 @@ add_task(async function screenshots_and_guards() {
   WhimsyPasskeys.resetAvailability();
   await WhimsyPasskeys.probe();
 
-  // P8 already saved.
+  // P8 already saved. The cancels above (P6, P7, P4, P5) tripped the
+  // back-off for the site; this is a new request, not another cancel.
+  fresh();
   await focusPage(browser);
   result = request(browser, "create", { attachment: "platform", exclude: [mona.id] });
-  await shoot("p8-exists", "exists");
+  await shoot("p8-exists", "exists", guards);
   press("whimsy-passkeys-ok");
   await result;
   await promptGone();
@@ -859,7 +895,7 @@ add_task(async function screenshots_and_guards() {
       await whimsySetScheme(dark);
       let cleanup = null;
       try {
-        await promptIn("private", win);
+        guards(await promptIn("private", win), dark ? "dark (private)" : "light (private)");
         cleanup = whimsyStandInPopups(win.document);
         await whimsySettled(win.document);
         await whimsyShot(`w26-passkeys-p9-private-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);

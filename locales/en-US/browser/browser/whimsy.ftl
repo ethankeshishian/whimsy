@@ -8194,7 +8194,8 @@ whimsy-passkeys-security-key = Use a security key
 whimsy-passkeys-reason-create = save a passkey for { $site }
 whimsy-passkeys-reason-sign = sign in to { $site }
 
-whimsy-passkeys-header = Passkeys
+whimsy-passkeys-header =
+    .label = Passkeys
 whimsy-passkeys-description = Passkeys you saved with Touch ID in { -brand-short-name }. They live on this Mac only and aren’t copied to iCloud Keychain, another browser, or another Mac, so keep a second way to sign in to each site. A new Mac means saving them again.
 whimsy-passkeys-empty = No passkeys saved yet.
 whimsy-passkeys-footnote = Passkeys from 1Password and security keys aren’t listed here; those apps keep their own.

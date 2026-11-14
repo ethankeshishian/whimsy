@@ -923,9 +923,7 @@ export const WhimsyPasskeys = {
           onCommand: () => this._answer(active, "onDelegate"),
         });
         key.disabled = state == "waiting";
-        const spacer = doc.createXULElement("spacer");
-        spacer.setAttribute("flex", "1");
-        footer.append(key, spacer);
+        footer.append(key);
       }
       footer.append(S.footerButton(doc, {
         id: cancelId,
