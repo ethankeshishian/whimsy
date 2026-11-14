@@ -1269,3 +1269,11 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 
 ["browser_whimsy_cmd_tab_numbers.js"]
 skip-if = ["os != 'mac'"]
+
+# w27-tabkeys: Move Tab Up/Down (WhimsyTabMove) and the sidebar's Left/Right
+# tree navigation + Option+Up/Down (WhimsySidebarNav), which reuses it.
+["browser_whimsy_tab_move.js"]
+
+# w27-tabkeys: Paste Tabs (clipboard URLs, cut-to-move), sidebar focused only.
+["browser_whimsy_paste_tabs.js"]
+skip-if = ["os != 'mac'"] # Cmd+V/Cmd+X are a Mac-only gesture, like browser_whimsy_cmd_tab_numbers.js

@@ -264,6 +264,12 @@
 - name: whimsy.feature.sidebar-nav
   value: true
 
+- name: whimsy.feature.move-tab
+  value: true
+
+- name: whimsy.feature.paste-tabs
+  value: true
+
 - name: whimsy.feature.cheatsheet
   value: true
 
