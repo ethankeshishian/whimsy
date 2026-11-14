@@ -63,6 +63,14 @@ async function makeFolderRow() {
   gBrowser.moveTabTo(b, { tabIndex: a.index + 1 });
   gBrowser.moveTabTo(c, { tabIndex: b.index + 1 });
   const folder = await gZenFolders.createFolder([a, b], { renameFolder: false, label: "Move Test" });
+  // ZenFolders.createFolder pins its members and relocates the folder into
+  // the pinned tabs row (ZenFolders.mjs's createFolder). Pin `before`/`c`
+  // too and place them on either side of the folder there, so the row stays
+  // one contiguous pinned-space strip: before, [folder: a, b], c.
+  gBrowser.pinTab(before);
+  gBrowser.pinTab(c);
+  gBrowser.zenHandleTabMove(before, () => folder.before(before));
+  gBrowser.zenHandleTabMove(c, () => folder.after(c));
   return { before, a, b, c, folder };
 }
 
@@ -72,6 +80,7 @@ async function removeFolderRow({ before, c, folder }) {
   await removed;
   for (const tab of [before, c]) {
     if (tab.isConnected && !tab.closing) {
+      gBrowser.unpinTab(tab);
       await BrowserTestUtils.removeTab(tab);
     }
   }
@@ -80,9 +89,14 @@ async function removeFolderRow({ before, c, folder }) {
 add_task(async function test_move_up_down_regular_tabs() {
   const [home, a, b, c] = await makeRow(4);
   try {
+    // makeRow() appends after whatever unpinned tabs already exist in the
+    // window (e.g. the test window's own startup tab), so `home` isn't
+    // necessarily the strip's absolute first tab until repositioned there.
+    gBrowser.moveTabTo(home, { tabIndex: gBrowser.tabs.findIndex(t => !t.pinned) });
+    const homeIndex = home.index;
     is(WhimsyTabMove.canMove(window, home, DIRECTION_BACKWARD), false, "The first tab can't move up");
     ok(!WhimsyTabMove.move(window, home, DIRECTION_BACKWARD), "...move() agrees");
-    is(home.index, 0, "...and stays put");
+    is(home.index, homeIndex, "...and stays put");
 
     ok(WhimsyTabMove.canMove(window, b, DIRECTION_BACKWARD), "b can move up");
     ok(WhimsyTabMove.move(window, b, DIRECTION_BACKWARD), "");
@@ -131,12 +145,15 @@ add_task(async function test_move_exits_a_folder() {
   const row = await makeFolderRow();
   try {
     ok(WhimsyTabMove.move(window, row.b, DIRECTION_FORWARD), "b (last in the folder) moves forward");
-    is(row.b.group, null, "...leaving the folder");
+    ok(!row.b.group, "...leaving the folder");
     is(row.b.index, row.c.index - 1, "...landing right before c");
     is(row.folder.allItems.length, 1, "Only a is left in the folder");
   } finally {
+    // b is now a standalone pinned tab (outside the folder); unpin before
+    // removing it, same as before/c in removeFolderRow.
+    gBrowser.unpinTab(row.b);
+    await removeRow([row.b]);
     await removeFolderRow(row);
-    await removeRow([row.a, row.b]);
   }
 });
 
@@ -151,6 +168,7 @@ add_task(async function test_move_enters_a_folder() {
     const removed = BrowserTestUtils.waitForEvent(row.folder, "TabGroupRemoved");
     row.folder.delete();
     await removed;
+    gBrowser.unpinTab(row.before);
     await removeRow([row.before]);
   }
 });
@@ -160,7 +178,7 @@ add_task(async function test_move_skips_a_collapsed_folder() {
   row.folder.collapsed = true;
   try {
     ok(WhimsyTabMove.move(window, row.c, DIRECTION_BACKWARD), "c moves backward past the collapsed folder");
-    is(row.c.group, null, "...never entering it");
+    ok(!row.c.group, "...never entering it");
     is(row.c.index, row.before.index + 1, "...landing right after `before`, skipping the whole folder");
     is(row.folder.allItems.length, 2, "The folder's own tabs are untouched");
   } finally {

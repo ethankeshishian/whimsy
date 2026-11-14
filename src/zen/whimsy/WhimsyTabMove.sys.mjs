@@ -117,11 +117,18 @@ export const WhimsyTabMove = {
     const tabOrSplit = tab.splitview || tab;
     const neighbor = neighborOf(win, tab, direction);
     if (!neighbor) {
-      if (direction > 0) {
-        tab.group.after(tabOrSplit);
-      } else {
-        tab.group.before(tabOrSplit);
-      }
+      // No same-pinned-state neighbor: tab is leaving its group at the edge
+      // of the pinned or unpinned region. Route the raw DOM move through
+      // zenHandleTabMove so cached indices/allItems stay correct afterward
+      // (tab.mjs's `index` getter is a cached `_index`, only refreshed by
+      // the housekeeping zenHandleTabMove runs).
+      gBrowser.zenHandleTabMove(tab, () => {
+        if (direction > 0) {
+          tab.group.after(tabOrSplit);
+        } else {
+          tab.group.before(tabOrSplit);
+        }
+      });
       return true;
     }
     const neighborOrSplit = neighbor.splitview || neighbor;
