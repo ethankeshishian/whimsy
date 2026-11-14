@@ -56,13 +56,14 @@ add_task(async function test_every_settings_string_resolves() {
       const messages = await doc.l10n.formatMessages(ids.map(id => ({ id, args: byId.get(id) ?? undefined })));
       const missing = ids.filter((id, i) => !messages[i]);
       Assert.deepEqual(missing, [], `${pane}: every Whimsy string resolves (${ids.length} checked)`);
-      // A visible Whimsy card always has something in it besides its heading.
+      // A visible Whimsy card always has something in it besides its heading:
+      // a control, or a list it fills (a list card's empty state is text only).
       for (const card of doc.querySelectorAll("groupbox[id^='whimsy'], .whimsy-setting-card")) {
         if (card.hidden || !card.checkVisibility()) {
           continue;
         }
         ok(
-          card.querySelector("checkbox, moz-checkbox, moz-toggle, moz-select, moz-radio-group, moz-button, menulist, button, input, textarea, select, a, [role='radiogroup'], setting-group"),
+          card.querySelector("checkbox, moz-checkbox, moz-toggle, moz-select, moz-radio-group, moz-button, menulist, button, input, textarea, select, a, [role='radiogroup'], setting-group, ul, ol, [role='list']"),
           `${card.id} has controls`
         );
       }
