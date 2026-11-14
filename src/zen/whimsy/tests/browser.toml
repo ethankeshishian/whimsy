@@ -718,7 +718,7 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # W27: Turn Off / Turn On Page Animations: a user sheet stops CSS animations and transitions on this tab only, a reload clears it, other tabs keep theirs, state-aware names, the toast, its switch.
 ["browser_whimsy_page_animations.js"]
 support-files = ["whimsy_page_animations.html"]
-# W27: the window title names its space with two or more spaces (switch, rename), stays Firefox's with one, its switch, and a locked private window.
+# W27: Show space name in window title (Settings → Tab Management, off by default): titlepreface "<space> — ", space switch and rename, any space count, its switch, the private lock.
 ["browser_whimsy_window_title_space.js"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]

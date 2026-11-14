@@ -886,10 +886,10 @@ export const Whimsy = {
     // space badge. Wraps updatePreview after the private lock does; the two
     // compose either way. Checks whimsy.feature.ctrl-tab on each open.
     run("ctrl-tab-look", () => lazy.WhimsyCtrlTab.initWindow(win));
-    // W27: "<page title> — <space name>" as the window title (Mission
-    // Control, the Window menu) with more than one space. After Zen's
-    // spaces are ready, so it wraps the title after the private lock does;
-    // checks its switch on every title.
+    // W27: Show space name in window title (Settings → Tab Management, off
+    // by default): "<space> — " as the window's titlepreface, for Mission
+    // Control, the Window menu, and screen-share pickers. After Zen's spaces
+    // are ready.
     run("window-title-space", () =>
       win.gZenWorkspaces?.promiseInitialized
         ?.then(() => lazy.WhimsyWindowTitle.initWindow(win))

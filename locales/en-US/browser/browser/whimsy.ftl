@@ -461,6 +461,10 @@ whimsy-emoji-search-empty =
 
 whimsy-spaces-hide-switcher =
     .label = Hide the space switcher (swipe to change spaces; it shows while you drag a tab)
+# W27: the window title starts with the space's name (Mission Control, the
+# Window menu, and screen-share pickers show it).
+whimsy-spaces-window-title-name =
+    .label = Show space name in window title
 
 ## Open Link in Space (link context menu)
 
@@ -4561,6 +4565,8 @@ whimsy-setting-loading-line = Loading Progress Line
     .keywords = safari progress bar, loading line, progress line
 whimsy-setting-hide-switcher = Space Switcher
     .keywords = hide space switcher, workspace icons, spaces bar, swipe spaces
+whimsy-setting-window-title-space = Space Name in Window Title
+    .keywords = window title, space name, Mission Control, Window menu, screen sharing
 whimsy-setting-tab-badges = Tab Badges
     .keywords = unread counts, notification dots, update dots, badges
 whimsy-setting-background-mute = Background Tab Sound

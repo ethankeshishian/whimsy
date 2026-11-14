@@ -75,6 +75,12 @@
 - name: whimsy.spaces.hide-switcher
   value: false
 
+# Start the window title with the space's name ("<space> — <page title>"),
+# for Mission Control, the Window menu, and screen-share pickers (Settings →
+# Tab Management). Off: the title is Firefox's.
+- name: whimsy.spaces.window-title-name
+  value: false
+
 # How see-through the sidebar and toolbars are, in percent (0–80; Settings →
 # Look and Feel, macOS). 0 is Zen's opaque look.
 - name: whimsy.look.transparency
