@@ -30,6 +30,14 @@ ensure_worker() {
   echo "queue: could not start the worker (see $Q/worker.log)" >&2; return 1
 }
 
+# A ticket that builds the engine by hand (not lane.sh or verify-dev.sh,
+# which record what they build): the engine's recorded source state
+# (buildstate.py) is unknown from then on, so the next lane builds in full.
+hand_build() {
+  case ${1:t} in lane.sh|verify-dev.sh) return 1;; esac
+  [[ " $* " =~ '[ /](mach build|mach build-backend|surfer build|npm run build)[ :]' ]]
+}
+
 submit() {
   prio=1; name=job; dedupe=0
   while [ $# -gt 0 ]; do
@@ -53,6 +61,7 @@ submit() {
     env | grep '^WHIMSY_' | sed 's/^/export /; s/=\(.*\)$/=\x27\1\x27/' | grep -v WHIMSY_TICKET
     echo "export WHIMSY_TICKET=$t"
     echo "export PATH=${(q)PATH}"
+    hand_build "$@" && echo "python3 ${(q)WHIMSY_TOOLS}/buildstate.py invalidate --by ${(q):-ticket $t} >/dev/null 2>&1"
     echo "exec ${(q)@}"
   } > $job.tmp && mv $job.tmp $job
   date +%s > $Q/out/$t.submitted

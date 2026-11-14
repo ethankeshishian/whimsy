@@ -47,6 +47,9 @@ const backInPage = browser =>
 add_task(async function test_x_closes_and_pauses() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   const player = await openPip(tab.linkedBrowser);
+  ok(!player.document.body.hasAttribute("whimsy-call-pip"), "Not a call window");
+  isnot(player.getComputedStyle(player.document.getElementById("close")).display, "none",
+    "A non-call PiP keeps × (only call windows hide it)");
   const closed = BrowserTestUtils.domWindowClosed(player);
   EventUtils.synthesizeMouseAtCenter(player.document.getElementById("close"), {}, player);
   await closed;

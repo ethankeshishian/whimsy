@@ -33,6 +33,60 @@ export const WhimsyFaviconHome = {
     return win.gZenVerticalTabsManager?._prefsSidebarExpanded === true;
   },
 
+  /**
+   * The parent address for "Go Up One Level": the last path segment
+   * dropped, or (with none) the query then the hash. Null at the site
+   * root, with nothing left to drop, or on a non-http(s) address.
+   */
+  upOneLevel(spec) {
+    let uri;
+    try {
+      uri = new URL(spec);
+    } catch (e) {
+      return null;
+    }
+    if (uri.protocol != "http:" && uri.protocol != "https:") {
+      return null;
+    }
+    const segments = uri.pathname.split("/").filter(Boolean);
+    if (segments.length) {
+      segments.pop();
+      uri.pathname = segments.length ? `/${segments.join("/")}/` : "/";
+      uri.search = "";
+      uri.hash = "";
+      return uri.href;
+    }
+    if (uri.search) {
+      uri.search = "";
+      uri.hash = "";
+      return uri.href;
+    }
+    if (uri.hash) {
+      uri.hash = "";
+      return uri.href;
+    }
+    return null;
+  },
+
+  goUp(win, tab) {
+    const up = this.upOneLevel(tab?.linkedBrowser?.currentURI?.spec);
+    if (!up || tab.closing) {
+      return;
+    }
+    const browser = tab.linkedBrowser;
+    const principal = Services.scriptSecurityManager.getSystemPrincipal();
+    browser.stop();
+    browser.loadURI(Services.io.newURI(up), { triggeringPrincipal: principal });
+    lazy.WhimsyUndo.push(win, {
+      type: "go-up-level",
+      undo: () => {
+        if (tab.isConnected && !tab.closing && browser.currentURI.spec == up && browser.canGoBack) {
+          browser.goBack();
+        }
+      },
+    });
+  },
+
   refresh(win, tab) {
     const ready = !!this.home(win, tab) && this.expanded(win);
     tab.toggleAttribute("whimsy-home-ready", ready);
@@ -195,6 +249,13 @@ export const WhimsyFaviconHome = {
       l10nId: "whimsy-action-site-home",
       icon: "chrome://browser/content/whimsy/icons/site-home.svg",
       run: w => this.go(w, w.gBrowser.selectedTab),
+    });
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyGoUpLevel",
+      l10nId: "whimsy-action-go-up-level",
+      icon: "chrome://browser/skin/zen-icons/arrow-up.svg",
+      run: w => this.goUp(w, w.gBrowser.selectedTab),
+      isAvailable: w => !!this.upOneLevel(w.gBrowser.selectedTab?.linkedBrowser?.currentURI?.spec),
     });
     win.addEventListener("unload", () => {
       for (const remove of listeners) {

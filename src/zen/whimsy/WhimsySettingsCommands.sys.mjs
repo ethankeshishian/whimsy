@@ -100,6 +100,7 @@ export const SETTINGS = [
   { name: "dark-pdf", when: () => !featureOn("dark-pages"), setting: "whimsyDarkPdf", pref: "whimsy.pdf.dark", feature: ["dark-pdf"],
     command: ["cmd_whimsyToggleDarkPdf"] },
   { name: "find-card", setting: "whimsyFindCard", pref: "whimsy.feature.find-card", feature: ["find-card"] },
+  { name: "double-escape", setting: "whimsyDoubleEscape", pref: "whimsy.fullscreen.double-escape", feature: ["double-escape"] },
   { name: "ui-font", setting: "whimsyUiFont", pref: "whimsy.look.ui-font", feature: ["ui-font"],
     // Any other font is picked from the list in Settings (every installed
     // font); the command goes back to the system font.
@@ -120,6 +121,8 @@ export const SETTINGS = [
   { name: "seasons", setting: "whimsySeasonalThemes", pref: "whimsy.seasons.enabled", feature: ["seasonal-themes"] },
   { name: "full-url", setting: "whimsyAlwaysFullUrl", pref: "whimsy.urlbar.always-full-url",
     feature: ["full-url-click"] },
+  // W27 winprefs: Zen's grey-out of an inactive window (off in Whimsy).
+  { name: "dim-inactive-window", setting: "whimsyDimInactiveWindow", pref: "zen.view.grey-out-inactive-windows" },
   { name: "teach", setting: "whimsyTeachEnabled", pref: "whimsy.teach.enabled", feature: ["teach-once"] },
 
   // Home and startup (W11-07): Firefox's New windows and New tabs
@@ -147,6 +150,9 @@ export const SETTINGS = [
   { name: "cookie-banners", setting: "whimsyRejectCookieBanners", pref: "whimsy.reject-cookie-banners",
     feature: ["cookie-banners"] },
   { name: "ai", setting: "whimsyAIEnable", pref: "whimsy.ai.enabled", feature: ["ai-kill-switch"] },
+  // W26 passkeys: the saved passkeys, one Delete each (undo in the toast).
+  { name: "passkeys", setting: "whimsyPasskeysList", feature: ["passkeys"], covers: "#whimsyPasskeysGroup",
+    exempt: "each saved passkey's own Delete button; passkeys are made on sites" },
   // W23: the connected providers (order, switches, details) and the
   // connect sheets are many small controls, set in the page.
   { name: "ai-commands", setting: "whimsyCommandsBuiltIn", covers: "#whimsyCommandsBuiltIn", when: aiAllowed,
@@ -241,6 +247,9 @@ export const SETTINGS = [
   { name: "ai-memory", setting: "whimsyAIMemory", pref: "whimsy.ai.memory", feature: ["ai-memory"], when: aiAllowed },
   { name: "memory-search", setting: "whimsyMemorySearch", covers: "#whimsyMemoryList", feature: ["ai-memory"],
     when: aiAllowed, exempt: "a search of the saved memories, and each memory's own edit field, not settings" },
+  // W27 aiwrite: Settings › AI › Memory › How AI writes.
+  { name: "ai-style", setting: "whimsyAIStyle", feature: ["ai-style"], when: aiAllowed,
+    exempt: "free text in the person's own words, not a switch or a choice" },
 
   // About
   { name: "update-channel", setting: "whimsyUpdatesChannel", pref: "whimsy.update-channel",
@@ -267,6 +276,9 @@ export const SETTINGS = [
   { name: "loading-line", setting: "whimsyLoadingLine", pref: "whimsy.tabs.loading-line", feature: ["loading-line"] },
   { name: "hide-switcher", setting: "whimsyHideSpaceSwitcher", pref: "whimsy.spaces.hide-switcher",
     feature: ["hide-switcher"], command: ["cmd_whimsyToggleSpaceSwitcher"] },
+  // W27: the space's name first in the window title.
+  { name: "window-title-space", setting: "whimsyWindowTitleSpace", pref: "whimsy.spaces.window-title-name",
+    feature: ["window-title-space"] },
   { name: "tab-badges", setting: "whimsyTabBadges", pref: "whimsy.tabs.badges", feature: ["tab-badges"] },
   { name: "background-mute", setting: "whimsyBackgroundMute", pref: "whimsy.media.background-mute",
     feature: ["background-mute"], command: ["cmd_whimsyToggleBackgroundMute"] },
@@ -322,6 +334,11 @@ export const SETTINGS = [
       { value: "islands", l10nId: "whimsy-tabs-tree-style-islands" },
     ] },
   { name: "command-recent-tabs", setting: "whimsyCommandRecentTabs", pref: "whimsy.feature.command-bar-recent-tabs" },
+  // W27 winprefs: nested under Firefox's "Open links in tabs instead of new
+  // windows" (whimsy-settings.js adds it to Firefox's tabs group).
+  { name: "popups-as-tabs", setting: "whimsyPopupsAsTabs", pref: "browser.link.open_newwindow.restriction",
+    get: () => Services.prefs.getIntPref("browser.link.open_newwindow.restriction", 2) == 0,
+    set: on => Services.prefs.setIntPref("browser.link.open_newwindow.restriction", on ? 0 : 2) },
   { name: "close-window-with-last-tab", setting: "whimsyCloseWindowWithLastTab",
     pref: "browser.tabs.closeWindowWithLastTab", feature: ["window-close"] },
   { name: "dock-badge", setting: "whimsyDockBadge", pref: "whimsy.downloads.dock-badge", feature: ["dock-badge"] },

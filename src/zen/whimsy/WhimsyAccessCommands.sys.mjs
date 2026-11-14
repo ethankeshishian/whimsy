@@ -26,6 +26,11 @@
 // - Add Finder Folder…: the Library's folder picker.
 // - Open Claude Space, What's New: switch to Claude's space; open the
 //   changelog.
+// - Restart Whimsy (W27): quits and reopens, the way about:profiles'
+//   Restart does; Firefox's session store brings the windows and tabs
+//   back (a "restart" quit sets browser.sessionstore.resume_session_once).
+//   Anything that can stop a quit (a close-tabs prompt, unsaved form
+//   input) gets its say first.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -64,6 +69,7 @@ const ICONS = {
   routing: "chrome://browser/skin/zen-icons/forward.svg",
   claude: "chrome://browser/skin/zen-icons/sparkles.svg",
   news: "chrome://browser/skin/zen-icons/history.svg",
+  restart: "chrome://browser/skin/zen-icons/reload.svg",
   tabIcon: "chrome://browser/skin/zen-icons/face-sun.svg",
   source: "chrome://browser/skin/zen-icons/selectable/code.svg",
 };
@@ -222,6 +228,25 @@ export const WhimsyAccessCommands = {
     const next = !this.viewSourceWrap();
     Services.prefs.setBoolPref(VIEW_SOURCE_WRAP_PREF, next);
     return next;
+  },
+
+  // W27: quits with eRestart. Tests replace it so the browser stays up.
+  startupQuit(flags) {
+    Services.startup.quit(flags);
+  },
+
+  // Asks first, as every quit does (quit-application-requested with
+  // "restart", like about:profiles): a listener that sets the subject's
+  // data to true (Firefox's close-tabs warning, unsaved form input) keeps
+  // the browser open. Returns whether the restart went ahead.
+  restart() {
+    const cancel = Cc["@mozilla.org/supports-PRBool;1"].createInstance(Ci.nsISupportsPRBool);
+    Services.obs.notifyObservers(cancel, "quit-application-requested", "restart");
+    if (cancel.data) {
+      return false;
+    }
+    this.startupQuit(Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart);
+    return true;
   },
 
   liveFoldersAvailable(win) {
@@ -479,6 +504,15 @@ export const WhimsyAccessCommands = {
       run: w => this.whatsNew(w),
       icon: ICONS.news,
       isAvailable: () => feature("home"),
+    });
+    // W27: Restart Whimsy. No default shortcut.
+    register({
+      id: "cmd_whimsyRestart",
+      l10nId: "whimsy-action-restart",
+      run: () => feature("restart-command") && this.restart(),
+      icon: ICONS.restart,
+      whimsyKeywords: () => WhimsyCommands.keywords("whimsy-keywords-restart"),
+      isAvailable: () => feature("restart-command"),
     });
     // wave8/cmds: W8-11 View Claude in Whimsy Replays
     register({

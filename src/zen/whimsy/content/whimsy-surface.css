@@ -283,7 +283,15 @@ panel.whimsy-surface {
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  --whimsy-tile-color: var(--zen-primary-color, AccentColor);
+  /* The space's accent for the glyph and its 18% tint, held dark enough on
+     a light theme and light enough on a dark one to read on the surface
+     (W26 passkeys: a dark accent made the tile vanish in dark mode), the
+     way --whimsy-accent-fill clamps the accent for fills
+     (whimsy-browser.css:25). Tones below override it. */
+  --whimsy-tile-color: light-dark(
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.3, l, 0.55) clamp(0, c, 0.2) h),
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.72, l, 0.88) clamp(0, c, 0.2) h)
+  );
   background-color: color-mix(in srgb, var(--whimsy-tile-color) 18%, transparent);
   color: var(--whimsy-tile-color);
   font-size: 12px;

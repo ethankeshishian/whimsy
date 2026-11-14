@@ -44,6 +44,8 @@ import { MASK_COLOR } from "resource:///modules/whimsy/WhimsyAISensitive.sys.mjs
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
+  DownloadPaths: "resource://gre/modules/DownloadPaths.sys.mjs",
+  Downloads: "resource://gre/modules/Downloads.sys.mjs",
   HttpServer: "chrome://remote/content/server/httpd.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
@@ -164,6 +166,12 @@ const RETRY_DELAYS_MS = [5000, 15000];
 const CAPTCHA_POLL_MS = 1000;
 const MAX_SHOT_WIDTH = 1280;
 const MAX_TAB_TITLE = 200;
+// W27 save_pdf: Firefox's own PDF output, and the longest file name made
+// from a page's title.
+const SAVE_PDF_FEATURE_PREF = "whimsy.feature.ai-agent-save-pdf";
+const SAVE_TO_PDF_PRINTER = "Mozilla Save to PDF";
+const MAX_PDF_NAME = 100;
+const MAX_PDF_COPIES = 999;
 const MAX_SESSIONS = 50;
 
 const ACTIVE_ATTR = "whimsy-claude-active";
@@ -347,6 +355,11 @@ const TOOLS = [
     name: "screenshot",
     description: "Take a screenshot of a tab's visible area. click's coordinate uses this image's pixels.",
     inputSchema: { type: "object", properties: { ...tabArg }, required: ["tabId"] },
+  },
+  {
+    name: "save_pdf",
+    description: "Save a tab's whole page as a PDF in the person's Downloads folder, after they approve. Returns the saved file's path. Without a tabId, saves the tab the person is looking at.",
+    inputSchema: { type: "object", properties: { ...tabArg } },
   },
 ];
 
@@ -1396,6 +1409,9 @@ export const WhimsyClaude = {
     const approved = tab.linkedBrowser.browsingContext?.currentWindowGlobal ?? null;
     if (ACTIONS.has(action)) {
       await this.guardAction(tab, action, args, ctx);
+    } else if (action == "save_pdf") {
+      const uri = tab.linkedBrowser.currentURI;
+      await this.askPerson(tab, lazy.WhimsyAgentGuard.saving({ file: `${this.pdfName(tab)}.pdf`, host: uri.host }), ctx);
     }
     this.assertLive(ctx);
     await this.scopedTab(args.tabId, ctx);
@@ -1450,10 +1466,18 @@ export const WhimsyClaude = {
     if (target.sensitive) {
       ctx.secret = true;
     }
-    const verdict = lazy.WhimsyAgentGuard.classify(action, target);
+    await this.askPerson(tab, lazy.WhimsyAgentGuard.classify(action, target), ctx);
+  },
+
+  // A verdict that pauses: the person's choice, unless they already allowed
+  // this kind on this site for the task. Returns to go ahead; throws a
+  // StepResult when they did it themselves or chose not to.
+  async askPerson(tab, verdict, ctx) {
+    const { task } = ctx;
     if (!verdict || (!verdict.everyTime && lazy.WhimsyAgentTasks.allowed(task, verdict.kind, verdict.host))) {
       return;
     }
+    const uri = tab.linkedBrowser.currentURI;
     let pause = task.pause?.sig == ctx.sig ? task.pause : null;
     if (!pause) {
       if (task.pause) {
@@ -1644,6 +1668,82 @@ export const WhimsyClaude = {
     await state.auditWriting;
   },
 
+  // --- Save as PDF (W27) ---
+
+  // A file name from the page's title (or its site), without an extension.
+  pdfName(tab) {
+    const uri = tab.linkedBrowser.currentURI;
+    const title = String(tab.label ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_PDF_NAME).trim();
+    let name = "";
+    try {
+      name = lazy.DownloadPaths.sanitize(title).replace(/\.+$/, "").trim();
+    } catch {}
+    return name || uri?.host || "Page";
+  },
+
+  // Firefox's Save to PDF settings (the person's saved paper and margins),
+  // printing silently, with no dialog.
+  pdfSettings() {
+    const PSSVC = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(Ci.nsIPrintSettingsService);
+    const settings = PSSVC.createNewPrintSettings();
+    settings.printerName = SAVE_TO_PDF_PRINTER;
+    try {
+      PSSVC.initPrintSettingsFromPrefs(settings, true, Ci.nsIPrintSettings.kInitSaveAll);
+    } catch {}
+    settings.isInitializedFromPrinter = true;
+    settings.isInitializedFromPrefs = true;
+    settings.outputFormat = Ci.nsIPrintSettings.kOutputFormatPDF;
+    settings.printSilent = true;
+    return settings;
+  },
+
+  /**
+   * Prints the tab's page as a PDF into the Downloads folder. The file is
+   * created only once its name is free ("Title.pdf", then "Title (2).pdf",
+   * and so on), so nothing is ever overwritten.
+   *
+   * @returns {Promise<string>} the saved file's path
+   */
+  async savePDF(tab) {
+    const dir = await lazy.Downloads.getPreferredDownloadsDirectory();
+    await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+    const settings = this.pdfSettings();
+    const stream = Cc["@mozilla.org/storagestream;1"].createInstance(Ci.nsIStorageStream);
+    stream.init(4096, 0xffffffff);
+    settings.outputDestination = Ci.nsIPrintSettings.kOutputDestinationStream;
+    settings.outputStream = stream.getOutputStream(0);
+    let bytes;
+    try {
+      await tab.linkedBrowser.browsingContext.print(settings);
+      const input = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
+      input.setInputStream(stream.newInputStream(0));
+      bytes = new Uint8Array(input.available());
+      input.readArrayBuffer(bytes.length, bytes.buffer);
+    } catch (e) {
+      console.error("Whimsy: save_pdf", e);
+      throw new ToolError("The page couldn't be saved as a PDF.");
+    } finally {
+      stream.close();
+    }
+    if (!bytes.length) {
+      throw new ToolError("The page couldn't be saved as a PDF.");
+    }
+    const base = this.pdfName(tab);
+    for (let n = 1; n <= MAX_PDF_COPIES; n++) {
+      const path = PathUtils.join(dir, n == 1 ? `${base}.pdf` : `${base} (${n}).pdf`);
+      try {
+        await IOUtils.write(path, bytes, { mode: "create" });
+        return path;
+      } catch (e) {
+        if (e.name != "NoModificationAllowedError") {
+          console.error("Whimsy: save_pdf", e);
+          throw new ToolError("The PDF couldn't be written to Downloads.");
+        }
+      }
+    }
+    throw new ToolError("Downloads already has too many copies of this PDF.");
+  },
+
   // --- Tool handlers (args, {task, generation, outside, sig}) ---
 
   handlers: {
@@ -1815,6 +1915,22 @@ export const WhimsyClaude = {
           { type: "image", data, mimeType: "image/jpeg" },
           text(`Screenshot of tab ${args.tabId}, ${width}×${height}.`),
         ];
+      });
+    },
+
+    // W27: the page as a PDF in Downloads, behind the download pause.
+    async save_pdf(args, ctx) {
+      if (!Services.prefs.getBoolPref(SAVE_PDF_FEATURE_PREF, true)) {
+        throw new ToolError("Saving pages as PDFs is turned off in this browser.");
+      }
+      if (args.tabId !== undefined && args.tabId !== null && !Number.isInteger(args.tabId)) {
+        throw new ToolError("tabId must be a tabId from tabs_list or tabs_create.");
+      }
+      const selected = this.topWindow()?.gBrowser?.selectedTab;
+      const tabId = args.tabId ?? (selected ? this.tabId(selected) : null);
+      return this.withTab({ ...args, tabId }, "save_pdf", ctx, async tab => {
+        const path = await this.savePDF(tab);
+        return `Saved tab ${tabId} as a PDF: ${path}`;
       });
     },
   },

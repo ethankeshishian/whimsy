@@ -1846,7 +1846,19 @@ export const WhimsyAIProviders = {
         throw new WhimsyAIError("unavailable");
       }
       if (exitCode != 0) {
-        throw new WhimsyAIError("failed", errors.trim() || `exit ${exitCode}`);
+        const detail = errors.trim() || `exit ${exitCode}`;
+        // W26: after a burst of requests (hovering one link after another)
+        // macOS refuses every request for several minutes with
+        // ModelManagerError 1013, often wrapped in a SensitiveContentAnalysis
+        // error: the provider rests rather than being asked again and again.
+        if (/ModelManagerError Code=1013|rateLimited|rate limit/i.test(detail)) {
+          throw Object.assign(new WhimsyAIError("rate-limited", detail), { detail: "" });
+        }
+        // The guardrail says no to this text: asking again won't change it.
+        if (/unsafe content|guardrailViolation/i.test(detail)) {
+          throw Object.assign(new WhimsyAIError("failed", detail), { transient: false });
+        }
+        throw new WhimsyAIError("failed", detail);
       }
       return output;
     } finally {

@@ -14,6 +14,12 @@
 // The page side (WhimsyPageActionsChild) parses the data; nothing here uses
 // the network or a model, so it works with the AI kill switch on (except
 // Watch price, which is an AI feature and is only offered when available).
+//
+// W27: Turn Off / Turn On Page Animations, a command-bar action for the
+// current tab only. It asks this tab's page (through the same actor) to
+// load a user sheet that stops CSS transitions and animations; running it
+// again removes the sheet. The sheet belongs to that document, so a reload
+// or a new page brings the animations back.
 
 const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
 
@@ -29,6 +35,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const FEATURE_PREF = "whimsy.feature.page-actions";
+const ANIMATIONS_FEATURE_PREF = "whimsy.feature.page-animations-command";
+const ANIMATIONS_TOAST_KEY = "whimsy-page-animations";
+const ANIMATIONS_ICON = "chrome://browser/skin/zen-icons/media-pause.svg";
 const SHEET = "chrome://browser/content/whimsy/whimsy-navigation.css";
 const PILL_ID = "whimsy-page-action";
 // 05-page 9.1: below this address field width (the sidebar's, usually) the
@@ -61,6 +70,11 @@ function minutesOf(hhmm) {
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
 }
 
+// The document a browser shows now: a reload or navigation makes a new one.
+function documentId(browser) {
+  return browser?.browsingContext?.currentWindowGlobal?.innerWindowId ?? null;
+}
+
 export class WhimsyPageActionsParent extends JSWindowActorParent {
   receiveMessage(message) {
     if (message.name != "WhimsyPageActions:Found") {
@@ -76,6 +90,8 @@ export class WhimsyPageActionsParent extends JSWindowActorParent {
 export const WhimsyPageActions = {
   // browser -> { spec, action }
   _actions: new WeakMap(),
+  // browser -> the document (innerWindowId) whose animations are off
+  _stilled: new WeakMap(),
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -143,6 +159,77 @@ export const WhimsyPageActions = {
         isAvailable: w => offered(w, kind),
       })),
     });
+    // W27: Turn Off / Turn On Page Animations, for this tab until it
+    // reloads. No default shortcut.
+    const stillable = w => this.animationsCommandEnabled && this.canStill(w.gBrowser.selectedBrowser);
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyTogglePageAnimations",
+      l10nId: "whimsy-action-page-animations-toggle",
+      run: w => stillable(w) && this.togglePageAnimations(w),
+      icon: ANIMATIONS_ICON,
+      whimsyKeywords: () => lazy.WhimsyCommands.keywords("whimsy-keywords-page-animations"),
+      variants: [
+        {
+          l10nId: "whimsy-action-page-animations-off",
+          isAvailable: w => stillable(w) && !this.animationsOff(w.gBrowser.selectedBrowser),
+        },
+        {
+          l10nId: "whimsy-action-page-animations-on",
+          isAvailable: w => stillable(w) && this.animationsOff(w.gBrowser.selectedBrowser),
+        },
+      ],
+    });
+  },
+
+  // --- Page animations (W27) ---
+
+  get animationsCommandEnabled() {
+    return Services.prefs.getBoolPref(ANIMATIONS_FEATURE_PREF, true);
+  },
+
+  // Web pages only: the actor runs on http(s) pages.
+  canStill(browser) {
+    return !!browser && isWebUrl(browser.currentURI?.spec) && documentId(browser) != null;
+  },
+
+  // Whether this tab's current document has its animations off.
+  animationsOff(browser) {
+    const id = documentId(browser);
+    return id != null && this._stilled.get(browser) == id;
+  },
+
+  // Flips this tab's animations and confirms it with a toast; resolves to
+  // whether they're off.
+  async togglePageAnimations(win) {
+    const browser = win.gBrowser.selectedBrowser;
+    if (!this.canStill(browser)) {
+      return null;
+    }
+    const off = !this.animationsOff(browser);
+    // Recorded first, so the command bar offers the other half at once.
+    if (off) {
+      this._stilled.set(browser, documentId(browser));
+    } else {
+      this._stilled.delete(browser);
+    }
+    try {
+      const actor = browser.browsingContext.currentWindowGlobal.getActor("WhimsyPageActions");
+      await actor.sendQuery("WhimsyPageActions:Animations", { off });
+    } catch (e) {
+      console.error("Whimsy: page animations", e);
+      this._stilled.delete(browser);
+      return null;
+    }
+    try {
+      // One at a time: toggling again replaces the last one.
+      win.gZenUIManager?.toasts?.open(off ? "whimsy-page-animations-off-toast" : "whimsy-page-animations-on-toast", {
+        key: ANIMATIONS_TOAST_KEY,
+        timeout: 4000,
+      });
+    } catch (e) {
+      console.error("Whimsy: page animations toast", e);
+    }
+    return off;
   },
 
   // --- What the page said ---

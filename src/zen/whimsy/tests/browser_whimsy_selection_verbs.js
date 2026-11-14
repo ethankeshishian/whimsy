@@ -6,7 +6,7 @@
 // wave5/verbs: Cmd+K lists verbs for the selection (or the page) in the
 // command bar, and each verb does its thing (side effects stubbed).
 
-const { WhimsyVerbs, parseEvent, buildICS } = ChromeUtils.importESModule(
+const { WhimsyVerbs, parseEvent, buildICS, parsePhone } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyVerbs.sys.mjs"
 );
 const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
@@ -290,6 +290,60 @@ add_task(async function test_verb_actions() {
   }
 });
 
+add_task(async function test_phone_verbs() {
+  const calls = stubEffects();
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async browser => {
+      const subject = await subjectFor(browser, "phone");
+      ok(subject.phone, "The selection parses as a phone number");
+      is(subject.phone.tel, "5551234567", "Normalized for tel:/facetime:/sms: URLs");
+
+      await WhimsyVerbs.runVerb(window, "call", subject);
+      is(calls.at(-1).url, "tel:5551234567", "Call opens a tel: link");
+
+      await WhimsyVerbs.runVerb(window, "facetime", subject);
+      is(calls.at(-1).url, "facetime:5551234567", "FaceTime opens a facetime: link");
+
+      await WhimsyVerbs.runVerb(window, "message", subject);
+      is(calls.at(-1).url, "sms:5551234567", "Message opens an sms: link");
+
+      await WhimsyVerbs.runVerb(window, "add-contact", subject);
+      const vcf = await IOUtils.readUTF8(calls.at(-1).path);
+      ok(vcf.startsWith("BEGIN:VCARD"), "Add to Contacts writes a vCard");
+      ok(vcf.includes("TEL:5551234567"), "...with the normalized number");
+      await IOUtils.remove(calls.at(-1).path);
+
+      // Not a phone number: none of the four verbs are offered.
+      const other = await subjectFor(browser, "place");
+      const ids = WhimsyVerbs.verbsFor(window, other).map(v => v.id);
+      for (const id of ["call", "facetime", "message", "add-contact"]) {
+        ok(!ids.includes(id), `${id} isn't offered without a phone number`);
+      }
+
+      // The phone verbs appear only in the Cmd+K selection list: no
+      // assignable-shortcut command, and no context-menu row.
+      await select(browser, "phone");
+      EventUtils.synthesizeKey("k", { accelKey: true });
+      const verbs = await shownVerbs();
+      for (const id of ["call", "facetime", "message", "add-contact"]) {
+        ok(verbs.includes(id), `${id} is in the Cmd+K selection list`);
+      }
+      await closeBar();
+      for (const id of ["cmd_whimsyVerbCall", "cmd_whimsyVerbFacetime", "cmd_whimsyVerbMessage", "cmd_whimsyVerbAddContact"]) {
+        ok(!document.getElementById(id), `${id} has no assignable-shortcut command`);
+      }
+      for (const domId of [
+        "context-whimsy-verb-call", "context-whimsy-verb-facetime",
+        "context-whimsy-verb-message", "context-whimsy-verb-add-contact",
+      ]) {
+        ok(!document.getElementById(domId), `${domId} has no context-menu row`);
+      }
+    });
+  } finally {
+    calls.restore();
+  }
+});
+
 add_task(async function test_picking_a_row_runs_it() {
   const calls = stubEffects();
   try {
@@ -403,6 +457,40 @@ add_task(function test_ics_lone_cr() {
   ok(!lines.some(l => /^(ATTACH|BEGIN:VALARM)/.test(l)), "No injected properties");
   ok(!/\r(?!\n)/.test(ics), "No lone CR survives");
   ok(lines.includes("SUMMARY:Party\\nATTACH:https://evil.example/x\\nBEGIN:VALARMEND"), "The breaks are escaped text");
+});
+
+add_task(function test_parse_phone() {
+  const valid = text => {
+    const phone = parsePhone(text);
+    ok(phone, `"${text}" parses as a phone number`);
+    return phone;
+  };
+  const invalid = (text, why) => is(parsePhone(text), null, `"${text}" is not a phone number (${why})`);
+
+  is(valid("(555) 123-4567").tel, "5551234567", "Punctuation normalizes away");
+  is(valid("555-123-4567").tel, "5551234567", "Dashes normalize away");
+  is(valid("555.123.4567").tel, "5551234567", "Dots normalize away");
+  is(valid("+1 555 123 4567").tel, "+15551234567", "A leading + survives normalization");
+  is(valid("+44 20 7946 0958").tel, "+442079460958", "An international number");
+  is(valid("5551234567").tel, "5551234567", "An unformatted 10-digit number");
+  is(valid("123-4567").tel, "1234567", "A bare 7-digit local number: the minimum");
+  is(valid("+1 (555) 123-4567 ").tel, "+15551234567", "Surrounding whitespace is trimmed");
+
+  invalid("Team sync Nov 3 at 3pm", "a date, with letters");
+  invalid("2026-10-30", "an ISO date");
+  invalid("10-30-2026", "a US-style date");
+  invalid("10.30.2026", "a dotted date");
+  invalid("$19.99", "a price: a non-phone character");
+  invalid("19.99", "too few digits, and price-shaped");
+  invalid("123456.78", "price-shaped, even with enough digits otherwise");
+  invalid("192.168.1.1", "an IPv4 address, even with enough digits otherwise");
+  invalid("4111 1111 1111 1111", "a 16-digit card number: too long");
+  invalid("12345", "too few digits");
+  invalid("123456", "one digit short of the minimum");
+  invalid("1234567890123456", "16 digits: too long");
+  invalid("", "empty");
+  invalid(null, "null");
+  invalid("call me maybe", "no digits at all");
 });
 
 add_task(async function test_selection_verbs_context_menu() {

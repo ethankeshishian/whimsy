@@ -75,6 +75,12 @@
 - name: whimsy.spaces.hide-switcher
   value: false
 
+# Start the window title with the space's name ("<space> — <page title>"),
+# for Mission Control, the Window menu, and screen-share pickers (Settings →
+# Tab Management). Off: the title is Firefox's.
+- name: whimsy.spaces.window-title-name
+  value: false
+
 # How see-through the sidebar and toolbars are, in percent (0–80; Settings →
 # Look and Feel, macOS). 0 is Zen's opaque look.
 - name: whimsy.look.transparency
@@ -135,6 +141,11 @@
 
 # Dark pages in PDFs (Settings → Look and Feel): off by default.
 - name: whimsy.pdf.dark
+  value: false
+
+# W27: Press Esc twice to leave a page's full screen (Settings → Look and
+# Feel): off by default. whimsy-PresShell-cpp.patch reads it.
+- name: whimsy.fullscreen.double-escape
   value: false
 
 # Where a link from another app opens (Settings → Tab Management):
@@ -442,6 +453,11 @@
 - name: whimsy.ai.claude.auth
   value: ""
 
+# W27: Settings › AI › How AI writes. The person's tone and style, added
+# to every AI request's system prompt (WhimsyAIRouter); empty adds nothing.
+- name: whimsy.ai.style
+  value: ""
+
 # OpenAI's one-time "You're using your ChatGPT plan" note has been shown.
 - name: whimsy.ai.openai.plan-welcomed
   value: false
@@ -702,6 +718,12 @@
 - name: whimsy.privateLock.afterSeconds
   value: 0
 
+# W26 passkeys (WhimsyPasskeys.sys.mjs): whether a private window may save a
+# new Touch ID passkey. Off: the prompt says to save it from a normal window
+# (signing in with one that exists still works, and writes nothing).
+- name: whimsy.passkeys.private.create
+  value: false
+
 - name: whimsy.privateLock.stayUnlockedWhileSharing
   value: false
 
@@ -892,8 +914,12 @@
 - name: whimsy.dark-pages.dim-images
   value: false
 
+# A JSON object of per-site choices. ffprefs only quotes a value with a
+# letter, '.', a space or a quote in it, so "{}" came out as the invalid
+# pref("whimsy.dark-pages.sites", {}); "{ }" comes out as the string "{ }",
+# which JSON.parse reads as the same empty object.
 - name: whimsy.dark-pages.sites
-  value: "{}"
+  value: "{ }"
 
 # W26 site panel: each profile's Automatic Dark Mode, {userContextId: true
 # or false}; a profile not listed follows whimsy.dark-pages.mode.

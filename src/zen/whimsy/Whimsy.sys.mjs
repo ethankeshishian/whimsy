@@ -274,6 +274,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave7/focus: Do Not Disturb and paste guard.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
+  WhimsyPasskeys: "resource:///modules/whimsy/WhimsyPasskeys.sys.mjs",
   WhimsyPasteGuard: "resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs",
 });
 
@@ -348,9 +349,19 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBatterySaver: "resource:///modules/whimsy/WhimsyBatterySaver.sys.mjs",
 });
 
+// W27: Press Esc twice to leave full screen.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFullscreenEscape: "resource:///modules/whimsy/WhimsyFullscreenEscape.sys.mjs",
+});
+
 // wave9: form protection (W9-03)
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFormProtection: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
+});
+
+// W27: Edit Field in Text Editor.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFieldEditor: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs",
 });
 
 // batch9: W9-06 smart address bar buttons.
@@ -361,6 +372,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave9: W8-29 link lasso commands.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLinkLasso: "resource:///modules/whimsy/WhimsyLinkLasso.sys.mjs",
+});
+
+// W27: the window title names its space.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyWindowTitle: "resource:///modules/whimsy/WhimsyWindowTitle.sys.mjs",
 });
 
 // wave9: Inspector (Font Inspector & Element Inspector lite).
@@ -686,6 +702,17 @@ export const Whimsy = {
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
+
+    // W27: Edit Field in Text Editor. The child only reads and writes the
+    // page's own focused field, on request; the temp file and the editor
+    // live in the parent (WhimsyFieldEditor.sys.mjs).
+    ChromeUtils.registerWindowActor("WhimsyFieldEditor", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {
@@ -779,6 +806,9 @@ export const Whimsy = {
     run("media", () => lazy.WhimsyMedia.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
     run("dark-pages", () => lazy.WhimsyDarkPages.initWindow(win));
+    // W26 passkeys: once per session (the profile-delete hook and the
+    // Secure Enclave probe); the prompt opens per request.
+    run("passkeys", () => lazy.WhimsyPasskeys.init());
     // batch6: split view extras; each action checks its own switch.
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).
@@ -877,6 +907,15 @@ export const Whimsy = {
     // space badge. Wraps updatePreview after the private lock does; the two
     // compose either way. Checks whimsy.feature.ctrl-tab on each open.
     run("ctrl-tab-look", () => lazy.WhimsyCtrlTab.initWindow(win));
+    // W27: Show space name in window title (Settings → Tab Management, off
+    // by default): "<space> — " as the window's titlepreface, for Mission
+    // Control, the Window menu, and screen-share pickers. After Zen's spaces
+    // are ready.
+    run("window-title-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyWindowTitle.initWindow(win))
+        .catch(e => console.error("Whimsy: window-title-space", e))
+    );
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
     later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
@@ -961,8 +1000,8 @@ export const Whimsy = {
         },
         icon: "chrome://browser/skin/zen-icons/selectable/code.svg",
         variants: [
-          { l10nId: "whimsy-action-devmode-on", isAvailable: w => lazy.WhimsyDevMode.enabled && lazy.WhimsyCommands.hasPage(w) && !siteIsDev(w) },
-          { l10nId: "whimsy-action-devmode-off", isAvailable: w => lazy.WhimsyDevMode.enabled && lazy.WhimsyCommands.hasPage(w) && siteIsDev(w) },
+          { l10nId: "whimsy-action-devmode-on", isAvailable: w => lazy.WhimsyDevMode.enabled && lazy.WhimsyCommands.hasAddress(w) && !siteIsDev(w) },
+          { l10nId: "whimsy-action-devmode-off", isAvailable: w => lazy.WhimsyDevMode.enabled && lazy.WhimsyCommands.hasAddress(w) && siteIsDev(w) },
         ],
       });
     });
@@ -1201,6 +1240,8 @@ export const Whimsy = {
     // wave7/small: Create Email Alias (command bar), at the focused email
     // field. Checks its switch on use.
     later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    // W27: Edit Field in Text Editor (command bar), at the focused field.
+    later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
     // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
     // into the space it makes. After Zen's spaces are ready.
     run("move-to-new-space", () =>
@@ -1223,6 +1264,8 @@ export const Whimsy = {
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
     // wave9: Battery saver (threshold, auto-off, throttles).
     run("battery-saver", () => lazy.WhimsyBatterySaver.initWindow(win));
+    // W27: the full-screen notice's "Press Esc again" (whimsy-PresShell-cpp.patch).
+    run("double-escape", () => lazy.WhimsyFullscreenEscape.initWindow(win));
 
     // wave9: form protection (W9-03)
     run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));

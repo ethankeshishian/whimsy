@@ -166,9 +166,30 @@ export const WhimsyCommands = {
     const tab = win?.gBrowser?.selectedTab;
     return !!tab?.linkedPanel && !tab.hasAttribute("zen-empty-tab") && !tab.closing;
   },
-  hasPage(win) {
+  // A web address in the tab, whether or not it loaded: what address
+  // commands (Copy URL, the site's settings) need.
+  hasAddress(win) {
     const spec = win?.gBrowser?.selectedBrowser?.currentURI?.spec ?? "";
     return this.hasTab(win) && /^(https?|file):|^about:reader/.test(spec);
+  },
+  // W26 audit 17: a page's content to act on. A "Problem loading page"
+  // (any error page: about:neterror, certerror, blocked, …) has the
+  // address but not the site's content.
+  hasPage(win) {
+    return this.hasAddress(win) && !this.isErrorPage(win.gBrowser.selectedBrowser);
+  },
+  // An error page: the browser shows one of its own about: documents in
+  // place of the address it was asked for.
+  isErrorPage(browser) {
+    const doc = browser?.documentURI;
+    const uri = browser?.currentURI;
+    return !!doc && !!uri && doc.schemeIs("about") && !uri.schemeIs("about") && doc.spec != "about:blank";
+  },
+  // W26 audit 16: another tab in this space to move to (Next Tab,
+  // Previous Tab).
+  hasOtherTab(win) {
+    const selected = win?.gBrowser?.selectedTab;
+    return !!win?.gBrowser?.visibleTabs.some(t => t != selected && !t.hasAttribute("zen-empty-tab") && !t.closing);
   },
 
   get listed() {

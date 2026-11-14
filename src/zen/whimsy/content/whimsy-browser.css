@@ -7367,6 +7367,82 @@ panel.whimsy-quick-note {
   flex: 1;
 }
 
+/* W26 passkeys: the one prompt (WhimsyPasskeys.sys.mjs), centred like the
+   private lock's question: tile + title + text, the account row or the
+   choice cards, then Use a security key (quiet, at the start), Cancel and
+   the primary. While the macOS Touch ID sheet is up ([data-state=waiting])
+   the prompt dims to 55% behind it. */
+.whimsy-passkeys-prompt {
+  & .whimsy-surface-view {
+    transition: opacity 150ms var(--whimsy-surface-ease);
+  }
+  &[data-state="waiting"] .whimsy-surface-view {
+    opacity: 0.55;
+  }
+  & .whimsy-passkeys-body {
+    gap: 10px;
+    padding: 2px 4px 4px;
+  }
+  & .whimsy-passkeys-head {
+    gap: 12px;
+
+    & > .whimsy-surface-tile {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      margin-top: 1px;
+    }
+  }
+  & .whimsy-passkeys-text {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: var(--whimsy-surface-muted);
+    text-wrap: pretty;
+  }
+  /* The amber line (Call Options' fallback line) and the quiet status line
+     (the private lock's "Didn't unlock. Try again.") sit under the title. */
+  & .whimsy-passkeys-fallback {
+    margin-top: 6px;
+  }
+  & .whimsy-passkeys-status {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: light-dark(rgb(162 86 10), rgb(240 180 104));
+    text-wrap: pretty;
+  }
+  & .whimsy-passkeys-status-error {
+    color: var(--text-color-error, light-dark(rgb(196, 38, 38), rgb(255, 132, 132)));
+  }
+  & .whimsy-passkeys-account {
+    gap: 10px;
+    cursor: default;
+
+    & > .whimsy-surface-tile {
+      width: 28px;
+      height: 28px;
+    }
+  }
+  & .whimsy-passkeys-choices {
+    gap: 4px;
+  }
+  /* The footer must hold Use a security key, Cancel, and Continue with
+     Touch ID on one line (mockup passkeys.html .wk-footer / .wk-spacer; the
+     prompt is 420px for that, see WhimsyPasskeys._openPrompt): the quiet
+     button never wraps or shrinks, and its auto margin pushes the two real
+     buttons to the end without taking width. */
+  & .whimsy-surface-footer > .whimsy-surface-text-button {
+    flex: none;
+    white-space: nowrap;
+    margin-inline-end: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-passkeys-prompt .whimsy-surface-view {
+    transition: none;
+  }
+}
+
 /* W11-14 (d14): a locked space behind the cover hides its tab list too. */
 zen-workspace[whimsy-space-covered] :is(.zen-workspace-pinned-tabs-section, .zen-workspace-normal-tabs-section) {
   visibility: hidden;

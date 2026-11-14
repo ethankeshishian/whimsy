@@ -1,0 +1,66 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+#include "nsIWebAuthnService.idl"
+
+// W26 passkeys: the boundary between WhimsyPasskeyService (C++, the
+// nsIWebAuthnService Gecko talks to) and WhimsyPasskeys.sys.mjs (the store,
+// the routing, the prompt, and the Secure Enclave helper). The C++ side
+// copies each WebAuthn request into a JSON record (nsIWebAuthnRegisterArgs
+// and friends aren't scriptable) and the JS side answers through one of
+// these callbacks.
+
+[scriptable, uuid(5f0c9d2a-7b3e-4e61-9a8c-2d4f6b8a1c3e)]
+interface nsIWhimsyPasskeyCallback : nsISupports
+{
+  // A credential was created: the CBOR attestation object and the
+  // credential ID inside it.
+  void onRegister(in Array<uint8_t> aAttestationObject,
+                  in Array<uint8_t> aCredentialId);
+
+  // An assertion was signed.
+  void onSign(in Array<uint8_t> aCredentialId,
+              in Array<uint8_t> aAuthenticatorData,
+              in Array<uint8_t> aSignature,
+              in Array<uint8_t> aUserHandle);
+
+  // The request failed or was cancelled (an NS_ERROR_DOM_* code).
+  void onError(in nsresult aError);
+
+  // Not ours: hand the whole transaction, with its original arguments, to
+  // authenticator-rs (security keys), exactly as before Whimsy's service.
+  void onDelegate();
+};
+
+[scriptable, uuid(b2e7c4d1-8a5f-4c3b-9e6d-1f2a3b4c5d6e)]
+interface nsIWhimsyPasskeys : nsISupports
+{
+  // isUserVerifyingPlatformAuthenticatorAvailable: the feature is on and
+  // this Mac's Secure Enclave answered.
+  readonly attribute boolean available;
+
+  // aRequest is a JSON record of the WebAuthn arguments (bytes base64url).
+  void makeCredential(in uint64_t aTransactionId,
+                      in uint64_t aBrowsingContextId,
+                      in AString aRequest,
+                      in nsIWhimsyPasskeyCallback aCallback);
+
+  void getAssertion(in uint64_t aTransactionId,
+                    in uint64_t aBrowsingContextId,
+                    in AString aRequest,
+                    in nsIWhimsyPasskeyCallback aCallback);
+
+  // Close the prompt and stop the helper for this transaction (or any,
+  // when 0). The callback is not called afterwards.
+  void cancel(in uint64_t aTransactionId);
+
+  // Conditional mediation: this profile's passkeys for the site, for the
+  // login autocomplete list. aBrowsingContextId is the tab asking (0 when
+  // unknown).
+  void getAutoFillEntries(in AString aRpId,
+                          in uint64_t aBrowsingContextId,
+                          in Array<Array<uint8_t> > aAllowList,
+                          in nsIWebAuthnAutoFillEntriesCallback aCallback);
+};

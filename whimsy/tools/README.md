@@ -35,7 +35,11 @@ npm run lane -- land w25-foo --message "Merge W25 foo: ..."
    restored files that come back byte-identical keep their timestamps;
 5. the build the change needs: `faster` (JS/CSS/FTL/XHTML, ~20 s),
    `backend` + `faster` (a moz.build changed), `binaries` + `faster`
-   (native code or IDL), or full (surfer.json, configs, build patches);
+   (native code), or full (surfer.json, configs, build patches, IDL,
+   components.conf). It is the larger of what the lane's diff against `dev`
+   needs and what the diff from the engine's last build needs
+   (`buildstate.py`, below): the objdir is shared, so after a lane that
+   changed components.conf or a C++ patch the next lane builds that back out;
 6. eslint on the lane's JS (Prettier-only errors ignored);
 7. the lane's tests: every `browser_whimsy_*.js` it changed or added, plus
    `--test` files, in three parallel harness runs (`test.sh`);
@@ -85,6 +89,16 @@ npm run verify:dev -- --mode quick
 Builds what changed since the last recorded build, runs `whimsy/verify.sh`
 (which now clears old logs first, so `failed.txt` describes this run), and
 writes or removes `.surfer/verify/red-dev`.
+
+## What the engine was built from
+
+`buildstate.py` keeps `.surfer/verify/engine-built.json`: lane.sh and
+verify-dev.sh write `building` before a build and the merge commit (and its
+tree) after it succeeds, pinned at `refs/whimsy/engine-built`; a queue
+ticket that builds by hand (`mach build`, `surfer build`, `npm run build`)
+writes `unknown`. Updater builds (ship, nightly) are read from the updater's
+own `build.json`. No record, an unfinished build, or anything unclear means
+a full build. `python3 whimsy/tools/buildstate.py show` says what it knows.
 
 ## The queue
 

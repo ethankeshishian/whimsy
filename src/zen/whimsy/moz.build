@@ -76,6 +76,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyExtensionPins.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
     "WhimsyFaviconHome.sys.mjs",
+    "WhimsyFieldEditor.sys.mjs",
+    "WhimsyFieldEditorChild.sys.mjs",
     "WhimsyFilesSection.sys.mjs",
     "WhimsyFinderFoldersSection.sys.mjs",
     "WhimsyFireButton.sys.mjs",
@@ -217,6 +219,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
+    "WhimsyWindowTitle.sys.mjs",
     "WhimsyZap.sys.mjs",
     "WhimsyZapChild.sys.mjs",
     "WhimsyZapTint.sys.mjs",
@@ -298,6 +301,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFindCard.sys.mjs",
 ]
 
+# W27: Press Esc twice to leave full screen
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyFullscreenEscape.sys.mjs",
+]
+
 # W23 video
 EXTRA_JS_MODULES.whimsy += [
     "WhimsySubtitleSniffer.sys.mjs",
@@ -327,6 +335,11 @@ EXTRA_JS_MODULES.whimsy += [
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyAIIndex.sys.mjs",
     "WhimsyAIMemory.sys.mjs",
+]
+
+# W27 longctx
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAIPassages.sys.mjs",
 ]
 
 # W23 routines-ui
@@ -372,6 +385,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAdultHistoryChild.sys.mjs",
 ]
 
+# W26 passkeys: the front end of Whimsy's Touch ID passkeys (passkeys/).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyPasskeys.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]
@@ -387,8 +405,9 @@ BROWSER_CHROME_MANIFESTS += [
 # dropped from here by a moz.build re-sort, 1545592, so it wasn't built),
 # bonjour/ (Local servers' LAN services, dns_sd), share/ (the Share
 # submenu's macOS services, wave9/menus), speech/ (live captions,
-# on-device Speech) and embedding/ (the meaning index's on-device sentence
-# embeddings, NaturalLanguage, wave23/memory-fire).
+# on-device Speech), embedding/ (the meaning index's on-device sentence
+# embeddings, NaturalLanguage, wave23/memory-fire) and passkeys/ (W26:
+# Whimsy's Touch ID passkeys, C++ over a Swift Secure Enclave helper).
 DIRS += ["audiotap"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
@@ -397,6 +416,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
         "bonjour",
         "calendar",
         "embedding",
+        "passkeys",
         "share",
         "speech",
     ]

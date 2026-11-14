@@ -17,6 +17,8 @@
   ChromeUtils.defineESModuleGetters(lazy, {
     WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
     WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
+    STYLE_MAX: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
+    STYLE_PREF: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   });
   const ICONS = "chrome://browser/content/whimsy/icons/";
   const view = { list: null };
@@ -155,6 +157,33 @@
     headingL10nId: "whimsy-ai-memory-heading",
     descL10nId: "whimsy-ai-memory-desc",
     build(container) {
+      // W27: How AI writes. The person's own words, added to every AI
+      // request's system prompt by WhimsyAIRouter as their style preference.
+      const hasStyle = Services.prefs.getBoolPref("whimsy.feature.ai-style", true);
+      const styleList = S.el("div", "whimsy-ai-list", container);
+      styleList.hidden = !hasStyle;
+      const styleRow = S.el("div", "whimsy-ai-item is-stacked", styleList);
+      const styleText = S.el("span", "whimsy-ai-item-text", styleRow);
+      const styleLabel = S.el("label", "whimsy-ai-item-name", styleText, "whimsy-ai-style-label");
+      styleLabel.htmlFor = "whimsyAIStyle";
+      const styleDetail = S.el("span", "whimsy-ai-item-detail", styleText, "whimsy-ai-style-detail");
+      styleDetail.id = "whimsyAIStyleDetail";
+      const style = S.el("textarea", "whimsy-ai-input whimsy-ai-style-field", styleRow);
+      style.id = "whimsyAIStyle";
+      style.rows = 3;
+      style.maxLength = lazy.STYLE_MAX;
+      style.dataset.pref = lazy.STYLE_PREF;
+      style.setAttribute("aria-describedby", styleDetail.id);
+      document.l10n.formatValue("whimsy-ai-style-placeholder").then(text => (style.placeholder = text));
+      const readStyle = () => {
+        if (document.activeElement != style) {
+          style.value = Services.prefs.getStringPref(lazy.STYLE_PREF, "");
+        }
+      };
+      style.addEventListener("input", () => Services.prefs.setStringPref(lazy.STYLE_PREF, style.value.slice(0, lazy.STYLE_MAX)));
+      Services.prefs.addObserver(lazy.STYLE_PREF, readStyle);
+      readStyle();
+
       const switchRow = S.el("div", "whimsy-ai-item", container);
       const toggle = S.el("moz-toggle", "", switchRow, "whimsy-memory-switch");
       toggle.id = "whimsyAIMemory";
@@ -193,6 +222,7 @@
       render();
       return () => {
         Services.prefs.removeObserver(lazy.WhimsyAIMemory.USE_PREF, update);
+        Services.prefs.removeObserver(lazy.STYLE_PREF, readStyle);
         view.list = null;
       };
     },

@@ -7,6 +7,9 @@
 const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppConstants.sys.mjs");
 
 const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
+const { DownloadsCommon } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/downloads/DownloadsCommon.sys.mjs"
+);
 const { WhimsyDownloads } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyDownloads.sys.mjs");
 
 function dockSupportOrNull() {
@@ -140,6 +143,77 @@ add_task(async function test_library_quicklook() {
     WhimsyDownloads.showQuickLook = original;
     section.remove();
     await IOUtils.remove(path, { ignoreAbsent: true });
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// batch w27/dltrash: deleting a download from the Library or the panel goes
+// through the one function both call, DownloadsCommon.deleteDownloadFiles
+// (see ZenLibraryDownloadsSection.mjs's #deleteDownloadFile and
+// DownloadsViewUI.sys.mjs's downloadsCmd_deleteFile). WhimsyDownloads wraps
+// it to trash the file instead of erasing it. trashFile is stubbed here so
+// the test never touches the real ~/.Trash.
+async function downloadToTempFile(dir, name) {
+  const target = PathUtils.join(dir, name);
+  const url = getRootDirectory(gTestPath) + "whimsy_slow_download.sjs";
+  const publicList = await Downloads.getList(Downloads.PUBLIC);
+  const download = await Downloads.createDownload({ source: url, target });
+  await publicList.add(download);
+  await download.start();
+  return { publicList, download, target };
+}
+
+add_task(async function test_delete_to_trash_moves_the_file() {
+  if (AppConstants.platform != "macosx") {
+    info("Delete to Trash is macOS-only.");
+    return;
+  }
+  WhimsyDownloads.installDeleteToTrashHook();
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.delete-to-trash", true]] });
+  const dir = await useTempDownloadDir();
+  const { publicList, download, target } = await downloadToTempFile(dir, "whimsy-trash-moved.bin");
+  ok(await IOUtils.exists(target), "The file downloaded");
+
+  const trashed = [];
+  const originalTrashFile = WhimsyDownloads.trashFile;
+  WhimsyDownloads.trashFile = async path => {
+    trashed.push(path);
+    // Stand-in for the real Trash move, so this test never touches ~/.Trash.
+    await IOUtils.remove(path);
+  };
+  try {
+    await DownloadsCommon.deleteDownloadFiles(download, 0);
+    is(trashed.length, 1, "The trash primitive was used");
+    is(trashed[0], target, "...for this download's own file");
+    ok(!(await IOUtils.exists(target)), "The file is no longer at its download path");
+  } finally {
+    WhimsyDownloads.trashFile = originalTrashFile;
+    await publicList.remove(download);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function test_delete_to_trash_falls_back_to_delete_on_failure() {
+  if (AppConstants.platform != "macosx") {
+    info("Delete to Trash is macOS-only.");
+    return;
+  }
+  WhimsyDownloads.installDeleteToTrashHook();
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.delete-to-trash", true]] });
+  const dir = await useTempDownloadDir();
+  const { publicList, download, target } = await downloadToTempFile(dir, "whimsy-trash-fallback.bin");
+  ok(await IOUtils.exists(target), "The file downloaded");
+
+  const originalTrashFile = WhimsyDownloads.trashFile;
+  WhimsyDownloads.trashFile = async () => {
+    throw new Error("Whimsy test: simulated Trash failure");
+  };
+  try {
+    await DownloadsCommon.deleteDownloadFiles(download, 0);
+    ok(!(await IOUtils.exists(target)), "The file is still deleted when trashing throws");
+  } finally {
+    WhimsyDownloads.trashFile = originalTrashFile;
+    await publicList.remove(download);
     await SpecialPowers.popPrefEnv();
   }
 });

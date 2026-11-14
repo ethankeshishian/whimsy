@@ -20,12 +20,21 @@
 //   that any open popup/panel auto-hides the moment the drag starts. This
 //   suspends auto-hide on the panel that owns the drag, for the drag's
 //   duration, so dropping into Gmail/Slack/Drive doesn't need two trips.
+// - Delete to Trash (Library + the downloads panel both call the same
+//   DownloadsCommon.deleteDownloadFiles, which this module wraps): the file
+//   moves to the Trash (Finder's Put Back works) instead of being erased.
+//   nsIMacWebAppUtils ("mac-web-app-utils") already has a scriptable
+//   trashApp(path, callback) that does a real NSWorkspace recycleURLs: move
+//   regardless of what it's named for, so no engine patch is needed. If the
+//   move throws (e.g. the service is missing), this falls back to the
+//   original, permanent delete.
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
+  DownloadsCommon: "moz-src:///browser/components/downloads/DownloadsCommon.sys.mjs",
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
 });
 
@@ -33,6 +42,7 @@ const QUICKLOOK_PREF = "whimsy.feature.quick-look";
 const DOCK_BADGE_PREF = "whimsy.downloads.dock-badge";
 const DOCK_FEATURE_PREF = "whimsy.feature.dock-badge";
 const DRAG_FEATURE_PREF = "whimsy.feature.drag-downloads";
+const TRASH_FEATURE_PREF = "whimsy.feature.delete-to-trash";
 
 function dockSupport() {
   if (AppConstants.platform != "macosx") {
@@ -40,6 +50,17 @@ function dockSupport() {
   }
   try {
     return Cc["@mozilla.org/widget/macdocksupport;1"].getService(Ci.nsIMacDockSupport);
+  } catch (e) {
+    return null;
+  }
+}
+
+function macWebAppUtils() {
+  if (AppConstants.platform != "macosx") {
+    return null;
+  }
+  try {
+    return Cc["@mozilla.org/widget/mac-web-app-utils;1"].getService(Ci.nsIMacWebAppUtils);
   } catch (e) {
     return null;
   }
@@ -53,6 +74,7 @@ export const WhimsyDownloads = {
       return;
     }
     this._inited = true;
+    this.installDeleteToTrashHook();
     const dock = dockSupport();
     if (!dock) {
       return;
@@ -309,5 +331,75 @@ export const WhimsyDownloads = {
     };
     document.addEventListener("dragend", release, true);
     document.addEventListener("drop", release, true);
+  },
+
+  // ---- Delete to Trash (Library + the downloads panel) ----
+
+  get deleteToTrashEnabled() {
+    return Services.prefs.getBoolPref(TRASH_FEATURE_PREF, true);
+  },
+
+  // Moves the file at `path` to the Trash via nsIMacWebAppUtils.trashApp.
+  // Throws (never silently no-ops) when the service is missing or the move
+  // fails, so callers know to fall back to a real delete. Stubbed in tests
+  // so nothing touches the real ~/.Trash.
+  async trashFile(path) {
+    const utils = macWebAppUtils();
+    if (!utils) {
+      throw new Error("Whimsy: no mac-web-app-utils service on this platform");
+    }
+    await new Promise((resolve, reject) => {
+      try {
+        utils.trashApp(path, rv => {
+          if (Components.isSuccessCode(rv)) {
+            resolve();
+          } else {
+            reject(new Components.Exception("Whimsy: trashApp failed", rv));
+          }
+        });
+      } catch (e) {
+        reject(e);
+      }
+    });
+  },
+
+  // Wraps the one function both the Library (ZenLibraryDownloadsSection's
+  // #deleteDownloadFile) and the downloads panel/Library window
+  // (DownloadsViewUI's downloadsCmd_deleteFile) call to erase a download's
+  // file: DownloadsCommon.deleteDownloadFiles -> download.manuallyRemoveData.
+  // Before delegating, it trashes the file itself, then installs a one-shot
+  // override of manuallyRemoveData on that download so the rest of its
+  // bookkeeping (deleted, cancel, removePartialData, refresh,
+  // _notifyChange - see DownloadCore.sys.mjs's manuallyRemoveData) still
+  // runs exactly as before; only the raw IOUtils delete is skipped, since
+  // the file is already gone. Trashing disabled, unsupported, or failing
+  // falls through to the unmodified original (today's permanent delete).
+  installDeleteToTrashHook() {
+    if (AppConstants.platform != "macosx" || this._trashHookInstalled) {
+      return;
+    }
+    this._trashHookInstalled = true;
+    const whimsy = this;
+    const original = lazy.DownloadsCommon.deleteDownloadFiles;
+    lazy.DownloadsCommon.deleteDownloadFiles = async function (download, clearHistoryOnDelete) {
+      if (whimsy.deleteToTrashEnabled && download?.succeeded && !download.deleted && download.target?.path) {
+        try {
+          await whimsy.trashFile(download.target.path);
+          const originalRemove = download.manuallyRemoveData;
+          download.manuallyRemoveData = async function () {
+            download.manuallyRemoveData = originalRemove;
+            this.deleted = true;
+            await this.cancel();
+            await this.removePartialData();
+            await this.target.refreshPartFileState();
+            await this.refresh();
+            this._notifyChange();
+          };
+        } catch (e) {
+          console.error("Whimsy: trashing the download's file failed; deleting it instead", e);
+        }
+      }
+      return original.call(this, download, clearHistoryOnDelete);
+    };
   },
 };

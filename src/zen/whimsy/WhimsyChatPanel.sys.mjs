@@ -17,6 +17,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIHints: "resource:///modules/whimsy/WhimsyAIHints.sys.mjs",
   WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
+  WhimsyAIPassages: "resource:///modules/whimsy/WhimsyAIPassages.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
@@ -50,6 +51,8 @@ const GAP = 8;
 const SHUT_WIDTH = 160;
 const HINT_IDLE_MS = 3000;
 const PAGE_CHARS = 60000;
+// Each other source's share (and at most PAGE_CHARS in all).
+const EXTRA_CHARS = 20000;
 
 // For the list and tasks subviews inside an already-open panel, and the
 // reduced-motion opacity-only fallback. The panel's own open/close (W24
@@ -1498,7 +1501,7 @@ class ChatPanel {
       if (room <= 0) {
         break;
       }
-      const body = String(part.text ?? "").slice(0, Math.min(room, 20000));
+      const body = String(part.text ?? "").slice(0, Math.min(room, EXTRA_CHARS));
       room -= body.length;
       lines.push("", `Also in this chat: ${part.title || part.url || "a source"}${part.url ? ` (${part.url})` : ""}`, body);
     }
@@ -1528,7 +1531,7 @@ class ChatPanel {
           continue;
         }
         for (const p of text) {
-          extra.push({ title: p.title ?? chip.label, url: p.url ?? chip.url, text: p.text });
+          extra.push({ title: p.title ?? chip.label, url: p.url ?? chip.url, text: p.text, ...(p.fullText ? { fullText: p.fullText } : {}) });
         }
       }
       if (!page && !context.chips.some(c => c.sourceId == ownKey)) {
@@ -1538,6 +1541,26 @@ class ChatPanel {
       page = await this.pageFor(thread);
     }
     return { page, extra };
+  }
+
+  /**
+   * W27 longctx: a page or source longer than its share, with a question,
+   * keeps its start and the passages that answer the question
+   * (WhimsyAIPassages); otherwise it's cut at its share as before. A
+   * source's `fullText` (a video's whole transcript) is what's ranked.
+   */
+  async fitSources(page, extra, question) {
+    const fit = (text, budget) => lazy.WhimsyAIPassages.fit(text, { question, budget });
+    if (page && String(page.text ?? "").length > PAGE_CHARS) {
+      page = { ...page, text: await fit(page.text, PAGE_CHARS) };
+    }
+    const out = [];
+    for (const part of extra) {
+      const { fullText, ...rest } = part;
+      const text = question && fullText ? fullText : String(part.text ?? "");
+      out.push(text.length > EXTRA_CHARS ? { ...rest, text: await fit(text, EXTRA_CHARS) } : rest);
+    }
+    return { page, extra: out };
   }
 
   /**
@@ -1570,7 +1593,7 @@ class ChatPanel {
       if (opts.withoutChip && context) {
         context = { ...context, chips: context.chips.filter(c => c.id != opts.withoutChip), parts: context.parts.filter(p => p.chipId != opts.withoutChip) };
       }
-      const { page, extra } = await this.sourcesFor(thread, context);
+      let { page, extra } = await this.sourcesFor(thread, context);
       if (!page && !extra.length) {
         live.setStatus("whimsy-chat-status-thinking");
       } else if (extra.length > 1) {
@@ -1585,6 +1608,10 @@ class ChatPanel {
       } else if (opts.instruction) {
         history.push({ role: "user", content: opts.instruction });
       }
+      // W27 longctx: the question long sources are fitted to; none for an
+      // instruction (Summarize) or a continuation.
+      const asked = opts.instruction || opts.continueFrom ? "" : history.findLast(m => m.role == "user")?.content;
+      ({ page, extra } = await this.fitSources(page, extra, typeof asked == "string" ? asked : ""));
       // W23 video: frames ride along with the last message.
       const asker = opts.images?.length ? history.findLast(m => m.role == "user") : null;
       if (asker) {

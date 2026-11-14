@@ -7,6 +7,9 @@
 // w26-actions-<context>[-<typed>]-<scheme>. Each context also logs an
 // AUDIT line with the bar's mode and rows (intake-w26/audit-actions.md).
 // WHIMSY_SHOTS=<dir> writes the PNGs; without it the walk still runs.
+// The owner chose option 1 (lane/w26-actions2): ⌘K opens the normal bar
+// everywhere, with no automatic Actions mode or pill, and "/" enters
+// Actions. On a loaded page ⌘K is still the page's commands.
 
 requestLongerTimeout(4);
 
@@ -180,6 +183,8 @@ add_task(async function page_and_selection() {
   });
 });
 
+// Settings and no tabs: ⌘K is the normal bar (mode=none in the AUDIT line),
+// with tabs, Ask AI, and the agent's rows as anywhere else.
 add_task(async function settings_and_no_tabs() {
   await BrowserTestUtils.withNewTab("about:preferences", async () => {
     await withYoutubeTabs(async () => {

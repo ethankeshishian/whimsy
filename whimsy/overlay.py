@@ -706,6 +706,30 @@ HOTFIXES = [
                "        ...(action.whimsyKeywords ?? []).map(k => this.#calculateFuzzyScore(k, query) - 1)\n"
                "      ); // Whimsy hotfix: related actions",
     },
+    # W26 actions: Reload first on a "Problem loading page"
+    {
+        "id": "command-bar-reload-first-on-error",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "On an error page Reload is the row that helps, but \"/\" "
+               "listed it twentieth. An action whose whimsyFirst(window) "
+               "is true (WhimsyCommandBar: Reload and Reload Without Cache "
+               "on an error page) goes first in the untyped \"/\" list; "
+               "every other order is unchanged.",
+        "old": "      result.commandId = action.commandId;\n",
+        "new": "      result.commandId = action.commandId;\n"
+               "      result.whimsyFirst = isPrefixed && !query && !!action.whimsyFirst?.(ownerGlobal); // Whimsy hotfix (W26 actions)\n",
+    },
+    {
+        "id": "command-bar-reload-first-on-error-sort",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "Places the whimsyFirst rows (see command-bar-reload-first-on-error) "
+               "ahead of the rest; the sort is stable, so the rest keep their order.",
+        "old": "      .sortCommandsByPriority(finalResults)\n"
+               "      .forEach(result => {\n",
+        "new": "      .sortCommandsByPriority(finalResults)\n"
+               "      .sort((a, b) => b.whimsyFirst - a.whimsyFirst) // Whimsy hotfix (W26 actions)\n"
+               "      .forEach(result => {\n",
+    },
     # merge3: the first command bar action wasn't placed first
     {
         "id": "command-bar-top-action-first",
@@ -1619,6 +1643,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)qlmanage|QLPreviewPanel")]},
     {"id": "drag-downloads", "title": "A panel stays open while you drag a download out of it into a site",
      "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
+    {"id": "delete-to-trash", "title": "Deleting a download from the Library or the downloads panel moves its file to the Trash instead of erasing it",
+     "detect": [("src/zen", r"(?i)trashApp|mac-web-app-utils")]},
     {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
     {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
@@ -1996,8 +2022,12 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?(semantic|meaning)[-_.]?(index|search)|ZenEmbeddings")]},
     {"id": "ai-memory", "title": "Memory: stable facts about you, saved automatically with Undo, used in answers",
      "detect": [("src/zen", r"(?i)zen[-_.]?ai[-_.]?memory|ZenMemory")]},
+    {"id": "ai-style", "title": "How AI writes: your tone and style for every AI answer, plus your preferred language",
+     "detect": [("src/zen", r"(?i)zen[-_.]?ai[-_.]?(writing[-_.]?)?style|zen[-_.]?ai[-_.]?persona")]},
     {"id": "ai-agent", "title": "Agent: Drive (every step in your tabs) or Background, with pauses before anything risky",
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?agent\b|ZenAgent")]},
+    {"id": "ai-agent-save-pdf", "title": "Agent saves a page as a PDF in Downloads, after you approve",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?agent[^\n]{0,40}(save[-_.]?)?pdf")]},
     {"id": "ai-task-folder", "title": "Task folders: an agent's tabs sit in their own unpinned folder that dissolves when done",
      "detect": [("src/zen", r"(?i)zen[-_.]?task[-_.]?folder|unpinned[-_.]?folder")]},
     {"id": "ai-outside-agents", "title": "Outside agents: Claude Code and other apps work in your tabs through Whimsy's connector, under the same rules",
@@ -2028,6 +2058,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?tab[-_.]?requests?")]},
     {"id": "find-card", "title": "Find as a floating card at the top right, with Ask",
      "detect": [("src/zen", r"(?i)zen[-_.]?find[-_.]?(card|floating)")]},
+    {"id": "double-escape", "title": "Press Esc twice to leave a page's full screen",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(double|twice)[-_.]?esc")]},
     {"id": "ai-video-summary", "title": "Summarize a video: summary, chapters, and transcript in chat; timestamps jump the video",
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?video[-_.]?summar")]},
     {"id": "video-speed-range", "title": "Video speed from 1/16× to 16×",
@@ -2059,6 +2091,26 @@ FEATURES = [
     # Firefox's tab hover preview.
     {"id": "hover-cards", "title": "Hover cards: rest on a tab or a link to see a picture, its title and address, and an AI description",
      "detect": [("src/zen", r"(?i)zen[-_.]?hover[-_.]?cards?|link[-_.]?hover[-_.]?summar")]},
+    # W26: superseded if Zen ever installs a platform authenticator of its
+    # own in dom/webauthn (a patch on WebAuthnService) or a passkey module.
+    {"id": "passkeys", "title": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
+     "detect": [("src/dom/webauthn", r"mPlatformService\s*="),
+                ("src/zen", r"(?i)zen[-_.]?passkeys?\.(sys\.)?mjs|SecureEnclave\.P256")]},
+    # W27: Restart Whimsy in the command bar (quit with eRestart, session
+    # restored). Superseded if Zen's command bar gets a restart action.
+    {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
+     "detect": [("locales/en-US", r"(?im)^zen-action-[\w-]*restart[\w-]*\s*="),
+                ("src/zen/urlbar", r"(?i)eRestart")]},
+    # W27: Turn Off / Turn On Page Animations (this tab, until reload) in
+    # the command bar, with a toast.
+    {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(page-animations|stop-animations)[\w-]*\s*=")]},
+    # W27: Show space name in window title (Settings → Tab Management): the
+    # space's name as the window's titlepreface. Superseded if Zen's spaces
+    # touch the title.
+    {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
+     "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
+                ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
 ]
 
 

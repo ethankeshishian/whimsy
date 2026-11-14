@@ -88,6 +88,9 @@
     <!-- W23 page-read: Cmd+F as a floating card (off: Firefox's find bar under the page) -->
     <checkbox id="whimsyFindCard" data-whimsy-feature="find-card"
               data-l10n-id="whimsy-look-find-card" preference="whimsy.feature.find-card"/>
+    <!-- W27: the first Esc in a page's full screen goes to the page (whimsy-PresShell-cpp.patch) -->
+    <checkbox id="whimsyDoubleEscape" data-whimsy-feature="double-escape"
+              data-l10n-id="whimsy-look-double-escape" preference="whimsy.fullscreen.double-escape"/>
     <hbox id="whimsyUiFontRow" align="center" data-whimsy-feature="ui-font">
       <label id="whimsyUiFontLabel" control="whimsyUiFont" data-l10n-id="whimsy-look-ui-font"/>
       <menulist id="whimsyUiFont" preference="whimsy.look.ui-font" sizetopopup="none" crop="end">
@@ -136,6 +139,10 @@
     <!-- batch7: full URL on click -->
     <checkbox id="whimsyAlwaysFullUrl" data-whimsy-feature="full-url-click"
               data-l10n-id="whimsy-look-always-full-url" preference="whimsy.urlbar.always-full-url"/>
+    <!-- W27 winprefs: Zen's grey-out of an inactive window, which Whimsy
+         ships off (overlay.py PREF_OVERRIDES, W10-31) -->
+    <checkbox id="whimsyDimInactiveWindow"
+              data-l10n-id="whimsy-look-dim-inactive-window" preference="zen.view.grey-out-inactive-windows"/>
     <!-- W11-07: the homepage is chosen in Home and startup (New windows,
          New tabs), not with a second switch here. -->
   </groupbox>
@@ -214,6 +221,21 @@
         <description class="description-deemphasized" data-l10n-id="whimsy-private-lock-after-note"/>
         <html:moz-checkbox id="whimsyPrivateLockOnLeave" data-l10n-id="whimsy-private-lock-on-leave"/>
         <html:moz-checkbox id="whimsyPrivateLockSharing" data-l10n-id="whimsy-private-lock-sharing"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
+  <!-- W26 passkeys: the Touch ID passkeys Whimsy holds in this Mac's Secure
+       Enclave (WhimsyPasskeys.sys.mjs), listed like Profiles' rows with one
+       Delete each (undo in the toast). Only on Macs where the feature is on;
+       nothing to add or rename here, passkeys are made on sites. -->
+  <html:div id="whimsyPasskeysGroup" data-category="panePrivacy" data-whimsy-feature="passkeys" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-passkeys-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/selectable/key.svg">
+        <description class="description-deemphasized" data-l10n-id="whimsy-passkeys-description"/>
+        <html:ul id="whimsyPasskeysList" class="whimsy-profiles-list whimsy-passkeys-list" hidden="hidden"></html:ul>
+        <description id="whimsyPasskeysEmpty" class="description-deemphasized" data-l10n-id="whimsy-passkeys-empty"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-passkeys-footnote"/>
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
@@ -306,6 +328,9 @@
     </vbox>
     <checkbox id="whimsyHideSpaceSwitcher" data-whimsy-feature="hide-switcher"
               data-l10n-id="whimsy-spaces-hide-switcher" preference="whimsy.spaces.hide-switcher"/>
+    <!-- W27: the space's name first in the window title -->
+    <checkbox id="whimsyWindowTitleSpace" data-whimsy-feature="window-title-space"
+              data-l10n-id="whimsy-spaces-window-title-name" preference="whimsy.spaces.window-title-name"/>
     <checkbox id="whimsyTabBadges" data-whimsy-feature="tab-badges"
               data-l10n-id="whimsy-tabs-badges" preference="whimsy.tabs.badges"/>
 

@@ -1,0 +1,27 @@
+diff --git a/dom/webauthn/WebAuthnService.cpp b/dom/webauthn/WebAuthnService.cpp
+--- a/dom/webauthn/WebAuthnService.cpp
++++ b/dom/webauthn/WebAuthnService.cpp
+@@ -354,9 +354,11 @@
+     uint64_t aTransactionId, nsIWebAuthnAutoFillEntriesCallback* aCallback) {
+   MOZ_ASSERT(NS_IsMainThread());
+   nsCOMPtr<nsIWebAuthnSignArgs> signArgs;
++  uint64_t browsingContextId = 0;
+   for (const auto& entry : mConditionalGets) {
+     if (entry.transactionId == aTransactionId) {
+       signArgs = entry.signArgs;
++      browsingContextId = entry.browsingContextId;
+       break;
+     }
+   }
+@@ -364,6 +366,11 @@
+     aCallback->Reject(NS_ERROR_NOT_AVAILABLE);
+     return NS_OK;
+   }
++#if defined(XP_MACOSX)
++  // Whimsy: passkeys keep each profile's credentials apart, and the
++  // profile is the asking tab's container (see WhimsyPasskeyService.h).
++  WhimsyPasskeyNoteAutoFillContext(browsingContextId);
++#endif
+   nsString rpId;
+   nsTArray<nsTArray<uint8_t>> allowList;
+   (void)signArgs->GetRpId(rpId);

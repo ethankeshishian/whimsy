@@ -418,6 +418,7 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
           : undefined,
       });
       result.commandId = action.commandId;
+      result.whimsyFirst = isPrefixed && !query && !!action.whimsyFirst?.(ownerGlobal); // Whimsy hotfix (W26 actions)
       if (!(isPrefixed && query.length < 2)) {
         // We dont want to record prefixed results, as the user explicitly asked for them.
         // Selecting other results would de-prioritize these actions unfairly.
@@ -429,6 +430,7 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
     let shown = 0;
     zenUrlbarResultsLearner
       .sortCommandsByPriority(finalResults)
+      .sort((a, b) => b.whimsyFirst - a.whimsyFirst) // Whimsy hotfix (W26 actions)
       .forEach(result => {
         if (isPrefixed && !isWorkspaceSearch && i === 0 && query.length > 1) {
           result.heuristic = true;

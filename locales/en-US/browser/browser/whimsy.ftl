@@ -461,6 +461,10 @@ whimsy-emoji-search-empty =
 
 whimsy-spaces-hide-switcher =
     .label = Hide the space switcher (swipe to change spaces; it shows while you drag a tab)
+# W27: the window title starts with the space's name (Mission Control, the
+# Window menu, and screen-share pickers show it).
+whimsy-spaces-window-title-name =
+    .label = Show space name in window title
 
 ## Open Link in Space (link context menu)
 
@@ -826,8 +830,16 @@ whimsy-look-seasonal-themes-description = The balloon dresses for the season, an
 whimsy-tabs-close-window-with-last-tab =
     .label = Close the window when the last tab closes
 
+# W27 winprefs: nested under Firefox's "Open links in tabs instead of new windows".
+whimsy-tabs-popups-as-tabs =
+    .label = Open pop-up windows as tabs
+
 whimsy-look-always-full-url =
     .label = Always show the full address, not just the domain
+
+# W27 winprefs: zen.view.grey-out-inactive-windows.
+whimsy-look-dim-inactive-window =
+    .label = Dim the window when it’s not in front
 
 ## batch7: Settings → General → Performance
 
@@ -1965,6 +1977,7 @@ whimsy-replay-tool =
         [form_input] Filled in a field
         [scroll] Scrolled
         [screenshot] Took a screenshot
+        [save_pdf] Saved the page as a PDF
         [shield] Shield paused Claude
        *[other] { $tool }
     }
@@ -2060,6 +2073,10 @@ whimsy-verb-email = Email
 whimsy-verb-copy-markdown = Copy as Markdown
 whimsy-verb-note = Add to Note
 whimsy-verb-calendar = Add to Calendar
+whimsy-verb-call = Call
+whimsy-verb-facetime = FaceTime
+whimsy-verb-message = Message
+whimsy-verb-add-contact = Add to Contacts
 whimsy-verb-linear-new = New Linear Issue
 whimsy-verb-linear-search = Search Linear
 whimsy-verb-copied-toast = Copied as Markdown
@@ -2597,14 +2614,25 @@ whimsy-profiles-create =
 whimsy-profiles-delete-unused =
     .label = Delete Unused Profiles…
 whimsy-profiles-delete-confirm-title = Delete the “{ $name }” profile?
-whimsy-profiles-delete-confirm-body = Its cookies, site data and saved passwords are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+# W26 passkeys: $passkeys is how many Touch ID passkeys Whimsy holds for it.
+whimsy-profiles-delete-confirm-body =
+    { $passkeys ->
+        [0] Its cookies, site data, and saved passwords are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+        [one] Its cookies, site data, saved passwords, and 1 passkey are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+       *[other] Its cookies, site data, saved passwords, and { $passkeys } passkeys are deleted, and the profile is removed on every device you sync with. This can’t be undone.
+    }
 whimsy-profiles-delete-confirm-accept = Delete Profile
 whimsy-profiles-delete-unused-confirm-title =
     { $count ->
         [one] Delete 1 unused profile?
        *[other] Delete { $count } unused profiles?
     }
-whimsy-profiles-delete-unused-confirm-body = Not used by any space: { $names }. Their cookies, site data and saved passwords are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+whimsy-profiles-delete-unused-confirm-body =
+    { $passkeys ->
+        [0] Not used by any space: { $names }. Their cookies, site data, and saved passwords are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+        [one] Not used by any space: { $names }. Their cookies, site data, saved passwords, and 1 passkey are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+       *[other] Not used by any space: { $names }. Their cookies, site data, saved passwords, and { $passkeys } passkeys are deleted, and the profiles are removed on every device you sync with. This can’t be undone.
+    }
 whimsy-profiles-delete-unused-confirm-accept =
     { $count ->
         [one] Delete Profile
@@ -3062,6 +3090,22 @@ whimsy-action-manage-spaces = Manage Spaces…
 whimsy-action-air-traffic-control = Air Traffic Control…
 whimsy-action-add-finder-folder = Add Finder Folder…
 whimsy-action-whats-new = What’s New
+
+## W27: Restart Whimsy (command bar). Comma-separated search words.
+
+whimsy-action-restart = Restart Whimsy
+whimsy-keywords-restart = Relaunch, Reopen, Reboot, Restart Browser
+
+## W27: page animations on the current tab (until it reloads) from the command bar, and
+## the toast that confirms the change. Keywords are comma-separated search words.
+
+whimsy-action-page-animations-toggle = Turn Page Animations On or Off
+whimsy-action-page-animations-off = Turn Off Page Animations
+whimsy-action-page-animations-on = Turn On Page Animations
+whimsy-keywords-page-animations = Reduce Motion, Reduced Motion, Motion, Animations, Stop Animations
+whimsy-page-animations-off-toast = Animations are off on this page until it reloads
+whimsy-page-animations-on-toast = Animations are back on for this page
+
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)
 
@@ -4450,6 +4494,8 @@ whimsy-setting-seasons = Seasonal Touches
     .keywords = seasons, seasonal themes, halloween, holidays, pumpkins, snow
 whimsy-setting-full-url = Full Address
     .keywords = full url, whole url, domain only, address bar, url bar
+whimsy-setting-dim-inactive-window = Dim Inactive Windows
+    .keywords = grey out, gray out, inactive window, background window, unfocused window, fade
 whimsy-setting-new-windows = New Window Page
     .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
 whimsy-setting-new-tabs = New Tab Page
@@ -4518,6 +4564,8 @@ whimsy-setting-ai-memory = AI Memory
     .keywords = memories, remember, saved facts, personal context, use and save memories
 whimsy-setting-memory-search = Search Memories
     .keywords = find memory, saved memories, filter memories
+whimsy-setting-ai-style = How AI Writes
+    .keywords = writing style, tone, voice, ai style, custom instructions
 whimsy-setting-ai-commands = Built-in Commands
     .keywords = improve writing, fix spelling, summarize, ai commands
 whimsy-setting-update-channel = Update Channel
@@ -4540,6 +4588,8 @@ whimsy-setting-loading-line = Loading Progress Line
     .keywords = safari progress bar, loading line, progress line
 whimsy-setting-hide-switcher = Space Switcher
     .keywords = hide space switcher, workspace icons, spaces bar, swipe spaces
+whimsy-setting-window-title-space = Space Name in Window Title
+    .keywords = window title, space name, Mission Control, Window menu, screen sharing
 whimsy-setting-tab-badges = Tab Badges
     .keywords = unread counts, notification dots, update dots, badges
 whimsy-setting-background-mute = Background Tab Sound
@@ -4598,6 +4648,8 @@ whimsy-setting-command-recent-tabs = Recent Tabs in the Command Bar
     .keywords = command bar, recent tabs, empty command bar
 whimsy-setting-close-window-with-last-tab = Close Window with Last Tab
     .keywords = last tab, keep window open, close window
+whimsy-setting-popups-as-tabs = Pop-up Windows as Tabs
+    .keywords = popups, pop-ups, popup windows, sign-in windows
 whimsy-setting-dock-badge = Dock Download Badge
     .keywords = dock, badge, download count
 whimsy-setting-quick-look = Quick Look for Downloads
@@ -5228,6 +5280,9 @@ whimsy-favicon-home-sublabel-new-tab = Open site home in new tab
 whimsy-favicon-home-button =
     .aria-label = Go to Site Home
 whimsy-action-site-home = Go to Site Home
+whimsy-action-go-up-level = Go Up One Level
+whimsy-action-edit-field-in-editor = Edit Field in Text Editor
+whimsy-field-editor-toast-no-field = Click into a text field first
 
 ## W23 ai-core: errors from the provider router (toasts; chat's error block
 ## lists what was tried itself).
@@ -6302,6 +6357,14 @@ whimsy-look-find-card =
     .label = Find as a floating card at the top right of the page
 whimsy-setting-find-card = Floating Find
     .keywords = find bar, find in page, search page, cmd f, find card
+# W27: Settings › Look and Feel. The first Esc in a page's full screen goes
+# to the page; a second one within a second leaves full screen.
+whimsy-look-double-escape =
+    .label = Press Esc twice to leave full screen
+whimsy-setting-double-escape = Esc Twice for Full Screen
+    .keywords = escape, esc, full screen, fullscreen, video, exit full screen, double escape
+# The full-screen notice's button after the first Esc (the setting above is on).
+whimsy-fullscreen-press-esc-again = Press Esc again to exit full screen
 whimsy-find-more =
     .tooltiptext = More find options
     .aria-label = More find options
@@ -6654,6 +6717,11 @@ whimsy-memory-count = { $count ->
 }
 whimsy-memory-no-match = No memories match.
 whimsy-memory-export-button = Export Markdown…
+# W27: Settings › AI › Memory. The person's own words, added to every AI
+# request as their style preference.
+whimsy-ai-style-label = How AI writes
+whimsy-ai-style-detail = Tone and style for every answer, in your own words.
+whimsy-ai-style-placeholder = Short and plain, no emoji, and British spelling.
 # The exported file's heading, the save dialog's title, and its file type.
 whimsy-memory-export-heading = Memory
 whimsy-memory-export-picker-title = Export Memory
@@ -8165,3 +8233,57 @@ whimsy-cmdk-dismiss = Dismiss
 whimsy-cmdk-try-again = Try again
 whimsy-cmdk-notify-done = { $task } is done
 whimsy-cmdk-notify-needs-you = { $task } needs you
+
+## W26 passkeys: Whimsy's own Touch ID passkeys (WhimsyPasskeys.sys.mjs).
+## The prompt (one surface, several states) and Settings → Privacy &
+## Security → Passkeys. $site is the validated RP ID (github.com), $profile
+## the Whimsy profile's name, $account the site's display name for the
+## account (else its user name). Sentence case for the buttons: they are in
+## a panel.
+
+whimsy-passkeys-create-title = Save a passkey for { $site }?
+whimsy-passkeys-create-text = You’ll sign in with Touch ID. { -brand-short-name } keeps this passkey on this Mac only, in your { $profile } profile, so keep another way to sign in.
+whimsy-passkeys-signin-title = Sign in to { $site }
+whimsy-passkeys-signin-text = Use Touch ID to sign in as { $account }.
+whimsy-passkeys-choose = Choose an account
+whimsy-passkeys-lid-closed = Touch ID isn’t available while the lid is closed. Your Mac password works instead.
+whimsy-passkeys-no-touch-id = This Mac has no Touch ID. Your Mac password works instead.
+whimsy-passkeys-cancelled = Didn’t sign in. Try again, or use another way.
+whimsy-passkeys-error-title = This passkey can’t be used here
+whimsy-passkeys-error-line = Saved on another Mac, or its key was removed.
+whimsy-passkeys-error-text = Sign in to { $site } another way, then save a new passkey on this Mac. You can delete this one in Settings → Privacy & Security → Passkeys.
+whimsy-passkeys-exists-title = A passkey for { $site } is already saved
+whimsy-passkeys-exists-text = { -brand-short-name } already holds a passkey for { $account } on this Mac. Sign in with it instead of saving another.
+whimsy-passkeys-private-title = Passkeys aren’t saved in private windows
+whimsy-passkeys-private-text = Save the passkey from a normal window, or sign in another way.
+whimsy-passkeys-save =
+    .label = Save with Touch ID
+whimsy-passkeys-continue =
+    .label = Continue with Touch ID
+whimsy-passkeys-password =
+    .label = Use Mac password
+whimsy-passkeys-retry =
+    .label = Try again
+whimsy-passkeys-cancel =
+    .label = Cancel
+whimsy-passkeys-ok =
+    .label = OK
+whimsy-passkeys-security-key = Use a security key
+# The macOS Touch ID sheet's reason: completes “Whimsy is trying to …”.
+whimsy-passkeys-reason-create = save a passkey for { $site }
+whimsy-passkeys-reason-sign = sign in to { $site }
+
+whimsy-passkeys-header =
+    .label = Passkeys
+whimsy-passkeys-description = Passkeys you saved with Touch ID in { -brand-short-name }. They live on this Mac only and aren’t copied to iCloud Keychain, another browser, or another Mac, so keep a second way to sign in to each site. A new Mac means saving them again.
+whimsy-passkeys-empty = No passkeys saved yet.
+whimsy-passkeys-footnote = Passkeys from 1Password and security keys aren’t listed here; those apps keep their own.
+# $date is when it was saved, $when when it was last used (“today”).
+whimsy-passkeys-row-meta = { $account } · { $profile } · Saved { $date } · Last used { $when }
+whimsy-passkeys-row-meta-new = { $account } · { $profile } · Saved { $date }
+whimsy-passkeys-delete =
+    .label = Delete
+    .aria-label = Delete the passkey for { $site }
+whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
+whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
+whimsy-setting-passkeys = Passkeys

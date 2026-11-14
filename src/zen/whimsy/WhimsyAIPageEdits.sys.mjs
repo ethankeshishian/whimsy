@@ -351,9 +351,10 @@ export const WhimsyAIPageEdits = {
   },
 
   canEdit(win, tab = win?.gBrowser?.selectedTab) {
-    // W26 audit: a PDF is a document, not a site to change.
+    // W26 audit: a PDF is a document, not a site to change, and a "Problem
+    // loading page" has no page of the site's to change.
     return this.enabled && !!tab && !lazy.WhimsyAIContext.isOffLimits(tab) && !!this.domainFor(tab.linkedBrowser) &&
-      tab.linkedBrowser.documentContentType != "application/pdf";
+      tab.linkedBrowser.documentContentType != "application/pdf" && !lazy.WhimsyCommands.isErrorPage(tab.linkedBrowser);
   },
 
   /** Whether chat hands this message to page edits (not the agent). */

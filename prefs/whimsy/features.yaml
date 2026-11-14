@@ -261,6 +261,9 @@
 - name: whimsy.feature.drag-downloads
   value: true
 
+- name: whimsy.feature.delete-to-trash
+  value: true
+
 - name: whimsy.feature.sidebar-nav
   value: true
 
@@ -603,7 +606,13 @@
 - name: whimsy.feature.ai-memory
   value: true
 
+- name: whimsy.feature.ai-style
+  value: true
+
 - name: whimsy.feature.ai-agent
+  value: true
+
+- name: whimsy.feature.ai-agent-save-pdf
   value: true
 
 - name: whimsy.feature.ai-task-folder
@@ -651,6 +660,9 @@
 - name: whimsy.feature.find-card
   value: true
 
+- name: whimsy.feature.double-escape
+  value: true
+
 - name: whimsy.feature.ai-video-summary
   value: true
 
@@ -688,6 +700,18 @@
   value: true
 
 - name: whimsy.feature.hover-cards
+  value: true
+
+- name: whimsy.feature.passkeys
+  value: true
+
+- name: whimsy.feature.restart-command
+  value: true
+
+- name: whimsy.feature.page-animations-command
+  value: true
+
+- name: whimsy.feature.window-title-space
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

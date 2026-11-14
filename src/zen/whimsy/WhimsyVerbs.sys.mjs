@@ -290,6 +290,48 @@ export function buildICS({ start, end, allDay, title, description = "", url = ""
 }
 
 // ---------------------------------------------------------------------------
+// Phone numbers: a selection that looks like a phone number offers Call,
+// FaceTime, Message and Add to Contacts, in the Cmd+K selection list only
+// (W27). Strict enough to leave dates, prices and IP addresses alone: 7-15
+// digits, with nothing else in the text but + ( ) - . and spaces.
+
+const PHONE_SHAPE = /^[+()0-9.\-\s]+$/;
+// A date written with dots or dashes ("2026-10-30", "10.30.2026"): never a
+// phone number, however many digits it has.
+const DATE_SHAPED = /^(\d{4}[-.]\d{1,2}[-.]\d{1,2}|\d{1,2}[-.]\d{1,2}[-.]\d{2,4})$/;
+// A price with cents ("19.99", "1234.00"), and a bare IPv4 address.
+const PRICE_SHAPED = /^\d+\.\d{2}$/;
+const IPV4_SHAPED = /^(\d{1,3}\.){3}\d{1,3}$/;
+
+/**
+ * A phone number from selected text, or null when it isn't one. The whole
+ * (trimmed) text must be +()-. spaces and 7-15 digits; a run that's
+ * shaped like a date, a price's cents, or an IPv4 address is never a
+ * phone number, whatever its digit count.
+ *
+ * @returns {{digits: string, tel: string}|null}
+ */
+export function parsePhone(input) {
+  const text = String(input ?? "").trim();
+  if (!text || text.length > 40 || !PHONE_SHAPE.test(text)) {
+    return null;
+  }
+  if (DATE_SHAPED.test(text) || PRICE_SHAPED.test(text) || IPV4_SHAPED.test(text)) {
+    return null;
+  }
+  const digits = text.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 15) {
+    return null;
+  }
+  return { digits, tel: (text.startsWith("+") ? "+" : "") + digits };
+}
+
+/** A minimal vCard (RFC 6350) with just the number, for Add to Contacts. */
+function buildVCard(tel) {
+  return ["BEGIN:VCARD", "VERSION:3.0", `TEL:${tel}`, "END:VCARD", ""].join("\r\n");
+}
+
+// ---------------------------------------------------------------------------
 // The registry.
 
 const enc = encodeURIComponent;
@@ -329,10 +371,11 @@ function translationRestricted(win) {
   }
 }
 
+// A page with content to act on (WhimsyCommands.hasPage): never a
+// settings page, and never a "Problem loading page", where only the
+// address commands apply (W26 audit 17).
 function isWebPage(win) {
-  const tab = win?.gBrowser?.selectedTab;
-  const spec = tab?.linkedBrowser?.currentURI?.spec ?? "";
-  return !!tab?.linkedPanel && !tab.hasAttribute("zen-empty-tab") && /^(https?|file):|^about:reader/.test(spec);
+  return lazy.WhimsyCommands.hasPage(win);
 }
 
 // The workspace slug of the person's Linear, for its search page: from any
@@ -477,6 +520,46 @@ const BUILT_IN = [
       }
       const path = PathUtils.join(PathUtils.tempDir, `whimsy-event-${Date.now()}.ics`);
       await IOUtils.writeUTF8(path, buildICS(event));
+      WhimsyVerbs.launchFile(path);
+    },
+  },
+  // Phone numbers (W27): Cmd+K's selection list only, no shortcut and no
+  // context-menu row (initCommands/updateContextMenu leave these out).
+  {
+    id: "call",
+    l10nId: "whimsy-verb-call",
+    icon: `${ICONS}selectable/call.svg`,
+    scope: "selection",
+    isAvailable: (win, s) => !!s.phone,
+    run: (win, s) => WhimsyVerbs.openExternal(`tel:${s.phone.tel}`),
+  },
+  {
+    id: "facetime",
+    l10nId: "whimsy-verb-facetime",
+    icon: `${ICONS}selectable/video.svg`,
+    scope: "selection",
+    isAvailable: (win, s) => !!s.phone,
+    run: (win, s) => WhimsyVerbs.openExternal(`facetime:${s.phone.tel}`),
+  },
+  {
+    id: "message",
+    l10nId: "whimsy-verb-message",
+    icon: `${ICONS}selectable/chat.svg`,
+    scope: "selection",
+    isAvailable: (win, s) => !!s.phone,
+    run: (win, s) => WhimsyVerbs.openExternal(`sms:${s.phone.tel}`),
+  },
+  {
+    id: "add-contact",
+    l10nId: "whimsy-verb-add-contact",
+    icon: `${ICONS}selectable/people.svg`,
+    scope: "selection",
+    // Like Add to Calendar: not from private browsing, since it persists
+    // the number to the system's Contacts.
+    isAvailable: (win, s) => !!s.phone && !isPrivate(win),
+    async run(win, s) {
+      const path = PathUtils.join(PathUtils.tempDir, `whimsy-contact-${Date.now()}.vcf`);
+      await IOUtils.writeUTF8(path, buildVCard(s.phone.tel));
       WhimsyVerbs.launchFile(path);
     },
   },
@@ -1058,13 +1141,14 @@ export const WhimsyVerbs = {
           url,
           title,
           event: parseEvent(found.text),
+          phone: parsePhone(found.text),
           context,
         };
       } catch (e) {
         // A frame that went away.
       }
     }
-    return { kind: "page", text: "", markdown: pageLink({ title, url }), url, title, event: null };
+    return { kind: "page", text: "", markdown: pageLink({ title, url }), url, title, event: null, phone: null };
   },
 
   /** Command bar: the verbs for the selection, else for the page. */
@@ -1079,22 +1163,25 @@ export const WhimsyVerbs = {
   },
 
   /**
-   * W26: ⌘K with no page to act on (an empty space, a settings or other
-   * privileged page) is still Actions: the commands that apply there
-   * (Zen's list, through its own provider), a tab request typed in, and
-   * the ⌘K agent's row. Never the web search, and no page rows.
+   * ⌘K with no page to act on (no tabs, a settings or other privileged
+   * page, a "Problem loading page"): the bar as it always is, empty and
+   * in no mode (owner, W26: no Actions pill there). Its own providers
+   * fill it: the web search, open tabs, Ask AI, the ⌘K agent's row, and
+   * Zen's actions that apply on this screen. "/" still enters Actions.
    */
-  emptySubject(win) {
-    const tab = win.gBrowser?.selectedTab;
-    const url = tab?.linkedBrowser?.currentURI?.spec ?? "";
-    return { kind: "page", web: false, text: "", markdown: "", url, title: tab?.label ?? "", event: null, groups: [] };
+  openBar(win) {
+    const urlbar = win.gURLBar;
+    urlbar.searchMode = null;
+    urlbar.select();
+    urlbar.value = "";
+    urlbar.startQuery({ allowAutofill: false, event: new win.Event("command") });
   },
 
   /**
    * Cmd+K: with text selected, its verbs (Search first); otherwise exactly
    * Firefox's Cmd+K, the web search. With AI on in a normal tab, the
    * context-aware menu (WhimsyContextCommands), selection or not. With
-   * no page at all (W26), Actions with what applies there.
+   * no page at all, the bar in no mode (openBar).
    */
   async openFromKey(win, { textOnly = false } = {}) {
     if (!this.enabled) {
@@ -1103,9 +1190,8 @@ export const WhimsyVerbs = {
     }
     const subject = await this.subjectFor(win);
     if (!subject) {
-      const empty = this.emptySubject(win);
-      await this.start(win, empty);
-      return empty;
+      this.openBar(win);
+      return null;
     }
     const aware = contextOn(win);
     if (subject.kind != "selection" && !aware) {
@@ -1133,17 +1219,12 @@ export const WhimsyVerbs = {
   },
 
   /**
-   * The urlbar priority of the window's ⌘K session: 10 on a page (the
-   * verbs are the bar's only rows), 0 with no page (Zen's actions list
-   * beside them), and null with no session. The ⌘K agent's provider
+   * The urlbar priority of the window's ⌘K session: 10 (the verbs are the
+   * bar's only rows), and null with no session. The ⌘K agent's provider
    * matches it so its row can lead in Actions mode.
    */
   sessionPriority(win) {
-    const subject = win && this.sessions.get(win);
-    if (!subject) {
-      return null;
-    }
-    return subject.web === false ? 0 : 10;
+    return win && this.sessions.get(win) ? 10 : null;
   },
 
   /**
@@ -1581,8 +1662,7 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
   }
 
   // Above Zen's actions (0) and recent tabs (2): while a verb session is
-  // on, the bar lists only the verbs. With no page (W26) there are no
-  // verbs: Zen's actions list alongside, at its own priority.
+  // on, the bar lists only the verbs.
   getPriority() {
     return WhimsyVerbs.sessionPriority(this.#session()?.win) ?? 10;
   }
@@ -1706,9 +1786,8 @@ export class WhimsyVerbsProvider extends UrlbarProvider {
       addCallback(this, this.#result(subject, row, { id: "whimsy-cmdk-group-commands" }, first && !row.unavailable));
       first &&= !!row.unavailable;
     }
-    // A tab request is understood: nothing else to offer. With no page
-    // (W26) there's nothing to ask about, and never the web search.
-    if (typed.length || subject.web === false) {
+    // A tab request is understood: nothing else to offer.
+    if (typed.length) {
       return;
     }
     const search = { id: "web-search", icon: `${ICONS}search-glass.svg`, label: text, tag: lazy.l10n.formatValueSync("whimsy-cmdk-search-with", { engine: subject.engineName || defaultEngineName(win) }) };
