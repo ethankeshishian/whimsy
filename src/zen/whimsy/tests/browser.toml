@@ -717,6 +717,13 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 ["browser_whimsy_live_folders_restore.js"]
 # wave7/keys: commands with assignable shortcuts for Settings/menu-only features (tree, hidden spaces, switcher, UI zoom, background mute, bionic, dark PDF, live/Finder folders, Manage Spaces, ATC, Claude space, What's New).
 ["browser_whimsy_access_commands.js"]
+# W27: Restart Whimsy (command bar): asks as a restart, a cancel keeps the browser open, else quits with eAttemptQuit | eRestart (stubbed); its switch.
+["browser_whimsy_restart_command.js"]
+# W27: Turn Off / Turn On Page Animations: a user sheet stops CSS animations and transitions on this tab only, a reload clears it, other tabs keep theirs, state-aware names, the toast, its switch.
+["browser_whimsy_page_animations.js"]
+support-files = ["whimsy_page_animations.html"]
+# W27: Show space name in window title (Settings → Tab Management, off by default): titlepreface "<space> — ", space switch and rename, any space count, its switch, the private lock.
+["browser_whimsy_window_title_space.js"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
 

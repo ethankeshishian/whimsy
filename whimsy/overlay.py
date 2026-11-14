@@ -2096,6 +2096,21 @@ FEATURES = [
     {"id": "passkeys", "title": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
      "detect": [("src/dom/webauthn", r"mPlatformService\s*="),
                 ("src/zen", r"(?i)zen[-_.]?passkeys?\.(sys\.)?mjs|SecureEnclave\.P256")]},
+    # W27: Restart Whimsy in the command bar (quit with eRestart, session
+    # restored). Superseded if Zen's command bar gets a restart action.
+    {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
+     "detect": [("locales/en-US", r"(?im)^zen-action-[\w-]*restart[\w-]*\s*="),
+                ("src/zen/urlbar", r"(?i)eRestart")]},
+    # W27: Turn Off / Turn On Page Animations (this tab, until reload) in
+    # the command bar, with a toast.
+    {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(page-animations|stop-animations)[\w-]*\s*=")]},
+    # W27: Show space name in window title (Settings → Tab Management): the
+    # space's name as the window's titlepreface. Superseded if Zen's spaces
+    # touch the title.
+    {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
+     "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
+                ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
 ]
 
 

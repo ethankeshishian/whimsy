@@ -461,6 +461,10 @@ whimsy-emoji-search-empty =
 
 whimsy-spaces-hide-switcher =
     .label = Hide the space switcher (swipe to change spaces; it shows while you drag a tab)
+# W27: the window title starts with the space's name (Mission Control, the
+# Window menu, and screen-share pickers show it).
+whimsy-spaces-window-title-name =
+    .label = Show space name in window title
 
 ## Open Link in Space (link context menu)
 
@@ -3074,6 +3078,22 @@ whimsy-action-manage-spaces = Manage Spaces…
 whimsy-action-air-traffic-control = Air Traffic Control…
 whimsy-action-add-finder-folder = Add Finder Folder…
 whimsy-action-whats-new = What’s New
+
+## W27: Restart Whimsy (command bar). Comma-separated search words.
+
+whimsy-action-restart = Restart Whimsy
+whimsy-keywords-restart = Relaunch, Reopen, Reboot, Restart Browser
+
+## W27: page animations on the current tab (until it reloads) from the command bar, and
+## the toast that confirms the change. Keywords are comma-separated search words.
+
+whimsy-action-page-animations-toggle = Turn Page Animations On or Off
+whimsy-action-page-animations-off = Turn Off Page Animations
+whimsy-action-page-animations-on = Turn On Page Animations
+whimsy-keywords-page-animations = Reduce Motion, Reduced Motion, Motion, Animations, Stop Animations
+whimsy-page-animations-off-toast = Animations are off on this page until it reloads
+whimsy-page-animations-on-toast = Animations are back on for this page
+
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)
 
@@ -4546,6 +4566,8 @@ whimsy-setting-loading-line = Loading Progress Line
     .keywords = safari progress bar, loading line, progress line
 whimsy-setting-hide-switcher = Space Switcher
     .keywords = hide space switcher, workspace icons, spaces bar, swipe spaces
+whimsy-setting-window-title-space = Space Name in Window Title
+    .keywords = window title, space name, Mission Control, Window menu, screen sharing
 whimsy-setting-tab-badges = Tab Badges
     .keywords = unread counts, notification dots, update dots, badges
 whimsy-setting-background-mute = Background Tab Sound

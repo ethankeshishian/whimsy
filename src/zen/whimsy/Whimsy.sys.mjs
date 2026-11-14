@@ -369,6 +369,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLinkLasso: "resource:///modules/whimsy/WhimsyLinkLasso.sys.mjs",
 });
 
+// W27: the window title names its space.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyWindowTitle: "resource:///modules/whimsy/WhimsyWindowTitle.sys.mjs",
+});
+
 // wave9: Inspector (Font Inspector & Element Inspector lite).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyInspector: "resource:///modules/whimsy/WhimsyInspector.sys.mjs",
@@ -886,6 +891,15 @@ export const Whimsy = {
     // space badge. Wraps updatePreview after the private lock does; the two
     // compose either way. Checks whimsy.feature.ctrl-tab on each open.
     run("ctrl-tab-look", () => lazy.WhimsyCtrlTab.initWindow(win));
+    // W27: Show space name in window title (Settings → Tab Management, off
+    // by default): "<space> — " as the window's titlepreface, for Mission
+    // Control, the Window menu, and screen-share pickers. After Zen's spaces
+    // are ready.
+    run("window-title-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyWindowTitle.initWindow(win))
+        .catch(e => console.error("Whimsy: window-title-space", e))
+    );
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
     later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());

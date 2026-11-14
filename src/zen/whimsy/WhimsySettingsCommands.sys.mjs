@@ -271,6 +271,9 @@ export const SETTINGS = [
   { name: "loading-line", setting: "whimsyLoadingLine", pref: "whimsy.tabs.loading-line", feature: ["loading-line"] },
   { name: "hide-switcher", setting: "whimsyHideSpaceSwitcher", pref: "whimsy.spaces.hide-switcher",
     feature: ["hide-switcher"], command: ["cmd_whimsyToggleSpaceSwitcher"] },
+  // W27: the space's name first in the window title.
+  { name: "window-title-space", setting: "whimsyWindowTitleSpace", pref: "whimsy.spaces.window-title-name",
+    feature: ["window-title-space"] },
   { name: "tab-badges", setting: "whimsyTabBadges", pref: "whimsy.tabs.badges", feature: ["tab-badges"] },
   { name: "background-mute", setting: "whimsyBackgroundMute", pref: "whimsy.media.background-mute",
     feature: ["background-mute"], command: ["cmd_whimsyToggleBackgroundMute"] },
