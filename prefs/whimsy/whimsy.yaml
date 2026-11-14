@@ -898,7 +898,7 @@
 # W26 site panel: each profile's Automatic Dark Mode, {userContextId: true
 # or false}; a profile not listed follows whimsy.dark-pages.mode.
 - name: whimsy.dark-pages.profiles
-  value: "{}"
+  value: "{ }"
 
 # W26 site panel: profiles keep their own site permissions (Firefox's
 # permission manager keys them by container). Cookie exceptions, HTTPS-Only
