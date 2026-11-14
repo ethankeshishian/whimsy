@@ -102,7 +102,13 @@ function clearSite() {
   Services.prefs.setStringPref(SITES, "{}");
 }
 
+// Full Screen is checked as a stored flag: opening the site must not put the
+// test window itself in full screen, which outlives this file.
+const enterFullscreen = WhimsySiteSettings.enterFullscreen;
+WhimsySiteSettings.enterFullscreen = () => {};
+
 registerCleanupFunction(async () => {
+  WhimsySiteSettings.enterFullscreen = enterFullscreen;
   await closePanel();
   clearSite();
   if (gZenWorkspaces.activeWorkspace != HOME_SPACE) {
@@ -197,6 +203,7 @@ add_task(async function test_profiles_keep_their_own_permissions() {
     ok(!WhimsySiteSettings.getFlag(kind, HOST, oa(0)), `${kind}: Default doesn't share it`);
     is(capability(work, PERM_TYPES[kind]), Services.perms.ALLOW_ACTION, `${kind}: on Work's own principal`);
     ok(!Services.perms.all.some(p => p.type.startsWith(`${PERM_TYPES[kind]}.uc`)), `${kind}: no ".ucN" type`);
+    WhimsySiteSettings.setFlag(kind, HOST, oa(WORK), false);
   }
   for (const type of ["autoplay-media", "camera"]) {
     SitePermissions.setForPrincipal(work, type, SitePermissions.BLOCK);
@@ -355,7 +362,7 @@ add_task(async function test_zoom_per_profile() {
   const cps = Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
   const stored = name => new Promise(resolve => {
     let value;
-    cps.getByDomainAndName(HOST, name, null, {
+    cps.getByDomainAndName(SITE, name, null, {
       handleResult: pref => (value = pref.value),
       handleCompletion: () => resolve(value),
       handleError: () => resolve(undefined),
@@ -368,6 +375,8 @@ add_task(async function test_zoom_per_profile() {
     ok(zoomed > 1, `Zoomed in in Work (${zoomed})`);
     const name = WhimsyProfileZoom.nameFor(ZOOM_NAME, WORK);
     is(name, `${ZOOM_NAME}.uc${WORK}`, "Work's zoom has its own name");
+    is(WhimsyProfileZoom.userContextIdOf(workTab.linkedBrowser.loadContext), WORK, "FullZoom's context is Work's");
+    info(`Stored: Work ${await stored(name)}, Default ${await stored(ZOOM_NAME)}`);
     await TestUtils.waitForCondition(async () => Math.abs(((await stored(name)) ?? 1) - zoomed) < 0.01,
       "saved under Work's name");
     is(await stored(ZOOM_NAME), undefined, "and not Default's");
