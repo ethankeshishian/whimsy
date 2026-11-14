@@ -1176,6 +1176,8 @@ support-files = ["whimsy_claude.html", "whimsy_agent_checkout.html"]
 ["browser_whimsy_ai_index.js"]
 support-files = ["whimsy_chat_article.html"]
 
+["browser_whimsy_ai_long_context.js"]
+
 ["browser_whimsy_ai_off_everywhere.js"]
 support-files = ["whimsy_chat_article.html", "whimsy_cmdk.html"]
 
