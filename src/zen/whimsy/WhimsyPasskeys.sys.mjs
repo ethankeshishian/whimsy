@@ -728,7 +728,12 @@ export const WhimsyPasskeys = {
     };
     const parts = S.create(win, {
       id: PROMPT_ID,
-      width: 380,
+      // The design says 380px, but it only measured P1's footer: P3/P4 put
+      // Use a security key, Cancel, and Continue with Touch ID on one line,
+      // which needs ~381px of content with the product's buttons (the
+      // mockup's own footer overflows there). 420px fits with room for
+      // other Macs' font metrics; the prompt keeps one width in every state.
+      width: 420,
       footer: true,
       className: "whimsy-passkeys-prompt",
       closeOnOutsideClick: false,

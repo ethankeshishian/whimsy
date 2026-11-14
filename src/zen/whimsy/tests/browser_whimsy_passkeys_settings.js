@@ -119,15 +119,15 @@ add_task(async function list_delete_and_undo() {
 add_task(async function profile_delete_counts_its_passkeys() {
   await withSettings(async (win, doc) => {
     const settings = win.gWhimsySettings;
-    let body = null;
-    const dialog = BrowserTestUtils.promiseAlertDialogOpen("cancel", undefined, {
-      callback: dialogWin => {
-        body = dialogWin.document.getElementById("infoBody").textContent;
-      },
-    });
-    await settings.deleteProfile({ id: workProfile, key: workKey, name: "Passkeys Settings Work" });
-    await dialog;
-    ok(body?.includes("saved passwords, and 1 passkey are deleted"), `The confirmation counts the passkey (${body})`);
+    // With a callback, promiseAlertDialogOpen leaves the answering to it;
+    // read the body, then press Cancel ourselves.
+    const dialog = BrowserTestUtils.promiseAlertDialogOpen(null);
+    const deleting = settings.deleteProfile({ id: workProfile, key: workKey, name: "Passkeys Settings Work" });
+    const dialogWin = await dialog;
+    const body = dialogWin.document.getElementById("infoBody").textContent;
+    ok(body.includes("saved passwords, and 1 passkey are deleted"), `The confirmation counts the passkey (${body})`);
+    dialogWin.document.querySelector("dialog").getButton("cancel").click();
+    await deleting;
     ok(WhimsyProfiles.exists(workProfile), "Cancel kept the profile");
     is((await WhimsyPasskeys.load()).length, 2, "and its passkey");
     ok(await WhimsyProfiles.delete(workProfile, window), "Deleting the profile");

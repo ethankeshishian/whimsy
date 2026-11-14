@@ -789,14 +789,24 @@ add_task(async function screenshots_and_guards() {
     // compare their vertical centres, not their tops.
     const middles = rects.map(r => Math.round(r.top + r.height / 2));
     ok(middles.every(m => Math.abs(m - middles[0]) <= 1), `${scheme}: the footer is one line (${middles.join(", ")})`);
-    // Nothing spills past the footer: the mockup fits all three at 380px.
+    // Nothing spills past the footer: all three fit on one line at 420px.
     Assert.greaterOrEqual(Math.min(...rects.map(r => r.left)), box.left - 1, `${scheme}: the first button starts in the footer`);
     Assert.lessOrEqual(Math.max(...rects.map(r => r.right)), box.right + 1, `${scheme}: the last button ends in the footer`);
-    for (const button of buttons) {
+    for (const [i, button] of buttons.entries()) {
+      // A squeezed XUL button clips its label without growing scrollWidth,
+      // so measure the text itself (a Range spans the glyphs, clipped or
+      // not) against the label's box, and the label's box against the
+      // button's.
       const label = button.querySelector(".button-text") ?? button;
-      Assert.lessOrEqual(label.scrollWidth, label.clientWidth + 1, `${scheme}: "${labelOf(button.id)}" isn't cut`);
+      const range = label.ownerDocument.createRange();
+      range.selectNodeContents(label);
+      const text = range.getBoundingClientRect();
+      const labelBox = label.getBoundingClientRect();
+      Assert.lessOrEqual(text.width, labelBox.width + 1, `${scheme}: "${labelOf(button.id)}" isn't cut (text ${Math.round(text.width)} in ${Math.round(labelBox.width)})`);
+      Assert.lessOrEqual(labelBox.right, rects[i].right + 1, `${scheme}: "${labelOf(button.id)}" stays inside its button`);
+      Assert.greaterOrEqual(labelBox.left, rects[i].left - 1, `${scheme}: "${labelOf(button.id)}" starts inside its button`);
     }
-    Assert.lessOrEqual(panel.getBoundingClientRect().width, 400, `${scheme}: the prompt keeps its 380px width`);
+    Assert.lessOrEqual(panel.getBoundingClientRect().width, 440, `${scheme}: the prompt keeps its 420px width`);
     for (const [name, el] of [
       ["title", panel.querySelector(".whimsy-surface-title")],
       ["text", panel.querySelector(".whimsy-passkeys-text")],

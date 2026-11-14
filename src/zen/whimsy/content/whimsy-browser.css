@@ -7398,9 +7398,10 @@ panel.whimsy-quick-note {
     gap: 4px;
   }
   /* The footer must hold Use a security key, Cancel, and Continue with
-     Touch ID on one line at 380px (mockup passkeys.html .wk-footer /
-     .wk-spacer): the quiet button never wraps or shrinks, and its auto
-     margin pushes the two real buttons to the end without taking width. */
+     Touch ID on one line (mockup passkeys.html .wk-footer / .wk-spacer; the
+     prompt is 420px for that, see WhimsyPasskeys._openPrompt): the quiet
+     button never wraps or shrinks, and its auto margin pushes the two real
+     buttons to the end without taking width. */
   & .whimsy-surface-footer > .whimsy-surface-text-button {
     flex: none;
     white-space: nowrap;
