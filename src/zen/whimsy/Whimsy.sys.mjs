@@ -469,6 +469,12 @@ export const Whimsy = {
           // The paste badges: the page asks for the indicator's state.
           pageshow: { mozSystemGroup: true },
           pagehide: { mozSystemGroup: true },
+          // W27: photos lose their location and camera details before the
+          // page sees them, so these come first: capture, in the default
+          // group (the system group runs after the page's listeners).
+          input: { capture: true },
+          change: { capture: true },
+          drop: { capture: true },
         },
       },
       allFrames: true,

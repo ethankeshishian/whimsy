@@ -179,6 +179,15 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+  <!-- W27: photos you upload lose their location and camera details. -->
+  <html:div id="whimsyPhotoMetadataGroup" data-category="panePrivacy" data-whimsy-feature="photo-metadata" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-photo-metadata-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/camera.svg">
+        <html:moz-checkbox id="whimsyStripImageMetadata" data-l10n-id="whimsy-photo-metadata-toggle"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <!-- batch9p: the Private Space ("Scratch" in code) and private tabs -->
   <html:div id="whimsyPrivateGroup" data-category="panePrivacy" data-whimsy-feature="scratch" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">

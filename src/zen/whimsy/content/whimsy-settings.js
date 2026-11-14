@@ -291,6 +291,8 @@ var gWhimsySettings = {
       "strip-tracking": () => this.initStripTracking(),
       // W24: keep adult sites out of history.
       "adult-history": () => this.initPrefCheckbox("whimsyAdultHistory", "whimsy.adult-history.enabled"),
+      // W27: remove location and camera details from photos you upload.
+      "photo-metadata": () => this.initPrefCheckbox("whimsyStripImageMetadata", "whimsy.privacy.strip-image-metadata"),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
       // W11-14: lock private browsing.

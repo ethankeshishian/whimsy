@@ -93,6 +93,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyHome.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
     "WhimsyHoverCards.sys.mjs",
+    "WhimsyImageMetadata.sys.mjs",
     "WhimsyInspector.sys.mjs",
     "WhimsyInspectorChild.sys.mjs",
     "WhimsyInspectorParent.sys.mjs",
