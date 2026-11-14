@@ -121,6 +121,8 @@ export const SETTINGS = [
   { name: "seasons", setting: "whimsySeasonalThemes", pref: "whimsy.seasons.enabled", feature: ["seasonal-themes"] },
   { name: "full-url", setting: "whimsyAlwaysFullUrl", pref: "whimsy.urlbar.always-full-url",
     feature: ["full-url-click"] },
+  // W27 winprefs: Zen's grey-out of an inactive window (off in Whimsy).
+  { name: "dim-inactive-window", setting: "whimsyDimInactiveWindow", pref: "zen.view.grey-out-inactive-windows" },
   { name: "teach", setting: "whimsyTeachEnabled", pref: "whimsy.teach.enabled", feature: ["teach-once"] },
 
   // Home and startup (W11-07): Firefox's New windows and New tabs
@@ -332,6 +334,11 @@ export const SETTINGS = [
       { value: "islands", l10nId: "whimsy-tabs-tree-style-islands" },
     ] },
   { name: "command-recent-tabs", setting: "whimsyCommandRecentTabs", pref: "whimsy.feature.command-bar-recent-tabs" },
+  // W27 winprefs: nested under Firefox's "Open links in tabs instead of new
+  // windows" (whimsy-settings.js adds it to Firefox's tabs group).
+  { name: "popups-as-tabs", setting: "whimsyPopupsAsTabs", pref: "browser.link.open_newwindow.restriction",
+    get: () => Services.prefs.getIntPref("browser.link.open_newwindow.restriction", 2) == 0,
+    set: on => Services.prefs.setIntPref("browser.link.open_newwindow.restriction", on ? 0 : 2) },
   { name: "close-window-with-last-tab", setting: "whimsyCloseWindowWithLastTab",
     pref: "browser.tabs.closeWindowWithLastTab", feature: ["window-close"] },
   { name: "dock-badge", setting: "whimsyDockBadge", pref: "whimsy.downloads.dock-badge", feature: ["dock-badge"] },

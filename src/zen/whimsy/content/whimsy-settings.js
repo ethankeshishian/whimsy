@@ -2293,7 +2293,46 @@ Object.assign(gWhimsySettings, {
       }
     }
     const groups = this.takeFirefoxGroups("template-whimsyFirefoxTabs");
+    try {
+      this.addPopupsAsTabs();
+    } catch (e) {
+      console.error("Whimsy settings: Open pop-up windows as tabs", e);
+    }
     this.placeFirefoxGroups(groups, document.getElementById("zenPinnedTabsManagerGroup"), "after");
+  },
+
+  // W27 winprefs: "Open pop-up windows as tabs", nested under Firefox's "Open
+  // links in tabs instead of new windows" (Firefox's tabs group, before it
+  // renders). A window.open() that asks for a size or other features opens a
+  // window (browser.link.open_newwindow.restriction 2, Firefox's default);
+  // checked (0), it follows "Open links in tabs" like any other link. The tab
+  // keeps window.opener, so a sign-in pop-up still reports back and closes
+  // itself. Unchecking "Open links in tabs" disables it (nothing opens in
+  // tabs then).
+  addPopupsAsTabs() {
+    const id = "whimsyPopupsAsTabs";
+    const pref = "browser.link.open_newwindow.restriction";
+    if (typeof SettingGroupManager != "object" || !SettingGroupManager.has("tabs")) {
+      return;
+    }
+    const opening = SettingGroupManager.get("tabs").items?.find(item => item.id == "tabsOpening");
+    const links = opening?.items?.find(item => item.id == "linkTargeting");
+    if (!links || links.items?.some(item => item.id == id)) {
+      return;
+    }
+    if (!Preferences.get(pref)) {
+      Preferences.add({ id: pref, type: "int" });
+    }
+    if (!Preferences.getSetting(id)) {
+      Preferences.addSetting({
+        id,
+        pref,
+        deps: ["linkTargeting"],
+        get: value => value == 0,
+        set: checked => (checked ? 0 : 2),
+      });
+    }
+    links.items = [...(links.items ?? []), { id, l10nId: "whimsy-tabs-popups-as-tabs" }];
   },
 
   get homePaneHidden() {

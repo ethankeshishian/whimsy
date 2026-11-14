@@ -830,8 +830,16 @@ whimsy-look-seasonal-themes-description = The balloon dresses for the season, an
 whimsy-tabs-close-window-with-last-tab =
     .label = Close the window when the last tab closes
 
+# W27 winprefs: nested under Firefox's "Open links in tabs instead of new windows".
+whimsy-tabs-popups-as-tabs =
+    .label = Open pop-up windows as tabs
+
 whimsy-look-always-full-url =
     .label = Always show the full address, not just the domain
+
+# W27 winprefs: zen.view.grey-out-inactive-windows.
+whimsy-look-dim-inactive-window =
+    .label = Dim the window when it’s not in front
 
 ## batch7: Settings → General → Performance
 
@@ -4480,6 +4488,8 @@ whimsy-setting-seasons = Seasonal Touches
     .keywords = seasons, seasonal themes, halloween, holidays, pumpkins, snow
 whimsy-setting-full-url = Full Address
     .keywords = full url, whole url, domain only, address bar, url bar
+whimsy-setting-dim-inactive-window = Dim Inactive Windows
+    .keywords = grey out, gray out, inactive window, background window, unfocused window, fade
 whimsy-setting-new-windows = New Window Page
     .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
 whimsy-setting-new-tabs = New Tab Page
@@ -4632,6 +4642,8 @@ whimsy-setting-command-recent-tabs = Recent Tabs in the Command Bar
     .keywords = command bar, recent tabs, empty command bar
 whimsy-setting-close-window-with-last-tab = Close Window with Last Tab
     .keywords = last tab, keep window open, close window
+whimsy-setting-popups-as-tabs = Pop-up Windows as Tabs
+    .keywords = popups, pop-ups, popup windows, sign-in windows
 whimsy-setting-dock-badge = Dock Download Badge
     .keywords = dock, badge, download count
 whimsy-setting-quick-look = Quick Look for Downloads
