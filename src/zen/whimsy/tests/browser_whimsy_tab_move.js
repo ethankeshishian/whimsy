@@ -74,6 +74,14 @@ async function makeFolderRow() {
   return { before, a, b, c, folder };
 }
 
+// ZenFolders.createFolder() always adds its own "about:blank" placeholder
+// tab (zen-empty-tab) as a folder member alongside the real tabs passed in,
+// so `folder.allItems` for a 2-tab folder is 3, not 2. Filter it out to
+// check real membership.
+function realMembers(folder) {
+  return folder.allItems.filter(tab => !tab.hasAttribute("zen-empty-tab"));
+}
+
 async function removeFolderRow({ before, c, folder }) {
   const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");
   folder.delete();
@@ -147,7 +155,7 @@ add_task(async function test_move_exits_a_folder() {
     ok(WhimsyTabMove.move(window, row.b, DIRECTION_FORWARD), "b (last in the folder) moves forward");
     ok(!row.b.group, "...leaving the folder");
     is(row.b.index, row.c.index - 1, "...landing right before c");
-    is(row.folder.allItems.length, 1, "Only a is left in the folder");
+    is(realMembers(row.folder).length, 1, "Only a is left in the folder");
   } finally {
     // b is now a standalone pinned tab (outside the folder); unpin before
     // removing it, same as before/c in removeFolderRow.
@@ -180,7 +188,7 @@ add_task(async function test_move_skips_a_collapsed_folder() {
     ok(WhimsyTabMove.move(window, row.c, DIRECTION_BACKWARD), "c moves backward past the collapsed folder");
     ok(!row.c.group, "...never entering it");
     is(row.c.index, row.before.index + 1, "...landing right after `before`, skipping the whole folder");
-    is(row.folder.allItems.length, 2, "The folder's own tabs are untouched");
+    is(realMembers(row.folder).length, 2, "The folder's own tabs are untouched");
   } finally {
     row.folder.collapsed = false;
     await removeFolderRow(row);

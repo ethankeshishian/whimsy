@@ -138,7 +138,14 @@ export const WhimsyTabMove = {
           if (neighborOrSplit.group.collapsed) {
             neighborOrSplit.group.after(tabOrSplit);
           } else {
-            neighborOrSplit.group.insertBefore(tabOrSplit, neighborOrSplit);
+            // Enter the front of an expanded group. neighborOrSplit is the
+            // group's current first member, so insert relative to it
+            // directly rather than via the group host: a Zen folder's
+            // members live inside its groupContainer div, one level below
+            // the host, and insertBefore()/append() called on the host
+            // itself aren't redirected there the way appendChild() is (see
+            // tabgroup.mjs), so they'd land the tab outside the folder.
+            neighborOrSplit.before(tabOrSplit);
           }
         } else if (tab.group != neighbor.group) {
           tab.group.after(tabOrSplit);
@@ -149,7 +156,8 @@ export const WhimsyTabMove = {
         if (neighbor.group.collapsed) {
           neighbor.group.before(tabOrSplit);
         } else {
-          neighbor.group.append(tabOrSplit);
+          // Enter the back of an expanded group; see the comment above.
+          neighborOrSplit.after(tabOrSplit);
         }
       } else if (tab.group != neighbor.group) {
         tab.group.before(tabOrSplit);
