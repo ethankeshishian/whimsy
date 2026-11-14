@@ -413,6 +413,10 @@ class BuildKindTests(unittest.TestCase):
         self.assertEqual(buildkind.kind_of("src/a/whimsy-x-cpp.patch", read), "binaries")
         self.assertEqual(buildkind.kind_of("src/a/whimsy-x-mjs.patch", read), "faster")
         self.assertEqual(buildkind.kind_of("src/a/whimsy-moz-build.patch", read), "backend")
+        bundle = 'MacOSBundle(\n    "!/dist/bin/x.app",\n)\n'
+        self.assertEqual(buildkind.kind_of("src/zen/x/moz.build", lambda p: bundle), "full")
+        self.assertEqual(buildkind.kind_of("src/zen/x/moz.build", lambda p: 'GeneratedFile("x")\n'), "full")
+        self.assertEqual(buildkind.kind_of("src/zen/x/moz.build", lambda p: 'EXTRA_JS_MODULES += ["a.sys.mjs"]\n'), "backend")
         self.assertEqual(buildkind.kind_of("src/a/whimsy-plist.patch", read), "full")
         self.assertEqual(buildkind.kind_of("src/widget/cocoa/nsCocoaWindow.mm"), "binaries")
         self.assertEqual(buildkind.kind_of("surfer.json"), "full")
