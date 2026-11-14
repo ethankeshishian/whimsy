@@ -633,6 +633,14 @@ const AI_ROWS = {
       run: win => chat(win, { prompt: lazy.l10n.formatValueSync("whimsy-cmdk-summarize-prompt"), send: true }),
     },
     { id: "ai:ask-page", l10nId: "whimsy-cmdk-ask-page", icon: `${WICONS}chat.svg`, run: win => chat(win) },
+    // W27: a built-in command (hidden with it in Settings › AI › Commands) that
+    // runs in chat, where the page is attached and the answers wait for you.
+    {
+      id: "ai:quiz-page",
+      command: "quiz",
+      unavailable: (win, s, view) => ((view?.textChars ?? 0) < 200 ? "whimsy-cmdk-unavailable-no-text-quiz" : null),
+      run: (win, s) => chat(win, { prompt: lazy.WhimsyAICommands.promptFor(lazy.WhimsyAICommands.get("quiz"), { title: s?.title, url: s?.url }), send: true }),
+    },
   ],
   video: [{ id: "ai:ask-video", l10nId: "whimsy-cmdk-ask-video", icon: `${WICONS}chat.svg`, run: win => chat(win) }],
   image: [

@@ -83,6 +83,17 @@ export const BUILT_INS = [
     icon: `${ICONS}summarize.svg`,
     prompt: "Summarize {page} in a few short bullet points: what it is and what matters most.",
   },
+  // W27: runs in chat, so the answers can wait until you ask for them.
+  {
+    id: "quiz",
+    l10nId: "whimsy-command-quiz",
+    detailL10nId: "whimsy-commands-detail-page",
+    result: "copy",
+    task: "summary",
+    scope: "page",
+    icon: `${ZEN}help.svg`,
+    prompt: "Quiz me on {page}. Write five short questions, numbered, that check I understood what matters most: its main ideas, key facts, and why they matter. Mix kinds, such as multiple choice, true or false, and short answer. Don't show the answers or hints yet. Wait until I ask for them, then give each answer with a one-line reason.",
+  },
 ];
 
 const enc = encodeURIComponent;

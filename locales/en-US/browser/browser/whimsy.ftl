@@ -6241,6 +6241,7 @@ whimsy-command-improve = Improve Writing
 whimsy-command-fix = Fix Spelling and Grammar
 whimsy-command-translate = Translate
 whimsy-command-summarize = Summarize
+whimsy-command-quiz = Quiz Me on This Page
 whimsy-commands-detail-selection = Right-click and ⌘K on selected text
 whimsy-commands-detail-page = ⌘K on a page, video, or PDF
 whimsy-ai-jump-commands = Commands
@@ -6491,6 +6492,7 @@ whimsy-cmdk-translate-pair = { $from } → { $to }
 whimsy-cmdk-tag-settings = Settings
 whimsy-cmdk-search-with = Search with { $engine }
 whimsy-cmdk-unavailable-no-text = There’s no text here to summarize.
+whimsy-cmdk-unavailable-no-text-quiz = There’s no text here to quiz you on.
 whimsy-cmdk-replaced-toast = Replaced with { $name }
 whimsy-cmdk-failed-toast = Couldn’t run { $name }. Try again, or check Settings › AI.
 
