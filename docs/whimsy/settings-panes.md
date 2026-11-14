@@ -57,6 +57,7 @@ left out.
 | Startup | Always check if default browser | `browser.shell.checkDefaultBrowser` | No | Tab Management (same Home rule) |
 | Browser layout | Horizontal / Vertical tabs | `sidebar.verticalTabs` | Yes: Zen locks the pref and has its own Layout chooser | Dropped; links land on Zen's chooser |
 | Tabs: Opening | Open links in tabs instead of new windows | `browser.link.open_newwindow` | No | Tab Management |
+| Tabs: Opening | Open pop-up windows as tabs (Whimsy's, nested under the row above; off by default) | `browser.link.open_newwindow.restriction` (0 checked, 2 unchecked) | No | Tab Management |
 | Tabs: Opening | Switch to new tabs right away | `browser.tabs.loadInBackground` (inverted) | No | Tab Management |
 | Tabs: Opening | Open links from apps next to your current tab | `browser.link.open_newwindow.override.external` | No (Whimsy's Links pane sets where app links open, `whimsy.external-links.target`) | Tab Management |
 | Tabs: Opening | Confirm before opening many tabs | `browser.tabs.warnOnOpen` | No | Tab Management |

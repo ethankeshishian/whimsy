@@ -325,6 +325,11 @@ export const SETTINGS = [
       { value: "islands", l10nId: "whimsy-tabs-tree-style-islands" },
     ] },
   { name: "command-recent-tabs", setting: "whimsyCommandRecentTabs", pref: "whimsy.feature.command-bar-recent-tabs" },
+  // W27 winprefs: nested under Firefox's "Open links in tabs instead of new
+  // windows" (whimsy-settings.js adds it to Firefox's tabs group).
+  { name: "popups-as-tabs", setting: "whimsyPopupsAsTabs", pref: "browser.link.open_newwindow.restriction",
+    get: () => Services.prefs.getIntPref("browser.link.open_newwindow.restriction", 2) == 0,
+    set: on => Services.prefs.setIntPref("browser.link.open_newwindow.restriction", on ? 0 : 2) },
   { name: "close-window-with-last-tab", setting: "whimsyCloseWindowWithLastTab",
     pref: "browser.tabs.closeWindowWithLastTab", feature: ["window-close"] },
   { name: "dock-badge", setting: "whimsyDockBadge", pref: "whimsy.downloads.dock-badge", feature: ["dock-badge"] },

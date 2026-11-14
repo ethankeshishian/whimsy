@@ -1269,3 +1269,7 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 
 ["browser_whimsy_cmd_tab_numbers.js"]
 skip-if = ["os != 'mac'"]
+
+# W27 winprefs: Settings → Tab Management → "Open pop-up windows as tabs" (off: a window; on: a tab that keeps window.opener).
+["browser_whimsy_popups_as_tabs.js"]
+support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
