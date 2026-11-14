@@ -276,6 +276,15 @@ add_task(async function file_input_gets_stripped_photos() {
 add_task(async function file_input_untouched_when_off() {
   await withPhotoPage(false, async browser => {
     const got = await chooseFiles(browser);
+    // TEMP diagnostic: can chrome read the chosen files through an Xray?
+    const probe = await SpecialPowers.spawn(browser, [], async () => {
+      const files = [...content.document.getElementById("pick").files];
+      const timeout = new Promise(r => content.setTimeout(() => r("timeout"), 2000));
+      const xray = await Promise.race([Promise.all(files.map(f => f.arrayBuffer())).then(a => a.map(b => b.byteLength).join()), timeout]);
+      const blob = await Promise.race([new Blob([files[0]]).arrayBuffer().then(b => b.byteLength), timeout]);
+      return `xray ${xray}, blob ${blob}`;
+    });
+    info(`TEMP probe: ${probe}`);
     ok(got.trusted, "The browser's own change reached the page");
     ok(same(got.files[0].bytes, jpeg), "The JPEG is byte for byte what was chosen");
     ok(same(got.files[1].bytes, png), "and so is the PNG");
@@ -290,7 +299,7 @@ async function dropPhotos(browser) {
     // would give it (filled from here, through an Xray, they'd be
     // chrome-only and the page couldn't read them).
     const page = Cu.waiveXrays(content);
-    const pageFile = (bytes, name, type) => new page.File([Cu.cloneInto(new Uint8Array(bytes), content)], name, { type });
+    const pageFile = (bytes, name, type) => new page.File(Cu.cloneInto([new Uint8Array(bytes)], content), name, Cu.cloneInto({ type }, content));
     const data = new page.DataTransfer();
     data.items.add(pageFile(jpg, "beach.jpg", "image/jpeg"));
     data.items.add(pageFile(pic, "screen.png", "image/png"));

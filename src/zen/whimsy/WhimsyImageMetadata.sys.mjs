@@ -341,7 +341,11 @@ export const WhimsyImageMetadata = {
   /** stripFile for each; resolves to null when none changed. */
   async stripFiles(files) {
     const list = [...files];
-    const out = await Promise.all(list.map(f => this.stripFile(f)));
+    // One at a time, as a page reads them.
+    const out = [];
+    for (const file of list) {
+      out.push(await this.stripFile(file));
+    }
     return out.some((f, i) => f !== list[i]) ? out : null;
   },
 };
