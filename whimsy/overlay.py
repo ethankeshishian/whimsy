@@ -2052,6 +2052,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?tab[-_.]?requests?")]},
     {"id": "find-card", "title": "Find as a floating card at the top right, with Ask",
      "detect": [("src/zen", r"(?i)zen[-_.]?find[-_.]?(card|floating)")]},
+    {"id": "double-escape", "title": "Press Esc twice to leave a page's full screen",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(double|twice)[-_.]?esc")]},
     {"id": "ai-video-summary", "title": "Summarize a video: summary, chapters, and transcript in chat; timestamps jump the video",
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?video[-_.]?summar")]},
     {"id": "video-speed-range", "title": "Video speed from 1/16× to 16×",

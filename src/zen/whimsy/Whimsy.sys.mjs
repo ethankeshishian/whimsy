@@ -349,6 +349,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBatterySaver: "resource:///modules/whimsy/WhimsyBatterySaver.sys.mjs",
 });
 
+// W27: Press Esc twice to leave full screen.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFullscreenEscape: "resource:///modules/whimsy/WhimsyFullscreenEscape.sys.mjs",
+});
+
 // wave9: form protection (W9-03)
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFormProtection: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
@@ -1227,6 +1232,8 @@ export const Whimsy = {
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
     // wave9: Battery saver (threshold, auto-off, throttles).
     run("battery-saver", () => lazy.WhimsyBatterySaver.initWindow(win));
+    // W27: the full-screen notice's "Press Esc again" (whimsy-PresShell-cpp.patch).
+    run("double-escape", () => lazy.WhimsyFullscreenEscape.initWindow(win));
 
     // wave9: form protection (W9-03)
     run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));

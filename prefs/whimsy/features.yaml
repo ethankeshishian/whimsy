@@ -651,6 +651,9 @@
 - name: whimsy.feature.find-card
   value: true
 
+- name: whimsy.feature.double-escape
+  value: true
+
 - name: whimsy.feature.ai-video-summary
   value: true
 
