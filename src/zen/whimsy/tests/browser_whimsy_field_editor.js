@@ -169,7 +169,9 @@ add_task(async function test_stops_on_navigation() {
     await WhimsyFieldEditor.editFocusedField(window);
     const path = opened[0];
 
-    const elsewhere = ROOT + "whimsy_field_editor.html#elsewhere";
+    // A different query string, not just a hash: a same-document (hash-only)
+    // navigation fires no "load" event for browserLoaded to wait on.
+    const elsewhere = ROOT + "whimsy_field_editor.html?elsewhere";
     const loaded = BrowserTestUtils.browserLoaded(browser, false, elsewhere);
     BrowserTestUtils.startLoadingURIString(browser, elsewhere);
     await loaded;
