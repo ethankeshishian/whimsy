@@ -702,6 +702,12 @@
 - name: whimsy.privateLock.afterSeconds
   value: 0
 
+# W26 passkeys (WhimsyPasskeys.sys.mjs): whether a private window may save a
+# new Touch ID passkey. Off: the prompt says to save it from a normal window
+# (signing in with one that exists still works, and writes nothing).
+- name: whimsy.passkeys.private.create
+  value: false
+
 - name: whimsy.privateLock.stayUnlockedWhileSharing
   value: false
 

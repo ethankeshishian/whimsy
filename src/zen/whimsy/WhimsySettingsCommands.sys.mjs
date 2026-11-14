@@ -147,6 +147,9 @@ export const SETTINGS = [
   { name: "cookie-banners", setting: "whimsyRejectCookieBanners", pref: "whimsy.reject-cookie-banners",
     feature: ["cookie-banners"] },
   { name: "ai", setting: "whimsyAIEnable", pref: "whimsy.ai.enabled", feature: ["ai-kill-switch"] },
+  // W26 passkeys: the saved passkeys, one Delete each (undo in the toast).
+  { name: "passkeys", setting: "whimsyPasskeysList", feature: ["passkeys"], covers: "#whimsyPasskeysGroup",
+    exempt: "each saved passkey's own Delete button; passkeys are made on sites" },
   // W23: the connected providers (order, switches, details) and the
   // connect sheets are many small controls, set in the page.
   { name: "ai-commands", setting: "whimsyCommandsBuiltIn", covers: "#whimsyCommandsBuiltIn", when: aiAllowed,

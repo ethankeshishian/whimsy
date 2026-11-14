@@ -295,6 +295,8 @@ var gWhimsySettings = {
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
       // W11-14: lock private browsing.
       "private-lock": () => this.initPrivateLock(),
+      // W26: the Touch ID passkeys Whimsy holds.
+      passkeys: () => this.initPasskeys(),
       // tierC-vpn: VPN (Firefox's built-in IP Protection).
       vpn: () => this.initVpn(),
       // wave3: email-aliases
@@ -420,6 +422,94 @@ var gWhimsySettings = {
   // W11-14: the three lock switches go through WhimsyPrivateLock.setChoice,
   // which asks for Touch ID before turning a lock off while it's locked (d8).
   // "Not chosen yet" shows while any of them hasn't been answered.
+  // W26 passkeys: Settings → Privacy & Security → Passkeys. The rows are
+  // Profiles' rows (favicon, site, one meta line), one Delete each; Delete
+  // removes the row at once and offers Undo in Whimsy's toast.
+  get passkeys() {
+    return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPasskeys.sys.mjs").WhimsyPasskeys;
+  },
+
+  initPasskeys() {
+    const refresh = () => this.renderPasskeys().catch(e => console.error("Whimsy: passkeys list", e));
+    Services.obs.addObserver(refresh, "whimsy-passkeys-changed");
+    window.addEventListener("unload", () => Services.obs.removeObserver(refresh, "whimsy-passkeys-changed"), { once: true });
+    refresh();
+  },
+
+  async renderPasskeys() {
+    const list = document.getElementById("whimsyPasskeysList");
+    const empty = document.getElementById("whimsyPasskeysEmpty");
+    if (!list || !empty) {
+      return;
+    }
+    const records = await this.passkeys.list();
+    if (!list.isConnected) {
+      return;
+    }
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+    const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    const whenUsed = time => {
+      const days = Math.round((time - Date.now()) / 86_400_000);
+      return days > -7 ? relative.format(days, "day") : dateFormat.format(time);
+    };
+    list.replaceChildren();
+    for (const record of records) {
+      const row = html("li");
+      row.className = "whimsy-profile-row whimsy-passkey-row";
+      row.dataset.passkeyId = record.id;
+      const head = html("div");
+      head.className = "whimsy-profile-head whimsy-passkey-head";
+      const icon = html("img");
+      icon.className = "whimsy-passkey-favicon";
+      icon.alt = "";
+      icon.src = `page-icon:https://${record.rpId}/`;
+      const text = html("div");
+      const name = html("p");
+      name.className = "whimsy-profile-name";
+      name.textContent = record.rpId;
+      const meta = html("p");
+      meta.className = "whimsy-profile-meta";
+      const account = record.displayName || record.userName || "";
+      const args = { account, profile: record.profileName, date: dateFormat.format(record.created) };
+      if (record.lastUsed) {
+        document.l10n.setAttributes(meta, "whimsy-passkeys-row-meta", { ...args, when: whenUsed(record.lastUsed) });
+      } else {
+        document.l10n.setAttributes(meta, "whimsy-passkeys-row-meta-new", args);
+      }
+      text.append(name, meta);
+      const remove = document.createXULElement("button");
+      remove.className = "whimsy-passkey-delete ghost-button";
+      document.l10n.setAttributes(remove, "whimsy-passkeys-delete", { site: record.rpId });
+      remove.addEventListener("command", () => this.deletePasskey(record, row));
+      head.append(icon, text, remove);
+      row.append(head);
+      list.append(row);
+    }
+    list.hidden = !records.length;
+    empty.hidden = !!records.length;
+  },
+
+  async deletePasskey(record, row) {
+    const chromeWin = window.browsingContext.topChromeWindow;
+    const { WhimsyUndo } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs");
+    const removed = await this.passkeys.remove(record.id);
+    if (!removed) {
+      return;
+    }
+    row.remove();
+    const list = document.getElementById("whimsyPasskeysList");
+    const empty = document.getElementById("whimsyPasskeysEmpty");
+    if (list && empty) {
+      list.hidden = !list.children.length;
+      empty.hidden = !!list.children.length;
+    }
+    const detail = await document.l10n.formatValue("whimsy-passkeys-deleted-detail", { site: record.rpId });
+    WhimsyUndo.showToast(chromeWin, "whimsy-passkeys-deleted-toast", {
+      undo: () => this.passkeys.restore(removed).catch(e => console.error("Whimsy: passkey undo", e)),
+    }, { site: record.rpId }, { detail });
+  },
+
   initPrivateLock() {
     const { WhimsyPrivateLock } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs");
     const chromeWin = () => window.browsingContext.topChromeWindow;
@@ -1812,9 +1902,11 @@ Object.assign(gWhimsySettings, {
   async deleteProfile(profile) {
     const chromeWin = window.browsingContext.topChromeWindow;
     const { WhimsyPanels } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs");
+    // W26: the confirmation counts the Touch ID passkeys that go with it.
+    const passkeys = await this.passkeyCount([profile.key]);
     const [title, body, accept] = await document.l10n.formatValues([
       { id: "whimsy-profiles-delete-confirm-title", args: { name: profile.name } },
-      { id: "whimsy-profiles-delete-confirm-body" },
+      { id: "whimsy-profiles-delete-confirm-body", args: { passkeys } },
       { id: "whimsy-profiles-delete-confirm-accept" },
     ]);
     if (await WhimsyPanels.confirm(chromeWin, { title, body, accept })) {
@@ -1833,14 +1925,33 @@ Object.assign(gWhimsySettings, {
     const { WhimsyPanels } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPanels.sys.mjs");
     const names = new Intl.ListFormat(undefined, { type: "conjunction" })
       .format(ids.map(id => profiles.nameOf(id)));
+    const passkeys = await this.passkeyCount(ids.map(id => profiles.keyFor(id)));
     const [title, body, accept] = await document.l10n.formatValues([
       { id: "whimsy-profiles-delete-unused-confirm-title", args: { count: ids.length } },
-      { id: "whimsy-profiles-delete-unused-confirm-body", args: { names } },
+      { id: "whimsy-profiles-delete-unused-confirm-body", args: { names, passkeys } },
       { id: "whimsy-profiles-delete-unused-confirm-accept", args: { count: ids.length } },
     ]);
     if (await WhimsyPanels.confirm(chromeWin, { title, body, accept })) {
       await profiles.deleteUnused(chromeWin);
       this.renderProfiles();
+    }
+  },
+
+  // W26 passkeys: how many Touch ID passkeys the profiles hold (0 when the
+  // feature is off, so the confirmation reads as before).
+  async passkeyCount(keys) {
+    try {
+      if (!this.lazy.Whimsy.featureEnabled("passkeys")) {
+        return 0;
+      }
+      let count = 0;
+      for (const key of keys) {
+        count += await this.passkeys.countForProfile(key);
+      }
+      return count;
+    } catch (e) {
+      console.error("Whimsy: passkey count", e);
+      return 0;
     }
   },
 });

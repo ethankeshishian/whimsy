@@ -274,6 +274,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave7/focus: Do Not Disturb and paste guard.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
+  WhimsyPasskeys: "resource:///modules/whimsy/WhimsyPasskeys.sys.mjs",
   WhimsyPasteGuard: "resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs",
 });
 
@@ -779,6 +780,9 @@ export const Whimsy = {
     run("media", () => lazy.WhimsyMedia.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
     run("dark-pages", () => lazy.WhimsyDarkPages.initWindow(win));
+    // W26 passkeys: once per session (the profile-delete hook and the
+    // Secure Enclave probe); the prompt opens per request.
+    run("passkeys", () => lazy.WhimsyPasskeys.init());
     // batch6: split view extras; each action checks its own switch.
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).

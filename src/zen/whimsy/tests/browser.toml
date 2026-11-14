@@ -721,6 +721,17 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 ["browser_whimsy_passkey_extension.js"]
 support-files = ["whimsy_passkey_extension.sjs", "whimsy_passkey_extension_page.js"]
 
+# W26 passkeys: Whimsy's own Touch ID passkeys through Gecko's WebAuthn with
+# the Secure Enclave helper stubbed (create/get/discoverable/exclude/replace,
+# profiles, private windows, P5–P9, cancel/abort, back-off, the switch,
+# conditional mediation, shots and guards), and the Settings card.
+["browser_whimsy_passkeys.js"]
+support-files = ["whimsy_passkeys.sjs", "whimsy_passkeys_page.js"]
+run-if = ["os == 'mac'"]
+
+["browser_whimsy_passkeys_settings.js"]
+run-if = ["os == 'mac'"]
+
 # wave7/focus: paste guard (detector, sheet Cancel/Esc/Paste, ordinary text, card field, command, switches).
 ["browser_whimsy_paste_guard.js"]
 # wave7/teach: Teach once (shows once, Esc/close/tab switch dismiss, never reappears, switches, shortcut retires it, Reset Tips, registry).

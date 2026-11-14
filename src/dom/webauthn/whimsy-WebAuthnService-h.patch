@@ -1,0 +1,23 @@
+diff --git a/dom/webauthn/WebAuthnService.h b/dom/webauthn/WebAuthnService.h
+--- a/dom/webauthn/WebAuthnService.h
++++ b/dom/webauthn/WebAuthnService.h
+@@ -17,6 +17,7 @@
+ 
+ #ifdef XP_MACOSX
+ #  include "MacOSWebAuthnService.h"
++#  include "mozilla/WhimsyPasskeyService.h"  // Whimsy: passkeys
+ #endif
+ 
+ #ifdef XP_WIN
+@@ -47,6 +48,11 @@
+       mPlatformService = NewMacOSWebAuthnServiceIfAvailable();
+     }
+     if (!mPlatformService) {
++      // Whimsy: passkeys (src/zen/whimsy/passkeys). Only when Apple's
++      // service isn't available to this build, so upstream wins.
++      mPlatformService = NewWhimsyPasskeyServiceIfEnabled(mAuthrsService);
++    }
++    if (!mPlatformService) {
+       mPlatformService = mAuthrsService;
+     }
+ #else

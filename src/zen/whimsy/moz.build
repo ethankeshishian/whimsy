@@ -371,6 +371,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAdultHistoryChild.sys.mjs",
 ]
 
+# W26 passkeys: the front end of Whimsy's Touch ID passkeys (passkeys/).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyPasskeys.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]
@@ -386,8 +391,9 @@ BROWSER_CHROME_MANIFESTS += [
 # dropped from here by a moz.build re-sort, 1545592, so it wasn't built),
 # bonjour/ (Local servers' LAN services, dns_sd), share/ (the Share
 # submenu's macOS services, wave9/menus), speech/ (live captions,
-# on-device Speech) and embedding/ (the meaning index's on-device sentence
-# embeddings, NaturalLanguage, wave23/memory-fire).
+# on-device Speech), embedding/ (the meaning index's on-device sentence
+# embeddings, NaturalLanguage, wave23/memory-fire) and passkeys/ (W26:
+# Whimsy's Touch ID passkeys, C++ over a Swift Secure Enclave helper).
 DIRS += ["audiotap"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
@@ -396,6 +402,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
         "bonjour",
         "calendar",
         "embedding",
+        "passkeys",
         "share",
         "speech",
     ]

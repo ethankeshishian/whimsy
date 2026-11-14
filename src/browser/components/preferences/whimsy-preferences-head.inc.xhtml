@@ -217,6 +217,21 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+  <!-- W26 passkeys: the Touch ID passkeys Whimsy holds in this Mac's Secure
+       Enclave (WhimsyPasskeys.sys.mjs), listed like Profiles' rows with one
+       Delete each (undo in the toast). Only on Macs where the feature is on;
+       nothing to add or rename here, passkeys are made on sites. -->
+  <html:div id="whimsyPasskeysGroup" data-category="panePrivacy" data-whimsy-feature="passkeys" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-passkeys-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/selectable/key.svg">
+        <description class="description-deemphasized" data-l10n-id="whimsy-passkeys-description"/>
+        <html:ul id="whimsyPasskeysList" class="whimsy-profiles-list whimsy-passkeys-list" hidden="hidden"></html:ul>
+        <description id="whimsyPasskeysEmpty" class="description-deemphasized" data-l10n-id="whimsy-passkeys-empty"/>
+        <description class="description-deemphasized" data-l10n-id="whimsy-passkeys-footnote"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <!-- tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox is the
        real master switch (browser.ipProtection.enabled): off removes
        Firefox's own toolbar button too, not just this card. -->
