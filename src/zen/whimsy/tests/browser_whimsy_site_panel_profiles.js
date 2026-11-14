@@ -371,21 +371,12 @@ add_task(async function test_zoom_per_profile() {
   await new Promise(resolve => cps.removeByName(ZOOM_NAME, null, { handleCompletion: resolve }));
   const workTab = await openTab(SITE, WORK);
   try {
-    info(`DIAG wrapped=${!(FullZoom._cps2 instanceof Ci.nsIContentPrefService2)} siteSpecific=${FullZoom.siteSpecific} ` +
-      `synthetic=${workTab.linkedBrowser.isSyntheticDocument} uri=${workTab.linkedBrowser.currentURI.spec}`);
-    const realSet = FullZoom._cps2.set;
-    FullZoom._cps2.set = (...args) => {
-      info(`DIAG set ${args[0]} ${args[1]} ${args[2]} ucid=${WhimsyProfileZoom.userContextIdOf(args[3])}`);
-      return realSet(...args);
-    };
-    registerCleanupFunction(() => (FullZoom._cps2.set = realSet));
     await FullZoom.enlarge(workTab.linkedBrowser);
     const zoomed = ZoomManager.getZoomForBrowser(workTab.linkedBrowser);
     ok(zoomed > 1, `Zoomed in in Work (${zoomed})`);
     const name = WhimsyProfileZoom.nameFor(ZOOM_NAME, WORK);
     is(name, `${ZOOM_NAME}.uc${WORK}`, "Work's zoom has its own name");
     is(WhimsyProfileZoom.userContextIdOf(workTab.linkedBrowser.loadContext), WORK, "FullZoom's context is Work's");
-    info(`Stored: Work ${await stored(name)}, Default ${await stored(ZOOM_NAME)}`);
     await TestUtils.waitForCondition(async () => Math.abs(((await stored(name)) ?? 1) - zoomed) < 0.01,
       "saved under Work's name");
     is(await stored(ZOOM_NAME), undefined, "and not Default's");

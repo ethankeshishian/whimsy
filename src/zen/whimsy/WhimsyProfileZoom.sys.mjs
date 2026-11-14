@@ -21,8 +21,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 export const ZOOM_NAME = "browser.content.full-zoom";
 const SUFFIX = ".uc";
-// The store's per-site calls: (domain, name, context, ...).
-const SITE_CALLS = ["getByDomainAndName", "getCachedByDomainAndName", "set", "removeByDomainAndName"];
+// The store's per-site calls (domain, name, …) and where each takes its
+// load context: set(domain, name, value, context, callback) has the value
+// first.
+const SITE_CALLS = { getByDomainAndName: 2, getCachedByDomainAndName: 2, set: 3, removeByDomainAndName: 2 };
 
 let deleteHooked = false;
 
@@ -61,9 +63,9 @@ export const WhimsyProfileZoom = {
     this.hookDelete(cps);
     const observers = new Map();
     const wrapper = {};
-    for (const call of SITE_CALLS) {
-      wrapper[call] = (domain, name, context, ...rest) =>
-        cps[call](domain, this.nameFor(name, this.userContextIdOf(context)), context, ...rest);
+    for (const [call, contextAt] of Object.entries(SITE_CALLS)) {
+      wrapper[call] = (domain, name, ...rest) =>
+        cps[call](domain, this.nameFor(name, this.userContextIdOf(rest[contextAt - 2])), ...rest);
     }
     wrapper.addObserverForName = (name, observer) => {
       if (name != ZOOM_NAME) {
