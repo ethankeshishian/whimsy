@@ -2096,6 +2096,11 @@ FEATURES = [
     {"id": "passkeys", "title": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
      "detect": [("src/dom/webauthn", r"mPlatformService\s*="),
                 ("src/zen", r"(?i)zen[-_.]?passkeys?\.(sys\.)?mjs|SecureEnclave\.P256")]},
+    # W28: verification codes (TOTP): kept in the login store, read from a
+    # setup QR code, filled from a field button. Superseded if Zen ships its
+    # own authenticator.
+    {"id": "totp", "title": "Verification codes: keep a site's authenticator codes and fill them with a click",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(totp|authenticator)\.(sys\.)?mjs")]},
     # W27: Restart Whimsy in the command bar (quit with eRestart, session
     # restored). Superseded if Zen's command bar gets a restart action.
     {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",

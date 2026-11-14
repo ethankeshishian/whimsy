@@ -217,6 +217,18 @@
 .whimsy-passkey-head > .whimsy-passkey-delete {
   margin: 0;
 }
+/* W28 verification codes: Passkeys' rows, with Copy code before Delete. */
+.whimsy-totp-head {
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  column-gap: 8px;
+
+  & > button {
+    margin: 0;
+  }
+}
+.whimsy-totp-error {
+  color: var(--text-color-error, light-dark(rgb(197, 0, 66), rgb(255, 132, 139)));
+}
 /* The container's own colour, as Firefox draws it on tabs; Default has
    none, so it shows an outline instead. Decorative: the name says it all. */
 .whimsy-profile-dot {

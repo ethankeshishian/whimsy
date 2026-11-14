@@ -1302,3 +1302,14 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 
 # W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
 ["browser_whimsy_dim_inactive_window.js"]
+
+# W28 verification codes (WhimsyTOTP.sys.mjs).
+["browser_whimsy_totp_math.js"]
+
+["browser_whimsy_totp_capture.js"]
+support-files = ["whimsy_totp_page.html"]
+
+["browser_whimsy_totp_fill.js"]
+support-files = ["whimsy_totp_page.html"]
+
+["browser_whimsy_totp_settings.js"]

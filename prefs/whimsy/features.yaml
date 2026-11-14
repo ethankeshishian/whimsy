@@ -705,6 +705,9 @@
 - name: whimsy.feature.passkeys
   value: true
 
+- name: whimsy.feature.totp
+  value: true
+
 - name: whimsy.feature.restart-command
   value: true
 

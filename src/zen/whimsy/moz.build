@@ -76,6 +76,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyExtensionPins.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
     "WhimsyFaviconHome.sys.mjs",
+    "WhimsyFieldButton.sys.mjs",
     "WhimsyFieldEditor.sys.mjs",
     "WhimsyFieldEditorChild.sys.mjs",
     "WhimsyFilesSection.sys.mjs",
@@ -387,6 +388,16 @@ EXTRA_JS_MODULES.whimsy += [
 # W26 passkeys: the front end of Whimsy's Touch ID passkeys (passkeys/).
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyPasskeys.sys.mjs",
+]
+
+# W28 verification codes (TOTP), and the QR decoder they're read with.
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyTOTP.sys.mjs",
+    "WhimsyTOTPChild.sys.mjs",
+    "WhimsyTOTPParent.sys.mjs",
+]
+EXTRA_JS_MODULES.whimsy.third_party += [
+    "third_party/jsQR.mjs",
 ]
 
 XPCOM_MANIFESTS += [

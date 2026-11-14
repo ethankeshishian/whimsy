@@ -239,6 +239,25 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+  <!-- W28 verification codes (WhimsyTOTP.sys.mjs): the codes Whimsy keeps
+       with the saved passwords, listed like Passkeys' rows with Copy code
+       (Touch ID once per session) and Delete (undo in the toast). Add Code…
+       opens the same surface as the page's Add Verification Code…, with a
+       field for the setup key. -->
+  <html:div id="whimsyTotpGroup" data-category="panePrivacy" data-whimsy-feature="totp" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-totp-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/selectable/lock-closed.svg">
+        <description class="description-deemphasized" data-l10n-id="whimsy-totp-description"/>
+        <html:ul id="whimsyTotpList" class="whimsy-profiles-list whimsy-passkeys-list whimsy-totp-list" hidden="hidden"></html:ul>
+        <description id="whimsyTotpEmpty" class="description-deemphasized" data-l10n-id="whimsy-totp-empty"/>
+        <description id="whimsyTotpError" class="whimsy-totp-error" role="alert" hidden="true" data-l10n-id="whimsy-totp-error"/>
+        <hbox class="whimsy-profiles-actions" align="center">
+          <button id="whimsyTotpAdd" data-l10n-id="whimsy-totp-add-code"/>
+        </hbox>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <!-- tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox is the
        real master switch (browser.ipProtection.enabled): off removes
        Firefox's own toolbar button too, not just this card. -->
