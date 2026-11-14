@@ -2111,6 +2111,14 @@ FEATURES = [
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W28: local plugins. Each folder in <profile>/whimsy-plugins is an
+    # unpacked WebExtension that loads unsigned (signing stays required
+    # everywhere else), turned off until approved. Engine patches on
+    # XPIProvider and XPIDatabase. Superseded if Zen ships its own folder of
+    # unsigned add-ons.
+    {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
+                ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
 ]
 
 
