@@ -927,3 +927,7 @@
 - name: whimsy.annotations.color
   value: "yellow"
 
+# W28: Page Minimap, a picture of a long page at its right edge (Show Page
+# Minimap in the command bar). Off by default.
+- name: whimsy.minimap.enabled
+  value: false

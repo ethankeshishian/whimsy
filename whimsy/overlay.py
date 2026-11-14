@@ -2105,6 +2105,9 @@ FEATURES = [
     # the command bar, with a toast.
     {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
      "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(page-animations|stop-animations)[\w-]*\s*=")]},
+    # W28: Page Minimap (command bar; off by default).
+    {"id": "page-minimap", "title": "Page Minimap: a live picture of a long page at its right edge with the view outlined; click to jump, drag to scroll",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(page[-_.]?)?minimap")]},
     # W27: Show space name in window title (Settings → Tab Management): the
     # space's name as the window's titlepreface. Superseded if Zen's spaces
     # touch the title.

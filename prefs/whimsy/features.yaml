@@ -711,6 +711,9 @@
 - name: whimsy.feature.page-animations-command
   value: true
 
+- name: whimsy.feature.page-minimap
+  value: true
+
 - name: whimsy.feature.window-title-space
   value: true
 
