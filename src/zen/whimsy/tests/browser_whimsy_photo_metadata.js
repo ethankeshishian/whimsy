@@ -286,13 +286,16 @@ add_task(async function file_input_untouched_when_off() {
 async function dropPhotos(browser) {
   await SpecialPowers.spawn(browser, [Array.from(jpeg), Array.from(png)], (jpg, pic) => {
     const zone = content.document.getElementById("zone");
-    // The page's own Files, as a real drop from Finder would give it.
-    const pageFile = (bytes, name, type) => new content.File([Cu.cloneInto(new Uint8Array(bytes), content)], name, { type });
-    const data = new content.DataTransfer();
+    // The page's own Files and DataTransfer, as a real drop from Finder
+    // would give it (filled from here, through an Xray, they'd be
+    // chrome-only and the page couldn't read them).
+    const page = Cu.waiveXrays(content);
+    const pageFile = (bytes, name, type) => new page.File([Cu.cloneInto(new Uint8Array(bytes), content)], name, { type });
+    const data = new page.DataTransfer();
     data.items.add(pageFile(jpg, "beach.jpg", "image/jpeg"));
     data.items.add(pageFile(pic, "screen.png", "image/png"));
     data.setData("text/plain", "From the beach");
-    const drop = new content.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: data });
+    const drop = new content.DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: Cu.unwaiveXrays(data) });
     content.windowUtils.dispatchDOMEventViaPresShellForTesting(zone, drop);
   });
   return (await received(browser, 1))[0];

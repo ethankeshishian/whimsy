@@ -323,8 +323,10 @@ export const WhimsyImageMetadata = {
       return file;
     }
     try {
-      // A Blob made here reads a page's File (through its Xray) as our own.
-      const bytes = new Uint8Array(await new Blob([file]).arrayBuffer());
+      // The file reads itself, in its own global: a Blob made here around a
+      // page's File never finishes reading in a web content process. The
+      // bytes are then copied into this module's global.
+      const bytes = new Uint8Array(Cu.cloneInto(await file.arrayBuffer(), {}));
       const out = stripImageMetadata(bytes);
       if (!out) {
         return file;
