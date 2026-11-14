@@ -21,7 +21,10 @@ let workProfile, workKey;
 function b64url(bytes) {
   return ChromeUtils.base64URLEncode(bytes, { pad: false });
 }
-function record(fields) {
+// Not "record": the mochitest scope's ok() and is() report through
+// this.record(), and a file-level function of that name replaces it, so no
+// assertion would count ("This test contains no passes").
+function passkeyRecord(fields) {
   return {
     id: b64url(crypto.getRandomValues(new Uint8Array(32))),
     rpId: "github.com",
@@ -47,8 +50,8 @@ add_setup(async function () {
   workProfile = WhimsyProfiles.create("Passkeys Settings Work");
   workKey = WhimsyProfiles.keyFor(workProfile);
   await WhimsyPasskeys.save([
-    record({ lastUsed: Date.now() }),
-    record({ rpId: "api-1234abcd.duosecurity.com", profile: workKey, userHandle: "BAUG", userName: "ekeshish@usc.edu", displayName: "", created: Date.now() - DAY }),
+    passkeyRecord({ lastUsed: Date.now() }),
+    passkeyRecord({ rpId: "api-1234abcd.duosecurity.com", profile: workKey, userHandle: "BAUG", userName: "ekeshish@usc.edu", displayName: "", created: Date.now() - DAY }),
   ]);
   registerCleanupFunction(async () => {
     closeToasts();
