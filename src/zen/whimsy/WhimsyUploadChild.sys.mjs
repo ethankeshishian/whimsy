@@ -74,9 +74,6 @@ function log(...args) {
 }
 
 const featureOn = () => Services.prefs.getBoolPref(FEATURE_PREF, true);
-// W27: a held event's files are read once its dispatch is over: a read
-// started inside the dispatch doesn't finish.
-const afterDispatch = () => new Promise(resolve => Services.tm.dispatchToMainThread(resolve));
 
 const isPasteKey = event =>
   event.key?.toLowerCase() == "v" &&
@@ -515,8 +512,8 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     event.stopImmediatePropagation();
     this.stripping.add(input);
     const win = this.contentWindow;
-    afterDispatch()
-      .then(() => metadata.stripFiles(files))
+    metadata
+      .stripFiles(files, win)
       .then(stripped => {
         if (stripped) {
           input.mozSetFileArray(stripped);
@@ -579,8 +576,8 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       altKey: event.altKey,
       metaKey: event.metaKey,
     };
-    afterDispatch()
-      .then(() => metadata.stripFiles(files))
+    metadata
+      .stripFiles(files, win)
       .catch(e => {
         console.error("Whimsy: removing photo details failed", e);
         return null;

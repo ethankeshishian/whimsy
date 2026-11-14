@@ -298,6 +298,22 @@ export function stripImageMetadata(input) {
   return stripJpeg(bytes) ?? stripPng(bytes);
 }
 
+// A file's bytes, in this module's global. A page's file (with its window)
+// is read by a FileReader of the page's: in a web content process, a read
+// whose promise belongs to this shared module global never finishes.
+async function readBytes(file, win) {
+  if (!win) {
+    return new Uint8Array(await file.arrayBuffer());
+  }
+  const reader = new win.FileReader();
+  await new Promise((resolve, reject) => {
+    reader.onload = () => resolve();
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+  return new Uint8Array(Cu.cloneInto(reader.result, {}));
+}
+
 export const WhimsyImageMetadata = {
   PREF,
 
@@ -318,15 +334,12 @@ export const WhimsyImageMetadata = {
    * same name, type, and date, or `file` itself when there's nothing to remove
    * (or the setting is off). Never throws.
    */
-  async stripFile(file) {
+  async stripFile(file, win = null) {
     if (!this.enabled || !this.candidate(file)) {
       return file;
     }
     try {
-      // The file reads itself, in its own global: a Blob made here around a
-      // page's File never finishes reading in a web content process. The
-      // bytes are then copied into this module's global.
-      const bytes = new Uint8Array(Cu.cloneInto(await file.arrayBuffer(), {}));
+      const bytes = await readBytes(file, win);
       const out = stripImageMetadata(bytes);
       if (!out) {
         return file;
@@ -338,14 +351,10 @@ export const WhimsyImageMetadata = {
     }
   },
 
-  /** stripFile for each; resolves to null when none changed. */
-  async stripFiles(files) {
+  /** stripFile for each (a page's files with its `win`); resolves to null when none changed. */
+  async stripFiles(files, win = null) {
     const list = [...files];
-    // One at a time, as a page reads them.
-    const out = [];
-    for (const file of list) {
-      out.push(await this.stripFile(file));
-    }
+    const out = await Promise.all(list.map(f => this.stripFile(f, win)));
     return out.some((f, i) => f !== list[i]) ? out : null;
   },
 };
