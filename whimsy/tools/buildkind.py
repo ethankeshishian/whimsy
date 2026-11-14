@@ -6,6 +6,9 @@ only (21 s with `mach build faster`). precheck.py prints the answer as
 
     faster    JS, CSS, FTL, XHTML, images, jar manifests:  mach build faster
     backend   a moz.build changed (new modules, tests):   mach build-backend, then faster
+              (a moz.build that declares an app bundle or a generated file
+              is full: `build faster` never makes those, and W27's passkeys
+              helper went missing from dist/bin that way)
     binaries  C++, Obj-C, Rust:                           mach build binaries, then faster
     full      surfer.json, configs/, mozconfig, build patches, *.in: npm run build;
               also IDL, WebIDL, IPDL, components.conf and StaticPrefList.yaml
@@ -32,6 +35,8 @@ NATIVE_EXT = (".cpp", ".cc", ".c", ".h", ".hpp", ".mm", ".m", ".rs")
 EXPORT_EXT = (".idl", ".webidl", ".ipdl", ".ipdlh")
 EXPORT_NAMES = ("components.conf", "StaticPrefList.yaml")
 FULL_EXT = (".in", ".configure", ".mozbuild", "mozconfig", "Cargo.toml", "Cargo.lock")
+# moz.build declarations whose outputs only a tier-ordered mach build makes.
+FULL_MOZBUILD = ("MacOSBundle(", "GeneratedFile(", "Program(", "SharedLibrary(")
 ORDER = ["faster", "backend", "binaries", "full"]
 HOW = {
     "faster": "front-end only (cd engine && ./mach build faster, under a minute)",
@@ -63,7 +68,13 @@ def kind_of(path, read=None):
     if path.endswith(NATIVE_EXT):
         return "binaries"
     if base == "moz.build":
-        return "backend"
+        if path.startswith("engine/"):
+            return "backend"  # a patched engine moz.build: judged as before
+        try:
+            text = read(path) if read else open(path, encoding="utf-8", errors="replace").read()
+        except OSError:
+            text = ""
+        return "full" if any(d in text for d in FULL_MOZBUILD) else "backend"
     return "faster"
 
 
