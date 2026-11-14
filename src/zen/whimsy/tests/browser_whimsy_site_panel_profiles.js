@@ -54,11 +54,40 @@ async function closePanel() {
   gNavToolbox.removeAttribute("zen-has-implicit-hover");
 }
 
-async function openTab(url, userContextId = 0) {
-  const tab = BrowserTestUtils.addTab(gBrowser, url, { userContextId });
-  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+// A profile's tabs live in that profile's space, so open them there (as the
+// other profile tests do); Default's tabs open back in the first space.
+const HOME_SPACE = gZenWorkspaces.activeWorkspace;
+const spaces = new Map();
+async function spaceFor(userContextId) {
+  if (!userContextId) {
+    return HOME_SPACE;
+  }
+  if (!spaces.has(userContextId)) {
+    const space = await gZenWorkspaces.createAndSaveWorkspace(`Profile ${userContextId}`, undefined, true, userContextId);
+    spaces.set(userContextId, space.uuid);
+  }
+  return spaces.get(userContextId);
+}
+
+async function selectTab(tab) {
+  const space = tab.getAttribute("zen-workspace-id");
+  if (space && gZenWorkspaces.activeWorkspace != space) {
+    await gZenWorkspaces.changeWorkspaceWithID(space);
+  }
   gBrowser.selectedTab = tab;
-  await loaded;
+}
+
+async function openTab(url, userContextId = 0) {
+  const space = await spaceFor(userContextId);
+  if (gZenWorkspaces.activeWorkspace != space) {
+    await gZenWorkspaces.changeWorkspaceWithID(space);
+  }
+  const tab = BrowserTestUtils.addTab(gBrowser, url, { userContextId });
+  gBrowser.selectedTab = tab;
+  const browser = tab.linkedBrowser;
+  await TestUtils.waitForCondition(() => browser.currentURI.spec == url && !browser.webProgress.isLoadingDocument,
+    `Loaded ${url}`);
+  is(browser.browsingContext.originAttributes.userContextId, userContextId, `${url} opens in profile ${userContextId}`);
   return tab;
 }
 
@@ -76,6 +105,16 @@ function clearSite() {
 registerCleanupFunction(async () => {
   await closePanel();
   clearSite();
+  if (gZenWorkspaces.activeWorkspace != HOME_SPACE) {
+    await gZenWorkspaces.changeWorkspaceWithID(HOME_SPACE);
+  }
+  for (const uuid of spaces.values()) {
+    for (const tab of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == uuid &&
+      !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await gZenWorkspaces.removeWorkspace(uuid);
+  }
 });
 
 add_task(async function test_headings_and_rows() {
@@ -174,11 +213,11 @@ add_task(async function test_profiles_keep_their_own_permissions() {
     ContentBlockingAllowList.add(workTab.linkedBrowser);
     ok(ContentBlockingAllowList.includes(workTab.linkedBrowser), "Tracking Protection off in Work");
     ok(!ContentBlockingAllowList.includes(homeTab.linkedBrowser), "but still on in Default");
-    gBrowser.selectedTab = workTab;
+    await selectTab(workTab);
     await openPanel();
     ok(!document.getElementById("whimsy-site-settings-tracking-switch").checked, "Work's panel shows it off");
     await closePanel();
-    gBrowser.selectedTab = homeTab;
+    await selectTab(homeTab);
     await openPanel();
     ok(document.getElementById("whimsy-site-settings-tracking-switch").checked, "Default's shows it on");
     await closePanel();
@@ -201,7 +240,7 @@ add_task(async function test_dark_mode_per_profile() {
     ok(WhimsyDarkPages.profileOn(WORK), "A profile nobody switched follows Settings (on)");
 
     // The profile's switch: Work's pages turn original, Default's stay dark.
-    gBrowser.selectedTab = workTab;
+    await selectTab(workTab);
     await openPanel();
     const profileSwitch = document.getElementById("whimsy-site-settings-profile-dark-switch");
     ok(profileSwitch.checked, "Automatic Dark Mode is on");
