@@ -5238,6 +5238,8 @@ whimsy-favicon-home-button =
     .aria-label = Go to Site Home
 whimsy-action-site-home = Go to Site Home
 whimsy-action-go-up-level = Go Up One Level
+whimsy-action-edit-field-in-editor = Edit Field in Text Editor
+whimsy-field-editor-toast-no-field = Click into a text field first
 
 ## W23 ai-core: errors from the provider router (toasts; chat's error block
 ## lists what was tried itself).

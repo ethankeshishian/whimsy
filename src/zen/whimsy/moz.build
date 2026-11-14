@@ -76,6 +76,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyExtensionPins.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
     "WhimsyFaviconHome.sys.mjs",
+    "WhimsyFieldEditor.sys.mjs",
+    "WhimsyFieldEditorChild.sys.mjs",
     "WhimsyFilesSection.sys.mjs",
     "WhimsyFinderFoldersSection.sys.mjs",
     "WhimsyFireButton.sys.mjs",

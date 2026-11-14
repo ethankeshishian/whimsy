@@ -354,6 +354,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFormProtection: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
 });
 
+// W27: Edit Field in Text Editor.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFieldEditor: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs",
+});
+
 // batch9: W9-06 smart address bar buttons.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySmartButtons: "resource:///modules/whimsy/WhimsySmartButtons.sys.mjs",
@@ -685,6 +690,17 @@ export const Whimsy = {
       // anything that isn't a web (content or null principal) document.
       allFrames: true,
       messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
+    // W27: Edit Field in Text Editor. The child only reads and writes the
+    // page's own focused field, on request; the temp file and the editor
+    // live in the parent (WhimsyFieldEditor.sys.mjs).
+    ChromeUtils.registerWindowActor("WhimsyFieldEditor", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs" },
+      child: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs" },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
       safeForUntrustedWebProcess: true,
     });
   },
@@ -1205,6 +1221,8 @@ export const Whimsy = {
     // wave7/small: Create Email Alias (command bar), at the focused email
     // field. Checks its switch on use.
     later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    // W27: Edit Field in Text Editor (command bar), at the focused field.
+    later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
     // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
     // into the space it makes. After Zen's spaces are ready.
     run("move-to-new-space", () =>
