@@ -606,7 +606,13 @@
 - name: whimsy.feature.ai-memory
   value: true
 
+- name: whimsy.feature.ai-style
+  value: true
+
 - name: whimsy.feature.ai-agent
+  value: true
+
+- name: whimsy.feature.ai-agent-save-pdf
   value: true
 
 - name: whimsy.feature.ai-task-folder
