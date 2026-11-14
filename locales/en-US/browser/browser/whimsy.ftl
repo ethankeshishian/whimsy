@@ -841,6 +841,11 @@ whimsy-look-always-full-url =
 whimsy-look-dim-inactive-window =
     .label = Dim the window when it’s not in front
 
+# W28: global, macOS only. Applies to every Whimsy window, including Mini
+# Whimsy, and persists across restarts.
+whimsy-look-window-on-top =
+    .label = Keep Window on Top
+
 ## batch7: Settings → General → Performance
 
 whimsy-performance-header = Performance
@@ -3026,6 +3031,17 @@ whimsy-action-glance-size-compact = Glance Size: Compact
 whimsy-action-glance-size-standard = Glance Size: Standard
 whimsy-action-glance-size-wide = Glance Size: Wide
 
+# W28: Keep Window on Top (Settings → Look and Feel, macOS only; global,
+# not per-window). whimsy-action-window-on-top-toggle is the neutral,
+# shortcut-only name; the two variants are the command bar rows.
+whimsy-action-window-on-top-toggle = Keep or Stop Keeping Window on Top
+whimsy-action-window-on-top-on = Keep Window on Top
+whimsy-action-window-on-top-off = Stop Keeping Window on Top
+whimsy-keywords-window-on-top = float, pin, always on top, above
+whimsy-window-on-top-on-toast = Every Whimsy window stays on top
+whimsy-window-on-top-on-toast-description = Above other apps, on each window’s own desktop.
+whimsy-window-on-top-off-toast = Whimsy windows no longer stay on top
+
 # fix/panes: breadcrumbs on Firefox's sub-pages (Containers, Browser icon),
 # whose parent pane is now Zen's.
 whimsy-pane-looks-crumb =
@@ -4490,6 +4506,8 @@ whimsy-setting-full-url = Full Address
     .keywords = full url, whole url, domain only, address bar, url bar
 whimsy-setting-dim-inactive-window = Dim Inactive Windows
     .keywords = grey out, gray out, inactive window, background window, unfocused window, fade
+whimsy-setting-window-on-top = Keep Window on Top
+    .keywords = float, pin, always on top, above, floating window, mini whimsy
 whimsy-setting-new-windows = New Window Page
     .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
 whimsy-setting-new-tabs = New Tab Page

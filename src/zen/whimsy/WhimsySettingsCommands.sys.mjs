@@ -123,6 +123,10 @@ export const SETTINGS = [
     feature: ["full-url-click"] },
   // W27 winprefs: Zen's grey-out of an inactive window (off in Whimsy).
   { name: "dim-inactive-window", setting: "whimsyDimInactiveWindow", pref: "zen.view.grey-out-inactive-windows" },
+  // W28: Keep Window on Top (global, macOS only). The real command is
+  // registered by WhimsyWindowOnTop.sys.mjs itself.
+  { name: "window-on-top", setting: "whimsyWindowOnTop", pref: "whimsy.window-on-top.enabled",
+    feature: ["window-on-top"], when: mac, command: ["cmd_whimsyKeepWindowOnTop"] },
   { name: "teach", setting: "whimsyTeachEnabled", pref: "whimsy.teach.enabled", feature: ["teach-once"] },
 
   // Home and startup (W11-07): Firefox's New windows and New tabs

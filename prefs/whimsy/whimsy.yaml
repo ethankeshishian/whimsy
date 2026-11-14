@@ -927,3 +927,9 @@
 - name: whimsy.annotations.color
   value: "yellow"
 
+# W28: Keep Window on Top (Settings → Look and Feel, macOS only). One
+# global setting for every Whimsy window, including Mini Whimsy; it
+# persists across restarts (WhimsyWindowOnTop.sys.mjs).
+- name: whimsy.window-on-top.enabled
+  value: false
+

@@ -270,6 +270,8 @@ support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_di
 
 ["browser_whimsy_window_close.js"]
 
+["browser_whimsy_window_on_top.js"]
+
 ["browser_whimsy_full_url_click.js"]
 
 ["browser_whimsy_hw_decode.js"]

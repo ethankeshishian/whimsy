@@ -2111,6 +2111,12 @@ FEATURES = [
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W28: Keep Window on Top (Settings → Look and Feel, macOS only): one
+    # global setting floats every Whimsy window, including Mini Whimsy,
+    # above other apps' windows; persists across restarts.
+    {"id": "window-on-top", "title": "Keep Window on Top: float every Whimsy window above other apps' windows (Settings → Look and Feel, macOS, off by default)",
+     "detect": [("src/widget/cocoa", r"(?i)SetAlwaysOnTop|GetAlwaysOnTop"),
+                ("src/xpfe/appshell", r"(?i)alwaysOnTop")]},
 ]
 
 
