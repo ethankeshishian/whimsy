@@ -1292,3 +1292,7 @@ skip-if = ["os != 'mac'"]
 # W27 aiwrite: the agent's save_pdf tool (silent Save to PDF into Downloads, after approval).
 ["browser_whimsy_agent_save_pdf.js"]
 support-files = ["whimsy_agent_settings.html"]
+# W27: the focused field's value goes to a temp file, "opened" in the Mac's
+# default text editor, watched, and written back until the tab navigates.
+["browser_whimsy_field_editor.js"]
+support-files = ["whimsy_field_editor.html"]

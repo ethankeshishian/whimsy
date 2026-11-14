@@ -2065,6 +2065,10 @@ whimsy-verb-email = Email
 whimsy-verb-copy-markdown = Copy as Markdown
 whimsy-verb-note = Add to Note
 whimsy-verb-calendar = Add to Calendar
+whimsy-verb-call = Call
+whimsy-verb-facetime = FaceTime
+whimsy-verb-message = Message
+whimsy-verb-add-contact = Add to Contacts
 whimsy-verb-linear-new = New Linear Issue
 whimsy-verb-linear-search = Search Linear
 whimsy-verb-copied-toast = Copied as Markdown
@@ -5256,6 +5260,9 @@ whimsy-favicon-home-sublabel-new-tab = Open site home in new tab
 whimsy-favicon-home-button =
     .aria-label = Go to Site Home
 whimsy-action-site-home = Go to Site Home
+whimsy-action-go-up-level = Go Up One Level
+whimsy-action-edit-field-in-editor = Edit Field in Text Editor
+whimsy-field-editor-toast-no-field = Click into a text field first
 
 ## W23 ai-core: errors from the provider router (toasts; chat's error block
 ## lists what was tried itself).
