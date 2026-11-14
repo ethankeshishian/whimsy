@@ -71,7 +71,7 @@ add_task(async function test_on_opens_a_tab() {
     const opened = BrowserTestUtils.waitForNewTab(gBrowser, POPUP, true);
     await openPopup(browser);
     const tab = await opened;
-    is(tab.ownerGlobal, window, "A tab in this window");
+    is(tab.documentGlobal, window, "A tab in this window");
     is(windowCount(), windows, "No new window");
     is(tab.linkedBrowser.browsingContext.opener, browser.browsingContext, "Attached to the page that opened it");
 
