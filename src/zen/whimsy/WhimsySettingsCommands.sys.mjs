@@ -120,6 +120,8 @@ export const SETTINGS = [
   { name: "seasons", setting: "whimsySeasonalThemes", pref: "whimsy.seasons.enabled", feature: ["seasonal-themes"] },
   { name: "full-url", setting: "whimsyAlwaysFullUrl", pref: "whimsy.urlbar.always-full-url",
     feature: ["full-url-click"] },
+  // W27 winprefs: Zen's grey-out of an inactive window (off in Whimsy).
+  { name: "dim-inactive-window", setting: "whimsyDimInactiveWindow", pref: "zen.view.grey-out-inactive-windows" },
   { name: "teach", setting: "whimsyTeachEnabled", pref: "whimsy.teach.enabled", feature: ["teach-once"] },
 
   // Home and startup (W11-07): Firefox's New windows and New tabs

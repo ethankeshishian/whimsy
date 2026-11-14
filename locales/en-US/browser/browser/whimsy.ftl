@@ -833,6 +833,10 @@ whimsy-tabs-popups-as-tabs =
 whimsy-look-always-full-url =
     .label = Always show the full address, not just the domain
 
+# W27 winprefs: zen.view.grey-out-inactive-windows.
+whimsy-look-dim-inactive-window =
+    .label = Dim the window when it’s not in front
+
 ## batch7: Settings → General → Performance
 
 whimsy-performance-header = Performance
@@ -4459,6 +4463,8 @@ whimsy-setting-seasons = Seasonal Touches
     .keywords = seasons, seasonal themes, halloween, holidays, pumpkins, snow
 whimsy-setting-full-url = Full Address
     .keywords = full url, whole url, domain only, address bar, url bar
+whimsy-setting-dim-inactive-window = Dim Inactive Windows
+    .keywords = grey out, gray out, inactive window, background window, unfocused window, fade
 whimsy-setting-new-windows = New Window Page
     .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
 whimsy-setting-new-tabs = New Tab Page

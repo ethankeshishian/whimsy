@@ -1273,3 +1273,6 @@ skip-if = ["os != 'mac'"]
 # W27 winprefs: Settings → Tab Management → "Open pop-up windows as tabs" (off: a window; on: a tab that keeps window.opener).
 ["browser_whimsy_popups_as_tabs.js"]
 support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
+
+# W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
+["browser_whimsy_dim_inactive_window.js"]
