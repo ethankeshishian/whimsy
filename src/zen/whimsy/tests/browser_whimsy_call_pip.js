@@ -132,8 +132,12 @@ add_task(async function test_call_pip_stays_closed_until_call_tab_is_revisited()
     const pip = await opened;
     await TestUtils.waitForCondition(() => pip._whimsyCallBrowser == browser, "The call floats");
 
+    // A call window has no × (W26); Escape still takes ×'s path (onClose,
+    // reason CloseButton), so closing by hand is covered here.
+    is(pip.getComputedStyle(pip.document.getElementById("close")).display, "none", "The call PiP hides ×");
     const closed = BrowserTestUtils.domWindowClosed(pip);
-    EventUtils.synthesizeMouseAtCenter(pip.document.getElementById("close"), {}, pip);
+    pip.focus();
+    EventUtils.synthesizeKey("KEY_Escape", {}, pip);
     await closed;
     ok(WhimsyCallPip._closedByHand.has(browser), "Closing the player records the user's choice");
 
