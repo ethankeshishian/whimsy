@@ -245,10 +245,16 @@ add_task(async function test_go_up_level_command() {
     document.getElementById("cmd_whimsyGoUpLevel").doCommand();
     await loaded;
     is(tab.linkedBrowser.currentURI.spec, HOME + "a/b/", "Go Up One Level drops the last segment in the current tab");
+    // One level at a time: "a/b/" -> "a/", not straight to the root.
+    loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, HOME + "a/");
+    document.getElementById("cmd_whimsyGoUpLevel").doCommand();
+    await loaded;
+    is(tab.linkedBrowser.currentURI.spec, HOME + "a/", "A second Go Up drops one more segment");
+    ok(action()?.isAvailable(window), "Still available with one segment left");
     loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, HOME);
     document.getElementById("cmd_whimsyGoUpLevel").doCommand();
     await loaded;
-    is(tab.linkedBrowser.currentURI.spec, HOME, "A second Go Up reaches the origin root");
+    is(tab.linkedBrowser.currentURI.spec, HOME, "A third Go Up reaches the origin root");
     ok(!action()?.isAvailable(window), "Unavailable at the site root");
   });
   await withTabs(async () => {
