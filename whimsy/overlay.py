@@ -2088,6 +2088,11 @@ FEATURES = [
     {"id": "passkeys", "title": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
      "detect": [("src/dom/webauthn", r"mPlatformService\s*="),
                 ("src/zen", r"(?i)zen[-_.]?passkeys?\.(sys\.)?mjs|SecureEnclave\.P256")]},
+    # W27: Restart Whimsy in the command bar (quit with eRestart, session
+    # restored). Superseded if Zen's command bar gets a restart action.
+    {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
+     "detect": [("locales/en-US", r"(?im)^zen-action-[\w-]*restart[\w-]*\s*="),
+                ("src/zen/urlbar", r"(?i)eRestart")]},
 ]
 
 

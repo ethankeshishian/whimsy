@@ -3073,6 +3073,12 @@ whimsy-action-manage-spaces = Manage Spaces…
 whimsy-action-air-traffic-control = Air Traffic Control…
 whimsy-action-add-finder-folder = Add Finder Folder…
 whimsy-action-whats-new = What’s New
+
+## W27: Restart Whimsy (command bar). Comma-separated search words.
+
+whimsy-action-restart = Restart Whimsy
+whimsy-keywords-restart = Relaunch, Reopen, Reboot, Restart Browser
+
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)
 
