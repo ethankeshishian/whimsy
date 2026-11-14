@@ -245,6 +245,9 @@ export const SETTINGS = [
   { name: "ai-memory", setting: "whimsyAIMemory", pref: "whimsy.ai.memory", feature: ["ai-memory"], when: aiAllowed },
   { name: "memory-search", setting: "whimsyMemorySearch", covers: "#whimsyMemoryList", feature: ["ai-memory"],
     when: aiAllowed, exempt: "a search of the saved memories, and each memory's own edit field, not settings" },
+  // W27 aiwrite: Settings › AI › Memory › How AI writes.
+  { name: "ai-style", setting: "whimsyAIStyle", feature: ["ai-style"], when: aiAllowed,
+    exempt: "free text in the person's own words, not a switch or a choice" },
 
   // About
   { name: "update-channel", setting: "whimsyUpdatesChannel", pref: "whimsy.update-channel",
