@@ -903,8 +903,12 @@
 - name: whimsy.dark-pages.dim-images
   value: false
 
+# A JSON object of per-site choices. ffprefs only quotes a value with a
+# letter, '.', a space or a quote in it, so "{}" came out as the invalid
+# pref("whimsy.dark-pages.sites", {}); "{ }" comes out as the string "{ }",
+# which JSON.parse reads as the same empty object.
 - name: whimsy.dark-pages.sites
-  value: "{}"
+  value: "{ }"
 
 - name: whimsy.dark-pages.offered
   value: false

@@ -20,9 +20,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 WHIMSY = HERE.parent
 TOOLS = WHIMSY / "tools"
+ROOT = WHIMSY.parent
 FIXTURES = HERE / "fixtures" / "logs"
 sys.path.insert(0, str(TOOLS))
 import buildkind  # noqa: E402
+import buildstate  # noqa: E402
 import merge_features  # noqa: E402
 import merge_listfile  # noqa: E402
 import patchtools  # noqa: E402
@@ -438,6 +440,145 @@ class BuildKindTests(unittest.TestCase):
         self.assertEqual(buildkind.needed(["x.cpp", "surfer.json"])[0], "full")
 
 
+class BuildStateTests(unittest.TestCase):
+    """The build a lane needs also covers what the shared engine was last
+    built from (W26: a lane after passkeys tested a stale XUL)."""
+
+    def setUp(self):
+        self.repo = tempfile.mkdtemp()
+        git(self.repo, "init", "-q", "-b", "dev")
+        self.commit("src/zen/whimsy/a.css", "a {}\n", "base")
+        self.base = self.head()
+
+    def tearDown(self):
+        shutil.rmtree(self.repo, ignore_errors=True)
+
+    def commit(self, path, text, msg):
+        f = Path(self.repo) / path
+        if text is None:
+            git(self.repo, "rm", "-q", path)
+        else:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text)
+            git(self.repo, "add", path)
+        git(self.repo, "commit", "-qm", msg)
+        return self.head()
+
+    def head(self):
+        return git(self.repo, "rev-parse", "HEAD").stdout.strip()
+
+    def need(self, to="HEAD", at_least="faster"):
+        return buildstate.need(self.repo, to, at_least)[0]
+
+    def updater_record(self, commit, at, dirty=False):
+        path = Path(self.repo) / buildstate.UPDATER_RECORD
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"commit": commit, "dirty": dirty, "at": at}))
+
+    def test_no_record_or_an_unfinished_build_means_full(self):
+        self.assertEqual(buildstate.base(self.repo)[0], None)
+        self.assertEqual(self.need(), "full")
+        buildstate.begin(self.repo, "HEAD", by="test")
+        self.assertEqual(self.need(), "full", "a build that never finished leaves the engine unknown")
+        buildstate.record(self.repo, "HEAD", "faster", by="test")
+        self.assertEqual(self.need(), "faster")
+        buildstate.invalidate(self.repo, by="hand build")
+        self.assertEqual(self.need(), "full")
+
+    def test_the_diff_from_the_built_commit_counts_not_just_the_lane(self):
+        buildstate.record(self.repo, "HEAD", "faster", by="test")
+        self.commit("src/zen/whimsy/b.css", "b {}\n", "css")
+        self.assertEqual(self.need(), "faster")
+        self.assertEqual(self.need(at_least="binaries"), "binaries", "never less than the lane's own rule")
+        self.commit("src/zen/whimsy/x.cpp", "int x;\n", "native")
+        self.assertEqual(self.need(), "binaries")
+
+    def test_a_previous_lane_that_added_components_conf_forces_full_on_the_next(self):
+        # passkeys: a lane merge (not on dev) added components.conf and a C++
+        # patch and was built; dev's next lane changes only CSS.
+        git(self.repo, "checkout", "-q", "-b", "lane", self.base)
+        self.commit("src/zen/whimsy/components.conf", "Classes = []\n", "passkeys conf")
+        self.commit("src/dom/whimsy-x-cpp.patch", "--- a/dom/base/x.cpp\n+++ b/dom/base/x.cpp\n", "passkeys patch")
+        buildstate.record(self.repo, "HEAD", "full", by="lane-test passkeys")
+        built = self.head()
+        git(self.repo, "checkout", "-q", "dev")
+        git(self.repo, "update-ref", "-d", "refs/heads/lane")
+        nxt = self.commit("src/zen/whimsy/b.css", "b {}\n", "next lane: css only")
+        self.assertEqual(buildkind.needed_between(self.base, nxt, cwd=self.repo)[0], "faster", "vs dev: front-end only")
+        self.assertEqual(buildstate.base(self.repo)[0], built, "the built merge stays resolvable")
+        self.assertEqual(git(self.repo, "rev-parse", buildstate.PIN).stdout.strip(), built, "pinned against gc")
+        self.assertEqual(self.need(nxt), "full", "components.conf is gone from the tree the engine has")
+
+    def test_a_deleted_patch_counts_as_the_files_it_patched(self):
+        self.commit("src/dom/whimsy-x-cpp.patch", "--- a/dom/base/x.cpp\n+++ b/dom/base/x.cpp\n", "patch")
+        buildstate.record(self.repo, "HEAD", "binaries", by="test")
+        self.commit("src/dom/whimsy-x-cpp.patch", None, "drop the patch")
+        self.assertEqual(self.need(), "binaries")
+
+    def test_an_updater_build_after_ours_is_the_base(self):
+        buildstate.record(self.repo, "HEAD", "faster", by="test")
+        later = self.commit("src/zen/whimsy/x.cpp", "int x;\n", "native")
+        self.assertEqual(self.need(), "binaries")
+        self.updater_record(later, "2099-01-01T00:00:00-08:00")  # npm run ship built `later`
+        self.assertEqual(buildstate.base(self.repo)[0], later)
+        self.assertEqual(self.need(), "faster")
+        self.updater_record(later, "2099-01-01T00:00:00-08:00", dirty=True)
+        self.assertEqual(self.need(), "full", "a dirty updater build is unknown")
+
+    def test_an_updater_build_that_never_finished_means_full(self):
+        self.updater_record(self.base, "2000-01-01T00:00:00-08:00")
+        buildstate.record(self.repo, "HEAD", "faster", by="test")
+        self.assertEqual(self.need(), "faster", "our own record-build call does not count as foreign")
+        os.remove(Path(self.repo) / buildstate.UPDATER_RECORD)  # begin_build, then a failed build
+        self.assertEqual(self.need(), "full")
+
+    def test_cli_prints_kind_and_why(self):
+        env = dict(os.environ, WHIMSY_ROOT=self.repo)
+        cli = [sys.executable, str(TOOLS / "buildstate.py")]
+        subprocess.run([*cli, "record", "HEAD", "--kind", "faster", "--by", "cli"], env=env, check=True)
+        self.assertEqual(subprocess.run([*cli, "base"], env=env, capture_output=True, text=True).stdout.strip(), self.base)
+        out = subprocess.run([*cli, "need", "--to", "HEAD", "--at-least", "backend"], env=env,
+                             capture_output=True, text=True).stdout
+        self.assertEqual(out.split("\t")[0], "backend")
+        subprocess.run([*cli, "invalidate", "--by", "cli"], env=env, check=True)
+        self.assertEqual(subprocess.run([*cli, "base"], env=env, capture_output=True, text=True).stdout, "")
+
+
+class PrefsSyntaxTests(unittest.TestCase):
+    """ffprefs writes a value bare unless it has a letter, '.', a space, a
+    tab, a newline or a quote in it (tools/ffprefs get_value); a bare value
+    must be a number or a boolean, or the prefs file is invalid (W26:
+    pref("whimsy.dark-pages.sites", {}))."""
+
+    @staticmethod
+    def emitted(value):
+        letters = any(c.isalpha() or c == "." for c in value) and value not in ("true", "false")
+        if value == "" or any(c in value for c in ' \n\t"') or letters:
+            return "string"
+        return value
+
+    def test_every_whimsy_pref_value_is_valid_pref_syntax(self):
+        import re
+        bad = []
+        for yaml in sorted((ROOT / "prefs" / "whimsy").glob("*.yaml")):
+            for n, line in enumerate(yaml.read_text().splitlines(), 1):
+                m = re.match(r"^\s*value:\s*(.*?)\s*$", line)
+                if not m:
+                    continue
+                raw = m.group(1)
+                if raw[:1] in ("'", '"') and raw[-1:] == raw[:1]:
+                    raw = raw[1:-1]
+                out = self.emitted(raw)
+                if out != "string" and not re.fullmatch(r"-?\d+|true|false", out):
+                    bad.append(f"{yaml.name}:{n}: {line.strip()} -> pref(..., {out})")
+        self.assertEqual(bad, [])
+
+    def test_the_rule_catches_bare_json(self):
+        self.assertEqual(self.emitted("{}"), "{}")
+        self.assertEqual(self.emitted("{ }"), "string")
+        self.assertEqual(self.emitted("-1"), "-1")
+
+
 class ReasonTests(unittest.TestCase):
     def read(self, name):
         return (FIXTURES / name).read_text(errors="replace")
@@ -667,6 +808,20 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(self.q("wait", t).returncode, 0)
         self.assertEqual(out.read_text().strip(), "ran")
         self.assertFalse(lock.exists(), "released after the ticket")
+        self.q("stop")
+
+    def test_a_hand_build_ticket_forgets_the_engine_state(self):
+        env = dict(self.env)
+        env.pop("WHIMSY_ROOT", None)
+        record = Path(self.tmp) / buildstate.RECORD
+        record.parent.mkdir(parents=True, exist_ok=True)
+        record.write_text(json.dumps({"state": "built", "commit": "abc", "at": "2026-11-13T00:00:00-08:00"}))
+        run = lambda *cmd: subprocess.run(["zsh", str(TOOLS / "queue.sh"), "run", "--", *cmd], env=env,
+                                          capture_output=True, text=True, timeout=60)
+        run("sh", "-c", "echo whimsy/tools/test.sh browser_whimsy_x.js")
+        self.assertEqual(json.loads(record.read_text())["state"], "built", "a test ticket builds nothing")
+        run("sh", "-c", "cd /nonexistent-engine && ./mach build faster")
+        self.assertEqual(json.loads(record.read_text())["state"], "unknown")
         self.q("stop")
 
     def test_inside_a_ticket_run_executes_directly(self):

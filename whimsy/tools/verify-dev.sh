@@ -48,12 +48,14 @@ git checkout -q -- $REWRITES 2>/dev/null
 sha=$(git rev-parse $DEV) || exit 2
 git checkout -q --detach $sha
 
-# The build the changes since the last recorded build need; full if unknown.
+# The build the changes since the engine's last recorded build need
+# (whimsy/tools/buildstate.py; any commit, not only an ancestor); full if unknown.
 ts=$(date +%s)
-built=$(python3 -c "import json;print(json.load(open('.surfer/verify/build.json'))['commit'])" 2>/dev/null)
-if [ -n "$built" ] && git merge-base --is-ancestor $built HEAD 2>/dev/null; then since=$built; else since=; fi
+since=$(python3 $WHIMSY_TOOLS/buildstate.py base 2>/dev/null)
 python3 $SRC/whimsy/precheck.py ${since:+--since $since} ${since:---all} > $run/precheck.log 2>&1; prc=$?
-build_kind=$(sed -n 's/^BUILD: //p' $run/precheck.log | tail -1); [ -n "$since" ] || build_kind=full
+need=$(python3 $WHIMSY_TOOLS/buildstate.py need --to $sha --at-least "$(sed -n 's/^BUILD: //p' $run/precheck.log | tail -1)" 2>>$run/precheck.log)
+build_kind=${need%%$'\t'*}; [ -n "$since" ] && [ -n "$build_kind" ] || build_kind=full
+echo "ENGINE: ${need#*$'\t'}" >> $run/precheck.log
 [ $prc = 0 ] || { step precheck red $(( $(date +%s) - ts )); red "precheck: $(grep -m1 '^PROBLEM' $run/precheck.log | cut -c1-300)"; }
 step precheck ok $(( $(date +%s) - ts )) "build=$build_kind since ${since:-(none)}"
 
@@ -72,8 +74,10 @@ case $build_kind in
   binaries) bcmd='./mach build binaries && ./mach build faster';;
   *) bcmd='./mach build'; build_kind=full;;
 esac
+python3 $WHIMSY_TOOLS/buildstate.py begin $sha --by "verify-dev ${DEV//\//_}" 2>/dev/null
 (cd engine && eval "$bcmd") > $run/build.log 2>&1 || { step build red $(( $(date +%s) - ts )) $build_kind; red "build ($build_kind) failed: $(grep -m1 -E 'error:|failed' $run/build.log | cut -c1-200)"; }
 python3 whimsy/updater/updater.py record-build >/dev/null 2>&1 || true
+python3 $WHIMSY_TOOLS/buildstate.py record $sha --kind $build_kind --by "verify-dev ${DEV//\//_}" 2>/dev/null
 step build ok $(( $(date +%s) - ts )) $build_kind
 
 ts=$(date +%s)
