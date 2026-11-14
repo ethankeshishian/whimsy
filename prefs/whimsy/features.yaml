@@ -261,6 +261,9 @@
 - name: whimsy.feature.drag-downloads
   value: true
 
+- name: whimsy.feature.delete-to-trash
+  value: true
+
 - name: whimsy.feature.sidebar-nav
   value: true
 
