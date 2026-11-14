@@ -294,17 +294,23 @@ findbar .whimsy-ask-button {
   /* The card's shadow (0 10px 30px -6px) reaches 34px below it, 24px to
      each side, and 14px above. The popup's window has this much room on
      every side, so no edge clips it; the negative margin keeps the card
-     where the anchor puts it (Gecko's own shadow-margin pattern), and the
-     room lets the pointer through to the page below. */
+     where the anchor puts it (Gecko's own shadow-margin pattern). */
   --whimsy-hc-shadow-room: 34px;
   margin: calc(-1 * var(--whimsy-hc-shadow-room));
   -moz-window-input-region-margin: var(--whimsy-hc-shadow-room);
   /* The OS adds no shadow or material of its own: the card's is the one. */
   -moz-window-shadow: none;
-  /* No pointer-events: none here. On a popup it makes the whole window
-     ignore the mouse (nsMenuPopupFrame::IsMouseTransparent), so the pointer
-     could never reach the card, its links, or its buttons. The input-region
-     margin above is what lets the pointer through the shadow room. */
+  /* The whole popup window ignores the mouse (nsMenuPopupFrame::
+     IsMouseTransparent) until the pointer is on the card itself
+     ([whimsy-hc-input], set by WhimsyHoverCards' HostPointer). macOS ignores
+     the input-region margin above, so without this the see-through room
+     took the clicks and wheel meant for the link, the tabs, and the page.
+     A card fading out (no [whimsy-open]) lets everything through too. */
+  pointer-events: none;
+
+  &[whimsy-hc-input][whimsy-open] {
+    pointer-events: auto;
+  }
 
   &::part(content) {
     appearance: none;

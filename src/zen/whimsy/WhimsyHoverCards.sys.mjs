@@ -64,6 +64,13 @@ const metaCache = new Map();
 Services.obs.addObserver(() => metaCache.clear(), "browser:purge-session-history");
 
 const tabHovers = new WeakMap();
+// panel -> HostPointer (below).
+const hostPointers = new WeakMap();
+// The popup takes the mouse only while the pointer is on the card.
+const INPUT_ATTR = "whimsy-hc-input";
+// Wheel events closer together than this are one run (a flick and its
+// momentum): a run that began by scrolling the card stays with the card.
+const WHEEL_RUN_MS = 200;
 
 function hostOf(url) {
   try {
@@ -198,12 +205,18 @@ export const WhimsyHoverCards = {
    * which never becomes a popover, so it looked right. Both are plain
    * windows now (as WhimsySurface.openOver does for its panels).
    */
-  createHost(doc, id) {
+  createHost(doc, id, hooks = {}) {
     const panel = doc.createXULElement("panel");
     panel.id = id;
     panel.classList.add("whimsy-hc-host-panel");
     panel.setAttribute("nonnative", "true");
     panel.setAttribute("noautofocus", "true");
+    // Not a rollup popup. While one is open, macOS swallows every wheel
+    // event outside it unless it's an arrow panel (nsCocoaWindow's
+    // maybeRollup, nsXULPopupManager::ShouldConsumeOnMouseWheelEvent), so
+    // an open card stopped the page from scrolling anywhere. The hosts
+    // close it themselves (leaving, keys, blur, a click elsewhere, a scroll).
+    panel.setAttribute("noautohide", "true");
     panel.setAttribute("consumeoutsideclicks", "false");
     panel.setAttribute("animate", "false");
     panel.setAttribute("flip", "both");
@@ -211,7 +224,40 @@ export const WhimsyHoverCards = {
     const stack = doc.createElementNS(HTML, "div");
     stack.className = "whimsy-link-hover-stack";
     panel.append(stack);
+    hostPointers.set(panel, new HostPointer(panel, hooks));
     return panel;
+  },
+
+  /**
+   * Tests: whether a run of wheel events that scrolled the card still holds
+   * the wheel (the next run goes past the card's end to the page).
+   */
+  cardHoldsWheel(panel) {
+    return !!hostPointers.get(panel)?.holdsWheel;
+  },
+
+  /**
+   * Passes a wheel event the card didn't take on to the page in `browser`,
+   * at the same place on screen.
+   */
+  forwardWheel(browser, event) {
+    try {
+      const actor = browser?.browsingContext?.currentWindowGlobal?.getActor("WhimsyAIPreview");
+      actor?.sendAsyncMessage("WhimsyAIPreview:Scroll", {
+        screenX: event.screenX,
+        screenY: event.screenY,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        deltaZ: event.deltaZ,
+        deltaMode: event.deltaMode,
+        // The modifiers go along, so the page does what this wheel does there
+        // (zoom, history, or a scroll).
+        modifiers:
+          (event.altKey ? 0x01 : 0) | (event.ctrlKey ? 0x02 : 0) | (event.shiftKey ? 0x04 : 0) | (event.metaKey ? 0x08 : 0),
+      });
+    } catch {
+      // Not a web page, or its process is already gone.
+    }
   },
 
   // No picture: a tile with the site's icon, in the picture's space.
@@ -573,6 +619,165 @@ export const WhimsyHoverCards = {
   },
 };
 
+// Whether this wheel zooms rather than scrolls, per the
+// mousewheel.with_<modifier>.action prefs (3 and 5 zoom).
+function wheelZooms(event) {
+  const mod = event.ctrlKey ? "control" : event.metaKey ? "meta" : event.altKey ? "alt" : event.shiftKey ? "shift" : "default";
+  const action = Services.prefs.getIntPref(`mousewheel.with_${mod}.action`, 1);
+  return action == 3 || action == 5;
+}
+
+/**
+ * Where a card's popup takes the mouse. Its window is bigger than the card
+ * (room for the shadow, whimsy-ai.css), and macOS can't let the pointer
+ * through part of a window (nsCocoaWindow::SetInputRegion ignores
+ * -moz-window-input-region-margin), so that see-through room sat over the
+ * link under the pointer, the tabs beside the card, and the page: it took
+ * their clicks and wheel. So the popup is mouse-transparent (pointer-events:
+ * none, the whole window) until the pointer is on the card itself, which is
+ * read from the window's own mousemoves; then it takes the mouse for the
+ * card's links, buttons, and the hover bridge.
+ *
+ * The wheel over the card: the card scrolls first while it can go further
+ * that way; otherwise (and for the rest of a run that started at its end)
+ * `hooks.wheelOut(event)` passes it to the page and closes the card, so the
+ * rest of the gesture lands on the page itself. `hooks.onCard(over)` says
+ * when the pointer reaches or leaves the card; `hooks.close()` is a press
+ * anywhere outside it.
+ */
+class HostPointer {
+  constructor(panel, hooks) {
+    this.panel = panel;
+    this.hooks = hooks;
+    this.win = null;
+    this.over = false;
+    this.cardRunAt = -Infinity;
+    panel.addEventListener("popupshown", this);
+    panel.addEventListener("popuphidden", this);
+    panel.addEventListener("wheel", this, { passive: true });
+    // A pinch that starts on the card zooms the page, not the card: the
+    // card goes so the rest of the gesture reaches the page.
+    panel.addEventListener("MozMagnifyGestureStart", this);
+  }
+
+  get holdsWheel() {
+    return Date.now() - this.cardRunAt < WHEEL_RUN_MS;
+  }
+
+  handleEvent(event) {
+    switch (event.type) {
+      case "popupshown":
+        if (event.target == this.panel) {
+          this.start();
+        }
+        break;
+      case "popuphidden":
+        if (event.target == this.panel) {
+          this.stop();
+        }
+        break;
+      case "mousemove":
+        this.track(event);
+        break;
+      case "mousedown":
+        if (!this.panel.contains(event.target)) {
+          this.hooks.close?.();
+        }
+        break;
+      case "wheel":
+        this.wheel(event);
+        break;
+      case "MozMagnifyGestureStart":
+        this.hooks.close?.();
+        break;
+    }
+  }
+
+  start() {
+    this.stop();
+    this.win = this.panel.ownerDocument.defaultView;
+    this.win.addEventListener("mousemove", this, true);
+    this.win.addEventListener("mousedown", this, true);
+  }
+
+  stop() {
+    this.win?.removeEventListener("mousemove", this, true);
+    this.win?.removeEventListener("mousedown", this, true);
+    this.win = null;
+    this.over = false;
+    this.cardRunAt = -Infinity;
+    this.setInput(false);
+  }
+
+  setInput(on) {
+    if (this.panel.hasAttribute(INPUT_ATTR) == on) {
+      return;
+    }
+    this.panel.toggleAttribute(INPUT_ATTR, on);
+    // Restyle now: the popup's window takes the change on its next style
+    // flush, and the next event mustn't wait for a refresh.
+    this.panel.ownerDocument.defaultView.getComputedStyle(this.panel).pointerEvents;
+  }
+
+  track(event) {
+    const over = this.isOnCard(event.screenX, event.screenY);
+    if (over == this.over) {
+      return;
+    }
+    this.over = over;
+    this.setInput(over);
+    this.hooks.onCard?.(over);
+  }
+
+  // The card's own box on screen (the popup's window minus its room).
+  isOnCard(x, y) {
+    const panel = this.panel;
+    const card = panel.state == "open" && panel.querySelector(".whimsy-link-hover-card");
+    if (!card) {
+      return false;
+    }
+    const screen = panel.getOuterScreenRect();
+    const box = panel.getBoundingClientRect();
+    const rect = card.getBoundingClientRect();
+    const left = screen.x + rect.left - box.left;
+    const top = screen.y + rect.top - box.top;
+    return x >= left && x < left + rect.width && y >= top && y < top + rect.height;
+  }
+
+  wheel(event) {
+    const now = Date.now();
+    // A wheel the prefs make a zoom (Ctrl on Windows and Linux; whatever the
+    // user set on macOS) zooms the page: never the card's to keep.
+    const zoom = wheelZooms(event);
+    if (!zoom && (this.scrollerFor(event) || now - this.cardRunAt < WHEEL_RUN_MS)) {
+      this.cardRunAt = now;
+      return;
+    }
+    this.hooks.wheelOut?.(event);
+  }
+
+  // The card, or a box in it, that can still scroll the way the wheel goes.
+  scrollerFor(event) {
+    const card = event.target?.closest?.(".whimsy-link-hover-card");
+    if (!card) {
+      return null;
+    }
+    const win = card.ownerDocument.defaultView;
+    const can = (overflow, delta, at, max) =>
+      delta != 0 && /auto|scroll/.test(overflow) && max > 0.5 && (delta > 0 ? at < max - 0.5 : at > 0.5);
+    for (let el = event.target; el && card.contains(el); el = el.parentElement) {
+      const style = win.getComputedStyle(el);
+      if (
+        can(style.overflowY, event.deltaY, el.scrollTop, el.scrollHeight - el.clientHeight) ||
+        can(style.overflowX, event.deltaX, el.scrollLeft, el.scrollWidth - el.clientWidth)
+      ) {
+        return el;
+      }
+    }
+    return null;
+  }
+}
+
 // A tab's card: TabHoverStart and TabHoverEnd from the tab strip (Zen's
 // sidebar), one panel beside the tab.
 class TabHover {
@@ -682,8 +887,22 @@ class TabHover {
       return panel;
     }
     const doc = this.win.document;
-    // The link card's host, made the same way: one look for both.
-    panel = WhimsyHoverCards.createHost(doc, TAB_PANEL_ID);
+    // The link card's host, made the same way: one look for both. The
+    // wheel the card doesn't take scrolls the page under it, if that's
+    // where the pointer is, and closes the card.
+    panel = WhimsyHoverCards.createHost(doc, TAB_PANEL_ID, {
+      wheelOut: event => {
+        const browser = this.win.gBrowser.selectedBrowser;
+        const box = browser?.getBoundingClientRect();
+        const x = event.screenX - this.win.mozInnerScreenX;
+        const y = event.screenY - this.win.mozInnerScreenY;
+        if (box && x >= box.left && x < box.right && y >= box.top && y < box.bottom) {
+          WhimsyHoverCards.forwardWheel(browser, event);
+        }
+        this.hide();
+      },
+      close: () => this.hide(),
+    });
     panel.addEventListener("popupshown", () => {
       this.win.requestAnimationFrame(() => {
         if (panel.state == "open") {

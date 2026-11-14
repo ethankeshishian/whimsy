@@ -440,3 +440,76 @@ function whimsyCaptureMotion(match, win = window) {
     },
   };
 }
+
+// W26 hover-scroll: a wheel notch at a point on screen (CSS px), from the
+// OS's side of Gecko on macOS: it goes through the window's own scrollWheel
+// handling (and a rollup popup's chance to swallow it), as a real mouse
+// wheel does. Elsewhere, the window's synthesized wheel at that point.
+async function whimsyNativeWheel(screenX, screenY, deltaY, win = window) {
+  if (AppConstants.platform != "macosx") {
+    await new Promise(resolve =>
+      EventUtils.synthesizeWheel(win.document.documentElement, screenX - win.mozInnerScreenX, screenY - win.mozInnerScreenY,
+        { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY }, win, resolve)
+    );
+    return;
+  }
+  const scale = win.devicePixelRatio;
+  const utils = win.windowUtils;
+  await new Promise(resolve =>
+    utils.sendNativeMouseScrollEvent(
+      Math.round(screenX * scale), Math.round(screenY * scale),
+      0, 0, deltaY, 0, 0, utils.MOUSESCROLL_SCROLL_LINES,
+      win.document.documentElement, { onCompleteDispatch: () => resolve() }
+    )
+  );
+}
+
+// The window's own synthesized wheel at a point on screen (CSS px): it goes
+// to whatever takes the mouse there, a popup that does or the page under it.
+// `modifiers`: { ctrlKey, metaKey, ... } for a zooming wheel.
+async function whimsyWheelAt(screenX, screenY, deltaY, win = window, modifiers = {}) {
+  await new Promise(resolve =>
+    EventUtils.synthesizeWheel(win.document.documentElement, screenX - win.mozInnerScreenX, screenY - win.mozInnerScreenY,
+      { deltaMode: WheelEvent.DOM_DELTA_LINE, deltaY, ...modifiers }, win, resolve)
+  );
+}
+
+// A pointer event at a point on screen (CSS px), through the window, so an
+// open popup that takes the mouse there gets it.
+function whimsyMouseAt(screenX, screenY, event = {}, win = window) {
+  EventUtils.synthesizeMouse(win.document.documentElement, screenX - win.mozInnerScreenX, screenY - win.mozInnerScreenY, event, win);
+}
+
+// The screen box (CSS px) of an element in a tab's page.
+async function whimsyContentRect(browser, selector) {
+  const r = await SpecialPowers.spawn(browser, [selector], sel => {
+    const box = content.document.querySelector(sel).getBoundingClientRect();
+    return { x: content.mozInnerScreenX + box.left, y: content.mozInnerScreenY + box.top, width: box.width, height: box.height };
+  });
+  return r;
+}
+
+// Moves the real (native) pointer to a point on screen (CSS px). The native
+// wheel above moves it too, and the OS, the popups, and the page then go by
+// where it really is, so tests that use the native wheel move with it.
+async function whimsyNativeMove(screenX, screenY, win = window) {
+  await new Promise(resolve =>
+    EventUtils.synthesizeNativeMouseEvent(
+      { type: "mousemove", screenX, screenY, win, elementOnWidget: win.document.documentElement },
+      resolve
+    )
+  );
+}
+
+// The real pointer to the screen centre of an element in a tab's page.
+async function whimsyNativeMoveTo(browser, selector, win = window) {
+  const r = await whimsyContentRect(browser, selector);
+  await whimsyNativeMove(r.x + r.width / 2, r.y + r.height / 2, win);
+}
+
+// Parks the real pointer where it hovers nothing: the bottom left corner
+// of the selected tab's page, so the next test doesn't start under it.
+async function whimsyParkPointer(win = window) {
+  const box = win.gBrowser.selectedBrowser.getBoundingClientRect();
+  await whimsyNativeMove(win.mozInnerScreenX + box.left + 4, win.mozInnerScreenY + box.bottom - 4, win);
+}

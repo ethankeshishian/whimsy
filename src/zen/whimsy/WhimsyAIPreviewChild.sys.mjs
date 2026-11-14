@@ -17,6 +17,9 @@ const TINT_MS = 600;
 
 export class WhimsyAIPreviewChild extends JSWindowActorChild {
   link = null;
+  scrollWatch = null;
+  // A link a scroll took the card from, while the pointer is still on it.
+  rearm = null;
 
   get enabled() {
     return Services.prefs.getBoolPref(PREF, true);
@@ -31,9 +34,13 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
         if (this.link && !this.link.contains(event.relatedTarget)) {
           this.leave();
         }
+        if (this.rearm && !this.rearm.link.contains(event.relatedTarget)) {
+          this.watchRearm(null);
+        }
         break;
       case "pagehide":
         this.leave();
+        this.watchRearm(null);
         break;
     }
   }
@@ -55,6 +62,8 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
 
   didDestroy() {
     this.clearPassage();
+    this.watchScroll(false);
+    this.watchRearm(null);
   }
 
   // ---- A summary's passage chip (page-1.3) ----
@@ -313,8 +322,9 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     return true;
   }
 
-  // The preview card owns wheel input over its rect; replay it on the page underneath.
-  scrollBy({ screenX, screenY, deltaX, deltaY, deltaZ, deltaMode }) {
+  // A wheel event over a hover card that the card didn't take (it was at
+  // its end): replayed on the page underneath, as the card closes.
+  scrollBy({ screenX, screenY, deltaX, deltaY, deltaZ, deltaMode, modifiers = 0 }) {
     const win = this.contentWindow;
     const utils = win?.windowUtils;
     if (!utils) {
@@ -322,9 +332,11 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     }
     const x = screenX - win.mozInnerScreenX;
     const y = screenY - win.mozInnerScreenY;
-    const lineOrPageDeltaX = deltaX > 0 ? Math.floor(deltaX) : Math.ceil(deltaX);
-    const lineOrPageDeltaY = deltaY > 0 ? Math.floor(deltaY) : Math.ceil(deltaY);
-    utils.sendWheelEvent(x, y, deltaX, deltaY, deltaZ, deltaMode, 0, lineOrPageDeltaX, lineOrPageDeltaY, 0);
+    // Whole lines or pages only; pixel deltas (a trackpad) have none.
+    const whole = delta => (deltaMode == 0 ? 0 : Math.trunc(delta));
+    const lineOrPageDeltaX = whole(deltaX);
+    const lineOrPageDeltaY = whole(deltaY);
+    utils.sendWheelEvent(x, y, deltaX, deltaY, deltaZ, deltaMode, modifiers & 0x0f, lineOrPageDeltaX, lineOrPageDeltaY, 0);
   }
 
   onOver(event) {
@@ -339,7 +351,66 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       return;
     }
     this.link = link;
+    this.watchScroll(true);
     this.show();
+  }
+
+  // While a link is hovered, a scroll that moves it (the page's own, or a
+  // box it sits in) counts as leaving it: its card closes, and a link that
+  // slides under a still pointer mid-scroll gets no card until the page
+  // stops (the card's popup must not drop in under a gesture in progress).
+  watchScroll(on) {
+    if (on && !this.scrollWatch) {
+      const win = this.contentWindow;
+      if (!win) {
+        return;
+      }
+      const onScroll = event => {
+        const link = this.link;
+        const target = event.target;
+        if (link && (target == link.ownerDocument || (target?.nodeType == 1 && target.contains(link)))) {
+          this.leave();
+          this.watchRearm(link);
+        }
+      };
+      win.addEventListener("scroll", onScroll, { capture: true, passive: true });
+      this.scrollWatch = { win, onScroll };
+    } else if (!on && this.scrollWatch) {
+      const { win, onScroll } = this.scrollWatch;
+      this.scrollWatch = null;
+      try {
+        win.removeEventListener("scroll", onScroll, { capture: true });
+      } catch {
+        // The page is already gone.
+      }
+    }
+  }
+
+  // The page scrolled under a pointer that stayed on a link: no mouseover
+  // comes again while it stays there, so the pointer's next real move on
+  // that link counts as arriving on it (once the page has stopped).
+  watchRearm(link) {
+    if (this.rearm) {
+      const { win, onMove } = this.rearm;
+      this.rearm = null;
+      try {
+        win.removeEventListener("mousemove", onMove, { capture: true });
+      } catch {
+        // The page is already gone.
+      }
+    }
+    const win = link && this.contentWindow;
+    if (!win) {
+      return;
+    }
+    const onMove = event => {
+      if (event.target?.closest?.("a[href]") == link && this.link != link) {
+        this.watchRearm(null);
+        this.onOver(event);
+      }
+    };
+    win.addEventListener("mousemove", onMove, { capture: true, passive: true });
+    this.rearm = { win, link, onMove };
   }
 
   // In-page links (href="#", a table of contents) point at the page that's
@@ -374,6 +445,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
   leave() {
     const link = this.link;
     this.link = null;
+    this.watchScroll(false);
     if (link && this.shown) {
       this.shown = false;
       this.sendAsyncMessage("WhimsyAIPreview:Leave", { url: link.href });
