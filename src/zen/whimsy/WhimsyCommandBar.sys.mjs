@@ -588,6 +588,11 @@ const ZEN_ACTION_NEEDS = {
   "zen-action-previous-tab": "otherTab",
 };
 
+// Zen's rows that go first in the "/" list on a "Problem loading page",
+// where reloading is what helps (the provider's command-bar-reload-first
+// hotfix reads whimsyFirst).
+const ZEN_ACTIONS_FIRST_ON_ERROR = ["zen-action-reload-tab", "zen-action-reload-tab-without-cache"];
+
 export const WhimsyCommandBar = {
   NEW_THINGS,
   GLANCE_SIZES,
@@ -616,6 +621,11 @@ export const WhimsyCommandBar = {
       const zen = action.isAvailable;
       action.whimsyNeeds = need;
       action.isAvailable = win => checks[need](win) && zen.call(action, win);
+    }
+    for (const action of globalActions) {
+      if (ZEN_ACTIONS_FIRST_ON_ERROR.includes(action.l10nId)) {
+        action.whimsyFirst = win => lazy.WhimsyCommands.isErrorPage(win?.gBrowser?.selectedBrowser);
+      }
     }
   },
 
