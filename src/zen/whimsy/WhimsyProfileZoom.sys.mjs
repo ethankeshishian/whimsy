@@ -104,16 +104,15 @@ export const WhimsyProfileZoom = {
       }
       cps.removeObserverForName(name, observer);
     };
-    // Everything else (the global zoom, extractDomain, …) is the store's own.
-    return new Proxy(cps, {
-      get: (target, prop) => {
-        if (Object.hasOwn(wrapper, prop)) {
-          return wrapper[prop];
-        }
-        const value = target[prop];
-        return typeof value == "function" ? value.bind(target) : value;
-      },
-    });
+    // Everything else (the global zoom, extractDomain, …) is the store's
+    // own. A plain object, not a Proxy: an XPCOM service's methods are
+    // non-configurable, so a Proxy can't answer for them.
+    for (const name in cps) {
+      if (!(name in wrapper) && typeof cps[name] == "function") {
+        wrapper[name] = (...args) => cps[name](...args);
+      }
+    }
+    return wrapper;
   },
 
   // A deleted profile's zoom goes with it (its container's site data does).

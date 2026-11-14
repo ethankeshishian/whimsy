@@ -56,8 +56,9 @@ async function closePanel() {
 
 async function openTab(url, userContextId = 0) {
   const tab = BrowserTestUtils.addTab(gBrowser, url, { userContextId });
+  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
   gBrowser.selectedTab = tab;
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url);
+  await loaded;
   return tab;
 }
 
