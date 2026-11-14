@@ -1,0 +1,72 @@
+diff --git a/layout/base/PresShell.cpp b/layout/base/PresShell.cpp
+--- a/layout/base/PresShell.cpp
++++ b/layout/base/PresShell.cpp
+@@ -9617,8 +9617,54 @@
+       PointerLockManager::Unlock("EscapeKey");
+     }
+   }
++}
++
++// Whimsy: Settings > Look and Feel > "Press Esc twice to leave full screen".
++// With it on, the first Esc in a page's full screen goes to the page like any
++// other key and the full-screen notice asks for a second press; an Esc within
++// a second of the first one's release exits as usual. The parent process
++// decides: it forwards the first press to content and keeps the second (as it
++// keeps every Esc without the setting), so a content process lets each Esc it
++// sees through.
++static constexpr uint32_t kWhimsyDoubleEscapeIntervalMs = 1000;
++// When the first press last went down or up (null: no press to pair with).
++static TimeStamp sWhimsyFirstEscape;
++// The first press's keydown was let through and its keyup hasn't come yet.
++static bool sWhimsyFirstEscapeHeld = false;
++
++static bool WhimsyDoubleEscapeEnabled() {
++  return Preferences::GetBool("whimsy.feature.double-escape", false) &&
++         Preferences::GetBool("whimsy.fullscreen.double-escape", false);
+ }
+ 
++// True when this Esc event belongs to a first press: it is dispatched as is
++// and doesn't exit full screen.
++static bool WhimsyIsFirstEscape(WidgetKeyboardEvent* aKeyboardEvent,
++                                Document* aRoot) {
++  if (aKeyboardEvent->mMessage == eKeyDown && !aKeyboardEvent->mIsRepeat) {
++    if (!sWhimsyFirstEscapeHeld && !sWhimsyFirstEscape.IsNull() &&
++        (aKeyboardEvent->mTimeStamp - sWhimsyFirstEscape) <=
++            TimeDuration::FromMilliseconds(kWhimsyDoubleEscapeIntervalMs)) {
++      sWhimsyFirstEscape = TimeStamp();
++      return false;
++    }
++    sWhimsyFirstEscape = aKeyboardEvent->mTimeStamp;
++    sWhimsyFirstEscapeHeld = true;
++    nsContentUtils::DispatchEventOnlyToChrome(
++        aRoot, aRoot, u"MozDOMFullscreen:WhimsyEscapeAgain"_ns,
++        CanBubble::eYes, Cancelable::eNo, /* DefaultAction */ nullptr);
++    return true;
++  }
++  if (!sWhimsyFirstEscapeHeld) {
++    return false;
++  }
++  if (aKeyboardEvent->mMessage == eKeyUp) {
++    sWhimsyFirstEscapeHeld = false;
++    sWhimsyFirstEscape = aKeyboardEvent->mTimeStamp;
++  }
++  return true;
++}
++
+ void PresShell::EventHandler::MaybeHandleKeyboardEventBeforeDispatch(
+     WidgetKeyboardEvent* aKeyboardEvent) {
+   MOZ_ASSERT(aKeyboardEvent);
+@@ -9675,6 +9721,13 @@
+ 
+       // If fullscreen keyboard-lock is enabled, return here, as we don't allow
+       // escaping from pointerlock when escape is pressed.
++      return;
++    }
++
++    // Whimsy: Press Esc twice to leave full screen (see WhimsyIsFirstEscape).
++    if (WhimsyDoubleEscapeEnabled() &&
++        (XRE_IsContentProcess() ||
++         WhimsyIsFirstEscape(aKeyboardEvent, root))) {
+       return;
+     }
+ 

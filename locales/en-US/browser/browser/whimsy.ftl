@@ -6307,6 +6307,14 @@ whimsy-look-find-card =
     .label = Find as a floating card at the top right of the page
 whimsy-setting-find-card = Floating Find
     .keywords = find bar, find in page, search page, cmd f, find card
+# W27: Settings › Look and Feel. The first Esc in a page's full screen goes
+# to the page; a second one within a second leaves full screen.
+whimsy-look-double-escape =
+    .label = Press Esc twice to leave full screen
+whimsy-setting-double-escape = Esc Twice for Full Screen
+    .keywords = escape, esc, full screen, fullscreen, video, exit full screen, double escape
+# The full-screen notice's button after the first Esc (the setting above is on).
+whimsy-fullscreen-press-esc-again = Press Esc again to exit full screen
 whimsy-find-more =
     .tooltiptext = More find options
     .aria-label = More find options
