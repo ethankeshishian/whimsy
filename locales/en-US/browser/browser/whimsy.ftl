@@ -1965,6 +1965,7 @@ whimsy-replay-tool =
         [form_input] Filled in a field
         [scroll] Scrolled
         [screenshot] Took a screenshot
+        [save_pdf] Saved the page as a PDF
         [shield] Shield paused Claude
        *[other] { $tool }
     }
@@ -6659,6 +6660,11 @@ whimsy-memory-count = { $count ->
 }
 whimsy-memory-no-match = No memories match.
 whimsy-memory-export-button = Export Markdown…
+# W27: Settings › AI › Memory. The person's own words, added to every AI
+# request as their style preference.
+whimsy-ai-style-label = How AI writes
+whimsy-ai-style-detail = Tone and style for every answer, in your own words.
+whimsy-ai-style-placeholder = Short and plain, no emoji, and British spelling.
 # The exported file's heading, the save dialog's title, and its file type.
 whimsy-memory-export-heading = Memory
 whimsy-memory-export-picker-title = Export Memory

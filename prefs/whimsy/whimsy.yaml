@@ -442,6 +442,11 @@
 - name: whimsy.ai.claude.auth
   value: ""
 
+# W27: Settings › AI › How AI writes. The person's tone and style, added
+# to every AI request's system prompt (WhimsyAIRouter); empty adds nothing.
+- name: whimsy.ai.style
+  value: ""
+
 # OpenAI's one-time "You're using your ChatGPT plan" note has been shown.
 - name: whimsy.ai.openai.plan-welcomed
   value: false
