@@ -333,6 +333,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAIMemory.sys.mjs",
 ]
 
+# W27 longctx
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyAIPassages.sys.mjs",
+]
+
 # W23 routines-ui
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyRoutinesUI.sys.mjs",
