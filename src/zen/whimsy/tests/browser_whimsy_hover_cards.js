@@ -673,7 +673,9 @@ add_task(async function page_scrolls_under_open_cards() {
 
     // A link's card, loaded with its bullets (from the cache now).
     await scrollPageTo(browser, 0);
-    await hoverLink(browser);
+    // The real pointer, which the native wheel above has moved.
+    await whimsyNativeMoveTo(browser, "#away");
+    await whimsyNativeMoveTo(browser, "#link");
     const linkCard = await openLinkCard();
     await TestUtils.waitForCondition(() => linkCard.querySelector(".whimsy-hc-desc.is-text"), "The link's card has loaded");
     checkPoints(linkCard, "Link card");
@@ -685,6 +687,7 @@ add_task(async function page_scrolls_under_open_cards() {
   } finally {
     release();
     await closeAll();
+    await whimsyParkPointer();
     BrowserTestUtils.removeTab(other);
     BrowserTestUtils.removeTab(tab);
   }
@@ -724,6 +727,7 @@ add_task(async function card_scrolls_first() {
     });
   } finally {
     await closeAll();
+    await whimsyParkPointer();
   }
 });
 

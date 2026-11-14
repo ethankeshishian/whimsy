@@ -196,10 +196,16 @@ function scrollPageTo(browser, y) {
 
 async function hoverLinkCard(browser, { loading = false } = {}) {
   await scrollPageTo(browser, 200);
-  await BrowserTestUtils.synthesizeMouseAtCenter("#away", { type: "mousemove" }, browser);
+  // The real pointer, which the native wheel moves too.
+  await whimsyNativeMoveTo(browser, "#away");
   await closed();
-  await BrowserTestUtils.synthesizeMouseAtCenter("#link", { type: "mousemove" }, browser);
-  const p = await openCards();
+  await whimsyNativeMoveTo(browser, "#link");
+  const p = await openCards().catch(async e => {
+    // What the card's host and the page knew, for a failure.
+    const hovered = await SpecialPowers.spawn(browser, [], () => [...content.document.querySelectorAll(":hover")].map(n => n.id || n.localName).join(">"));
+    info(`No card: target ${host.target?.key} shown ${host.target?.shown}, pending ${host.pending?.key}, overPanel ${host.overPanel}, panel ${panel()?.state}, hovered ${hovered}`);
+    throw e;
+  });
   if (loading) {
     await TestUtils.waitForCondition(() => p.querySelector(".whimsy-hc-desc.is-loading"), "The card is still loading");
   }
@@ -212,6 +218,12 @@ async function pageScrolls(browser, what, wheel) {
   const before = await pageY(browser);
   await wheel();
   await TestUtils.waitForCondition(async () => (await pageY(browser)) != before, `${what}: the page scrolls`);
+}
+
+// The real pointer onto the card.
+async function pointerOnCard(p) {
+  const r = cardRect(p);
+  await whimsyNativeMove(r.x + r.width / 2, r.y + r.height / 2);
 }
 
 // The card on screen, and a point in its see-through room beside it.
@@ -250,8 +262,7 @@ add_task(async function page_scrolls_under_an_open_card() {
       // Over the card itself, which has nothing to scroll: the page scrolls,
       // and the card goes at once so the rest of the gesture lands there.
       p = await hoverLinkCard(browser, { loading: true });
-      const card = p.querySelector(".whimsy-link-hover-card");
-      EventUtils.synthesizeMouseAtCenter(card, { type: "mousemove" });
+      await pointerOnCard(p);
       await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
       is(getComputedStyle(p).pointerEvents, "auto", "...which takes the mouse now");
       await pageScrolls(browser, "A wheel over the card", () => whimsyWheelAt(cardRect(p).x + 20, cardRect(p).y + 20, 3));
@@ -259,6 +270,7 @@ add_task(async function page_scrolls_under_an_open_card() {
     });
   } finally {
     host.hide({ animate: false });
+    await whimsyParkPointer();
     await closed();
     restore();
   }
@@ -292,8 +304,7 @@ add_task(async function page_zooms_with_a_card_open() {
 
       // Over the card: it isn't the card's to scroll; the page zooms.
       p = await hoverLinkCard(browser, { loading: true });
-      const card = p.querySelector(".whimsy-link-hover-card");
-      EventUtils.synthesizeMouseAtCenter(card, { type: "mousemove" });
+      await pointerOnCard(p);
       await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
       await zooms("Ctrl and the wheel over the card", () =>
         whimsyWheelAt(cardRect(p).x + 20, cardRect(p).y + 20, -1, window, { ctrlKey: true })
@@ -304,6 +315,7 @@ add_task(async function page_zooms_with_a_card_open() {
     });
   } finally {
     host.hide({ animate: false });
+    await whimsyParkPointer();
     await closed();
     restore();
     await SpecialPowers.popPrefEnv();
@@ -321,12 +333,14 @@ add_task(async function card_comes_back_after_a_scroll_under_a_still_pointer() {
       await hoverLinkCard(browser);
       await scrollPageTo(browser, 202);
       await closed();
-      await BrowserTestUtils.synthesizeMouse("#link", 4, 4, { type: "mousemove" }, browser);
+      const link = await whimsyContentRect(browser, "#link");
+      await whimsyNativeMove(link.x + 4, link.y + 4);
       await openCards();
       ok(true, "The pointer moved on the link: its card is back");
     });
   } finally {
     host.hide({ animate: false });
+    await whimsyParkPointer();
     await closed();
     restore();
   }
@@ -356,6 +370,7 @@ add_task(async function page_scrolls_under_a_card_while_loading() {
     await closed();
   } finally {
     host.hide({ animate: false });
+    await whimsyParkPointer();
     BrowserTestUtils.removeTab(tab);
     restore();
   }
@@ -386,7 +401,7 @@ add_task(async function one_click_with_a_card_open() {
       await tallPage(browser);
       const p = await hoverLinkCard(browser);
       const card = p.querySelector(".whimsy-link-hover-card");
-      EventUtils.synthesizeMouseAtCenter(card, { type: "mousemove" });
+      await pointerOnCard(p);
       await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
       const loaded = BrowserTestUtils.browserLoaded(browser, false, url => url.endsWith("?clicked"));
       EventUtils.synthesizeMouseAtCenter(card, {});
@@ -395,6 +410,7 @@ add_task(async function one_click_with_a_card_open() {
     });
   } finally {
     host.hide({ animate: false });
+    await whimsyParkPointer();
     await closed();
     restore();
   }

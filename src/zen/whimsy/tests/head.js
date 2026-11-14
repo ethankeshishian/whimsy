@@ -488,3 +488,28 @@ async function whimsyContentRect(browser, selector) {
   });
   return r;
 }
+
+// Moves the real (native) pointer to a point on screen (CSS px). The native
+// wheel above moves it too, and the OS, the popups, and the page then go by
+// where it really is, so tests that use the native wheel move with it.
+async function whimsyNativeMove(screenX, screenY, win = window) {
+  await new Promise(resolve =>
+    EventUtils.synthesizeNativeMouseEvent(
+      { type: "mousemove", screenX, screenY, win, elementOnWidget: win.document.documentElement },
+      resolve
+    )
+  );
+}
+
+// The real pointer to the screen centre of an element in a tab's page.
+async function whimsyNativeMoveTo(browser, selector, win = window) {
+  const r = await whimsyContentRect(browser, selector);
+  await whimsyNativeMove(r.x + r.width / 2, r.y + r.height / 2, win);
+}
+
+// Parks the real pointer where it hovers nothing: the bottom left corner
+// of the selected tab's page, so the next test doesn't start under it.
+async function whimsyParkPointer(win = window) {
+  const box = win.gBrowser.selectedBrowser.getBoundingClientRect();
+  await whimsyNativeMove(win.mozInnerScreenX + box.left + 4, win.mozInnerScreenY + box.bottom - 4, win);
+}
