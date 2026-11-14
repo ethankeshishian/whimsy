@@ -131,7 +131,13 @@ if [ $prc != 0 ]; then
   step precheck red $(( $(date +%s) - ts ))
   red "precheck: $(grep -m1 '^PROBLEM' $run/precheck.log | cut -c1-300) ($(grep -c '^PROBLEM' $run/precheck.log) problem(s), $run/precheck.log)"
 fi
-step precheck ok $(( $(date +%s) - ts )) "build=$build_kind"
+# The engine is shared: it must also catch up with whatever the last build
+# was made from (another lane's merge, a ship), not just with dev.
+lane_kind=$build_kind
+need=$(python3 $WHIMSY_TOOLS/buildstate.py need --to $mergesha --at-least "${build_kind:-full}" 2>>$run/precheck.log)
+build_kind=${need%%$'\t'*}; [ -n "$build_kind" ] || build_kind=full
+echo "ENGINE: ${need#*$'\t'}" >> $run/precheck.log
+step precheck ok $(( $(date +%s) - ts )) "build=$build_kind$( [ "$build_kind" != "$lane_kind" ] && echo " (lane alone: ${lane_kind:-?}; engine: ${need#*$'\t'})" | cut -c1-200)"
 fault precheck
 
 # 3. Import (ffprefs, patches, links, strings, engine overrides).
@@ -152,8 +158,10 @@ case $build_kind in
   binaries) bcmd='./mach build binaries && ./mach build faster';;
   *)        bcmd='./mach build'; build_kind=full;;
 esac
+python3 $WHIMSY_TOOLS/buildstate.py begin $mergesha --by "lane-$mode $short" 2>/dev/null
 (cd engine && eval "$bcmd") > $run/build.log 2>&1 || { step build red $(( $(date +%s) - ts )) "$build_kind"; red "build ($build_kind) failed: $(grep -m1 -E 'error:|Error|failed' $run/build.log | cut -c1-200) ($run/build.log)"; }
 python3 whimsy/updater/updater.py record-build >/dev/null 2>&1 || true
+python3 $WHIMSY_TOOLS/buildstate.py record $mergesha --kind $build_kind --by "lane-$mode $short" 2>/dev/null
 step build ok $(( $(date +%s) - ts )) "$build_kind"
 fault build
 
