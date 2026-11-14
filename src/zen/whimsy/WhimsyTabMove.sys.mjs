@@ -95,23 +95,20 @@ export const WhimsyTabMove = {
   },
 
   // Moves `tab` one step toward the start (-1) or end (+1) of the strip.
-  // When `tab` is the selected tab this is exactly
-  // gBrowser.moveTabBackward()/moveTabForward(); WhimsySidebarNav's
-  // Option+Up/Down (item 2) calls it for its own focused tab, which can
-  // differ from gBrowser.selectedTab, so the group-entry logic below
-  // mirrors Tabbrowser.sys.mjs's moveTabForward/moveTabBackward for an
-  // arbitrary tab via the public gBrowser.zenHandleTabMove.
+  // This mirrors Tabbrowser.sys.mjs's moveTabForward/moveTabBackward (same
+  // neighbor lookup, same zenHandleTabMove/#handleTabMove housekeeping) so
+  // the selected tab behaves exactly as the native shortcut would, but
+  // reimplemented rather than delegated: Tabbrowser.sys.mjs's own group-entry
+  // branches call `.insertBefore()`/`.append()` directly on the group host,
+  // which native tab groups redirect into their container but a Zen folder's
+  // own groupContainer wrapper does not (only `appendChild()` is redirected
+  // there; see tabgroup.mjs), so entering an *expanded* folder through the
+  // native functions silently fails to join it. WhimsySidebarNav's
+  // Option+Up/Down (item 2) also calls this for its own focused tab, which
+  // can differ from gBrowser.selectedTab.
   move(win, tab, direction) {
     if (!this.canMove(win, tab, direction)) {
       return false;
-    }
-    if (tab == win.gBrowser.selectedTab) {
-      if (direction > 0) {
-        win.gBrowser.moveTabForward();
-      } else {
-        win.gBrowser.moveTabBackward();
-      }
-      return true;
     }
     const { gBrowser } = win;
     const tabOrSplit = tab.splitview || tab;
