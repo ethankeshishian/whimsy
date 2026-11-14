@@ -15,6 +15,9 @@
 //   GPSLatitude; APP13 IPTC ("Oakland"); a COM with coordinates.
 // - whimsy_photo_meta.png: eXIf (the same Exif), tEXt with coordinates,
 //   iTXt XMP, and zTXt "Location".
+// - whimsy_photo_meta_mpf.jpg: a multi-picture JPEG (iPhone photos, gain
+//   maps, depth): the JPEG above with an APP2 "MPF" index, followed after
+//   its EOI by a secondary image with its own camera Exif and GPS.
 
 const { WhimsyImageMetadata, stripJpeg, stripPng, stripImageMetadata, orientationOf } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyImageMetadata.sys.mjs"
@@ -130,6 +133,28 @@ add_task(function jpeg_loses_its_metadata_and_keeps_its_image() {
   is(app1[0].bytes.length, 36, "and nothing else");
   is(stripJpeg(out), null, "Stripping it again changes nothing");
   is(stripImageMetadata(out), null, "(either way in)");
+});
+
+add_task(async function multi_picture_jpeg_keeps_only_its_primary_image() {
+  const mpf = await fixture("whimsy_photo_meta_mpf.jpg");
+  ok(has(mpf, "MPF\0"), "The fixture has an MPF index");
+  const second = mpf.indexOf(0xd8, jpegSegments(mpf).sos + 2);
+  ok(second > 0 && mpf[second - 1] == 0xff && has(mpf.subarray(second), "WhimsyCam"), "and a secondary image with camera details after the primary EOI");
+  const out = stripJpeg(mpf);
+  ok(out, "It changes");
+  ok(!has(out, "MPF\0"), "The MPF index is gone");
+  for (const text of ["WhimsyCam", "GPSLatitude", "Oakland", "37.7749"]) {
+    ok(!has(out, text), `"${text}" is gone from every image`);
+  }
+  is(out.at(-2), 0xff, "It ends at the primary image's EOI");
+  is(out.at(-1), 0xd9, "(FF D9)");
+  is(out.filter((b, i) => b == 0xff && out[i + 1] == 0xd8).length, 1, "No secondary image is left");
+  ok(same(out, stripJpeg(jpeg)), "What's left is the primary image, stripped like any other JPEG");
+  const tail = out.subarray(jpegSegments(out).sos);
+  const primary = mpf.subarray(jpegSegments(mpf).sos, jpegSegments(mpf).sos + tail.length);
+  ok(same(tail, primary), "with its scan data byte-identical");
+  ok(has(out, "ICC_PROFILE"), "The colour profile stays");
+  is(stripJpeg(out), null, "Stripping it again changes nothing");
 });
 
 add_task(function png_loses_its_text_and_keeps_its_image() {

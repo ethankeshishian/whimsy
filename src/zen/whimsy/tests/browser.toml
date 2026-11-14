@@ -1108,7 +1108,7 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 ["browser_whimsy_ai_quiz.js"]
 # W27: photos you upload lose their location and camera details, losslessly.
 ["browser_whimsy_photo_metadata.js"]
-support-files = ["whimsy_photo_meta.jpg", "whimsy_photo_meta.png", "whimsy_photo_upload.html"]
+support-files = ["whimsy_photo_meta.jpg", "whimsy_photo_meta_mpf.jpg", "whimsy_photo_meta.png", "whimsy_photo_upload.html"]
 ["browser_whimsy_screens_w23_commands.js"]
 support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
 

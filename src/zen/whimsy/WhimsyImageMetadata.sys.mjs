@@ -12,6 +12,10 @@
 //   tables, and everything from SOS on stay byte-identical. A photo turned
 //   by its Exif Orientation keeps a minimal Exif APP1 holding only that tag,
 //   so it still shows upright (rotating the pixels wouldn't be lossless).
+//   A multi-picture JPEG (an APP2 "MPF" index: iPhone photos, gain maps,
+//   depth maps) carries more images after the primary one's EOI, each with
+//   its own Exif and often GPS; the MPF segment and everything after the
+//   primary EOI go, leaving the primary image alone.
 // - PNG: drops eXIf, tEXt, iTXt, and zTXt chunks, keeping a minimal eXIf
 //   with only the Orientation tag when it turns the image.
 //
@@ -28,6 +32,7 @@ const MAX_BYTES = 64 * 1024 * 1024;
 const JPEG_SOI = [0xff, 0xd8];
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const EXIF_ID = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00]; // "Exif\0\0"
+const MPF_ID = [0x4d, 0x50, 0x46, 0x00]; // "MPF\0"
 const ORIENTATION_TAG = 0x0112;
 const PNG_DROPPED = new Set(["eXIf", "tEXt", "iTXt", "zTXt"]);
 
@@ -97,6 +102,46 @@ function concat(parts) {
   return out;
 }
 
+// Where the JPEG image starting with the SOS at `pos` ends: just past its
+// EOI, or -1 when there's none. Walks the scans (entropy-coded data, where
+// FF is followed by a 00 stuffing byte or an RST marker) and the marker
+// segments between them (progressive JPEGs have several scans).
+function endOfImage(bytes, pos) {
+  const len = bytes.length;
+  while (pos + 1 < len) {
+    if (bytes[pos] != 0xff) {
+      return -1;
+    }
+    const marker = bytes[pos + 1];
+    if (marker == 0xff) {
+      pos++; // Fill byte.
+      continue;
+    }
+    if (marker == 0xd9) {
+      return pos + 2;
+    }
+    if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      pos += 2;
+      continue;
+    }
+    if (pos + 4 > len) {
+      return -1;
+    }
+    const size = (bytes[pos + 2] << 8) | bytes[pos + 3];
+    if (size < 2) {
+      return -1;
+    }
+    pos += 2 + size;
+    if (marker == 0xda) {
+      // The scan's data runs to the next marker that isn't 00 or RST.
+      while (pos + 1 < len && !(bytes[pos] == 0xff && bytes[pos + 1] != 0x00 && !(bytes[pos + 1] >= 0xd0 && bytes[pos + 1] <= 0xd7))) {
+        pos++;
+      }
+    }
+  }
+  return -1;
+}
+
 /** A JPEG without its metadata segments, or null when nothing changes (or it isn't a JPEG). */
 export function stripJpeg(bytes) {
   if (!startsWith(bytes, 0, JPEG_SOI)) {
@@ -105,6 +150,7 @@ export function stripJpeg(bytes) {
   const len = bytes.length;
   const parts = [bytes.subarray(0, 2)];
   let changed = false;
+  let multiPicture = false;
   let pos = 2;
   while (pos < len) {
     if (bytes[pos] != 0xff) {
@@ -119,8 +165,11 @@ export function stripJpeg(bytes) {
     }
     const marker = bytes[m];
     if (marker == 0xda || marker == 0xd9) {
-      // SOS (or an early EOI): the image data and the rest, byte for byte.
-      parts.push(bytes.subarray(pos));
+      // SOS (or an early EOI): the image data, byte for byte. In a
+      // multi-picture JPEG it stops at the primary image's EOI, so the
+      // secondary images (and their Exif) don't come along.
+      const end = multiPicture ? endOfImage(bytes, pos) : -1;
+      parts.push(end > 0 ? bytes.subarray(pos, end) : bytes.subarray(pos));
       pos = len;
       break;
     }
@@ -150,6 +199,10 @@ export function stripJpeg(bytes) {
       }
     } else if (marker == 0xed || marker == 0xfe) {
       changed = true;
+    } else if (marker == 0xe2 && startsWith(bytes, m + 3, MPF_ID)) {
+      // The index of the secondary images, which don't stay.
+      changed = true;
+      multiPicture = true;
     } else {
       parts.push(bytes.subarray(pos, end));
     }
