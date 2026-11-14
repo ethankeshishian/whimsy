@@ -11,11 +11,16 @@
 // Screen, Autoplay, any permission, tracking exceptions), dark mode, and
 // zoom. The one-time migration copies Default's permissions into every
 // existing profile and folds in the old ".ucN" types, without losing or
-// overwriting anything, and is idempotent.
+// overwriting anything, and is idempotent. A profile made after that starts
+// fresh: none of Default's permissions (W28, the owner: "New is the
+// default. Don't copy."). W28: every row in both headings has a hover
+// tooltip saying what it does.
 
 Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_whimsy_dark_pages.js", this);
 
-const { PERM_TYPES } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySiteSettings.sys.mjs");
+const { PERM_TYPES, TOOLTIP_PERMISSIONS } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs"
+);
 const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
 const { WhimsyProfileZoom, ZOOM_NAME } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyProfileZoom.sys.mjs"
@@ -402,6 +407,114 @@ add_task(async function test_zoom_per_profile() {
     await FullZoom.reset(workTab.linkedBrowser);
     BrowserTestUtils.removeTab(workTab);
     await new Promise(resolve => cps.removeByName(ZOOM_NAME, null, { handleCompletion: resolve }));
+  }
+});
+
+// W28, the owner: "New is the default. Don't copy." A profile made after the
+// one-time migration starts with no site permissions of its own, whatever
+// Default has; opening a window (which runs the migration check) copies
+// nothing into it.
+add_task(async function test_new_profile_starts_fresh() {
+  clearSite();
+  const origin = "https://example.com";
+  const home = principalOf(origin, oa(0));
+  const types = ["camera", "geo", "autoplay-media", PERM_TYPES.reader, PERM_TYPES.fullscreen];
+  Services.perms.addFromPrincipal(home, "camera", Services.perms.ALLOW_ACTION);
+  Services.perms.addFromPrincipal(home, "geo", Services.perms.DENY_ACTION);
+  SitePermissions.setForPrincipal(home, "autoplay-media", SitePermissions.ALLOW);
+  WhimsySiteSettings.setFlag("reader", HOST, oa(0), true);
+  WhimsySiteSettings.setFlag("fullscreen", HOST, oa(0), true);
+  const id = WhimsyProfiles.create("Fresh Start");
+  let tab = null;
+  try {
+    Assert.deepEqual(WhimsySiteSettings.migratePermissions(), { copied: 0, folded: 0 },
+      "A window opening copies nothing into a new profile");
+    const fresh = principalOf(origin, oa(id));
+    for (const type of types) {
+      ok(capability(home, type), `Default has ${type}`);
+      ok(!capability(fresh, type), `the new profile doesn't: ${type}`);
+    }
+    Assert.deepEqual(SitePermissions.getAllByPrincipal(fresh).filter(p => !["cookie", "https-only-load-insecure",
+      "ipp-vpn"].includes(p.id)).map(p => p.id), [], "No permissions of its own at all");
+    ok(!WhimsySiteSettings.getFlag("reader", HOST, oa(id)) && !WhimsySiteSettings.getFlag("fullscreen", HOST, oa(id)),
+      "Reader and Full Screen are off");
+
+    tab = await openTab(SITE, id);
+    await openPanel();
+    ok(!kindsOf(siteSection()).some(kind => kind.startsWith("permission-")), "Its panel lists no permissions");
+    for (const kind of ["autoplay", "reader", "fullscreen"]) {
+      is(siteSection().querySelector(`[whimsy-site-setting="${kind}"]`).getAttribute("state"), "block",
+        `${kind}: at the default`);
+    }
+    ok(document.getElementById("whimsy-site-settings-forget-all").hidden, "Nothing to forget");
+    await closePanel();
+  } finally {
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    if (gZenWorkspaces.activeWorkspace != HOME_SPACE) {
+      await gZenWorkspaces.changeWorkspaceWithID(HOME_SPACE);
+    }
+    if (spaces.has(id)) {
+      await gZenWorkspaces.removeWorkspace(spaces.get(id));
+      spaces.delete(id);
+    }
+    ok(await WhimsyProfiles.delete(id, window), "The new profile is deleted");
+    Services.perms.removeFromPrincipal(home, "geo");
+    clearSite();
+  }
+});
+
+// W28, the owner: "User needs to be able to know what something like
+// 'tracking protection' is. Maybe hover tooltip". Every row in Profile
+// Settings and Site Settings has the platform tooltip, one sentence.
+add_task(async function test_every_row_has_a_tooltip() {
+  clearSite();
+  const tab = await openTab(SITE, WORK);
+  const principal = tab.linkedBrowser.contentPrincipal;
+  const permissions = { camera: SitePermissions.BLOCK, geo: SitePermissions.ALLOW, popup: SitePermissions.ALLOW,
+    "desktop-notification": SitePermissions.BLOCK, cookie: SitePermissions.ALLOW };
+  for (const [type, state] of Object.entries(permissions)) {
+    SitePermissions.setForPrincipal(principal, type, state);
+  }
+  try {
+    await openPanel();
+    ok(profileSection().checkVisibility(), "Profile Settings shows");
+    const rows = [...profileSection().querySelectorAll("[whimsy-site-setting]"),
+      ...siteSection().querySelectorAll("[whimsy-site-setting]")];
+    const kinds = rows.map(row => row.getAttribute("whimsy-site-setting"));
+    for (const kind of ["profile-dark-pages", "dark-pages", "tracking", "zoom", "autoplay", "reader", "fullscreen",
+      "useragent", ...Object.keys(permissions).map(type => `permission-${type}`)]) {
+      ok(kinds.includes(kind), `The ${kind} row shows`);
+    }
+    const seen = new Set();
+    for (const row of rows) {
+      const kind = row.getAttribute("whimsy-site-setting");
+      const tip = row.getAttribute("tooltiptext") ?? "";
+      ok(tip.trim().length > 10, `${kind} has a tooltip: "${tip}"`);
+      ok(tip.endsWith("."), `${kind}: one sentence`);
+      ok(!/\bnow\b/i.test(tip), `${kind}: never "Now"`);
+      ok(!seen.has(tip), `${kind}: its own words`);
+      seen.add(tip);
+    }
+    is(siteSection().querySelector('[whimsy-site-setting="tracking"]').getAttribute("tooltiptext"),
+      "Blocks trackers that follow you across sites.", "Tracking Protection says what it is");
+
+    // Every permission with its own tooltip has one, and the rest a general one.
+    const ids = ["whimsy-site-settings-permission-tooltip",
+      ...[...TOOLTIP_PERMISSIONS].map(type => `whimsy-site-settings-permission-${type}-tooltip`)];
+    const messages = await document.l10n.formatMessages(ids.map(id => ({ id })));
+    messages.forEach((message, i) => {
+      const tip = message?.attributes?.find(a => a.name == "tooltiptext")?.value ?? "";
+      ok(tip.length > 10 && !/\bnow\b/i.test(tip), `${ids[i]}: "${tip}"`);
+    });
+    await closePanel();
+  } finally {
+    for (const type of Object.keys(permissions)) {
+      SitePermissions.removeFromPrincipal(principal, type);
+    }
+    BrowserTestUtils.removeTab(tab);
+    clearSite();
   }
 });
 

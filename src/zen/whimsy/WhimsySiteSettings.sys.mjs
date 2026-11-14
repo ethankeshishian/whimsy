@@ -109,6 +109,14 @@ const AUTOPLAY = "autoplay-media";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 // Pretend to Be's choices, in the dropdown's order; "default" is Whimsy.
 const UA_CHOICES = ["chrome-mac", "default", "safari-mac", "safari-iphone", "custom"];
+// W28: permission rows with their own hover tooltip
+// (whimsy-site-settings-permission-<id>-tooltip); any other permission gets
+// the general one.
+export const TOOLTIP_PERMISSIONS = new Set([
+  "cookie", "desktop-notification", "camera", "microphone", "screen", "speaker", "popup", "install", "geo",
+  "open-protocol-handler", "xr", "focus-tab-by-prompt", "persistent-storage", "persist-data-on-shutdown",
+  "shortcuts", "canvas", "midi", "midi-sysex", "serial", "loopback-network", "local-network",
+]);
 
 // Permission types for the two settings Firefox has no store for.
 export const PERM_TYPES = {
@@ -847,6 +855,8 @@ export const WhimsySiteSettings = {
         labelId,
         on: true,
         trailing: [dropdown.button],
+        tooltipL10nId: TOOLTIP_PERMISSIONS.has(id) ?
+          `whimsy-site-settings-permission-${id}-tooltip` : "whimsy-site-settings-permission-tooltip",
       });
       row.classList.add("whimsy-site-settings-permission");
       row.setAttribute("whimsy-permission", permission.id);
@@ -1139,7 +1149,9 @@ export const WhimsySiteSettings = {
 
   /**
    * One row on the track (WhimsySurface): the name (and a line under it),
-   * then its control. `state="allow"` marks a remembered value.
+   * then its control. `state="allow"` marks a remembered value. W28: each
+   * row has a hover tooltip saying what the setting does (the platform
+   * tooltip, from whimsy-site-settings-<kind>-tooltip by default).
    */
   row(doc, o) {
     const { row, label } = lazy.WhimsySurface.row(doc, {
@@ -1152,6 +1164,7 @@ export const WhimsySiteSettings = {
     row.classList.add("whimsy-site-settings-item", `whimsy-site-settings-${o.kind}`);
     row.setAttribute("whimsy-site-setting", o.kind);
     row.setAttribute("state", o.on ? "allow" : "block");
+    doc.l10n.setAttributes(row, o.tooltipL10nId ?? `whimsy-site-settings-${o.kind}-tooltip`);
     if (o.labelId) {
       label.id = o.labelId;
     }
