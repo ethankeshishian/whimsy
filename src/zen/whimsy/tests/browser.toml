@@ -715,6 +715,8 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 ["browser_whimsy_access_commands.js"]
 # W27: Restart Whimsy (command bar): asks as a restart, a cancel keeps the browser open, else quits with eAttemptQuit | eRestart (stubbed); its switch.
 ["browser_whimsy_restart_command.js"]
+# W27: Turn Off / Turn On Page Animations: ui.prefersReducedMotion set and cleared, pages match prefers-reduced-motion, state-aware names, the toast, its switch.
+["browser_whimsy_page_animations.js"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
 

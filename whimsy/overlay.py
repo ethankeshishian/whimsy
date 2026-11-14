@@ -2093,6 +2093,11 @@ FEATURES = [
     {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
      "detect": [("locales/en-US", r"(?im)^zen-action-[\w-]*restart[\w-]*\s*="),
                 ("src/zen/urlbar", r"(?i)eRestart")]},
+    # W27: Turn Off / Turn On Page Animations (ui.prefersReducedMotion) in
+    # the command bar, with a toast.
+    {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that asks pages for reduced motion, and turns them back on",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(reduce[d-]*motion|page-animations)[\w-]*\s*="),
+                ("src/zen/urlbar", r"ui\.prefersReducedMotion")]},
 ]
 
 
