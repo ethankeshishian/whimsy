@@ -239,6 +239,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
 });
 
+// W28: Search With ▸ in the selection menu.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySearchWith: "resource:///modules/whimsy/WhimsySearchWith.sys.mjs",
+});
+
 // wave6: Already open (Arc parity).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
@@ -1202,6 +1207,9 @@ export const Whimsy = {
     // menu action, menu rows for commands, Share ▸ lists the share services.
     // Its rows listen on their popups, so Settings → Menus still sees them.
     run("menu-parity", () => lazy.WhimsyMenuParity.initWindow(win));
+    // W28: Search With ▸, right after the selection menu's search row.
+    // Always installed; checks its switch on every show.
+    run("search-with", () => lazy.WhimsySearchWith.initWindow(win));
     // wave7/menuprefs: rows turned off in Settings → Menus. Keep this the
     // last menu listener: it hides rows after every other module has shown
     // or moved them. Always installed; checks its switch on every show.

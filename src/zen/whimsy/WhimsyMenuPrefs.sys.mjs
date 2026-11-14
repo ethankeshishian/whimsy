@@ -309,6 +309,7 @@ const MENUS = [
     extrasAfter: "print",
     items: [
       item("search", "whimsy-menus-selection-search", ["context-searchselect"]),
+      item("search-with", "whimsy-menus-selection-search-with", ["context-whimsy-searchwith"]),
       item("translate", "whimsy-menus-selection-translate", ["context-translate-selection"], {
         hintL10n: "whimsy-menus-hint-translate",
       }),
