@@ -261,6 +261,9 @@
 - name: whimsy.feature.drag-downloads
   value: true
 
+- name: whimsy.feature.delete-to-trash
+  value: true
+
 - name: whimsy.feature.sidebar-nav
   value: true
 
@@ -655,6 +658,9 @@
   value: true
 
 - name: whimsy.feature.find-card
+  value: true
+
+- name: whimsy.feature.double-escape
   value: true
 
 - name: whimsy.feature.ai-video-summary

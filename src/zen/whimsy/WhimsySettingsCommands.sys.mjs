@@ -100,6 +100,7 @@ export const SETTINGS = [
   { name: "dark-pdf", when: () => !featureOn("dark-pages"), setting: "whimsyDarkPdf", pref: "whimsy.pdf.dark", feature: ["dark-pdf"],
     command: ["cmd_whimsyToggleDarkPdf"] },
   { name: "find-card", setting: "whimsyFindCard", pref: "whimsy.feature.find-card", feature: ["find-card"] },
+  { name: "double-escape", setting: "whimsyDoubleEscape", pref: "whimsy.fullscreen.double-escape", feature: ["double-escape"] },
   { name: "ui-font", setting: "whimsyUiFont", pref: "whimsy.look.ui-font", feature: ["ui-font"],
     // Any other font is picked from the list in Settings (every installed
     // font); the command goes back to the system font.

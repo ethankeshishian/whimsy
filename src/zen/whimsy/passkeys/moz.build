@@ -42,8 +42,12 @@ GeneratedFile(
     inputs=["helper/main.swift"],
 )
 
+# Beside plugin-container.app in Contents/MacOS (GreBinD, where
+# WhimsyPasskeys.sys.mjs looks and @BINPATH@ in the package manifest), not
+# this directory's FINAL_TARGET, which browser/'s DIST_SUBDIR makes
+# Contents/Resources/browser.
 MacOSBundle(
-    f"!/{FINAL_TARGET}/whimsy-passkeys.app",
+    "!/dist/bin/whimsy-passkeys.app",
     skeleton="helper/macbuild/Contents",
     binaries=[("!whimsy-passkeys", "whimsy-passkeys")],
 )

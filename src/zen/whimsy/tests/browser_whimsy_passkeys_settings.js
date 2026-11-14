@@ -74,6 +74,9 @@ async function withSettings(callback) {
     // hand so the exception (if any) reaches the log.
     await TestUtils.waitForCondition(() => doc.querySelectorAll("#whimsyPasskeysList .whimsy-passkey-row").length == 2, "Both passkeys are listed")
       .catch(async e => { await win.gWhimsySettings.renderPasskeys(); throw e; });
+    // Each row's line is localized asynchronously (l10n.setAttributes); run
+    // alone, the test read it before Fluent filled it in.
+    await TestUtils.waitForCondition(() => rows(doc).every(row => row.querySelector(".whimsy-profile-meta").textContent), "Each row's line is translated");
     await callback(win, doc);
   });
 }
