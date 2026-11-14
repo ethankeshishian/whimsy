@@ -1643,6 +1643,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)qlmanage|QLPreviewPanel")]},
     {"id": "drag-downloads", "title": "A panel stays open while you drag a download out of it into a site",
      "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
+    {"id": "delete-to-trash", "title": "Deleting a download from the Library or the downloads panel moves its file to the Trash instead of erasing it",
+     "detect": [("src/zen", r"(?i)trashApp|mac-web-app-utils")]},
     {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
     {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
