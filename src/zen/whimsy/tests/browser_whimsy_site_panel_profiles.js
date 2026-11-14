@@ -368,8 +368,17 @@ add_task(async function test_zoom_per_profile() {
       handleError: () => resolve(undefined),
     });
   });
+  await new Promise(resolve => cps.removeByName(ZOOM_NAME, null, { handleCompletion: resolve }));
   const workTab = await openTab(SITE, WORK);
   try {
+    info(`DIAG wrapped=${!(FullZoom._cps2 instanceof Ci.nsIContentPrefService2)} siteSpecific=${FullZoom.siteSpecific} ` +
+      `synthetic=${workTab.linkedBrowser.isSyntheticDocument} uri=${workTab.linkedBrowser.currentURI.spec}`);
+    const realSet = FullZoom._cps2.set;
+    FullZoom._cps2.set = (...args) => {
+      info(`DIAG set ${args[0]} ${args[1]} ${args[2]} ucid=${WhimsyProfileZoom.userContextIdOf(args[3])}`);
+      return realSet(...args);
+    };
+    registerCleanupFunction(() => (FullZoom._cps2.set = realSet));
     await FullZoom.enlarge(workTab.linkedBrowser);
     const zoomed = ZoomManager.getZoomForBrowser(workTab.linkedBrowser);
     ok(zoomed > 1, `Zoomed in in Work (${zoomed})`);
