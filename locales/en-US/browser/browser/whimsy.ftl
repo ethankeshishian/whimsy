@@ -5233,6 +5233,7 @@ whimsy-favicon-home-sublabel-new-tab = Open site home in new tab
 whimsy-favicon-home-button =
     .aria-label = Go to Site Home
 whimsy-action-site-home = Go to Site Home
+whimsy-action-go-up-level = Go Up One Level
 
 ## W23 ai-core: errors from the provider router (toasts; chat's error block
 ## lists what was tried itself).
