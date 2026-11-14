@@ -3,20 +3,20 @@
 
 "use strict";
 
-// W27: Turn Off / Turn On Page Animations (WhimsyAccessCommands). The
-// command sets ui.prefersReducedMotion to 1, so pages match
-// prefers-reduced-motion: reduce, and clears it again; the command bar
-// names the next step, and a toast confirms each change.
+// W27: Turn Off / Turn On Page Animations (WhimsyPageActions). The command
+// stops CSS animations and transitions on the current tab only, until it
+// reloads, with a user sheet loaded through the page-actions actor; running
+// it again removes the sheet. The command bar names the next step, and a
+// toast confirms each change.
 
-const { WhimsyAccessCommands } = ChromeUtils.importESModule(
-  "resource:///modules/whimsy/WhimsyAccessCommands.sys.mjs"
-);
+const { WhimsyPageActions } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageActions.sys.mjs");
 const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
 const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
 
 const ID = "cmd_whimsyTogglePageAnimations";
-const PREF = "ui.prefersReducedMotion";
-const PAGE = "https://example.com/browser/";
+const PAGE =
+  getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") +
+  "whimsy_page_animations.html";
 
 function action(l10nId) {
   return globalActions.find(a => a.whimsyCommand == ID && a.l10nId == l10nId);
@@ -26,15 +26,26 @@ function available(l10nId) {
   return !!action(l10nId)?.isAvailable(window);
 }
 
-registerCleanupFunction(() => {
-  Services.prefs.clearUserPref(PREF);
-  closeToasts();
-});
+// The spinner's computed animation and transition, and its ::after's.
+function motion(browser) {
+  return SpecialPowers.spawn(browser, [], () => {
+    const el = content.document.getElementById("spinner");
+    const style = content.getComputedStyle(el);
+    return {
+      animation: style.animationName,
+      transition: style.transitionProperty,
+      after: content.getComputedStyle(el, "::after").animationName,
+    };
+  });
+}
 
-add_setup(() => {
-  Services.prefs.clearUserPref(PREF);
-  closeToasts();
-});
+function stilled(browser) {
+  return motion(browser).then(m => m.animation == "none" && m.transition == "none" && m.after == "none");
+}
+
+registerCleanupFunction(() => closeToasts());
+
+add_setup(() => closeToasts());
 
 add_task(function test_registered_unbound_and_named() {
   const entry = WhimsyCommands.get(ID);
@@ -50,42 +61,72 @@ add_task(function test_registered_unbound_and_named() {
     action("whimsy-action-page-animations-off")?.whimsyKeywords?.includes("Reduce Motion"),
     "Found by Reduce Motion too"
   );
+  ok(!Services.prefs.prefHasUserValue("ui.prefersReducedMotion"), "It never touches ui.prefersReducedMotion");
 });
 
-add_task(async function test_toggle_reaches_pages_and_confirms() {
-  ok(available("whimsy-action-page-animations-off"), "Animations start on: Turn Off Page Animations is offered");
-  ok(!available("whimsy-action-page-animations-on"), "and Turn On Page Animations isn't");
+add_task(async function test_this_tab_only_until_reload() {
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const browser = tab.linkedBrowser;
+  try {
+    Assert.deepEqual(
+      await motion(browser),
+      { animation: "whimsy-spin", transition: "opacity", after: "whimsy-spin" },
+      "The test page animates to begin with"
+    );
+    ok(available("whimsy-action-page-animations-off"), "Turn Off Page Animations is offered");
+    ok(!available("whimsy-action-page-animations-on"), "and Turn On Page Animations isn't");
 
-  await BrowserTestUtils.withNewTab(PAGE, async browser => {
     document.getElementById(ID).doCommand();
-    is(Services.prefs.getIntPref(PREF, 0), 1, "Turning them off sets ui.prefersReducedMotion to 1");
-    ok(WhimsyAccessCommands.pageAnimationsOff(), "They read as off");
-    await SpecialPowers.spawn(browser, [], async () => {
-      await ContentTaskUtils.waitForCondition(
-        () => content.matchMedia("(prefers-reduced-motion: reduce)").matches,
-        "The page matches prefers-reduced-motion: reduce"
-      );
-    });
-    ok(true, "The page sees reduced motion");
-    await TestUtils.waitForCondition(() => toastFor("whimsy-page-animations-off-toast"), "The off toast shows");
     ok(available("whimsy-action-page-animations-on"), "Turn On Page Animations is offered next");
     ok(!available("whimsy-action-page-animations-off"), "and Turn Off Page Animations isn't");
+    await TestUtils.waitForCondition(() => stilled(browser), "Animations and transitions stop on this tab");
+    await TestUtils.waitForCondition(() => toastFor("whimsy-page-animations-off-toast"), "The off toast shows");
+    ok(!Services.prefs.prefHasUserValue("ui.prefersReducedMotion"), "No app-wide pref was set");
+
+    is((await motion(other.linkedBrowser)).animation, "whimsy-spin", "Another tab on the same page still animates");
+    await BrowserTestUtils.switchTab(gBrowser, other);
+    ok(available("whimsy-action-page-animations-off"), "On the other tab the command offers Turn Off again");
+    await BrowserTestUtils.switchTab(gBrowser, tab);
 
     document.getElementById(ID).doCommand();
-    ok(!Services.prefs.prefHasUserValue(PREF), "Turning them on clears the pref, so the Mac's setting applies again");
-    ok(!WhimsyAccessCommands.pageAnimationsOff(), "They read as on");
+    ok(available("whimsy-action-page-animations-off"), "Turn Off Page Animations is offered again");
+    await TestUtils.waitForCondition(
+      async () => (await motion(browser)).animation == "whimsy-spin",
+      "Turning them on removes the sheet"
+    );
     await TestUtils.waitForCondition(() => toastFor("whimsy-page-animations-on-toast"), "The on toast shows");
     ok(!toastFor("whimsy-page-animations-off-toast"), "It replaced the off toast (one at a time)");
-    ok(available("whimsy-action-page-animations-off"), "Turn Off Page Animations is offered again");
+
+    document.getElementById(ID).doCommand();
+    await TestUtils.waitForCondition(() => stilled(browser), "Off again");
+    const loaded = BrowserTestUtils.browserLoaded(browser);
+    browser.reload();
+    await loaded;
+    is((await motion(browser)).animation, "whimsy-spin", "A reload brings the animations back");
+    ok(available("whimsy-action-page-animations-off"), "and the command offers Turn Off again");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    BrowserTestUtils.removeTab(other);
+    closeToasts();
+  }
+});
+
+add_task(async function test_not_offered_off_the_web() {
+  await BrowserTestUtils.withNewTab("about:blank", () => {
+    ok(!available("whimsy-action-page-animations-off"), "Not offered on about:blank");
+    ok(!available("whimsy-action-page-animations-on"), "Neither row");
   });
-  closeToasts();
 });
 
 add_task(async function test_switch_off_hides_and_disarms_it() {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.page-animations-command", false]] });
-  ok(!available("whimsy-action-page-animations-off"), "Hidden with its switch off");
-  ok(!available("whimsy-action-page-animations-on"), "Both rows hidden");
-  document.getElementById(ID).doCommand();
-  ok(!Services.prefs.prefHasUserValue(PREF), "Running it does nothing with its switch off");
-  await SpecialPowers.popPrefEnv();
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.page-animations-command", false]] });
+    ok(!available("whimsy-action-page-animations-off"), "Hidden with its switch off");
+    ok(!available("whimsy-action-page-animations-on"), "Both rows hidden");
+    document.getElementById(ID).doCommand();
+    ok(!WhimsyPageActions.animationsOff(browser), "Running it does nothing with its switch off");
+    is((await motion(browser)).animation, "whimsy-spin", "The page still animates");
+    await SpecialPowers.popPrefEnv();
+  });
 });

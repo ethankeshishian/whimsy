@@ -31,11 +31,6 @@
 //   back (a "restart" quit sets browser.sessionstore.resume_session_once).
 //   Anything that can stop a quit (a close-tabs prompt, unsaved form
 //   input) gets its say first.
-// - Turn Off / Turn On Page Animations (W27): ui.prefersReducedMotion = 1,
-//   so pages see prefers-reduced-motion: reduce; turning them back on
-//   clears it (the Mac's own Reduce Motion setting applies again). A
-//   toast says which. It's a look-and-feel pref, so Whimsy's own motion
-//   calms down with it.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -55,8 +50,6 @@ const BACKGROUND_MUTE_PREF = "whimsy.media.background-mute";
 const BIONIC_PREF = "whimsy.reader.bionic";
 const DARK_PDF_PREF = "whimsy.pdf.dark";
 const VIEW_SOURCE_WRAP_PREF = "view_source.wrap_long_lines";
-const REDUCED_MOTION_PREF = "ui.prefersReducedMotion";
-const ANIMATIONS_TOAST_KEY = "whimsy-page-animations";
 const CHOOSER_ID = "whimsy-command-chooser";
 const FINDER_SECTION = "whimsy-finder-folders";
 const CHANGELOG_URL = "about:whimsy?tab=changelog";
@@ -77,7 +70,6 @@ const ICONS = {
   claude: "chrome://browser/skin/zen-icons/sparkles.svg",
   news: "chrome://browser/skin/zen-icons/history.svg",
   restart: "chrome://browser/skin/zen-icons/reload.svg",
-  animations: "chrome://browser/skin/zen-icons/media-pause.svg",
   tabIcon: "chrome://browser/skin/zen-icons/face-sun.svg",
   source: "chrome://browser/skin/zen-icons/selectable/code.svg",
 };
@@ -255,31 +247,6 @@ export const WhimsyAccessCommands = {
     }
     this.startupQuit(Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart);
     return true;
-  },
-
-  // W27: page animations are off while ui.prefersReducedMotion is 1.
-  pageAnimationsOff() {
-    return Services.prefs.getIntPref(REDUCED_MOTION_PREF, 0) == 1;
-  },
-
-  // Flips them and confirms it with a toast; returns whether they're off.
-  togglePageAnimations(win) {
-    const off = !this.pageAnimationsOff();
-    if (off) {
-      Services.prefs.setIntPref(REDUCED_MOTION_PREF, 1);
-    } else {
-      Services.prefs.clearUserPref(REDUCED_MOTION_PREF);
-    }
-    try {
-      // One at a time: toggling again replaces the last one.
-      win?.gZenUIManager?.toasts?.open(off ? "whimsy-page-animations-off-toast" : "whimsy-page-animations-on-toast", {
-        key: ANIMATIONS_TOAST_KEY,
-        timeout: 4000,
-      });
-    } catch (e) {
-      console.error("Whimsy: page animations toast", e);
-    }
-    return off;
   },
 
   liveFoldersAvailable(win) {
@@ -546,24 +513,6 @@ export const WhimsyAccessCommands = {
       icon: ICONS.restart,
       whimsyKeywords: () => WhimsyCommands.keywords("whimsy-keywords-restart"),
       isAvailable: () => feature("restart-command"),
-    });
-    // W27: Turn Off / Turn On Page Animations. No default shortcut.
-    register({
-      id: "cmd_whimsyTogglePageAnimations",
-      l10nId: "whimsy-action-page-animations-toggle",
-      run: w => feature("page-animations-command") && this.togglePageAnimations(w),
-      icon: ICONS.animations,
-      whimsyKeywords: () => WhimsyCommands.keywords("whimsy-keywords-page-animations"),
-      variants: [
-        {
-          l10nId: "whimsy-action-page-animations-off",
-          isAvailable: () => feature("page-animations-command") && !this.pageAnimationsOff(),
-        },
-        {
-          l10nId: "whimsy-action-page-animations-on",
-          isAvailable: () => feature("page-animations-command") && this.pageAnimationsOff(),
-        },
-      ],
     });
     // wave8/cmds: W8-11 View Claude in Whimsy Replays
     register({

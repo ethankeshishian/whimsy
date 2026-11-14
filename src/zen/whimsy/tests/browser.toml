@@ -715,8 +715,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 ["browser_whimsy_access_commands.js"]
 # W27: Restart Whimsy (command bar): asks as a restart, a cancel keeps the browser open, else quits with eAttemptQuit | eRestart (stubbed); its switch.
 ["browser_whimsy_restart_command.js"]
-# W27: Turn Off / Turn On Page Animations: ui.prefersReducedMotion set and cleared, pages match prefers-reduced-motion, state-aware names, the toast, its switch.
+# W27: Turn Off / Turn On Page Animations: a user sheet stops CSS animations and transitions on this tab only, a reload clears it, other tabs keep theirs, state-aware names, the toast, its switch.
 ["browser_whimsy_page_animations.js"]
+support-files = ["whimsy_page_animations.html"]
 # W27: the window title names its space with two or more spaces (switch, rename), stays Firefox's with one, its switch, and a locked private window.
 ["browser_whimsy_window_title_space.js"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).

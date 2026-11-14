@@ -3079,15 +3079,15 @@ whimsy-action-whats-new = What’s New
 whimsy-action-restart = Restart Whimsy
 whimsy-keywords-restart = Relaunch, Reopen, Reboot, Restart Browser
 
-## W27: page animations (ui.prefersReducedMotion) from the command bar, and
+## W27: page animations on the current tab (until it reloads) from the command bar, and
 ## the toast that confirms the change. Keywords are comma-separated search words.
 
 whimsy-action-page-animations-toggle = Turn Page Animations On or Off
 whimsy-action-page-animations-off = Turn Off Page Animations
 whimsy-action-page-animations-on = Turn On Page Animations
 whimsy-keywords-page-animations = Reduce Motion, Reduced Motion, Motion, Animations, Stop Animations
-whimsy-page-animations-off-toast = Page animations are off
-whimsy-page-animations-on-toast = Page animations are on
+whimsy-page-animations-off-toast = Animations are off on this page until it reloads
+whimsy-page-animations-on-toast = Animations are back on for this page
 
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)

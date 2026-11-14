@@ -2093,11 +2093,10 @@ FEATURES = [
     {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
      "detect": [("locales/en-US", r"(?im)^zen-action-[\w-]*restart[\w-]*\s*="),
                 ("src/zen/urlbar", r"(?i)eRestart")]},
-    # W27: Turn Off / Turn On Page Animations (ui.prefersReducedMotion) in
+    # W27: Turn Off / Turn On Page Animations (this tab, until reload) in
     # the command bar, with a toast.
-    {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that asks pages for reduced motion, and turns them back on",
-     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(reduce[d-]*motion|page-animations)[\w-]*\s*="),
-                ("src/zen/urlbar", r"ui\.prefersReducedMotion")]},
+    {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(page-animations|stop-animations)[\w-]*\s*=")]},
     # W27: the window title (Mission Control, the Window menu) names the
     # space with more than one. Superseded if Zen's spaces touch the title.
     {"id": "window-title-space", "title": "The window title names its space: \"<page title> — <space name>\" with more than one space",
