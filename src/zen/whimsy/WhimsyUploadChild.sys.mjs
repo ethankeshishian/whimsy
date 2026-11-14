@@ -584,15 +584,20 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       })
       .then(stripped => {
         try {
-          const copy = new win.DataTransfer();
+          // The copy is filled as the page: data a DataTransfer gets from
+          // Whimsy is chrome-only (the page can't read its files or text),
+          // and the stripped files are made in Whimsy's own global, so the
+          // page gets clones in its own.
+          const page = Cu.waiveXrays(win);
+          const copy = new page.DataTransfer();
           for (const [type, value] of strings) {
             copy.setData(type, value);
           }
           for (const file of stripped ?? files) {
-            copy.items.add(file);
+            copy.items.add(Cu.cloneInto(file, win));
           }
           copy.dropEffect = data.dropEffect;
-          target.dispatchEvent(new win.DragEvent("drop", { ...init, dataTransfer: copy }));
+          target.dispatchEvent(new win.DragEvent("drop", { ...init, dataTransfer: Cu.unwaiveXrays(copy) }));
         } catch (e) {
           console.error("Whimsy: dropping the photos failed", e);
         }

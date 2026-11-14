@@ -215,10 +215,20 @@ add_task(async function strip_file_follows_the_setting() {
 });
 
 async function received(browser, count) {
-  await TestUtils.waitForCondition(
-    () => SpecialPowers.spawn(browser, [count], n => content.wrappedJSObject.received.length >= n),
-    "The page got the files"
-  );
+  try {
+    await TestUtils.waitForCondition(
+      () => SpecialPowers.spawn(browser, [count], n => content.wrappedJSObject.received.length >= n),
+      "The page got the files"
+    );
+  } catch (e) {
+    const state = await SpecialPowers.spawn(browser, [], () => JSON.stringify({
+      errors: content.wrappedJSObject.errors,
+      events: content.wrappedJSObject.events,
+      files: content.document.getElementById("pick").files.length,
+    }));
+    info(`The page's state: ${state}`);
+    throw e;
+  }
   return SpecialPowers.spawn(browser, [], () => JSON.parse(JSON.stringify(content.wrappedJSObject.received)));
 }
 
@@ -235,27 +245,41 @@ async function chooseFiles(browser) {
   }
 }
 
-add_task(async function file_input_gets_stripped_photos() {
-  await SpecialPowers.pushPrefEnv({ set: [[PREF, true]] });
+// One failure must not leave tabs or the setting behind for the next task.
+async function withPhotoPage(prefOn, task) {
+  if (prefOn) {
+    await SpecialPowers.pushPrefEnv({ set: [[PREF, true]] });
+  }
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PHOTO_PAGE);
-  const got = await chooseFiles(tab.linkedBrowser);
-  is(got.kind, "change", "The page's change listener ran");
-  Assert.deepEqual(got.files.map(f => f.name), ["beach.jpg", "screen.png"], "with both photos, named as chosen");
-  ok(same(got.files[0].bytes, stripJpeg(jpeg)), "The JPEG arrived without its metadata");
-  ok(same(got.files[1].bytes, stripPng(png)), "and so did the PNG");
-  const runs = await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.received.length);
-  is(runs, 1, "The page heard change once");
-  BrowserTestUtils.removeTab(tab);
-  await SpecialPowers.popPrefEnv();
+  try {
+    await task(tab.linkedBrowser);
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    if (prefOn) {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+}
+
+add_task(async function file_input_gets_stripped_photos() {
+  await withPhotoPage(true, async browser => {
+    const got = await chooseFiles(browser);
+    is(got.kind, "change", "The page's change listener ran");
+    Assert.deepEqual(got.files.map(f => f.name), ["beach.jpg", "screen.png"], "with both photos, named as chosen");
+    ok(same(got.files[0].bytes, stripJpeg(jpeg)), "The JPEG arrived without its metadata");
+    ok(same(got.files[1].bytes, stripPng(png)), "and so did the PNG");
+    const runs = await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.received.length);
+    is(runs, 1, "The page heard change once");
+  });
 });
 
 add_task(async function file_input_untouched_when_off() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PHOTO_PAGE);
-  const got = await chooseFiles(tab.linkedBrowser);
-  ok(got.trusted, "The browser's own change reached the page");
-  ok(same(got.files[0].bytes, jpeg), "The JPEG is byte for byte what was chosen");
-  ok(same(got.files[1].bytes, png), "and so is the PNG");
-  BrowserTestUtils.removeTab(tab);
+  await withPhotoPage(false, async browser => {
+    const got = await chooseFiles(browser);
+    ok(got.trusted, "The browser's own change reached the page");
+    ok(same(got.files[0].bytes, jpeg), "The JPEG is byte for byte what was chosen");
+    ok(same(got.files[1].bytes, png), "and so is the PNG");
+  });
 });
 
 // A trusted drop of two photos and some text on the page's zone.
@@ -275,43 +299,45 @@ async function dropPhotos(browser) {
 }
 
 add_task(async function drop_gets_stripped_photos() {
-  await SpecialPowers.pushPrefEnv({ set: [[PREF, true]] });
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PHOTO_PAGE);
-  const got = await dropPhotos(tab.linkedBrowser);
-  is(got.kind, "drop", "The page's drop listener ran");
-  Assert.deepEqual(got.files.map(f => [f.name, f.type]), [["beach.jpg", "image/jpeg"], ["screen.png", "image/png"]], "with both photos");
-  ok(same(got.files[0].bytes, stripJpeg(jpeg)), "The JPEG arrived without its metadata");
-  ok(same(got.files[1].bytes, stripPng(png)), "and so did the PNG");
-  is(got.text, "From the beach", "The dropped text came along");
-  const runs = await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.received.length);
-  is(runs, 1, "The page heard the drop once");
-  BrowserTestUtils.removeTab(tab);
-  await SpecialPowers.popPrefEnv();
+  await withPhotoPage(true, async browser => {
+    const got = await dropPhotos(browser);
+    is(got.kind, "drop", "The page's drop listener ran");
+    Assert.deepEqual(got.files.map(f => [f.name, f.type]), [["beach.jpg", "image/jpeg"], ["screen.png", "image/png"]], "with both photos");
+    ok(same(got.files[0].bytes, stripJpeg(jpeg)), "The JPEG arrived without its metadata");
+    ok(same(got.files[1].bytes, stripPng(png)), "and so did the PNG");
+    is(got.text, "From the beach", "The dropped text came along");
+    const runs = await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.received.length);
+    is(runs, 1, "The page heard the drop once");
+  });
 });
 
 add_task(async function drop_untouched_when_off() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PHOTO_PAGE);
-  const got = await dropPhotos(tab.linkedBrowser);
-  ok(got.trusted, "The original drop reached the page");
-  ok(same(got.files[0].bytes, jpeg), "The JPEG is byte for byte what was dropped");
-  ok(same(got.files[1].bytes, png), "and so is the PNG");
-  BrowserTestUtils.removeTab(tab);
+  await withPhotoPage(false, async browser => {
+    const got = await dropPhotos(browser);
+    ok(got.trusted, "The original drop reached the page");
+    ok(same(got.files[0].bytes, jpeg), "The JPEG is byte for byte what was dropped");
+    ok(same(got.files[1].bytes, png), "and so is the PNG");
+  });
 });
 
 add_task(async function settings_checkbox_turns_it_on() {
+  ok(!Services.prefs.prefHasUserValue(PREF) && !Services.prefs.getBoolPref(PREF), "The setting is off by default");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#privacy");
-  const doc = tab.linkedBrowser.contentDocument;
-  const box = await TestUtils.waitForCondition(() => {
-    const el = doc.getElementById("whimsyStripImageMetadata");
-    return el?.checkVisibility() ? el : null;
-  }, "Privacy & Security shows the photo checkbox");
-  ok(!box.checked, "unchecked by default");
-  box.scrollIntoView({ block: "center" });
-  box.click();
-  await TestUtils.waitForCondition(() => Services.prefs.getBoolPref(PREF, false), "Checking it turns the setting on");
-  ok(WhimsyImageMetadata.enabled, "and stripping with it");
-  box.click();
-  await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref(PREF, true), "Unchecking turns it off");
-  BrowserTestUtils.removeTab(tab);
-  Services.prefs.clearUserPref(PREF);
+  try {
+    const doc = tab.linkedBrowser.contentDocument;
+    const box = await TestUtils.waitForCondition(() => {
+      const el = doc.getElementById("whimsyStripImageMetadata");
+      return el?.checkVisibility() ? el : null;
+    }, "Privacy & Security shows the photo checkbox");
+    ok(!box.checked, "unchecked by default");
+    box.scrollIntoView({ block: "center" });
+    box.click();
+    await TestUtils.waitForCondition(() => Services.prefs.getBoolPref(PREF, false), "Checking it turns the setting on");
+    ok(WhimsyImageMetadata.enabled, "and stripping with it");
+    box.click();
+    await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref(PREF, true), "Unchecking turns it off");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+    Services.prefs.clearUserPref(PREF);
+  }
 });

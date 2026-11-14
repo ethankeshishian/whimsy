@@ -10,6 +10,14 @@
 <div id="zone" style="width: 240px; height: 120px; border: 1px dashed;">Drop photos here</div>
 <script>
   window.received = [];
+  // What the test reports when the files don't arrive.
+  window.errors = [];
+  window.events = [];
+  window.addEventListener("error", e => window.errors.push(String(e.message)));
+  window.addEventListener("unhandledrejection", e => window.errors.push(String(e.reason)));
+  for (const type of ["click", "input", "change", "drop"]) {
+    window.addEventListener(type, e => window.events.push(`${type}${e.isTrusted ? "" : " (untrusted)"}`), true);
+  }
   async function record(kind, files, trusted, text) {
     const list = [];
     for (const file of files) {
