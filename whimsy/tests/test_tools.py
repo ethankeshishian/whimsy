@@ -419,6 +419,13 @@ class BuildKindTests(unittest.TestCase):
         self.assertEqual(buildkind.kind_of("configs/common/mozconfig"), "full")
         self.assertEqual(buildkind.kind_of("src/build/moz-build.patch", lambda p: ""), "full")
         self.assertEqual(buildkind.kind_of("package.json"), "faster")
+        # Export-tier generators need mach build, not build binaries.
+        self.assertEqual(buildkind.kind_of("src/zen/whimsy/components.conf"), "full")
+        self.assertEqual(buildkind.kind_of("src/zen/whimsy/passkeys/nsIWhimsyPasskeys.idl"), "full")
+        self.assertEqual(buildkind.kind_of("dom/webidl/Foo.webidl"), "full")
+        self.assertEqual(buildkind.kind_of("ipc/PFoo.ipdl"), "full")
+        self.assertEqual(buildkind.kind_of("modules/libpref/init/StaticPrefList.yaml"), "full")
+        self.assertEqual(buildkind.kind_of("src/a/whimsy-x-cpp.patch", read), "binaries")
 
     def test_needed_takes_the_largest(self):
         self.assertEqual(buildkind.needed([])[0], "faster")

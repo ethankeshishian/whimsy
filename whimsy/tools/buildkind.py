@@ -6,8 +6,18 @@ only (21 s with `mach build faster`). precheck.py prints the answer as
 
     faster    JS, CSS, FTL, XHTML, images, jar manifests:  mach build faster
     backend   a moz.build changed (new modules, tests):   mach build-backend, then faster
-    binaries  C++, Obj-C, IDL, WebIDL, Rust, IPDL:        mach build binaries, then faster
-    full      surfer.json, configs/, mozconfig, build patches, *.in: npm run build
+    binaries  C++, Obj-C, Rust:                           mach build binaries, then faster
+    full      surfer.json, configs/, mozconfig, build patches, *.in: npm run build;
+              also IDL, WebIDL, IPDL, components.conf and StaticPrefList.yaml
+              (lane.sh runs mach build)
+
+The last group generates headers in the export tier (xpidl headers,
+bindings, Components.h/StaticComponents.cpp, StaticPrefList_*.h).
+`mach build binaries` skips that tier or regenerates them while other
+objects compile, so XUL links objects built against the old headers. On
+2026-11-13 that left mismatched static component ids in the shared engine:
+no chrome-manifest `resource` substitutions (resource://services-settings,
+resource://default-theme) and xpcshell crashing with -11.
 
 A whimsy-*.patch counts as the engine files it patches.
 """
@@ -17,7 +27,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import patchtools  # noqa: E402
 
-NATIVE_EXT = (".cpp", ".cc", ".c", ".h", ".hpp", ".mm", ".m", ".idl", ".webidl", ".rs", ".ipdl", ".ipdlh")
+NATIVE_EXT = (".cpp", ".cc", ".c", ".h", ".hpp", ".mm", ".m", ".rs")
+# Inputs of export-tier code generation: they need a tier-ordered mach build.
+EXPORT_EXT = (".idl", ".webidl", ".ipdl", ".ipdlh")
+EXPORT_NAMES = ("components.conf", "StaticPrefList.yaml")
 FULL_EXT = (".in", ".configure", ".mozbuild", "mozconfig", "Cargo.toml", "Cargo.lock")
 ORDER = ["faster", "backend", "binaries", "full"]
 HOW = {
@@ -44,6 +57,8 @@ def kind_of(path, read=None):
         return max((kind_of("engine/" + t) for t in targets), key=ORDER.index)
     base = os.path.basename(path)
     if path.endswith(FULL_EXT) or base == "moz.configure":
+        return "full"
+    if path.endswith(EXPORT_EXT) or base in EXPORT_NAMES:
         return "full"
     if path.endswith(NATIVE_EXT):
         return "binaries"
