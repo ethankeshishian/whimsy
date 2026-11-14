@@ -2098,6 +2098,11 @@ FEATURES = [
     {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that asks pages for reduced motion, and turns them back on",
      "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(reduce[d-]*motion|page-animations)[\w-]*\s*="),
                 ("src/zen/urlbar", r"ui\.prefersReducedMotion")]},
+    # W27: the window title (Mission Control, the Window menu) names the
+    # space with more than one. Superseded if Zen's spaces touch the title.
+    {"id": "window-title-space", "title": "The window title names its space: \"<page title> — <space name>\" with more than one space",
+     "detect": [("src/zen/spaces", r"getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
+                ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
 ]
 
 
