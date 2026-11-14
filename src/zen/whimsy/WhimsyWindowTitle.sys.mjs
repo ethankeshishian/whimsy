@@ -23,6 +23,8 @@ const LOCK_ATTR = "whimsy-private-window-locked";
 const SEPARATOR = " — ";
 
 let observing = false;
+// window -> the titlepreface this set, so it only ever removes its own.
+const ownPreface = new WeakMap();
 
 function browserWindows() {
   return [...Services.wm.getEnumerator("navigator:browser")].filter(win => !win.closed && win._whimsyWindowTitle);
@@ -70,13 +72,13 @@ export const WhimsyWindowTitle = {
     const preface = this.preface(win);
     if (preface) {
       root.setAttribute("titlepreface", preface);
-      win._whimsyTitlePreface = preface;
-    } else if (win._whimsyTitlePreface) {
+      ownPreface.set(win, preface);
+    } else if (ownPreface.has(win)) {
       // Only take away a preface this set.
-      if (root.getAttribute("titlepreface") == win._whimsyTitlePreface) {
+      if (root.getAttribute("titlepreface") == ownPreface.get(win)) {
         root.removeAttribute("titlepreface");
       }
-      win._whimsyTitlePreface = null;
+      ownPreface.delete(win);
     }
     try {
       win.gBrowser.updateTitlebar();

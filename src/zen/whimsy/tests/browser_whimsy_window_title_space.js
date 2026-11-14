@@ -74,11 +74,22 @@ add_task(async function test_on_names_the_space_first_and_follows_it() {
 
   await gZenWorkspaces.changeWorkspaceWithID(other.uuid);
   await TestUtils.waitForCondition(() => preface() == `Taxes 2026${SEP}`, "Switching spaces names the new one");
-  ok(document.title.startsWith(`Taxes 2026${SEP}`), "and the title shows it");
+  // A page in this space, so the title has a content title after the preface.
+  const otherTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  await TestUtils.waitForCondition(
+    () => document.title.startsWith(`Taxes 2026${SEP}Ledger`),
+    "and the title shows it, before the page title"
+  );
 
   const stored = gZenWorkspaces.getWorkspaces().find(w => w.uuid == other.uuid);
   gZenWorkspaces.saveWorkspace({ ...stored, name: "Taxes 2027" });
   await TestUtils.waitForCondition(() => preface() == `Taxes 2027${SEP}`, "Renaming the space retitles it");
+
+  await TestUtils.waitForCondition(
+    () => document.title.startsWith(`Taxes 2027${SEP}`),
+    "and the title follows the rename"
+  );
+  BrowserTestUtils.removeTab(otherTab);
 
   await gZenWorkspaces.changeWorkspaceWithID(homeSpace.uuid);
   await TestUtils.waitForCondition(() => preface() == `${home}${SEP}`, "Back in the first space");
