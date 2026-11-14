@@ -56,6 +56,9 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 # W10-27: the floating command bar's open/close motion.
 ["browser_whimsy_cmdbar_motion.js"]
 
+# W26: fast typing then Enter: the fading bar keeps every letter typed.
+["browser_whimsy_cmdbar_fade_text.js"]
+
 ["browser_whimsy_collapse_pinned.js"]
 
 ["browser_whimsy_copy.js"]
