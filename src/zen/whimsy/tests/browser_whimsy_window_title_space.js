@@ -27,15 +27,25 @@ add_setup(async function () {
 });
 
 add_task(async function test_one_space_keeps_firefox_title() {
-  if (gZenWorkspaces.getWorkspaces().length != 1) {
-    ok(true, "Another test left more than one space; the one-space case is checked through spaceName below");
-    return;
+  // Whatever spaces earlier tests left, the module sees exactly one: the
+  // list it reads (gZenWorkspaces.getWorkspaces) is narrowed to this space.
+  const getWorkspaces = gZenWorkspaces.getWorkspaces;
+  gZenWorkspaces.getWorkspaces = function () {
+    return getWorkspaces.apply(this, arguments).filter(w => w.uuid == homeSpace.uuid);
+  };
+  try {
+    is(gZenWorkspaces.getWorkspaces().length, 1, "The module sees exactly one space");
+    await BrowserTestUtils.withNewTab(PAGE, async () => {
+      gBrowser.updateTitlebar();
+      await TestUtils.waitForCondition(() => document.title.startsWith("Ledger"), "The page's title shows");
+      is(WhimsyWindowTitle.spaceName(window), null, "One space: no space name");
+      is(WhimsyWindowTitle.title(window, "Ledger"), "Ledger", "One space: the title is Firefox's");
+      ok(!document.title.includes(SEP + homeSpace.name), "One space: the window title doesn't name it");
+    });
+  } finally {
+    gZenWorkspaces.getWorkspaces = getWorkspaces;
+    gBrowser.updateTitlebar();
   }
-  await BrowserTestUtils.withNewTab(PAGE, async () => {
-    await TestUtils.waitForCondition(() => document.title.startsWith("Ledger"), "The page's title shows");
-    is(WhimsyWindowTitle.spaceName(window), null, "One space: no space name");
-    ok(!document.title.includes(SEP + homeSpace.name), "One space: the title doesn't name it");
-  });
 });
 
 add_task(async function test_two_spaces_name_switch_and_rename() {
