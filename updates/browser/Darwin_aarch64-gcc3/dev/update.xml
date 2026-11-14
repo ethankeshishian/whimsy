@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <updates>
-  <update type="minor" displayVersion="1.24b-w3-dev.722" appVersion="1.24b" platformVersion="159.0" buildID="20261112100209" detailsURL="https://github.com/ethankeshishian/whimsy/releases/tag/v1.24b-w3-dev.722">
-    <patch type="complete" URL="https://github.com/ethankeshishian/whimsy/releases/download/v1.24b-w3-dev.722/whimsy-macos-arm64.mar" hashFunction="sha512" hashValue="d7688d8d2523d8c9a13a616c4891445e0bf654327ea7ef7717a76043b256ece84b9b1f78d201ec3ecf1c53fa05bd93c9a400071dd1c5193cc0a039e803ed33c5" size="97572178"/>
+  <update type="minor" displayVersion="1.24b-w3-dev.799" appVersion="1.24b" platformVersion="159.0" buildID="20261113181625" detailsURL="https://github.com/ethankeshishian/whimsy/releases/tag/v1.24b-w3-dev.799">
+    <patch type="complete" URL="https://github.com/ethankeshishian/whimsy/releases/download/v1.24b-w3-dev.799/whimsy-macos-arm64.mar" hashFunction="sha512" hashValue="e37f5dd219815d960e0b98362c47bfb4d453d955ee05ec92b18b72b42e21d54a4c12a72dc963bd6078e5dee8595bc2d8ba4e903bbe94fc6adb906682ca8fb7ab" size="97602194"/>
   </update>
 </updates>
