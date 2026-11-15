@@ -730,6 +730,10 @@ support-files = ["whimsy_page_animations.html"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
 
+# W29 focus sessions: the session sheet and its ticks, the countdown notch,
+# site pausing, the end (confetti, Done, toast, break reminder), Settings.
+["browser_whimsy_focus_session.js"]
+
 # W24 passkey 2: page-world password-manager interception across profiles,
 # windows, frames, CSP, document_start and private-browsing permission.
 ["browser_whimsy_passkey_extension.js"]
