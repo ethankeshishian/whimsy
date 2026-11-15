@@ -41,7 +41,10 @@ add_setup(async function () {
   }
   registerCleanupFunction(async () => {
     gZenUIManager.showToast = realToast;
-    Services.logins.removeAllLogins();
+    await Services.logins.removeAllUserFacingLoginsAsync();
+    for (const l of await codeLogins()) {
+      await Services.logins.removeLoginAsync(l);
+    }
     WhimsyTOTP._store.invalidate();
   });
 });
@@ -221,6 +224,8 @@ add_task(async function save_replace_and_storage() {
   EventUtils.synthesizeMouseAtCenter(work, {}, window);
   EventUtils.synthesizeMouseAtCenter(panel.querySelector("#whimsy-totp-save"), {}, window);
   await TestUtils.waitForCondition(() => panel.dataset.state == "exists", "Already saved");
+  await TestUtils.waitForCondition(() => doc.getElementById("whimsy-totp-add-title").textContent.startsWith("A code") &&
+    panel.querySelector(".whimsy-totp-text")?.textContent, "The exists copy is translated");
   is(doc.getElementById("whimsy-totp-add-title").textContent, "A code for octocat-work is already saved", "The exists title");
   is(panel.querySelector(".whimsy-totp-text").textContent, "Replace it if example.com gave you a new one.", "and its line");
   await whimsyBothSchemes("w28-totp-exists", async () => whimsyStandInPopups());
@@ -239,7 +244,7 @@ add_task(async function save_replace_and_storage() {
   is((await codeLogins()).length, 1, "Cancel saves nothing");
 
   BrowserTestUtils.removeTab(tab);
-  Services.logins.removeAllUserFacingLogins();
+  await Services.logins.removeAllUserFacingLoginsAsync();
   for (const l of await codeLogins()) {
     await Services.logins.removeLoginAsync(l);
   }

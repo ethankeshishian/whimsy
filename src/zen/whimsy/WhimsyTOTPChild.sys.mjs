@@ -176,7 +176,7 @@ export class WhimsyTOTPChild extends JSWindowActorChild {
     if (!input?.isConnected) {
       return;
     }
-    this.#armed = { input, until: Cu.now() + ARMED_MS };
+    this.#armed = { input, until: ChromeUtils.now() + ARMED_MS };
     const rect = input.getBoundingClientRect();
     const win = input.ownerDocument.defaultView;
     this.sendAsyncMessage("WhimsyTOTP:Pick", {
@@ -193,7 +193,7 @@ export class WhimsyTOTPChild extends JSWindowActorChild {
   #fill(code) {
     const armed = this.#armed;
     this.#armed = null;
-    if (!armed || Cu.now() > armed.until || typeof code != "string" || !/^\d{6,8}$/.test(code)) {
+    if (!armed || ChromeUtils.now() > armed.until || typeof code != "string" || !/^\d{6,8}$/.test(code)) {
       return false;
     }
     const input = armed.input;
