@@ -1302,3 +1302,6 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 
 # W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
 ["browser_whimsy_dim_inactive_window.js"]
+
+# W29/newtabopts: New Private Tab in the sidebar foot's + button (Zen's Create New menu), right after New Tab; the same command as the File menu's own row and Cmd+Option+T.
+["browser_whimsy_private_create_new.js"]
