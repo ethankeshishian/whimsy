@@ -3106,6 +3106,19 @@ whimsy-keywords-page-animations = Reduce Motion, Reduced Motion, Motion, Animati
 whimsy-page-animations-off-toast = Animations are off on this page until it reloads
 whimsy-page-animations-on-toast = Animations are back on for this page
 
+## W29 Pass Keys to Page: the current tab's page gets every key until Esc is
+## held, the pill is clicked, or the tab changes.
+
+whimsy-action-pass-keys-to-page = Pass Keys to Page
+whimsy-keywords-pass-keys-to-page = Keyboard, Shortcuts, Keys, Keyboard Lock, Vim, Terminal, Remote Desktop, Games
+whimsy-pass-keys-pill = Keys to page
+whimsy-pass-keys-pill-tooltip =
+    .tooltiptext = Keys go to this page. Hold Esc or click to stop.
+whimsy-pass-keys-on-toast = Keys go to this page
+whimsy-pass-keys-on-detail = Hold Esc to stop.
+whimsy-pass-keys-hold = Keep holding Esc to stop passing keys
+whimsy-pass-keys-off-toast = { -brand-short-name }’s shortcuts are back
+
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)
 

@@ -663,6 +663,9 @@
 - name: whimsy.feature.double-escape
   value: true
 
+- name: whimsy.feature.pass-keys-to-page
+  value: true
+
 - name: whimsy.feature.ai-video-summary
   value: true
 

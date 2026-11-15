@@ -2060,6 +2060,10 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?find[-_.]?(card|floating)")]},
     {"id": "double-escape", "title": "Press Esc twice to leave a page's full screen",
      "detect": [("src/zen", r"(?i)zen[-_.]?(double|twice)[-_.]?esc")]},
+    # W29: Pass Keys to Page. Superseded if Zen adds its own way to hand
+    # the browser's keys to a page.
+    {"id": "pass-keys-to-page", "title": "Pass Keys to Page: a command that gives the current tab's page every key, ⌘T and ⌘W too, until you hold Esc or switch tabs",
+     "detect": [("src/zen", r"(?i)zen[-_.]?pass[-_.]?(all[-_.]?)?keys")]},
     {"id": "ai-video-summary", "title": "Summarize a video: summary, chapters, and transcript in chat; timestamps jump the video",
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?video[-_.]?summar")]},
     {"id": "video-speed-range", "title": "Video speed from 1/16× to 16×",
