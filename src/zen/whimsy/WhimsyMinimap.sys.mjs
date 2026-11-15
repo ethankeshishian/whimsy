@@ -485,6 +485,9 @@ export const WhimsyMinimap = {
         matches: ["https://*/*", "http://*/*", "file:///*"],
         messageManagerGroups: ["browsers"],
         allFrames: false,
+        // The child only measures and scrolls its own page; the parent checks
+        // every number it sends (readState) and never runs anything from it.
+        safeForUntrustedWebProcess: true,
       });
       actorRegistered = true;
     } else if (!on && actorRegistered) {

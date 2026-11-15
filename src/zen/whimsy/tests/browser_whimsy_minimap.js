@@ -120,21 +120,6 @@ add_task(async function test_short_page_toast_then_long_page() {
   const shortTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, SHORT);
   try {
     await turnOn();
-    // DEBUG
-    let dbg;
-    try {
-      const r = await shortTab.linkedBrowser.browsingContext.currentWindowGlobal.getActor("WhimsyMinimap").sendQuery("WhimsyMinimap:Start");
-      dbg = JSON.stringify(r);
-    } catch (e) {
-      dbg = "ERR " + e;
-    }
-    ok(true, "DEBUG start " + dbg);
-    try {
-      dbg = JSON.stringify(await WhimsyMinimap.start(shortTab.linkedBrowser));
-    } catch (e) {
-      dbg = "ERR " + e;
-    }
-    ok(true, "DEBUG module start " + dbg + " on=" + WhimsyMinimap.on);
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-minimap-short-toast"), "A short page says why");
     ok(toast, "Page Minimap shows on long pages");
     ok(!shown(shortTab.linkedBrowser), "No minimap on a one-screen page");
