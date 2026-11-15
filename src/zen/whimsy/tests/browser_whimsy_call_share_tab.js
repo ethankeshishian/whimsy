@@ -252,9 +252,32 @@ add_task(async function test_only_on_a_call() {
   }
 });
 
-// Share this tab from another tab: the call's own button is pressed, the
-// prompt opens on this tab with this tab picked, and nothing is shared
-// until Allow is clicked. Then Stop sharing, from a third tab, ends it.
+// The command does what the row does, for the selected tab; Not now tells
+// the page no and leaves nothing pending. It runs inside the task above, on
+// the same tabs: Firefox caches the list of tabs to share for 2 seconds, so a
+// tab opened right after another prompt isn't listed yet.
+async function commandAndNotNow(call, doc) {
+  const before = (await page(call, "shareState")).shares;
+  const shown = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
+  document.getElementById("cmd_whimsyCallShareTab").doCommand();
+  await shown;
+  is((await page(call, "shareState")).shares, before + 1, "The command pressed the call's share button");
+  ok(shareNotification(doc.linkedBrowser), "The prompt is on the selected tab");
+  const list = document.getElementById("webRTC-selectWindow-menulist");
+  is(String(list.selectedItem?.deviceId), String(doc.linkedBrowser.browserId), "with it picked");
+  await TestUtils.waitForCondition(() => !document.getElementById("webRTC-preview-section").hidden, "with its preview");
+
+  const hidden = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popuphidden");
+  EventUtils.synthesizeMouseAtCenter(PopupNotifications.panel.firstElementChild.secondaryButton, {}, window);
+  await hidden;
+  await TestUtils.waitForCondition(async () => (await page(call, "shareState")).result == "NotAllowedError", "The page was told no");
+  ok(!WhimsyShareTab.isSharing(call.linkedBrowser), "Nothing is shared");
+  ok(!WhimsyShareTab._pending.has(call.linkedBrowser), "No share is left pending");
+}
+
+// Share this tab from another tab, first by the command, then by the row:
+// the call's own button is pressed, the prompt opens on this tab with this
+// tab picked, and nothing is shared until Allow is clicked. Then Stop sharing, from a third tab, ends it.
 add_task(async function test_share_prompt_and_stop() {
   is(WhimsyShareTab.promptBrowser(gBrowser.selectedBrowser, { sharingScreen: true, callID: "none" }), null,
     "With no share pending, Firefox's prompt stays where it asked");
@@ -262,12 +285,14 @@ add_task(async function test_share_prompt_and_stop() {
   const doc = await BrowserTestUtils.openNewForegroundTab(gBrowser, DOC);
   const third = BrowserTestUtils.addTab(gBrowser, "about:blank");
   try {
+    await commandAndNotNow(call, doc);
+
     let panel = await openPanel(call.linkedBrowser);
     const shown = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
     EventUtils.synthesizeMouseAtCenter(shareRow(panel), {}, window);
     await shown;
     is(panel.state, "closed", "Call Options closed");
-    is((await page(call, "shareState")).shares, 1, "The call page's share button was pressed once");
+    is((await page(call, "shareState")).shares, 2, "The row pressed the call's share button once more");
 
     const notification = shareNotification(doc.linkedBrowser);
     ok(notification, "Firefox's prompt is on the tab to share");
@@ -308,36 +333,6 @@ add_task(async function test_share_prompt_and_stop() {
     is(panel.state, "closed", "Call Options closed");
   } finally {
     BrowserTestUtils.removeTab(third);
-    BrowserTestUtils.removeTab(doc);
-  }
-});
-
-// The command does what the row does, for the selected tab; the prompt
-// after a Not now goes back to Firefox's own placement.
-add_task(async function test_command_and_not_now() {
-  const call = await openCall();
-  const doc = await BrowserTestUtils.openNewForegroundTab(gBrowser, DOC);
-  try {
-    const before = (await page(call, "shareState")).shares;
-    const shown = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
-    document.getElementById("cmd_whimsyCallShareTab").doCommand();
-    await shown;
-    is((await page(call, "shareState")).shares, before + 1, "The command pressed the call's share button");
-    ok(shareNotification(doc.linkedBrowser), "The prompt is on the selected tab");
-    const list = document.getElementById("webRTC-selectWindow-menulist");
-    info(`Listed: ${[...list.menupopup.children].map(item => `${item.mediaSource}:${item.deviceId}`).join(", ")}; ` +
-      `pick ${WhimsyShareTab._prompts.size ? [...WhimsyShareTab._prompts.values()].at(-1).browserId : "none"}`);
-    is(String(list.selectedItem?.deviceId), String(doc.linkedBrowser.browserId), "with it picked");
-    await TestUtils.waitForCondition(() => !document.getElementById("webRTC-preview-section").hidden, "with its preview");
-
-    // Not now: the page is told no, and nothing is left pending.
-    const hidden = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popuphidden");
-    EventUtils.synthesizeMouseAtCenter(PopupNotifications.panel.firstElementChild.secondaryButton, {}, window);
-    await hidden;
-    await TestUtils.waitForCondition(async () => (await page(call, "shareState")).result == "NotAllowedError", "The page was told no");
-    ok(!WhimsyShareTab.isSharing(call.linkedBrowser), "Nothing is shared");
-    ok(!WhimsyShareTab._pending.has(call.linkedBrowser), "No share is left pending");
-  } finally {
     BrowserTestUtils.removeTab(doc);
   }
 });
