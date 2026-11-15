@@ -89,6 +89,39 @@ export const WhimsyDarkPages = {
     this.publish();
   },
 
+  // The page actor. Whimsy's startup hook registers it after session
+  // restore, so pages already open then get their child started here.
+  registerActor() {
+    this.init();
+    if (this._actorRegistered) {
+      return;
+    }
+    this._actorRegistered = true;
+    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
+        events: {
+          DOMDocElementInserted: {},
+          StyleSheetApplicableStateChanged: {},
+          StyleRuleAdded: {},
+          StyleRuleRemoved: {},
+          StyleRuleChanged: {},
+          DOMContentLoaded: {},
+          pageshow: {},
+          pagehide: {},
+          beforeprint: {},
+          afterprint: {},
+          load: { capture: true },
+        },
+      },
+      matches: ["http://*/*", "https://*/*"],
+      allFrames: false,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+  },
+
   observe(subject, topic, data) {
     if (data == PREFIX + "offered") {
       return;

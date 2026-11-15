@@ -420,30 +420,7 @@ export const Whimsy = {
       return;
     }
     this._actorsRegistered = true;
-    lazy.WhimsyDarkPages.init();
-    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
-      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
-      child: {
-        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
-        events: {
-          DOMDocElementInserted: {},
-          StyleSheetApplicableStateChanged: {},
-          StyleRuleAdded: {},
-          StyleRuleRemoved: {},
-          StyleRuleChanged: {},
-          DOMContentLoaded: {},
-          pageshow: {},
-          pagehide: {},
-          beforeprint: {},
-          afterprint: {},
-          load: { capture: true },
-        },
-      },
-      matches: ["http://*/*", "https://*/*"],
-      allFrames: false,
-      messageManagerGroups: ["browsers"],
-      safeForUntrustedWebProcess: true,
-    });
+    lazy.WhimsyDarkPages.registerActor();
     ChromeUtils.registerWindowActor("WhimsyPage", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageParent.sys.mjs" },
       child: {
