@@ -421,7 +421,7 @@ add_task(async function test_new_profile_starts_fresh() {
   const types = ["camera", "geo", "autoplay-media", PERM_TYPES.reader, PERM_TYPES.fullscreen];
   Services.perms.addFromPrincipal(home, "camera", Services.perms.ALLOW_ACTION);
   Services.perms.addFromPrincipal(home, "geo", Services.perms.DENY_ACTION);
-  SitePermissions.setForPrincipal(home, "autoplay-media", SitePermissions.ALLOW);
+  SitePermissions.setForPrincipal(home, "autoplay-media", SitePermissions.BLOCK);
   WhimsySiteSettings.setFlag("reader", HOST, oa(0), true);
   WhimsySiteSettings.setFlag("fullscreen", HOST, oa(0), true);
   const id = WhimsyProfiles.create("Fresh Start");
