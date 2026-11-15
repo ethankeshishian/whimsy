@@ -509,6 +509,29 @@ add_task(async function test_seek_plate_is_separate_and_bottom_center() {
   BrowserTestUtils.removeTab(tab);
 });
 
+// Shots: the seek plate, bottom centre under the video (owner: "Bottom
+// center plate"), light and dark. WHIMSY_SHOTS=<dir> writes
+// w29-vidskip-seek-plate-{light,dark}.png.
+add_task(async function shots() {
+  const { tab, browser } = await openPage();
+  await virtualizeSeekable(browser, 120);
+  await SpecialPowers.spawn(browser, [], () => {
+    content.document.getElementById("video").currentTime = 60;
+  });
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    // Re-hover right before the shot: the control's own idle timer (2.5s)
+    // can hide it again while the scheme switch and the previous shot's
+    // file write run.
+    await hover(browser);
+    await waitShown(browser);
+    await whimsySettled();
+    await whimsyShot(`w29-vidskip-seek-plate-${dark ? "dark" : "light"}`, browser.browsingContext.currentWindowGlobal);
+    await SpecialPowers.popPrefEnv();
+  }
+  BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function reset_command_goes_to_default() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.video.default-speed", "1.25"]] });
   const { tab, browser } = await openPage();
