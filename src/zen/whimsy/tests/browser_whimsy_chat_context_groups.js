@@ -211,6 +211,7 @@ add_task(async function journey1_trip_group_row_chip_used_line_and_leave_out() {
     }, "It lists the pages");
     Assert.deepEqual(listed.sort(), ["Alfama apartments", "Flights to Lisbon", "Lisbon to Sintra", "TAP Air Portugal", "United"], "the five pages, not Hacker News or Wikipedia");
     EventUtils.synthesizeKey("KEY_Escape");
+    await TestUtils.waitForCondition(() => part(".whimsy-chat-sheet-view[data-view='list']") && !part(".whimsy-chat-sheet-view[data-view='pages']"), "Esc goes back to the list");
     EventUtils.synthesizeKey("KEY_Escape");
     await TestUtils.waitForCondition(() => !part(".whimsy-chat-sheet"), "The sheet closes");
 
@@ -348,6 +349,7 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
     const rootKey = WhimsyTreeTabs.groupKeyOf(root);
     ok(rootKey, "The root has a key");
     await Promise.all(before.map(t => TabStateFlusher.flush(t.linkedBrowser)));
+    const keys = before.map(t => t.getAttribute("whimsy-ai-key"));
     const states = before.map(t => SessionStore.getTabState(t));
     ok(JSON.parse(states[3]).extData?.["whimsy-opener"], "The opener is saved with the tab");
     removeTabs(before);
@@ -361,7 +363,18 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
       restored.unshift(tab);
     }
     const [r, t, a, m] = restored;
-    await TestUtils.waitForCondition(() => t.openerTab == r && a.openerTab == r && m.openerTab == a, "Each tab is linked back to the tab that opened it");
+    restored.forEach((tab, i) => {
+      is(tab.getAttribute("whimsy-ai-key"), keys[i], `Restored tab ${i} keeps its key`);
+      is(WhimsyTreeTabs.recordOf(tab)?.opener ?? null, i == 0 ? null : i == 3 ? keys[2] : keys[0], `Restored tab ${i} keeps its opener record (${JSON.stringify(WhimsyTreeTabs.recordOf(tab))})`);
+    });
+    const linked = () => t.openerTab == r && a.openerTab == r && m.openerTab == a;
+    const openers = () => restored.map(x => (x.openerTab ? restored.indexOf(x.openerTab) : "none")).join(",");
+    const byEvents = await TestUtils.waitForCondition(linked, "restore relinks").then(() => true, () => false);
+    ok(byEvents, `Each tab is linked back to the tab that opened it (openers ${openers()})`);
+    if (!byEvents) {
+      WhimsyTreeTabs.relink(window);
+      ok(linked(), `and an explicit relink does it (openers ${openers()}, eligible ${restored.map(x => WhimsyTreeTabs.eligible(x)).join(",")})`);
+    }
     is(WhimsyTreeTabs.groupKeyOf(m), rootKey, "The grandchild keeps its group");
 
     await openChatOn(t);
