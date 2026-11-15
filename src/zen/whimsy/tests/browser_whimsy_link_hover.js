@@ -167,9 +167,7 @@ const TARGET = ROOT + "whimsy_ai_page.html";
 
 // A tall page with the link 400px down, scrolled 200px so a wheel either
 // way moves it; a second link right beside the first, and a profile link
-// (People card) beside that. A big link right under the row, in the hover
-// card's own footprint, for the regression test below: whatever's there
-// gets the click once a plain card is gone.
+// (People card) beside that.
 async function tallPage(browser) {
   await SpecialPowers.spawn(browser, [TARGET], target => {
     content.document.body.style.cssText = "margin: 0; height: 4000px";
@@ -177,7 +175,23 @@ async function tallPage(browser) {
       <p style="margin: 0; padding: 20px; position: fixed; top: 0; left: 0"><a id="away" href="#">away</a></p>
       <p style="margin: 380px 40px 0"><a id="link" href="${target}?clicked">a link</a>
         <a id="next" href="${target}?next">next link</a>
-        <a id="person" href="https://github.com/octocat">The Octocat</a></p>
+        <a id="person" href="https://github.com/octocat">The Octocat</a></p>`;
+    content.scrollTo(0, 200);
+  });
+}
+
+// Like tallPage, but with nothing beside the link: a big link right under
+// it, in the hover card's own footprint, for the regression test below
+// (whatever's there gets the click once a plain card is gone). Its own page
+// because the other tests here scroll a little with the pointer still
+// resting where the link was, and a page-wide #below would end up under
+// that resting pointer too.
+async function pageWithLinkBelow(browser) {
+  await SpecialPowers.spawn(browser, [TARGET], target => {
+    content.document.body.style.cssText = "margin: 0; height: 4000px";
+    content.document.body.innerHTML = `
+      <p style="margin: 0; padding: 20px; position: fixed; top: 0; left: 0"><a id="away" href="#">away</a></p>
+      <p style="margin: 380px 40px 0"><a id="link" href="${target}?clicked">a link</a></p>
       <p style="margin: 0 40px 0"><a id="below" href="${target}?below" style="display: block; width: 300px; height: 300px">below the link</a></p>`;
     content.scrollTo(0, 200);
   });
@@ -445,7 +459,7 @@ add_task(async function plain_card_closes_and_lets_the_page_through() {
   const restore = stubAI(true);
   try {
     await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
-      await tallPage(browser);
+      await pageWithLinkBelow(browser);
       const p = await hoverLinkCard(browser);
       const card = cardRect(p);
       await pointerOnCard(p);
