@@ -78,7 +78,12 @@ add_task(async function test_command_registered() {
 });
 
 add_task(async function test_availability() {
-  await BrowserTestUtils.withNewTab(PAGE, async () => {
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    // isAvailable also requires qualifiedFor() (the 1:1 contract with the
+    // button), so a qualifying field needs to be focused first.
+    await focusField(browser, "area");
+    await TestUtils.waitForCondition(() => action()?.isAvailable(window),
+      "Available on an http(s) page");
     ok(action()?.isAvailable(window), "Available on an http(s) page");
   });
   await BrowserTestUtils.withNewTab("about:blank", async () => {
