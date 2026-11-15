@@ -236,6 +236,7 @@ add_task(async function test_sits_under_the_find_card() {
 });
 
 add_task(async function test_holds_in_a_new_window_then_off() {
+  const before = new Set(gBrowser.tabs);
   const win = await BrowserTestUtils.openNewBrowserWindow();
   let tab = null;
   try {
@@ -259,5 +260,9 @@ add_task(async function test_holds_in_a_new_window_then_off() {
       BrowserTestUtils.removeTab(tab);
     }
     await BrowserTestUtils.closeWindow(win);
+    // Zen's window sync can leave this window a copy of the other's tabs.
+    for (const extra of gBrowser.tabs.filter(t => !before.has(t))) {
+      BrowserTestUtils.removeTab(extra);
+    }
   }
 });
