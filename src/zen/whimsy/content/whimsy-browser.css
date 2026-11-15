@@ -8115,3 +8115,18 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     color: var(--whimsy-on-accent) !important;
   }
 }
+
+/* ext: "Run in profiles:" in Firefox's add-extension prompt
+   (WhimsySpaceExtensions.installPromptItem). The checkboxes are Firefox's
+   moz-checkbox, as for "Allow extension to run in private windows";
+   spaced like its other optional items (addon-notification.css). */
+.whimsy-ext-install-profiles {
+  margin-top: var(--space-medium);
+}
+.whimsy-ext-install-profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xsmall);
+  margin-block-start: var(--space-xsmall);
+  padding-inline-start: var(--space-xlarge);
+}

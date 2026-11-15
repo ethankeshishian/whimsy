@@ -399,6 +399,12 @@ LICENSES["lucide"].text = "content/icon-packs/lucide/LICENSE"
 LICENSES["phosphor"].title = "Phosphor icons (MIT)"
 LICENSES["phosphor"].text = "content/icon-packs/phosphor-fill/LICENSE"
 
+# W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md
+# option A, step 1).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyOpenInBrowser.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]
