@@ -117,6 +117,11 @@ add_task(async function test_shift_click_split_keeps_folder_collapsed() {
 
     await BrowserTestUtils.synthesizeMouseAtCenter("#l", { shiftKey: true }, tab.linkedBrowser);
     await TestUtils.waitForCondition(() => tab.splitView, "Shift+click split the pinned tab");
+    // ZenFolders re-expands the folder on the TabSelect the split causes
+    // before Whimsy's own restore (deferred so it doesn't race that
+    // handler - see restoreCollapsedFoldersAfterSettle) puts it back, so
+    // wait for the restore rather than asserting right after the split.
+    await TestUtils.waitForCondition(() => folder.collapsed, "The folder settles back to collapsed");
     ok(folder.collapsed, "Splitting the pinned tab keeps the folder collapsed");
   } finally {
     if (folder) {

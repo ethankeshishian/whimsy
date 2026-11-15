@@ -119,6 +119,25 @@ function restoreCollapsedFolders(folders) {
   }
 }
 
+// splitTabs() selects the new tab before activating the split, and that
+// TabSelect is what drives ZenFolders#on_TabSelect's expand in the first
+// place: it's an async handler that only runs synchronously up to its first
+// await, then re-checks rootMostCollapsedFolder once that await resolves.
+// Restoring the collapse state synchronously, right after splitTabs()
+// returns, used to run inside that gap - on_TabSelect would find the folder
+// collapsed again on its re-check and expand it again, and since nothing
+// else was restoring it a second time, the two sides kept bouncing: each
+// restore fed another on_TabSelect iteration, which fed another restore.
+// Waiting a macrotask lets on_TabSelect's loop fully settle (it resolves in
+// a couple of microtask ticks once nothing is left collapsed) before this
+// runs, so there's nothing left for it to react to.
+function restoreCollapsedFoldersAfterSettle(win, folders) {
+  if (!folders.length) {
+    return;
+  }
+  win.setTimeout(() => restoreCollapsedFolders(folders), 0);
+}
+
 export const WhimsySplit = {
   // Called by WhimsyPageParent when the page actor reports a Shift+click on
   // a link. Opens the link next to the clicked tab, as a 2-pane split.
@@ -138,7 +157,7 @@ export const WhimsySplit = {
       return false;
     }
     splitter.splitTabs([currentTab, newTab], undefined, 1);
-    restoreCollapsedFolders(collapsedFolders);
+    restoreCollapsedFoldersAfterSettle(win, collapsedFolders);
     return true;
   },
 
