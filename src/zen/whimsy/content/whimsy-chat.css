@@ -7,7 +7,9 @@
    gap on its page side is the resize grip, drawn like Zen's sidebar
    splitter (zen-browser-ui.css). Colours are the surface tokens. */
 
-#whimsy-chat {
+/* The tokens, shared with the side panel popover's header (W29,
+   whimsy-side-panel.css). */
+:is(#whimsy-chat, .browserSidebarContainer[whimsy-popover]) {
   --whimsy-chat-gap: var(--zen-element-separation, 8px);
   --whimsy-chat-bg: light-dark(#fafbff, #1c1c1c);
   --whimsy-chat-text: light-dark(#111111, #ffffff);
@@ -37,7 +39,9 @@
   --whimsy-chat-private: #8a3ffc;
   --whimsy-chat-radius: var(--zen-native-inner-radius, 10px);
   --whimsy-chat-focus: 2px solid var(--focus-outline-color, AccentColor);
+}
 
+#whimsy-chat {
   box-sizing: border-box;
   position: relative;
   display: flex;
@@ -68,10 +72,10 @@
 }
 
 /* Zen removes the wrapper gap beside its tabs; chat needs it on either side. */
-:root[zen-right-side="true"] #zen-tabbox-wrapper:has(> #whimsy-chat[side="right"]:not([hidden])) {
+:root[zen-right-side="true"] #zen-tabbox-wrapper:has(> #whimsy-chat[side="right"]:not([hidden], [whimsy-popover])) {
   margin-right: var(--zen-element-separation);
 }
-:root:not([zen-right-side="true"]) #zen-tabbox-wrapper:has(> #whimsy-chat[side="left"]:not([hidden])) {
+:root:not([zen-right-side="true"]) #zen-tabbox-wrapper:has(> #whimsy-chat[side="left"]:not([hidden], [whimsy-popover])) {
   margin-left: var(--zen-element-separation);
 }
 
@@ -80,6 +84,44 @@
 }
 
 /* A page that would get narrower than 480px: chat floats over it. */
+/* W29 side panels: Show Chat as Popover. Chat floats in the side panel
+   popover's spot (whimsy-side-panel.css): by the sidebar, centred top to
+   bottom, no dimming. */
+#zen-tabbox-wrapper:has(> #whimsy-chat[whimsy-popover]:not([hidden])) {
+  position: relative;
+}
+#whimsy-chat[whimsy-popover] {
+  position: absolute;
+  z-index: 10;
+  inset-block: 0;
+  margin-block: auto;
+  height: min(680px, calc(100% - 40px));
+  width: var(--whimsy-chat-width, 380px);
+  min-width: var(--whimsy-chat-width, 380px);
+  padding: 0;
+  &[side="left"] {
+    inset-inline-start: var(--whimsy-chat-gap);
+    transform-origin: left center;
+  }
+  &[side="right"] {
+    inset-inline-end: var(--whimsy-chat-gap);
+    transform-origin: right center;
+  }
+  & .whimsy-chat-panel {
+    height: 100%;
+  }
+  &[side="left"] .whimsy-chat-panel {
+    box-shadow:
+      0 0 0 0.5px var(--whimsy-chat-hairline),
+      16px 0 40px -12px rgba(0, 0, 0, 0.35);
+  }
+  &[side="right"] .whimsy-chat-panel {
+    box-shadow:
+      0 0 0 0.5px var(--whimsy-chat-hairline),
+      -16px 0 40px -12px rgba(0, 0, 0, 0.35);
+  }
+}
+
 #whimsy-chat[overlay] {
   position: absolute;
   z-index: 10;

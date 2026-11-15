@@ -26,6 +26,12 @@ registerCleanupFunction(async () => {
   }
 });
 
+// An Essential's click opens it in the side panel popover by default (W29);
+// these tasks pick tabs by hand, so they open as tabs.
+add_setup(async () => {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.side-panels", false]] });
+});
+
 // B1: ⌘⇧T reopens the most recently closed tab of any kind: a normal tab,
 // a pinned tab and an Essential, closed the ways a person closes them.
 

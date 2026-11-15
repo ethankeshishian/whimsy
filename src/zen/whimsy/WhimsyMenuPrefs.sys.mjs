@@ -159,6 +159,8 @@ const TAB_ITEMS = [
   }),
   // W10-62: an Essential's Show Unread Badge (only Essentials have it).
   item("unread-badge", "whimsy-menus-tab-unread-badge", ["context_whimsyUnreadBadge"]),
+  // W29: an Essential's Open in Side Panel (only Essentials have it).
+  item("side-panel", "whimsy-menus-tab-side-panel", ["context_whimsySidePanel"]),
   item("rename", "whimsy-menus-tab-rename", ["context_zen-edit-tab-title"]),
   item("change-icon", "whimsy-menus-tab-change-icon", ["context_zen-edit-tab-icon"]),
   SEPARATOR,

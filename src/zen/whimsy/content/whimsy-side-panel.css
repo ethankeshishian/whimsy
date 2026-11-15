@@ -1,0 +1,105 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W29 side panels (WhimsySidePanel.sys.mjs): an Essential's own tab panel
+   floats next to the sidebar, over the page. Chat's panel box, header,
+   shadow, widths, and gap (whimsy-chat.css); WhimsySurface's height
+   (whimsy-surface.css:43-48). No tail, no dimming. */
+
+#tabbrowser-tabpanels > .browserSidebarContainer[whimsy-popover] {
+  /* A background tab's panel is hidden only visually (xul.css): show it. */
+  -moz-subtree-hidden-only-visually: 0;
+  visibility: inherit;
+  position: absolute;
+  z-index: 3;
+  inset-block: 0;
+  margin-block: auto;
+  height: min(680px, calc(100% - 40px));
+  width: var(--whimsy-side-panel-width, 380px);
+  min-width: 0;
+  flex-direction: column;
+  border-radius: var(--whimsy-chat-radius) !important;
+  background: var(--whimsy-chat-bg);
+  color: var(--whimsy-chat-text);
+  overflow: clip;
+
+  &[side="left"] {
+    inset-inline-start: var(--whimsy-chat-gap);
+    transform-origin: left center;
+    box-shadow:
+      0 0 0 0.5px var(--whimsy-chat-hairline),
+      16px 0 40px -12px rgba(0, 0, 0, 0.35) !important;
+  }
+  &[side="right"] {
+    inset-inline-end: var(--whimsy-chat-gap);
+    transform-origin: right center;
+    box-shadow:
+      0 0 0 0.5px var(--whimsy-chat-hairline),
+      -16px 0 40px -12px rgba(0, 0, 0, 0.35) !important;
+  }
+
+  & > .browserContainer {
+    flex: 1;
+    min-height: 0;
+    border-radius: 0;
+  }
+}
+
+/* Chat's header box (whimsy-chat.css): favicon, host, hide button last. */
+.whimsy-side-panel-head {
+  font: menu;
+  font-size: 13px;
+  -moz-window-dragging: no-drag;
+  &[hidden] {
+    display: none;
+  }
+  & h2 {
+    margin-inline-start: 0;
+  }
+}
+
+.whimsy-side-panel-favicon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-inline-start: 4px;
+  &[hidden] {
+    display: none;
+  }
+}
+
+/* The resize grip on the page-side edge, drawn like chat's
+   (whimsy-chat.css, .whimsy-chat-splitter). */
+.whimsy-side-panel-grip {
+  position: absolute;
+  z-index: 3;
+  inset-block: 0;
+  width: 6px;
+  cursor: ew-resize;
+  .browserSidebarContainer[side="left"] > & {
+    inset-inline-end: 0;
+  }
+  .browserSidebarContainer[side="right"] > & {
+    inset-inline-start: 0;
+  }
+  &[hidden] {
+    display: none;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: var(--whimsy-chat-gap);
+    inset-inline: 2px;
+    border-radius: 4px;
+    background: var(--zen-accent-button-background, var(--whimsy-chat-accent-bg));
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+  }
+
+  &:is(:hover, [resizing])::before {
+    transition-delay: 0.2s;
+    opacity: 0.8;
+  }
+}

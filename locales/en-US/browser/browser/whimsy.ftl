@@ -2514,6 +2514,21 @@ whimsy-action-toggle-unread-badge = Show or Hide Unread Badge
 whimsy-action-show-unread-badge = Show Unread Badge
 whimsy-action-hide-unread-badge = Hide Unread Badge
 
+# W29 side panels: an Essential's context menu (a checkbox, on by default)
+# and its command. Checked, the Essential opens in a popover next to the
+# sidebar; unchecked, as a normal tab.
+tab-context-whimsy-side-panel =
+    .label = Open in Side Panel
+whimsy-action-side-panel = Open in Side Panel or Tab
+whimsy-action-open-in-side-panel = Open in Side Panel
+whimsy-action-open-in-tab = Open in Tab
+# The popover's header button, and its resize grip.
+whimsy-side-panel-hide-button =
+    .title = Hide side panel
+    .aria-label = Hide side panel
+whimsy-side-panel-splitter =
+    .aria-label = Resize side panel
+
 # wave5/uxfix: read out with a pinned tab's unread badge.
 # $count (number) - unread items the site reports
 whimsy-tab-unread-description = { $count } unread
@@ -3363,6 +3378,9 @@ whimsy-menus-tab-essentials =
     .label = Add to Essentials
 whimsy-menus-tab-unread-badge =
     .label = Show Unread Badge
+    .description = On Essentials
+whimsy-menus-tab-side-panel =
+    .label = Open in Side Panel
     .description = On Essentials
 whimsy-menus-tab-rename =
     .label = Change Label…
@@ -5398,6 +5416,9 @@ whimsy-chat-menu-move-left =
     .label = Move Chat to the Left
 whimsy-chat-menu-move-right =
     .label = Move Chat to the Right
+# W29 side panels: chat floats in the side panel popover (a checkbox).
+whimsy-chat-menu-popover =
+    .label = Show Chat as Popover
 whimsy-chat-cmd-toggle = Open or Hide Chat
 whimsy-chat-cmd-open = Open Chat
 whimsy-chat-cmd-hide = Hide Chat
