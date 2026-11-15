@@ -9,9 +9,9 @@
 // prefers-reduced-motion, and never landing on the selected tab.
 
 const { WhimsyChatPanel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatPanel.sys.mjs");
-const { WhimsyChatContextUI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs");
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIStore } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIStore.sys.mjs");
+const { WhimsyAIContext } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIContext.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 
 const ARTICLE = "https://example.com/browser/zen/whimsy/tests/whimsy_chat_article.html";
@@ -19,7 +19,19 @@ const OTHER = "https://example.org/?other";
 const chat = () => WhimsyChatPanel.forWindow(window);
 const el = () => document.getElementById("whimsy-chat");
 const part = sel => el().querySelector(sel);
+// A chip's data-chip is `${kind}:${tabKey}` (WhimsyAIContext.chipFor); this
+// picks the x for one specific tab's chip among several "tab" chips.
+const tabChipX = tab => part(`.whimsy-chat-chip[data-chip="tab:${CSS.escape(WhimsyAIContext.tabKey(tab))}"] .whimsy-chat-chip-x`);
 let calls = [];
+const defaultProvider = async function* (provider, request) {
+  calls.push({ provider, request });
+  yield { type: "text", delta: "Answer to " + request.lastUserText };
+};
+function gate() {
+  let open;
+  const promise = new Promise(r => (open = r));
+  return { promise, open };
+}
 
 async function openOn(url = ARTICLE) {
   await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-chat-reads-" + Math.random().toString(16).slice(2)));
@@ -53,10 +65,7 @@ const answered = () => TestUtils.waitForCondition(() => !part(".whimsy-chat-msg[
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], ["whimsy.feature.ai-hints", false], ["whimsy.ai.order", "claude"], ["whimsy.ai.off", ""]] });
-  WhimsyAIProviders.setTestProvider(async function* (provider, request) {
-    calls.push({ provider, request });
-    yield { type: "text", delta: "Answer to " + request.lastUserText };
-  });
+  WhimsyAIProviders.setTestProvider(defaultProvider);
   registerCleanupFunction(() => {
     if (chat().isOpen) {
       chat().close({ reason: "key" });
@@ -69,28 +78,36 @@ add_setup(async function () {
 });
 
 // The marker appears/disappears in sync with chat attachment (chip add,
-// chat close, and a chip removal via x).
+// chat close, and a chip removal via x). `other` is opened before the
+// chat (as the other journeys here do), because opening a foreground tab
+// while the chat is already open switches it to that tab's own thread
+// (onSelect -> showTab in WhimsyChatPanel.init), which would move the
+// chat's attachment off `tab` entirely.
 add_task(async function marker_tracks_attachment() {
-  const tab = await openOn();
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, OTHER);
-  await TestUtils.waitForCondition(() => tab.hasAttribute("whimsy-chat-reads"), "The attached tab's own chat marks it");
+  const tab = await openOn();
   ok(!other.hasAttribute("whimsy-chat-reads"), "A tab with no chip stays unmarked");
+  ok(!tab.hasAttribute("whimsy-chat-reads"), "The selected tab is never marked, even though it's attached");
 
-  const dataTransfer = new DataTransfer();
-  dataTransfer.mozSetDataAt("application/x-moz-tabbrowser-tab", other, 0);
-  const drop = new DragEvent("drop", { dataTransfer, bubbles: true, cancelable: true });
-  part(".whimsy-chat-composer").dispatchEvent(drop);
+  const drop = () => {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.mozSetDataAt("application/x-moz-tabbrowser-tab", other, 0);
+    part(".whimsy-chat-composer").dispatchEvent(new DragEvent("drop", { dataTransfer, bubbles: true, cancelable: true }));
+  };
+  drop();
   await TestUtils.waitForCondition(() => [...el().querySelectorAll(".whimsy-chat-chip:not(.whimsy-chat-chip-add)")].length == 2, "The dropped tab becomes a chip");
   await TestUtils.waitForCondition(() => other.hasAttribute("whimsy-chat-reads"), "Dropping a tab into the chat marks it too");
+  await TestUtils.waitForCondition(() => other.getAttribute("aria-description") == "Chat reads this tab", "...with an aria-description to match");
 
-  EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-chip[data-kind='tab'] .whimsy-chat-chip-x"), {});
-  await TestUtils.waitForCondition(() => !tab.hasAttribute("whimsy-chat-reads"), "x-ing a chip clears the mark right away");
-  ok(other.hasAttribute("whimsy-chat-reads"), "the other chip's mark survives");
+  EventUtils.synthesizeMouseAtCenter(tabChipX(other), {});
+  await TestUtils.waitForCondition(() => !other.hasAttribute("whimsy-chat-reads") && !other.hasAttribute("aria-description"), "x-ing its chip clears the mark right away");
+
+  drop();
+  await TestUtils.waitForCondition(() => other.hasAttribute("whimsy-chat-reads"), "Dropping it back in marks it again");
 
   chat().close({ reason: "key" });
   await TestUtils.waitForCondition(() => el().hidden, "Chat closed");
-  ok(!other.hasAttribute("whimsy-chat-reads"), "Closing the chat clears every remaining mark");
-  ok(!other.hasAttribute("aria-description"), "...and the aria-description with it");
+  ok(!other.hasAttribute("whimsy-chat-reads") && !other.hasAttribute("aria-description"), "Closing the chat clears every remaining mark");
 
   BrowserTestUtils.removeTab(other);
   BrowserTestUtils.removeTab(tab);
@@ -122,7 +139,11 @@ add_task(async function all_my_tabs_marks_every_eligible_tab() {
 });
 
 // The "Reading" state ([whimsy-chat-reading]) tracks whether the thread is
-// actively answering, separate from plain attachment.
+// actively answering, separate from plain attachment. The test provider's
+// default resolves in one microtask, too fast to ever observe the
+// transient reading=true state by polling, so this task gates the stream
+// open (browser_whimsy_chat_answer.js's gate() pattern) and restores the
+// default provider afterward for the tasks that follow.
 add_task(async function reading_state_tracks_streaming() {
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, OTHER);
   const tab = await openOn();
@@ -133,13 +154,22 @@ add_task(async function reading_state_tracks_streaming() {
   await TestUtils.waitForCondition(() => other.hasAttribute("whimsy-chat-reads"), "Attached and marked");
   ok(!other.hasAttribute("whimsy-chat-reading"), "Not reading yet: no message sent");
 
+  const g = gate();
+  WhimsyAIProviders.setTestProvider(async function* (provider, request) {
+    calls.push({ provider, request });
+    yield { type: "text", delta: "Working" };
+    await g.promise;
+    yield { type: "text", delta: " on it." };
+  });
   chat().composer.focus();
   EventUtils.sendString("Go");
   EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(() => other.hasAttribute("whimsy-chat-reading"), "Reading while the answer streams");
+  g.open();
   await answered();
   await TestUtils.waitForCondition(() => !other.hasAttribute("whimsy-chat-reading"), "Reading ends once the answer lands");
   ok(other.hasAttribute("whimsy-chat-reads"), "...but it's still attached");
+  WhimsyAIProviders.setTestProvider(defaultProvider);
   await closeAll(tab, other);
 });
 
@@ -156,11 +186,19 @@ add_task(async function reduced_motion_disables_the_animation() {
   const badge = () => other.querySelector(".tab-icon-stack");
   is(getComputedStyle(badge(), "::before").animationName, "none", "No pop-in animation under reduced motion");
 
+  const g = gate();
+  WhimsyAIProviders.setTestProvider(async function* (provider, request) {
+    calls.push({ provider, request });
+    yield { type: "text", delta: "Working" };
+    await g.promise;
+    yield { type: "text", delta: " on it." };
+  });
   chat().composer.focus();
   EventUtils.sendString("Go");
   EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(() => other.hasAttribute("whimsy-chat-reading"), "Reading while the answer streams");
   is(getComputedStyle(badge(), "::before").animationName, "none", "No twinkle animation under reduced motion either");
+  g.open();
   await answered();
   await closeAll(tab, other);
   await SpecialPowers.popPrefEnv();
