@@ -379,6 +379,45 @@ function buildRow(win) {
   panel.addEventListener("popupshowing", sync);
   win.addEventListener("unload", () => panel.removeEventListener("popupshowing", sync), { once: true });
   sync();
+
+  // ZenGradientGenerator's updateCurrentWorkspace() unconditionally
+  // replaces workspaceBeingEdited.theme with a freshly-built, gradient-
+  // only object - whether or not it also saves it (skipSave only gates
+  // the save, not the in-memory replacement). It runs 200ms after every
+  // panel open (handlePanelOpen, to let the dots settle first) and again
+  // on close if anything is still pending, so matchPage/matchPageStyle
+  // get silently dropped on practically every panel interaction. Zen's
+  // own file can't be hand-edited, so wrap this one instance method
+  // (scoped to this window's picker, not the shared prototype) and
+  // restore our fields across every call.
+  const picker = win.gZenThemePicker;
+  const originalUpdateCurrentWorkspace = picker.updateCurrentWorkspace.bind(picker);
+  picker.updateCurrentWorkspace = (...args) => {
+    const before = picker.workspaceBeingEdited;
+    const matchState = before ? { matchPage: !!before.theme?.matchPage, style: styleOf(before) } : null;
+    const result = originalUpdateCurrentWorkspace(...args);
+    if (!matchState || (!matchState.matchPage && matchState.style === "gradient")) {
+      return result;
+    }
+    const after = picker.workspaceBeingEdited;
+    if (!after) {
+      return result;
+    }
+    const theme = ensureTheme(after);
+    if (theme.matchPage === matchState.matchPage && styleOf(after) === matchState.style) {
+      return result;
+    }
+    theme.matchPage = matchState.matchPage;
+    theme.matchPageStyle = matchState.style;
+    // Only persist if the call we just wrapped did (skipSave defaults to
+    // true, i.e. no save) - this mirrors, rather than overrides, what Zen
+    // itself intended for that call.
+    const skipSave = args.length ? !!args[0] : true;
+    if (!skipSave) {
+      win.gZenWorkspaces.saveWorkspace(after);
+    }
+    return result;
+  };
 }
 
 export const WhimsyPageTint = {

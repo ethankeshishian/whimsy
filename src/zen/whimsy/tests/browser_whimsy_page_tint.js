@@ -44,6 +44,22 @@ function rgbOf(value) {
   return match.slice(1, 4).map(n => Number(n.trim()));
 }
 
+// nsZenThemePicker's blendWithWhiteOverlay (ZenGradientGenerator.mjs) is
+// not a pure opacity-setter: on macOS it also blends the colour toward a
+// window-vibrancy overlay, by an amount that depends on the opacity it's
+// given. The toolbar is always painted at opacity 1 (forced in
+// singleColorValue) while the background keeps the space's own, lower
+// opacity, so the two call it with different arguments and land close
+// but not pixel-identical for what is still, visibly, the same flat
+// colour. A few points of channel drift is that formula, not a bug, so
+// compare with a small tolerance rather than exact equality.
+function assertSameFlatColour(toolbar, other, message) {
+  const [t, o] = [rgbOf(toolbar), rgbOf(other)];
+  const deltas = t.map((v, i) => Math.abs(v - o[i]));
+  const worst = Math.max(...deltas);
+  ok(worst <= 6, `${message} (toolbar ${t}, background ${o}, off by up to ${worst})`);
+}
+
 function setThemeColor(browser, content) {
   return SpecialPowers.spawn(browser, [content], c => {
     let meta = content.document.querySelector('meta[name="theme-color"]');
@@ -106,8 +122,11 @@ async function waitForSwatchesOpacity(expected, message) {
 }
 
 function endMatchPage(workspace = gZenWorkspaces.getActiveWorkspace()) {
-  if (workspace.theme?.matchPage) {
+  // Also drop a lingering non-default style, so a test never inherits an
+  // earlier one's Blend/Replace choice along with Match the page itself.
+  if (workspace.theme?.matchPage || workspace.theme?.matchPageStyle) {
     workspace.theme.matchPage = false;
+    delete workspace.theme.matchPageStyle;
     gZenWorkspaces.saveWorkspace(workspace);
     gZenThemePicker.onWorkspaceChange(workspace);
   }
@@ -228,7 +247,7 @@ add_task(async function test_blend_paint_output() {
     await TestUtils.waitForCondition(() => workspace.theme?.matchPage);
     await TestUtils.waitForCondition(() => background());
     ok(!background().includes("gradient"), "Blend paints a flat colour, not a gradient");
-    Assert.deepEqual(rgbOf(toolbarBackground()), rgbOf(background()), "...the same flat colour behind the toolbar");
+    assertSameFlatColour(toolbarBackground(), background(), "...the same flat colour behind the toolbar");
 
     toggle().click();
     await TestUtils.waitForCondition(() => !workspace.theme?.matchPage);
@@ -273,7 +292,7 @@ add_task(async function test_replace_paint_output() {
     await TestUtils.waitForCondition(() => background());
     const replaced = background();
     ok(!replaced.includes("gradient"), "Replace paints a flat colour, not a gradient");
-    Assert.deepEqual(rgbOf(toolbarBackground()), rgbOf(replaced), "...the same flat colour behind the toolbar");
+    assertSameFlatColour(toolbarBackground(), replaced, "...the same flat colour behind the toolbar");
 
     // Blend mixes the same site colour toward the space's own colours, so
     // for a site this far from the space the two styles paint differently.
