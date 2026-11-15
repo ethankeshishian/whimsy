@@ -56,7 +56,7 @@ add_task(async function test_band_gain_and_bit_identical_flat() {
   await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.startAnalysis());
   info(`Graph: ${JSON.stringify(await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.graphInfo()))}`);
 
-  // Flat: every sample is exactly the 16-bit value in the file.
+  // Flat: every sample is, bit for bit, the decoded 16-bit value in the file.
   const flat = await settled(browser, m => m.exact == m.total, "Flat output is bit-identical");
   is(flat.exact, flat.total, "Every sample is untouched when flat");
   const base = flat.rms;

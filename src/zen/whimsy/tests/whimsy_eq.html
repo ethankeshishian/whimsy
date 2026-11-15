@@ -25,7 +25,19 @@
     paused: audio.paused,
     time: audio.currentTime,
   });
-  // { rms, exact }: exact counts the samples that are a whole 16-bit step.
+  // { rms, exact }: exact counts the samples that are, bit for bit, the
+  // float a 16-bit sample decodes to (Gecko scales positive samples by
+  // 1/32767 and negative ones by 1/32768).
+  const INV = Math.fround(1 / 32767);
+  const isDecoded16 = v => {
+    const n = Math.round(v * 32768);
+    const m = Math.round(v * 32767);
+    return (
+      Math.fround(n / 32768) === v ||
+      Math.fround(m / 32767) === v ||
+      Math.fround(m * INV) === v
+    );
+  };
   window.measure = () => {
     const buf = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(buf);
@@ -33,12 +45,12 @@
     let exact = 0;
     for (const v of buf) {
       sum += v * v;
-      if (Number.isInteger(v * 32768)) {
+      if (isDecoded16(v)) {
         exact++;
       }
     }
     // The first sample that isn't exact (to see how far off it is).
-    const odd = buf.find(v => !Number.isInteger(v * 32768));
+    const odd = buf.find(v => !isDecoded16(v));
     return { rms: Math.sqrt(sum / buf.length), exact, total: buf.length, odd: odd === undefined ? null : odd * 32768 };
   };
   // A stream the equalizer can't reach (a call, a generated stream).
