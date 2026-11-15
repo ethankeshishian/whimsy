@@ -153,7 +153,6 @@ add_task(async function test_pref_hides_button_but_not_command() {
 });
 
 add_task(async function test_tooltip_is_the_command_label() {
-  const { Localization } = ChromeUtils.importESModule("resource://gre/modules/Localization.sys.mjs");
   const l10n = new Localization(["browser/whimsy.ftl"], true);
   const expected = await l10n.formatValue("whimsy-action-edit-field-in-editor");
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
