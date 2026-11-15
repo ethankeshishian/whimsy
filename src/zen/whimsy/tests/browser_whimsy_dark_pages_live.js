@@ -122,3 +122,111 @@ add_task(async function page_loaded_with_feature_off_turns_on_live() {
   await SpecialPowers.popPrefEnv();
   await SpecialPowers.popPrefEnv();
 });
+
+// A page whose address isn't its origin: a CSP sandbox gives it an opaque
+// principal. The site switch is keyed by address, in chrome and in the page.
+add_task(async function sandboxed_page_follows_the_site_switch() {
+  await SpecialPowers.pushPrefEnv({ set: [[MODE, "off"]] });
+  await whimsySetScheme(false);
+  await BrowserTestUtils.withNewTab(ROOT + "whimsy_dark_pages_sandbox.html", async browser => {
+    await darkState(browser, "original");
+    ok(await SpecialPowers.spawn(browser, [], () => content.document.nodePrincipal.isNullPrincipal),
+      "The page runs in a sandbox");
+    WhimsyDarkPages.setDark(browser, true);
+    await darkState(browser, "generated");
+    ok(await paintedDark(browser), "The site switch turns the sandboxed page dark live");
+    WhimsyDarkPages.setDark(browser, false);
+    await darkState(browser, "original");
+    ok(!(await paintedDark(browser)), "And restores it live");
+  });
+  await SpecialPowers.popPrefEnv();
+  await SpecialPowers.popPrefEnv();
+});
+
+// A page that went into the back-forward cache before the actor registered
+// starts its child when it comes back.
+add_task(async function cached_page_from_before_startup_hook_follows_settings() {
+  await SpecialPowers.pushPrefEnv({ set: [[MODE, "off"]] });
+  await whimsySetScheme(false);
+  ChromeUtils.unregisterWindowActor("WhimsyDarkPages");
+  WhimsyDarkPages._actorRegistered = false;
+  let registered = false;
+  try {
+    await BrowserTestUtils.withNewTab(PAGE + "?first", async browser => {
+      await SpecialPowers.spawn(browser, [], () => {
+        content.document.documentElement.dataset.cached = "yes";
+      });
+      BrowserTestUtils.startLoadingURIString(browser, PAGE + "?second");
+      await BrowserTestUtils.browserLoaded(browser);
+      WhimsyDarkPages.registerActor();
+      registered = true;
+      const shown = BrowserTestUtils.waitForContentEvent(browser, "pageshow");
+      browser.goBack();
+      await shown;
+      is(await SpecialPowers.spawn(browser, [], () => content.document.documentElement.dataset.cached), "yes",
+        "The first page came back from the back-forward cache");
+      await SpecialPowers.pushPrefEnv({ set: [[MODE, "always"]] });
+      await darkState(browser, "generated");
+      ok(await paintedDark(browser), "The cached page turns dark live");
+      await SpecialPowers.popPrefEnv();
+      await darkState(browser, "original");
+      ok(!(await paintedDark(browser)), "And restores live");
+    });
+  } finally {
+    if (!registered) {
+      WhimsyDarkPages.registerActor();
+    }
+    await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// Owner bug (W29): a canvas-drawn editor (Google Docs was the example) went
+// near-black with dark text: the paint-time inversion changes CSS colors,
+// never canvas pixels. Canvas pixels get the same lightness flip, so text
+// stays readable, on highlights and selections too.
+add_task(async function canvas_drawn_editor_stays_readable() {
+  await SpecialPowers.pushPrefEnv({ set: [[MODE, "always"]] });
+  await BrowserTestUtils.withNewTab(ROOT + "whimsy_dark_pages_canvas.html", async browser => {
+    await darkState(browser, "generated");
+    const px = await SpecialPowers.spawn(browser, [], () => {
+      const canvas = content.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+      canvas.width = content.innerWidth;
+      canvas.height = content.innerHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawWindow(content, 0, 0, canvas.width, canvas.height, "white");
+      const at = (x, y) => [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+      return {
+        page: at(380, 150), outside: at(500, 300), text: at(40, 25),
+        highlight: at(200, 45), highlightText: at(130, 30),
+        selection: at(350, 45), selectionText: at(280, 30),
+      };
+    });
+    const lum = rgb => {
+      const [r, g, b] = rgb.map(c => {
+        c /= 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a, b) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    info(JSON.stringify(px));
+    ok(Math.max(...px.outside) < 100 && Math.max(...px.page) < 100, "The page is dark, under the canvas too");
+    Assert.greaterOrEqual(contrast(px.text, px.page), 4.5, "Canvas text is readable on the dark page");
+    ok(lum(px.text) > lum(px.page), "Canvas text is light on the dark page");
+    Assert.greaterOrEqual(contrast(px.highlightText, px.highlight), 4.5, "Text on a highlight is readable");
+    ok(px.highlight[0] > px.highlight[2], "The highlight keeps a warm color");
+    Assert.greaterOrEqual(contrast(px.selectionText, px.selection), 4.5, "Text on the selection is readable");
+    ok(px.selection[2] > px.selection[0], "The selection stays blue");
+    await SpecialPowers.pushPrefEnv({ set: [[MODE, "off"]] });
+    await darkState(browser, "original");
+    is(await SpecialPowers.spawn(browser, [], () =>
+      content.getComputedStyle(content.document.getElementById("editor")).filter), "none",
+    "Original leaves the canvas untouched");
+    await SpecialPowers.popPrefEnv();
+  });
+  await SpecialPowers.popPrefEnv();
+});
