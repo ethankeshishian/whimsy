@@ -873,8 +873,13 @@ export const WhimsyMenuPrefs = {
       log.push({ node, prev: node.previousElementSibling, next: node.nextElementSibling });
       popup.append(node);
     };
+    // A row Settings → Menus has turned off (apply() ran first and marked
+    // it with HIDDEN_ATTR) is still grouped and moved here like any other
+    // row, so turning it back on later doesn't leave it behind in
+    // Firefox's original spot, away from the row it's grouped with. Only
+    // rows Firefox itself leaves out (no matching context) are skipped.
     const rows = [...popup.children].filter(
-      node => !isSeparator(node) && this.visible(win, node)
+      node => !isSeparator(node) && (node.hasAttribute(HIDDEN_ATTR) || this.visible(win, node))
     );
     const used = new Set();
     const groups = [[]];
