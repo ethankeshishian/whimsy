@@ -175,6 +175,27 @@ add_setup(async function () {
   // Whimsy's own Touch ID passkeys sit behind WebAuthnService when on, which
   // is the owner's build; the extension must still come first.
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.passkeys", true]] });
+  // Registered before the extension loads: cleanups run last-in, first-out,
+  // and the harness's "extension left running" check is registered by
+  // loadExtension, so this unload must come after it to run before it.
+  const home = gZenWorkspaces.getActiveWorkspace();
+  registerCleanupFunction(async () => {
+    for (const tab of tabs) {
+      if (tab.isConnected && !tab.closing) {
+        await BrowserTestUtils.removeTab(tab);
+      }
+    }
+    await gZenWorkspaces.changeWorkspace(home);
+    if (space) {
+      await gZenWorkspaces.removeWorkspace(space.uuid);
+    }
+    if (profile) {
+      ContextualIdentityService.remove(profile);
+    }
+    if (extension) {
+      await extension.unload();
+    }
+  });
   extension = ExtensionTestUtils.loadExtension({
     useAddonManager: "temporary",
     background,
@@ -191,20 +212,8 @@ add_setup(async function () {
     files: { "isolated.js": ISOLATED, "main.js": MAIN_WORLD },
   });
   await extension.startup();
-  const home = gZenWorkspaces.getActiveWorkspace();
   profile = WhimsyProfiles.create("Passkey Bridge");
   space = await gZenWorkspaces.createAndSaveWorkspace("Passkey Bridge", undefined, true, profile);
-  registerCleanupFunction(async () => {
-    for (const tab of tabs) {
-      if (tab.isConnected && !tab.closing) {
-        await BrowserTestUtils.removeTab(tab);
-      }
-    }
-    await gZenWorkspaces.changeWorkspace(home);
-    await gZenWorkspaces.removeWorkspace(space.uuid);
-    ContextualIdentityService.remove(profile);
-    await extension.unload();
-  });
 });
 
 add_task(async function bridge_answers_on_a_plain_page() {
