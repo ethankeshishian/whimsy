@@ -43,6 +43,87 @@
   }
 }
 
+/* W29 icon-sets: three cards (Settings → Look and Feel → Look, after
+   Interface font) and a toolbar preview strip underneath. */
+#whimsyIconPackList {
+  display: flex;
+  gap: 10px;
+  margin-block: 8px 10px;
+}
+
+.whimsy-icon-pack-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    background-color: color-mix(in srgb, currentColor 7%, transparent);
+  }
+
+  &[aria-checked="true"] {
+    border-color: var(--zen-colors-primary);
+  }
+}
+
+.whimsy-icon-pack-glyphs {
+  display: flex;
+  gap: 6px;
+
+  & img {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.whimsy-icon-pack-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.whimsy-icon-pack-radio {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border: 1.5px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 50%;
+}
+
+.whimsy-icon-pack-card[aria-checked="true"] .whimsy-icon-pack-radio {
+  border-color: var(--zen-colors-primary);
+  background: radial-gradient(circle, var(--zen-colors-primary) 0 42%, transparent 44%);
+}
+
+.whimsy-icon-pack-detail {
+  font-size: 0.85em;
+  color: var(--text-color-deemphasized);
+}
+
+#whimsyIconPackPreview {
+  display: flex;
+  gap: 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+
+  & img {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 /* Whimsy's rows at the end of Firefox's Updates group. */
 #whimsyUpdatesGroup {
   display: flex;

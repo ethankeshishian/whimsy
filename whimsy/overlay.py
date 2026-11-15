@@ -1499,6 +1499,8 @@ FEATURES = [
      "detect": [("src/browser/themes/shared/zen-icons", r"#context-copylink|#context-openlinkintab|#context_duplicateTab")]},
     {"id": "ui-font", "title": "Interface font setting (the browser's own text, not web pages)",
      "detect": [("prefs", r"name:\s*zen\.[\w.-]*(ui|interface|chrome)-font")]},
+    {"id": "icon-pack", "title": "Icon pack picker: Lucide and Phosphor alternatives to Zen's Nucleo icons",
+     "detect": [("prefs", r"name:\s*zen\.[\w.-]*icon[_-]?pack")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "background-mute", "title": "Mute background tabs (Vivaldi's Tab Muting: while the current tab plays, or always; setting)",

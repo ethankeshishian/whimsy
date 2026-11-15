@@ -40,6 +40,7 @@ var gWhimsySettings = {
     ChromeUtils.defineESModuleGetters(lazy, {
       Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
       WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
+      WhimsyIconPack: "resource:///modules/whimsy/WhimsyIconPack.sys.mjs", // W29 icon-sets
       WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
       WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
     });
@@ -367,6 +368,7 @@ var gWhimsySettings = {
     }
     this.initTransparency();
     this.initUiFont();
+    this.initIconPacks();
   },
 
   // The font list: the system's families, after "System Font".
@@ -723,6 +725,70 @@ var gWhimsySettings = {
     };
     Services.prefs.addObserver(WhimsyAppIcon.PREF, update);
     window.addEventListener("unload", () => Services.prefs.removeObserver(WhimsyAppIcon.PREF, update));
+    update();
+  },
+
+  // W29 icon-sets: three cards (Whimsy/Nucleo, Outline/Lucide,
+  // Filled/Phosphor), each previewing the same six icons; picking one
+  // applies live (WhimsyLook.initIconPack), same as the font row above it.
+  // A toolbar preview strip under the cards shows the pick too.
+  initIconPacks() {
+    const { WhimsyIconPack } = this.lazy;
+    const list = document.getElementById("whimsyIconPackList");
+    if (!list) {
+      return;
+    }
+    const preview = document.getElementById("whimsyIconPackPreview");
+    const cards = new Map();
+    for (const pack of WhimsyIconPack.PACKS) {
+      const card = document.createElement("button");
+      card.className = "whimsy-icon-pack-card";
+      card.setAttribute("role", "radio");
+      card.dataset.pack = pack;
+
+      const glyphs = document.createElement("div");
+      glyphs.className = "whimsy-icon-pack-glyphs";
+      for (const name of WhimsyIconPack.PREVIEW_ICONS) {
+        const img = document.createElement("img");
+        img.alt = "";
+        WhimsyIconPack.previewURL(pack, name).then(url => (img.src = url));
+        glyphs.append(img);
+      }
+
+      const nameRow = document.createElement("span");
+      nameRow.className = "whimsy-icon-pack-name";
+      const radio = document.createElement("span");
+      radio.className = "whimsy-icon-pack-radio";
+      const label = document.createElement("span");
+      document.l10n.setAttributes(label, `whimsy-look-icon-pack-${pack}`);
+      nameRow.append(radio, label);
+
+      const detail = document.createElement("span");
+      detail.className = "whimsy-icon-pack-detail";
+      document.l10n.setAttributes(detail, `whimsy-look-icon-pack-${pack}-detail`);
+
+      card.append(glyphs, nameRow, detail);
+      card.addEventListener("click", () => Services.prefs.setStringPref(WhimsyIconPack.PREF, pack));
+      list.append(card);
+      cards.set(pack, card);
+    }
+    const update = () => {
+      const selected = WhimsyIconPack.selectedPack;
+      for (const [pack, card] of cards) {
+        card.setAttribute("aria-checked", pack == selected);
+      }
+      if (preview) {
+        preview.replaceChildren();
+        for (const name of WhimsyIconPack.PREVIEW_ICONS) {
+          const img = document.createElement("img");
+          img.alt = "";
+          WhimsyIconPack.previewURL(selected, name).then(url => (img.src = url));
+          preview.append(img);
+        }
+      }
+    };
+    Services.prefs.addObserver(WhimsyIconPack.PREF, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(WhimsyIconPack.PREF, update));
     update();
   },
 

@@ -110,6 +110,9 @@ support-files = ["whimsy_test_image.png"]
 
 ["browser_whimsy_hide_switcher.js"]
 
+# W29 icon-sets: the Lucide/Phosphor icon pack picker and its live apply.
+["browser_whimsy_icon_packs.js"]
+
 ["browser_whimsy_media_indicators.js"]
 
 ["browser_whimsy_menu_icons.js"]

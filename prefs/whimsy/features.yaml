@@ -84,6 +84,11 @@
 - name: whimsy.feature.ui-font
   value: true
 
+# W29 icon-sets: Lucide (Outline) and Phosphor-fill (Filled) as alternatives
+# to Zen's own Nucleo icons (Settings → Look and Feel → Icons).
+- name: whimsy.feature.icon-pack
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 
