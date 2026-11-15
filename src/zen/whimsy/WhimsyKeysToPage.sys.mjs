@@ -242,7 +242,11 @@ export const WhimsyKeysToPage = {
       return null;
     }
     if (!pill) {
-      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+      // Loaded once per window, shared with WhimsyPageActions.sys.mjs:129.
+      if (!win._whimsyNavigationSheet) {
+        win._whimsyNavigationSheet = true;
+        win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+      }
       pill = doc.createXULElement("hbox");
       pill.id = PILL_ID;
       pill.className = "whimsy-page-action whimsy-pass-keys-action";
