@@ -30,15 +30,12 @@ async function openPage(url = PAGE) {
   return tab;
 }
 
+// Keys go to the focused <browser> whether or not the app is in front (the
+// lane runs chunks side by side, so it may not be), as in
+// browser_whimsy_allow_copy_keys.js.
 async function focusPage(browser) {
   browser.focus();
-  await SimpleTest.promiseFocus(browser);
-  await SpecialPowers.spawn(browser, [], () =>
-    ContentTaskUtils.waitForCondition(
-      () => content.browsingContext.isActive && content.document.hasFocus(),
-      "The page is active"
-    )
-  );
+  await TestUtils.waitForCondition(() => document.activeElement == browser, "The page has focus");
 }
 
 function pageKeys(browser) {
