@@ -283,6 +283,11 @@ add_task(async function test_sidebar_left_right_tree_tabs() {
     ok(!root.hasAttribute("whimsy-tree-collapsed"), "Right expands it again");
     ok(child.visible && leaf.visible, "child and leaf are visible again");
 
+    is(document.activeElement == root, true, "diag: activeElement is root before down-arrow");
+    is(gBrowser.tabContainer.ariaFocusedItem == root, true, "diag: ariaFocusedItem is root before down-arrow");
+    is(gBrowser.visibleTabs.includes(child), true, "diag: visibleTabs includes child");
+    is(gBrowser.visibleTabs.indexOf(root), 0, "diag: root is index 0 in visibleTabs");
+    is(gBrowser.tabContainer.ariaFocusableItems.includes(child), true, "diag: child is aria-focusable");
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
     is(gBrowser.tabContainer.ariaFocusedItem, child, "ArrowDown moves the cursor to child");
 
@@ -331,8 +336,12 @@ add_task(async function test_sidebar_left_right_zen_folders() {
     EventUtils.synthesizeKey("KEY_ArrowUp", {}, window);
     is(gBrowser.tabContainer.ariaFocusedItem, x, "ArrowUp moves the cursor to x");
 
+    is(x.visible, true, "diag: x.visible is true right before collapsing from x (folder still expanded)");
+    is(gBrowser.visibleTabs.indexOf(x) > 0, true, "diag: x has a predecessor in visibleTabs");
+    is(gBrowser.visibleTabs[gBrowser.visibleTabs.indexOf(x) - 1] == before, true, "diag: before is x's predecessor in visibleTabs");
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
     ok(folder.collapsed, "Left collapses the folder from x too");
+    is(x.visible, false, "diag: x.visible is false after collapsing from x");
     is(gBrowser.tabContainer.ariaFocusedItem, before, "x isn't the stand-in once hidden, so focus falls back outside the folder");
 
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
