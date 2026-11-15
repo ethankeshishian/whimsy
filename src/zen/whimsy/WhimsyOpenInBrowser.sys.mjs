@@ -82,9 +82,11 @@ export const WhimsyOpenInBrowser = {
   },
 
   // The one open call every engine's command (and a later "auto" picker)
-  // goes through.
+  // goes through. Gated on hasAddress, not just a truthy currentURL(): an
+  // about:blank tab has a URI (so currentURL() returns "about:blank") but
+  // no address Whimsy should hand to another browser.
   openInApp(win, engine) {
-    if (!feature()) {
+    if (!feature() || !lazy.WhimsyCommands.hasAddress(win)) {
       return false;
     }
     const url = this.currentURL(win);
