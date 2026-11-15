@@ -33,6 +33,17 @@ function toolbarBackground() {
   return gZenThemePicker.toolbarBackgroundElement.style.getPropertyValue("--zen-main-browser-background-toolbar");
 }
 
+// WhimsyPageTint's singleColorValue() reproduces nsZenThemePicker's own
+// #getSingleRGBColor, which always paints the toolbar at full opacity
+// while the background may carry the space's configured, lower opacity -
+// so the two can differ in alpha for the same flat colour. Compare only
+// the RGB components.
+function rgbOf(value) {
+  const match = value.match(/rgba?\(([^,]+),([^,]+),([^,)]+)/);
+  ok(match, `"${value}" is an rgb()/rgba() colour`);
+  return match.slice(1, 4).map(n => Number(n.trim()));
+}
+
 function setThemeColor(browser, content) {
   return SpecialPowers.spawn(browser, [content], c => {
     let meta = content.document.querySelector('meta[name="theme-color"]');
@@ -69,6 +80,29 @@ async function closePanel() {
 
 function pickStyle(value) {
   styleButton(value).click();
+}
+
+// A space switch's own side effects (ZenSpaceManager's #performWorkspaceChange)
+// aren't all settled the instant changeWorkspaceWithID's promise resolves;
+// browser_whimsy_space_look.js's own switchTo() waits two animation frames
+// for the same reason.
+async function switchToSpace(uuid) {
+  await gZenWorkspaces.changeWorkspaceWithID(uuid);
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+function swatchesOpacity() {
+  return getComputedStyle($("PanelUI-zen-gradient-generator-color-pages")).opacity;
+}
+
+// The dim is a plain CSS rule keyed off the panel's own attribute, applied
+// on the same tick as the attribute (see WhimsyPageTint.sys.mjs's style
+// picker and toggle handlers), but a style recalc can still land a frame
+// later than the attribute itself, same as a Zen space switch's own
+// attributes (see browser_whimsy_space_look.js's switchTo()).
+async function waitForSwatchesOpacity(expected, message) {
+  await TestUtils.waitForCondition(() => swatchesOpacity() == expected, message);
+  is(swatchesOpacity(), expected, message);
 }
 
 function endMatchPage(workspace = gZenWorkspaces.getActiveWorkspace()) {
@@ -110,8 +144,11 @@ add_task(async function test_row_and_names() {
   is(row().nextElementSibling?.id, "whimsy-match-page-style-row", "...then the style row");
   is(styleRow().nextElementSibling?.id, "PanelUI-zen-gradient-generator-custom-colors", "...right before Custom Color");
   ok(toggle(), "...with a switch");
-  await TestUtils.waitForCondition(() => toggle().getAttribute("aria-label"), "The switch has a name");
-  is(toggle().getAttribute("aria-label"), "Match the page", "...matching the design's exact copy");
+  // moz-toggle "maps" aria-label onto its shadow button and strips the
+  // host's own attribute (lit-utils.mjs's mapped-property handling), so
+  // the real value lives on the ariaLabel property, not the attribute.
+  await TestUtils.waitForCondition(() => toggle().ariaLabel, "The switch has a name");
+  is(toggle().ariaLabel, "Match the page", "...matching the design's exact copy");
   await TestUtils.waitForCondition(
     () => row().querySelector(".whimsy-match-page-row-label")?.textContent,
     "The row has a label"
@@ -154,7 +191,7 @@ add_task(async function test_switching_restores_exactly_and_dims_under_replace_o
     // M.2 correction: Gradient (the default) still uses the space's own
     // colour, so the pad and swatches stay live.
     ok(!panel().hasAttribute("whimsy-match-page-dim"), "Gradient: the pad and swatches aren't dimmed");
-    is(getComputedStyle($("PanelUI-zen-gradient-generator-color-pages")).opacity, "1", "...still at full strength");
+    await waitForSwatchesOpacity("1", "...still at full strength");
 
     pickStyle("blend");
     await TestUtils.waitForCondition(() => workspace.theme?.matchPageStyle == "blend");
@@ -163,7 +200,7 @@ add_task(async function test_switching_restores_exactly_and_dims_under_replace_o
     pickStyle("replace");
     await TestUtils.waitForCondition(() => workspace.theme?.matchPageStyle == "replace");
     ok(panel().hasAttribute("whimsy-match-page-dim"), "Replace: the panel is marked to dim the pad and swatches");
-    is(getComputedStyle($("PanelUI-zen-gradient-generator-color-pages")).opacity, "0.4", "The swatches dim to 40%");
+    await waitForSwatchesOpacity("0.4", "The swatches dim to 40%");
 
     pickStyle("gradient");
     await TestUtils.waitForCondition(() => workspace.theme?.matchPageStyle == "gradient");
@@ -173,7 +210,7 @@ add_task(async function test_switching_restores_exactly_and_dims_under_replace_o
     await TestUtils.waitForCondition(() => !workspace.theme?.matchPage, "Turning it off clears theme.matchPage");
     is(background(), before, "...and restores the gradient exactly");
     ok(!panel().hasAttribute("whimsy-match-page-dim"), "The dim stays clear");
-    is(getComputedStyle($("PanelUI-zen-gradient-generator-color-pages")).opacity, "1", "The swatches stay at full strength");
+    await waitForSwatchesOpacity("1", "The swatches stay at full strength");
   });
 });
 
@@ -191,7 +228,7 @@ add_task(async function test_blend_paint_output() {
     await TestUtils.waitForCondition(() => workspace.theme?.matchPage);
     await TestUtils.waitForCondition(() => background());
     ok(!background().includes("gradient"), "Blend paints a flat colour, not a gradient");
-    is(toolbarBackground(), background(), "...the same flat colour behind the toolbar");
+    Assert.deepEqual(rgbOf(toolbarBackground()), rgbOf(background()), "...the same flat colour behind the toolbar");
 
     toggle().click();
     await TestUtils.waitForCondition(() => !workspace.theme?.matchPage);
@@ -236,7 +273,7 @@ add_task(async function test_replace_paint_output() {
     await TestUtils.waitForCondition(() => background());
     const replaced = background();
     ok(!replaced.includes("gradient"), "Replace paints a flat colour, not a gradient");
-    is(toolbarBackground(), replaced, "...the same flat colour behind the toolbar");
+    Assert.deepEqual(rgbOf(toolbarBackground()), rgbOf(replaced), "...the same flat colour behind the toolbar");
 
     // Blend mixes the same site colour toward the space's own colours, so
     // for a site this far from the space the two styles paint differently.
@@ -263,7 +300,7 @@ add_task(async function test_style_persists_per_space() {
     // The picker's own sync happens on popupshowing, so close and reopen
     // it across the space switch, the same as a person would.
     await closePanel();
-    await gZenWorkspaces.changeWorkspaceWithID(other.uuid);
+    await switchToSpace(other.uuid);
     await openPanel();
     is(styleButton("gradient").getAttribute("aria-checked"), "true", "A fresh space still defaults to Gradient");
     ok(!toggle().pressed, "...and starts with Match the page off, unaffected by home's switch");
@@ -274,7 +311,7 @@ add_task(async function test_style_persists_per_space() {
     await TestUtils.waitForCondition(() => other.theme?.matchPageStyle == "blend");
 
     await closePanel();
-    await gZenWorkspaces.changeWorkspaceWithID(home.uuid);
+    await switchToSpace(home.uuid);
     await openPanel();
     is(styleButton("replace").getAttribute("aria-checked"), "true", "Home kept its own Replace choice");
     ok(toggle().pressed, "...and its switch stayed on");
@@ -318,6 +355,12 @@ add_task(async function test_reduced_motion_is_instant() {
   const bg = gZenThemePicker.browserBackgroundElement;
 
   await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  // The pref push can land a tick before matchMedia reflects it; crossfadeBackground
+  // reads the media query at click time, so make sure it has already settled.
+  await TestUtils.waitForCondition(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    "Reduced motion has propagated to matchMedia"
+  );
   try {
     await BrowserTestUtils.withNewTab(PAGE, async browser => {
       await setThemeColor(browser, "#44bb88");
