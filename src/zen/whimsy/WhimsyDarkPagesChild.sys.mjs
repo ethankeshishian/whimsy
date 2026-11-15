@@ -82,7 +82,7 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
     const principal = this.document.nodePrincipal;
     const key = `${principal.originAttributes.userContextId || 0}|${principal.originNoSuffix}`;
     const isPrivate = !!principal.originAttributes.privateBrowsingId;
-    const sites = isPrivate ? config?.privateSites : config?.sites;
+    const sites = profileSites(config, isPrivate, key);
     const choice = sites?.[key] || "automatic";
     const active = !!config?.enabled && choice != "off" && (choice == "on" || config.active);
     const manual = config?.manual;
@@ -202,4 +202,20 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
       this._record = null;
     }
   }
+}
+
+// W26 site panel: a site with no choice of its own takes its profile's
+// Automatic Dark Mode where that differs from the global setting
+// (WhimsyDarkPages.publishProfiles).
+function profileSites(config, isPrivate, key) {
+  const sites = isPrivate ? config?.privateSites : config?.sites;
+  if (sites?.[key]) {
+    return sites;
+  }
+  const profiles = Services.cpmm.sharedData.get("Whimsy:DarkPagesProfiles");
+  const own = profiles?.[key.slice(0, key.indexOf("|"))];
+  if (typeof own != "boolean") {
+    return sites;
+  }
+  return { ...sites, [key]: own ? "on" : "off" };
 }

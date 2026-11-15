@@ -1,0 +1,14 @@
+diff --git a/browser/components/tabbrowser/content/browser-fullZoom.js b/browser/components/tabbrowser/content/browser-fullZoom.js
+--- a/browser/components/tabbrowser/content/browser-fullZoom.js
++++ b/browser/components/tabbrowser/content/browser-fullZoom.js
+@@ -52,6 +52,10 @@
+     this._cps2 = Cc["@mozilla.org/content-pref/service;1"].getService(
+       Ci.nsIContentPrefService2
+     );
++    // Whimsy: each profile (container) keeps its own site zoom.
++    this._cps2 = ChromeUtils.importESModule(
++      "resource:///modules/whimsy/WhimsyProfileZoom.sys.mjs"
++    ).WhimsyProfileZoom.wrap(this._cps2, window);
+     this._cps2.addObserverForName(this.name, this);
+ 
+     this.updateBackgroundTabs = Services.prefs.getBoolPref(

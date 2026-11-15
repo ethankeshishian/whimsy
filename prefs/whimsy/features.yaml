@@ -717,6 +717,12 @@
 - name: whimsy.feature.open-in-browser
   value: true
 
+- name: whimsy.feature.photo-metadata
+  value: true
+
+- name: whimsy.feature.local-plugins
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true
