@@ -98,6 +98,60 @@ button {
   }
 }
 
+/* W29 video: four seek buttons after the speed presets, hidden together on
+   live streams, on calls, and under 15 s; Start/End also drop out under the
+   compact width (WhimsyVideoSpeedChild.sys.mjs's canSeek/render). */
+#seekstart,
+#seekback,
+#seekforward,
+#seekend {
+  display: grid;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 0;
+
+  & > svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+/* A hairline opens the group; it moves to Back when Start drops out
+   (compact width). */
+#seekstart {
+  border-left: 1px solid rgb(255 255 255 / 0.14);
+}
+
+#bar:has(> #seekstart[hidden]) > #seekback {
+  border-left: 1px solid rgb(255 255 255 / 0.14);
+}
+
+/* Forward/End default to the bar's rounded right end; whichever of them, or
+   captions, actually follows keeps it instead. */
+#seekforward,
+#seekend {
+  border-radius: 0 8px 8px 0;
+}
+
+#bar:has(> #seekback:not([hidden])) > #toggle,
+#bar:has(> #cc:not([hidden])) > #toggle {
+  border-radius: 0;
+}
+
+#bar:has(> #seekend:not([hidden])) > #seekforward,
+#bar:has(> #cc:not([hidden])) > #seekforward {
+  border-radius: 0;
+}
+
+#bar:has(> #cc:not([hidden])) > #seekend {
+  border-radius: 0;
+}
+
 #input {
   box-sizing: border-box;
   width: 52px;
