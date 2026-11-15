@@ -4,18 +4,29 @@
 
 // W29: Match the page (Zen's space colour editor, off by default, per
 // space). On, the window frame (sidebar and toolbar) is tinted with the
-// current tab's colour, blended into the space's own gradient colour at
-// the opacity slider's strength, through the same CSS variables
+// current tab's colour, through the same CSS variables
 // ZenGradientGenerator.onWorkspaceChange sets, so every themed surface
 // follows. Off (or no colour, or a private window, or the Glance
 // overlay), the space's own gradient is untouched.
 //
+// A per-space style (Blend, Gradient or Replace - theme.matchPageStyle,
+// "gradient" by default) picks how the site's colour and the space's own
+// colours combine (see paintValuesFor): Blend mixes them, Gradient keeps
+// the space's gradient with the site's colour as its new top stop, and
+// Replace drops the space's colour while it's on. Every style crossfades
+// over 300ms (instant with Reduce Motion) - see crossfadeBackground,
+// which reproduces ZenGradientGenerator/ZenSpaceManager's own space-
+// switch dissolve (stash the old paint, then animate
+// --zen-background-opacity back up) since a plain CSS transition can't
+// interpolate a flat colour into a linear-gradient.
+//
 // The colour comes from the page's <meta name="theme-color"> (through
 // WhimsyPageTintParent/Child, respecting the tag's media attribute), or
 // else the favicon's dominant colour, or else the space's own colour
-// (which makes the blend a no-op). No Zen file changes: the toggle row is
-// built from JS at the one spot theme-picker.inc leaves between the
-// opacity/texture controls and Custom Color, and the tint is applied with
+// (which makes Blend a no-op). No Zen file changes: the toggle and style
+// rows are built from JS at the one spot theme-picker.inc leaves between
+// the opacity/texture controls and Custom Color, the style row reuses
+// WhimsySpaceLook's own segmented control, and the tint is applied with
 // Zen's own public ZenGradientGenerator/nsZenThemePicker API
 // (gZenThemePicker) - singleColorValue below reproduces its one private
 // step (#getSingleRGBColor) from public pieces plus a direct pref read,
@@ -24,6 +35,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsySpaceLook: "resource:///modules/whimsy/WhimsySpaceLook.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.page-tint";
@@ -93,9 +105,102 @@ function ensureTheme(workspace) {
   return workspace.theme;
 }
 
-// Paints one resolved colour through the same variables/attributes
-// ZenGradientGenerator.onWorkspaceChange sets for a window's active space.
-function paintTint(win, picker, dominant) {
+// theme.matchPage stays the on/off boolean; theme.matchPageStyle is the
+// per-space choice of how it paints, "gradient" (the design's
+// recommendation) by default.
+function styleOf(workspace) {
+  const style = workspace?.theme?.matchPageStyle;
+  return style === "blend" || style === "replace" ? style : "gradient";
+}
+
+// Resolves the one colour a style needs for dark-mode/accent-colour
+// purposes, plus the background/toolbar CSS values to paint. Blend and
+// Replace are a flat colour (nothing new: Replace is Blend with no
+// space colour in the mix). Gradient keeps a CSS linear-gradient, built
+// the same way Zen's own getGradient processes a custom-colour
+// gradient's stops (#getSingleRGBColor on each one): the site's colour
+// solid through the top 13% (behind the toolbar and address), fading to
+// the space's first stop by 60% and its second at the bottom - nothing
+// mixed, so unlike Blend it never averages two colours into a third.
+function paintValuesFor(picker, style, siteColor, theme) {
+  if (style === "replace") {
+    const tinted = clampExtremes(picker, siteColor);
+    return { background: singleColorValue(picker, tinted, false), toolbar: singleColorValue(picker, tinted, true), representative: tinted };
+  }
+  if (style === "blend") {
+    const dominant = dominantSpaceColor(picker, theme);
+    const tinted = clampExtremes(picker, picker.blendColors(siteColor, dominant, picker.currentOpacity * 100));
+    return { background: singleColorValue(picker, tinted, false), toolbar: singleColorValue(picker, tinted, true), representative: tinted };
+  }
+  const stops = theme?.gradientColors ?? [];
+  const site = clampExtremes(picker, siteColor);
+  const first = clampExtremes(picker, stops[0]?.c ?? dominantSpaceColor(picker, theme));
+  const second = clampExtremes(picker, stops[1]?.c ?? first);
+  const siteValue = singleColorValue(picker, site, false);
+  const background =
+    `linear-gradient(to bottom, ${siteValue} 0%, ${siteValue} 13%, ` +
+    `${singleColorValue(picker, first, false)} 60%, ${singleColorValue(picker, second, false)} 100%)`;
+  return { background, toolbar: singleColorValue(picker, site, true), representative: site };
+}
+
+// A 300ms crossfade between arbitrary background values (a flat colour
+// or a linear-gradient string), instant with Reduce Motion. A plain CSS
+// transition can't interpolate a colour into a gradient, so this
+// reproduces ZenGradientGenerator.onWorkspaceChange and
+// ZenSpaceManager's own space-switch dissolve: stash the current paint
+// into zen-browser-ui.css's "-old" layer (its ::before, under ::after
+// at 1 - --zen-background-opacity), then animate --zen-background-opacity
+// from its complement back up to 1 with gZenUIManager.motion, the same
+// spring Zen uses for a space switch.
+function crossfadeBackground(win, backgroundElement, toolbarElement, background, toolbarBackground) {
+  const elements = [backgroundElement, toolbarElement];
+  if (win.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    backgroundElement.style.setProperty("--zen-main-browser-background", background);
+    toolbarElement.style.setProperty("--zen-main-browser-background-toolbar", toolbarBackground);
+    for (const element of elements) {
+      element.style.setProperty("--zen-background-opacity", 1);
+    }
+    return;
+  }
+
+  let previousOpacity = parseFloat(backgroundElement.style.getPropertyValue("--zen-background-opacity"));
+  previousOpacity = !previousOpacity || previousOpacity === 1 ? 0 : 1 - previousOpacity;
+
+  backgroundElement.style.setProperty(
+    "--zen-main-browser-background-old",
+    backgroundElement.style.getPropertyValue("--zen-main-browser-background")
+  );
+  toolbarElement.style.setProperty(
+    "--zen-main-browser-background-toolbar-old",
+    toolbarElement.style.getPropertyValue("--zen-main-browser-background-toolbar")
+  );
+  for (const element of elements) {
+    element.toggleAttribute("animating-background", true);
+    element.style.setProperty("--zen-background-opacity", previousOpacity);
+  }
+
+  backgroundElement.style.setProperty("--zen-main-browser-background", background);
+  toolbarElement.style.setProperty("--zen-main-browser-background-toolbar", toolbarBackground);
+
+  const animation = win.gZenUIManager.motion.animate(
+    elements,
+    { "--zen-background-opacity": [previousOpacity, 1] },
+    { type: "spring", bounce: 0, duration: 0.3 }
+  );
+  Promise.resolve(animation).then(
+    () => {
+      for (const element of elements) {
+        element.removeAttribute("animating-background");
+      }
+    },
+    () => {}
+  );
+}
+
+// Paints one style's resolved values through the same
+// variables/attributes ZenGradientGenerator.onWorkspaceChange sets for a
+// window's active space.
+function paintTint(win, picker, values) {
   const backgroundElement = picker.browserBackgroundElement;
   const toolbarElement = picker.toolbarBackgroundElement;
   if (!backgroundElement || !toolbarElement) {
@@ -103,17 +208,16 @@ function paintTint(win, picker, dominant) {
   }
   const docElement = win.document.documentElement;
 
-  backgroundElement.style.setProperty("--zen-main-browser-background", singleColorValue(picker, dominant, false));
-  toolbarElement.style.setProperty("--zen-main-browser-background-toolbar", singleColorValue(picker, dominant, true));
+  crossfadeBackground(win, backgroundElement, toolbarElement, values.background, values.toolbar);
   docElement.removeAttribute("zen-default-theme");
 
-  const isDarkMode = picker.shouldBeDarkMode(dominant);
+  const isDarkMode = picker.shouldBeDarkMode(values.representative);
   if (isDarkMode) {
     docElement.setAttribute("zen-should-be-dark-mode", "true");
   } else {
     docElement.removeAttribute("zen-should-be-dark-mode");
   }
-  const primaryColor = picker.getAccentColorForUI(dominant, isDarkMode);
+  const primaryColor = picker.getAccentColorForUI(values.representative, isDarkMode);
   docElement.style.setProperty("--zen-primary-color", primaryColor);
   const textColor = picker.getToolbarColor(isDarkMode, primaryColor);
   docElement.style.setProperty("--toolbox-textcolor", `rgba(${textColor[0]}, ${textColor[1]}, ${textColor[2]}, ${textColor[3]})`);
@@ -175,10 +279,16 @@ function applyTint(win) {
     return;
   }
 
-  const dominant = dominantSpaceColor(picker, workspace.theme);
-  const tinted = clampExtremes(picker, picker.blendColors(siteColor, dominant, picker.currentOpacity * 100));
-  paintTint(win, picker, tinted);
+  const values = paintValuesFor(picker, styleOf(workspace), siteColor, workspace.theme);
+  paintTint(win, picker, values);
 }
+
+// Blend, Gradient, Replace: the design's exact order and copy.
+const STYLE_OPTIONS = [
+  { value: "blend", l10nId: "whimsy-theme-picker-match-page-style-blend" },
+  { value: "gradient", l10nId: "whimsy-theme-picker-match-page-style-gradient" },
+  { value: "replace", l10nId: "whimsy-theme-picker-match-page-style-replace" },
+];
 
 function buildRow(win) {
   const doc = win.document;
@@ -200,6 +310,7 @@ function buildRow(win) {
   const text = doc.createXULElement("vbox");
   text.className = "whimsy-match-page-row-text";
   const label = doc.createXULElement("label");
+  label.id = "whimsy-match-page-row-label";
   label.className = "whimsy-match-page-row-label";
   doc.l10n.setAttributes(label, "whimsy-theme-picker-match-page");
   const detail = doc.createXULElement("label");
@@ -216,6 +327,34 @@ function buildRow(win) {
   row.append(text, toggle);
   customColors.before(row);
 
+  // The style choice (Blend, Gradient, Replace), under the switch and
+  // shown only while it's on: Whimsy's own segmented control
+  // (WhimsySpaceLook.segmented), not a new component.
+  const styleRow = doc.createXULElement("hbox");
+  styleRow.id = "whimsy-match-page-style-row";
+  styleRow.className = "whimsy-match-page-style-row";
+  const stylePicker = lazy.WhimsySpaceLook.segmented(doc, "match-page-style", STYLE_OPTIONS, value => {
+    const workspace = win.gZenThemePicker.workspaceBeingEdited;
+    if (!workspace) {
+      return;
+    }
+    ensureTheme(workspace).matchPageStyle = value;
+    win.gZenWorkspaces.saveWorkspace(workspace);
+    stylePicker.select(value);
+    // M.2 correction (accent-blend-vs-replace.md): the pad and swatches
+    // dim only under Replace, where the space's colour drops out while
+    // it's on - Blend and Gradient still use it, so they stay live.
+    panel.toggleAttribute("whimsy-match-page-dim", toggle.pressed && value === "replace");
+    applyTint(win);
+  });
+  stylePicker.group.setAttribute("aria-labelledby", label.id);
+  styleRow.append(stylePicker.group);
+  customColors.before(styleRow);
+
+  const updateStyleRowVisibility = () => {
+    styleRow.hidden = !toggle.pressed;
+  };
+
   toggle.addEventListener("toggle", () => {
     const workspace = win.gZenThemePicker.workspaceBeingEdited;
     if (!workspace) {
@@ -224,7 +363,8 @@ function buildRow(win) {
     ensureTheme(workspace).matchPage = toggle.pressed;
     win.gZenWorkspaces.saveWorkspace(workspace);
     win.gZenThemePicker.onWorkspaceChange(workspace);
-    panel.toggleAttribute("whimsy-match-page-dim", toggle.pressed);
+    updateStyleRowVisibility();
+    panel.toggleAttribute("whimsy-match-page-dim", toggle.pressed && styleOf(workspace) === "replace");
     applyTint(win);
   });
 
@@ -232,7 +372,9 @@ function buildRow(win) {
     const workspace = win.gZenThemePicker.workspaceBeingEdited;
     const matchPage = !!workspace?.theme?.matchPage;
     toggle.pressed = matchPage;
-    panel.toggleAttribute("whimsy-match-page-dim", matchPage);
+    stylePicker.select(styleOf(workspace));
+    updateStyleRowVisibility();
+    panel.toggleAttribute("whimsy-match-page-dim", matchPage && styleOf(workspace) === "replace");
   };
   panel.addEventListener("popupshowing", sync);
   win.addEventListener("unload", () => panel.removeEventListener("popupshowing", sync), { once: true });
