@@ -2117,6 +2117,16 @@ FEATURES = [
     # per installed browser (research/multi-engine.md option A, step 1).
     {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
      "detect": [("src/zen", r"(?i)zen[-_.]?open[-_.]?in[-_.]?(safari|chrome|browser)")]},
+    {"id": "photo-metadata", "title": "Remove location and camera details (Exif, GPS, XMP, and text) from JPEG and PNG photos you upload, losslessly",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(strip[-_.]?image[-_.]?metadata|photo[-_.]?metadata)")]},
+    # W28: local plugins. Each folder in <profile>/whimsy-plugins is an
+    # unpacked WebExtension that loads unsigned (signing stays required
+    # everywhere else), turned off until approved. Engine patches on
+    # XPIProvider and XPIDatabase. Superseded if Zen ships its own folder of
+    # unsigned add-ons.
+    {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
+                ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
 ]
 
 
