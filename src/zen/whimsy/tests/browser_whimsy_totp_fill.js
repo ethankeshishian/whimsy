@@ -185,19 +185,25 @@ add_task(async function a_fill_needs_the_click() {
 add_task(async function not_elsewhere() {
   await removeCodes();
   await save(ENTRY);
-  // Another profile's tab.
+  // Another profile's tab, in that profile's space (as Zen opens them).
+  const { ContextualIdentityService } = ChromeUtils.importESModule(
+    "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
+  );
+  const home = gZenWorkspaces.getActiveWorkspace();
   const work = WhimsyProfiles.create("Codes Elsewhere");
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Codes Elsewhere", undefined, true, work);
   try {
+    await gZenWorkspaces.changeWorkspace(space);
     const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: work });
     gBrowser.selectedTab = tab;
     await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE);
+    is(tab.userContextId, work, "The tab is in the other profile");
     await focusField(tab.linkedBrowser, "otp");
     ok(await stillNo(() => hasButton(tab.linkedBrowser)), "No button in another profile");
     BrowserTestUtils.removeTab(tab);
   } finally {
-    const { ContextualIdentityService } = ChromeUtils.importESModule(
-      "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs"
-    );
+    await gZenWorkspaces.changeWorkspace(home);
+    await gZenWorkspaces.removeWorkspace(space.uuid);
     ContextualIdentityService.remove(work);
   }
   // A private window.
