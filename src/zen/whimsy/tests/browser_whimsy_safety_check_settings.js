@@ -118,19 +118,19 @@ add_task(async function updates_restart_action() {
       return !a.hidden ? a : null;
     }, "The restart action shows");
     is(action.label, "Restart to update", "Its label");
-    const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
-    const quit = sinon.stub(Services.startup, "quit");
+    // Services.startup.quit is a non-configurable, non-writable property on
+    // the real XPCOM singleton (not even sinon.stub can redefine it), so the
+    // settings page exposes a plain, overridable seam instead.
+    let quitFlags = null;
+    win.gWhimsySettings._quit = flags => {
+      quitFlags = flags;
+    };
     try {
       action.scrollIntoView();
       EventUtils.synthesizeMouseAtCenter(action, {}, win);
-      ok(quit.calledOnce, "Asks to quit exactly once");
-      is(
-        quit.firstCall.args[0],
-        Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart,
-        "Asks to restart, not just quit"
-      );
+      is(quitFlags, Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart, "Asks to restart, not just quit");
     } finally {
-      quit.restore();
+      win.gWhimsySettings._quit = null;
     }
   });
 });
@@ -169,7 +169,7 @@ add_task(async function extensions_review_opens_the_addon_in_about_addons() {
     }, "The Review action shows");
     is(action.label, "Review", "Its label");
     is(row(doc, "extensions").querySelector(".whimsy-safety-check-detail").textContent,
-      "Risky isn't from addons.mozilla.org and can see every page you open.", "Names the extension");
+      "Risky isn’t from addons.mozilla.org and can see every page you open.", "Names the extension");
     let openedView = null;
     const chromeWin = win.browsingContext.topChromeWindow;
     const original = chromeWin.BrowserAddonUI.openAddonsMgr;
@@ -210,7 +210,7 @@ add_task(async function permissions_sheet_remove_undo_and_remove_all() {
     await withSettings(async (win, doc) => {
       const permRow = row(doc, "permissions");
       await TestUtils.waitForCondition(() => permRow.classList.contains("is-warn"), "Two unused sites: warn");
-      is(permRow.querySelector(".whimsy-safety-check-status").textContent, "2 sites you haven't visited in 90 days still have access", "Counts both sites");
+      is(permRow.querySelector(".whimsy-safety-check-status").textContent, "2 sites you haven’t visited in 90 days still have access", "Counts both sites");
       is(permRow.querySelector(".whimsy-safety-check-detail").textContent, "Camera and microphone.", "Names the flagged permission types");
 
       const action = permRow.querySelector(".whimsy-safety-check-action");

@@ -425,6 +425,12 @@ var gWhimsySettings = {
     this.initPrefCheckbox("whimsyRejectCookieBanners", "whimsy.reject-cookie-banners");
   },
 
+  // Overridable for tests: Services.startup.quit is a non-configurable,
+  // non-writable property on the real XPCOM singleton, so it can't be
+  // stubbed directly (not even via sinon). Production leaves this null and
+  // calls the real thing.
+  _quit: null,
+
   // W29 safety-check: Settings → Privacy & Security → Safety Check. Four
   // rows, always in this order (Updates, Passwords, Extensions, Site
   // permissions), checked on pane show and on Check again, cached for 10
@@ -527,7 +533,8 @@ var gWhimsySettings = {
         document.l10n.setAttributes(detail, "whimsy-safety-check-updates-warn-detail", { v: data.version });
         document.l10n.setAttributes(action, "whimsy-safety-check-updates-restart");
         action.hidden = false;
-        action.onclick = () => Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart);
+        action.onclick = () =>
+          (this._quit ?? (flags => Services.startup.quit(flags)))(Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart);
       }
     } else if (kind == "passwords") {
       if (data.status == "ok") {
@@ -607,6 +614,7 @@ var gWhimsySettings = {
     const removeSite = async site => {
       WhimsySafetyCheck.removePermissions(site.principal, site.types);
       const row = group.querySelector(`[data-origin="${CSS.escape(site.origin)}"]`);
+      const nextSibling = row?.nextElementSibling ?? null;
       row?.remove();
       if (!group.children.length) {
         S.close(parts.panel);
@@ -615,6 +623,9 @@ var gWhimsySettings = {
         undo: () => {
           for (const type of site.types) {
             Services.perms.addFromPrincipal(site.principal, type, Services.perms.ALLOW_ACTION);
+          }
+          if (row) {
+            group.insertBefore(row, nextSibling);
           }
         },
       }, { site: site.host });
