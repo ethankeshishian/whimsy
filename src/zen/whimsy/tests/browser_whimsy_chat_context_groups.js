@@ -381,6 +381,9 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
     is(t.getAttribute("whimsy-ai-key"), keys[1], "and the original keeps its key");
     BrowserTestUtils.removeTab(copy);
 
+    // A restored tab loads when it's selected, as after a real restart.
+    gBrowser.selectedTab = t;
+    await TestUtils.waitForCondition(() => !t.hasAttribute("pending") && !t.hasAttribute("busy") && t.linkedBrowser.currentURI.spec.includes("?TAP"), "The restored tab loads");
     await openChatOn(t);
     const menu = await openAddMenu();
     const row = menu.querySelector("[data-group]");
