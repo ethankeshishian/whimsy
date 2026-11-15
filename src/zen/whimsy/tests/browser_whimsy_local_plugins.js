@@ -69,9 +69,33 @@ add_setup(async function () {
   // real build decides it, for extensions only, while this file runs.
   const realMustSign = XPIDatabase.mustSign;
   XPIDatabase.mustSign = type => type == "extension";
+  // Installing, approving, and removing extensions writes add-on manager
+  // prefs; every pref this file changes is put back.
+  const before = new Map(
+    Services.prefs.getChildList("").filter(name => Services.prefs.prefHasUserValue(name)).map(name => {
+      const type = Services.prefs.getPrefType(name);
+      return [name, { type, value: whimsyReadPref(name, type) }];
+    })
+  );
   registerCleanupFunction(async () => {
     await removeEverything();
     XPIDatabase.mustSign = realMustSign;
+    for (const name of new Set([...Services.prefs.getChildList(""), ...before.keys()])) {
+      const old = before.get(name);
+      const type = Services.prefs.getPrefType(name);
+      if (!Services.prefs.prefHasUserValue(name)) {
+        if (old) {
+          info(`Restoring preference ${name}`);
+          whimsyWritePref(name, old.type, old.value);
+        }
+      } else if (!old) {
+        info(`Clearing preference ${name}`);
+        Services.prefs.clearUserPref(name);
+      } else if (old.type != type || whimsyReadPref(name, type) !== old.value) {
+        info(`Restoring preference ${name}`);
+        whimsyWritePref(name, old.type, old.value);
+      }
+    }
   });
   await removeEverything();
 });
