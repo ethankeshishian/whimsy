@@ -9,7 +9,7 @@ diff --git a/browser/actors/WebRTCParent.sys.mjs b/browser/actors/WebRTCParent.s
  });
  
  XPCOMUtils.defineLazyServiceGetter(
-@@ -1074,6 +1075,20 @@
+@@ -1074,6 +1075,29 @@
            }
          };
          menupopup.addEventListener("command", menupopup._commandEventListener);
@@ -24,13 +24,22 @@ diff --git a/browser/actors/WebRTCParent.sys.mjs b/browser/actors/WebRTCParent.s
 +            item => item.mediaSource == "browser" && String(item.deviceId) == whimsyTab
 +          );
 +        if (whimsyItem) {
-+          menupopup.parentNode.selectedItem = whimsyItem;
-+          menupopup._commandEventListener({ target: whimsyItem });
++          const menulist = menupopup.parentNode;
++          menulist.selectedItem = whimsyItem;
++          // The preview can only start once it has rendered.
++          webrtcPreview.updateComplete.then(() => {
++            if (
++              menulist.selectedItem == whimsyItem &&
++              menupopup._commandEventListener
++            ) {
++              menupopup._commandEventListener({ target: whimsyItem });
++            }
++          });
 +        }
        }
  
        function addDeviceToList(list, deviceName, deviceIndex, type) {
-@@ -1562,7 +1577,10 @@
+@@ -1562,7 +1586,10 @@
  function removePrompt(aBrowser, aCallId) {
    // The prompt lives in exactly one window: either aBrowser's, or that of a
    // document PiP window opened by aBrowser. See getPromptBrowser().
@@ -42,7 +51,7 @@ diff --git a/browser/actors/WebRTCParent.sys.mjs b/browser/actors/WebRTCParent.s
      removePromptFrom(getDocumentPiPBrowser(aBrowser), aCallId);
    }
  }
-@@ -1755,6 +1773,16 @@
+@@ -1755,6 +1782,16 @@
    if (!aRequest.sharingScreen) {
      return aBrowser;
    }

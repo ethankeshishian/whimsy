@@ -280,6 +280,7 @@ add_task(async function test_share_prompt_and_stop() {
     is(item?.mediaSource, "browser", "A tab is picked");
     is(String(item?.deviceId), String(doc.linkedBrowser.browserId), "This tab");
     is(item?.label, DOC_TITLE, "listed by its title");
+    await TestUtils.waitForCondition(() => !document.getElementById("webRTC-preview-section").hidden, "with its preview");
     const element = PopupNotifications.panel.firstElementChild;
     ok(!element.hasAttribute("invalidselection"), "Allow can be clicked");
     ok(!element.button.disabled, "Allow is enabled");
@@ -323,8 +324,11 @@ add_task(async function test_command_and_not_now() {
     await shown;
     is((await page(call, "shareState")).shares, before + 1, "The command pressed the call's share button");
     ok(shareNotification(doc.linkedBrowser), "The prompt is on the selected tab");
-    is(String(document.getElementById("webRTC-selectWindow-menulist").selectedItem?.deviceId),
-      String(doc.linkedBrowser.browserId), "with it picked");
+    const list = document.getElementById("webRTC-selectWindow-menulist");
+    info(`Listed: ${[...list.menupopup.children].map(item => `${item.mediaSource}:${item.deviceId}`).join(", ")}; ` +
+      `pick ${WhimsyShareTab._prompts.size ? [...WhimsyShareTab._prompts.values()].at(-1).browserId : "none"}`);
+    is(String(list.selectedItem?.deviceId), String(doc.linkedBrowser.browserId), "with it picked");
+    await TestUtils.waitForCondition(() => !document.getElementById("webRTC-preview-section").hidden, "with its preview");
 
     // Not now: the page is told no, and nothing is left pending.
     const hidden = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popuphidden");
