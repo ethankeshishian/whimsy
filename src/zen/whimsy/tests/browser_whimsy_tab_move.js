@@ -214,9 +214,17 @@ add_task(async function test_default_shortcut_fires_and_cheat_sheet() {
   try {
     gBrowser.selectedTab = b;
     const start = b.index;
+    // b's content has keyboard focus here (openNewForegroundTab), and this
+    // shortcut isn't in WhimsyShortcuts' RESERVED_KEYS, so Gecko sends the
+    // keydown to the page first and only runs the <key> once that round
+    // trip comes back (see WhimsyShortcuts.sys.mjs's "press again" notes);
+    // the focus-sidebar tests below dodge this by moving focus into chrome
+    // first, which this test can't do without changing what it's testing.
     EventUtils.synthesizeKey("KEY_ArrowUp", { ctrlKey: true, shiftKey: true }, window);
+    await TestUtils.waitForCondition(() => b.index == start - 1, "Ctrl+Shift+Up runs Move Tab Up");
     is(b.index, start - 1, "Ctrl+Shift+Up runs Move Tab Up");
     EventUtils.synthesizeKey("KEY_ArrowDown", { ctrlKey: true, shiftKey: true }, window);
+    await TestUtils.waitForCondition(() => b.index == start, "Ctrl+Shift+Down runs Move Tab Down");
     is(b.index, start, "Ctrl+Shift+Down runs Move Tab Down");
 
     const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
