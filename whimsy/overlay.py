@@ -1506,6 +1506,8 @@ FEATURES = [
                 ("prefs", r"name:\s*zen\.[\w.-]*(background|inactive)[\w.-]*mute")]},
     {"id": "mute-site", "title": "Remember muted sites: Mute Site in the tab menu (Chrome)",
      "detect": [("src/zen", r"(?i)context_\w*MuteSite|mute-?site\b")]},
+    {"id": "page-tint", "title": "Match the page: tint a space with the current site's colour (theme picker toggle, off by default)",
+     "detect": [("src/zen/spaces", r"matchPage|theme-color.*gradientColors|gradientColors.*theme-color")]},
     {"id": "tab-volume", "title": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
      "detect": [("src/zen", r"(?i)tab-?volume-?(slider|panel)|setTabVolume")]},
     {"id": "pip-snap-back", "title": "PiP snaps back into the page when you return to its tab (Arc), automatic PiP setting",

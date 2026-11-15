@@ -93,6 +93,9 @@
 - name: whimsy.feature.mute-site
   value: true
 
+- name: whimsy.feature.page-tint
+  value: true
+
 - name: whimsy.feature.tab-volume
   value: true
 

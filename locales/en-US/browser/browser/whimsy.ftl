@@ -8282,3 +8282,9 @@ whimsy-passkeys-delete =
 whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
 whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
 whimsy-setting-passkeys = Passkeys
+
+# W29: "Match the page" toggle in the space colour editor (theme picker).
+whimsy-theme-picker-match-page = Match the page
+whimsy-theme-picker-match-page-detail = Tints this space with each site’s colour
+whimsy-theme-picker-match-page-switch =
+    .aria-label = Match the page

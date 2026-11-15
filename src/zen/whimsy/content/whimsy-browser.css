@@ -763,6 +763,55 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   }
 }
 
+/* Match the page (whimsy.feature.page-tint, per space, off by default):
+   WhimsyPageTint.sys.mjs builds this row at the one spot theme-picker.inc
+   leaves between the opacity/texture controls and Custom Color, and
+   tints the window frame with the open tab's colour while it's on. */
+#whimsy-match-page-row {
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  margin-block: 2px;
+  border-radius: var(--border-radius-medium);
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
+}
+
+.whimsy-match-page-row-text {
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+
+.whimsy-match-page-row-label {
+  font-weight: 500;
+}
+
+.whimsy-match-page-row-detail {
+  font-size: 11px;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+}
+
+/* While it's on, the gradient pad and preset swatches dim to show they no
+   longer drive the colour; they stay editable, and return to full opacity
+   the moment it's switched off. */
+#PanelUI-zen-gradient-generator[whimsy-match-page-dim] {
+  & :is(.zen-theme-picker-gradient, #PanelUI-zen-gradient-generator-color-pages) {
+    opacity: 0.4;
+
+    @media not (prefers-reduced-motion: reduce) {
+      transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1);
+    }
+  }
+}
+
+/* The frame's own tint crossfades when the active tab (and so its colour)
+   changes; Zen's own transition: 0s on this element otherwise wins. */
+:root[whimsy-match-page] .zen-browser-generic-background::after {
+  @media not (prefers-reduced-motion: reduce) {
+    transition: background 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+  }
+}
+
 /* Transparency (whimsy.look.transparency): fade the painted background of
    the sidebar and toolbars so the window's blurred material shows through. */
 .zen-browser-generic-background {
