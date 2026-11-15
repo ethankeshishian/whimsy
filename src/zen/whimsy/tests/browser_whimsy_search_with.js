@@ -170,7 +170,9 @@ add_task(async function test_opens_like_the_default_row_search_with_engine() {
       await openSubmenu(searchWithRow);
       menu.activateItem(rowFor(searchWithRow.menupopup, engineB.name));
     });
-    is(gBrowser.tabs.indexOf(resultTab), originalIndex + 1, "A Search With result opens right next to the tab that opened the menu too — the same placement as the default row");
+    // TEMP DIAGNOSTIC (W28): dump the full tab list to see what shifted.
+    const dump = gBrowser.tabs.map((t, i) => `${i}:${t == tab ? "ORIG" : t == resultTab ? "RESULT" : t.linkedBrowser.currentURI.spec}`).join(" | ");
+    is(gBrowser.tabs.indexOf(resultTab), originalIndex + 1, `A Search With result opens right next to the tab that opened the menu too — the same placement as the default row -- originalIndex=${originalIndex} tabs=[${dump}]`);
     is(gBrowser.selectedTab, resultTab, "…in the foreground, exactly like the default row");
     is(resultTab.linkedBrowser.currentURI.spec, "https://example.com/b?q=whimsy+search+with+test", "That engine's results, for the same selection");
   } finally {
