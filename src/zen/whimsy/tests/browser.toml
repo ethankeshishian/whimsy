@@ -1067,6 +1067,11 @@ support-files = ["whimsy_chat_article.html"]
 ["browser_whimsy_chat_context.js"]
 support-files = ["whimsy_chat_article.html"]
 
+# W28 tab-state-indicators: the sparkle badge ([whimsy-chat-reads] /
+# [whimsy-chat-reading]) tracks chat attachment, option A (the sparkle).
+["browser_whimsy_chat_reads_marks.js"]
+support-files = ["whimsy_chat_article.html"]
+
 ["browser_whimsy_screens_w23_chat-answers.js"]
 support-files = ["whimsy_chat_article.html", "whimsy_chat_media.html"]
 

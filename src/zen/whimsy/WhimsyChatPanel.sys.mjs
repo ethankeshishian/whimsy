@@ -885,6 +885,8 @@ class ChatPanel {
     if (hadFocus || reason == "key" || reason == "hide") {
       this.win.gBrowser.selectedBrowser.focus();
     }
+    // W28 tab-state-indicators: the sparkle badge is only for an open chat.
+    lazy.WhimsyChatContextUI.markReadTabs(this.win);
   }
 
   toggle() {
@@ -1573,6 +1575,8 @@ class ChatPanel {
     const node = live.node;
     const stream = { node, text: "", controller: new AbortController(), live };
     this.streams.set(thread.id, stream);
+    // W28 tab-state-indicators: the sparkle badge glints while reading.
+    lazy.WhimsyChatContextUI.markReadTabs(this.win);
     this.body.append(node);
     await doc.l10n.translateFragment(node);
     this.body.scrollTop = this.body.scrollHeight;
@@ -1660,6 +1664,8 @@ class ChatPanel {
       failure = e;
     }
     this.streams.delete(thread.id);
+    // W28 tab-state-indicators: back to the still, attached badge.
+    lazy.WhimsyChatContextUI.markReadTabs(this.win);
     for (const [i, note] of notes.entries()) {
       notes[i] = await lazy.WhimsyAIStore.append(thread.id, note);
     }
@@ -2076,8 +2082,15 @@ class ChatPanel {
       if (!event.detail?.adoptedBy) {
         lazy.WhimsyChatThreads.tabClosed(event.target).catch(console.error);
       }
+      // W28 tab-state-indicators: a closed tab can't keep its badge, and
+      // "All my tabs" or a group's set of marked tabs may have changed.
+      lazy.WhimsyChatContextUI.markReadTabs(this.win);
     };
+    // W28 tab-state-indicators: a tab opened while "All my tabs" or a
+    // group is attached may join the chat-reads set.
+    const onOpen = () => lazy.WhimsyChatContextUI.markReadTabs(this.win);
     gBrowser.tabContainer.addEventListener("TabSelect", onSelect);
+    gBrowser.tabContainer.addEventListener("TabOpen", onOpen);
     gBrowser.tabContainer.addEventListener("TabClose", onClose);
     const onResize = () => this._open && this.layout();
     win.addEventListener("resize", onResize);
