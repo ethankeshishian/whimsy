@@ -82,7 +82,8 @@ add_task(function each_kind_goes_alone_in_each_format() {
       for (const other of KINDS.filter(k => k != kind)) {
         Assert.deepEqual(after[other], before[other], `${name}: removing ${kind} keeps every ${other} detail`);
       }
-      for (const text of IMAGE.filter(t => hasText(bytes, t))) {
+      // (Everything else takes a multi-picture JPEG's second image.)
+      for (const text of IMAGE.filter(t => hasText(bytes, t) && !(kind == "other" && t == "GAINMAP"))) {
         ok(hasText(out, text), `${name}: removing ${kind} keeps ${text}`);
       }
       is(orientationIn(out), orientationIn(bytes), `${name}: removing ${kind} keeps the Orientation`);
@@ -342,7 +343,8 @@ add_task(async function setup_photo_files() {
 });
 
 async function withPhotoPage(prefs, task) {
-  await SpecialPowers.pushPrefEnv({ set: [[PREF, true], [`${PREF}.ask`, true], ["whimsy.feature.photo-metadata", true], ...prefs] });
+  const set = new Map([[PREF, true], [`${PREF}.ask`, true], ["whimsy.feature.photo-metadata", true], ...prefs]);
+  await SpecialPowers.pushPrefEnv({ set: [...set] });
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PHOTO_PAGE);
   try {
     await task(tab.linkedBrowser);

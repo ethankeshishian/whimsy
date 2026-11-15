@@ -583,12 +583,14 @@ var gWhimsySettings = {
       if (event.target != main) {
         return;
       }
-      if (main.checked && !KINDS.some(kindOn)) {
+      // (Read first: clearing the kinds runs update(), which resets it.)
+      const on = main.checked;
+      if (on && !KINDS.some(kindOn)) {
         for (const kind of KINDS) {
           Services.prefs.clearUserPref(`${PREF}.${kind}`);
         }
       }
-      Services.prefs.setBoolPref(PREF, main.checked);
+      Services.prefs.setBoolPref(PREF, on);
     });
     boxes.forEach((box, i) => {
       box.addEventListener("change", () => {
