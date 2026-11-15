@@ -70,7 +70,12 @@ async function turnOn() {
 async function openLong() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, LONG);
   const browser = tab.linkedBrowser;
-  await TestUtils.waitForCondition(() => shown(browser), "The minimap shows on a five-screen page");
+  try {
+    await TestUtils.waitForCondition(() => shown(browser), "The minimap shows on a five-screen page");
+  } catch (e) {
+    BrowserTestUtils.removeTab(tab);
+    throw e;
+  }
   return { tab, browser, el: minimapFor(browser) };
 }
 
@@ -115,6 +120,21 @@ add_task(async function test_short_page_toast_then_long_page() {
   const shortTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, SHORT);
   try {
     await turnOn();
+    // DEBUG
+    let dbg;
+    try {
+      const r = await shortTab.linkedBrowser.browsingContext.currentWindowGlobal.getActor("WhimsyMinimap").sendQuery("WhimsyMinimap:Start");
+      dbg = JSON.stringify(r);
+    } catch (e) {
+      dbg = "ERR " + e;
+    }
+    ok(true, "DEBUG start " + dbg);
+    try {
+      dbg = JSON.stringify(await WhimsyMinimap.start(shortTab.linkedBrowser));
+    } catch (e) {
+      dbg = "ERR " + e;
+    }
+    ok(true, "DEBUG module start " + dbg + " on=" + WhimsyMinimap.on);
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-minimap-short-toast"), "A short page says why");
     ok(toast, "Page Minimap shows on long pages");
     ok(!shown(shortTab.linkedBrowser), "No minimap on a one-screen page");
@@ -237,8 +257,8 @@ add_task(async function test_holds_in_a_new_window_then_off() {
       globalActions.find(a => a.whimsyCommand == ID && a.l10nId == "whimsy-action-page-minimap-hide")?.isAvailable(win),
       "Still on in a new window"
     );
-    const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, LONG);
-    await TestUtils.waitForCondition(() => shown(tab.linkedBrowser), "It shows on a long page there");
+    await BrowserTestUtils.openNewForegroundTab(win.gBrowser, LONG);
+    await TestUtils.waitForCondition(() => shown(win.gBrowser.selectedBrowser), "It shows on a long page there");
 
     win.document.getElementById(ID).doCommand();
     await TestUtils.waitForCondition(() => !Services.prefs.getBoolPref(PREF), "Hide Page Minimap turns it off");
