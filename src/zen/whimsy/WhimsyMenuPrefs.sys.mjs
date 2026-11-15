@@ -916,17 +916,28 @@ export const WhimsyMenuPrefs = {
     }
     const spare = [...popup.querySelectorAll(`:scope > menuseparator.${ORDER_SEP_CLASS}`)];
     let first = true;
-    for (const group of groups.filter(g => g.length)) {
-      if (!first) {
-        let separator = spare.shift();
-        if (!separator) {
-          separator = win.document.createXULElement("menuseparator");
-          separator.classList.add(ORDER_SEP_CLASS);
-        }
-        separator.hidden = false;
-        popup.append(separator);
+    for (const group of groups) {
+      if (!group.length) {
+        continue;
       }
-      first = false;
+      // A group entirely made of rows Settings has turned off has nothing
+      // visible in it, so it must not get a separator of its own (that
+      // would strand one first, last, or doubled up against the next
+      // shown group's). Its rows still move, to stay with the group when
+      // turned back on.
+      const shown = group.some(node => this.visible(win, node));
+      if (shown) {
+        if (!first) {
+          let separator = spare.shift();
+          if (!separator) {
+            separator = win.document.createXULElement("menuseparator");
+            separator.classList.add(ORDER_SEP_CLASS);
+          }
+          separator.hidden = false;
+          popup.append(separator);
+        }
+        first = false;
+      }
       for (const node of group) {
         move(node);
       }
