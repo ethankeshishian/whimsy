@@ -180,20 +180,25 @@ async function tallPage(browser) {
   });
 }
 
-// Like tallPage, but with nothing beside the link: a big link right under
-// it, in the hover card's own footprint, for the regression test below
-// (whatever's there gets the click once a plain card is gone). Its own page
-// because the other tests here scroll a little with the pointer still
-// resting where the link was, and a page-wide #below would end up under
-// that resting pointer too.
+// Like tallPage, but with nothing beside the link: a big plain element
+// (not a link - landing on one of those while swapping with no delay, W29,
+// is the SWAP_MS case and stays as-is) right under it, in the hover card's
+// own footprint, for the regression test below (whatever's there gets the
+// hover and the click once a plain card is gone). Its own page because the
+// other tests here scroll a little with the pointer still resting where the
+// link was, and a page-wide #below would end up under that resting pointer
+// too.
 async function pageWithLinkBelow(browser) {
   await SpecialPowers.spawn(browser, [TARGET], target => {
     content.document.body.style.cssText = "margin: 0; height: 4000px";
     content.document.body.innerHTML = `
       <p style="margin: 0; padding: 20px; position: fixed; top: 0; left: 0"><a id="away" href="#">away</a></p>
       <p style="margin: 380px 40px 0"><a id="link" href="${target}?clicked">a link</a></p>
-      <p style="margin: 0 40px 0"><a id="below" href="${target}?below" style="display: block; width: 300px; height: 300px">below the link</a></p>`;
+      <div id="below" style="display: block; width: 300px; height: 300px; margin: 0 40px">below the link</div>`;
     content.scrollTo(0, 200);
+    content.document.getElementById("below").addEventListener("click", () => {
+      content.wrappedJSObject.belowClicked = true;
+    });
   });
 }
 
@@ -466,12 +471,17 @@ add_task(async function plain_card_closes_and_lets_the_page_through() {
       await closed();
       is(host.overPanel, false, "The pointer reaching the card never kept it open");
 
-      // The link below the card (#below) now gets the hover and the click
-      // the card used to sit on top of.
-      const loaded = BrowserTestUtils.browserLoaded(browser, false, url => url.endsWith("?below"));
+      // The element below the card (#below) now gets the hover and the
+      // click the card used to sit on top of.
+      ok(
+        await SpecialPowers.spawn(browser, [], () => !!content.document.querySelector("#below:hover")),
+        "The element under the card is hovered now the card is gone"
+      );
       whimsyMouseAt(card.x + card.width / 2, card.y + card.height / 2);
-      await loaded;
-      ok(true, "The element under the card took the click");
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.belowClicked),
+        "The element under the card took the click"
+      );
     });
   } finally {
     host.hide({ animate: false });
