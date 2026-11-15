@@ -142,7 +142,38 @@ add_task(async function test_playing_tile_label_contrast() {
   const style = window.getComputedStyle(tile("rain"));
   const textColor = window.getComputedStyle(label).color;
   const [hi, lo] = [lum(textColor), lum(style.backgroundColor)].sort((a, b) => b - a);
-  Assert.greaterOrEqual((hi + 0.05) / (lo + 0.05), 4.5, `The playing tile's label passes 4.5:1 against its filled background (text=${textColor} bg=${style.backgroundColor})`);
+
+  // Diagnostic only (temporary): dump every CSSOM rule this document knows
+  // about whose selector mentions whimsy-ambient-tile, so a failure's
+  // message shows what the engine actually parsed the stylesheet into,
+  // not just what source we wrote.
+  let ruleDump = "no-rules-found";
+  try {
+    const out = [];
+    const walk = list => {
+      for (const r of list || []) {
+        if (r.selectorText) {
+          out.push(`[${r.selectorText}]{bg:${r.style?.backgroundColor || ""};color:${r.style?.color || ""}}`);
+        }
+        if (r.cssRules) {
+          walk(r.cssRules);
+        }
+      }
+    };
+    for (const ss of document.styleSheets) {
+      try {
+        walk(ss.cssRules);
+      } catch (e) {
+        out.push(`sheet-error:${e}`);
+      }
+    }
+    const hits = out.filter(s => s.includes("whimsy-ambient-tile"));
+    ruleDump = hits.length ? hits.join(" || ") : "zero-hits-among-" + out.length + "-rules";
+  } catch (e) {
+    ruleDump = `walk-error:${e}`;
+  }
+
+  Assert.greaterOrEqual((hi + 0.05) / (lo + 0.05), 4.5, `The playing tile's label passes 4.5:1 against its filled background (text=${textColor} bg=${style.backgroundColor}) rules=${ruleDump} isOn=${tile("rain").classList.contains("is-on")} className=${tile("rain").className}`);
 
   WhimsyAmbient.stop(window, { immediate: true });
   await closeSheetIfOpen();
