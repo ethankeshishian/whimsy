@@ -1860,6 +1860,11 @@ whimsy-meeting-untitled = Meeting
 # wave4: extension space picker in about:addons
 whimsy-space-extensions-picker = Run in Profiles
 whimsy-space-extensions-all-text = All Profiles
+# Firefox's "Add extension" prompt, under "Optional settings:": one
+# checkbox per profile (named as the user named it); the profile you're in
+# is checked and locked, with this detail under its name.
+whimsy-space-extensions-install-label = Run in profiles:
+whimsy-space-extensions-install-current = this profile
 whimsy-space-extensions-shared-note = Installed once: its settings and saved data are shared by every profile, and it can still read history and downloads from all of them.
 
 # wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
