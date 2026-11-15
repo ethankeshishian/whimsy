@@ -56,12 +56,19 @@
   }
 
   &.is-on {
-    background-color: var(--whimsy-surface-selected);
-    /* Full-strength text (not the idle, muted label) over the tint, so
-       it keeps its 4.5:1 contrast rather than switching to the raw
-       accent colour, which this tint is too light to carry. The accent
-       itself shows in the bars below instead. */
-    color: inherit;
+    /* Not var(--whimsy-surface-selected): that wash is translucent, so
+       its measured contrast would ride on how light or dark the user's
+       own system accent colour happens to be, which Whimsy can't know
+       ahead of time. Mixing the accent into an opaque light-dark(white,
+       near-black) base instead keeps the result close to that base's
+       own lightness whatever the accent is, so a fixed black/white
+       label always clears 4.5:1. The accent itself still shows at full
+       strength in the bars below. */
+    background-color: light-dark(
+      color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, white),
+      color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, rgb(28, 28, 32))
+    );
+    color: light-dark(black, white);
   }
 }
 
