@@ -2399,6 +2399,26 @@
       "pane": null,
       "paneId": null,
       "command": null
+    },
+    {
+      "id": "photo-metadata",
+      "name": "Photo Metadata",
+      "text": "Remove location and camera details (Exif, GPS, XMP, and text) from JPEG and PNG photos you upload, losslessly",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.photo-metadata",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "local-plugins",
+      "name": "Local Plugins",
+      "text": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.local-plugins",
+      "pane": null,
+      "paneId": null,
+      "command": null
     }
   ]
 }

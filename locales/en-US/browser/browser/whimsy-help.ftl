@@ -479,3 +479,7 @@ whimsy-help-window-title-space-name = Window Title Space
 whimsy-help-window-title-space-text = Show space name in window title: "<space> — <page title>" (Settings → Tab Management, off by default)
 whimsy-help-open-in-browser-name = Open In Browser
 whimsy-help-open-in-browser-text = Open in Safari / Open in Chrome: hands the current tab's address to another installed browser
+whimsy-help-photo-metadata-name = Photo Metadata
+whimsy-help-photo-metadata-text = Remove location and camera details (Exif, GPS, XMP, and text) from JPEG and PNG photos you upload, losslessly
+whimsy-help-local-plugins-name = Local Plugins
+whimsy-help-local-plugins-text = Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run
