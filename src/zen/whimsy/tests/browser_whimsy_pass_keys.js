@@ -114,7 +114,11 @@ add_task(async function test_reserved_keys_reach_the_page() {
     EventUtils.synthesizeKey("t", { accelKey: true });
     await TestUtils.waitForCondition(() => gBrowser.tabs.length == tabs + 1, "⌘T opens a tab as usual");
     BrowserTestUtils.removeTab(gBrowser.selectedTab);
-    await BrowserTestUtils.switchTab(gBrowser, tab);
+    // switchTab waits for a switch, which never comes if closing the new
+    // tab already went back to this one.
+    if (gBrowser.selectedTab != tab) {
+      await BrowserTestUtils.switchTab(gBrowser, tab);
+    }
     await focusPage(browser);
     ok(!(await pageKeys(browser)).includes("M-t"), "The page never saw ⌘T");
 
