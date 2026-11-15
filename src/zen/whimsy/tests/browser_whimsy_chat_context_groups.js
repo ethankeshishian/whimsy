@@ -367,15 +367,19 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
       is(tab.getAttribute("whimsy-ai-key"), keys[i], `Restored tab ${i} keeps its key`);
       is(WhimsyTreeTabs.recordOf(tab)?.opener ?? null, i == 0 ? null : i == 3 ? keys[2] : keys[0], `Restored tab ${i} keeps its opener record (${JSON.stringify(WhimsyTreeTabs.recordOf(tab))})`);
     });
-    const linked = () => t.openerTab == r && a.openerTab == r && m.openerTab == a;
     const openers = () => restored.map(x => (x.openerTab ? restored.indexOf(x.openerTab) : "none")).join(",");
-    const byEvents = await TestUtils.waitForCondition(linked, "restore relinks").then(() => true, () => false);
-    ok(byEvents, `Each tab is linked back to the tab that opened it (openers ${openers()})`);
-    if (!byEvents) {
-      WhimsyTreeTabs.relink(window);
-      ok(linked(), `and an explicit relink does it (openers ${openers()}, eligible ${restored.map(x => WhimsyTreeTabs.eligible(x)).join(",")})`);
-    }
+    await TestUtils.waitForCondition(() => t.openerTab == r && a.openerTab == r && m.openerTab == a, "Restoring relinks the openers");
+    is(openers(), "none,0,0,2", "Each tab is linked back to the tab that opened it");
     is(WhimsyTreeTabs.groupKeyOf(m), rootKey, "The grandchild keeps its group");
+
+    // A duplicate carries its original's saved key; it gets its own.
+    const copy = SessionStore.duplicateTab(window, t);
+    await TestUtils.waitForCondition(() => {
+      const saved = SessionStore.getCustomTabValue(copy, "whimsy-ai-key");
+      return saved && saved != keys[1] && copy.getAttribute("whimsy-ai-key") == saved;
+    }, "A duplicated tab gets a key of its own");
+    is(t.getAttribute("whimsy-ai-key"), keys[1], "and the original keeps its key");
+    BrowserTestUtils.removeTab(copy);
 
     await openChatOn(t);
     const menu = await openAddMenu();

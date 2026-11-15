@@ -247,7 +247,12 @@ export const WhimsyAIContext = {
     return win?.gZenWorkspaces?.getWorkspaces?.() ?? [];
   },
 
-  /** A key for a tab that survives restarts (per-tab chats use it). */
+  /**
+   * A key for a tab that survives restarts (per-tab chats and context groups
+   * use it). Kept as a SessionStore custom tab value: TabAttributes no longer
+   * persists added attributes (persistTabAttribute is gone), and
+   * restoreKey() puts it back on the tab when it's restored.
+   */
   tabKey(tab) {
     if (!tab) {
       return null;
@@ -257,10 +262,32 @@ export const WhimsyAIContext = {
       key = Services.uuid.generateUUID().toString().slice(1, -1);
       tab.setAttribute(KEY_ATTR, key);
       try {
-        lazy.SessionStore.persistTabAttribute(KEY_ATTR);
+        lazy.SessionStore.setCustomTabValue(tab, KEY_ATTR, key);
       } catch {}
     }
     return key;
+  },
+
+  /**
+   * Puts a restored tab's saved key back. A duplicate carries its original's
+   * key, so a key another open tab already has gets a fresh one instead.
+   */
+  restoreKey(tab) {
+    let saved = "";
+    try {
+      saved = lazy.SessionStore.getCustomTabValue(tab, KEY_ATTR);
+    } catch {}
+    if (!saved || tab.getAttribute(KEY_ATTR) == saved) {
+      return;
+    }
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      if (win.gBrowser?.tabs.some(t => t != tab && t.getAttribute(KEY_ATTR) == saved)) {
+        tab.removeAttribute(KEY_ATTR);
+        this.tabKey(tab);
+        return;
+      }
+    }
+    tab.setAttribute(KEY_ATTR, saved);
   },
 
   // --- Extraction and masking (WhimsyAIContext actor) ---

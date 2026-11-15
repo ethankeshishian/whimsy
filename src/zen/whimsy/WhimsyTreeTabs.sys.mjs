@@ -153,6 +153,7 @@ export const WhimsyTreeTabs = {
     let pending = false;
     const relinkSoon = event => {
       records.delete(event.target);
+      lazy.WhimsyAIContext.restoreKey(event.target);
       // A restore sets many tabs in one go; link them once it has.
       if (!pending) {
         pending = true;
@@ -241,6 +242,7 @@ export const WhimsyTreeTabs = {
   relink(win) {
     const byKey = new Map();
     for (const t of win.gBrowser.tabs) {
+      lazy.WhimsyAIContext.restoreKey(t);
       const key = t.getAttribute(KEY_ATTR);
       if (key && !t.closing) {
         byKey.set(key, t);
