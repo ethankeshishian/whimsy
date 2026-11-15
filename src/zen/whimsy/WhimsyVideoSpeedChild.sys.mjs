@@ -67,9 +67,10 @@ const SVG_UTURN = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.2
 const SVG_SPARKLE = `<svg viewBox="0 0 16 16" aria-hidden="true"><path class="fill" d="M8 1.5c.4 3.2 2.3 5.1 5.5 5.5-3.2.4-5.1 2.3-5.5 5.5C7.6 9.3 5.7 7.4 2.5 7 5.7 6.6 7.6 4.7 8 1.5Z"/><path class="fill" d="M13 11.2c.15 1 .8 1.65 1.8 1.8-1 .15-1.65.8-1.8 1.8-.15-1-.8-1.65-1.8-1.8 1-.15 1.65-.8 1.8-1.8Z"/></svg>`;
 const SVG_PIP = `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="3" width="12.4" height="10" rx="2"/><rect class="fill" x="8" y="8" width="4.6" height="3.4" rx=".9"/></svg>`;
 const SVG_PIP_OUT = `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="3" width="12.4" height="10" rx="2"/><path d="M6 10.5 10 6.5m0 0H7.2m2.8 0v2.8"/></svg>`;
-// W29 video: the four seek buttons. Start/end are a bar plus one triangle
-// (skip to); back/forward are a double triangle alone (jump by), so the two
-// pairs read differently at a glance.
+// W29 video: the four seek buttons, in their own plate at the bottom centre
+// of the video (owner: "Bottom center plate"). Start/end are a bar plus one
+// triangle (skip to); back/forward are a double triangle alone (jump by), so
+// the two pairs read differently at a glance.
 const SVG_SEEK_START = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3v10"/><path d="M12.5 4 6.8 8l5.7 4"/></svg>`;
 const SVG_SEEK_BACK = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 4 4.8 8l4.7 4"/><path d="M13.5 4 8.8 8l4.7 4"/></svg>`;
 const SVG_SEEK_FORWARD = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 4l4.7 4-4.7 4"/><path d="M2.5 4l4.7 4-4.7 4"/></svg>`;
@@ -83,10 +84,6 @@ const MARKUP = `<template>
     <button id="toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menu">
       <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.75 5 6.75 8 3.75"/></svg>
     </button>
-    <button id="seekstart" type="button" hidden="">${SVG_SEEK_START}</button>
-    <button id="seekback" type="button" hidden="">${SVG_SEEK_BACK}</button>
-    <button id="seekforward" type="button" hidden="">${SVG_SEEK_FORWARD}</button>
-    <button id="seekend" type="button" hidden="">${SVG_SEEK_END}</button>
     <button id="cc" type="button" aria-pressed="false" hidden="">CC</button>
     <div id="menu" role="menu" hidden=""></div>
     <div id="speednote" role="status" hidden=""></div>
@@ -94,6 +91,12 @@ const MARKUP = `<template>
   <div id="right" hidden="">
     <div id="summplate" class="plate" hidden=""><button id="summ" type="button" aria-pressed="false">${SVG_SPARKLE}<span class="spinner" aria-hidden="true"></span><span id="summlabel"></span></button></div>
     <div id="pipplate" class="plate"><button id="pip" type="button" aria-pressed="false">${SVG_PIP}${SVG_PIP_OUT}</button></div>
+  </div>
+  <div id="seekplate" class="plate" hidden="">
+    <button id="seekstart" type="button" hidden="">${SVG_SEEK_START}</button>
+    <button id="seekback" type="button" hidden="">${SVG_SEEK_BACK}</button>
+    <button id="seekforward" type="button" hidden="">${SVG_SEEK_FORWARD}</button>
+    <button id="seekend" type="button" hidden="">${SVG_SEEK_END}</button>
   </div>
   <div id="captions" role="region" hidden=""><div id="note"></div><div id="cue" dir="auto"></div></div>
 </template>`;
@@ -846,9 +849,10 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.place();
     this.render();
     if (this.sheetReady) {
-      // Both sides share one timer: they fade in and out together.
+      // All three share one timer: they fade in and out together.
       this.els.bar.toggleAttribute("data-shown", true);
       this.els.right.toggleAttribute("data-shown", true);
+      this.els.seekplate.toggleAttribute("data-shown", true);
     }
     this.keepAlive();
     this.querySummary(video);
@@ -913,6 +917,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.cancelEdit();
     this.els.bar.removeAttribute("data-shown");
     this.els.right.removeAttribute("data-shown");
+    this.els.seekplate.removeAttribute("data-shown");
   }
 
   clearTimers() {
@@ -938,6 +943,12 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.els.right.toggleAttribute("data-compact", compact);
     // W29 video: Start/End drop out of the seek group under the same width.
     this.compactVideo = compact;
+    // The seek plate sits on its own, centred under the video, at its
+    // bottom edge (owner: "Bottom center plate").
+    const plateLeft = Math.min(Math.max(r.left + r.width / 2, INSET), win.innerWidth - INSET);
+    const plateTop = Math.min(Math.max(r.bottom - 26 - INSET, INSET), win.innerHeight - 26 - INSET);
+    this.els.seekplate.style.left = `${Math.round(plateLeft)}px`;
+    this.els.seekplate.style.top = `${Math.round(plateTop)}px`;
   }
 
   format(rate) {
@@ -960,6 +971,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     const seekEnds = seekOk && !this.compactVideo;
     seekstart.hidden = !seekEnds;
     seekend.hidden = !seekEnds;
+    this.els.seekplate.hidden = !this.sheetReady || !seekOk;
     value.textContent = this.format(rate);
     value.setAttribute("aria-label", this.strings.value.replace("{rate}", this.format(rate)));
     for (const item of menu.children) {
@@ -1071,6 +1083,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       value: root.getElementById("value"),
       input: root.getElementById("input"),
       toggle: root.getElementById("toggle"),
+      seekplate: root.getElementById("seekplate"),
       seekstart: root.getElementById("seekstart"),
       seekback: root.getElementById("seekback"),
       seekforward: root.getElementById("seekforward"),
@@ -1489,10 +1502,14 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         bar: this.els.bar.getBoundingClientRect().toJSON(),
         summ: this.els.summplate.getBoundingClientRect().toJSON(),
         pip: this.anon.root.getElementById("pipplate").getBoundingClientRect().toJSON(),
+        // W29 video: its own plate, bottom centre of the video, separate
+        // from the bar.
+        seek: this.els.seekplate.getBoundingClientRect().toJSON(),
       },
       opacity: {
         bar: Number(this.contentWindow.getComputedStyle(this.els.bar).opacity),
         right: Number(this.contentWindow.getComputedStyle(this.els.right).opacity),
+        seekplate: Number(this.contentWindow.getComputedStyle(this.els.seekplate).opacity),
       },
       focusOrder: [...this.anon.root.querySelectorAll("button, input")]
         .filter(el => !el.hidden && !el.closest("[hidden]") && el.parentElement.id != "menu")

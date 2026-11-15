@@ -98,60 +98,6 @@ button {
   }
 }
 
-/* W29 video: four seek buttons after the speed presets, hidden together on
-   live streams, on calls, and under 15 s; Start/End also drop out under the
-   compact width (WhimsyVideoSpeedChild.sys.mjs's canSeek/render). */
-#seekstart,
-#seekback,
-#seekforward,
-#seekend {
-  display: grid;
-  place-items: center;
-  padding: 0 6px;
-  border-radius: 0;
-
-  & > svg {
-    width: 13px;
-    height: 13px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-}
-
-/* A hairline opens the group; it moves to Back when Start drops out
-   (compact width). */
-#seekstart {
-  border-left: 1px solid rgb(255 255 255 / 0.14);
-}
-
-#bar:has(> #seekstart[hidden]) > #seekback {
-  border-left: 1px solid rgb(255 255 255 / 0.14);
-}
-
-/* Forward/End default to the bar's rounded right end; whichever of them, or
-   captions, actually follows keeps it instead. */
-#seekforward,
-#seekend {
-  border-radius: 0 8px 8px 0;
-}
-
-#bar:has(> #seekback:not([hidden])) > #toggle,
-#bar:has(> #cc:not([hidden])) > #toggle {
-  border-radius: 0;
-}
-
-#bar:has(> #seekend:not([hidden])) > #seekforward,
-#bar:has(> #cc:not([hidden])) > #seekforward {
-  border-radius: 0;
-}
-
-#bar:has(> #cc:not([hidden])) > #seekend {
-  border-radius: 0;
-}
-
 #input {
   box-sizing: border-box;
   width: 52px;
@@ -432,6 +378,41 @@ button {
   }
 }
 
+/* W29 video: the four seek buttons, in their own plate at the bottom centre
+   of the video (owner: "Bottom center plate"), hidden together on live
+   streams, on calls, and under 15 s; Start/End also drop out under the
+   compact width (WhimsyVideoSpeedChild.sys.mjs's canSeek/render). It fades
+   with the bar and the right-hand plates, on the same idle timer. */
+#seekplate {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform: translateX(-50%);
+  color: #fff;
+  pointer-events: none;
+  opacity: 0;
+  translate: 0 6px;
+  transition:
+    opacity 120ms ease-out,
+    translate 120ms ease-out;
+  z-index: 2147483647;
+
+  &[data-shown] {
+    pointer-events: auto;
+    opacity: 1;
+    translate: 0 0;
+  }
+
+  & > button {
+    padding: 0 6px;
+
+    & > svg {
+      width: 13px;
+      height: 13px;
+    }
+  }
+}
+
 #summ {
   padding: 0 8px;
 
@@ -497,6 +478,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   #bar,
   #right,
+  #seekplate,
   #toggle > svg,
   #captions,
   .plate > button {
@@ -504,7 +486,8 @@ button {
   }
 
   #bar,
-  #right {
+  #right,
+  #seekplate {
     translate: none;
   }
 

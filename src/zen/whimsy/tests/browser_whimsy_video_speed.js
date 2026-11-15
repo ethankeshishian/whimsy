@@ -469,19 +469,43 @@ add_task(async function test_seek_hold_repeats_and_stops() {
 });
 
 add_task(async function test_seek_focus_order() {
+  // W29 video: the seek buttons are their own plate, bottom centre of the
+  // video, after the speed bar and the top-right plates in tab order.
   const { tab, browser } = await openPage();
   await virtualizeSeekable(browser, 120);
   await hover(browser);
   const state = await waitShown(browser);
   const order = state.focusOrder;
   const at = id => order.indexOf(id);
-  ok(at("toggle") >= 0 && at("seekstart") > at("toggle"), "Start follows the presets toggle");
-  ok(at("seekback") > at("seekstart"), "then Back");
+  ok(at("toggle") >= 0 && at("seekstart") > at("toggle"), "The seek plate follows the speed bar");
+  ok(at("seekback") > at("seekstart"), "Start, then Back");
   ok(at("seekforward") > at("seekback"), "then Forward");
   ok(at("seekend") > at("seekforward"), "then End");
   if (at("cc") >= 0) {
-    ok(at("cc") > at("seekend"), "and captions, if shown, comes last");
+    ok(at("seekstart") > at("cc"), "and the seek plate follows captions, in the speed bar");
   }
+  if (at("pip") >= 0) {
+    ok(at("seekstart") > at("pip"), "and the top-right plate");
+  }
+  BrowserTestUtils.removeTab(tab);
+});
+
+add_task(async function test_seek_plate_is_separate_and_bottom_center() {
+  // Owner: "Bottom center plate." The seek buttons live in their own plate,
+  // not inside the hover bar, centred under the video at its bottom edge.
+  const { tab, browser } = await openPage();
+  await virtualizeSeekable(browser, 120);
+  await hover(browser);
+  const state = await waitShown(browser);
+  const videoRect = await SpecialPowers.spawn(browser, [], () =>
+    content.document.getElementById("video").getBoundingClientRect().toJSON()
+  );
+  const { bar, seek } = state.plates;
+  ok(seek.top > bar.bottom, "The seek plate sits below the speed bar, not inside it");
+  const videoCenter = videoRect.left + videoRect.width / 2;
+  const seekCenter = seek.left + seek.width / 2;
+  ok(Math.abs(seekCenter - videoCenter) < 5, "Centred under the video");
+  ok(state.opacity.seekplate == 1, "Visible, like the speed bar and the top-right plates");
   BrowserTestUtils.removeTab(tab);
 });
 

@@ -6669,8 +6669,8 @@ whimsy-media-top-buttons =
 whimsy-media-new-badge = New
 whimsy-media-voice-heading = Read aloud and dictation
 
-## W29 video: four seek buttons on the hover bar (Go to start, Back 10
-## seconds, Forward 10 seconds, Go to end), after the speed presets.
+## W29 video: four seek buttons (Go to start, Back 10 seconds, Forward 10
+## seconds, Go to end) in their own plate at the bottom centre of the video.
 
 whimsy-video-seek-start =
     .title = Go to start
