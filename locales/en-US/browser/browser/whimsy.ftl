@@ -5463,11 +5463,13 @@ whimsy-chat-cmd-add-context = Add to Chat’s Context…
 whimsy-chat-cmd-model = Choose Chat’s Model and Thinking…
 whimsy-chat-chip-this-tab = This tab
 whimsy-chat-chip-all-tabs = All my tabs
-# $kind is tab, pane, pdf, file, or tabs. Counts are 0 when absent.
+# $kind is tab, pane, pdf, file, tabs, or group (a page and the tabs
+# opened from it, named $label). Counts are 0 when absent.
 whimsy-chat-chip-words =
     .title = { $kind ->
         [tab] This tab
         [tabs] All my tabs
+        [group] { $label } and the tabs opened from it
        *[other] { $label }
     }{ $text ->
         [0] {""}
@@ -5484,10 +5486,15 @@ whimsy-chat-chip-words =
         [0] {""}
         [one] {" · "}1 page
        *[other] {" · "}{ $pages } pages
+    }{ $tabs ->
+        [0] {""}
+        [one] {" · "}1 tab
+       *[other] {" · "}{ $tabs } tabs
     }. Show what AI sees
     .aria-label = { $kind ->
         [tab] This tab
         [tabs] All my tabs
+        [group] { $label } and the tabs opened from it
        *[other] { $label }
     }{ $text ->
         [0] {""}
@@ -5504,6 +5511,10 @@ whimsy-chat-chip-words =
         [0] {""}
         [one] {", "}1 page
        *[other] {", "}{ $pages } pages
+    }{ $tabs ->
+        [0] {""}
+        [one] {", "}1 tab
+       *[other] {", "}{ $tabs } tabs
     }. Show what AI sees
 # One part of a chip's contents line, after its name. $kind is text,
 # images, videos, pages, or tabs; $count how many.
@@ -5566,9 +5577,13 @@ whimsy-chat-note-left-out = Left out: { $private ->
            *[other] { $locked } tabs in locked spaces
         }
     }.
-# $kind is tabs or pdf.
+# $kind is tabs, group, or pdf.
 whimsy-chat-used = { $kind ->
         [tabs] Used all my tabs · { $count }
+        [group] Used { $label } · { $count ->
+            [one] 1 tab
+           *[other] { $count } tabs
+        }
        *[other] Used { $label }
     }
 whimsy-chat-status-reading-tabs = Reading your tabs…

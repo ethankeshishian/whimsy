@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyHiddenSpaces: "resource:///modules/whimsy/WhimsyHiddenSpaces.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
 });
 
@@ -429,8 +430,24 @@ export const WhimsyAIContext = {
     }
     const kept = tabs.slice(0, MAX_WIDE_TABS);
     const chipId = `tabs:${win ? this.tabKey(win.gBrowser.selectedTab) : "all"}`;
+    const pages = await this.readPages(kept, chipId);
+    context.chips.push({
+      id: chipId,
+      kind: "tabs",
+      label: "",
+      icon: "chrome://browser/content/whimsy/icons/tabs-all.svg",
+      counts: { pages: pages.length },
+      sourceId: "all-tabs",
+    });
+    context.parts.push(...pages);
+    context.widened.push({ kind: "tabs", count: pages.length, leftOut: { ...context.leftOut }, more: Math.max(0, tabs.length - kept.length) });
+    return context;
+  },
+
+  /** One page part per tab, read the way All my tabs reads them. */
+  async readPages(tabs, chipId) {
     const pages = [];
-    for (const tab of kept) {
+    for (const tab of tabs) {
       const browser = tab.linkedBrowser;
       const loaded = !tab.hasAttribute("pending") && browser?.browsingContext?.currentWindowGlobal;
       const data = loaded ? await this.extract(browser) : null;
@@ -447,17 +464,50 @@ export const WhimsyAIContext = {
         tabKey: this.tabKey(tab),
       });
     }
-    context.chips.push({
-      id: chipId,
-      kind: "tabs",
-      label: "",
-      icon: "chrome://browser/content/whimsy/icons/tabs-all.svg",
-      counts: { pages: pages.length },
-      sourceId: "all-tabs",
-    });
-    context.parts.push(...pages);
-    context.widened.push({ kind: "tabs", count: pages.length, leftOut: { ...context.leftOut }, more: Math.max(0, tabs.length - kept.length) });
-    return context;
+    return pages;
+  },
+
+  /**
+   * The web tabs of a context group (WhimsyTreeTabs.groupFor), in the space
+   * of `ref`, less what's off limits, capped like All my tabs.
+   */
+  groupTabs(win, rootKey, ref = win?.gBrowser?.selectedTab) {
+    const group = lazy.WhimsyTreeTabs.groupFor(win, rootKey, ref);
+    const leftOut = emptyLeftOut();
+    const tabs = [];
+    for (const tab of group.tabs) {
+      if (!isWebTab(tab)) {
+        continue;
+      }
+      const off = this.isOffLimits(tab);
+      if (off) {
+        leftOut[off]++;
+      } else {
+        tabs.push(tab);
+      }
+    }
+    return { ...group, tabs: tabs.slice(0, MAX_WIDE_TABS), leftOut };
+  },
+
+  /** What a context group chip reads: read when the message is sent. */
+  async forGroup(win, desc) {
+    const group = this.groupTabs(win, desc.rootKey);
+    const pages = await this.readPages(group.tabs, desc.id);
+    const label = group.title || desc.label || "";
+    return {
+      chips: [{
+        id: desc.id,
+        kind: "group",
+        label,
+        icon: group.icon || "",
+        counts: { pages: pages.length },
+        sourceId: desc.id,
+      }],
+      parts: pages,
+      leftOut: group.leftOut,
+      destination: null,
+      widened: [{ kind: "group", chipId: desc.id, count: pages.length, label }],
+    };
   },
 
   // Overridable in tests.

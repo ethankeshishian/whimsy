@@ -1520,8 +1520,10 @@ class ChatPanel {
     const tab = lazy.WhimsyChatThreads.tabOf(thread);
     const ownKey = tab ? lazy.WhimsyAIContext.tabKey(tab) : null;
     if (context) {
+      // W29: a tab that has its own chip is read once, not again in its group.
+      const ownChips = new Set(context.chips.filter(c => c.kind == "tab" || c.kind == "pane").map(c => c.sourceId));
       for (const chip of context.chips) {
-        const text = context.parts.filter(p => p.chipId == chip.id && typeof p.text == "string");
+        const text = context.parts.filter(p => p.chipId == chip.id && typeof p.text == "string" && !(chip.kind == "group" && ownChips.has(p.tabKey)));
         if (!text.length) {
           continue;
         }

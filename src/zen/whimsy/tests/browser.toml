@@ -1067,6 +1067,11 @@ support-files = ["whimsy_chat_article.html"]
 ["browser_whimsy_chat_context.js"]
 support-files = ["whimsy_chat_article.html"]
 
+# W29 context groups: the group row in chat's Add menu, its chip, and the
+# journeys (closing the first page, a tab moving space, a restart).
+["browser_whimsy_chat_context_groups.js"]
+support-files = ["whimsy_chat_article.html"]
+
 ["browser_whimsy_screens_w23_chat-answers.js"]
 support-files = ["whimsy_chat_article.html", "whimsy_chat_media.html"]
 
