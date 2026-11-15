@@ -43,6 +43,12 @@ export const WhimsyShareTab = {
       browserId: String(target.browserId),
       expires: Date.now() + PENDING_MS,
     });
+    // Firefox lists tabs from each window's cached visible tabs, which can
+    // still miss a tab opened a moment ago (and keep one just closed).
+    // Refresh them so the prompt can list and pick this one.
+    for (const w of Services.wm.getEnumerator("navigator:browser")) {
+      w.gBrowser?.tabContainer?._invalidateCachedVisibleTabs?.();
+    }
     let pressed = false;
     try {
       pressed = !!(await actor.sendQuery("Whimsy:CallShare"));
