@@ -31,8 +31,9 @@ function focusSidebarOn(tab) {
   window.document.getElementById("whimsy-focus-sidebar").doCommand();
 }
 
-// diag: a readable stand-in for a tab, since is()/ok() render DOM elements
-// as opaque "[object XULElement]" on both sides of a failure.
+// A readable stand-in for a tab in is()/ok() failure messages, which
+// otherwise render DOM elements as opaque "[object XULElement]" on both
+// sides of a failure.
 function label(tab) {
   const spec = tab?.linkedBrowser?.currentURI?.spec;
   return spec?.split("?")[1] ?? spec ?? String(tab);
@@ -203,7 +204,31 @@ add_task(async function test_move_skips_a_collapsed_folder() {
   }
 });
 
-add_task(function test_default_shortcut_listing_and_rebind() {
+// Runs before test_default_shortcut_listing_and_rebind (below), which
+// customizes and resets this same shortcut: CustomKeys only rebuilds the
+// <key> element's live binding when its <keyset> re-attaches to the tree, so
+// testing the untouched default here first, before anything rebinds it,
+// keeps this test's result independent of that settling.
+add_task(async function test_default_shortcut_fires_and_cheat_sheet() {
+  const [home, a, b] = await makeRow(3);
+  try {
+    gBrowser.selectedTab = b;
+    const start = b.index;
+    EventUtils.synthesizeKey("KEY_ArrowUp", { ctrlKey: true, shiftKey: true }, window);
+    is(b.index, start - 1, "Ctrl+Shift+Up runs Move Tab Up");
+    EventUtils.synthesizeKey("KEY_ArrowDown", { ctrlKey: true, shiftKey: true }, window);
+    is(b.index, start, "Ctrl+Shift+Down runs Move Tab Down");
+
+    const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
+    const rows = await WhimsyCheatSheet.rows(window);
+    is(rows.find(r => r.keyId == "key_whimsyMoveTabUp")?.title, "Move Tab Up", "Listed in the cheat sheet");
+    is(rows.find(r => r.keyId == "key_whimsyMoveTabDown")?.title, "Move Tab Down", "...both of them");
+  } finally {
+    await removeRow([home, a, b]);
+  }
+});
+
+add_task(async function test_default_shortcut_listing_and_rebind() {
   const upKey = document.getElementById("key_whimsyMoveTabUp");
   const downKey = document.getElementById("key_whimsyMoveTabDown");
   ok(upKey && downKey, "Both keys are registered");
@@ -224,39 +249,12 @@ add_task(function test_default_shortcut_listing_and_rebind() {
   WhimsyCommands.reset("cmd_whimsyMoveTabUp");
   is(upKey.getAttribute("keycode"), "VK_UP", "Reset restores the default");
   ok(!upKey.hasAttribute("key"), "...clearing the rebound key attribute");
-});
-
-add_task(async function test_default_shortcut_fires_and_cheat_sheet() {
-  const [home, a, b] = await makeRow(3);
-  try {
-    gBrowser.selectedTab = b;
-    const start = b.index;
-    is(gBrowser.tabs.length, start + 1, "diag: tab count matches expected start index (no leaked tabs)");
-    is(WhimsyTabMove.canMove(window, b, DIRECTION_BACKWARD), true, "diag: canMove backward before ctrl+shift+up");
-    is(document.activeElement?.localName, "tab", "diag: activeElement is a tab before ctrl+shift+up");
-    is(document.getElementById("key_whimsyMoveTabUp").getAttribute("modifiers"), "control,shift", "diag: key modifiers before press");
-    is(document.getElementById("key_whimsyMoveTabUp").hasAttribute("disabled"), false, "diag: key not disabled");
-    is(!!document.getElementById("cmd_whimsyMoveTabUp")?.hasAttribute("disabled"), false, "diag: command not disabled");
-    is(WhimsyTabMove.move(window, b, DIRECTION_BACKWARD), true, "diag: direct move() call succeeds");
-    is(b.index, start - 1, "diag: direct move() changed b's index");
-    WhimsyTabMove.move(window, b, DIRECTION_FORWARD); // restore before the real, keyboard-driven assertions
-    is(b.index, start, "diag: restored b's index before the real test");
-    document.getElementById("cmd_whimsyMoveTabUp").doCommand();
-    is(b.index, start - 1, "diag: cmd_whimsyMoveTabUp.doCommand() moves the tab");
-    WhimsyTabMove.move(window, b, DIRECTION_FORWARD); // restore again
-    is(b.index, start, "diag: restored b's index again before the keyboard assertion");
-    EventUtils.synthesizeKey("KEY_ArrowUp", { ctrlKey: true, shiftKey: true }, window);
-    is(b.index, start - 1, "Ctrl+Shift+Up runs Move Tab Up");
-    EventUtils.synthesizeKey("KEY_ArrowDown", { ctrlKey: true, shiftKey: true }, window);
-    is(b.index, start, "Ctrl+Shift+Down runs Move Tab Down");
-
-    const { WhimsyCheatSheet } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs");
-    const rows = await WhimsyCheatSheet.rows(window);
-    is(rows.find(r => r.keyId == "key_whimsyMoveTabUp")?.title, "Move Tab Up", "Listed in the cheat sheet");
-    is(rows.find(r => r.keyId == "key_whimsyMoveTabDown")?.title, "Move Tab Down", "...both of them");
-  } finally {
-    await removeRow([home, a, b]);
-  }
+  // CustomKeys only rebinds a <key>'s live dispatch when its <keyset>
+  // re-attaches to the tree (see CustomKeys.sys.mjs's refreshKeysets); give
+  // that a couple of frames to settle so any later test relying on this
+  // shortcut's default binding sees it actually working, not just the DOM
+  // attributes looking right.
+  await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
 });
 
 add_task(async function test_feature_off_disables_move() {
@@ -308,7 +306,6 @@ add_task(async function test_sidebar_left_right_tree_tabs() {
     ok(!root.hasAttribute("whimsy-tree-collapsed"), "Right expands it again");
     ok(child.visible && leaf.visible, "child and leaf are visible again");
 
-    is(gBrowser.visibleTabs.map(label).join(","), "diag-marker", "diag: visibleTabs order before down-arrow");
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
     is(label(gBrowser.tabContainer.ariaFocusedItem), "nav-child", "ArrowDown moves the cursor to child");
 
@@ -361,7 +358,6 @@ add_task(async function test_sidebar_left_right_zen_folders() {
     EventUtils.synthesizeKey("KEY_ArrowUp", {}, window);
     is(gBrowser.tabContainer.ariaFocusedItem, x, "ArrowUp moves the cursor to x");
 
-    is(gBrowser.visibleTabs.map(label).join(","), "diag-marker", "diag: visibleTabs order before collapsing from x");
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
     ok(folder.collapsed, "Left collapses the folder from x too");
     is(label(gBrowser.tabContainer.ariaFocusedItem), "nav-folder-before", "x isn't the stand-in once hidden, so focus falls back outside the folder");
