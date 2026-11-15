@@ -203,3 +203,51 @@ add_task(async function reduced_motion_disables_the_animation() {
   await closeAll(tab, other);
   await SpecialPowers.popPrefEnv();
 });
+
+// Screenshots for the report (W23's whimsyShot/whimsyBothSchemes; a no-op
+// smoke check unless WHIMSY_SHOTS is set): the badge popped in (Attached),
+// mid-twinkle while the thread answers (Reading), and once more under
+// reduced motion, where it should sit still.
+add_task(async function shots() {
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, OTHER);
+  const tab = await openOn();
+  const dataTransfer = new DataTransfer();
+  dataTransfer.mozSetDataAt("application/x-moz-tabbrowser-tab", other, 0);
+  part(".whimsy-chat-composer").dispatchEvent(new DragEvent("drop", { dataTransfer, bubbles: true, cancelable: true }));
+  await TestUtils.waitForCondition(() => other.hasAttribute("whimsy-chat-reads"), "Attached and marked");
+  await whimsyBothSchemes("w28-chat-reads-attached", async () => {
+    await whimsySettled();
+    await document.l10n.translateRoots();
+  });
+
+  const g = gate();
+  WhimsyAIProviders.setTestProvider(async function* (provider, request) {
+    calls.push({ provider, request });
+    yield { type: "text", delta: "Working" };
+    await g.promise;
+    yield { type: "text", delta: " on it." };
+  });
+  chat().composer.focus();
+  EventUtils.sendString("Go");
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(() => other.hasAttribute("whimsy-chat-reading"), "Reading while the answer streams");
+  await whimsyBothSchemes("w28-chat-reads-reading", async () => {
+    // A frame partway through the 1.6s twinkle loop (its most distinct
+    // keyframe, at 25%, rotates and scales the sparkle up).
+    await new Promise(r => setTimeout(r, 400)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+    await document.l10n.translateRoots();
+  });
+  g.open();
+  await answered();
+  WhimsyAIProviders.setTestProvider(defaultProvider);
+
+  // Still attached from the drop above; the pref flip alone is the point.
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  ok(other.hasAttribute("whimsy-chat-reads"), "Still attached after the pref flip");
+  await whimsySettled();
+  await document.l10n.translateRoots();
+  await whimsyShot("w28-chat-reads-reduced-motion");
+  await SpecialPowers.popPrefEnv();
+
+  await closeAll(tab, other);
+});
