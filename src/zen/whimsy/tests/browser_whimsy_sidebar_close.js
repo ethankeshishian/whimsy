@@ -3,88 +3,109 @@
 
 "use strict";
 
-// PROBE (temporary): trace every frame of a ⌘S hide, pointer off and on the bar.
+// W29: ⌘S (Hide Sidebar) with the pointer on the bar. The bar slides out once,
+// never comes back on its own, and stays closed while the pointer rests on it
+// or on the edge strip it settles into. Once the pointer leaves, the next
+// approach to the edge reveals the bar as usual.
 
 const root = document.documentElement;
 const sidebar = () => gZenCompactModeManager.sidebar;
-const ATTRS = ["animate", "zen-has-hover", "zen-has-implicit-hover", "flash-popup", "has-popup-menu", "zen-compact-mode-active", "zen-user-show", "zen-has-empty-tab"];
+const nextFrame = () => new Promise(r => requestAnimationFrame(r));
+// Frames watched after the slide settles: long past the queued hover task
+// that used to reveal the bar again.
+const SETTLED_FRAMES = 30;
 
 function pressCmdS() {
   const key = document.getElementById("zen-compact-mode-toggle");
   EventUtils.synthesizeKey(key.getAttribute("key").toLowerCase(), { accelKey: true });
 }
 
-function snapshot(frame) {
-  const el = sidebar();
-  const r = el.getBoundingClientRect();
-  const cs = getComputedStyle(el);
-  const attrs = ATTRS.filter(a => el.hasAttribute(a)).join(",");
-  return `f${frame} L${Math.round(r.left)} R${Math.round(r.right)} pos=${cs.position} tr=${cs.translate} ml=${cs.marginLeft} anim=${el.getAnimations().length} hover=${el.matches(":hover")} root=${root.hasAttribute("zen-compact-animating") ? "A" : ""}${root.getAttribute("zen-compact-mode")} ign=${!!gZenCompactModeManager._ignoreNextHover} [${attrs}]`;
+function moveTo({ x, y }) {
+  EventUtils.synthesizeMouse(root, x, y, { type: "mousemove" });
 }
 
-
-// Logs a frame only when its state changes. `jitter` moves the pointer by a
-// pixel each frame, as a resting hand does; `repeatAt` sends a second key
-// press (auto-repeat) at that frame.
-async function trace(label, { frames = 50, jitter = null, repeatAt = 0 } = {}) {
-  const log = [];
-  let frame = 0;
-  let last = "";
-  const mo = new MutationObserver(records => {
-    for (const rec of records) {
-      log.push(`  mut@f${frame} ${rec.target.id || "root"}.${rec.attributeName}=${rec.target.getAttribute(rec.attributeName)}`);
-    }
-  });
-  mo.observe(sidebar(), { attributes: true, attributeFilter: ATTRS });
-  mo.observe(root, { attributes: true, attributeFilter: ["zen-compact-animating", "zen-compact-mode"] });
-  let toggles = 0;
-  const realToggle = gZenCompactModeManager.toggle;
-  gZenCompactModeManager.toggle = function (...args) {
-    toggles++;
-    log.push(`  toggle(${args}) @f${frame} pref=${this.preference}`);
-    return realToggle.apply(this, args);
-  };
-  log.push(snapshot("pre"));
-  pressCmdS();
-  while (frame < frames) {
-    await new Promise(r => requestAnimationFrame(r));
-    frame++;
-    if (jitter) {
-      EventUtils.synthesizeMouse(root, jitter.x + (frame % 2), jitter.y, { type: "mousemove" });
-    }
-    if (repeatAt && frame == repeatAt) {
-      pressCmdS();
-    }
-    const snap = snapshot(frame);
-    const key = snap.replace(/^f\d+ /, "");
-    if (key != last) {
-      log.push(snap);
-      last = key;
-    }
-  }
-  gZenCompactModeManager.toggle = realToggle;
-  mo.disconnect();
-  log.push(`toggles=${toggles}`);
-  for (let i = 0; i < log.length; i += 20) {
-    ok(false, `TRACE ${label} ${i}:\n${log.slice(i, i + 20).join("\n")}`);
-  }
+function sliding() {
+  return root.hasAttribute("zen-compact-animating") || sidebar().hasAttribute("animate");
 }
 
-async function showSidebar() {
-  EventUtils.synthesizeMouseAtCenter(gBrowser.selectedBrowser, { type: "mousemove" });
-  if (gZenCompactModeManager.preference) {
-    gZenCompactModeManager.preference = false;
-  }
-  await TestUtils.waitForCondition(() => !gZenCompactModeManager.preference && !root.hasAttribute("zen-compact-animating"), "Sidebar shown");
-  await new Promise(r => setTimeout(r, 600));
+function rightEdge() {
+  return sidebar().getBoundingClientRect().right;
 }
 
-function pointAt(x) {
+// A point `x` pixels into the shown bar, at mid-height.
+function pointOnBar(x) {
   const r = sidebar().getBoundingClientRect();
   return { x: r.left + x, y: r.top + r.height / 2 };
 }
 
-add_task(async function probe() {
+// The middle of the page, well away from every edge.
+function pointOnPage() {
+  const r = gBrowser.selectedBrowser.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+// The hidden bar's edge strip.
+function pointOnEdge() {
+  const r = sidebar().getBoundingClientRect();
+  return { x: Math.max(1, r.right - 2), y: r.top + r.height / 2 };
+}
+
+async function showSidebar() {
+  moveTo(pointOnPage());
+  if (gZenCompactModeManager.preference) {
+    gZenCompactModeManager.preference = false;
+  }
+  await TestUtils.waitForCondition(
+    () => !gZenCompactModeManager.preference && !sliding() && !sidebar().hasAttribute("zen-has-hover"),
+    "Sidebar shown and settled"
+  );
+}
+
+// Presses ⌘S and records the bar's right edge every frame until the slide has
+// settled and SETTLED_FRAMES more frames have passed. `onFrame` runs before
+// each sample (pointer jitter, a repeated key press).
+async function closeAndWatch({ onFrame = () => {} } = {}) {
+  const edges = [rightEdge()];
+  pressCmdS();
+  let frame = 0;
+  let settledFor = 0;
+  while (settledFor < SETTLED_FRAMES) {
+    await nextFrame();
+    frame++;
+    onFrame(frame);
+    edges.push(rightEdge());
+    settledFor = sliding() || !gZenCompactModeManager.preference ? 0 : settledFor + 1;
+  }
+  return edges;
+}
+
+function assertSlidOutOnce(edges, label) {
+  for (let i = 1; i < edges.length; i++) {
+    if (edges[i] > edges[i - 1] + 1) {
+      ok(false, `${label}: the bar moved back out at frame ${i} (${edges[i - 1]} -> ${edges[i]})`);
+      return;
+    }
+  }
+  ok(edges.at(-1) < edges[0] / 2, `${label}: the bar slid out (${edges[0]} -> ${edges.at(-1)})`);
+}
+
+function assertHidden(label) {
+  ok(gZenCompactModeManager.preference, `${label}: compact mode is on`);
+  ok(!sidebar().hasAttribute("zen-has-hover"), `${label}: no hover reveal`);
+  ok(rightEdge() < 20, `${label}: the bar stays hidden (right edge ${rightEdge()})`);
+}
+
+async function revealFromEdge(label) {
+  moveTo(pointOnPage());
+  await nextFrame();
+  moveTo(pointOnEdge());
+  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), `${label}: edge reveals the bar`);
+  ok(true, `${label}: hover reveal works after the pointer left`);
+  moveTo(pointOnPage());
+  await TestUtils.waitForCondition(() => !sidebar().hasAttribute("zen-has-hover"), `${label}: bar hides again`);
+}
+
+add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["zen.view.compact.animate-sidebar", true],
@@ -94,20 +115,63 @@ add_task(async function probe() {
   });
   const page = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   delete gZenCompactModeManager._wasInCompactMode;
-  for (const x of [3, 30, 115, 200]) {
-    for (const jit of [false, true]) {
-      await showSidebar();
-      const p = pointAt(x);
-      EventUtils.synthesizeMouse(root, p.x, p.y, { type: "mousemove" });
-      await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "hovered");
-      await trace(`x${x}${jit ? "-jitter" : ""}`, { jitter: jit ? p : null });
-    }
+  registerCleanupFunction(async () => {
+    await showSidebar();
+    BrowserTestUtils.removeTab(page);
+  });
+});
+
+// The pointer near the bar's outer edge ends up on the strip the bar settles
+// into. A resting hand jitters by a pixel; neither may bring the bar back.
+add_task(async function cmd_s_with_pointer_on_bar_edge_stays_closed() {
+  for (const jitter of [false, true]) {
+    const label = jitter ? "edge, jitter" : "edge";
+    await showSidebar();
+    const at = pointOnBar(3);
+    moveTo(at);
+    await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), `${label}: pointer on the bar`);
+    const edges = await closeAndWatch({
+      onFrame: frame => jitter && moveTo({ x: at.x + (frame % 2), y: at.y }),
+    });
+    assertSlidOutOnce(edges, label);
+    assertHidden(label);
+    await revealFromEdge(label);
   }
+});
+
+// The pointer in the middle of the bar: the bar slides out from under it and
+// the pointer is on the page, so the edge reveals the bar straight away.
+add_task(async function cmd_s_with_pointer_mid_bar_closes() {
   await showSidebar();
-  await trace("repeat-f4", { repeatAt: 4 });
+  moveTo(pointOnBar(115));
+  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "mid: pointer on the bar");
+  const edges = await closeAndWatch();
+  assertSlidOutOnce(edges, "mid");
+  assertHidden("mid");
+  moveTo(pointOnEdge());
+  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "mid: edge reveals the bar");
+  moveTo(pointOnPage());
+  await TestUtils.waitForCondition(() => !sidebar().hasAttribute("zen-has-hover"), "mid: bar hides again");
+});
+
+// Key repeat while the bar slides: the second press is ignored, as Zen's
+// setter does, and must not drop the explicit close's hover hold.
+add_task(async function cmd_s_repeat_mid_slide_stays_closed() {
   await showSidebar();
-  await trace("repeat-f30", { repeatAt: 30 });
-  await showSidebar();
-  BrowserTestUtils.removeTab(page);
-  await SpecialPowers.popPrefEnv();
+  const at = pointOnBar(3);
+  moveTo(at);
+  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "repeat: pointer on the bar");
+  let repeated = false;
+  const edges = await closeAndWatch({
+    onFrame: () => {
+      if (!repeated && sliding()) {
+        repeated = true;
+        pressCmdS();
+      }
+    },
+  });
+  ok(repeated, "repeat: a second ⌘S arrived mid-slide");
+  assertSlidOutOnce(edges, "repeat");
+  assertHidden("repeat");
+  await revealFromEdge("repeat");
 });

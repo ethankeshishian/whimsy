@@ -459,8 +459,8 @@ window.gZenCompactModeManager = {
 
         setTimeout(() => {
           this.sidebar.style.transition = "";
-          delete this._ignoreNextHover;
         }, 500);
+        this._whimsySettleHoverHold(); // Whimsy hotfix
 
         resolve();
         return;
@@ -490,17 +490,12 @@ window.gZenCompactModeManager = {
             this.sidebar.style.pointEvents = "none";
             this.sidebar.removeAttribute("animate");
 
-            if (this._ignoreNextHover) {
-              setTimeout(() => {
-                delete this._ignoreNextHover;
-              });
-            }
-
             document.documentElement.removeAttribute("zen-compact-animating");
             this.sidebar.style.removeProperty("margin-right");
             this.sidebar.style.removeProperty("margin-left");
             this.sidebar.style.removeProperty("transform");
             this.sidebar.style.removeProperty("point-events");
+            this._whimsySettleHoverHold(); // Whimsy hotfix
 
             requestAnimationFrame(() => {
               this.sidebar.style.removeProperty("transition");
@@ -587,9 +582,75 @@ window.gZenCompactModeManager = {
     }
   },
 
+  // Whimsy hotfix: an explicit close (⌘S) ignores hover until the pointer
+  // leaves the sidebar, so a pointer resting on the bar, or on the edge
+  // strip the bar settles into, does not reveal it again.
+  _whimsyStartHoverHold() {
+    this._whimsyEndHoverHold();
+    this._ignoreNextHover = true;
+    const hold = (this._whimsyHoverHold = new AbortController());
+    const options = { capture: true, signal: hold.signal };
+    const onMove = event => {
+      this._whimsyHoldPoint = [event.clientX, event.clientY];
+      if (!this._ignoreNextHover) {
+        this._whimsyEndHoverHold();
+      } else if (hold.settled && !this.sidebar.contains(event.target)) {
+        this._whimsyEndHoverHold();
+      }
+    };
+    window.addEventListener("mousemove", onMove, options);
+    window.addEventListener("mouseover", onMove, options);
+    this.sidebar.addEventListener(
+      "mouseleave",
+      () => hold.settled && this._whimsyEndHoverHold(),
+      options
+    );
+  },
+
+  // Whimsy hotfix: once the bar has settled, keep ignoring hover only while
+  // the pointer is on it. The last pointer position counts too, because the
+  // bar's edge strip can settle under a pointer the bar slid away from.
+  _whimsySettleHoverHold() {
+    const hold = this._whimsyHoverHold;
+    if (!hold || !this._ignoreNextHover) {
+      this._whimsyEndHoverHold();
+      return;
+    }
+    const rect = this.sidebar.getBoundingClientRect();
+    const [x, y] = this._whimsyHoldPoint ?? [NaN, NaN];
+    const onBar =
+      this.sidebar.matches(":hover") ||
+      (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
+    if (!onBar) {
+      this._whimsyEndHoverHold();
+      return;
+    }
+    hold.settled = true;
+  },
+
+  _whimsyEndHoverHold() {
+    const hold = this._whimsyHoverHold;
+    if (!hold) {
+      return;
+    }
+    hold.abort();
+    this._whimsyHoverHold = null;
+    delete this._whimsyHoldPoint;
+    delete this._ignoreNextHover;
+  },
+
   toggle(ignoreHover = false) {
+    // Whimsy hotfix: the setter ignores a toggle mid-slide; return before
+    // the explicit close's hover hold is dropped.
+    if (document.documentElement.hasAttribute("zen-compact-animating")) {
+      return this.preference;
+    }
+    this._whimsyEndHoverHold(); // Whimsy hotfix
     // Only ignore the next hover when we are enabling compact mode
     this._ignoreNextHover = ignoreHover && !this.preference;
+    if (this._ignoreNextHover) {
+      this._whimsyStartHoverHold(); // Whimsy hotfix
+    }
     return (this.preference = !this.preference);
   },
 
@@ -861,6 +922,9 @@ window.gZenCompactModeManager = {
 
     document.documentElement.addEventListener("mouseleave", event => {
       setTimeout(() => {
+        if (this._ignoreNextHover) {
+          return; // Whimsy hotfix
+        }
         const screenEdgeCrossed = this._getCrossedEdge(
           event.pageX,
           event.pageY
