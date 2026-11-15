@@ -107,6 +107,15 @@
 - name: whimsy.media.pip-snap-back
   value: true
 
+# Ambient sound (⌘K "Ambient Sound…"): the volume slider's last value
+# (0-100) and the last sound played ("", "rain", "cafe", "woods",
+# "fireplace", "ocean" or "brown"), remembered across sessions.
+- name: whimsy.ambient.volume
+  value: 60
+
+- name: whimsy.ambient.last
+  value: ""
+
 # A speed button in the picture-in-picture player (Firefox's, off there).
 - name: media.videocontrols.picture-in-picture.playback-speed.enabled
   value: true

@@ -334,6 +334,27 @@ whimsy-volume-slider =
 whimsy-volume-mute =
     .tooltiptext = Mute or unmute the tab
 
+## Ambient sound (⌘K, or the sheet it opens): six bundled loops played
+## from the chrome window, not a tab, so muting a tab or switching tabs
+## or spaces never touches them.
+
+whimsy-ambient-sheet-title = Ambient sound
+whimsy-ambient-tile-rain = Rain
+whimsy-ambient-tile-cafe = Café
+whimsy-ambient-tile-woods = Woods
+whimsy-ambient-tile-fireplace = Fireplace
+whimsy-ambient-tile-ocean = Ocean
+whimsy-ambient-tile-brown = Brown noise
+# $sound (string) - the sound's name, e.g. Rain
+whimsy-ambient-tile-playing =
+    .aria-label = Stop { $sound }
+whimsy-ambient-volume =
+    .aria-label = Ambient sound volume
+whimsy-action-ambient-sound = Ambient Sound…
+whimsy-action-ambient-stop = Stop Ambient Sound
+whimsy-ambient-detail-idle = Rain, café, woods, fireplace, ocean, or brown noise
+whimsy-ambient-detail-playing = Change the sound or its volume
+
 ## Playback speed (shortcuts and command bar)
 
 whimsy-action-speed-up = Speed Up Video
