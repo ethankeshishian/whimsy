@@ -100,3 +100,33 @@ add_task(async function test_shift_click_split_opt_in_wins() {
   }
 });
 
+// W29-tabclicks: Shift+click on a link inside a pinned tab still splits it
+// correctly, but when that tab was the only thing showing in a manually
+// collapsed folder, reselecting the split's result looked to ZenFolders
+// like every tab in the folder was now active, which expanded the folder.
+// The split is correct; the folder should stay as the user left it.
+add_task(async function test_shift_click_split_keeps_folder_collapsed() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.splitlink.shift-click", true]] });
+  const tab = await linkTab();
+  let folder;
+  try {
+    folder = await gZenFolders.createFolder([tab], { renameFolder: false, label: "Folder" });
+    gBrowser.selectedTab = tab;
+    folder.labelElement.click();
+    ok(folder.collapsed, "The folder starts out manually collapsed");
+
+    await BrowserTestUtils.synthesizeMouseAtCenter("#l", { shiftKey: true }, tab.linkedBrowser);
+    await TestUtils.waitForCondition(() => tab.splitView, "Shift+click split the pinned tab");
+    ok(folder.collapsed, "Splitting the pinned tab keeps the folder collapsed");
+  } finally {
+    if (folder) {
+      const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");
+      folder.delete();
+      await removed;
+    } else {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
