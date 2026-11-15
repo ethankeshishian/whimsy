@@ -270,3 +270,8 @@
 # W24 dark pages
         content/browser/whimsy/icons/moon.svg (../../zen/whimsy/content/icons/moon.svg)
         content/browser/whimsy/whimsy-settings-dark-pages.js (../../zen/whimsy/content/whimsy-settings-dark-pages.js)
+# W29/help: whimsy://help, the built-in manual (about:whimsy?help, F1)
+        content/browser/whimsy/whimsy-help.html (../../zen/whimsy/content/whimsy-help.html)
+        content/browser/whimsy/whimsy-help.css (../../zen/whimsy/content/whimsy-help.css)
+        content/browser/whimsy/whimsy-help.js (../../zen/whimsy/content/whimsy-help.js)
+        content/browser/whimsy/whimsy-help.json (../../zen/whimsy/content/whimsy-help.json)

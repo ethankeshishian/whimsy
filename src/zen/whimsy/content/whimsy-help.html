@@ -1,0 +1,39 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-l10n-id="whimsy-help-title"></title>
+    <link rel="localization" href="branding/brand.ftl" />
+    <link rel="localization" href="browser/whimsy.ftl" />
+    <link rel="stylesheet" href="chrome://browser/content/whimsy/whimsy-help.css" />
+    <link rel="icon" href="chrome://browser/skin/zen-icons/help.svg" />
+  </head>
+  <body>
+    <header id="whimsy-help-header">
+      <h1 data-l10n-id="whimsy-help-heading"></h1>
+      <div class="whimsy-help-search-field">
+        <input
+          id="whimsy-help-search"
+          type="search"
+          data-l10n-id="whimsy-help-search-placeholder"
+          data-l10n-attrs="placeholder"
+          autocomplete="off"
+        />
+      </div>
+    </header>
+    <div id="whimsy-help-body">
+      <nav id="whimsy-help-rail" aria-label="Sections"></nav>
+      <main id="whimsy-help-main">
+        <ul id="whimsy-help-list"></ul>
+        <ul id="whimsy-help-changelog" hidden></ul>
+        <p id="whimsy-help-empty" class="whimsy-help-empty" hidden></p>
+      </main>
+    </div>
+    <script src="chrome://browser/content/whimsy/whimsy-help.js"></script>
+  </body>
+</html>

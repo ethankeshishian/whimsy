@@ -1302,3 +1302,6 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 
 # W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
 ["browser_whimsy_dim_inactive_window.js"]
+
+# W29/help: whimsy://help, the built-in manual (F1, Help menu, command bar; search; off features; settings links).
+["browser_whimsy_help.js"]

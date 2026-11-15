@@ -40,6 +40,7 @@ add_task(function test_items_exist() {
     "menu_whimsyOpenLibrary",
     "menu_whimsyViewDownloads",
     "menu_whimsyKeyboardShortcuts",
+    "menu_whimsyHelp",
     "menu_whimsyCapturePortrait",
     "menu_whimsyTabsResetSpace",
     "menu_whimsyViewMedia",
@@ -47,8 +48,12 @@ add_task(function test_items_exist() {
   ]) {
     ok(document.getElementById(id), `${id} is in the menu bar`);
   }
+  // W29/help: Whimsy Help (F1) now heads the Help menu, above Essential
+  // Keyboard Shortcuts; Firefox's own Get Help row stays below both.
   is(document.getElementById("menu_whimsyKeyboardShortcuts").parentElement.firstElementChild.id,
-    "menu_whimsyKeyboardShortcuts", "Essential Keyboard Shortcuts heads the Help menu");
+    "menu_whimsyHelp", "Whimsy Help heads the Help menu");
+  is(document.getElementById("menu_whimsyHelp").nextElementSibling.id,
+    "menu_whimsyKeyboardShortcuts", "with Essential Keyboard Shortcuts right below it");
   is(document.getElementById("menu_whimsyTabsClearToday").getAttribute("command"), "cmd_zenCloseUnpinnedTabs", "Clear Today is Zen's command");
   const blank = document.getElementById("menu_new_zen_unsynced_window");
   if (blank) {

@@ -72,6 +72,7 @@ const ICONS = {
   restart: "chrome://browser/skin/zen-icons/reload.svg",
   tabIcon: "chrome://browser/skin/zen-icons/face-sun.svg",
   source: "chrome://browser/skin/zen-icons/selectable/code.svg",
+  help: "chrome://browser/skin/zen-icons/help.svg",
 };
 
 // Zen's live folder kinds (its own menu's ids, which its command handler
@@ -521,6 +522,18 @@ export const WhimsyAccessCommands = {
       run: w => w.openTrustedLinkIn("about:whimsy?replay", "tab"),
       icon: ICONS.claude,
       isAvailable: () => feature("claude-replay"),
+    });
+    // W29/help: whimsy://help, the built-in manual (Help menu, F1, and the
+    // command bar). Always available: it's the one place a feature that's
+    // off still shows up, so it can't be hidden behind its own switch.
+    register({
+      id: "cmd_whimsyHelp",
+      l10nId: "whimsy-action-help",
+      keyId: "key_whimsyHelp",
+      key: { keycode: "VK_F1" },
+      run: w => w.openTrustedLinkIn("about:whimsy?help", "tab"),
+      icon: ICONS.help,
+      whimsyKeywords: () => WhimsyCommands.keywords("whimsy-keywords-help"),
     });
 
     // W8-04: Zen's own Collapse / Expand All Folders (nested folders

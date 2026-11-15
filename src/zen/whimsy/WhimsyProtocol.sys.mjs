@@ -49,6 +49,8 @@ const ROUTES = {
   replay: { url: "about:whimsy?replay" },
   // wave5: whimsy://easel makes a new easel (pinned, like Arc).
   easel: { command: "cmd_whimsyNewEasel", fallbackUrl: "about:whimsy?easel" },
+  // W29/help: whimsy://help, the built-in manual.
+  help: { url: "about:whimsy?help" },
 };
 
 const PATTERN = /^whimsy:\/\/([a-z-]+)\/?$/i;

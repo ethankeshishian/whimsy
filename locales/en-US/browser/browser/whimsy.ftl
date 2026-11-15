@@ -3811,6 +3811,22 @@ whimsy-action-resync-live-folder = Resync Live Folder
 ## wave8/cmds: View Claude in Whimsy Replays command
 whimsy-action-view-claude-replays = View Claude in Whimsy Replays
 
+## W29/help: whimsy://help, the built-in manual (F1)
+whimsy-action-help = Whimsy Help
+whimsy-keywords-help = Help, Manual, Docs, Documentation
+whimsy-menu-help =
+    .label = Whimsy Help
+whimsy-help-title = Whimsy Help
+whimsy-help-heading = Whimsy Help
+whimsy-help-search-placeholder =
+    .placeholder = Search features, settings, and shortcuts
+whimsy-help-rail-all = All features
+whimsy-help-rail-whats-new = What’s new
+whimsy-help-setting-link = Settings › { $pane }
+whimsy-help-setting-off = Off · Turn on in Settings › { $pane }
+whimsy-help-off-no-pane = Off
+whimsy-help-empty-search = Nothing matches “{ $query }”. Try a shorter word, or search the command bar.
+
 ## wave8/cmds: W8-10 Move tab to another space (Arc parity)
 whimsy-action-move-to = Move to
 whimsy-action-move-tab-next-space = Move Tab to Next Space

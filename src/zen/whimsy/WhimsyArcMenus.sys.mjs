@@ -300,7 +300,12 @@ export const WhimsyArcMenus = {
     if (!popup || document.getElementById("menu_whimsyKeyboardShortcuts")) {
       return;
     }
+    // W29/help: Whimsy Help (F1) sits above Essential Keyboard Shortcuts;
+    // Firefox's own "Get Help" row stays below both (Mozilla's support
+    // site still answers Firefox questions the manual doesn't, such as
+    // passwords and sync).
     popup.prepend(
+      menuitem(document, "menu_whimsyHelp", "whimsy-menu-help", "cmd_whimsyHelp", "key_whimsyHelp"),
       menuitem(document, "menu_whimsyKeyboardShortcuts", "whimsy-menu-essential-shortcuts", "whimsy-cheatsheet", "key_whimsyCheatsheet")
     );
   },

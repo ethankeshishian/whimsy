@@ -22,6 +22,7 @@ import json
 import os
 import re
 import sys
+import xml.dom.minidom
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -2113,6 +2114,117 @@ FEATURES = [
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
 ]
 
+# W29/help: whimsy://help (WhimsyHelp.sys.mjs) reads one sentence and one
+# section per feature, generated below from FEATURES so a new feature can't
+# ship without one. A FEATURES entry can override either explicitly
+# ("help": "...", "section": "...", "help_name": "..."); otherwise the
+# sentence falls back to the feature's own "title" (already written as a
+# one-line description) and the section is guessed from the id/title text.
+HELP_SECTIONS = [
+    "Tabs and spaces", "Command bar", "AI", "Privacy and security", "Media",
+    "Look and feel", "Keyboard", "Mini Whimsy",
+]
+HELP_FTL_FILE = "locales/en-US/browser/browser/whimsy-help.ftl"
+HELP_JSON_FILE = "src/zen/whimsy/content/whimsy-help.json"
+_HELP_SECTION_RULES = [
+    (re.compile(r"\bai[-_]|^ai$|assistant|claude|gpt\b", re.I), "AI"),
+    (re.compile(r"privacy|cookie|tracking|\bvpn\b|password|breach|permission|fingerprint|forget|fire-button|incognito|private|do-not-disturb|paste-guard|allow-copy|watch-page", re.I), "Privacy and security"),
+    (re.compile(r"cast|caption|video|audio|media|\bcall\b|playlist|picture-in-picture|equalizer|boosts?\b", re.I), "Media"),
+    (re.compile(r"cheatsheet|keyboard|shortcut", re.I), "Keyboard"),
+    (re.compile(r"quick-window|mini-whimsy|little-arc", re.I), "Mini Whimsy"),
+    (re.compile(r"command-bar|\bcmd[-_]|urlbar|global-action|bang", re.I), "Command bar"),
+    (re.compile(r"\btab\b|\btabs\b|\bspace\b|\bspaces\b|folder|archive|split|workspace|sidebar|scratch", re.I), "Tabs and spaces"),
+]
+_HELP_ACRONYMS = {"ai": "AI", "ui": "UI", "url": "URL", "vpn": "VPN", "qr": "QR", "id": "ID", "dns": "DNS", "totp": "TOTP"}
+PREFS_XHTML_FILE = "src/browser/components/preferences/whimsy-preferences-head.inc.xhtml"
+_HELP_PANE_LABELS = {
+    "paneGeneral": "General", "panePrivacy": "Privacy & Security", "paneSearch": "Search",
+    "paneZenLooks": "Look & Feel", "paneZenTabManagement": "Tabs",
+    "paneWhimsyLinks": "Links", "paneWhimsyAI": "AI", "paneWhimsyMedia": "Media",
+}
+
+
+def _settings_panes():
+    # id -> "Settings pane" label for every whimsy.feature.<id> pref bound to
+    # a control under an ancestor with data-category="paneX" in the Settings
+    # markup. Mechanical and derived straight from that markup (same
+    # fragment-wrapping precheck.py's check_xhtml() uses), so a feature's
+    # help-page link can never drift from where its own toggle actually is.
+    try:
+        body = "".join(l for l in open(path(PREFS_XHTML_FILE), encoding="utf-8") if not l.startswith("#"))
+    except FileNotFoundError:
+        return {}
+    body = re.sub(r"<\?xml[^>]*\?>", "", body)
+    wrapped = ('<root xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul" '
+               'xmlns:html="http://www.w3.org/1999/xhtml">' + body + "</root>")
+    try:
+        doc = xml.dom.minidom.parseString(wrapped)
+    except Exception:
+        return {}
+    panes = {}
+
+    def walk(node):
+        if node.nodeType == node.ELEMENT_NODE:
+            pref = node.getAttribute("preference")
+            m = re.match(r"^whimsy\.feature\.([a-z0-9-]+)$", pref or "")
+            if m:
+                ancestor = node.parentNode
+                while ancestor is not None and ancestor.nodeType == node.ELEMENT_NODE:
+                    category = ancestor.getAttribute("data-category")
+                    if category:
+                        # (raw category id, human label) -- the page needs
+                        # the id to open that pane and the label to show it.
+                        panes[m.group(1)] = (category, _HELP_PANE_LABELS.get(category, category))
+                        break
+                    ancestor = ancestor.parentNode
+        for child in node.childNodes:
+            walk(child)
+
+    walk(doc.documentElement)
+    return panes
+
+
+def _help_section(feature):
+    if feature.get("section") in HELP_SECTIONS:
+        return feature["section"]
+    hay = feature["id"] + " " + feature.get("title", "")
+    for rx, name in _HELP_SECTION_RULES:
+        if rx.search(hay):
+            return name
+    return "Look and feel"
+
+
+def _help_name(feature):
+    if feature.get("help_name"):
+        return feature["help_name"]
+    return " ".join(_HELP_ACRONYMS.get(w, w.capitalize()) for w in feature["id"].split("-"))
+
+
+def help_entries(report):
+    # One (name, sentence, section) per feature, or a problem for any that
+    # somehow has no text at all (title is required, so this is a backstop).
+    panes = _settings_panes()
+    entries = []
+    for feature in FEATURES:
+        sentence = (feature.get("help") or feature.get("title") or "").strip()
+        if not sentence:
+            report["problems"].append(f"FEATURES {feature['id']}: no help sentence (title or help)")
+            continue
+        pane_id, pane_label = panes.get(feature["id"], (None, None))
+        if feature.get("pane"):
+            pane_label = feature["pane"]
+        entries.append({
+            "id": feature["id"],
+            "name": _help_name(feature),
+            "text": sentence,
+            "section": _help_section(feature),
+            "pref": f"whimsy.feature.{feature['id']}",
+            "pane": pane_label,
+            "paneId": feature.get("paneId") or pane_id,
+            "command": feature.get("command"),
+        })
+    return entries
+
 
 def path(rel):
     return os.path.join(ROOT, rel)
@@ -2387,6 +2499,18 @@ def write_generated(report, dry, superseded):
                   "- name: privacy.query_stripping.enabled\n  value: true\n"
                   "\n- name: privacy.query_stripping.enabled.pbmode\n  value: true\n")
     gen["prefs/whimsy/features.yaml"] = prefs
+
+    # W29/help: whimsy://help's content (WhimsyHelp.sys.mjs).
+    entries = help_entries(report)
+    ftl_lines = ["# Generated by whimsy/overlay.py: one sentence per feature, for whimsy://help.",
+                 "# Don't edit; add a \"help\"/\"section\"/\"help_name\" key to the FEATURES entry instead.", ""]
+    for entry in entries:
+        ftl_lines.append(f"whimsy-help-{entry['id']}-name = {entry['name']}")
+        ftl_lines.append(f"whimsy-help-{entry['id']}-text = {entry['text']}")
+    gen[HELP_FTL_FILE] = "\n".join(ftl_lines) + "\n"
+    gen[HELP_JSON_FILE] = json.dumps(
+        {"sections": HELP_SECTIONS, "features": entries}, indent=2
+    ) + "\n"
 
     for rel, text in gen.items():
         current = read(rel) if os.path.exists(path(rel)) else None

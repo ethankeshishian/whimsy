@@ -1,0 +1,2394 @@
+{
+  "sections": [
+    "Tabs and spaces",
+    "Command bar",
+    "AI",
+    "Privacy and security",
+    "Media",
+    "Look and feel",
+    "Keyboard",
+    "Mini Whimsy"
+  ],
+  "features": [
+    {
+      "id": "image-drop",
+      "name": "Image Drop",
+      "text": "Dropped images open next to the page in a foreground tab",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.image-drop",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "cmd-tab-numbers",
+      "name": "Cmd Tab Numbers",
+      "text": "Show tab numbers while holding Command",
+      "section": "Command bar",
+      "pref": "whimsy.feature.cmd-tab-numbers",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "ctrl-tab",
+      "name": "Ctrl Tab",
+      "text": "Arc-style Ctrl+Tab: recently used order, one rounded card with rows of four, up to 12 tabs, other spaces' tabs badged",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.ctrl-tab",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ui-zoom",
+      "name": "UI Zoom",
+      "text": "Interface zoom",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.ui-zoom",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "app-icon",
+      "name": "App Icon",
+      "text": "App icon picker",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.app-icon",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "copy",
+      "name": "Copy",
+      "text": "Copy & share: rich links, selected tabs, Copy Links menu item",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.copy",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "cookie-banners",
+      "name": "Cookie Banners",
+      "text": "Reject cookie banners (built-in DuckDuckGo Autoconsent add-on + toggle)",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.cookie-banners",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "private-indicator",
+      "name": "Private Indicator",
+      "text": "Private window indicator (violet tint + Incognito badge)",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.private-indicator",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-kill-switch",
+      "name": "AI Kill Switch",
+      "text": "AI kill switch (one toggle blocks every Firefox and Whimsy AI feature)",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-kill-switch",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "duplicate-shortcut",
+      "name": "Duplicate Shortcut",
+      "text": "Duplicate tab on Cmd+Shift+D; Pin/Unpin on Cmd+D (Arc)",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.duplicate-shortcut",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "new-tab-position",
+      "name": "New Tab Position",
+      "text": "New tabs open below the current tab and stay in its folder (toggles)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.new-tab-position",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "dim-sleeping",
+      "name": "Dim Sleeping",
+      "text": "Dim sleeping (unloaded) tabs (toggle, off by default)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.dim-sleeping",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "title-lines",
+      "name": "Title Lines",
+      "text": "Tab title lines: wrap titles onto 1, 2 or 3 lines (setting)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.title-lines",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "newtab-bottom",
+      "name": "Newtab Bottom",
+      "text": "New tab button fixed at the bottom of the sidebar (toggle, off by default)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.newtab-bottom",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "folder-colors",
+      "name": "Folder Colors",
+      "text": "Folder colors: pick a color per folder from its context menu",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.folder-colors",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "loading-line",
+      "name": "Loading Line",
+      "text": "Loading progress line: Zen's loading pill as a Safari-style progress line (toggle)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.loading-line",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "tab-badges",
+      "name": "Tab Badges",
+      "text": "Notification badges (unread counts) and update dots on pinned tabs and Essentials",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.tab-badges",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "group-domain",
+      "name": "Group Domain",
+      "text": "Group by domain: gather a site's tabs into a folder (tab context menu)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.group-domain",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-icon-drop",
+      "name": "Space Icon Drop",
+      "text": "Drop tabs on space icons to move them to that space (Arc)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-icon-drop",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-last-tab",
+      "name": "Space Last Tab",
+      "text": "Return to the most recently used tab in each space, also after a restart",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-last-tab",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "emoji-search",
+      "name": "Emoji Search",
+      "text": "Emoji search: every word must match, Enter picks the first result, empty state",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.emoji-search",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "command-bar-emoji",
+      "name": "Command Bar Emoji",
+      "text": "Emoji from the command bar: \":\" or the Emoji command opens an 8-across searchable grid (frequent, skin tones, insert or copy)",
+      "section": "Command bar",
+      "pref": "whimsy.feature.command-bar-emoji",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "hide-switcher",
+      "name": "Hide Switcher",
+      "text": "Hide the space switcher (toggle, off by default)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.hide-switcher",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "open-link-in-space",
+      "name": "Open Link In Space",
+      "text": "Open Link in Space (link context menu, Arc)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.open-link-in-space",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "hex-colors",
+      "name": "Hex Colors",
+      "text": "Hex colors in the theme picker (type or paste #RRGGBB)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.hex-colors",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "transparency",
+      "name": "Transparency",
+      "text": "Transparency slider for the sidebar and toolbars (macOS)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.transparency",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "menu-icons",
+      "name": "Menu Icons",
+      "text": "Menu icons in context menus and the tab menu (macOS 26 style)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.menu-icons",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ui-font",
+      "name": "UI Font",
+      "text": "Interface font setting (the browser's own text, not web pages)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.ui-font",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "strip-tracking",
+      "name": "Strip Tracking",
+      "text": "Strip tracking parameters from links (query stripping on by default + toggle)",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.strip-tracking",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "background-mute",
+      "name": "Background Mute",
+      "text": "Mute background tabs (Vivaldi's Tab Muting: while the current tab plays, or always; setting)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.background-mute",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "mute-site",
+      "name": "Mute Site",
+      "text": "Remember muted sites: Mute Site in the tab menu (Chrome)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.mute-site",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "tab-volume",
+      "name": "Tab Volume",
+      "text": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.tab-volume",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "pip-snap-back",
+      "name": "Pip Snap Back",
+      "text": "PiP snaps back into the page when you return to its tab (Arc), automatic PiP setting",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.pip-snap-back",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "playback-speed",
+      "name": "Playback Speed",
+      "text": "Playback speed shortcuts (Cmd+Opt+. and ,) and the PiP speed control",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.playback-speed",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "find-selection",
+      "name": "Find Selection",
+      "text": "Cmd+F opens Find with the selected text (Chrome, Safari)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.find-selection",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "capture",
+      "name": "Capture",
+      "text": "Capture: Arc's Cmd+Shift+2 for Screenshots, and Copy Full-Page Screenshot in one step",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.capture",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "edit-page",
+      "name": "Edit Page",
+      "text": "Edit text on page (designMode) from the page menu and command bar",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.edit-page",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "allow-copy",
+      "name": "Allow Copy",
+      "text": "Allow copy and paste on sites that block it (per site, command bar)",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.allow-copy",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "wayback",
+      "name": "Wayback",
+      "text": "Internet Archive for dead pages (bar on 404/5xx/DNS errors, command bar)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.wayback",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "image-info",
+      "name": "Image Info",
+      "text": "View Image Info on the image context menu",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.image-info",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "translate-selection",
+      "name": "Translate Selection",
+      "text": "Translate selection: a shortcut and command bar action for Firefox's panel",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.translate-selection",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "reader-fonts",
+      "name": "Reader Fonts",
+      "text": "Reader View typography: the macOS reading fonts (Charter, Iowan, Athelas...)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.reader-fonts",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "reading-time",
+      "name": "Reading Time",
+      "text": "Reading time next to the Reader View button (setting)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.reading-time",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "dark-pages",
+      "name": "Dark Pages",
+      "text": "Dark pages: native dark themes, then generated colors",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.dark-pages",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "dark-pdf",
+      "name": "Dark Pdf",
+      "text": "Dark PDFs: a Settings toggle for pdf.js page colours (off by default)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.dark-pdf",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "github-reviews",
+      "name": "Github Reviews",
+      "text": "My Review Requests (GitHub live folders, Zen PR #16183)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.github-reviews",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "peek-essential-links",
+      "name": "Peek Essential Links",
+      "text": "Settings checkbox for Zen's open-essential-external-links Glance pref",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.peek-essential-links",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "glance-split-action",
+      "name": "Glance Split Action",
+      "text": "\"Split Glance\" in the command bar",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.glance-split-action",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "external-link-target",
+      "name": "External Link Target",
+      "text": "External links (from other apps) open in Glance, a tab, or Mini Whimsy",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.external-link-target",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "auto-archive-tabs",
+      "name": "Auto Archive Tabs",
+      "text": "Auto-archive idle unpinned tabs after a quiet period (Arc)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.auto-archive-tabs",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "archive-view",
+      "name": "Archive View",
+      "text": "Archive view: a searchable, by-day list of closed/archived tabs with restore",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.archive-view",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "undo-tab-actions",
+      "name": "Undo Tab Actions",
+      "text": "Cmd+Z undoes the last tab action (close, move, pin), not just closing one tab",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.undo-tab-actions",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "snooze-tab",
+      "name": "Snooze Tab",
+      "text": "Snooze a tab: closes it now, reopens at a chosen time (SigmaOS, Edge)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.snooze-tab",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "favicon-home",
+      "name": "Favicon Home",
+      "text": "Favicon Goes Home",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.favicon-home",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "tree-tabs",
+      "name": "Tree Tabs",
+      "text": "Tree-style tabs with an Islands mode: nest a tab under whichever tab opened it",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.tree-tabs",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "fire-button",
+      "name": "Fire Button",
+      "text": "Fire button: a one-click data-clearing popover (DuckDuckGo), scoped to site/15 min/space/everything",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.fire-button",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "heavy-tabs",
+      "name": "Heavy Tabs",
+      "text": "Find heavy tabs: the tabs using the most memory/CPU, with a close button (Opera GX)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.heavy-tabs",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "split-link-click",
+      "name": "Split Link Click",
+      "text": "Shift+click a link opens it in a split (opt-in, Zen PR#15241)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-link-click",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-close-other-panes",
+      "name": "Split Close Other Panes",
+      "text": "\"Close Other Panes\" in the command bar",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-close-other-panes",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-swap-panes",
+      "name": "Split Swap Panes",
+      "text": "\"Swap Panes\" in the command bar",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-swap-panes",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-command-bar",
+      "name": "Split Command Bar",
+      "text": "Split Vertically/Horizontally/Grid in the command bar",
+      "section": "Command bar",
+      "pref": "whimsy.feature.split-command-bar",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "command-bar-slash",
+      "name": "Command Bar Slash",
+      "text": "Typing \"/\" in the URL bar enters Zen's commands mode",
+      "section": "Command bar",
+      "pref": "whimsy.feature.command-bar-slash",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "command-bar-create",
+      "name": "Command Bar Create",
+      "text": "Arc-style \"New ...\" actions (docs.new etc.) in the command bar",
+      "section": "Command bar",
+      "pref": "whimsy.feature.command-bar-create",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-manager-settings",
+      "name": "Space Manager Settings",
+      "text": "Settings entry point for Zen's existing per-space manager (Library \"Spaces\")",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-manager-settings",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "atc-settings",
+      "name": "Atc Settings",
+      "text": "Settings entry point renaming Zen's space-routing rules to Arc's Air Traffic Control",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.atc-settings",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "archive-space",
+      "name": "Archive Space",
+      "text": "Hide a space (Arc's archive/shelve): drops out of the switcher without closing its tabs; restore from Settings",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.archive-space",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-lock",
+      "name": "Space Lock",
+      "text": "Lock a space behind Touch ID/password (OSKeyStore) before switching to it",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.space-lock",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "scratch",
+      "name": "Scratch",
+      "text": "Private Space (temporary private space, Cmd+Shift+N) and private tabs (Cmd+Option+T)",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.scratch",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "notes",
+      "name": "Notes",
+      "text": "Notes: a markdown scratchpad in the Library sidebar, optionally attached to a page",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.notes",
+      "pane": "Look & Feel",
+      "paneId": "paneZenLooks",
+      "command": null
+    },
+    {
+      "id": "finder-folders",
+      "name": "Finder Folders",
+      "text": "Finder folders in the sidebar: pin a folder, browse it without leaving the browser",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.finder-folders",
+      "pane": "Look & Feel",
+      "paneId": "paneZenLooks",
+      "command": null
+    },
+    {
+      "id": "screenshot-sidebar",
+      "name": "Screenshot Sidebar",
+      "text": "Screenshot to sidebar: captures also land as files in the Library, not just the clipboard",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.screenshot-sidebar",
+      "pane": "Look & Feel",
+      "paneId": "paneZenLooks",
+      "command": null
+    },
+    {
+      "id": "quick-window",
+      "name": "Quick Window",
+      "text": "Mini Whimsy (Arc's Little Arc): a quick window (Cmd+Opt+N; links from other apps, per the setting above), floating above other windows, with Cmd+O/Cmd+Opt+O to move it into a space",
+      "section": "Mini Whimsy",
+      "pref": "whimsy.feature.quick-window",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "follower-tabs",
+      "name": "Follower Tabs",
+      "text": "Follower tabs: a 2-pane split where clicked links land in the other pane, the source pane never navigates (Vivaldi)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.follower-tabs",
+      "pane": "Links",
+      "paneId": "paneWhimsyLinks",
+      "command": null
+    },
+    {
+      "id": "split-favorites",
+      "name": "Split Favorites",
+      "text": "Pin or favorite a split (reopen it with one click)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-favorites",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "bionic-reading",
+      "name": "Bionic Reading",
+      "text": "Bionic (guided) reading in Reader View",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.bionic-reading",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "print-clean",
+      "name": "Print Clean",
+      "text": "Print a clean page (Reader View, then print, leaving the tab alone)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.print-clean",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "menu-bar-extra",
+      "name": "Menu Bar Extra",
+      "text": "Menu bar extra (macOS): quick window and recent tabs",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.menu-bar-extra",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "live-folders-jira",
+      "name": "Live Folders Jira",
+      "text": "Jira live folder: assigned, unresolved issues as a self-updating folder",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.live-folders-jira",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "live-folders-push",
+      "name": "Live Folders Push",
+      "text": "\"Push\" live-folder refresh option (1-minute conditional checks)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.live-folders-push",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "live-folders-rss-autodiscover",
+      "name": "Live Folders Rss Autodiscover",
+      "text": "RSS: autodiscover a page's feed when the URL given isn't one",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.live-folders-rss-autodiscover",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "seasonal-themes",
+      "name": "Seasonal Themes",
+      "text": "Seasonal touches: loading colors, balloon costumes, command bar trim, Balloon Dash and changelog art",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.seasonal-themes",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "window-close",
+      "name": "Window Close",
+      "text": "Cmd+W on a lone empty tab closes the window (Arc); Zen already keeps the window open otherwise",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.window-close",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "full-url-click",
+      "name": "Full URL Click",
+      "text": "A single click on the address bar selects the whole untrimmed URL (Arc, Safari)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.full-url-click",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "hardware-video-decoding",
+      "name": "Hardware Video Decoding",
+      "text": "Settings checkbox for media.hardware-video-decoding.enabled, with a restart prompt",
+      "section": "Media",
+      "pref": "whimsy.feature.hardware-video-decoding",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "dock-badge",
+      "name": "Dock Badge",
+      "text": "Dock icon badge (download count) and one bounce when a download finishes in the background",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.dock-badge",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "quick-look",
+      "name": "Quick Look",
+      "text": "Quick Look (Space, or the context menu) on a finished download, via qlmanage",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.quick-look",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "drag-downloads",
+      "name": "Drag Downloads",
+      "text": "A panel stays open while you drag a download out of it into a site",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.drag-downloads",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "delete-to-trash",
+      "name": "Delete To Trash",
+      "text": "Deleting a download from the Library or the downloads panel moves its file to the Trash instead of erasing it",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.delete-to-trash",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "sidebar-nav",
+      "name": "Sidebar Nav",
+      "text": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.sidebar-nav",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "cheatsheet",
+      "name": "Cheatsheet",
+      "text": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.cheatsheet",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "inbox-zero",
+      "name": "Inbox Zero",
+      "text": "Inbox-zero balloons: a small celebration when a mail tab's unread count hits 0",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.inbox-zero",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "site-user-agent",
+      "name": "Site User Agent",
+      "text": "Per-site user agent (\"Pretend to be...\"): Chrome, Safari (macOS/iPhone) or custom, per site",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.site-user-agent",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "cookie-editor",
+      "name": "Cookie Editor",
+      "text": "Cookie editor: list, edit, add, delete and copy-as-JSON a site's cookies",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.cookie-editor",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "url-schemes",
+      "name": "URL Schemes",
+      "text": "whimsy:// links: internal pages from the address bar, and open/new-tab links (optionally in a space) from other apps",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.url-schemes",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "upload-clipboard",
+      "name": "Upload Clipboard",
+      "text": "Opera's Easy Files: clicking an upload button offers the clipboard image, recent downloads, or the native picker",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.upload-clipboard",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "dev-mode",
+      "name": "Dev Mode",
+      "text": "Developer mode tabs (Arc parity): localhost/port tabs get a striped outline and a top bar with Console/Network/Elements",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.dev-mode",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "live-folders-linear",
+      "name": "Live Folders Linear",
+      "text": "Linear live folder: \"My Issues\" assigned to you, open states, over your linear.app sign-in (API key optional)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.live-folders-linear",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "game",
+      "name": "Game",
+      "text": "A small original Balloon-Fight-style canvas game (Retro/Gradient style) at whimsy://game, linked from the offline/net-error page",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.game",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "year-in-tabs",
+      "name": "Year In Tabs",
+      "text": "Year in tabs: a private, on-device recap (top sites, busiest day/hour, tabs opened, longest-open tab) at whimsy://year",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.year-in-tabs",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "net-error-branding",
+      "name": "Net Error Branding",
+      "text": "Whimsy network error illustrations",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.net-error-branding",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "next-meeting",
+      "name": "Next Meeting",
+      "text": "Next meeting in the sidebar: Apple Calendar and Google Calendar accounts, a Join button for Meet/Zoom/Teams, and a card 15 min before",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.next-meeting",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-extensions",
+      "name": "Space Extensions",
+      "text": "Extensions per profile: \"Run in Profiles\" on each extension's menu; outside them its tabs/webRequest/proxy APIs and content scripts are kept out (shared storage stays shared)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-extensions",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "extensions-in-panel",
+      "name": "Extensions In Panel",
+      "text": "New extensions start in the site panel's Extensions section, not the URL bar or toolbar, even when the extension asks for the toolbar; Pin to Toolbar still pins them",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.extensions-in-panel",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-history",
+      "name": "Space History",
+      "text": "Space-aware History: where was the tab, and filter by space",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-history",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "home",
+      "name": "Home",
+      "text": "Whimsy's homepage (about:whimsy) with a Changelog tab, replacing Zen's about:home",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.home",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "vpn",
+      "name": "VPN",
+      "text": "VPN: command bar actions and a Settings status card for Firefox's own built-in IP Protection",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.vpn",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "vpnspace",
+      "name": "Vpnspace",
+      "text": "VPN scope: whole browser or the current space's container",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.vpnspace",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "live-folders-unread",
+      "name": "Live Folders Unread",
+      "text": "RSS live folders show an unread count; unopened items get a dot",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.live-folders-unread",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "live-folders-rss-reader",
+      "name": "Live Folders Rss Reader",
+      "text": "RSS live-folder items open in Reader View (per-folder option)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.live-folders-rss-reader",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "call-pip",
+      "name": "Call Pip",
+      "text": "Floating calls: a Meet/Zoom/Teams call's video goes picture-in-picture when you leave its tab (Arc)",
+      "section": "Media",
+      "pref": "whimsy.feature.call-pip",
+      "pane": "Media",
+      "paneId": "paneWhimsyMedia",
+      "command": null
+    },
+    {
+      "id": "glance-size",
+      "name": "Glance Size",
+      "text": "Glance size: Compact, Standard (Zen's 80%) or Wide",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.glance-size",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-new-tab",
+      "name": "Split New Tab",
+      "text": "Cmd+T in a split view opens the result in the focused pane (Arc)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-new-tab",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-layouts",
+      "name": "Split Layouts",
+      "text": "Add Left/Right/Top/Bottom Split and Change Orientation in the command bar (Arc)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-layouts",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-restore",
+      "name": "Split Restore",
+      "text": "Restored splits keep every pane even when the saved layout lost one (zen#12403)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-restore",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "command-bar-recent-tabs",
+      "name": "Command Bar Recent Tabs",
+      "text": "Recent tabs when the command bar opens empty, like Arc",
+      "section": "Command bar",
+      "pref": "whimsy.feature.command-bar-recent-tabs",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "offline-bangs",
+      "name": "Offline Bangs",
+      "text": "Offline bang shortcuts (!w, !yt, !gh...) with any search engine, editable in Settings",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.offline-bangs",
+      "pane": "Search",
+      "paneId": "paneSearch",
+      "command": null
+    },
+    {
+      "id": "history-preview",
+      "name": "History Preview",
+      "text": "Hover a History entry in the Library to see its saved preview, title and address",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.history-preview",
+      "pane": "General",
+      "paneId": "paneGeneral",
+      "command": null
+    },
+    {
+      "id": "people-cards",
+      "name": "People Cards",
+      "text": "People cards: hover a GitHub, LinkedIn or X profile link to see who it is",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.people-cards",
+      "pane": "General",
+      "paneId": "paneGeneral",
+      "command": null
+    },
+    {
+      "id": "welcome-look",
+      "name": "Welcome Look",
+      "text": "Onboarding: transparency and interface font pages in Zen's first-run flow",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.welcome-look",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-four-panes",
+      "name": "Split Four Panes",
+      "text": "Splits up to four panes: Split Grid/Vertically/Horizontally re-lays out the current split; drop a 3rd/4th tab onto a split's tab in the sidebar",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-four-panes",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "pip-auto-before-mute",
+      "name": "Pip Auto Before Mute",
+      "text": "Automatic picture-in-picture isn't blocked by background muting: the tab you leave gets a moment to pop out first (tabs and spaces)",
+      "section": "Media",
+      "pref": "whimsy.feature.pip-auto-before-mute",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-icon-picker",
+      "name": "Space Icon Picker",
+      "text": "Space icon picker as Arc's: Arc's 56 glyphs first (Zen's after), 8-across grid, current icon on a plate, closes on pick, emoji skin tones",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-icon-picker",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "video-speed",
+      "name": "Video Speed",
+      "text": "Speed control on videos: point at a video to see its speed, type one or pick a quarter step (0.25\u20134\u00d7); remembered per site",
+      "section": "Media",
+      "pref": "whimsy.feature.video-speed",
+      "pane": "Media",
+      "paneId": "paneWhimsyMedia",
+      "command": null
+    },
+    {
+      "id": "liquid-glass",
+      "name": "Liquid Glass",
+      "text": "Liquid Glass: the sidebar and toolbars on macOS 26's glass material (Settings, off by default)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.liquid-glass",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "email-aliases",
+      "name": "Email Aliases",
+      "text": "Email aliases: iCloud Hide My Email or a Firefox Relay mask from a button in email fields",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.email-aliases",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "handoff",
+      "name": "Handoff",
+      "text": "Handoff: continue pages on your other Apple devices, never private tabs or the Private Space",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.handoff",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "playlist",
+      "name": "Playlist",
+      "text": "Playlist: save videos and audio to Library -> Playlist and play them offline (direct files)",
+      "section": "Media",
+      "pref": "whimsy.feature.playlist",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-providers",
+      "name": "AI Providers",
+      "text": "AI provider picker: Claude API key, Apple on-device or local Ollama, with no automatic cloud fallback",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-providers",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-openai-plan",
+      "name": "AI Openai Plan",
+      "text": "Sign in with ChatGPT: use the ChatGPT plan for Whimsy AI",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-openai-plan",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-claude-plan",
+      "name": "AI Claude Plan",
+      "text": "Claude plan for Whimsy AI through the person's own Claude Code",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-claude-plan",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "tidy-tabs",
+      "name": "Tidy Tabs",
+      "text": "Tidy Tabs: the broom sorts a space's Today tabs into named sections (Arc Max)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.tidy-tabs",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "tidy-titles",
+      "name": "Tidy Titles",
+      "text": "Tidy tab titles: pinning a tab gives it a short AI name (Arc Max)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.tidy-titles",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ask-on-page",
+      "name": "Ask On Page",
+      "text": "Ask on Page: when Cmd+F finds nothing, ask the AI about the page instead (Arc Max)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.ask-on-page",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "page-watch",
+      "name": "Page Watch",
+      "text": "Watch a page: describe what to look for; Whimsy checks while open and alerts until dismissed (Safari Notify Me)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.page-watch",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "live-folders-local-servers",
+      "name": "Live Folders Local Servers",
+      "text": "Local servers live folder: running localhost dev servers as tabs that appear and disappear",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.live-folders-local-servers",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "note-blocks",
+      "name": "Note Blocks",
+      "text": "Live blocks in Notes: /embed or drop a tab to keep a cropped, live region of a page in a note (Arc Live Captures)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.note-blocks",
+      "pane": "Look & Feel",
+      "paneId": "paneZenLooks",
+      "command": null
+    },
+    {
+      "id": "video-captions",
+      "name": "Video Captions",
+      "text": "Translated captions: CC on a video's speed control shows its captions in your language, translated on your Mac",
+      "section": "Media",
+      "pref": "whimsy.feature.video-captions",
+      "pane": "Media",
+      "paneId": "paneWhimsyMedia",
+      "command": null
+    },
+    {
+      "id": "claude-shield",
+      "name": "Claude Shield",
+      "text": "Prompt-injection shield: hidden page text never reaches an agent, page content is marked untrusted, and a page that instructs the agent gets one notice in the thread",
+      "section": "AI",
+      "pref": "whimsy.feature.claude-shield",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "claude-replay",
+      "name": "Claude Replay",
+      "text": "Claude replay: each Claude run is kept as a timeline of steps with page snapshots at whimsy://replay (never private tabs; Clear history clears it)",
+      "section": "AI",
+      "pref": "whimsy.feature.claude-replay",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "qr-code",
+      "name": "QR Code",
+      "text": "QR code for any page: the page menu and command bar open Firefox's QR dialog (not for private tabs or the Private Space)",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.qr-code",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "copy-page-markdown",
+      "name": "Copy Page Markdown",
+      "text": "Copy Page as Markdown: the Reader View article (or a selection) as Markdown, from the page menu and command bar",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.copy-page-markdown",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "doc-viewer",
+      "name": "Doc Viewer",
+      "text": "Markdown and CSV viewer: .md files read with reader typography and contents, CSV/TSV as a sortable table, Source toggle, live reload",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.doc-viewer",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "link-lasso",
+      "name": "Link Lasso",
+      "text": "Link lasso: Option-drag a rectangle over links, let go, and they become a folder of unloaded tabs",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.link-lasso",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "season-toast",
+      "name": "Season Toast",
+      "text": "New season toast: the first window in a new season shows the balloon in its costume, once",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.season-toast",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "selection-verbs",
+      "name": "Selection Verbs",
+      "text": "Cmd+K: actions for the selected text or page (Translate, Map, Calendar, Linear, Markdown, Notes, your skills)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.selection-verbs",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "redact",
+      "name": "Redact",
+      "text": "Redact in screenshots: blur emails, phone numbers, keys and card numbers before capturing; click text to blur it",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.redact",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "capture-card",
+      "name": "Capture Card",
+      "text": "Screenshots: one viewer for every capture (Add to Easel, Copy, Download, Edit, Save and Close; one Library file per save) and an editor with backdrop, shape, hiding private details and redacting by hand",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.capture-card",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-look",
+      "name": "Space Look",
+      "text": "A look per space: its own interface font, density, tab title lines and Zen Mod, switching with the space",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-look",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "easel",
+      "name": "Easel",
+      "text": "Easel: a canvas of text, drawings, shapes, images, links and live captures, pinned like a tab (Arc Easels)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.easel",
+      "pane": "Look & Feel",
+      "paneId": "paneZenLooks",
+      "command": null
+    },
+    {
+      "id": "command-registry",
+      "name": "Command Registry",
+      "text": "Every Whimsy action is a named command: in the command bar and under \"Whimsy\" in Settings \u2192 Keyboard Shortcuts, so any of them can take a shortcut",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.command-registry",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "arc-audio-icon",
+      "name": "Arc Audio Icon",
+      "text": "Arc's tab speaker: outline speaker beside the title on every tab with sound, struck through when muted; click mutes",
+      "section": "Media",
+      "pref": "whimsy.feature.arc-audio-icon",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-profiles",
+      "name": "Space Profiles",
+      "text": "Profiles: each space belongs to a profile (a container) with its own cookies, passwords, history, Essentials, search engine, downloads and extensions, like Arc",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.space-profiles",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "zap",
+      "name": "Zap",
+      "text": "Zap: erase page elements with Cmd+Shift+X, the command bar or the site panel; undo, space-colored dust",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.zap",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "link-hints",
+      "name": "Link Hints",
+      "text": "Link hints: Cmd+J puts letter badges on links and buttons; type one to click it, Shift for a new tab",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.link-hints",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "instant-result",
+      "name": "Instant Result",
+      "text": "Instant result: Shift+Enter on a search in the command bar opens the top result (Arc Max Instant Links)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.instant-result",
+      "pane": "Search",
+      "paneId": "paneSearch",
+      "command": null
+    },
+    {
+      "id": "search-deck",
+      "name": "Search Deck",
+      "text": "Search Deck: flip through search results one by one in a Glance; Cmd+Enter keeps one as a tab",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.search-deck",
+      "pane": "Search",
+      "paneId": "paneSearch",
+      "command": null
+    },
+    {
+      "id": "already-open",
+      "name": "Already Open",
+      "text": "Already open: typing an address that's open in another tab or space takes you there instead of opening a copy (Arc)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.already-open",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "trails",
+      "name": "Trails",
+      "text": "Trails: pages you went back from stay in the Back/Forward menu as branches, with where the tab came from",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.trails",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "page-actions",
+      "name": "Page Actions",
+      "text": "Page actions: add events to Calendar, open places in Maps, cook mode for recipes, from the page's own data (Safari Highlights)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.page-actions",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-alt-click",
+      "name": "Split Alt Click",
+      "text": "Option+click a tab in the sidebar to open it in a split with the current tab (Arc)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-alt-click",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-arc-keys",
+      "name": "Split Arc Keys",
+      "text": "Arc's Split View commands: Add Split View (Ctrl+Shift+=), Close this Split Pane (Ctrl+Shift+-), Separate Page, Expand Current Split, Ctrl+Shift+1-4 and [ ] to move between panes",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-arc-keys",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "command-bar-motion",
+      "name": "Command Bar Motion",
+      "text": "Command bar: a quick, subtle open and close (160ms in, 110ms out; a plain fade with Reduce Motion)",
+      "section": "Command bar",
+      "pref": "whimsy.feature.command-bar-motion",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "command-bar-dedup",
+      "name": "Command Bar Dedup",
+      "text": "Command bar: one row per page title on Figma, Notion, GitHub and Arc's other 7 hosts (Arc's dedupByTitleAndHost)",
+      "section": "Command bar",
+      "pref": "whimsy.feature.command-bar-dedup",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "arc-menus",
+      "name": "Arc Menus",
+      "text": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.arc-menus",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "archive-tab-menu",
+      "name": "Archive Tab Menu",
+      "text": "Tab menu in Arc's words: Archive Tab, Archive Tabs Below, Restore Last Closed Tab (closed tabs go to the Archive)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.archive-tab-menu",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "do-not-disturb",
+      "name": "Do Not Disturb",
+      "text": "Do Not Disturb: one command pauses site notifications until you turn it off or quit, and holds Whimsy's unprompted toasts",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.do-not-disturb",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "paste-guard",
+      "name": "Paste Guard",
+      "text": "Paste guard: asks before you paste something that looks like an API key, private key, card number or sign-in token into a web page",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.paste-guard",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "teach-once",
+      "name": "Teach Once",
+      "text": "Teach once: one small hint the first time a shortcut or feature could help, then never again",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.teach-once",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-switch-queue",
+      "name": "Space Switch Queue",
+      "text": "Space switches play one at a time (Arc): a switch asked for mid-slide waits for the slide to finish; swipes step, keys coalesce",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-switch-queue",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-pane-menu",
+      "name": "Split Pane Menu",
+      "text": "Split pane menu: a \u22ef button on each pane's header holds Arc's per-pane actions (Separate from Split View, Share, Mute, Copy Link, Copy link as Markdown, Archive Item); optionally always-visible headers like Arc's",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-pane-menu",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "split-row-menu",
+      "name": "Split Row Menu",
+      "text": "Split row menu: right-clicking a split in the sidebar opens Arc's split menu (Share Split View, Separate All Tabs, Add Tab, Convert to Vertical/Horizontal, a submenu per pane, Change Icon, Rename, Duplicate, Move to, Archive)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.split-row-menu",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "menu-prefs",
+      "name": "Menu Prefs",
+      "text": "Settings \u2192 Menus: turn any right-click menu item on or off (tab, link, page, selection, image, space, sidebar, folder and split menus)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.menu-prefs",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "video-speech-captions",
+      "name": "Video Speech Captions",
+      "text": "Live captions for videos without any: CC turns the video's speech into captions on your Mac, then translates them",
+      "section": "Media",
+      "pref": "whimsy.feature.video-speech-captions",
+      "pane": "Media",
+      "paneId": "paneWhimsyMedia",
+      "command": null
+    },
+    {
+      "id": "cast",
+      "name": "Cast",
+      "text": "Cast to AirPlay: send the page's video to an Apple TV or AirPlay screen (View > Cast...)",
+      "section": "Media",
+      "pref": "whimsy.feature.cast",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "move-to-new-space",
+      "name": "Move To New Space",
+      "text": "Move to > New Space...: make a space and move the tab (or its whole split) into it (Arc)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.move-to-new-space",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "live-folders-resync",
+      "name": "Live Folders Resync",
+      "text": "Resync live folder: bring back tabs closed by hand",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.live-folders-resync",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "menu-parity",
+      "name": "Menu Parity",
+      "text": "Right-click and command parity: every menu action is a command (no default shortcut), more commands as menu items (most off until turned on in Settings > Menus), Share submenu lists the share services",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.menu-parity",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "battery-saver",
+      "name": "Battery Saver",
+      "text": "Battery Saver: throttle frame rate (30fps) and background activity below 20% battery, with heads-up banner and auto-off when charged (Arc parity)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.battery-saver",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "adult-history",
+      "name": "Adult History",
+      "text": "Keep adult sites out of history: on-device list and self-labels; pages load, visits aren't kept",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.adult-history",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "form-protection",
+      "name": "Form Protection",
+      "text": "Form protection: tabs with half-filled forms are exempt from auto-archive and show a subtle indicator",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.form-protection",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "smart-buttons",
+      "name": "Smart Buttons",
+      "text": "Smart address bar buttons: Reader, Translate, media and Downloads in progress beside the address bar when relevant",
+      "section": "Media",
+      "pref": "whimsy.feature.smart-buttons",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "font-inspector",
+      "name": "Font Inspector",
+      "text": "Font Inspector: What Font Is This? Popover with rendered font, size, weight, line-height, spacing, and colour",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.font-inspector",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "element-inspector",
+      "name": "Element Inspector",
+      "text": "Element Inspector lite: box model, colours, contrast ratio, gap measurement, and Open in DevTools",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.element-inspector",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "page-dev",
+      "name": "Page Dev",
+      "text": "Page developer tools: Fonts on This Page, Page Colors (palette and contrast) and Built With (tech stack), in Tools > Browser Tools",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.page-dev",
+      "pane": "Tabs",
+      "paneId": "paneZenTabManagement",
+      "command": null
+    },
+    {
+      "id": "site-popup-chrome",
+      "name": "Site Popup Chrome",
+      "text": "Sign-in popups show their address: a site's popup window keeps Firefox's read-only address bar and identity",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.site-popup-chrome",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "site-settings",
+      "name": "Site Settings",
+      "text": "Site settings: the site panel remembers a site's zoom, autoplay, Reader View, full screen and user agent, and forgets them one by one or all at once",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.site-settings",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "view-source-wrap",
+      "name": "View Source Wrap",
+      "text": "View Page Source line wrap option and command",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.view-source-wrap",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "mini-tabs",
+      "name": "Mini Tabs",
+      "text": "Mini Whimsy tabs: pill tabs from the second page, sign-in popups as tabs, links from other apps join the open Mini, Cmd+O moves every page",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.mini-tabs",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "settings-commands",
+      "name": "Settings Commands",
+      "text": "Every setting is a command: turn any Whimsy setting on or off (or pick its choice) from the command bar or a shortcut, and find it in Settings by its name",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.settings-commands",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "press-again",
+      "name": "Press Again",
+      "text": "Press again: when a page uses a browser shortcut (\u2318S, \u21e7\u2318C, ...) the page gets the first press and a second press in a row runs the browser's command (Arc)",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.press-again",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "space-edges",
+      "name": "Space Edges",
+      "text": "Space edges (Arc): Next Space past the last space opens New Space; Previous Space stops at the first",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.space-edges",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "private-move",
+      "name": "Private Move",
+      "text": "Move out of private: Move To in a private window, and Move Out of Private\u2026 on a private tab, reopen the pages in a space you pick, after asking",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.private-move",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "private-lock",
+      "name": "Private Lock",
+      "text": "Private lock: private tabs, the Private Space and private windows hide behind Touch ID or your Mac password when you step away",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.private-lock",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "call-controls",
+      "name": "Call Controls",
+      "text": "Call controls: the small player and picture-in-picture toggle a Meet call's own microphone and camera, in sync with the page",
+      "section": "Media",
+      "pref": "whimsy.feature.call-controls",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-chat",
+      "name": "AI Chat",
+      "text": "AI chat: \u2318E opens a chat about this tab beside the page, per tab, kept on this Mac",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-chat",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-ask",
+      "name": "AI Ask",
+      "text": "Ask AI in the command bar: type a question, press \u2318\u21a9, the answer shows under the bar",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-ask",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-updates",
+      "name": "AI Updates",
+      "text": "Updates in the command bar: routine, watch, research, and agent results at the top, with Remind me and Dismiss",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-updates",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-context-commands",
+      "name": "AI Context Commands",
+      "text": "\u2318K knows the page: AI commands for what's on screen (summarize, translate, ask)",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-context-commands",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-selection-commands",
+      "name": "AI Selection Commands",
+      "text": "AI on selected text: right-click rows and a result card",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-selection-commands",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-commands",
+      "name": "AI Commands",
+      "text": "Commands: saved prompts you run from \u2318K, right-click, and the command bar",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-commands",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-related",
+      "name": "AI Related",
+      "text": "Related results: the command bar finds pages by meaning from an on-device index",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-related",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-memory",
+      "name": "AI Memory",
+      "text": "Memory: stable facts about you, saved automatically with Undo, used in answers",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-memory",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-style",
+      "name": "AI Style",
+      "text": "How AI writes: your tone and style for every AI answer, plus your preferred language",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-style",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "text": "Agent: Drive (every step in your tabs) or Background, with pauses before anything risky",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-agent",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-agent-save-pdf",
+      "name": "AI Agent Save Pdf",
+      "text": "Agent saves a page as a PDF in Downloads, after you approve",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-agent-save-pdf",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-task-folder",
+      "name": "AI Task Folder",
+      "text": "Task folders: an agent's tabs sit in their own unpinned folder that dissolves when done",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-task-folder",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-outside-agents",
+      "name": "AI Outside Agents",
+      "text": "Outside agents: Claude Code and other apps work in your tabs through Whimsy's connector, under the same rules",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-outside-agents",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-activity",
+      "name": "AI Activity",
+      "text": "Activity: a local record of what agents did, cleared by the Fire button",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-activity",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-connectors",
+      "name": "AI Connectors",
+      "text": "Connectors: Google, Microsoft, Apple Calendar, Granola, Linear, Jira, and MCP servers as AI context",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-connectors",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-onboarding",
+      "name": "AI Onboarding",
+      "text": "AI onboarding: connect a model, then connectors, then a short celebration",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-onboarding",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-hints",
+      "name": "AI Hints",
+      "text": "AI hints: one toast per surface, once ever, three a day, never a halo",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-hints",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-summary",
+      "name": "AI Summary",
+      "text": "Page summary: a summary with passage chips, for long pages and PDFs too",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-summary",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-draft-reply",
+      "name": "AI Draft Reply",
+      "text": "Draft reply: AI drafts a reply in the field you're writing in",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-draft-reply",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-form-fill",
+      "name": "AI Form Fill",
+      "text": "Form fill: AI fills a form from what you tell it, never card, password, or code fields",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-form-fill",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-translate",
+      "name": "AI Translate",
+      "text": "Translate with AI: pick the page's language or yours, and translate a selection in place",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-translate",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-page-edits",
+      "name": "AI Page Edits",
+      "text": "Page edits by description: change a page's look in words, kept as a Boost or a zap",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-page-edits",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-scam-warning",
+      "name": "AI Scam Warning",
+      "text": "Scam warning: a calm bar when a page looks like a scam, with what looks off",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-scam-warning",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-compare",
+      "name": "AI Compare",
+      "text": "Compare: true prices across stores, read in a hidden reader",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-compare",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-tab-requests",
+      "name": "AI Tab Requests",
+      "text": "Tab requests: ask chat to open, close, group, or find tabs",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-tab-requests",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "find-card",
+      "name": "Find Card",
+      "text": "Find as a floating card at the top right, with Ask",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.find-card",
+      "pane": "Look & Feel",
+      "paneId": "paneZenLooks",
+      "command": null
+    },
+    {
+      "id": "double-escape",
+      "name": "Double Escape",
+      "text": "Press Esc twice to leave a page's full screen",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.double-escape",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-video-summary",
+      "name": "AI Video Summary",
+      "text": "Summarize a video: summary, chapters, and transcript in chat; timestamps jump the video",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-video-summary",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "video-speed-range",
+      "name": "Video Speed Range",
+      "text": "Video speed from 1/16\u00d7 to 16\u00d7",
+      "section": "Media",
+      "pref": "whimsy.feature.video-speed-range",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "video-default-speed",
+      "name": "Video Default Speed",
+      "text": "Back to default speed: one press returns a video to your usual speed",
+      "section": "Media",
+      "pref": "whimsy.feature.video-default-speed",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "image-text",
+      "name": "Image Text",
+      "text": "Text in images: select, copy, and find text in images, recognized on this Mac",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.image-text",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "read-aloud",
+      "name": "Read Aloud",
+      "text": "Read aloud: listen to a page with a mini player, on this Mac",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.read-aloud",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "dictation",
+      "name": "Dictation",
+      "text": "Dictation: hold Fn to dictate into the focused field, on this Mac",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.dictation",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "media-settings",
+      "name": "Media Settings",
+      "text": "Settings \u203a Media: speed, captions, summaries, read aloud, and dictation in one page",
+      "section": "Media",
+      "pref": "whimsy.feature.media-settings",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "routines",
+      "name": "Routines",
+      "text": "Routines: AI runs on a schedule or a trigger and leaves results in Updates and a thread",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.routines",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "command-bar-numbers",
+      "name": "Command Bar Numbers",
+      "text": "\u23181\u2013\u23189 pick a row while the command bar is open; hold \u2318 to see the numbers",
+      "section": "Command bar",
+      "pref": "whimsy.feature.command-bar-numbers",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "command-bar-vpn-strip",
+      "name": "Command Bar VPN Strip",
+      "text": "VPN status strip along the bottom of the command bar's results while the VPN is on",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.command-bar-vpn-strip",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "annotations",
+      "name": "Annotations",
+      "text": "Annotations: highlight passages in four colors and keep a note on any page",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.annotations",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "meeting-notes",
+      "name": "Meeting Notes",
+      "text": "Meeting notes: Granola's key points in chat during calendar meetings, or Whimsy's own notes when Granola can't help",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.meeting-notes",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "hover-cards",
+      "name": "Hover Cards",
+      "text": "Hover cards: rest on a tab or a link to see a picture, its title and address, and an AI description",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.hover-cards",
+      "pane": "General",
+      "paneId": "paneGeneral",
+      "command": null
+    },
+    {
+      "id": "passkeys",
+      "name": "Passkeys",
+      "text": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.passkeys",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "restart-command",
+      "name": "Restart Command",
+      "text": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.restart-command",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "page-animations-command",
+      "name": "Page Animations Command",
+      "text": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.page-animations-command",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "window-title-space",
+      "name": "Window Title Space",
+      "text": "Show space name in window title: \"<space> \u2014 <page title>\" (Settings \u2192 Tab Management, off by default)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.window-title-space",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    }
+  ]
+}
