@@ -158,9 +158,10 @@ add_task(async function test_whats_new_has_a_separator_above_it() {
   const { tab, doc } = await openHelp();
   const rail = [...doc.getElementById("whimsy-help-rail").children];
   const sepIndex = rail.findIndex(el => el.className == "whimsy-help-rail-sep");
-  const whatsNewIndex = rail.findIndex(
-    b => doc.l10n.getAttributes(b.querySelector?.(".whimsy-help-rail-name"))?.id == "whimsy-help-rail-whats-new"
-  );
+  const whatsNewIndex = rail.findIndex(b => {
+    const name = b.querySelector?.(".whimsy-help-rail-name");
+    return name && doc.l10n.getAttributes(name)?.id == "whimsy-help-rail-whats-new";
+  });
   ok(sepIndex >= 0, "The rail has a separator");
   is(sepIndex, whatsNewIndex - 1, "right above What's new");
   BrowserTestUtils.removeTab(tab);
