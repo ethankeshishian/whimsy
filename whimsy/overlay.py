@@ -2116,6 +2116,10 @@ FEATURES = [
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W28: "Open in Safari" / "Open in Chrome" in the command bar, one row
+    # per installed browser (research/multi-engine.md option A, step 1).
+    {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
+     "detect": [("src/zen", r"(?i)zen[-_.]?open[-_.]?in[-_.]?(safari|chrome|browser)")]},
 ]
 
 

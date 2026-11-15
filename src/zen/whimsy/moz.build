@@ -400,6 +400,12 @@ EXTRA_JS_MODULES.whimsy.third_party += [
     "third_party/jsQR.mjs",
 ]
 
+# W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md
+# option A, step 1).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyOpenInBrowser.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]
