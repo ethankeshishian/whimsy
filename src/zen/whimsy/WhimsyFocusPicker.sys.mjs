@@ -73,7 +73,7 @@ export function wireSlider(el, { value, onChange, render, bumpTarget = null }) {
       void bumpTarget.offsetWidth;
       bumpTarget.classList.add("is-bump");
     }
-    if (changed) {
+    if (changed && !quiet) {
       onChange?.(current);
     }
   };

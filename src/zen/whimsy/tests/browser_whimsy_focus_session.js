@@ -387,7 +387,11 @@ add_task(async function listed_sites_are_paused() {
   const other = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/"), "Opening example.com");
   is(other.linkedBrowser.currentURI.host, "example.com", "An unlisted site opens");
   BrowserTestUtils.removeTab(other);
-  await within(BrowserTestUtils.switchTab(gBrowser, tab), "Switching back");
+  // Closing it usually selects the paused tab again; switchTab would wait
+  // forever for a switch that already happened.
+  if (gBrowser.selectedTab != tab) {
+    await within(BrowserTestUtils.switchTab(gBrowser, tab), "Switching back");
+  }
   info("Paused-page shots");
 
   await within(whimsyBothSchemes("focus-paused-page", async () => {
@@ -724,6 +728,17 @@ add_task(async function stay_on_this_tab() {
   const root = document.documentElement;
   is(root.getAttribute("whimsy-focus-tab"), "leaving", "The other tabs fade out first");
   await TestUtils.waitForCondition(() => root.getAttribute("whimsy-focus-tab") == "on", "Then they hide");
+  {
+    // What the hiding looks like, for a failure.
+    const cs = el => el && window.getComputedStyle(el);
+    const ln = document.querySelector(".whimsy-focus-tab-line");
+    const box = ln?.parentNode;
+    info(
+      `Diag root=${root.getAttribute("whimsy-focus-tab")} others=${others
+        .map(t => `${t.parentNode?.localName}.${t.parentNode?.className}:${cs(t).display}`)
+        .join(",")} line=${ln?.getBoundingClientRect().width}/${ln?.lastElementChild?.clientWidth}/${ln?.lastElementChild?.scrollWidth} box=${box?.localName}.${box?.className}:${cs(box)?.display}/${cs(box)?.flexDirection}/${box?.getBoundingClientRect().width}`
+    );
+  }
   ok(keep.hasAttribute("whimsy-focus-keep"), "The tab it started on is kept");
   ok(keep.checkVisibility(), "The kept tab shows");
   for (const tab of others) {
@@ -756,11 +771,16 @@ add_task(async function stay_on_this_tab() {
   is(gBrowser.selectedTab, glance, "The Glance shows");
   await gZenGlanceManager.fullyOpenGlance();
   ok(glance.hasAttribute("zen-glance-tab"), "Glance can't become a tab");
+  info(
+    `Diag glance buttons=${[...document.querySelectorAll(".zen-glance-sidebar-open")]
+      .map(b => `${b.parentNode?.id || b.parentNode?.className}:${window.getComputedStyle(b).display}:${b.checkVisibility()}`)
+      .join(",")} root=${document.documentElement.getAttribute("whimsy-focus-tab")}`
+  );
   ok(!document.querySelector(".zen-glance-sidebar-open")?.checkVisibility(), "Its open-as-tab button is hidden");
   // With a Glance open, the next link loads in it.
   const before = gBrowser.tabs.length;
   openTrustedLinkIn("https://example.net/?again", "tab");
-  await TestUtils.waitForCondition(() => glance.linkedBrowser.currentURI.host == "example.net", "The link loads in the Glance");
+  await TestUtils.waitForCondition(() => glance.linkedBrowser.currentURI.spec.startsWith("https://example.net/"), "The link loads in the Glance");
   is(gBrowser.tabs.length, before, "No tab is added");
   await closeGlance(keep);
 
