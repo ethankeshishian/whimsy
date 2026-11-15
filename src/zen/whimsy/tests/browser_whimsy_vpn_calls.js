@@ -25,6 +25,7 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
     ["browser.ipProtection.whimsy.userContextIds", "2"],
     ["media.peerconnection.ice.proxy_only_if_behind_proxy", true],
     ["media.navigator.permission.disabled", true],
+    ["media.navigator.streams.fake", true],
     // The test relay lives on 127.0.0.1, and ICE skips loopback TURN servers
     // unless this is on.
     ["media.peerconnection.ice.loopback", true],
@@ -55,7 +56,12 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
         urls: `turn:127.0.0.1:${port}?transport=tcp`, username: "whimsy", credential: "whimsy",
       }] });
       content.whimsyTestPc = pc;
-      pc.addTransceiver("audio");
+      // A call captures the mic. Without a capture, ICE gathers on the
+      // default route only, and it finds that route with a UDP probe, which a
+      // page forced through the proxy may not send: no candidates at all.
+      const stream = await content.navigator.mediaDevices.getUserMedia({ audio: true });
+      content.whimsyTestStream = stream;
+      pc.addTrack(stream.getAudioTracks()[0], stream);
       await pc.setLocalDescription();
     });
     await TestUtils.waitForCondition(() => lookups.length, "The call looks up a proxy for its relay");
@@ -72,6 +78,7 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
   } finally {
     await SpecialPowers.spawn(browser, [], () => {
       content.whimsyTestPc?.close();
+      content.whimsyTestStream?.getTracks().forEach(t => t.stop());
     }).catch(() => {});
     pps.unregisterChannelFilter(recorder);
     BrowserTestUtils.removeTab(tab);
