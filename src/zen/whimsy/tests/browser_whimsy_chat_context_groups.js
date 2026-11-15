@@ -51,7 +51,11 @@ async function openChatOn(tab) {
   if (!chat().isOpen) {
     EventUtils.synthesizeKey("e", { accelKey: true });
   }
-  await TestUtils.waitForCondition(() => chat().isOpen && chat().ready && part(".whimsy-chat-chip[data-kind='tab']"), "Chat is open with its chip");
+  const opened = await TestUtils.waitForCondition(() => chat().isOpen && chat().ready && part(".whimsy-chat-chip[data-kind='tab']"), "Chat is open with its chip").then(() => true, () => false);
+  ok(opened, `Chat is open with its chip (open ${chat().isOpen}, ready ${chat().ready}, chips ${parts(".whimsy-chat-chip").map(c => c.dataset.kind).join(",")}, uri ${tab.linkedBrowser.currentURI.spec}, focused ${Services.focus.activeWindow == window})`);
+  if (!opened) {
+    throw new Error("Chat didn't open on the tab");
+  }
   await TestUtils.waitForCondition(() => el().getAnimations({ subtree: true }).every(a => a.playState != "running"), "Chat settled");
 }
 
