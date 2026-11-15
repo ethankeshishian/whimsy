@@ -712,6 +712,10 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave7/menus: space menu order (Delete last), no Volume… row, Glance chip vs unread badge on an Essential.
 ["browser_whimsy_menu_order.js"]
 
+# W29/ctxmenu: the page and tab menus, regrouped (most-used first); the tab menu's "Ask AI" label and its own AI group; link/image/selection menus unchanged.
+["browser_whimsy_menu_regroup_order.js"]
+support-files = ["whimsy_test_image.png"]
+
 # wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
 ["browser_whimsy_archive_tab_menu.js"]
 # wave10 (W10-06): archiving a tab (Archive Tab row, Archive Tabs Below, Cmd+W) shows no Undo toast; Cmd+Z and Edit → Undo still restore it.
