@@ -477,3 +477,5 @@ whimsy-help-page-animations-command-name = Page Animations Command
 whimsy-help-page-animations-command-text = Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads
 whimsy-help-window-title-space-name = Window Title Space
 whimsy-help-window-title-space-text = Show space name in window title: "<space> — <page title>" (Settings → Tab Management, off by default)
+whimsy-help-open-in-browser-name = Open In Browser
+whimsy-help-open-in-browser-text = Open in Safari / Open in Chrome: hands the current tab's address to another installed browser

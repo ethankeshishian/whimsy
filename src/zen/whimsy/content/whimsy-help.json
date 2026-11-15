@@ -2389,6 +2389,16 @@
       "pane": null,
       "paneId": null,
       "command": null
+    },
+    {
+      "id": "open-in-browser",
+      "name": "Open In Browser",
+      "text": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.open-in-browser",
+      "pane": null,
+      "paneId": null,
+      "command": null
     }
   ]
 }
