@@ -7324,6 +7324,11 @@ whimsy-agent-tabs-undo = Undo
 whimsy-agent-tabs-collision-title = Paused so you can use { $site }
 whimsy-agent-chat-hand-over-collision = Carry on when you’re done, or keep this tab and I’ll leave it out.
 
+## W28 tab-state-indicators: the sparkle badge on a tab the current chat
+## thread reads from (WhimsyChatContextUI.markReadTabs).
+
+whimsy-chat-reads-tab = Chat reads this tab
+
 ## W23 routines-ui: Library › Routines, the routine form, and Watch This Page
 
 whimsy-library-routines-title = Routines
