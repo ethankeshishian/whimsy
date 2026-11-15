@@ -15,6 +15,7 @@
 const { AddonManager, AddonManagerPrivate } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
 const { ExtensionsUI } = ChromeUtils.importESModule("resource:///modules/ExtensionsUI.sys.mjs");
 const { XPIInternal } = ChromeUtils.importESModule("resource://gre/modules/addons/XPIProvider.sys.mjs");
+const { XPIDatabase } = ChromeUtils.importESModule("resource://gre/modules/addons/XPIDatabase.sys.mjs");
 const { Subprocess } = ChromeUtils.importESModule("resource://gre/modules/Subprocess.sys.mjs");
 
 const LOCATION = "whimsy-local-plugins";
@@ -62,9 +63,17 @@ async function removeEverything() {
 }
 
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({ set: [["xpinstall.signatures.required", true]] });
+  // Whimsy's builds require signing (xpinstall.signatures.required), the
+  // test profile doesn't. Turning the pref on here would disable the test
+  // harness's own unsigned extensions, so signing is required the way a
+  // real build decides it, for extensions only, while this file runs.
+  const realMustSign = XPIDatabase.mustSign;
+  XPIDatabase.mustSign = type => type == "extension";
+  registerCleanupFunction(async () => {
+    await removeEverything();
+    XPIDatabase.mustSign = realMustSign;
+  });
   await removeEverything();
-  registerCleanupFunction(removeEverything);
 });
 
 add_task(async function test_plugin_loads_unsigned_after_approval() {
