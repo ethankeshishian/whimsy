@@ -12,11 +12,39 @@
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 
 const startTabs = new Set(gBrowser.tabs);
-registerCleanupFunction(() => {
+registerCleanupFunction(async () => {
   for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
     BrowserTestUtils.removeTab(tab);
   }
+  await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function setup() {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["whimsy.feature.scratch", true],
+      ["whimsy.private.in-window", true],
+    ],
+  });
+});
+
+// Like browser_whimsy_private_command_bar.js's own openPrivateBar/barClosed:
+// the command doesn't open a tab by itself, it opens the command bar in
+// private mode (violet ring, "Private" badge); a tab only exists once
+// something is picked there. A headless test window's empty bar never
+// becomes Zen's floating popover, so closing it needs the same nudge that
+// file uses.
+async function barClosed() {
+  await TestUtils.waitForTick();
+  if (!gURLBar.focused && gURLBar.hasAttribute("zen-newtab") && !gURLBar.matches(":popover-open")) {
+    gURLBar._zenHandleUrlbarClose?.();
+  }
+  await TestUtils.waitForCondition(
+    () => !gURLBar.hasAttribute("zen-newtab") && !gURLBar.view.isOpen,
+    "The command bar closed"
+  );
+  await TestUtils.waitForTick();
+}
 
 const NEW_PRIVATE_TAB = ':scope > menuitem[command="cmd_whimsyNewPrivateTab"]';
 
@@ -58,14 +86,26 @@ add_task(async function test_it_runs_the_shared_command() {
   ok(WhimsyPrivate.inWindow, "Private tabs are in this window by default");
   const command = document.getElementById("cmd_whimsyNewPrivateTab");
   ok(command, "The item's command is the same one the File menu and Cmd+Option+T use");
+
   const before = gBrowser.tabs.length;
-  const opened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen");
+  gBrowser.selectedBrowser.focus();
   command.doCommand();
-  const { target: tab } = await opened;
-  is(gBrowser.tabs.length, before + 1, "A tab was added");
-  ok(WhimsyPrivate.isPrivateTab(tab), "It's a private tab, like the existing New Private Tab command");
-  is(gBrowser.selectedTab, tab, "It's selected");
-  BrowserTestUtils.removeTab(tab);
+  await TestUtils.waitForCondition(
+    () => gURLBar.focused && gURLBar.hasAttribute("zen-newtab"),
+    "Running the command opened the command bar, exactly like Cmd+Option+T"
+  );
+  is(gBrowser.tabs.length, before, "No tab yet: only the bar opened (the private tab only exists once something is picked)");
+  ok(gURLBar.hasAttribute("whimsy-private"), "The bar is in private mode (violet ring), like Cmd+Option+T's");
+  ok(gURLBar.isPrivate, "...and its queries are private");
+
+  // Esc leaves nothing behind, same as the command bar's own test.
+  EventUtils.synthesizeKey("KEY_Escape");
+  if (gURLBar.focused) {
+    EventUtils.synthesizeKey("KEY_Escape");
+  }
+  gBrowser.selectedBrowser.focus();
+  await barClosed();
+  is(gBrowser.tabs.length, before, "Esc created no tab");
 });
 
 add_task(async function test_no_duplicate_on_reinit() {
