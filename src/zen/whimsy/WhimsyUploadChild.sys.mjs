@@ -917,8 +917,9 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     const count = dropzoneCount(dz);
     try {
       input.mozSetFileArray([file]);
-      input.dispatchEvent(new win.Event("input", { bubbles: true }));
-      input.dispatchEvent(new win.Event("change", { bubbles: true }));
+      // W29: the parent already removed (or asked about) its details.
+      this.redispatch(input, new win.Event("input", { bubbles: true }));
+      this.redispatch(input, new win.Event("change", { bubbles: true }));
     } catch (e) {
       console.error("Whimsy: upload from clipboard failed", e);
       return false;
@@ -955,7 +956,11 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     try {
       const data = new win.DataTransfer();
       data.items.add(file);
-      const fire = type => zone.dispatchEvent(new win.DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+      const fire = type => {
+        const event = new win.DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data });
+        this.redispatch(zone, event);
+        return !event.defaultPrevented;
+      };
       fire("dragenter");
       fire("dragover");
       // A zone that takes a drop prevents its default.
@@ -976,8 +981,8 @@ export class WhimsyUploadChild extends JSWindowActorChild {
   setFile(input, file) {
     try {
       input.mozSetFileArray([file]);
-      input.dispatchEvent(new this.contentWindow.Event("input", { bubbles: true }));
-      input.dispatchEvent(new this.contentWindow.Event("change", { bubbles: true }));
+      this.redispatch(input, new this.contentWindow.Event("input", { bubbles: true }));
+      this.redispatch(input, new this.contentWindow.Event("change", { bubbles: true }));
     } catch (e) {
       console.error("Whimsy: upload from clipboard failed", e);
     }
