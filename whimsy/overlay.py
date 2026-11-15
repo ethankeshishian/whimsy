@@ -2111,6 +2111,10 @@ FEATURES = [
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W29: Focus sessions: a timer with a dial, a countdown in the page's
+    # corner, distracting sites paused, Do Not Disturb, and a break reminder.
+    {"id": "focus-sessions", "title": "Focus sessions: a dial to set the length, a countdown in the page's corner, distracting sites paused, and confetti at the end",
+     "detect": [("src/zen", r"(?i)zen[-_.]?focus[-_.]?(session|mode|timer)|pomodoro")]},
 ]
 
 

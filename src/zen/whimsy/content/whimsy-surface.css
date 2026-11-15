@@ -659,8 +659,47 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
   }
 }
 
+/* W29: a square checkbox, for choosing what to include where nothing
+   happens until a button (the Focus session sheet's checklist). 16px,
+   filled with the accent and a white tick when checked. */
+.whimsy-surface-check {
+  appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.45));
+  background-color: light-dark(#fff, rgba(255, 255, 255, 0.06));
+  transition: background-color 150ms var(--whimsy-surface-ease);
+
+  &:checked {
+    box-shadow: none;
+    background-color: var(--whimsy-accent-fill, var(--zen-primary-color, AccentColor));
+
+    &::after {
+      content: "";
+      position: absolute;
+      left: 5.5px;
+      top: 2.5px;
+      width: 4px;
+      height: 8px;
+      border: solid var(--whimsy-on-accent, white);
+      border-width: 0 2px 2px 0;
+      rotate: 45deg;
+    }
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 2px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .whimsy-surface-seg-thumb,
+  .whimsy-surface-check,
   .whimsy-surface-segment,
   .whimsy-surface-switch,
   .whimsy-surface-switch::after,
@@ -683,7 +722,8 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
   .whimsy-surface-seg-thumb,
   .whimsy-surface-choice[aria-checked="true"],
   .whimsy-surface-option[aria-selected="true"],
-  .whimsy-surface-switch:checked {
+  .whimsy-surface-switch:checked,
+  .whimsy-surface-check:checked {
     outline: 1px solid currentColor;
   }
   .whimsy-surface-pill {

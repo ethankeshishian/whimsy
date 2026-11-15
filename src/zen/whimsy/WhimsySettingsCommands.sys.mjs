@@ -404,6 +404,10 @@ export const SETTINGS = [
   { name: "history-preview", setting: "whimsyHoverHistory", pref: "whimsy.feature.history-preview",
     feature: ["history-preview"] },
   { name: "people-cards", setting: "whimsyHoverPeople", pref: "whimsy.feature.people-cards", feature: ["people-cards"] },
+  // W29: the sites a focus session pauses (General › Focus Sessions).
+  { name: "focus-social", setting: "whimsyFocusSocial", pref: "whimsy.focus.social", feature: ["focus-sessions"] },
+  { name: "focus-video", setting: "whimsyFocusVideo", pref: "whimsy.focus.video", feature: ["focus-sessions"] },
+  { name: "focus-sites", setting: "whimsyFocusSites", exempt: "the list of sites to pause, edited as text in Settings" },
 
   // Settings → Menus: a switch for every row of every right-click menu
   // (hundreds, and turning one off is done where you'd miss it, in its

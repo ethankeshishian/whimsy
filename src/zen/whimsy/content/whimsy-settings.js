@@ -1212,6 +1212,76 @@ Object.assign(gWhimsySettings, {
   },
 });
 
+// W29: Settings › General › Focus Sessions: the sites a focus session
+// pauses. Two built-in lists and your own (one per line; Save checks every
+// line first, like Bang Shortcuts). The Focus session sheet's Edit link
+// opens it (#general-whimsyFocus).
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == whimsyGeneralPane()) {
+    gWhimsySettings.insertFocusGroup(event.detail.category);
+    // Spotlight runs before paneshown, so the group wasn't there yet.
+    if (event.detail.subcategory == "whimsyFocus") {
+      spotlight("whimsyFocus", event.detail.category);
+    }
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertFocusGroup(pane = whimsyGeneralPane()) {
+    const template = document.getElementById("template-whimsyFocus");
+    if (!template) {
+      return;
+    }
+    if (!Services.prefs.getBoolPref("whimsy.feature.focus-sessions", true)) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    template.remove();
+    const { WhimsyFocusSession, SOCIAL_SITES, VIDEO_SITES, SOCIAL_SAMPLE, VIDEO_SAMPLE } = ChromeUtils.importESModule(
+      "resource:///modules/whimsy/WhimsyFocusSession.sys.mjs"
+    );
+    Preferences.addAll(
+      ["whimsy.focus.social", "whimsy.focus.video"].filter(id => !Preferences.get(id)).map(id => ({ id, type: "bool" }))
+    );
+    group.dataset.category = pane;
+    const anchor = [...document.querySelectorAll(`#mainPrefPane > [data-category="${pane}"]`)].at(-1);
+    (anchor?.parentElement || document.getElementById("mainPrefPane"))?.insertBefore(
+      fragment,
+      anchor?.nextSibling || null
+    );
+    const sample = (id, sites, all) =>
+      document.l10n.setAttributes(document.getElementById(id), "whimsy-focus-settings-sample", {
+        sites: sites.join(", "),
+        count: all.length - sites.length,
+      });
+    sample("whimsyFocusSocialSample", SOCIAL_SAMPLE, SOCIAL_SITES);
+    sample("whimsyFocusVideoSample", VIDEO_SAMPLE, VIDEO_SITES);
+
+    const list = document.getElementById("whimsyFocusSites");
+    const status = document.getElementById("whimsyFocusStatus");
+    list.value = WhimsyFocusSession.ownSites.join("\n");
+    list.addEventListener("input", () => {
+      status.removeAttribute("data-l10n-id");
+      status.textContent = "";
+      list.removeAttribute("aria-invalid");
+    });
+    document.getElementById("whimsyFocusSave").addEventListener("command", () => {
+      const result = WhimsyFocusSession.saveSites(list.value);
+      if (result.sites) {
+        list.value = result.sites.join("\n");
+        list.removeAttribute("aria-invalid");
+        document.l10n.setAttributes(status, "whimsy-focus-settings-saved");
+      } else {
+        list.setAttribute("aria-invalid", "true");
+        document.l10n.setAttributes(status, "whimsy-focus-settings-invalid", { line: result.invalid });
+      }
+    });
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+  },
+});
+
 // W10-28: Settings → AI, its own pane (Arc's Max tab). Enable AI (on by
 // default) heads it; while it's off everything below is dimmed and can't be
 // used, with a note saying why. Then the provider (Apple on-device, Claude
@@ -2071,6 +2141,7 @@ Object.assign(gWhimsySettings, {
       () => this.insertGroups(),
       () => this.insertNextMeetingGroup(),
       () => this.insertHoverGroup(), // W25: General › Hover cards
+      () => this.insertFocusGroup(), // W29: General › Focus Sessions
       () => this.adoptZenGlance(),
       () => this.insertTeachGroup(), // wave9/designfix (H2)
       // Privacy & Security

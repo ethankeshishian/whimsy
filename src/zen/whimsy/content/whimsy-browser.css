@@ -8115,3 +8115,286 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     color: var(--whimsy-on-accent) !important;
   }
 }
+
+/* W29 focus sessions (WhimsyFocusSheet, WhimsyFocusPicker,
+   WhimsyFocusNotch; intake-w28/designs/focus-wellbeing.md). */
+
+/* The sheet: the picker centred, "Ends at" under it, then the checklist. */
+.whimsy-focus-picker-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 4px;
+  user-select: none;
+}
+.whimsy-focus-ends {
+  margin: 0;
+  font-size: 12px;
+  color: var(--whimsy-surface-muted);
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-focus-check-row {
+  cursor: default;
+
+  &:hover {
+    background-color: var(--whimsy-surface-hover);
+  }
+}
+.whimsy-focus-edit {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--whimsy-accent-text, color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, currentColor));
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
+}
+
+/* A · the dial: Time Timer's wedge in the space's accent. */
+.whimsy-focus-dial {
+  position: relative;
+  width: 196px;
+  height: 196px;
+  border-radius: 50%;
+  touch-action: none;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 2px;
+  }
+  & > svg {
+    display: block;
+    width: 196px;
+    height: 196px;
+  }
+}
+.whimsy-focus-dial-face {
+  fill: var(--whimsy-surface-track);
+}
+.whimsy-focus-dial-tick {
+  stroke: color-mix(in srgb, currentColor 22%, transparent);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  transition: stroke 120ms;
+
+  &.is-5 {
+    stroke-width: 2;
+    stroke: color-mix(in srgb, currentColor 38%, transparent);
+  }
+  &.on {
+    stroke: var(--zen-primary-color, AccentColor);
+  }
+}
+.whimsy-focus-dial-wedge {
+  fill: var(--whimsy-accent-fill);
+  opacity: 0.9;
+}
+.whimsy-focus-dial-wedge2 {
+  fill: color-mix(in srgb, var(--whimsy-accent-fill), black 28%);
+}
+.whimsy-focus-dial-hub {
+  fill: var(--arrowpanel-background, Canvas);
+}
+.whimsy-focus-dial-knob {
+  fill: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+.whimsy-focus-dial-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+
+  & > b {
+    font-size: 34px;
+    font-weight: 650;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+
+    &.is-bump {
+      animation: whimsy-focus-bump 180ms var(--whimsy-ease-momentum);
+    }
+  }
+  & > span {
+    margin-top: 2px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--whimsy-surface-muted);
+  }
+}
+@keyframes whimsy-focus-bump {
+  50% {
+    scale: 1.06;
+  }
+}
+
+/* The countdown notch: the window background carved into the page's
+   top-right corner, with concave fillets at the page's corner radius
+   (--zen-native-inner-radius). */
+.whimsy-focus-notch {
+  --whimsy-focus-r: var(--zen-native-inner-radius, 10px);
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  z-index: 20;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px 0 10px;
+  background: var(--zen-main-browser-background) fixed;
+  border-end-start-radius: var(--whimsy-focus-r);
+  color: var(--toolbox-textcolor, currentColor);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+  transition: translate 320ms var(--whimsy-surface-ease, cubic-bezier(0.2, 0, 0, 1)), opacity 200ms;
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    width: var(--whimsy-focus-r);
+    height: var(--whimsy-focus-r);
+    background: var(--zen-main-browser-background) fixed;
+    mask: radial-gradient(circle at 0 100%, transparent calc(var(--whimsy-focus-r) - 0.5px), black var(--whimsy-focus-r));
+    pointer-events: none;
+  }
+  &::before {
+    top: 0;
+    right: 100%;
+  }
+  &::after {
+    top: 100%;
+    right: 0;
+  }
+  &:hover {
+    background-image: linear-gradient(color-mix(in srgb, currentColor 6%, transparent), color-mix(in srgb, currentColor 6%, transparent));
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+  &.is-last .whimsy-focus-time {
+    color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, currentColor);
+  }
+  &.is-gone {
+    translate: 0 -110%;
+    opacity: 0;
+  }
+  &.is-gone::after {
+    opacity: 0;
+  }
+  :root:is([inFullscreen], [inDOMFullscreen]) & {
+    display: none;
+  }
+}
+.whimsy-focus-pie {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--whimsy-accent-fill) calc(var(--p, 1) * 1turn),
+    color-mix(in srgb, currentColor 16%, transparent) 0
+  );
+}
+.whimsy-focus-time {
+  display: inline-flex;
+}
+.whimsy-focus-ch {
+  position: relative;
+  display: inline-block;
+  width: 0.62em;
+  height: 1.2em;
+  overflow: hidden;
+  text-align: center;
+
+  &.is-colon {
+    width: 0.3em;
+  }
+  & > i {
+    position: absolute;
+    inset: 0;
+    font-style: normal;
+    line-height: 1.2em;
+    transition: translate 280ms var(--whimsy-surface-ease, cubic-bezier(0.2, 0, 0, 1)), opacity 280ms;
+
+    &.is-in {
+      translate: 0 -70%;
+      opacity: 0;
+    }
+    &.is-out {
+      translate: 0 70%;
+      opacity: 0;
+    }
+  }
+}
+.whimsy-focus-done {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, currentColor);
+}
+.whimsy-focus-done-icon {
+  width: 14px;
+  height: 14px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+.whimsy-focus-notch.is-done {
+  & .whimsy-focus-done {
+    display: inline-flex;
+  }
+  & :is(.whimsy-focus-time, .whimsy-focus-pie) {
+    display: none;
+  }
+}
+.whimsy-focus-confetti {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 21;
+  pointer-events: none;
+}
+.whimsy-focus-panel-text {
+  margin: 0;
+  padding: 2px 8px 4px;
+  line-height: 1.4;
+}
+/* Toasts start below the notch while a session runs (like devmode's
+   offset above). */
+:root[whimsy-focus] #zen-toast-container {
+  top: calc(max(var(--whimsy-devmode-bar-bottom, 0px), var(--whimsy-focus-notch-bottom, 0px)) + var(--zen-toast-spacing));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-focus-dial-tick,
+  .whimsy-focus-notch,
+  .whimsy-focus-ch > i {
+    transition: none;
+  }
+  .whimsy-focus-dial-center > b.is-bump {
+    animation: none;
+  }
+}

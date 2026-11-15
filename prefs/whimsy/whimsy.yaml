@@ -927,3 +927,44 @@
 - name: whimsy.annotations.color
   value: "yellow"
 
+
+# W29 focus sessions (WhimsyFocusSession.sys.mjs). The length and the
+# sheet's ticks are written on Start and are the next sheet's defaults:
+# 25 minutes the first time, then the last pick.
+- name: whimsy.focus.lastLength
+  value: 25
+
+- name: whimsy.focus.dnd
+  value: true
+
+- name: whimsy.focus.pauseSites
+  value: true
+
+- name: whimsy.focus.muteBackground
+  value: false
+
+- name: whimsy.focus.breakReminder
+  value: true
+
+# Sites paused during a session (Settings › General › Focus Sessions): the
+# two built-in lists, and your own, one per line.
+- name: whimsy.focus.social
+  value: true
+
+- name: whimsy.focus.video
+  value: true
+
+- name: whimsy.focus.sites
+  value: ""
+
+# The running session: when it ends, in seconds since 1970 (0 when there's
+# none), so a restart picks it up; whether Do Not Disturb was already on;
+# whether the session turned background muting on.
+- name: whimsy.focus.endsAt
+  value: 0
+
+- name: whimsy.focus.dndWasOn
+  value: false
+
+- name: whimsy.focus.mutedBySession
+  value: false
