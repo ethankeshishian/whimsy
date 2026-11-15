@@ -1,0 +1,61 @@
+diff --git a/browser/actors/WebRTCParent.sys.mjs b/browser/actors/WebRTCParent.sys.mjs
+--- a/browser/actors/WebRTCParent.sys.mjs
++++ b/browser/actors/WebRTCParent.sys.mjs
+@@ -10,6 +10,7 @@
+   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+   SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
+   webrtcUI: "resource:///modules/webrtcUI.sys.mjs",
++  WhimsyShareTab: "resource:///modules/whimsy/WhimsyShareTab.sys.mjs",
+ });
+ 
+ XPCOMUtils.defineLazyServiceGetter(
+@@ -1074,6 +1075,20 @@
+           }
+         };
+         menupopup.addEventListener("command", menupopup._commandEventListener);
++
++        // Whimsy (share-a-tab): Call Options › Share this tab picks the tab
++        // it was chosen from, with its preview and warning, as if chosen by
++        // hand. Allow is still the user's to click.
++        const whimsyTab = lazy.WhimsyShareTab.preselect(aBrowser, aRequest);
++        const whimsyItem =
++          whimsyTab &&
++          [...menupopup.children].find(
++            item => item.mediaSource == "browser" && String(item.deviceId) == whimsyTab
++          );
++        if (whimsyItem) {
++          menupopup.parentNode.selectedItem = whimsyItem;
++          menupopup._commandEventListener({ target: whimsyItem });
++        }
+       }
+ 
+       function addDeviceToList(list, deviceName, deviceIndex, type) {
+@@ -1562,7 +1577,10 @@
+ function removePrompt(aBrowser, aCallId) {
+   // The prompt lives in exactly one window: either aBrowser's, or that of a
+   // document PiP window opened by aBrowser. See getPromptBrowser().
+-  if (!removePromptFrom(aBrowser, aCallId)) {
++  if (
++    !removePromptFrom(aBrowser, aCallId) &&
++    !removePromptFrom(lazy.WhimsyShareTab.promptTarget(aCallId), aCallId)
++  ) {
+     removePromptFrom(getDocumentPiPBrowser(aBrowser), aCallId);
+   }
+ }
+@@ -1755,6 +1773,16 @@
+   if (!aRequest.sharingScreen) {
+     return aBrowser;
+   }
++  // Whimsy (share-a-tab): a share started from Call Options › Share this
++  // tab prompts on that tab, in the call's own window, keeping the
++  // fullscreen guard below.
++  const whimsyTarget = lazy.WhimsyShareTab.promptBrowser(aBrowser, aRequest);
++  if (
++    whimsyTarget &&
++    !aBrowser.browsingContext?.topChromeWindow?.document.fullscreenElement
++  ) {
++    return whimsyTarget;
++  }
+   const activeWindow = Services.focus.activeWindow;
+   const pipBrowser = getDocumentPiPBrowser(aBrowser);
+   if (

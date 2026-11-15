@@ -5108,6 +5108,8 @@ whimsy-action-call-camera-in-call = Turn Off Camera In the Call
 whimsy-action-call-microphone-block = Block Microphone On This Device
 whimsy-action-call-camera-block = Block Camera On This Device
 whimsy-action-call-buttons-default = Call Buttons Mute: The Call / This Device
+# W29: presses the web call's own share button for the selected tab.
+whimsy-action-call-share-tab = Share This Tab in Call
 # W14 21.7: a press the call page didn't answer. $app (string) - the call
 # app's name from its page; $known (string) - "yes" when it gave one.
 whimsy-call-mic-failed-toast =
@@ -5242,6 +5244,22 @@ whimsy-call-options-camera-missing =
     { $known ->
         [yes] { $app }'s camera button wasn't found
        *[no] The call's camera button wasn't found
+    }
+
+## W29: Call Options › Share. The row presses the call page's own share
+## button; Firefox's sharing prompt then opens on this tab, with it picked.
+
+whimsy-call-options-share-heading = Share
+whimsy-call-options-share-tab = Share this tab
+# $title: the selected tab's title.
+whimsy-call-options-share-detail = { $title }
+whimsy-call-options-share-stop = Stop sharing
+# $title: the title of the tab the call shares.
+whimsy-call-options-share-sharing = Sharing { $title }
+whimsy-call-options-share-missing =
+    { $known ->
+        [yes] { $app }'s share button wasn't found
+       *[no] The call's share button wasn't found
     }
 
 ## W14 21.8: Ctrl+Tab with more tabs than its card shows

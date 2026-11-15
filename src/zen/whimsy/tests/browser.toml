@@ -1022,6 +1022,12 @@ support-files = ["whimsy_meet.html", "whimsy_zoom.html", "whimsy_teams.html", "w
 ["browser_whimsy_call_options_panel.js"]
 support-files = ["whimsy_meet.html"]
 
+# W29: Call Options › Share this tab and Share This Tab in Call: the call's
+# own share button, Firefox's prompt on this tab with it picked, Stop from
+# any tab.
+["browser_whimsy_call_share_tab.js"]
+support-files = ["whimsy_call_share.html"]
+
 # wave13/toast: one toast, Zen's, extended (WhimsyZenToasts.sys.mjs): icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" buttons, persistence and handles, buttons with words, close and Esc, stacking, "+k more", Reduce Motion, keyed replace, 480px.
 ["browser_whimsy_zen_toasts.js"]
 
