@@ -8287,3 +8287,8 @@ whimsy-passkeys-delete =
 whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
 whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
 whimsy-setting-passkeys = Passkeys
+
+# W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md),
+# command-bar rows shown only when that browser is installed.
+whimsy-action-open-in-safari = Open in Safari
+whimsy-action-open-in-chrome = Open in Chrome

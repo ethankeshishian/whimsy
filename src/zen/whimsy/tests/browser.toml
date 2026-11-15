@@ -1304,5 +1304,9 @@ support-files = ["whimsy_field_editor.html"]
 ["browser_whimsy_popups_as_tabs.js"]
 support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 
+# W28: "Open in Safari" / "Open in Chrome", one command-bar row per
+# installed browser, hands the tab's address to `open -a <app> <url>`.
+["browser_whimsy_open_in_browser.js"]
+
 # W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
 ["browser_whimsy_dim_inactive_window.js"]
