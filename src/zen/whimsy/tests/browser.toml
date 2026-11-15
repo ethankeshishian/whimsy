@@ -661,6 +661,10 @@ support-files = ["whimsy_page_actions.html"]
 # wave6/parity: Option+click a sidebar tab to split (Peek keeps Zen's Option+click on links).
 ["browser_whimsy_split_alt_click.js"]
 
+# W29-tabclicks: Cmd+click (Ctrl+click off macOS) on a page link opens a new
+# background tab, as Firefox's own does, and the clicked tab doesn't navigate.
+["browser_whimsy_link_accel_click.js"]
+
 # wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
 ["browser_whimsy_split_arc_keys.js"]
 
