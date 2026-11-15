@@ -187,17 +187,20 @@ const TAB_ITEMS = [
   item("playlist", "whimsy-menus-tab-playlist", ["context_whimsyPlaylistSave"]),
   item("snooze", "whimsy-menus-tab-snooze", ["context_whimsySnooze"]),
   SEPARATOR,
-  // Share and save.
+  // Share and save. Share ▸ has no icon of its own (it's the macOS
+  // services submenu, with no fixed id to hang one on), so it goes last:
+  // menu-icons (browser_whimsy_menu_icons.js) expects icon-less rows
+  // after every row that has one, within a section.
   item("copy-links", "whimsy-menus-tab-copy-links", ["context_whimsyCopyLinks"]),
   // wave9/menus (W9-09): off by default.
   item("copy-markdown", "whimsy-menus-tab-copy-markdown", ["context_whimsyCopyLinkMarkdown"]),
+  item("send-to-device", "whimsy-menus-tab-send-to-device", ["context_sendTabToDevice"]),
+  item("bookmark", "whimsy-menus-tab-bookmark", ["context_bookmarkTab", "context_bookmarkSelectedTabs"]),
   // wave9/menus: Firefox's Share ▸ submenu (with the macOS services,
   // WhimsyShareMenu) and its content-sharing row for several tabs.
   bySelector("share", "whimsy-menus-tab-share", ["#context_shareSelectedTabs", ".share-tab-url-item"], {
     altL10n: "whimsy-menus-tab-share-alt",
   }),
-  item("send-to-device", "whimsy-menus-tab-send-to-device", ["context_sendTabToDevice"]),
-  item("bookmark", "whimsy-menus-tab-bookmark", ["context_bookmarkTab", "context_bookmarkSelectedTabs"]),
   SEPARATOR,
   // AI (the owner, 2026-11-14: "I wonder if we should group the ai ones").
   item("watch", "whimsy-menus-tab-watch", ["context_whimsyWatchPage"]),
@@ -896,9 +899,14 @@ export const WhimsyMenuPrefs = {
       groups.splice(extrasGroup == -1 ? groups.length : extrasGroup + 1, 0, extras);
     }
     // Firefox's separators sit between its own groups; ours replace them.
-    for (const node of popup.children) {
+    // Moved out of the way too (not just hidden), so a stray one can't end
+    // up wedged between two rows this pulls apart (one of Firefox's own
+    // landed next to Save Page As); its spot comes back with restoreOrder
+    // like any other moved row.
+    for (const node of [...popup.children]) {
       if (isSeparator(node) && !node.classList.contains(ORDER_SEP_CLASS) && this.visible(win, node)) {
         this.hideRow(node);
+        move(node);
       }
     }
     const spare = [...popup.querySelectorAll(`:scope > menuseparator.${ORDER_SEP_CLASS}`)];

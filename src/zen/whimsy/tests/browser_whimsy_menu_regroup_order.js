@@ -92,9 +92,13 @@ add_task(async function test_page_menu_order() {
 add_task(async function test_page_menu_restores_firefox_order_on_close() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   const popup = document.getElementById("contentAreaContextMenu");
-  const before = [...popup.children].map(n => n.id);
+  // Whimsy inserts and removes its own rows (e.g. the AI Improve/Fix/
+  // Translate selection items) independent of reorder(), so only compare
+  // the popup's own children, as the pre-existing selection-order test does.
+  const ids = () => [...popup.children].map(n => n.id).filter(id => id && !id.startsWith("context-whimsy"));
+  const before = ids();
   await closeMenu(await openContentMenu(tab.linkedBrowser, "#blank"));
-  const after = [...popup.children].map(n => n.id);
+  const after = ids();
   Assert.deepEqual(after, before, "Closing the page menu puts the popup's own children back in order");
   BrowserTestUtils.removeTab(tab);
 });
