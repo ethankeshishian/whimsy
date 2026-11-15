@@ -111,7 +111,7 @@ add_task(async function test_lists_other_engines_in_settings_order() {
     Assert.deepEqual(labels, [engineB.name, engineC.name], "Lists the other two engines, without the default, in Settings order");
     await closeMenu(menu);
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(tab);
     restore();
   }
 });
@@ -150,9 +150,9 @@ add_task(async function test_opens_like_the_default_row_default_engine() {
     is(resultTab.linkedBrowser.currentURI.spec, "https://example.com/a?q=whimsy+search+with+test", "The default engine's results, for the selection");
   } finally {
     if (resultTab) {
-      BrowserTestUtils.removeTab(resultTab);
+      await BrowserTestUtils.removeTab(resultTab);
     }
-    BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(tab);
     restore();
   }
 });
@@ -175,9 +175,9 @@ add_task(async function test_opens_like_the_default_row_search_with_engine() {
     is(resultTab.linkedBrowser.currentURI.spec, "https://example.com/b?q=whimsy+search+with+test", "That engine's results, for the same selection");
   } finally {
     if (resultTab) {
-      BrowserTestUtils.removeTab(resultTab);
+      await BrowserTestUtils.removeTab(resultTab);
     }
-    BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(tab);
     restore();
   }
 });
@@ -199,9 +199,9 @@ add_task(async function test_background_pref_matches_the_default_row() {
     is(gBrowser.selectedTab, tab, "Opens in the background, following browser.search.context.loadInBackground — same as the default row would");
   } finally {
     if (resultTab) {
-      BrowserTestUtils.removeTab(resultTab);
+      await BrowserTestUtils.removeTab(resultTab);
     }
-    BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(tab);
     await SpecialPowers.popPrefEnv();
     restore();
   }
@@ -247,7 +247,7 @@ add_task(async function test_private_window_excludes_the_private_default() {
     is(privateWin.gBrowser.tabs.indexOf(resultTab), originalIndex + 1, "Right next to the tab that opened the menu, same as in a regular window");
   } finally {
     if (resultTab) {
-      BrowserTestUtils.removeTab(resultTab);
+      await BrowserTestUtils.removeTab(resultTab);
     }
     await BrowserTestUtils.closeWindow(privateWin);
     await SearchService.setDefaultPrivate(previousPrivate, SearchService.CHANGE_REASON.UNKNOWN);
@@ -265,7 +265,7 @@ add_task(async function test_one_visible_engine_hides_the_row() {
     ok(!shows(document.getElementById(ROW_ID)), "With only the default engine visible, the row is hidden");
     await closeMenu(menu);
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(tab);
     restore();
   }
 });
@@ -280,7 +280,7 @@ add_task(async function test_settings_menus_can_hide_it() {
     ok(!shows(document.getElementById(ROW_ID)), "Settings → Menus can turn the row off");
     await closeMenu(menu);
   } finally {
-    BrowserTestUtils.removeTab(tab);
+    await BrowserTestUtils.removeTab(tab);
     WhimsyMenuPrefs.restoreDefaults("selection");
     restore();
   }
