@@ -57,10 +57,13 @@ add_task(async function test_band_gain_and_bit_identical_flat() {
   info(`Graph: ${JSON.stringify(await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.graphInfo()))}`);
 
   // Flat: every sample is, bit for bit, the decoded 16-bit value in the file.
-  const flat = await settled(browser, m => m.exact == m.total, "Flat output is bit-identical");
+  // The tone's own level; the analyser's window must be full of it (not
+  // the silence before playback starts) before anything is compared.
+  const base = 3277 / 32768 / Math.SQRT2;
+  const full = m => Math.abs(m.rms - base) < 0.002;
+  const flat = await settled(browser, m => full(m) && m.exact == m.total, "Flat output is bit-identical");
   is(flat.exact, flat.total, "Every sample is untouched when flat");
-  const base = flat.rms;
-  ok(Math.abs(base - 3277 / 32768 / Math.SQRT2) < 0.002, `The tone plays at its own level (${base})`);
+  ok(full(flat), `The tone plays at its own level (${flat.rms})`);
 
   // +12 dB at 1 kHz: about 4x the level.
   await setGains(browser, [0, 0, 0, 12, 0, 0, 0, 0]);
@@ -80,7 +83,7 @@ add_task(async function test_band_gain_and_bit_identical_flat() {
 
   // Back to flat: bit-identical again once the ramp ends.
   await setGains(browser, FLAT);
-  const again = await settled(browser, m => m.exact == m.total, "Flat again is bit-identical");
+  const again = await settled(browser, m => full(m) && m.exact == m.total, "Flat again is bit-identical");
   is(again.exact, again.total, "Every sample is untouched after going back to flat");
   BrowserTestUtils.removeTab(tab);
 });
