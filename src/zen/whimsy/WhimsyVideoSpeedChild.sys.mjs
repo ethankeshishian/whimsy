@@ -19,7 +19,7 @@
 // The actor starts with the first media event of a page; the pointer and
 // key listeners never create it, so pages without video pay nothing.
 
-import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+import { clearInterval, clearTimeout, setInterval, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
