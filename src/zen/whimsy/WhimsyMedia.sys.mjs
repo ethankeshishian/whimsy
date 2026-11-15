@@ -973,8 +973,18 @@ export const WhimsyMedia = {
       bands.append(band);
       return input;
     });
-    const setBandL10n = input =>
-      document.l10n.setAttributes(input, "whimsy-eq-band", { freq: input.dataset.freq, db: parseInt(input.value, 10) });
+    // Fluent may not set aria-valuetext on an HTML input, so the value
+    // text is formatted here; the newest value wins a race.
+    const setBandL10n = input => {
+      const db = parseInt(input.value, 10);
+      document.l10n.setAttributes(input, "whimsy-eq-band", { freq: input.dataset.freq });
+      const seq = (input._whimsyValueSeq = (input._whimsyValueSeq || 0) + 1);
+      document.l10n.formatValue("whimsy-eq-band-value", { db }).then(text => {
+        if (input._whimsyValueSeq == seq) {
+          input.setAttribute("aria-valuetext", text);
+        }
+      });
+    };
     for (const input of sliders) {
       input.addEventListener("input", () => {
         setBandL10n(input);

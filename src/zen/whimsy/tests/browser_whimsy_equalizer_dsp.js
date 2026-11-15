@@ -36,10 +36,15 @@ const measure = browser => SpecialPowers.spawn(browser, [], () => content.wrappe
 // ramp and the analyser's window take a moment).
 async function settled(browser, test, message) {
   let last = null;
-  await TestUtils.waitForCondition(async () => {
-    last = await measure(browser);
-    return last.rms > 0 && test(last);
-  }, message);
+  try {
+    await TestUtils.waitForCondition(async () => {
+      last = await measure(browser);
+      return last.rms > 0 && test(last);
+    }, message);
+  } catch (e) {
+    ok(false, `${message}: last measured ${JSON.stringify(last)}`);
+    throw e;
+  }
   return last;
 }
 
@@ -49,6 +54,7 @@ add_task(async function test_band_gain_and_bit_identical_flat() {
   const applies = await SpecialPowers.spawn(browser, [], () => content.document.getElementById("audio").whimsyEqualizerApplies);
   ok(applies, "A file the page plays can be equalized");
   await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.startAnalysis());
+  info(`Graph: ${JSON.stringify(await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.graphInfo()))}`);
 
   // Flat: every sample is exactly the 16-bit value in the file.
   const flat = await settled(browser, m => m.exact == m.total, "Flat output is bit-identical");

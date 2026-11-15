@@ -355,7 +355,8 @@ whimsy-eq-hide-bands =
 # $db (number) - the band's gain in decibels, e.g. -3
 whimsy-eq-band =
     .aria-label = { $freq } Hz
-    .aria-valuetext = { $db } decibels
+# The value a screen reader reads for an equalizer band.
+whimsy-eq-band-value = { $db } decibels
 # Shown under the presets when the tab's audio can't be filtered (protected
 # or live-stream media).
 whimsy-eq-unsupported = This site's audio can't be adjusted.

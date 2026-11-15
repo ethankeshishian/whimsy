@@ -129,7 +129,7 @@ add_task(async function test_rows_presets_and_custom() {
   );
   ok(sliders.every(s => s.min == "-12" && s.max == "12" && s.step == "1"), "+-12 dB in 1 dB steps");
   ok(sliders.every(s => s.checkVisibility() && s.getBoundingClientRect().height >= 90), "The bands are upright sliders");
-  is(sliders[0].getAttribute("aria-valuetext"), "0 decibels", "A band says its gain");
+  await TestUtils.waitForCondition(() => sliders[0].getAttribute("aria-valuetext") == "0 decibels", "A band says its gain");
   for (const label of bands.querySelectorAll(".whimsy-eq-freq")) {
     ok(label.scrollWidth <= label.clientWidth + 1, `${label.textContent} isn't clipped`);
   }
@@ -298,7 +298,10 @@ add_task(async function test_unsupported_audio() {
   // disables the equalizer and says why.
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   await SpecialPowers.spawn(tab.linkedBrowser, [], () => content.wrappedJSObject.playStream());
-  await TestUtils.waitForCondition(() => tab.soundPlaying, "The stream plays");
+  await TestUtils.waitForCondition(
+    () => SpecialPowers.spawn(tab.linkedBrowser, [], () => content.document.getElementById("audio").currentTime > 0),
+    "The stream plays"
+  );
   const panel = await openPanel(tab);
   const note = panel.querySelector(".whimsy-eq-unsupported");
   await TestUtils.waitForCondition(() => !note.hidden, "The panel says the audio can't be adjusted");

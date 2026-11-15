@@ -19,6 +19,12 @@
     analyser.connect(context.destination);
     return context.resume().then(() => audio.play());
   };
+  window.graphInfo = () => ({
+    rate: analyser?.context.sampleRate,
+    state: analyser?.context.state,
+    paused: audio.paused,
+    time: audio.currentTime,
+  });
   // { rms, exact }: exact counts the samples that are a whole 16-bit step.
   window.measure = () => {
     const buf = new Float32Array(analyser.fftSize);
@@ -31,7 +37,9 @@
         exact++;
       }
     }
-    return { rms: Math.sqrt(sum / buf.length), exact, total: buf.length };
+    // The first sample that isn't exact (to see how far off it is).
+    const odd = buf.find(v => !Number.isInteger(v * 32768));
+    return { rms: Math.sqrt(sum / buf.length), exact, total: buf.length, odd: odd === undefined ? null : odd * 32768 };
   };
   // A stream the equalizer can't reach (a call, a generated stream).
   window.playStream = () => {
