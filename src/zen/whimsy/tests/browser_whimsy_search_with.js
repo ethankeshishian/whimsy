@@ -116,43 +116,66 @@ add_task(async function test_lists_other_engines_in_settings_order() {
   }
 });
 
-add_task(async function test_opens_like_the_default_row() {
+// Each task below starts from its own fresh tab, so the tab-placement
+// assertion ("right next to the tab that opened the menu") is compared
+// against that one originating tab only — no chaining of two consecutive
+// searches, which would instead exercise relatedToCurrent's "next to the
+// most-recently-opened related tab" rule and isn't what's being proven here.
+async function searchAndGetResultTab(tab, activate) {
+  await select(tab.linkedBrowser, "event", "whimsy search with test");
+  const menu = await openMenu(tab.linkedBrowser);
+  const tabOpened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen");
+  await activate(menu);
+  const resultTab = (await tabOpened).target;
+  // The tab exists as soon as TabOpen fires, but navigation to the engine's
+  // URL is still async — wait for it before reading currentURI.
+  await BrowserTestUtils.browserLoaded(resultTab.linkedBrowser);
+  return resultTab;
+}
+
+add_task(async function test_opens_like_the_default_row_default_engine() {
   // Owner's sign-off: "Does it open in another tab? It should match the
-  // google/default one." Both rows must place their new tab immediately
-  // after the tab that opened the menu, the same way, foreground by default.
+  // google/default one." The default row's own baseline: a new tab right
+  // after the tab that opened the menu, foreground by default.
   const restore = await onlyTheseEngines([engineA, engineB, engineC]);
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   const originalIndex = gBrowser.tabs.indexOf(tab);
-  let defaultTab, withTab;
+  let resultTab;
   try {
-    await select(tab.linkedBrowser, "event", "whimsy search with test");
-
-    let menu = await openMenu(tab.linkedBrowser);
-    const defaultRow = document.getElementById("context-searchselect");
-    let tabOpened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen");
-    menu.activateItem(defaultRow);
-    defaultTab = (await tabOpened).target;
-    is(gBrowser.tabs.indexOf(defaultTab), originalIndex + 1, "The default row's results open right next to the tab that opened the menu");
-    is(gBrowser.selectedTab, defaultTab, "…in the foreground (loadInBackground is off by default)");
-    is(defaultTab.linkedBrowser.currentURI.spec, "https://example.com/a?q=whimsy+search+with+test", "The default engine's results, for the selection");
-
-    gBrowser.selectedTab = tab;
-    menu = await openMenu(tab.linkedBrowser);
-    const searchWithRow = document.getElementById(ROW_ID);
-    await openSubmenu(searchWithRow);
-    const engineBRow = rowFor(searchWithRow.menupopup, engineB.name);
-    tabOpened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen");
-    menu.activateItem(engineBRow);
-    withTab = (await tabOpened).target;
-    is(gBrowser.tabs.indexOf(withTab), originalIndex + 1, "A Search With result opens right next to the tab that opened the menu too — the same placement as the default row");
-    is(gBrowser.selectedTab, withTab, "…in the foreground, exactly like the default row");
-    is(withTab.linkedBrowser.currentURI.spec, "https://example.com/b?q=whimsy+search+with+test", "That engine's results, for the same selection");
+    resultTab = await searchAndGetResultTab(tab, menu => {
+      menu.activateItem(document.getElementById("context-searchselect"));
+    });
+    is(gBrowser.tabs.indexOf(resultTab), originalIndex + 1, "The default row's results open right next to the tab that opened the menu");
+    is(gBrowser.selectedTab, resultTab, "…in the foreground (loadInBackground is off by default)");
+    is(resultTab.linkedBrowser.currentURI.spec, "https://example.com/a?q=whimsy+search+with+test", "The default engine's results, for the selection");
   } finally {
-    if (defaultTab) {
-      BrowserTestUtils.removeTab(defaultTab);
+    if (resultTab) {
+      BrowserTestUtils.removeTab(resultTab);
     }
-    if (withTab) {
-      BrowserTestUtils.removeTab(withTab);
+    BrowserTestUtils.removeTab(tab);
+    restore();
+  }
+});
+
+add_task(async function test_opens_like_the_default_row_search_with_engine() {
+  // Same scenario, same assertions, but through the Search With row —
+  // proving it matches the default row's placement exactly.
+  const restore = await onlyTheseEngines([engineA, engineB, engineC]);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  const originalIndex = gBrowser.tabs.indexOf(tab);
+  let resultTab;
+  try {
+    resultTab = await searchAndGetResultTab(tab, async menu => {
+      const searchWithRow = document.getElementById(ROW_ID);
+      await openSubmenu(searchWithRow);
+      menu.activateItem(rowFor(searchWithRow.menupopup, engineB.name));
+    });
+    is(gBrowser.tabs.indexOf(resultTab), originalIndex + 1, "A Search With result opens right next to the tab that opened the menu too — the same placement as the default row");
+    is(gBrowser.selectedTab, resultTab, "…in the foreground, exactly like the default row");
+    is(resultTab.linkedBrowser.currentURI.spec, "https://example.com/b?q=whimsy+search+with+test", "That engine's results, for the same selection");
+  } finally {
+    if (resultTab) {
+      BrowserTestUtils.removeTab(resultTab);
     }
     BrowserTestUtils.removeTab(tab);
     restore();
@@ -191,11 +214,14 @@ add_task(async function test_private_window_excludes_the_private_default() {
       ["browser.search.separatePrivateDefault.featureGate", true],
     ],
   });
-  const restore = await onlyTheseEngines([engineA, engineB, engineC]);
   const previousPrivate = SearchService.defaultPrivateEngine;
   await SearchService.setDefaultPrivate(engineB, SearchService.CHANGE_REASON.UNKNOWN);
   const privateWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
-  let resultTab;
+  // Hide the rest only now: separatePrivateDefault + setDefaultPrivate can
+  // asynchronously re-surface app-provided engines (e.g. "Google") as part
+  // of reconfiguring the engine list, racing a hide done any earlier.
+  let resultTab,
+    restore = await onlyTheseEngines([engineA, engineB, engineC]);
   try {
     const tab = await BrowserTestUtils.openNewForegroundTab(privateWin.gBrowser, PAGE);
     const originalIndex = privateWin.gBrowser.tabs.indexOf(tab);
