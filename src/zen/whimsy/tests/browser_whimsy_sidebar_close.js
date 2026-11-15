@@ -22,38 +22,66 @@ function snapshot(frame) {
   return `f${frame} L${Math.round(r.left)} R${Math.round(r.right)} pos=${cs.position} tr=${cs.translate} ml=${cs.marginLeft} anim=${el.getAnimations().length} hover=${el.matches(":hover")} root=${root.hasAttribute("zen-compact-animating") ? "A" : ""}${root.getAttribute("zen-compact-mode")} ign=${!!gZenCompactModeManager._ignoreNextHover} [${attrs}]`;
 }
 
-async function trace(label, frames = 60) {
+
+// Logs a frame only when its state changes. `jitter` moves the pointer by a
+// pixel each frame, as a resting hand does; `repeatAt` sends a second key
+// press (auto-repeat) at that frame.
+async function trace(label, { frames = 50, jitter = null, repeatAt = 0 } = {}) {
   const log = [];
   let frame = 0;
+  let last = "";
   const mo = new MutationObserver(records => {
     for (const rec of records) {
       log.push(`  mut@f${frame} ${rec.target.id || "root"}.${rec.attributeName}=${rec.target.getAttribute(rec.attributeName)}`);
     }
   });
-  mo.observe(sidebar(), { attributes: true, attributeFilter: [...ATTRS, "style"] });
+  mo.observe(sidebar(), { attributes: true, attributeFilter: ATTRS });
   mo.observe(root, { attributes: true, attributeFilter: ["zen-compact-animating", "zen-compact-mode"] });
+  let toggles = 0;
+  const realToggle = gZenCompactModeManager.toggle;
+  gZenCompactModeManager.toggle = function (...args) {
+    toggles++;
+    log.push(`  toggle(${args}) @f${frame} pref=${this.preference}`);
+    return realToggle.apply(this, args);
+  };
   log.push(snapshot("pre"));
   pressCmdS();
-  log.push(snapshot("key"));
   while (frame < frames) {
     await new Promise(r => requestAnimationFrame(r));
     frame++;
-    log.push(snapshot(frame));
+    if (jitter) {
+      EventUtils.synthesizeMouse(root, jitter.x + (frame % 2), jitter.y, { type: "mousemove" });
+    }
+    if (repeatAt && frame == repeatAt) {
+      pressCmdS();
+    }
+    const snap = snapshot(frame);
+    const key = snap.replace(/^f\d+ /, "");
+    if (key != last) {
+      log.push(snap);
+      last = key;
+    }
   }
+  gZenCompactModeManager.toggle = realToggle;
   mo.disconnect();
-  const out = log.join("\n");
-  for (let i = 0; i < log.length; i += 15) {
-    ok(false, `TRACE ${label} ${i}:\n${log.slice(i, i + 15).join("\n")}`);
+  log.push(`toggles=${toggles}`);
+  for (let i = 0; i < log.length; i += 20) {
+    ok(false, `TRACE ${label} ${i}:\n${log.slice(i, i + 20).join("\n")}`);
   }
-  return out;
 }
 
 async function showSidebar() {
+  EventUtils.synthesizeMouseAtCenter(gBrowser.selectedBrowser, { type: "mousemove" });
   if (gZenCompactModeManager.preference) {
     gZenCompactModeManager.preference = false;
   }
   await TestUtils.waitForCondition(() => !gZenCompactModeManager.preference && !root.hasAttribute("zen-compact-animating"), "Sidebar shown");
   await new Promise(r => setTimeout(r, 600));
+}
+
+function pointAt(x) {
+  const r = sidebar().getBoundingClientRect();
+  return { x: r.left + x, y: r.top + r.height / 2 };
 }
 
 add_task(async function probe() {
@@ -66,18 +94,19 @@ add_task(async function probe() {
   });
   const page = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   delete gZenCompactModeManager._wasInCompactMode;
+  for (const x of [3, 30, 115, 200]) {
+    for (const jit of [false, true]) {
+      await showSidebar();
+      const p = pointAt(x);
+      EventUtils.synthesizeMouse(root, p.x, p.y, { type: "mousemove" });
+      await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "hovered");
+      await trace(`x${x}${jit ? "-jitter" : ""}`, { jitter: jit ? p : null });
+    }
+  }
   await showSidebar();
-
-  // Pointer over the page.
-  EventUtils.synthesizeMouseAtCenter(gBrowser.selectedBrowser, { type: "mousemove" });
-  await trace("off-bar");
-
+  await trace("repeat-f4", { repeatAt: 4 });
   await showSidebar();
-  // Pointer over the bar.
-  EventUtils.synthesizeMouseAtCenter(gBrowser.selectedTab, { type: "mousemove" });
-  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "hovered");
-  await trace("on-bar");
-
+  await trace("repeat-f30", { repeatAt: 30 });
   await showSidebar();
   BrowserTestUtils.removeTab(page);
   await SpecialPowers.popPrefEnv();
