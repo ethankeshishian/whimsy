@@ -237,6 +237,14 @@ add_task(async function test_default_shortcut_fires_and_cheat_sheet() {
     is(document.getElementById("key_whimsyMoveTabUp").getAttribute("modifiers"), "control,shift", "diag: key modifiers before press");
     is(document.getElementById("key_whimsyMoveTabUp").hasAttribute("disabled"), false, "diag: key not disabled");
     is(!!document.getElementById("cmd_whimsyMoveTabUp")?.hasAttribute("disabled"), false, "diag: command not disabled");
+    is(WhimsyTabMove.move(window, b, DIRECTION_BACKWARD), true, "diag: direct move() call succeeds");
+    is(b.index, start - 1, "diag: direct move() changed b's index");
+    WhimsyTabMove.move(window, b, DIRECTION_FORWARD); // restore before the real, keyboard-driven assertions
+    is(b.index, start, "diag: restored b's index before the real test");
+    document.getElementById("cmd_whimsyMoveTabUp").doCommand();
+    is(b.index, start - 1, "diag: cmd_whimsyMoveTabUp.doCommand() moves the tab");
+    WhimsyTabMove.move(window, b, DIRECTION_FORWARD); // restore again
+    is(b.index, start, "diag: restored b's index again before the keyboard assertion");
     EventUtils.synthesizeKey("KEY_ArrowUp", { ctrlKey: true, shiftKey: true }, window);
     is(b.index, start - 1, "Ctrl+Shift+Up runs Move Tab Up");
     EventUtils.synthesizeKey("KEY_ArrowDown", { ctrlKey: true, shiftKey: true }, window);
@@ -278,6 +286,10 @@ add_task(async function test_sidebar_left_right_tree_tabs() {
     openerBrowser: child.linkedBrowser,
   });
   await BrowserTestUtils.browserLoaded(leaf.linkedBrowser);
+  // Opening a tab inserts it next to the *selected* tab, not at the strip's
+  // end; select leaf first so `other` lands after the whole branch, where
+  // its name says it belongs.
+  gBrowser.selectedTab = leaf;
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?nav-other");
   WhimsyTreeTabs.render(window);
   try {
@@ -330,6 +342,10 @@ add_task(async function test_sidebar_left_right_zen_folders() {
   gBrowser.moveTabTo(x, { tabIndex: before.index + 1 });
   gBrowser.moveTabTo(y, { tabIndex: x.index + 1 });
   const folder = await gZenFolders.createFolder([x, y], { renameFolder: false, label: "Nav Test" });
+  // createFolder relocates its members (they no longer sit where moveTabTo
+  // put them above); put `before` right outside the group's first member so
+  // it's the nearest visible tab once the folder collapses, as its name says.
+  gBrowser.moveTabTo(before, { tabIndex: x.index });
   try {
     // y is selected, so it's the folder's visible stand-in once collapsed
     // (tab.mjs's `visible` getter): focus should stay there.
