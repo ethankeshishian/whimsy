@@ -86,20 +86,21 @@ async function typeSpeed(browser, text, { beforeTyping } = {}) {
   await TestUtils.waitForCondition(async () => !(await control(browser)).editing, "Enter applies");
 }
 
-// Resolves with the speed note's text the moment it unhides.
+// Resolves with the speed note's text the moment it next shows one. Watches
+// the text itself, not `hidden`: showNote() always rewrites the text, but a
+// second note can land while the first one is still visible (W29 video's
+// back-to-back seeks), when `hidden` is already false and so never mutates.
 const watchNote = browser =>
   SpecialPowers.spawn(browser, [], () => {
     const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
     const { speednote } = actor.els;
     actor.testNoteShown = new Promise(resolve => {
       const observer = new content.MutationObserver(() => {
-        if (!speednote.hidden) {
-          observer.disconnect();
-          resolve(speednote.textContent);
-        }
+        observer.disconnect();
+        resolve(speednote.textContent);
       });
       // The control is anonymous content: only chromeOnlyNodes sees it.
-      observer.observe(speednote, { attributes: true, attributeFilter: ["hidden"], chromeOnlyNodes: true });
+      observer.observe(speednote, { childList: true, characterData: true, subtree: true, chromeOnlyNodes: true });
     });
   });
 const noteShown = browser =>
