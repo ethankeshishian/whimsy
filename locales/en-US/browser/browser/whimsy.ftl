@@ -1312,8 +1312,14 @@ whimsy-mail-unread-preview =
         [one] { $count } unread message
        *[other] { $count } unread messages
     }
+# W29/cmdrecent: Recently Closed and Synced Tabs join the empty command bar
+# after Recent Documents (nothing already there moves).
+whimsy-command-recently-closed = Recently Closed
+whimsy-command-reopen-tab = Closed { $ago } · Reopen Tab
+whimsy-command-synced-tabs = Synced Tabs
+whimsy-command-open-tab = { $device } · Open Tab
 whimsy-command-recent-tabs-toggle =
-    .label = Show recent tabs when the command bar opens empty
+    .label = Show recent, closed, and synced tabs when the command bar opens empty
 
 # wave3/cmdbar: offline bangs (Settings -> Search).
 whimsy-bangs-header = Bang Shortcuts
