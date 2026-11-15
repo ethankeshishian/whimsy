@@ -124,7 +124,7 @@ fi
 run_with_retry whimsy zen/whimsy/tests || status=1
 # Native-event tests need a visible window; run just those headed.
 wait_for_foreground whimsy-native &&
-(WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js zen/whimsy/tests/browser_whimsy_native_services.js zen/whimsy/tests/browser_whimsy_arc_menu_keys_native.js) || status=1
+(WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js zen/whimsy/tests/browser_whimsy_native_services.js zen/whimsy/tests/browser_whimsy_arc_menu_keys_native.js zen/whimsy/tests/browser_whimsy_window_on_top_native.js) || status=1
 
 if [ -n "$DOWNLOADS_DIR" ] && [ -d "$DOWNLOADS_DIR" ] && [ -f .surfer/verify/downloads-before.txt ]; then
   LC_ALL=C ls -A "$DOWNLOADS_DIR" 2>/dev/null | LC_ALL=C sort > .surfer/verify/downloads-after.txt

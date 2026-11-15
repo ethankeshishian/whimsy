@@ -14,11 +14,23 @@
 // browser_whimsy_arc_menu_keys_native.js use. The pref, command and
 // Settings-row model (which doesn't need the real widget) is covered
 // headless in browser_whimsy_window_on_top.js.
+//
+// The browser.toml skip-if = ["headless"] doesn't apply here: lane.sh's
+// test.sh passes this file's path straight to `./mach test`, which doesn't
+// resolve it through the manifest's conditions, so a lane's headless run
+// executes it anyway and every wait times out (the floating effect is
+// unreachable, not broken). Each task below also checks MOZ_HEADLESS
+// itself, the same way browser_whimsy_upload_targets.js does, so the file
+// is a no-op headless regardless of how it was invoked.
 
 const { WhimsyWindowOnTop } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWindowOnTop.sys.mjs");
 
 const ON_PREF = "whimsy.window-on-top.enabled";
 const FEATURE_PREF = "whimsy.feature.window-on-top";
+
+function skip() {
+  return AppConstants.platform != "macosx" || !!Services.env.get("MOZ_HEADLESS");
+}
 
 function nativeAlwaysOnTop(win) {
   return win.docShell.treeOwner
@@ -36,7 +48,7 @@ registerCleanupFunction(() => {
 });
 
 add_task(async function test_applies_to_real_window() {
-  if (AppConstants.platform != "macosx") {
+  if (skip()) {
     return;
   }
   setPref(true);
@@ -46,7 +58,7 @@ add_task(async function test_applies_to_real_window() {
 });
 
 add_task(async function test_global_not_per_window() {
-  if (AppConstants.platform != "macosx") {
+  if (skip()) {
     return;
   }
   setPref(false);
@@ -70,7 +82,7 @@ add_task(async function test_global_not_per_window() {
 });
 
 add_task(async function test_persists_across_window_open_close() {
-  if (AppConstants.platform != "macosx") {
+  if (skip()) {
     return;
   }
   // Closing a window must not reset the global pref (the design's original
