@@ -98,6 +98,7 @@ add_task(async function check_again_reruns_and_shows_checking() {
 
     WhimsySafetyCheck._readUpdates = async () => [{ staged: { version: "1.24b-w3.8" } }, { version: "1.24b-w3.7" }];
     const button = doc.getElementById("whimsySafetyCheckRun");
+    button.scrollIntoView();
     EventUtils.synthesizeMouseAtCenter(button, {}, win);
     await TestUtils.waitForCondition(
       () => updatesRow.querySelector(".whimsy-safety-check-icon").classList.contains("is-spinning") || updatesRow.classList.contains("is-warn"),
@@ -117,16 +118,19 @@ add_task(async function updates_restart_action() {
       return !a.hidden ? a : null;
     }, "The restart action shows");
     is(action.label, "Restart to update", "Its label");
-    let quitFlags = null;
-    const original = Services.startup.quit;
-    Services.startup.quit = flags => {
-      quitFlags = flags;
-    };
+    const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
+    const quit = sinon.stub(Services.startup, "quit");
     try {
+      action.scrollIntoView();
       EventUtils.synthesizeMouseAtCenter(action, {}, win);
-      is(quitFlags, Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart, "Asks to restart, not just quit");
+      ok(quit.calledOnce, "Asks to quit exactly once");
+      is(
+        quit.firstCall.args[0],
+        Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart,
+        "Asks to restart, not just quit"
+      );
     } finally {
-      Services.startup.quit = original;
+      quit.restore();
     }
   });
 });
@@ -143,6 +147,7 @@ add_task(async function passwords_review_opens_about_logins_filtered_to_alerts()
     }, "The Review action shows");
     is(action.label, "Review", "Its label");
     const opened = BrowserTestUtils.waitForNewTab(gBrowser, "about:logins");
+    action.scrollIntoView();
     EventUtils.synthesizeMouseAtCenter(action, {}, win);
     const tab = await opened;
     is(Services.prefs.getCharPref("signon.management.page.sort"), "alerts", "Sorted to show the breached ones");
@@ -172,6 +177,7 @@ add_task(async function extensions_review_opens_the_addon_in_about_addons() {
       openedView = view;
     };
     try {
+      action.scrollIntoView();
       EventUtils.synthesizeMouseAtCenter(action, {}, win);
       is(openedView, "addons://detail/risky%40ext", "Opens that extension's detail page");
     } finally {
@@ -209,6 +215,7 @@ add_task(async function permissions_sheet_remove_undo_and_remove_all() {
 
       const action = permRow.querySelector(".whimsy-safety-check-action");
       ok(!action.hidden, "Review shows");
+      action.scrollIntoView();
       EventUtils.synthesizeMouseAtCenter(action, {}, win);
 
       const sheet = await TestUtils.waitForCondition(() => doc.getElementById("whimsy-safety-check-sheet"), "The sheet opens");
@@ -224,6 +231,7 @@ add_task(async function permissions_sheet_remove_undo_and_remove_all() {
       const cameraRow = sheetRows().find(r => r.dataset.origin == cameraOrigin);
       const removeButton = cameraRow.querySelector("button.whimsy-surface-text-button");
       ok(removeButton, "Remove is a quiet text button, not a footer button");
+      removeButton.scrollIntoView();
       EventUtils.synthesizeMouseAtCenter(removeButton, {}, win);
       await TestUtils.waitForCondition(() => sheetRows().length == 1, "The row is removed from the sheet");
       is(Services.perms.testPermissionFromPrincipal(cameraPrincipal, "camera"), Services.perms.UNKNOWN_ACTION, "and from the permission manager");
@@ -238,6 +246,7 @@ add_task(async function permissions_sheet_remove_undo_and_remove_all() {
       // Remove all closes the sheet and takes both sites' access with it.
       const removeAll = [...sheet.querySelectorAll("button.whimsy-surface-button")].find(b => b.label == "Remove all");
       ok(removeAll, "Remove all is there");
+      removeAll.scrollIntoView();
       EventUtils.synthesizeMouseAtCenter(removeAll, {}, win);
       await TestUtils.waitForCondition(() => sheet.state != "open", "Remove all closes the sheet");
       is(Services.perms.testPermissionFromPrincipal(cameraPrincipal, "camera"), Services.perms.UNKNOWN_ACTION, "camera gone");
