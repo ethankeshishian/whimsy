@@ -879,6 +879,22 @@ add_task(async function descriptions_are_cached_per_container() {
 
 // Patches WhimsyTabs' own mail detection for `tab` alone, so these tests
 // don't need a real network load of a mail host to exercise the card.
+// Like waiting for ".whimsy-hc-extra" directly, but a timeout carries
+// diagnostic state in its message (card contents, the panel's state, and
+// what the connector stub currently answers) instead of just "timed out".
+async function waitForExtra(card, label) {
+  return TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-extra"), label).catch(async error => {
+    const list = await WhimsyConnectors.list().then(
+      entries => JSON.stringify(entries),
+      e => `list() rejected: ${e}`
+    );
+    throw new Error(
+      `${error.message} | card.isConnected=${card.isConnected} tabPanel.state=${tabPanel()?.state} ` +
+        `card.outerHTML=${card.outerHTML.slice(0, 500)} | WhimsyConnectors.list()=${list}`
+    );
+  });
+}
+
 function stubMailTab(tab, { provider = "google", count = 0, matches = true } = {}) {
   const real = {
     provider: WhimsyTabs.mailProvider,
@@ -995,7 +1011,7 @@ add_task(async function mail_hover_shows_connect_button_when_disconnected() {
   try {
     hoverTab(tab);
     const card = await openTabCard();
-    const extra = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-extra"), "An extra block arrives");
+    const extra = await waitForExtra(card, "An extra block arrives");
     is(extra.dataset.kind, "connect", "A Connect button, not a count");
     const btn = extra.querySelector(".whimsy-hc-connect");
     ok(btn, "The button is there");
@@ -1027,7 +1043,7 @@ add_task(async function mail_hover_falls_back_to_a_count_when_mismatched_or_expi
     try {
       hoverTab(tab);
       const card = await openTabCard();
-      const extra = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-extra"), "An extra block arrives");
+      const extra = await waitForExtra(card, "An extra block arrives");
       is(extra.dataset.kind, "count", `Count fallback for status ${entries[0].status}`);
       is(restoreConnectors.inboxCalls(), 0, "The inbox itself is never fetched for the wrong or expired account");
     } finally {
@@ -1074,7 +1090,7 @@ add_task(async function mail_hover_shows_empty_message_for_an_empty_inbox() {
   try {
     hoverTab(tab);
     const card = await openTabCard();
-    const extra = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-extra"), "An extra block arrives");
+    const extra = await waitForExtra(card, "An extra block arrives");
     is(extra.dataset.kind, "empty", "The empty-inbox message, not rows or a count");
     is(extra.querySelector(".whimsy-hc-extra-note").getAttribute("data-l10n-id"), "whimsy-hover-card-inbox-empty");
   } finally {
