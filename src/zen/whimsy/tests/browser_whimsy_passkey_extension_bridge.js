@@ -83,8 +83,11 @@ const ISOLATED = `
 
 function background() {
   browser.runtime.onMessage.addListener(async (message, sender) => {
-    if (!sender.tab?.url) {
+    if (!sender.tab) {
       return { type: "no-tab" };
+    }
+    if (!sender.tab.url) {
+      return { type: "no-tab-url" };
     }
     const tab = { url: sender.tab.url, cookieStoreId: sender.tab.cookieStoreId };
     if (message.name == "should-intercept") {
@@ -177,6 +180,9 @@ add_setup(async function () {
     background,
     manifest: {
       browser_specific_settings: { gecko: { id: "passkey-bridge@whimsy.test" } },
+      // 1Password's own: the background reads the asking tab's URL, which
+      // needs host access or "tabs".
+      permissions: ["<all_urls>", "tabs"],
       content_scripts: [
         { matches: ["https://*/*"], js: ["isolated.js"], all_frames: true, run_at: "document_start" },
         { matches: ["https://*/*"], js: ["main.js"], all_frames: true, run_at: "document_start", world: "MAIN" },
