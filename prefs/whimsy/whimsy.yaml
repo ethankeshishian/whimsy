@@ -189,6 +189,12 @@
 # The page loads normally; its visit isn't kept (WhimsyAdultHistory).
 - name: whimsy.adult-history.enabled
   value: true
+# W27: Settings → Privacy & Security → "Remove location and camera details
+# from photos you upload". JPEG and PNG files chosen in file inputs or
+# dropped on pages lose Exif, GPS, XMP, and text metadata, losslessly
+# (WhimsyImageMetadata). Off by default.
+- name: whimsy.privacy.strip-image-metadata
+  value: false
 # batch10: Library sidebar panels.
 
 # Profile subdirectory a screenshot capture is saved into (Library → Files).

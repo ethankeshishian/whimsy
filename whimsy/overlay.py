@@ -2115,6 +2115,8 @@ FEATURES = [
     # per installed browser (research/multi-engine.md option A, step 1).
     {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
      "detect": [("src/zen", r"(?i)zen[-_.]?open[-_.]?in[-_.]?(safari|chrome|browser)")]},
+    {"id": "photo-metadata", "title": "Remove location and camera details (Exif, GPS, XMP, and text) from JPEG and PNG photos you upload, losslessly",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(strip[-_.]?image[-_.]?metadata|photo[-_.]?metadata)")]},
 ]
 
 

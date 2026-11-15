@@ -6365,6 +6365,7 @@ whimsy-command-improve = Improve Writing
 whimsy-command-fix = Fix Spelling and Grammar
 whimsy-command-translate = Translate
 whimsy-command-summarize = Summarize
+whimsy-command-quiz = Quiz Me on This Page
 whimsy-commands-detail-selection = Right-click and ⌘K on selected text
 whimsy-commands-detail-page = ⌘K on a page, video, or PDF
 whimsy-ai-jump-commands = Commands
@@ -6623,6 +6624,7 @@ whimsy-cmdk-translate-pair = { $from } → { $to }
 whimsy-cmdk-tag-settings = Settings
 whimsy-cmdk-search-with = Search with { $engine }
 whimsy-cmdk-unavailable-no-text = There’s no text here to summarize.
+whimsy-cmdk-unavailable-no-text-quiz = There’s no text here to quiz you on.
 whimsy-cmdk-replaced-toast = Replaced with { $name }
 whimsy-cmdk-failed-toast = Couldn’t run { $name }. Try again, or check Settings › AI.
 
@@ -8020,6 +8022,17 @@ whimsy-adult-history-toggle =
     .description = Pages still load, but their visits stay out of history, address bar suggestions, Recently Closed, and Whimsy’s Library, Related, and memory. Checked on this Mac; nothing is sent anywhere.
 whimsy-setting-adult-history = History Filter for Adult Sites
     .keywords = adult, explicit, nsfw, porn, history, hide from history, recently closed, suggestions, private
+
+## W27: Settings → Privacy & Security → Photo uploads. JPEG and PNG photos
+## chosen in a file input or dropped on a page lose their metadata.
+
+whimsy-photo-metadata-header =
+    .label = Photo uploads
+whimsy-photo-metadata-toggle =
+    .label = Remove location and camera details from photos you upload
+    .description = JPEG and PNG photos lose their location, camera, and text details as you upload them; the picture itself isn’t changed. Photos you download aren’t touched.
+whimsy-setting-photo-metadata = Photo Location Removal
+    .keywords = exif, gps, location, metadata, camera, photo, picture, image, upload, privacy, strip
 ## W24 emoji: emoji from the command bar (":" or the Emoji command). Mockup:
 ## docs/superpowers/mockups/w24/05-emoji.html.
 

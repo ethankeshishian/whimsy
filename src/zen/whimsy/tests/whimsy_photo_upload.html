@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Photo uploads</title>
+</head>
+<body>
+<!-- W27: a file input and a drop zone that record the bytes they get. -->
+<input id="pick" type="file" multiple>
+<div id="zone" style="width: 240px; height: 120px; border: 1px dashed;">Drop photos here</div>
+<script>
+  window.received = [];
+  // What the test reports when the files don't arrive.
+  window.errors = [];
+  window.events = [];
+  window.addEventListener("error", e => window.errors.push(String(e.message)));
+  window.addEventListener("unhandledrejection", e => window.errors.push(String(e.reason)));
+  for (const type of ["click", "input", "change", "drop"]) {
+    window.addEventListener(type, e => window.events.push(`${type}${e.isTrusted ? "" : " (untrusted)"}`), true);
+  }
+  async function record(kind, files, trusted, text) {
+    const list = [];
+    for (const file of files) {
+      list.push({ name: file.name, type: file.type, bytes: Array.from(new Uint8Array(await file.arrayBuffer())) });
+    }
+    window.received.push({ kind, trusted, text, files: list });
+  }
+  const pick = document.getElementById("pick");
+  pick.addEventListener("change", event => record("change", pick.files, event.isTrusted, null));
+  const zone = document.getElementById("zone");
+  zone.addEventListener("dragover", event => event.preventDefault());
+  zone.addEventListener("drop", event => {
+    event.preventDefault();
+    record("drop", event.dataTransfer.files, event.isTrusted, event.dataTransfer.getData("text/plain"));
+  });
+</script>
+</body>
+</html>
