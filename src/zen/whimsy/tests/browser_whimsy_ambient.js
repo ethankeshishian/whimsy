@@ -178,3 +178,22 @@ add_task(async function test_playing_tile_label_contrast() {
   WhimsyAmbient.stop(window, { immediate: true });
   await closeSheetIfOpen();
 });
+
+// Shots: the sheet with a playing tile (rain), light and dark.
+// WHIMSY_SHOTS=<dir> writes w29-ambient-playing-{light,dark}.png.
+add_task(async function shots() {
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    WhimsyAmbient.openSheet(window);
+    await TestUtils.waitForCondition(() => sheet());
+    await WhimsyAmbient.toggle(window, "rain");
+    await TestUtils.waitForCondition(() => tile("rain").classList.contains("is-on"));
+    await whimsySettled();
+    const undo = whimsyStandInPopups();
+    await whimsyShot(`w29-ambient-playing-${dark ? "dark" : "light"}`);
+    undo();
+    WhimsyAmbient.stop(window, { immediate: true });
+    await closeSheetIfOpen();
+    await SpecialPowers.popPrefEnv();
+  }
+});
