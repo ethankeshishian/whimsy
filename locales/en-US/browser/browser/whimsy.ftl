@@ -3127,10 +3127,12 @@ whimsy-keywords-focus = Focus, Pomodoro, Timer, Block, Distraction
 whimsy-focus-sheet-title = Focus session
 whimsy-focus-length =
     .aria-label = Length
-# $minutes (Number) - the length the dial is set to.
-whimsy-focus-length-value = { $minutes ->
-    [one] { $minutes } minute
-   *[other] { $minutes } minutes
+# What VoiceOver reads for the length picker.
+# $minutes (Number) - the length the picker is set to.
+# $time (String) - when a session that long would end, such as 3:40 PM.
+whimsy-focus-length-spoken = { $minutes ->
+    [one] { $minutes } minute, ends at { $time }
+   *[other] { $minutes } minutes, ends at { $time }
 }
 # The unit under the dial's big number.
 whimsy-focus-min = min

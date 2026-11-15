@@ -147,7 +147,7 @@ add_task(async function sheet_defaults_and_remembered_ticks() {
   ok(parts.ends.textContent.length, "Ends at shows");
   is(boxes.dnd.getAttribute("aria-labelledby"), `${SHEET_ID}-dnd-label`, "Each box is labelled by its row");
 
-  // The whole row ticks; the keyboard moves the dial.
+  // The whole row ticks; the keyboard moves the picker.
   EventUtils.synthesizeMouseAtCenter(document.getElementById(`${SHEET_ID}-muteBackground-label`), {});
   ok(boxes.muteBackground.checked, "Clicking the row ticks its box");
   picker.element.focus();
@@ -405,7 +405,7 @@ add_task(async function reduced_motion() {
   resetPrefs();
   await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
   const parts = await openSheet();
-  const big = parts.picker.element.querySelector(".whimsy-focus-dial-value");
+  const big = parts.picker.element.querySelector(".whimsy-focus-selector-value");
   parts.picker.element.focus();
   EventUtils.synthesizeKey("KEY_ArrowUp", {});
   ok(!big.classList.contains("is-bump"), "No bump with Reduce Motion");
@@ -422,12 +422,12 @@ add_task(async function reduced_motion() {
   WhimsyFocusSession.doneHoldMs = HOLD_MS;
   await SpecialPowers.popPrefEnv();
 
-  // With motion: the dial bumps and confetti falls.
+  // With motion: the reading bumps and confetti falls.
   await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
   const moving = await openSheet();
   moving.picker.element.focus();
   EventUtils.synthesizeKey("KEY_ArrowUp", {});
-  ok(moving.picker.element.querySelector(".whimsy-focus-dial-value").classList.contains("is-bump"), "The number bumps");
+  ok(moving.picker.element.querySelector(".whimsy-focus-selector-value").classList.contains("is-bump"), "The number bumps");
   await closeSheet(moving);
   WhimsyFocusSession.doneHoldMs = 100;
   WhimsyFocusSession.start(window, { minutes: 1, dnd: false, pauseSites: false, muteBackground: false, breakReminder: false });
@@ -468,6 +468,147 @@ add_task(async function the_picker_is_swappable() {
   is(picker.value, 120, "It holds 1 to 120 minutes");
   is(changes.length, 0, "Setting the value doesn't report a change");
   is(typeof picker.focus, "function", "It can take focus");
+  const dial = WhimsyFocusPicker.create(document, { value: 30, kind: "dial" });
+  ok(dial.element.classList.contains("whimsy-focus-dial"), "The W28 dial is still a kind");
+  ok(picker.element.classList.contains("whimsy-focus-selector"), "The default is the Selector");
+});
+
+// --- R · the Selector ---------------------------------------------------------------
+
+const SEL_ANGLE = v => -135 + (v / 120) * 270;
+
+// The knob's angle, read from its transform.
+function pointsAt(picker, minutes, what) {
+  Assert.less(Math.abs(selectorAngle(picker) - SEL_ANGLE(minutes)), 0.01, what);
+}
+
+function selectorAngle(picker) {
+  const t = picker.element.querySelector(".whimsy-focus-selector-rot").getAttribute("transform");
+  return parseFloat(/rotate\(([-\d.]+)/.exec(t)[1]);
+}
+
+// A point on the scale at `minutes`, in the picker's own coordinates.
+function selectorPoint(picker, minutes) {
+  const svg = picker.element.querySelector("svg");
+  const r = svg.getBoundingClientRect();
+  const a = (SEL_ANGLE(minutes) * Math.PI) / 180;
+  const sx = r.width / 240;
+  const sy = r.height / 204;
+  return [(120 + 70 * Math.sin(a)) * sx, (100 - 70 * Math.cos(a)) * sy];
+}
+
+function selectorMouse(picker, minutes, type) {
+  const [x, y] = selectorPoint(picker, minutes);
+  EventUtils.synthesizeMouse(picker.element, x, y, { type }, picker.element.ownerDocument.defaultView);
+}
+
+add_task(async function the_selector() {
+  resetPrefs();
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  const parts = await openSheet();
+  const { picker } = parts;
+  const el = picker.element;
+  ok(el.classList.contains("whimsy-focus-selector"), "The sheet's picker is the Selector");
+  is(el.getAttribute("role"), "slider", "It's a slider");
+  is(el.getAttribute("aria-label"), "Length", "Called Length");
+  is(el.getAttribute("aria-valuemin"), "1", "From 1");
+  is(el.getAttribute("aria-valuemax"), "120", "To 120");
+  await TestUtils.waitForCondition(() => el.getAttribute("aria-valuetext")?.startsWith("25 minutes, ends at "), "It reads 25 minutes and the end time");
+  is(el.querySelectorAll(".whimsy-focus-selector-tick").length, 25, "A mark every 5 minutes");
+  is(el.querySelectorAll(".whimsy-focus-selector-tick.is-15").length, 9, "Quarter hours are longer");
+  is(
+    [...el.querySelectorAll(".whimsy-focus-selector-label")].map(t => t.textContent).join(" "),
+    "15 30 45 60 75 90 105 120",
+    "Quarter hours are labelled"
+  );
+  pointsAt(picker, 25, "The knob points at 25");
+
+  // Keys and the wheel move it by single minutes, between the marks.
+  el.focus();
+  const keys = [
+    ["KEY_ArrowUp", {}, 26],
+    ["KEY_ArrowRight", {}, 27],
+    ["KEY_ArrowDown", {}, 26],
+    ["KEY_ArrowLeft", {}, 25],
+    ["KEY_ArrowUp", { shiftKey: true }, 30],
+    ["KEY_ArrowDown", { shiftKey: true }, 25],
+    ["KEY_PageUp", {}, 30],
+    ["KEY_PageDown", {}, 25],
+    ["KEY_End", {}, 120],
+    ["KEY_Home", {}, 1],
+  ];
+  for (const [key, mods, want] of keys) {
+    EventUtils.synthesizeKey(key, mods);
+    is(picker.value, want, `${key}${mods.shiftKey ? " with Shift" : ""} goes to ${want}`);
+    pointsAt(picker, want, "With Reduce Motion the knob jumps there");
+    ok(!picker.moving, "And asks for no frames");
+  }
+  await TestUtils.waitForCondition(() => el.getAttribute("aria-valuetext")?.startsWith("1 minute, ends at "), "One minute is singular");
+  picker.value = 25;
+  EventUtils.synthesizeWheel(el, 20, 20, { deltaY: -1, deltaMode: WheelEvent.DOM_DELTA_LINE });
+  is(picker.value, 26, "Scrolling up adds a minute");
+  EventUtils.synthesizeWheel(el, 20, 20, { deltaY: 1, deltaMode: WheelEvent.DOM_DELTA_LINE });
+  is(picker.value, 25, "Scrolling down takes one off");
+
+  // A drag clunks into the 5-minute stops.
+  selectorMouse(picker, 47, "mousedown");
+  ok(el.classList.contains("is-held"), "The knob is held");
+  is(picker.value, 45, "Pressing near 47 lands on 45");
+  selectorMouse(picker, 62, "mousemove");
+  is(picker.value, 60, "Dragging to 62 lands on 60");
+  selectorMouse(picker, 88, "mousemove");
+  is(picker.value, 90, "And 88 on 90");
+  pointsAt(picker, 90, "The knob jumps with Reduce Motion");
+  ok(!picker.moving, "No frames with Reduce Motion");
+  selectorMouse(picker, 88, "mouseup");
+  ok(!el.classList.contains("is-held"), "Letting go releases it");
+
+  // There's a stop at each end; the pointer can't jump across the gap.
+  selectorMouse(picker, 119, "mousedown");
+  is(picker.value, 120, "Up to the top stop");
+  selectorMouse(picker, 2, "mousemove");
+  is(picker.value, 120, "Crossing the gap doesn't flip to the start");
+  selectorMouse(picker, 2, "mouseup");
+  selectorMouse(picker, 1, "mousedown");
+  is(picker.value, 5, "A drag's lowest stop is 5");
+  selectorMouse(picker, 1, "mouseup");
+  is(document.activeElement, el, "Dragging focuses the picker");
+
+  for (const name of ["dnd", "pauseSites", "breakReminder"]) {
+    parts.boxes[name].click();
+  }
+  await startFromSheet(parts);
+  is(Services.prefs.getIntPref(P.lastLength), 5, "Start remembers the pick");
+  await endSession();
+  const again = await openSheet();
+  is(again.picker.value, 5, "The next sheet opens at it");
+  pointsAt(again.picker, 5, "Pointing at it");
+  await closeSheet(again);
+  await SpecialPowers.popPrefEnv();
+
+  // With motion: the knob springs to each stop, then stops asking for frames.
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
+  const moving = await openSheet();
+  const p = moving.picker;
+  selectorMouse(p, 30, "mousedown");
+  is(p.value, 30, "Pressing at 30 lands on 30");
+  ok(p.moving, "The knob springs there");
+  ok(p.element.querySelector(".whimsy-focus-selector-value").classList.contains("is-bump"), "The reading bumps");
+  await TestUtils.waitForCondition(() => !p.moving, "The spring settles");
+  pointsAt(p, 30, "On the stop");
+  selectorMouse(p, 30, "mouseup");
+  p.element.focus();
+  EventUtils.synthesizeKey("KEY_ArrowUp", {});
+  ok(p.moving, "Keys use the settle spring");
+  await TestUtils.waitForCondition(() => !p.moving, "It settles");
+  pointsAt(p, 31, "Between the marks");
+  const before = p.element.querySelector(".whimsy-focus-selector-rot").getAttribute("transform");
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  is(p.element.querySelector(".whimsy-focus-selector-rot").getAttribute("transform"), before, "Idle, it draws nothing");
+  ok(!p.moving, "And asks for no frames");
+  await closeSheet(moving);
+  await SpecialPowers.popPrefEnv();
+  resetPrefs();
 });
 
 // --- Settings › General › Focus Sessions -------------------------------------------
