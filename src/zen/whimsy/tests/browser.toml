@@ -347,6 +347,10 @@ support-files = ["whimsy_calendar.sjs"]
 # ext: per-space extensions
 ["browser_whimsy_space_extensions.js"]
 
+# W28 ext: "Run in profiles:" in Firefox's add-extension prompt, and adding
+# a profile to an already-installed extension without reinstalling it.
+["browser_whimsy_space_extensions_install.js"]
+
 # batch hist: visit metadata and the Library History space filter.
 ["browser_whimsy_space_history.js"]
 
@@ -1308,6 +1312,10 @@ support-files = ["whimsy_field_editor.html"]
 # W27 winprefs: Settings → Tab Management → "Open pop-up windows as tabs" (off: a window; on: a tab that keeps window.opener).
 ["browser_whimsy_popups_as_tabs.js"]
 support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
+
+# W28: "Open in Safari" / "Open in Chrome", one command-bar row per
+# installed browser, hands the tab's address to `open -a <app> <url>`.
+["browser_whimsy_open_in_browser.js"]
 
 # W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
 ["browser_whimsy_dim_inactive_window.js"]
