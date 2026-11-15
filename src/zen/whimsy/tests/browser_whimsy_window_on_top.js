@@ -8,9 +8,17 @@
 // owner's sign-off overrode that with "Need for mini whimsy as a global
 // setting. Generally the user only has one window open." So one pref
 // (whimsy.window-on-top.enabled) applies to every open Whimsy window,
-// including Mini Whimsy, and persists across restarts: this file covers the
-// global semantics, not the design's original per-window assumptions
-// (a second window was unaffected; closing a window forgot it).
+// including Mini Whimsy, and persists across restarts.
+//
+// This file is the headless-safe model: the pref, the command/variants, the
+// full-screen rule (a fake window, no real transition) and the Settings
+// checkbox. A real top-level window is a HeadlessWidget under --headless
+// (AppWindow.cpp: gfxPlatform::IsHeadless() swaps in CreateHeadlessWidget,
+// which doesn't override nsIWidget's SetAlwaysOnTop/GetAlwaysOnTop), so the
+// real, native floating effect can only be observed in a headed window;
+// that part is browser_whimsy_window_on_top_native.js, skipped when
+// headless and run by verify.sh's whimsy-native suite (same split as
+// browser_whimsy_ctrl_tab_native.js and browser_whimsy_arc_menu_keys_native.js).
 
 const { WhimsyWindowOnTop } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWindowOnTop.sys.mjs");
 const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
@@ -74,60 +82,9 @@ add_task(async function test_command_registered() {
   await SpecialPowers.popPrefEnv();
 });
 
-add_task(async function test_applies_to_real_window() {
-  if (AppConstants.platform != "macosx") {
-    return;
-  }
-  setPref(true);
-  await TestUtils.waitForCondition(() => nativeAlwaysOnTop(window), "The pref floats this window");
-  setPref(false);
-  await TestUtils.waitForCondition(() => !nativeAlwaysOnTop(window), "Turning it off stops floating it");
-});
-
-add_task(async function test_global_not_per_window() {
-  if (AppConstants.platform != "macosx") {
-    return;
-  }
-  setPref(false);
-  const win2 = await BrowserTestUtils.openNewBrowserWindow();
-  try {
-    await TestUtils.waitForCondition(() => win2._whimsyWindowOnTop, "The second window's bootstrap ran");
-    is(nativeAlwaysOnTop(win2), false, "The second window starts off, same as the first");
-
-    // The global pref, not a per-window toggle: turning it on from either
-    // window floats both, unlike the design's original per-window proposal.
-    setPref(true);
-    await TestUtils.waitForCondition(() => nativeAlwaysOnTop(window), "First window floats");
-    await TestUtils.waitForCondition(() => nativeAlwaysOnTop(win2), "Second window floats too");
-
-    setPref(false);
-    await TestUtils.waitForCondition(() => !nativeAlwaysOnTop(window), "First window stops floating");
-    await TestUtils.waitForCondition(() => !nativeAlwaysOnTop(win2), "Second window stops floating too");
-  } finally {
-    await BrowserTestUtils.closeWindow(win2);
-  }
-});
-
-add_task(async function test_persists_across_window_open_close() {
-  if (AppConstants.platform != "macosx") {
-    return;
-  }
-  // Closing a window must not reset the global pref (the design's original
-  // per-window behavior did); a window opened afterward still picks it up.
-  setPref(true);
-  const win2 = await BrowserTestUtils.openNewBrowserWindow();
-  await TestUtils.waitForCondition(() => nativeAlwaysOnTop(win2), "New window starts floating, since the pref is already on");
-  await BrowserTestUtils.closeWindow(win2);
-  ok(Services.prefs.getBoolPref(ON_PREF), "Closing a window leaves the global pref on");
-
-  const win3 = await BrowserTestUtils.openNewBrowserWindow();
-  try {
-    await TestUtils.waitForCondition(() => nativeAlwaysOnTop(win3), "A newly opened window still floats");
-  } finally {
-    await BrowserTestUtils.closeWindow(win3);
-  }
-  setPref(false);
-});
+// The real, native floating effect (a second window, surviving a window
+// close, actually setting the native widget's level) needs a headed window:
+// see browser_whimsy_window_on_top_native.js.
 
 add_task(async function test_full_screen_unavailable() {
   // Full screen can't float (Cocoa), so the command is unavailable there,

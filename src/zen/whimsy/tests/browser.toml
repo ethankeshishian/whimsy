@@ -272,6 +272,13 @@ support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_di
 
 ["browser_whimsy_window_on_top.js"]
 
+# W28: the real floating effect needs a headed window (HeadlessWidget under
+# --headless doesn't override SetAlwaysOnTop/GetAlwaysOnTop); verify.sh's
+# whimsy-native suite runs it.
+["browser_whimsy_window_on_top_native.js"]
+run-if = ["os == 'mac'"]
+skip-if = ["headless"] # real window-level floating needs a real window; verify.sh runs it headed
+
 ["browser_whimsy_full_url_click.js"]
 
 ["browser_whimsy_hw_decode.js"]
