@@ -364,6 +364,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFieldEditor: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs",
 });
 
+// W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyOpenInBrowser: "resource:///modules/whimsy/WhimsyOpenInBrowser.sys.mjs",
+});
+
 // batch9: W9-06 smart address bar buttons.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySmartButtons: "resource:///modules/whimsy/WhimsySmartButtons.sys.mjs",
@@ -461,6 +466,12 @@ export const Whimsy = {
           // The paste badges: the page asks for the indicator's state.
           pageshow: { mozSystemGroup: true },
           pagehide: { mozSystemGroup: true },
+          // W27: photos lose their location and camera details before the
+          // page sees them, so these come first: capture, in the default
+          // group (the system group runs after the page's listeners).
+          input: { capture: true },
+          change: { capture: true },
+          drop: { capture: true },
         },
       },
       allFrames: true,
@@ -1219,6 +1230,9 @@ export const Whimsy = {
     later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
     // W27: Edit Field in Text Editor (command bar), at the focused field.
     later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
+    // W28: "Open in Safari" / "Open in Chrome" (command bar), one row per
+    // installed browser.
+    later("open-in-browser-commands", () => lazy.WhimsyOpenInBrowser.initWindow(win));
     // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
     // into the space it makes. After Zen's spaces are ready.
     run("move-to-new-space", () =>

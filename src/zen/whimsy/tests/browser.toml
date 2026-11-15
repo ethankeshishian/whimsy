@@ -338,6 +338,10 @@ support-files = ["whimsy_calendar.sjs"]
 # ext: per-space extensions
 ["browser_whimsy_space_extensions.js"]
 
+# W28 ext: "Run in profiles:" in Firefox's add-extension prompt, and adding
+# a profile to an already-installed extension without reinstalling it.
+["browser_whimsy_space_extensions_install.js"]
+
 # batch hist: visit metadata and the Library History space filter.
 ["browser_whimsy_space_history.js"]
 
@@ -939,7 +943,7 @@ support-files = ["whimsy_mini_links.html", "whimsy_oauth_opener.html", "whimsy_o
 
 # Mini windows archive after inactivity; manual closes share the Mini reason.
 ["browser_whimsy_mini_archive.js"]
-# wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
+# wave9: W9-04 site settings ("Site Settings" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
 ["browser_whimsy_site_settings.js"]
 head = "head.js head-leakcheck.js"
 support-files = ["whimsy_article.html"]
@@ -1118,6 +1122,11 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 
 # W23 commands: the store, Link commands, Settings › AI › Commands, and screenshots
 ["browser_whimsy_ai_commands.js"]
+# W27: Quiz Me on This Page, a built-in command.
+["browser_whimsy_ai_quiz.js"]
+# W27: photos you upload lose their location and camera details, losslessly.
+["browser_whimsy_photo_metadata.js"]
+support-files = ["whimsy_photo_meta.jpg", "whimsy_photo_meta_mpf.jpg", "whimsy_photo_meta.png", "whimsy_photo_upload.html"]
 ["browser_whimsy_screens_w23_commands.js"]
 support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
 
@@ -1287,6 +1296,10 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 ["browser_whimsy_dark_pages_screens_site_panel.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
+# W26 site panel: Profile Settings + Site Settings, profiles keep their own permissions, dark mode, and zoom; the migration.
+["browser_whimsy_site_panel_profiles.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
 ["browser_whimsy_dark_pages_screens_settings.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 ["browser_whimsy_mcp_approval.js"]
@@ -1309,6 +1322,10 @@ support-files = ["whimsy_field_editor.html"]
 # W27 winprefs: Settings → Tab Management → "Open pop-up windows as tabs" (off: a window; on: a tab that keeps window.opener).
 ["browser_whimsy_popups_as_tabs.js"]
 support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
+
+# W28: "Open in Safari" / "Open in Chrome", one command-bar row per
+# installed browser, hands the tab's address to `open -a <app> <url>`.
+["browser_whimsy_open_in_browser.js"]
 
 # W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
 ["browser_whimsy_dim_inactive_window.js"]

@@ -1312,8 +1312,14 @@ whimsy-mail-unread-preview =
         [one] { $count } unread message
        *[other] { $count } unread messages
     }
+# W29/cmdrecent: Recently Closed and Synced Tabs join the empty command bar
+# after Recent Documents (nothing already there moves).
+whimsy-command-recently-closed = Recently Closed
+whimsy-command-reopen-tab = Closed { $ago } · Reopen Tab
+whimsy-command-synced-tabs = Synced Tabs
+whimsy-command-open-tab = { $device } · Open Tab
 whimsy-command-recent-tabs-toggle =
-    .label = Show recent tabs when the command bar opens empty
+    .label = Show recent, closed, and synced tabs when the command bar opens empty
 
 # wave3/cmdbar: offline bangs (Settings -> Search).
 whimsy-bangs-header = Bang Shortcuts
@@ -1860,6 +1866,11 @@ whimsy-meeting-untitled = Meeting
 # wave4: extension space picker in about:addons
 whimsy-space-extensions-picker = Run in Profiles
 whimsy-space-extensions-all-text = All Profiles
+# Firefox's "Add extension" prompt, under "Optional settings:": one
+# checkbox per profile (named as the user named it); the profile you're in
+# is checked and locked, with this detail under its name.
+whimsy-space-extensions-install-label = Run in profiles:
+whimsy-space-extensions-install-current = this profile
 whimsy-space-extensions-shared-note = Installed once: its settings and saved data are shared by every profile, and it can still read history and downloads from all of them.
 
 # wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
@@ -4365,7 +4376,13 @@ whimsy-pagedev-evidence =
     }
 ## wave9: W9-04 site settings ("This Site" in the site panel)
 whimsy-action-site-settings = Site Settings…
-whimsy-site-settings-title = This Site
+# W26: the site panel's two headings. Each is followed by the profile's
+# name or the site's host.
+whimsy-site-settings-profile-heading = Profile Settings
+whimsy-site-settings-site-heading = Site Settings
+whimsy-site-settings-profile-dark-mode = Automatic Dark Mode
+whimsy-site-settings-dark-mode = Dark Mode
+whimsy-site-settings-tracking = Tracking Protection
 whimsy-site-settings-forget-all = Forget All
 whimsy-site-settings-zoom = Zoom
 # W10-16: the zoom stepper (− / the % / +); the % resets.
@@ -4398,6 +4415,69 @@ whimsy-site-settings-useragent-custom = Custom…
 whimsy-site-settings-private-note = Private window: these settings are forgotten when you close your private tabs.
 # $site (string) - the site's host, e.g. example.com
 whimsy-site-settings-forgot-toast = Forgot settings for { $site }
+# W28: hover tooltips for each row of Profile Settings and Site Settings,
+# one short sentence on what the setting does.
+whimsy-site-settings-profile-dark-pages-tooltip =
+    .tooltiptext = Gives every site in this profile a dark look, unless a site has its own Dark Mode setting.
+whimsy-site-settings-dark-pages-tooltip =
+    .tooltiptext = Gives this site a dark look, using its own dark theme when it has one.
+whimsy-site-settings-tracking-tooltip =
+    .tooltiptext = Blocks trackers that follow you across sites.
+whimsy-site-settings-zoom-tooltip =
+    .tooltiptext = Sets how large this site’s pages appear, and remembers it.
+whimsy-site-settings-autoplay-tooltip =
+    .tooltiptext = Chooses whether this site can play sound and video by itself.
+whimsy-site-settings-reader-tooltip =
+    .tooltiptext = Opens this site’s articles in Reader View, without ads, menus, and clutter.
+whimsy-site-settings-fullscreen-tooltip =
+    .tooltiptext = Fills the whole screen whenever this site is in front.
+whimsy-site-settings-useragent-tooltip =
+    .tooltiptext = Tells this site you’re using a different browser, for sites that only work in one.
+# Each permission row (Firefox's SitePermissions ids).
+whimsy-site-settings-permission-tooltip =
+    .tooltiptext = Chooses whether this site can use this feature.
+whimsy-site-settings-permission-cookie-tooltip =
+    .tooltiptext = Chooses whether this site can save cookies, which keep you signed in and remember your choices.
+whimsy-site-settings-permission-desktop-notification-tooltip =
+    .tooltiptext = Chooses whether this site can send you notifications.
+whimsy-site-settings-permission-camera-tooltip =
+    .tooltiptext = Chooses whether this site can use your camera.
+whimsy-site-settings-permission-microphone-tooltip =
+    .tooltiptext = Chooses whether this site can use your microphone.
+whimsy-site-settings-permission-screen-tooltip =
+    .tooltiptext = Chooses whether this site can see and share your screen or windows.
+whimsy-site-settings-permission-speaker-tooltip =
+    .tooltiptext = Chooses whether this site can pick which speakers play its sound.
+whimsy-site-settings-permission-popup-tooltip =
+    .tooltiptext = Chooses whether this site can open pop-up windows.
+whimsy-site-settings-permission-install-tooltip =
+    .tooltiptext = Chooses whether this site can offer to install add-ons.
+whimsy-site-settings-permission-geo-tooltip =
+    .tooltiptext = Chooses whether this site can know your location.
+whimsy-site-settings-permission-open-protocol-handler-tooltip =
+    .tooltiptext = Chooses whether this site can open other apps on your computer.
+whimsy-site-settings-permission-xr-tooltip =
+    .tooltiptext = Chooses whether this site can use virtual reality headsets.
+whimsy-site-settings-permission-focus-tab-by-prompt-tooltip =
+    .tooltiptext = Chooses whether this site can bring its tab to the front when it shows an alert.
+whimsy-site-settings-permission-persistent-storage-tooltip =
+    .tooltiptext = Chooses whether this site can keep its data when your disk runs low on space.
+whimsy-site-settings-permission-persist-data-on-shutdown-tooltip =
+    .tooltiptext = Chooses whether this site’s cookies and data are kept when Whimsy closes.
+whimsy-site-settings-permission-shortcuts-tooltip =
+    .tooltiptext = Chooses whether this site can take over Whimsy’s keyboard shortcuts.
+whimsy-site-settings-permission-canvas-tooltip =
+    .tooltiptext = Chooses whether this site can read drawn image data, which can be used to identify you.
+whimsy-site-settings-permission-midi-tooltip =
+    .tooltiptext = Chooses whether this site can use your MIDI instruments and devices.
+whimsy-site-settings-permission-midi-sysex-tooltip =
+    .tooltiptext = Chooses whether this site can send advanced commands to your MIDI devices, such as updates.
+whimsy-site-settings-permission-serial-tooltip =
+    .tooltiptext = Chooses whether this site can connect to devices plugged into your computer.
+whimsy-site-settings-permission-loopback-network-tooltip =
+    .tooltiptext = Chooses whether this site can connect to apps running on this computer.
+whimsy-site-settings-permission-local-network-tooltip =
+    .tooltiptext = Chooses whether this site can connect to devices on your home or office network.
 ## wave7/easel: View Easels…, Add Page to Easel, Copy Link
 
 whimsy-action-view-easels = View Easels…
@@ -6285,6 +6365,7 @@ whimsy-command-improve = Improve Writing
 whimsy-command-fix = Fix Spelling and Grammar
 whimsy-command-translate = Translate
 whimsy-command-summarize = Summarize
+whimsy-command-quiz = Quiz Me on This Page
 whimsy-commands-detail-selection = Right-click and ⌘K on selected text
 whimsy-commands-detail-page = ⌘K on a page, video, or PDF
 whimsy-ai-jump-commands = Commands
@@ -6543,6 +6624,7 @@ whimsy-cmdk-translate-pair = { $from } → { $to }
 whimsy-cmdk-tag-settings = Settings
 whimsy-cmdk-search-with = Search with { $engine }
 whimsy-cmdk-unavailable-no-text = There’s no text here to summarize.
+whimsy-cmdk-unavailable-no-text-quiz = There’s no text here to quiz you on.
 whimsy-cmdk-replaced-toast = Replaced with { $name }
 whimsy-cmdk-failed-toast = Couldn’t run { $name }. Try again, or check Settings › AI.
 
@@ -7940,6 +8022,17 @@ whimsy-adult-history-toggle =
     .description = Pages still load, but their visits stay out of history, address bar suggestions, Recently Closed, and Whimsy’s Library, Related, and memory. Checked on this Mac; nothing is sent anywhere.
 whimsy-setting-adult-history = History Filter for Adult Sites
     .keywords = adult, explicit, nsfw, porn, history, hide from history, recently closed, suggestions, private
+
+## W27: Settings → Privacy & Security → Photo uploads. JPEG and PNG photos
+## chosen in a file input or dropped on a page lose their metadata.
+
+whimsy-photo-metadata-header =
+    .label = Photo uploads
+whimsy-photo-metadata-toggle =
+    .label = Remove location and camera details from photos you upload
+    .description = JPEG and PNG photos lose their location, camera, and text details as you upload them; the picture itself isn’t changed. Photos you download aren’t touched.
+whimsy-setting-photo-metadata = Photo Location Removal
+    .keywords = exif, gps, location, metadata, camera, photo, picture, image, upload, privacy, strip
 ## W24 emoji: emoji from the command bar (":" or the Emoji command). Mockup:
 ## docs/superpowers/mockups/w24/05-emoji.html.
 
@@ -7969,7 +8062,6 @@ whimsy-dark-pages-dim = Dim images
 whimsy-dark-pages-dim-description = Photos a little darker on dark pages
 whimsy-dark-pages-sites = Sites you changed
 whimsy-dark-pages-reset = Reset
-whimsy-dark-pages-site-title = Automatic dark mode
 whimsy-dark-pages-dark = Dark
 whimsy-dark-pages-original = Original
 whimsy-dark-pages-button-dark =
@@ -8282,3 +8374,8 @@ whimsy-passkeys-delete =
 whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
 whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
 whimsy-setting-passkeys = Passkeys
+
+# W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md),
+# command-bar rows shown only when that browser is installed.
+whimsy-action-open-in-safari = Open in Safari
+whimsy-action-open-in-chrome = Open in Chrome
