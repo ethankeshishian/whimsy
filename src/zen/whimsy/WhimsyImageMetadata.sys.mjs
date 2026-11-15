@@ -299,8 +299,7 @@ export function stripImageMetadata(input) {
 }
 
 // A file's bytes, in this module's global. A page's file (with its window)
-// is read by a FileReader of the page's: in a web content process, a read
-// whose promise belongs to this shared module global never finishes.
+// is read by the page's own FileReader, then copied over.
 async function readBytes(file, win) {
   if (!win) {
     return new Uint8Array(await file.arrayBuffer());

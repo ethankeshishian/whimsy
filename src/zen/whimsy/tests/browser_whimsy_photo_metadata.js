@@ -276,15 +276,6 @@ add_task(async function file_input_gets_stripped_photos() {
 add_task(async function file_input_untouched_when_off() {
   await withPhotoPage(false, async browser => {
     const got = await chooseFiles(browser);
-    // TEMP diagnostic: can chrome read the chosen files through an Xray?
-    const probe = await SpecialPowers.spawn(browser, [], async () => {
-      const files = [...content.document.getElementById("pick").files];
-      const timeout = new Promise(r => content.setTimeout(() => r("timeout"), 2000));
-      const xray = await Promise.race([Promise.all(files.map(f => f.arrayBuffer())).then(a => a.map(b => b.byteLength).join()), timeout]);
-      const blob = await Promise.race([new Blob([files[0]]).arrayBuffer().then(b => b.byteLength), timeout]);
-      return `xray ${xray}, blob ${blob}`;
-    });
-    info(`TEMP probe: ${probe}`);
     ok(got.trusted, "The browser's own change reached the page");
     ok(same(got.files[0].bytes, jpeg), "The JPEG is byte for byte what was chosen");
     ok(same(got.files[1].bytes, png), "and so is the PNG");

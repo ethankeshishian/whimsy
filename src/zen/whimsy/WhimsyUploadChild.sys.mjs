@@ -436,6 +436,18 @@ export class WhimsyUploadChild extends JSWindowActorChild {
   // W27: file inputs whose chosen photos are being stripped (their trusted
   // input and change both wait for it).
   stripping = new WeakSet();
+  // W27: set while Whimsy hands a held event to the page again. Events
+  // Whimsy dispatches are trusted too, so isTrusted can't tell them apart.
+  redispatching = false;
+
+  redispatch(target, event) {
+    this.redispatching = true;
+    try {
+      target.dispatchEvent(event);
+    } finally {
+      this.redispatching = false;
+    }
+  }
 
   get isTop() {
     return this.browsingContext && this.browsingContext == this.browsingContext.top;
@@ -493,11 +505,11 @@ export class WhimsyUploadChild extends JSWindowActorChild {
   // W27: photos chosen in a file input reach the page without their
   // location and camera details. The browser fires a trusted input, then a
   // change; both are held, the input's files are swapped for stripped
-  // copies, and the page gets both events again. Our own (untrusted)
-  // events, and inputs with nothing to strip, pass straight through.
+  // copies, and the page gets both events again. Our own events, and
+  // inputs with nothing to strip, pass straight through.
   onFilesChosen(event) {
     const input = event.target;
-    if (!event.isTrusted || input?.localName != "input" || input.type != "file") {
+    if (!event.isTrusted || this.redispatching || input?.localName != "input" || input.type != "file") {
       return;
     }
     if (this.stripping.has(input)) {
@@ -523,8 +535,8 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       .finally(() => {
         this.stripping.delete(input);
         try {
-          input.dispatchEvent(new win.Event("input", { bubbles: true, composed: true }));
-          input.dispatchEvent(new win.Event("change", { bubbles: true }));
+          this.redispatch(input, new win.Event("input", { bubbles: true, composed: true }));
+          this.redispatch(input, new win.Event("change", { bubbles: true }));
         } catch (e) {
           // The page is gone.
         }
@@ -536,7 +548,7 @@ export class WhimsyUploadChild extends JSWindowActorChild {
   // page doesn't listen for, or one on a file input (the input's own
   // input and change handle that), is left alone.
   onDrop(event) {
-    if (!event.isTrusted || event.defaultPrevented) {
+    if (!event.isTrusted || this.redispatching || event.defaultPrevented) {
       return;
     }
     const data = event.dataTransfer;
@@ -597,7 +609,7 @@ export class WhimsyUploadChild extends JSWindowActorChild {
             copy.items.add(Cu.cloneInto(file, win));
           }
           copy.dropEffect = data.dropEffect;
-          target.dispatchEvent(new win.DragEvent("drop", { ...init, dataTransfer: Cu.unwaiveXrays(copy) }));
+          this.redispatch(target, new win.DragEvent("drop", { ...init, dataTransfer: Cu.unwaiveXrays(copy) }));
         } catch (e) {
           console.error("Whimsy: dropping the photos failed", e);
         }
