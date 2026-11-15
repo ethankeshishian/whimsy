@@ -42,9 +42,17 @@ function setPref(value) {
   Services.prefs.setBoolPref(ON_PREF, value);
 }
 
-registerCleanupFunction(() => {
+registerCleanupFunction(async () => {
   Services.prefs.clearUserPref(ON_PREF);
   Services.prefs.clearUserPref(FEATURE_PREF);
+  // Closing a BrowserTestUtils-opened window headed hits a pre-existing
+  // "swapping browsers ... during close" error in Tabbrowser.sys.mjs (not
+  // Whimsy's code, and not specific to alwaysOnTop) that can leave a stray
+  // about:blank tab in this file's own window; close anything but the
+  // original tab so the run doesn't end with an unexpected tab.
+  while (window.gBrowser.tabs.length > 1) {
+    await BrowserTestUtils.removeTab(window.gBrowser.tabs[1]);
+  }
 });
 
 add_task(async function test_applies_to_real_window() {
