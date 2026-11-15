@@ -31,6 +31,13 @@ function focusSidebarOn(tab) {
   window.document.getElementById("whimsy-focus-sidebar").doCommand();
 }
 
+// diag: a readable stand-in for a tab, since is()/ok() render DOM elements
+// as opaque "[object XULElement]" on both sides of a failure.
+function label(tab) {
+  const spec = tab?.linkedBrowser?.currentURI?.spec;
+  return spec?.split("?")[1] ?? spec ?? String(tab);
+}
+
 // A plain row of four tabs forced into a known order, for the regular-tab
 // move and boundary tests.
 async function makeRow(count) {
@@ -224,6 +231,12 @@ add_task(async function test_default_shortcut_fires_and_cheat_sheet() {
   try {
     gBrowser.selectedTab = b;
     const start = b.index;
+    is(gBrowser.tabs.length, start + 1, "diag: tab count matches expected start index (no leaked tabs)");
+    is(WhimsyTabMove.canMove(window, b, DIRECTION_BACKWARD), true, "diag: canMove backward before ctrl+shift+up");
+    is(document.activeElement?.localName, "tab", "diag: activeElement is a tab before ctrl+shift+up");
+    is(document.getElementById("key_whimsyMoveTabUp").getAttribute("modifiers"), "control,shift", "diag: key modifiers before press");
+    is(document.getElementById("key_whimsyMoveTabUp").hasAttribute("disabled"), false, "diag: key not disabled");
+    is(!!document.getElementById("cmd_whimsyMoveTabUp")?.hasAttribute("disabled"), false, "diag: command not disabled");
     EventUtils.synthesizeKey("KEY_ArrowUp", { ctrlKey: true, shiftKey: true }, window);
     is(b.index, start - 1, "Ctrl+Shift+Up runs Move Tab Up");
     EventUtils.synthesizeKey("KEY_ArrowDown", { ctrlKey: true, shiftKey: true }, window);
@@ -283,26 +296,22 @@ add_task(async function test_sidebar_left_right_tree_tabs() {
     ok(!root.hasAttribute("whimsy-tree-collapsed"), "Right expands it again");
     ok(child.visible && leaf.visible, "child and leaf are visible again");
 
-    is(document.activeElement == root, true, "diag: activeElement is root before down-arrow");
-    is(gBrowser.tabContainer.ariaFocusedItem == root, true, "diag: ariaFocusedItem is root before down-arrow");
-    is(gBrowser.visibleTabs.includes(child), true, "diag: visibleTabs includes child");
-    is(gBrowser.visibleTabs.indexOf(root), 0, "diag: root is index 0 in visibleTabs");
-    is(gBrowser.tabContainer.ariaFocusableItems.includes(child), true, "diag: child is aria-focusable");
+    is(gBrowser.visibleTabs.map(label).join(","), "diag-marker", "diag: visibleTabs order before down-arrow");
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
-    is(gBrowser.tabContainer.ariaFocusedItem, child, "ArrowDown moves the cursor to child");
+    is(label(gBrowser.tabContainer.ariaFocusedItem), "nav-child", "ArrowDown moves the cursor to child");
 
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
     ok(child.hasAttribute("whimsy-tree-collapsed"), "Left collapses child's own branch");
-    is(gBrowser.tabContainer.ariaFocusedItem, child, "...keeping focus on child");
+    is(label(gBrowser.tabContainer.ariaFocusedItem), "nav-child", "...keeping focus on child");
     ok(!leaf.visible, "leaf is hidden");
     ok(child.visible, "child itself stays visible");
 
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
-    is(gBrowser.tabContainer.ariaFocusedItem, root, "Leaf-collapsed with no folder: Left moves focus to its tree parent");
+    is(label(gBrowser.tabContainer.ariaFocusedItem), "nav-root", "Leaf-collapsed with no folder: Left moves focus to its tree parent");
     ok(!child.hasAttribute("whimsy-sidebar-focused"), "child's focus ring is gone");
 
     EventUtils.synthesizeKey("KEY_ArrowDown", {}, window);
-    is(gBrowser.tabContainer.ariaFocusedItem, child, "Back on child");
+    is(label(gBrowser.tabContainer.ariaFocusedItem), "nav-child", "Back on child");
     EventUtils.synthesizeKey("KEY_ArrowRight", {}, window);
     ok(!child.hasAttribute("whimsy-tree-collapsed"), "Right expands child's branch");
     ok(leaf.visible, "leaf is visible again");
@@ -336,16 +345,13 @@ add_task(async function test_sidebar_left_right_zen_folders() {
     EventUtils.synthesizeKey("KEY_ArrowUp", {}, window);
     is(gBrowser.tabContainer.ariaFocusedItem, x, "ArrowUp moves the cursor to x");
 
-    is(x.visible, true, "diag: x.visible is true right before collapsing from x (folder still expanded)");
-    is(gBrowser.visibleTabs.indexOf(x) > 0, true, "diag: x has a predecessor in visibleTabs");
-    is(gBrowser.visibleTabs[gBrowser.visibleTabs.indexOf(x) - 1] == before, true, "diag: before is x's predecessor in visibleTabs");
+    is(gBrowser.visibleTabs.map(label).join(","), "diag-marker", "diag: visibleTabs order before collapsing from x");
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
     ok(folder.collapsed, "Left collapses the folder from x too");
-    is(x.visible, false, "diag: x.visible is false after collapsing from x");
-    is(gBrowser.tabContainer.ariaFocusedItem, before, "x isn't the stand-in once hidden, so focus falls back outside the folder");
+    is(label(gBrowser.tabContainer.ariaFocusedItem), "nav-folder-before", "x isn't the stand-in once hidden, so focus falls back outside the folder");
 
     EventUtils.synthesizeKey("KEY_ArrowLeft", {}, window);
-    is(gBrowser.tabContainer.ariaFocusedItem, before, "`before` has no parent or folder: Left is a no-op");
+    is(label(gBrowser.tabContainer.ariaFocusedItem), "nav-folder-before", "`before` has no parent or folder: Left is a no-op");
   } finally {
     folder.collapsed = false;
     const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");
