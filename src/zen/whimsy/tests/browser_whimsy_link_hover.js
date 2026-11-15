@@ -41,7 +41,10 @@ add_setup(async () => {
 });
 
 async function closed() {
-  await TestUtils.waitForCondition(() => !panel() || panel().state == "closed", "The cards are gone");
+  await TestUtils.waitForCondition(() => !panel() || panel().state == "closed", "The cards are gone").catch(e => {
+    info(`Still open: target ${host.target?.key} kind ${host.target?.kind} shown ${host.target?.shown}, pending ${host.pending?.key}, overPanel ${host.overPanel}, panel ${panel()?.state}, open-attr ${panel()?.hasAttribute("whimsy-open")}`);
+    throw e;
+  });
 }
 
 async function openCards() {
