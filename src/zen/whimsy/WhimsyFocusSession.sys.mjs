@@ -16,6 +16,8 @@
 //                            are left alone; private windows too).
 //   Mute background tabs     WhimsyAccessCommands' Mute Background Tabs; if
 //                            it was already on it stays on afterwards.
+//   Stay on this tab         this window shows only the tab it started on;
+//                            new tabs open in Glance (WhimsyFocusTab).
 //   Break reminder           the done toast says it's time for a break, and
 //                            5 minutes later a toast offers another session.
 //
@@ -38,6 +40,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
   WhimsyFocusNotch: "resource:///modules/whimsy/WhimsyFocusNotch.sys.mjs",
   WhimsyFocusSheet: "resource:///modules/whimsy/WhimsyFocusSheet.sys.mjs",
+  WhimsyFocusTab: "resource:///modules/whimsy/WhimsyFocusTab.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.focus-sessions";
@@ -46,6 +49,7 @@ const PREFS = {
   dnd: "whimsy.focus.dnd",
   pauseSites: "whimsy.focus.pauseSites",
   muteBackground: "whimsy.focus.muteBackground",
+  stayOnTab: "whimsy.focus.stayOnTab",
   breakReminder: "whimsy.focus.breakReminder",
   social: "whimsy.focus.social",
   video: "whimsy.focus.video",
@@ -163,6 +167,7 @@ export const WhimsyFocusSession = {
       dnd: bool("dnd"),
       pauseSites: bool("pauseSites"),
       muteBackground: bool("muteBackground"),
+      stayOnTab: bool("stayOnTab"),
       breakReminder: bool("breakReminder"),
     };
   },
@@ -249,7 +254,7 @@ export const WhimsyFocusSession = {
    * time.
    *
    * @param {Window} win
-   * @param {object} options - { minutes, dnd, pauseSites, muteBackground, breakReminder }
+   * @param {object} options - { minutes, dnd, pauseSites, muteBackground, stayOnTab, breakReminder }
    */
   start(win, { minutes = this.lastLength, ...ticks } = {}) {
     if (!this.enabled) {
@@ -262,7 +267,7 @@ export const WhimsyFocusSession = {
     minutes = Math.max(1, Math.min(120, Math.round(minutes)));
     const t = { ...this.ticks, ...ticks };
     Services.prefs.setIntPref(PREFS.lastLength, minutes);
-    for (const name of ["dnd", "pauseSites", "muteBackground", "breakReminder"]) {
+    for (const name of ["dnd", "pauseSites", "muteBackground", "stayOnTab", "breakReminder"]) {
       Services.prefs.setBoolPref(PREFS[name], !!t[name]);
     }
 
@@ -283,6 +288,9 @@ export const WhimsyFocusSession = {
       this.listen(true);
     }
     Services.prefs.setIntPref(PREFS.endsAt, nowSeconds() + minutes * 60);
+    if (t.stayOnTab) {
+      lazy.WhimsyFocusTab.start(win, this);
+    }
     this.arm();
     for (const w of windows()) {
       lazy.WhimsyFocusNotch.attach(w, this);
@@ -348,6 +356,7 @@ export const WhimsyFocusSession = {
     this.listen(false);
     allowed.clear();
     this.reopenPausedTabs();
+    lazy.WhimsyFocusTab.stopAll(windows());
   },
 
   restoreMute() {

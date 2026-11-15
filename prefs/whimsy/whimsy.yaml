@@ -943,6 +943,10 @@
 - name: whimsy.focus.muteBackground
   value: false
 
+# Stay on this tab (intake-w29/designs/focus-this-tab.md): off by default.
+- name: whimsy.focus.stayOnTab
+  value: false
+
 - name: whimsy.focus.breakReminder
   value: true
 

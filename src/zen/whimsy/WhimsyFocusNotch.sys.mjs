@@ -20,6 +20,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFocusTab: "resource:///modules/whimsy/WhimsyFocusTab.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
 });
 
@@ -242,6 +243,14 @@ export const WhimsyFocusNotch = {
       doc.l10n.setAttributes(text, "whimsy-focus-panel-ends", { time });
     }
     parts.view.append(text);
+    // Stay on this tab: "Your other tabs come back when it ends."
+    if (session.ticks.stayOnTab && lazy.WhimsyFocusTab.isOn(win)) {
+      const back = el(doc, "p", "whimsy-focus-panel-text");
+      back.id = `${PANEL_ID}-tabs`;
+      doc.l10n.setAttributes(back, "whimsy-focus-panel-tabs");
+      parts.view.append(back);
+      parts.panel.setAttribute("aria-describedby", `${text.id} ${back.id}`);
+    }
     parts.footer.append(
       S.footerButton(doc, {
         l10nId: "whimsy-focus-end-session",

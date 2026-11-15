@@ -513,6 +513,179 @@ add_task(async function settings_group_and_edit_link() {
   resetPrefs();
 });
 
+// --- Stay on this tab (intake-w29/designs/focus-this-tab.md) -------------------------
+
+const { WhimsyFocusTab } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFocusTab.sys.mjs");
+const STAY = { minutes: 25, dnd: false, pauseSites: false, muteBackground: false, breakReminder: false, stayOnTab: true };
+
+function glanceOver(keep) {
+  const id = keep.getAttribute("glance-id");
+  return id ? gBrowser.tabs.find(t => t != keep && t.hasAttribute("zen-glance-tab") && t.getAttribute("glance-id") == id) : null;
+}
+
+async function closeGlance(keep) {
+  if (!glanceOver(keep)) {
+    return;
+  }
+  gZenGlanceManager.closeGlance({ noAnimation: true, skipPermitUnload: true });
+  await TestUtils.waitForCondition(() => !glanceOver(keep) && gBrowser.selectedTab == keep, "The Glance closes");
+}
+
+add_task(async function stay_on_this_tab() {
+  resetPrefs();
+  const others = [
+    await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/"),
+    await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/"),
+  ];
+  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const win2 = await BrowserTestUtils.openNewBrowserWindow();
+  await SimpleTest.promiseFocus(window);
+
+  // The sheet: a tick under Pause distracting sites, off by default.
+  const parts = await openSheet();
+  ok(parts.boxes.stayOnTab, "The sheet has Stay on this tab");
+  ok(!parts.boxes.stayOnTab.checked, "It's off by default");
+  const rows = [...parts.panel.querySelectorAll(".whimsy-focus-check-row")].map(r => r.id);
+  is(rows.indexOf(`${SHEET_ID}-stayOnTab`), rows.indexOf(`${SHEET_ID}-pauseSites`) + 1, "It sits under Pause distracting sites");
+  await closeSheet(parts);
+
+  // Start, with motion: the other tabs fade, then hide.
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
+  WhimsyFocusSession.start(window, STAY);
+  ok(Services.prefs.getBoolPref(WhimsyFocusSession.PREFS.stayOnTab), "The tick is remembered");
+  const root = document.documentElement;
+  is(root.getAttribute("whimsy-focus-tab"), "leaving", "The other tabs fade out first");
+  await TestUtils.waitForCondition(() => root.getAttribute("whimsy-focus-tab") == "on", "Then they hide");
+  ok(keep.hasAttribute("whimsy-focus-keep"), "The tab it started on is kept");
+  ok(keep.checkVisibility(), "The kept tab shows");
+  for (const tab of others) {
+    ok(!tab.checkVisibility(), "Another tab is hidden");
+  }
+  ok(!win2.document.documentElement.hasAttribute("whimsy-focus-tab"), "The other window is untouched");
+
+  const line = document.querySelector(".whimsy-focus-tab-line");
+  ok(line?.checkVisibility(), "A line says what's hidden");
+  await TestUtils.waitForCondition(() => line.textContent.includes("hidden until"), "The line has its text");
+  ok(line.textContent.includes(`${WhimsyFocusTab.hiddenCount(window)} tabs hidden`), "It counts the hidden tabs");
+  notClipped(line.lastElementChild, "The hidden-tabs line");
+
+  // Switching away does nothing.
+  const tick = () => new Promise(r => setTimeout(r, 50));
+  EventUtils.synthesizeKey("KEY_Tab", { ctrlKey: true });
+  await tick();
+  is(gBrowser.selectedTab, keep, "Ctrl+Tab does nothing");
+  EventUtils.synthesizeKey("1", { accelKey: true, code: "Digit1" });
+  await tick();
+  is(gBrowser.selectedTab, keep, "Cmd+1 does nothing");
+  gBrowser.selectedTab = others[0];
+  await TestUtils.waitForCondition(() => gBrowser.selectedTab == keep, "Any other way back gives way to the kept tab");
+  await gZenWorkspaces.changeWorkspace?.(gZenWorkspaces.getActiveWorkspace?.());
+  ok(Object.hasOwn(gZenWorkspaces, "changeWorkspace"), "Spaces are held");
+
+  // New tabs open in Glance, and Glance can't become a tab.
+  openTrustedLinkIn("https://example.org/?glance", "tab");
+  const glance = await TestUtils.waitForCondition(() => glanceOver(keep), "A new tab opens in Glance");
+  is(gBrowser.selectedTab, glance, "The Glance shows");
+  await gZenGlanceManager.fullyOpenGlance();
+  ok(glance.hasAttribute("zen-glance-tab"), "Glance can't become a tab");
+  ok(!document.querySelector(".zen-glance-sidebar-open")?.checkVisibility(), "Its open-as-tab button is hidden");
+  // With a Glance open, the next link loads in it.
+  const before = gBrowser.tabs.length;
+  openTrustedLinkIn("https://example.net/?again", "tab");
+  await TestUtils.waitForCondition(() => glance.linkedBrowser.currentURI.host == "example.net", "The link loads in the Glance");
+  is(gBrowser.tabs.length, before, "No tab is added");
+  await closeGlance(keep);
+
+  // A target=_blank link too.
+  await SpecialPowers.spawn(keep.linkedBrowser, [], () => {
+    const a = content.document.createElement("a");
+    a.href = "https://example.org/?blank";
+    a.target = "_blank";
+    a.id = "whimsy-blank";
+    a.textContent = "link";
+    content.document.body.append(a);
+  });
+  await BrowserTestUtils.synthesizeMouseAtCenter("#whimsy-blank", {}, keep.linkedBrowser);
+  await TestUtils.waitForCondition(() => glanceOver(keep), "A target=_blank link opens in Glance");
+  await closeGlance(keep);
+
+  // ⌘K: no switch-to-tab rows.
+  const results = document.getElementById("urlbar-results");
+  if (results) {
+    const fake = document.createElementNS(XHTML, "div");
+    fake.className = "urlbarView-row";
+    fake.setAttribute("type", "switchtab");
+    results.append(fake);
+    await TestUtils.waitForCondition(() => fake.hidden, "A switch-to-tab row is hidden");
+    fake.setAttribute("type", "url");
+    await TestUtils.waitForCondition(() => !fake.hidden, "The row shows again as another result");
+    fake.remove();
+  }
+
+  // The panel says the tabs come back.
+  const panel = await WhimsyFocusNotch.openPanel(window);
+  await TestUtils.waitForCondition(() => panel.panel.state == "open", "The panel opens");
+  const back = panel.panel.querySelector(`#${PANEL_ID}-tabs`);
+  is(back?.getAttribute("data-l10n-id"), "whimsy-focus-panel-tabs", "It says the other tabs come back");
+  let hidden = BrowserTestUtils.waitForEvent(panel.panel, "popuphidden");
+  WhimsySurface.close(panel.panel);
+  await hidden;
+
+  // Ending brings everything back, with a fade.
+  WhimsyFocusSession.end();
+  is(root.getAttribute("whimsy-focus-tab"), "returning", "The tabs fade back in");
+  await TestUtils.waitForCondition(() => !root.hasAttribute("whimsy-focus-tab"), "Then the window is back");
+  ok(!keep.hasAttribute("whimsy-focus-keep"), "The kept tab is ordinary again");
+  ok(others.every(t => t.checkVisibility()), "The other tabs show");
+  ok(!document.querySelector(".whimsy-focus-tab-line"), "The line goes");
+  ok(!Object.hasOwn(gBrowser, "addTab"), "New tabs open as tabs again");
+  ok(!Object.hasOwn(gZenWorkspaces, "changeWorkspace"), "Spaces change again");
+  ok(!Object.hasOwn(gZenGlanceManager, "fullyOpenGlance"), "Glance opens as a tab again");
+  gBrowser.selectedTab = others[0];
+  await new Promise(r => setTimeout(r, 50));
+  is(gBrowser.selectedTab, others[0], "Switching tabs works again");
+  await SpecialPowers.popPrefEnv();
+
+  // Reduce Motion: straight to hidden, straight back. Closing the kept tab
+  // ends the hiding.
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  gBrowser.selectedTab = keep;
+  WhimsyFocusSession.start(window, STAY);
+  is(root.getAttribute("whimsy-focus-tab"), "on", "With Reduce Motion the tabs hide at once");
+  BrowserTestUtils.removeTab(keep);
+  await TestUtils.waitForCondition(() => !root.hasAttribute("whimsy-focus-tab"), "Closing the kept tab brings the others back");
+  ok(WhimsyFocusSession.isActive, "The session goes on");
+  await endSession();
+  await SpecialPowers.popPrefEnv();
+
+  await BrowserTestUtils.closeWindow(win2);
+  for (const tab of others) {
+    BrowserTestUtils.removeTab(tab);
+  }
+  resetPrefs();
+});
+
+add_task(async function stay_on_this_tab_screens() {
+  resetPrefs();
+  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  gBrowser.selectedTab = keep;
+  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  WhimsyFocusSession.start(window, STAY);
+  await whimsyBothSchemes("focus-stay-on-tab", async () => {
+    const line = document.querySelector(".whimsy-focus-tab-line");
+    await TestUtils.waitForCondition(() => line.textContent.includes("hidden"), "The line has its text");
+    // The sidebar isn't a filled surface (it shows the window's material),
+    // so the shot is the check here.
+    notClipped(line.lastElementChild, "The hidden-tabs line");
+  });
+  await endSession();
+  await SpecialPowers.popPrefEnv();
+  BrowserTestUtils.removeTab(other);
+  BrowserTestUtils.removeTab(keep);
+  resetPrefs();
+});
+
 // --- screenshots and contrast -------------------------------------------------------
 
 add_task(async function screens() {

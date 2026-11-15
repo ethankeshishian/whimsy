@@ -40,6 +40,8 @@ export function shortTime(ms) {
 const ROWS = [
   { name: "dnd", l10nId: "whimsy-focus-dnd", detailL10nId: "whimsy-focus-dnd-detail" },
   { name: "pauseSites", l10nId: "whimsy-focus-pause" },
+  // W29 Stay on this tab (intake-w29/designs/focus-this-tab.md).
+  { name: "stayOnTab", l10nId: "whimsy-focus-stay", detailL10nId: "whimsy-focus-stay-detail" },
   { name: "muteBackground", l10nId: "whimsy-focus-mute", detailL10nId: "whimsy-focus-mute-detail" },
   { name: "breakReminder", l10nId: "whimsy-focus-break", detailL10nId: "whimsy-focus-break-detail" },
 ];

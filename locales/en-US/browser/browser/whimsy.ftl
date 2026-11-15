@@ -3165,6 +3165,14 @@ whimsy-focus-pause-own = { $count ->
 whimsy-focus-edit = Edit
 whimsy-focus-mute = Mute background tabs
 whimsy-focus-mute-detail = Only the tab you’re on can play sound
+# W29 Stay on this tab: a tick in the sheet.
+whimsy-focus-stay = Stay on this tab
+whimsy-focus-stay-detail = Hides your other tabs. New tabs open in Glance.
+# The line under the kept tab. $count (Number) - tabs hidden; $time (String) - when the session ends.
+whimsy-focus-tabs-hidden = { $count ->
+    [one] { $count } tab hidden until { $time }
+   *[other] { $count } tabs hidden until { $time }
+}
 whimsy-focus-break = Break reminder
 # $minutes (Number) - the break's length.
 whimsy-focus-break-detail = A { $minutes }-minute break when it ends, then a nudge
@@ -3196,6 +3204,8 @@ whimsy-focus-panel-sites = { $count ->
 whimsy-focus-panel-mute = background tabs are muted
 # $minutes (Number) - the break's length.
 whimsy-focus-panel-break = a { $minutes }-minute break follows
+# Stay on this tab, after the panel's first sentence.
+whimsy-focus-panel-tabs = Your other tabs come back when it ends.
 whimsy-focus-end-session =
     .label = End session
 whimsy-focus-done-toast = Focus session done

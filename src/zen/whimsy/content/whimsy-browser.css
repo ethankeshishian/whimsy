@@ -8398,3 +8398,62 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     animation: none;
   }
 }
+
+/* W29 Stay on this tab (WhimsyFocusTab.sys.mjs, intake-w29/designs/
+   focus-this-tab.md). While a session runs with it ticked, the window shows
+   only the kept tab: the rest fade out (200ms, the exit curve), then hide;
+   when it ends they fade back in (300ms, the standard curve). Glance can't
+   become a tab or a split meanwhile. */
+:root[whimsy-focus-tab] :is(
+  .tabbrowser-tab:not([whimsy-focus-keep], [zen-glance-tab]),
+  zen-folder:not(:has([whimsy-focus-keep])),
+  tab-group:not(:has([whimsy-focus-keep])),
+  #zen-essentials:not(:has([whimsy-focus-keep])),
+  .zen-workspace-pinned-tabs-section:not(:has([whimsy-focus-keep])),
+  .pinned-tabs-container-separator,
+  #tabbrowser-arrowscrollbox-periphery,
+  #zen-workspaces-button,
+  .zen-glance-sidebar-open,
+  .zen-glance-sidebar-split
+) {
+  :root[whimsy-focus-tab="leaving"] & {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms var(--whimsy-ease-panel-exit);
+  }
+  :root[whimsy-focus-tab="on"] & {
+    display: none !important;
+  }
+  :root[whimsy-focus-tab="returning"] & {
+    animation: whimsy-focus-tab-in 300ms var(--whimsy-ease) both;
+  }
+}
+@keyframes whimsy-focus-tab-in {
+  from {
+    opacity: 0;
+  }
+}
+/* "13 tabs hidden until 3:40 PM", under the tab. */
+.whimsy-focus-tab-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
+  margin-inline: var(--tab-inline-margin, 0);
+  font-size: 11px;
+  white-space: nowrap;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+
+  & > img {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+  & > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

@@ -86,6 +86,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFocusPicker.sys.mjs",
     "WhimsyFocusSession.sys.mjs",
     "WhimsyFocusSheet.sys.mjs",
+    "WhimsyFocusTab.sys.mjs",
     "WhimsyFollowerTabs.sys.mjs",
     "WhimsyFormProtection.sys.mjs",
     "WhimsyFormProtectionChild.sys.mjs",
