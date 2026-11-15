@@ -115,14 +115,27 @@ add_task(async function test_shift_click_split_keeps_folder_collapsed() {
     folder.labelElement.click();
     ok(folder.collapsed, "The folder starts out manually collapsed");
 
+    // createFolder() pins `tab` (Folders hold pinned tabs). Splitting a
+    // pinned tab with an unpinned one (the new tab the link opens) makes
+    // ZenViewSplitter#useTabsToSplit duplicate the pinned tab instead of
+    // reusing it, so the pane to watch for is the new tab that shows up
+    // alongside the link's tab, not `tab` itself - `tab` stays behind,
+    // still pinned and still the one `folder` tracks for cleanup below.
+    const beforeTabs = new Set(gBrowser.tabs);
     await BrowserTestUtils.synthesizeMouseAtCenter("#l", { shiftKey: true }, tab.linkedBrowser);
-    await TestUtils.waitForCondition(() => tab.splitView, "Shift+click split the pinned tab");
+    const splitTabs = await TestUtils.waitForCondition(() => {
+      const added = gBrowser.tabs.filter(t => !beforeTabs.has(t));
+      return added.length == 2 && added.every(t => t.splitView) ? added : null;
+    }, "Shift+click split the pinned tab");
     // ZenFolders re-expands the folder on the TabSelect the split causes
     // before Whimsy's own restore (deferred so it doesn't race that
     // handler - see restoreCollapsedFoldersAfterSettle) puts it back, so
     // wait for the restore rather than asserting right after the split.
     await TestUtils.waitForCondition(() => folder.collapsed, "The folder settles back to collapsed");
     ok(folder.collapsed, "Splitting the pinned tab keeps the folder collapsed");
+    for (const splitTab of splitTabs) {
+      BrowserTestUtils.removeTab(splitTab);
+    }
   } finally {
     if (folder) {
       const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");
