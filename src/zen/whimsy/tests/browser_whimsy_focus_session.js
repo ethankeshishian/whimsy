@@ -3,6 +3,9 @@
 
 "use strict";
 
+// Many tasks, several page loads and two windows.
+requestLongerTimeout(4);
+
 // W29 focus sessions: Start Focus Session opens a sheet with a time picker
 // and "During the session" ticks (Do Not Disturb, Pause distracting sites,
 // Break reminder ticked; Mute background tabs not). A countdown notch sits
@@ -67,6 +70,12 @@ async function startFromSheet(parts) {
   parts.footer.querySelector(`#${SHEET_ID}-start`).click();
   await hidden;
   ok(WhimsyFocusSession.isActive, "Start starts the session");
+}
+
+// The countdown as shown: a digit mid-flip holds its outgoing glyph too,
+// so read only the ones staying.
+function notchTime(notch) {
+  return [...notch.querySelectorAll(".whimsy-focus-ch > i:not(.is-out)")].map(i => i.textContent).join("");
 }
 
 async function endSession() {
@@ -240,7 +249,7 @@ add_task(async function start_and_end_early_restore_everything() {
   const notch = document.getElementById(NOTCH_ID);
   is(notch.getAttribute("role"), "timer", "The notch is a timer");
   await TestUtils.waitForCondition(() => notch.getAttribute("aria-label"), "The notch is labelled");
-  ok(/^2[45]:\d\d$/.test(notch.querySelector(".whimsy-focus-time").textContent.trim()), "It counts down from 25:00");
+  ok(/^2[45]:\d\d$/.test(notchTime(notch)), "It counts down from 25:00");
   const toastTop = document.getElementById("zen-toast-container");
   if (toastTop) {
     const offset = getComputedStyle(document.documentElement).getPropertyValue("--whimsy-focus-notch-bottom");
@@ -339,12 +348,12 @@ add_task(async function listed_sites_are_paused() {
   // A tab already on the site is left alone.
   const before = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
   WhimsyFocusSession.start(window, { minutes: 25, dnd: false, pauseSites: true, muteBackground: false, breakReminder: false });
-  BrowserTestUtils.reloadTab(before);
-  await BrowserTestUtils.browserLoaded(before.linkedBrowser);
+  // reloadTab resolves once the reload has loaded.
+  await BrowserTestUtils.reloadTab(before);
   is(before.linkedBrowser.currentURI.host, "example.org", "A tab that was open stays");
   BrowserTestUtils.removeTab(before);
 
-  // A new load is paused.
+  info("A new load is paused");
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   const browser = tab.linkedBrowser;
   BrowserTestUtils.startLoadingURIString(browser, "https://example.org/");
@@ -372,6 +381,7 @@ add_task(async function listed_sites_are_paused() {
     notClipped(doc.getElementById("whimsy-focus-open"), "Open anyway");
   });
 
+  info("Open anyway");
   // Open anyway: this tab, this site, for the rest of the session.
   const loaded = BrowserTestUtils.browserLoaded(browser, false, "https://example.org/");
   EventUtils.synthesizeMouseAtCenter(doc.getElementById("whimsy-focus-open"), {}, doc.defaultView);
@@ -381,6 +391,7 @@ add_task(async function listed_sites_are_paused() {
   await BrowserTestUtils.browserLoaded(browser);
   is(browser.currentURI.host, "example.org", "It stays open in that tab");
 
+  info("Ending reopens paused tabs");
   // Ending the session opens paused tabs.
   const second = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   BrowserTestUtils.startLoadingURIString(second.linkedBrowser, "https://sub.example.org/");
