@@ -237,12 +237,13 @@ add_task(async function test_sits_under_the_find_card() {
 
 add_task(async function test_holds_in_a_new_window_then_off() {
   const win = await BrowserTestUtils.openNewBrowserWindow();
+  let tab = null;
   try {
     ok(
       globalActions.find(a => a.whimsyCommand == ID && a.l10nId == "whimsy-action-page-minimap-hide")?.isAvailable(win),
       "Still on in a new window"
     );
-    await BrowserTestUtils.openNewForegroundTab(win.gBrowser, LONG);
+    tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, LONG);
     await TestUtils.waitForCondition(() => shown(win.gBrowser.selectedBrowser), "It shows on a long page there");
 
     win.document.getElementById(ID).doCommand();
@@ -252,6 +253,11 @@ add_task(async function test_holds_in_a_new_window_then_off() {
       "Gone from every window"
     );
   } finally {
+    // Zen mirrors a window's tabs in the others; closing it here takes the
+    // mirror in this window away too.
+    if (tab) {
+      BrowserTestUtils.removeTab(tab);
+    }
     await BrowserTestUtils.closeWindow(win);
   }
 });
