@@ -101,6 +101,49 @@ export const WhimsyDarkPages = {
     this.publish();
   },
 
+  // The page actor. Whimsy's startup hook registers it after session
+  // restore, so pages already open then get their child started here.
+  registerActor() {
+    this.init();
+    if (this._actorRegistered) {
+      return;
+    }
+    this._actorRegistered = true;
+    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
+        events: {
+          DOMDocElementInserted: {},
+          StyleSheetApplicableStateChanged: {},
+          StyleRuleAdded: {},
+          StyleRuleRemoved: {},
+          StyleRuleChanged: {},
+          DOMContentLoaded: {},
+          pageshow: {},
+          pagehide: {},
+          beforeprint: {},
+          afterprint: {},
+          load: { capture: true },
+        },
+      },
+      matches: ["http://*/*", "https://*/*"],
+      allFrames: false,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      for (const browser of win.gBrowser?.browsers || []) {
+        try {
+          browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyDarkPages")
+            .sendAsyncMessage("Whimsy:DarkPagesStart");
+        } catch (e) {
+          // Not a web page (the actor only matches http and https).
+        }
+      }
+    }
+  },
+
   observe(subject, topic, data) {
     if (data == PREFIX + "offered") {
       return;
@@ -171,8 +214,8 @@ export const WhimsyDarkPages = {
 
   // The URL bar's moon: a page action like Reader view (the shared
   // .urlbar-page-action > .urlbar-icon markup, so Zen's hover pill and
-  // auto-hide apply). One click flips this site between dark and original,
-  // live; no menu.
+  // auto-hide apply). It shows only on an overridden site; one click sets
+  // the site back to the global setting, live; no menu.
   addButton(win) {
     const doc = win.document;
     const anchor = doc.getElementById("page-action-buttons");
@@ -224,7 +267,10 @@ export const WhimsyDarkPages = {
       return;
     }
     const dark = this.isDark(browser);
-    button.hidden = !this.enabled || !this.siteKey(browser);
+    // Owner, W29: the global setting decides; the site switch overrides it.
+    // The moon shows only on a site that differs from the global setting,
+    // and a click sets it back.
+    button.hidden = !this.enabled || !this.siteKey(browser) || dark == this.active;
     button.toggleAttribute("active", dark);
     // Keep an open site panel's row in step, only when this site's choice
     // or state actually changed (a re-render would close other controls).
