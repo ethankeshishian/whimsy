@@ -189,7 +189,8 @@ add_task(async function not_elsewhere() {
   const work = WhimsyProfiles.create("Codes Elsewhere");
   try {
     const tab = BrowserTestUtils.addTab(gBrowser, PAGE, { userContextId: work });
-    await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+    gBrowser.selectedTab = tab;
+    await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE);
     await focusField(tab.linkedBrowser, "otp");
     ok(await stillNo(() => hasButton(tab.linkedBrowser)), "No button in another profile");
     BrowserTestUtils.removeTab(tab);
