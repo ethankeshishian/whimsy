@@ -38,10 +38,14 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
     },
   };
   pps.registerChannelFilter(recorder, 0);
+  // A tab of profile 2 lives in a space of profile 2 (as Whimsy opens it).
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Profile 2", undefined, true, 2);
+  await gZenWorkspaces.changeWorkspace(space);
   const tab = BrowserTestUtils.addTab(gBrowser, "https://example.com/", { userContextId: 2 });
   const browser = tab.linkedBrowser;
   try {
-    await BrowserTestUtils.browserLoaded(browser);
+    await BrowserTestUtils.browserLoaded(browser, false, "https://example.com/");
     is(browser.contentPrincipal.originAttributes.userContextId, 2, "The page is in profile 2");
     await SpecialPowers.spawn(browser, [RELAY_PORT], async port => {
       const pc = new content.RTCPeerConnection({ iceServers: [{
@@ -68,6 +72,12 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
     }).catch(() => {});
     pps.unregisterChannelFilter(recorder);
     BrowserTestUtils.removeTab(tab);
+    await gZenWorkspaces.changeWorkspace(home);
+    for (const t of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == space.uuid &&
+      !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
+      BrowserTestUtils.removeTab(t);
+    }
+    await gZenWorkspaces.removeWorkspace(space.uuid);
     await SpecialPowers.popPrefEnv();
   }
 });
