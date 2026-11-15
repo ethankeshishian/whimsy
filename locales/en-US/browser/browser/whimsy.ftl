@@ -4536,6 +4536,8 @@ whimsy-setting-vpn = Built-In VPN
     .keywords = vpn, ip protection, proxy, hide ip
 whimsy-setting-email-aliases = Private Email Button
     .keywords = hide my email, firefox relay, email alias, email mask, icloud
+whimsy-setting-field-editor-button = Text Editor Button
+    .keywords = edit field in text editor, textarea, contenteditable, comment box
 whimsy-setting-handoff = Handoff
     .keywords = continuity, iphone, ipad, continue on another device
 whimsy-setting-claude = Outside Agents
@@ -5276,7 +5278,15 @@ whimsy-favicon-home-button =
 whimsy-action-site-home = Go to Site Home
 whimsy-action-go-up-level = Go Up One Level
 whimsy-action-edit-field-in-editor = Edit Field in Text Editor
-whimsy-field-editor-toast-no-field = Click into a text field first
+
+## W29: the field editor button's own Settings card (General), and its
+## Settings-search entry.
+
+whimsy-field-editor-header =
+    .label = Text editor
+whimsy-field-editor-button =
+    .label = Show the text editor button on text boxes
+    .description = A small button in the corner of the box you’re typing in. Edit Field in Text Editor works in the same boxes either way.
 
 ## W23 ai-core: errors from the provider router (toasts; chat's error block
 ## lists what was tried itself).

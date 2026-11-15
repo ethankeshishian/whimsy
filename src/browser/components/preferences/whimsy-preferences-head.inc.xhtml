@@ -703,6 +703,21 @@
   </groupbox>
 </html:template>
 
+# W29: the field editor button's own setting (Settings → General, after
+# Battery Saver), a card like Email aliases (moz-card, moz-fieldset with
+# the code icon, one moz-checkbox): whimsy-preferences-head.inc.xhtml:259-266
+# is the model.
+<html:template id="template-whimsyFieldEditor" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <html:div id="whimsyFieldEditorGroup" data-category="paneGeneral" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-field-editor-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/selectable/code.svg">
+        <html:moz-checkbox id="whimsyFieldEditorButton" data-l10n-id="whimsy-field-editor-button"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
+</html:template>
+
 # W23 video: Settings › Media (content/whimsy-settings-media.js moves these
 # in). The media rows that sat under Tabs, the default speed, and Summarize
 # and picture-in-picture. Read aloud and dictation mount in
