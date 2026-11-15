@@ -56,6 +56,8 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
         urls: `turn:127.0.0.1:${port}?transport=tcp`, username: "whimsy", credential: "whimsy",
       }] });
       content.whimsyTestPc = pc;
+      content.whimsyTestErrors = [];
+      pc.onicecandidateerror = e => content.whimsyTestErrors.push(`${e.url} ${e.errorCode} ${e.errorText}`);
       // A call captures the mic. Without a capture, ICE gathers on the
       // default route only, and it finds that route with a UDP probe, which a
       // page forced through the proxy may not send: no candidates at all.
@@ -64,7 +66,21 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
       pc.addTrack(stream.getAudioTracks()[0], stream);
       await pc.setLocalDescription();
     });
-    await TestUtils.waitForCondition(() => lookups.length, "The call looks up a proxy for its relay");
+    await TestUtils.waitForCondition(() => lookups.length, "The call looks up a proxy for its relay").catch(async e => {
+      // What ICE did instead, so a failure here says why.
+      const why = await SpecialPowers.spawn(browser, [], async () => {
+        const pc = content.whimsyTestPc;
+        const stats = [];
+        (await pc.getStats()).forEach(r => {
+          if (r.type == "local-candidate") {
+            stats.push(`${r.candidateType}/${r.protocol}/${r.relayProtocol ?? ""}`);
+          }
+        });
+        return `gathering=${pc.iceGatheringState} ice=${pc.iceConnectionState} ` +
+          `candidates=[${stats}] errors=[${content.whimsyTestErrors}]`;
+      }).catch(err => `no stats: ${err}`);
+      throw new Error(`${e.message || e} (${why})`);
+    });
     const channel = lookups[0];
     is(channel.loadInfo.originAttributes.userContextId, 2, "The relay lookup carries the page's profile");
     ok(!channel.loadInfo.loadingPrincipal?.isSystemPrincipal, "…and is asked as the page, not the system");
