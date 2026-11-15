@@ -142,7 +142,7 @@ add_task(async function test_playing_tile_label_contrast() {
   const style = window.getComputedStyle(tile("rain"));
   const textColor = window.getComputedStyle(label).color;
   const [hi, lo] = [lum(textColor), lum(style.backgroundColor)].sort((a, b) => b - a);
-  Assert.greaterOrEqual((hi + 0.05) / (lo + 0.05), 4.5, "The playing tile's label passes 4.5:1 against its filled background");
+  Assert.greaterOrEqual((hi + 0.05) / (lo + 0.05), 4.5, `The playing tile's label passes 4.5:1 against its filled background (text=${textColor} bg=${style.backgroundColor})`);
 
   WhimsyAmbient.stop(window, { immediate: true });
   await closeSheetIfOpen();
