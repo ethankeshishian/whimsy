@@ -72,6 +72,20 @@ async function startFromSheet(parts) {
   ok(WhimsyFocusSession.isActive, "Start starts the session");
 }
 
+// A step that should finish soon; a hang fails with its name instead of
+// timing out the whole file.
+async function within(promise, what, ms = 15000) {
+  let timer;
+  const late = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} didn't finish in ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([promise, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // The countdown as shown: a digit mid-flip holds its outgoing glyph too,
 // so read only the ones staying.
 function notchTime(notch) {
@@ -346,15 +360,15 @@ add_task(async function listed_sites_are_paused() {
   is(WhimsyFocusSession.pausedSites.join(), "example.org", "Only the owner's site is listed");
 
   // A tab already on the site is left alone.
-  const before = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  const before = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/"), "Opening example.org");
   WhimsyFocusSession.start(window, { minutes: 25, dnd: false, pauseSites: true, muteBackground: false, breakReminder: false });
   // reloadTab resolves once the reload has loaded.
-  await BrowserTestUtils.reloadTab(before);
+  await within(BrowserTestUtils.reloadTab(before), "Reloading the open tab");
   is(before.linkedBrowser.currentURI.host, "example.org", "A tab that was open stays");
   BrowserTestUtils.removeTab(before);
 
   info("A new load is paused");
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const tab = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank"), "Opening a blank tab");
   const browser = tab.linkedBrowser;
   BrowserTestUtils.startLoadingURIString(browser, "https://example.org/");
   await TestUtils.waitForCondition(
@@ -366,34 +380,36 @@ add_task(async function listed_sites_are_paused() {
     "The paused page names the site"
   );
   const doc = browser.contentDocument;
+  info("The paused page shows");
   ok(!doc.getElementById("whimsy-focus-open").hidden, "Open anyway is offered");
 
   // Other sites aren't.
-  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const other = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/"), "Opening example.com");
   is(other.linkedBrowser.currentURI.host, "example.com", "An unlisted site opens");
   BrowserTestUtils.removeTab(other);
-  await BrowserTestUtils.switchTab(gBrowser, tab);
+  await within(BrowserTestUtils.switchTab(gBrowser, tab), "Switching back");
+  info("Paused-page shots");
 
-  await whimsyBothSchemes("focus-paused-page", async () => {
+  await within(whimsyBothSchemes("focus-paused-page", async () => {
     await whimsySettled(doc);
     checkContrast(doc.defaultView, doc.getElementById("whimsy-focus-back"), "Go back");
     checkContrast(doc.defaultView, doc.getElementById("whimsy-focus-heading"), "The paused heading");
     notClipped(doc.getElementById("whimsy-focus-open"), "Open anyway");
-  });
+  }), "The paused-page shots", 40000);
 
   info("Open anyway");
   // Open anyway: this tab, this site, for the rest of the session.
   const loaded = BrowserTestUtils.browserLoaded(browser, false, "https://example.org/");
   EventUtils.synthesizeMouseAtCenter(doc.getElementById("whimsy-focus-open"), {}, doc.defaultView);
-  await loaded;
+  await within(loaded, "Open anyway loading the site");
   is(browser.currentURI.host, "example.org", "Open anyway opens the site");
   BrowserTestUtils.startLoadingURIString(browser, "https://example.org/?again");
-  await BrowserTestUtils.browserLoaded(browser);
+  await within(BrowserTestUtils.browserLoaded(browser), "Loading it again");
   is(browser.currentURI.host, "example.org", "It stays open in that tab");
 
   info("Ending reopens paused tabs");
   // Ending the session opens paused tabs.
-  const second = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  const second = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank"), "Opening a second blank tab");
   BrowserTestUtils.startLoadingURIString(second.linkedBrowser, "https://sub.example.org/");
   await TestUtils.waitForCondition(
     () => second.linkedBrowser.currentURI.spec.startsWith("about:whimsy?focus"),
@@ -401,7 +417,7 @@ add_task(async function listed_sites_are_paused() {
   );
   const reopened = BrowserTestUtils.browserLoaded(second.linkedBrowser);
   WhimsyFocusSession.end();
-  await reopened;
+  await within(reopened, "Reopening the paused tab");
   is(second.linkedBrowser.currentURI.host, "sub.example.org", "Ending the session opens the site");
 
   BrowserTestUtils.removeTab(second);
