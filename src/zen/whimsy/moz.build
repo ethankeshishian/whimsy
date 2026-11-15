@@ -155,6 +155,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyProfiles.sys.mjs",
     "WhimsyProfileSettings.sys.mjs",
     "WhimsyProfileSync.sys.mjs",
+    "WhimsyProfileZoom.sys.mjs",
     "WhimsyProtocol.sys.mjs",
     "WhimsyQRCode.sys.mjs",
     "WhimsyQuickWindow.sys.mjs",
