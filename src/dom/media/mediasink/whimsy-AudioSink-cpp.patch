@@ -1,0 +1,28 @@
+diff --git a/dom/media/mediasink/AudioSink.cpp b/dom/media/mediasink/AudioSink.cpp
+--- a/dom/media/mediasink/AudioSink.cpp
++++ b/dom/media/mediasink/AudioSink.cpp
+@@ -427,6 +427,11 @@
+   return std::min(mLastEndTime, played);
+ }
+ 
++void AudioSink::WhimsySetEqualizer(WhimsyEqualizerParams* aParams) {
++  MOZ_ASSERT(!mAudioStream, "set before the stream starts");
++  mWhimsyEqualizer = aParams ? MakeUnique<WhimsyEqualizer>(aParams) : nullptr;
++}
++
+ uint32_t AudioSink::PopFrames(AudioDataValue* aBuffer, uint32_t aFrames,
+                               bool aAudioThreadChanged) {
+   // This is safe, because we have the guarantee, by the OS, that audio
+@@ -484,6 +489,12 @@
+       "Popping {} frames. Remaining in ringbuffer {} / {}, total popped {}\n",
+       aFrames, SampleToFrame(mProcessedSPSCQueue->AvailableRead()),
+       SampleToFrame(mProcessedSPSCQueue->Capacity()), mTotalSamplesPopped);
++  // Whimsy W29: equalize before the audibility check, so a fully cut tab
++  // stops showing as playing. Returns at once (samples untouched) when flat.
++  if (mWhimsyEqualizer && samplesRead) {
++    mWhimsyEqualizer->ProcessInterleaved(
++        aBuffer, mOutputChannels, SampleToFrame(samplesRead), mOutputRate);
++  }
+   CheckIsAudible(Span(aBuffer, samplesRead), mOutputChannels);
+ 
+   return SampleToFrame(samplesRead);

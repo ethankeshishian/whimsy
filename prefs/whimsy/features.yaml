@@ -96,6 +96,9 @@
 - name: whimsy.feature.tab-volume
   value: true
 
+- name: whimsy.feature.tab-eq
+  value: true
+
 - name: whimsy.feature.pip-snap-back
   value: true
 

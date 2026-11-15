@@ -1508,6 +1508,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)context_\w*MuteSite|mute-?site\b")]},
     {"id": "tab-volume", "title": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
      "detect": [("src/zen", r"(?i)tab-?volume-?(slider|panel)|setTabVolume")]},
+    {"id": "tab-eq", "title": "Tab equalizer: presets and 8 bands under the tab volume slider, per site (W29)",
+     "detect": [("src/zen", r"(?i)zen-?(tab-?)?equali[sz]er|zenEqualizer")]},
     {"id": "pip-snap-back", "title": "PiP snaps back into the page when you return to its tab (Arc), automatic PiP setting",
      "detect": [("src/zen", r"(?i)pip-?snap|snapBackPip")]},
     {"id": "playback-speed", "title": "Playback speed shortcuts (Cmd+Opt+. and ,) and the PiP speed control",

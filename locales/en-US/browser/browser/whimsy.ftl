@@ -334,6 +334,51 @@ whimsy-volume-slider =
 whimsy-volume-mute =
     .tooltiptext = Mute or unmute the tab
 
+## W29 tab equalizer: the rows under the volume slider in the Tab volume panel
+
+whimsy-eq-label = Equalizer
+whimsy-eq-preset-flat = Flat
+whimsy-eq-preset-voice = Voice
+whimsy-eq-preset-bass-boost = Bass Boost
+whimsy-eq-preset-treble-boost = Treble Boost
+whimsy-eq-preset-loudness = Loudness
+whimsy-eq-preset-custom = Custom
+whimsy-eq-preset-menu =
+    .aria-label = Equalizer preset
+whimsy-eq-show-bands =
+    .tooltiptext = Show bands
+    .aria-label = Show bands
+whimsy-eq-hide-bands =
+    .tooltiptext = Hide bands
+    .aria-label = Hide bands
+# $freq (string) - the band's frequency as its label shows it, e.g. 1k
+# $db (number) - the band's gain in decibels, e.g. -3
+whimsy-eq-band =
+    .aria-label = { $freq } Hz
+    .aria-valuetext = { $db } decibels
+# Shown under the presets when the tab's audio can't be filtered (protected
+# or live-stream media).
+whimsy-eq-unsupported = This site's audio can't be adjusted.
+# The tab speaker's tooltip while the site's equalizer is on: Firefox's own
+# tooltip, then the preset.
+# $action (string) - which Firefox tooltip: mute, unmute, mute-background, unmute-background
+# $preset (string) - flat, voice, bass-boost, treble-boost, loudness, or custom
+whimsy-eq-speaker-tooltip =
+    .label =
+        { $action ->
+            [unmute] { tabbrowser-unmute-tab-audio-tooltip.label }
+            [mute-background] { tabbrowser-mute-tab-audio-background-tooltip.label }
+            [unmute-background] { tabbrowser-unmute-tab-audio-background-tooltip.label }
+           *[mute] { tabbrowser-mute-tab-audio-tooltip.label }
+        } · Equalizer: { $preset ->
+            [voice] { whimsy-eq-preset-voice }
+            [bass-boost] { whimsy-eq-preset-bass-boost }
+            [treble-boost] { whimsy-eq-preset-treble-boost }
+            [loudness] { whimsy-eq-preset-loudness }
+            [flat] { whimsy-eq-preset-flat }
+           *[custom] { whimsy-eq-preset-custom }
+        }
+
 ## Playback speed (shortcuts and command bar)
 
 whimsy-action-speed-up = Speed Up Video

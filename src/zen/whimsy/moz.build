@@ -407,7 +407,8 @@ BROWSER_CHROME_MANIFESTS += [
 # on-device Speech), embedding/ (the meaning index's on-device sentence
 # embeddings, NaturalLanguage, wave23/memory-fire) and passkeys/ (W26:
 # Whimsy's Touch ID passkeys, C++ over a Swift Secure Enclave helper).
-DIRS += ["audiotap"]
+# equalizer/ is W29's per-site equalizer DSP (plain C++, every platform).
+DIRS += ["audiotap", "equalizer"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     DIRS += [

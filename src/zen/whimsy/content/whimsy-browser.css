@@ -883,6 +883,137 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     border-radius: 4px;
   }
 }
+
+/* W29 tab equalizer: under the volume row (equalizer.html). The rule and
+   the preset menu are WhimsySurface's (whimsy-surface.css .whimsy-surface-
+   rule, .whimsy-surface-dropdown); the bands are the volume slider turned
+   upright, with a dashed 0 dB line. */
+#whimsy-volume-panel .whimsy-eq {
+  width: 280px;
+  max-width: 100%;
+
+  > .whimsy-surface-rule {
+    margin: 6px 0 4px;
+  }
+}
+.whimsy-eq-head {
+  gap: 8px;
+  height: 30px;
+}
+.whimsy-eq-label {
+  flex: 1;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.whimsy-eq-chevron {
+  list-style-image: url("chrome://global/skin/icons/arrow-down.svg");
+  -moz-context-properties: fill;
+  fill: var(--whimsy-surface-muted);
+  margin: 0;
+
+  > .toolbarbutton-icon {
+    width: 22px;
+    height: 22px;
+    padding: 5px;
+    border-radius: 6px;
+    transition: rotate 200ms var(--whimsy-surface-ease);
+  }
+  &[open] > .toolbarbutton-icon {
+    rotate: 180deg;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    > .toolbarbutton-icon {
+      transition: none;
+    }
+  }
+}
+.whimsy-eq-unsupported {
+  padding: 0 0 4px;
+  font-size: 11.5px;
+  color: var(--whimsy-surface-muted);
+}
+#whimsy-eq-preset:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.whimsy-eq-bands {
+  display: grid;
+  grid-template-columns: 20px repeat(8, 1fr);
+  align-items: stretch;
+  gap: 0 2px;
+  padding: 4px 0 2px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+.whimsy-eq-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2px 2px 16px 0;
+  font-size: 9.5px;
+  color: var(--whimsy-surface-muted);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-eq-band {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 50px;
+    border-top: 1px dashed color-mix(in srgb, currentColor 14%, transparent);
+    pointer-events: none;
+  }
+}
+.whimsy-eq-freq {
+  font-size: 9.5px;
+  color: var(--whimsy-surface-muted);
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-eq-slider {
+  --whimsy-volume-fill: var(--zen-primary-color, AccentColor);
+  --whimsy-volume-track: color-mix(in srgb, currentColor 18%, transparent);
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  flex: none;
+  width: 16px;
+  height: 100px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+
+  &::-moz-range-track {
+    width: 4px;
+    border-radius: 999px;
+    background: var(--whimsy-volume-track);
+  }
+  &::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--arrowpanel-background, Field);
+    border-radius: 50%;
+    background: var(--whimsy-volume-fill);
+    box-shadow: 0 0 0 1px var(--whimsy-volume-track);
+  }
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
 .whimsy-volume-value {
   min-width: 4ch;
   text-align: end;

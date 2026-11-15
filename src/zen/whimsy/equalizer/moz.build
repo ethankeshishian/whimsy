@@ -1,0 +1,24 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# W29 equalizer: the 8-band biquad cascade that HTMLMediaElement's
+# chrome-only whimsySetEqualizer() feeds. The engine side (the element, the
+# decoder, AudioSink and AudioDecoderInputTrack) is in
+# src/dom/media/**/whimsy-*.patch; this is only the DSP.
+
+EXPORTS.mozilla += [
+    "WhimsyEqualizer.h",
+]
+
+SOURCES += [
+    "WhimsyEqualizer.cpp",
+]
+
+LOCAL_INCLUDES += [
+    "/dom/media",
+]
+
+include("/ipc/chromium/chromium-config.mozbuild")
+
+FINAL_LIBRARY = "xul"

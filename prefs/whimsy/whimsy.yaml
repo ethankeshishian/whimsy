@@ -107,6 +107,11 @@
 - name: whimsy.media.pip-snap-back
   value: true
 
+# W29: whether the Tab volume panel shows the equalizer's 8 bands (the
+# chevron; remembered for every tab).
+- name: whimsy.media.eq-bands-open
+  value: false
+
 # A speed button in the picture-in-picture player (Firefox's, off there).
 - name: media.videocontrols.picture-in-picture.playback-speed.enabled
   value: true

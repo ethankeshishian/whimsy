@@ -23,6 +23,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   // wave3/speed: the speed each site plays at.
   WhimsyVideoSpeed: "resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs",
+  WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
 });
 
 const MUTE_FEATURE_PREF = "whimsy.feature.background-mute";
@@ -52,6 +53,30 @@ const SITE_MENU_ID = "context_whimsyMuteSite";
 const VOLUME_FEATURE_PREF = "whimsy.feature.tab-volume";
 const VOLUME_KEY = "whimsy-volume";
 const VOLUME_PANEL_ID = "whimsy-volume-panel";
+
+// W29 tab equalizer: under the volume slider, a preset menu and 8 bands
+// (+-12 dB). Gecko filters each media element's own output (WhimsyEqualizer,
+// in AudioSink and the captured-stream path), so cross-origin video stays
+// audible and a flat equalizer costs nothing. The owner picked "per site":
+// the setting is a content pref on the site (its base domain, like Mute
+// Site); private windows keep theirs in memory. Whether the bands are open
+// is one global pref. Protected media that plays outside Gecko, and media
+// streams, can't be filtered: the panel says so.
+const EQ_FEATURE_PREF = "whimsy.feature.tab-eq";
+const EQ_CONTENT_PREF = "whimsy.equalizer";
+const EQ_OPEN_PREF = "whimsy.media.eq-bands-open";
+const EQ_BANDS = ["60", "150", "400", "1k", "2.4k", "6k", "10k", "15k"];
+const EQ_FLAT = [0, 0, 0, 0, 0, 0, 0, 0];
+const EQ_PRESETS = {
+  flat: EQ_FLAT,
+  voice: [-6, -3, 0, 3, 5, 4, 1, -2],
+  "bass-boost": [7, 5, 2, 0, 0, 0, 0, 0],
+  "treble-boost": [0, 0, 0, 0, 2, 4, 6, 7],
+  loudness: [6, 3, 0, -1, 0, 1, 4, 5],
+};
+const eqGainsValid = gains => Array.isArray(gains) && gains.length == 8 && gains.every(db => Number.isFinite(db));
+const eqClamp = gains => gains.map(db => Math.max(-12, Math.min(12, Math.round(db))));
+const cps2 = () => Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
 
 // PiP snaps back (Arc): going back to a tab whose video is in a
 // picture-in-picture window puts the video back in the page, whether the
@@ -646,6 +671,17 @@ export const WhimsyMedia = {
     };
     Services.prefs.addObserver(VOLUME_FEATURE_PREF, update);
     win.addEventListener("unload", () => Services.prefs.removeObserver(VOLUME_FEATURE_PREF, update), { once: true });
+    // W29: the equalizer switch takes effect in open tabs at once.
+    const updateEq = () => {
+      for (const tab of gBrowser.tabs) {
+        const browser = tab.linkedBrowser;
+        this.eqGainsFor(browser).then(gains => this.sendToFrames(browser, "Whimsy:SetEq", { gains }));
+      }
+      document.getElementById(VOLUME_PANEL_ID)?.whimsyUpdateEq?.();
+    };
+    Services.prefs.addObserver(EQ_FEATURE_PREF, updateEq);
+    win.addEventListener("unload", () => Services.prefs.removeObserver(EQ_FEATURE_PREF, updateEq), { once: true });
+    this.initEqTooltip(win);
     // wave7/menus: the tab menu has no "Volume…" row (no duplicate
     // controls): right-clicking a tab's speaker opens the slider instead
     // of the menu, and the command bar's "Tab Volume" (assignable in
@@ -664,6 +700,349 @@ export const WhimsyMedia = {
       },
       true
     );
+  },
+
+  // --- W29 tab equalizer ---
+
+  get tabEqEnabled() {
+    return Services.prefs.getBoolPref(EQ_FEATURE_PREF, true);
+  },
+
+  // The browser's site for the equalizer: { key, spec, loadContext }, or
+  // null where there's no site (about: pages, files).
+  eqSite(browser) {
+    const site = this.siteFor(browser);
+    if (!site) {
+      return null;
+    }
+    const isPrivate = site.principal.privateBrowsingId > 0;
+    return {
+      key: `${isPrivate ? "p" : "n"}:${site.host}`,
+      spec: `https://${site.host}/`,
+      loadContext: isPrivate ? Cu.createPrivateLoadContext() : Cu.createLoadContext(),
+    };
+  },
+
+  get eqCache() {
+    if (!this._eqCache) {
+      this._eqCache = new Map();
+      this._eqLoads = new Map();
+      // Private sites' settings go with the last private window.
+      const forgetPrivate = () => {
+        for (const key of [...this._eqCache.keys()]) {
+          if (key.startsWith("p:")) {
+            this._eqCache.delete(key);
+          }
+        }
+      };
+      Services.obs.addObserver(forgetPrivate, "last-pb-context-exited");
+    }
+    return this._eqCache;
+  },
+
+  // The site's setting right now: { preset, gains }. Flat until it has
+  // loaded (eqLoad).
+  eqFor(browser) {
+    const site = this.eqSite(browser);
+    return (site && this.eqCache.get(site.key)) ?? { preset: "flat", gains: EQ_FLAT };
+  },
+
+  eqLoad(browser) {
+    const site = this.eqSite(browser);
+    if (!site) {
+      return Promise.resolve({ preset: "flat", gains: EQ_FLAT });
+    }
+    const cached = this.eqCache.get(site.key);
+    if (cached) {
+      return Promise.resolve(cached);
+    }
+    let load = this._eqLoads.get(site.key);
+    if (!load) {
+      load = new Promise(resolve => {
+        let saved = null;
+        cps2().getByDomainAndName(site.spec, EQ_CONTENT_PREF, site.loadContext, {
+          handleResult(pref) {
+            try {
+              saved = JSON.parse(pref.value);
+            } catch (e) {
+              // Not ours, or damaged: flat.
+            }
+          },
+          handleCompletion: () => resolve(saved),
+          handleError: () => resolve(null),
+        });
+      }).then(saved => {
+        this._eqLoads.delete(site.key);
+        let setting = { preset: "flat", gains: EQ_FLAT };
+        if (saved?.preset == "custom" && eqGainsValid(saved.gains)) {
+          setting = { preset: "custom", gains: eqClamp(saved.gains) };
+        } else if (Object.hasOwn(EQ_PRESETS, saved?.preset ?? "")) {
+          setting = { preset: saved.preset, gains: EQ_PRESETS[saved.preset] };
+        }
+        // A change made while it loaded is newer.
+        if (!this.eqCache.has(site.key)) {
+          this.eqCache.set(site.key, setting);
+        }
+        return this.eqCache.get(site.key);
+      });
+      this._eqLoads.set(site.key, load);
+    }
+    return load;
+  },
+
+  // For the page: the gains its media should play with ([] = flat).
+  async eqGainsFor(browser) {
+    if (!browser || !this.tabEqEnabled) {
+      return [];
+    }
+    return (await this.eqLoad(browser)).gains;
+  },
+
+  // Sets the site's equalizer: a preset, or "custom" with its gains. Saves
+  // it, and every tab on the site hears it at once.
+  setSiteEq(browser, preset, gains = null) {
+    const site = this.eqSite(browser);
+    if (!site) {
+      return Promise.resolve();
+    }
+    if (preset == "custom") {
+      gains = eqGainsValid(gains) ? eqClamp(gains) : EQ_FLAT;
+    } else {
+      preset = Object.hasOwn(EQ_PRESETS, preset) ? preset : "flat";
+      gains = EQ_PRESETS[preset];
+    }
+    const flat = gains.every(db => db == 0);
+    if (flat) {
+      preset = "flat";
+    }
+    this.eqCache.set(site.key, { preset, gains });
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      for (const tab of win.gBrowser?.tabs ?? []) {
+        if (this.eqSite(tab.linkedBrowser)?.key == site.key) {
+          this.sendToFrames(tab.linkedBrowser, "Whimsy:SetEq", { gains: this.tabEqEnabled ? gains : [] });
+        }
+      }
+    }
+    return new Promise(resolve => {
+      const callback = { handleCompletion: () => resolve(), handleError: () => resolve() };
+      if (flat) {
+        cps2().removeByDomainAndName(site.spec, EQ_CONTENT_PREF, site.loadContext, callback);
+      } else {
+        const value = JSON.stringify(preset == "custom" ? { preset, gains } : { preset });
+        cps2().set(site.spec, EQ_CONTENT_PREF, value, site.loadContext, callback);
+      }
+    });
+  },
+
+  // Whether every frame of the tab that has media can't be filtered.
+  async eqUnsupported(tab) {
+    const contexts = tab?.linkedBrowser?.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
+    const infos = await Promise.all(
+      contexts.map(context => {
+        try {
+          return context.currentWindowGlobal?.getActor("WhimsyPage").sendQuery("Whimsy:EqInfo").catch(() => null);
+        } catch (e) {
+          return null;
+        }
+      })
+    );
+    let total = 0;
+    let unsupported = 0;
+    for (const info of infos) {
+      total += info?.total ?? 0;
+      unsupported += info?.unsupported ?? 0;
+    }
+    return total > 0 && unsupported == total;
+  },
+
+  // The speaker's tooltip adds the preset while the site's equalizer is on
+  // ("Mute tab (⌘M) · Equalizer: Voice"). Firefox fills the tooltip in
+  // gBrowser.createTooltip; this swaps its message for one that quotes it.
+  initEqTooltip(win) {
+    const gBrowser = win.gBrowser;
+    if (!gBrowser?.createTooltip || gBrowser._whimsyEqTooltip) {
+      return;
+    }
+    gBrowser._whimsyEqTooltip = true;
+    const original = gBrowser.createTooltip;
+    const actions = {
+      "tabbrowser-mute-tab-audio-tooltip": "mute",
+      "tabbrowser-unmute-tab-audio-tooltip": "unmute",
+      "tabbrowser-mute-tab-audio-background-tooltip": "mute-background",
+      "tabbrowser-unmute-tab-audio-background-tooltip": "unmute-background",
+    };
+    const media = this;
+    gBrowser.createTooltip = function (event) {
+      const result = original.call(this, event);
+      try {
+        const tooltip = event.target;
+        const tab = tooltip.triggerNode?.closest?.("tab") ?? tooltip.triggerNode?.getRootNode?.()?.host?.closest?.("tab");
+        const { id, args } = win.document.l10n.getAttributes(tooltip);
+        if (tab && actions[id] && media.tabEqEnabled) {
+          const { preset } = media.eqFor(tab.linkedBrowser);
+          if (preset != "flat") {
+            win.document.l10n.setAttributes(tooltip, "whimsy-eq-speaker-tooltip", { ...args, action: actions[id], preset });
+          }
+        }
+      } catch (e) {
+        console.error("Whimsy: equalizer tooltip", e);
+      }
+      return result;
+    };
+  },
+
+  // The Equalizer rows of the volume panel.
+  eqRows(win, panel) {
+    const { document } = win;
+    const XHTML = "http://www.w3.org/1999/xhtml";
+    const box = document.createXULElement("vbox");
+    box.className = "whimsy-eq";
+    const head = document.createXULElement("hbox");
+    head.className = "whimsy-eq-head";
+    head.setAttribute("align", "center");
+    const label = document.createElementNS(XHTML, "span");
+    label.className = "whimsy-eq-label";
+    label.id = "whimsy-eq-label";
+    document.l10n.setAttributes(label, "whimsy-eq-label");
+    const options = Object.keys(EQ_PRESETS).map(value => ({ value, l10nId: `whimsy-eq-preset-${value}` }));
+    const custom = { value: "custom", l10nId: "whimsy-eq-preset-custom" };
+    const setCustom = on => {
+      const at = options.indexOf(custom);
+      if (on && at < 0) {
+        options.push(custom);
+      } else if (!on && at >= 0) {
+        options.splice(at, 1);
+      }
+    };
+    // Counts your changes, so a load that finishes after one doesn't undo it.
+    let changes = 0;
+    const tab = () => (panel.whimsyTab && !panel.whimsyTab.closing ? panel.whimsyTab : null);
+    const menu = lazy.WhimsySurface.dropdown(document, {
+      id: "whimsy-eq-preset",
+      options,
+      value: "flat",
+      width: 150,
+      onPick: value => {
+        changes++;
+        setCustom(false);
+        const t = tab();
+        if (t) {
+          this.setSiteEq(t.linkedBrowser, value);
+          fill(this.eqFor(t.linkedBrowser));
+        }
+      },
+    });
+    document.l10n.setAttributes(menu.button, "whimsy-eq-preset-menu");
+    menu.button.setAttribute("aria-describedby", "whimsy-eq-preset-value");
+    const chevron = document.createXULElement("toolbarbutton");
+    chevron.className = "whimsy-eq-chevron toolbarbutton-1";
+    head.append(label, menu.button, chevron);
+
+    const note = document.createElementNS(XHTML, "div");
+    note.className = "whimsy-eq-unsupported";
+    note.hidden = true;
+    document.l10n.setAttributes(note, "whimsy-eq-unsupported");
+
+    const bands = document.createElementNS(XHTML, "div");
+    bands.className = "whimsy-eq-bands";
+    const scale = document.createElementNS(XHTML, "div");
+    scale.className = "whimsy-eq-scale";
+    scale.setAttribute("aria-hidden", "true");
+    for (const text of ["+12", "0", "−12"]) {
+      const span = document.createElementNS(XHTML, "span");
+      span.textContent = text;
+      scale.append(span);
+    }
+    bands.append(scale);
+    const sliders = EQ_BANDS.map(freq => {
+      const band = document.createElementNS(XHTML, "div");
+      band.className = "whimsy-eq-band";
+      const input = document.createElementNS(XHTML, "input");
+      input.type = "range";
+      input.min = "-12";
+      input.max = "12";
+      input.step = "1";
+      input.value = "0";
+      input.className = "whimsy-eq-slider";
+      input.dataset.freq = freq;
+      const text = document.createElementNS(XHTML, "span");
+      text.className = "whimsy-eq-freq";
+      text.setAttribute("aria-hidden", "true");
+      text.textContent = freq;
+      band.append(input, text);
+      bands.append(band);
+      return input;
+    });
+    const setBandL10n = input =>
+      document.l10n.setAttributes(input, "whimsy-eq-band", { freq: input.dataset.freq, db: parseInt(input.value, 10) });
+    for (const input of sliders) {
+      input.addEventListener("input", () => {
+        setBandL10n(input);
+        const t = tab();
+        if (!t) {
+          return;
+        }
+        changes++;
+        setCustom(true);
+        menu.setValue("custom");
+        this.setSiteEq(
+          t.linkedBrowser,
+          "custom",
+          sliders.map(s => parseInt(s.value, 10))
+        );
+      });
+    }
+    box.append(lazy.WhimsySurface.rule(document), head, note, bands);
+
+    const showBands = () => {
+      const open = Services.prefs.getBoolPref(EQ_OPEN_PREF, false);
+      bands.hidden = !open;
+      chevron.toggleAttribute("open", open);
+      chevron.setAttribute("aria-expanded", String(open));
+      document.l10n.setAttributes(chevron, open ? "whimsy-eq-hide-bands" : "whimsy-eq-show-bands");
+    };
+    chevron.addEventListener("command", () => {
+      Services.prefs.setBoolPref(EQ_OPEN_PREF, !Services.prefs.getBoolPref(EQ_OPEN_PREF, false));
+      showBands();
+    });
+    const setDisabled = disabled => {
+      note.hidden = !disabled;
+      menu.button.disabled = disabled;
+      for (const input of sliders) {
+        input.disabled = disabled;
+      }
+    };
+    const fill = setting => {
+      setCustom(setting.preset == "custom");
+      menu.setValue(setting.preset);
+      sliders.forEach((input, i) => {
+        input.value = String(setting.gains[i] ?? 0);
+        setBandL10n(input);
+      });
+    };
+    // Called with the panel's other rows each time it opens.
+    box.whimsyUpdate = () => {
+      box.hidden = !this.tabEqEnabled;
+      const t = tab();
+      if (box.hidden || !t) {
+        return;
+      }
+      showBands();
+      fill(this.eqFor(t.linkedBrowser));
+      setDisabled(false);
+      const seen = changes;
+      this.eqLoad(t.linkedBrowser).then(setting => {
+        if (tab() == t && changes == seen) {
+          fill(setting);
+        }
+      });
+      this.eqUnsupported(t).then(unsupported => {
+        if (tab() == t) {
+          setDisabled(unsupported);
+        }
+      });
+    };
+    return box;
   },
 
   volumePanel(win) {
@@ -695,6 +1074,11 @@ export const WhimsyMedia = {
     value.className = "whimsy-volume-value";
     row.append(mute, slider, value);
     panel.append(row);
+    // W29: the equalizer under the slider (WhimsySurface's tokens, rule and
+    // dropdown, as in This Site's section).
+    panel.classList.add("whimsy-surface-tokens");
+    const eq = this.eqRows(win, panel);
+    panel.append(eq);
     const show = () => {
       const tab = panel.whimsyTab;
       const level = this.volumeFor(tab);
@@ -703,6 +1087,7 @@ export const WhimsyMedia = {
       mute.toggleAttribute("muted", !!tab?.hasAttribute("muted"));
     };
     panel.whimsyUpdate = show;
+    panel.whimsyUpdateEq = eq.whimsyUpdate;
     slider.addEventListener("input", () => {
       const tab = panel.whimsyTab;
       if (tab && !tab.closing) {
@@ -729,6 +1114,7 @@ export const WhimsyMedia = {
     const panel = this.volumePanel(win);
     panel.whimsyTab = tab;
     panel.whimsyUpdate();
+    panel.whimsyUpdateEq();
     const target = anchor?.getBoundingClientRect().width ? anchor : tab;
     if (!anchor && panel.state == "closed") {
       const doc = win.document;

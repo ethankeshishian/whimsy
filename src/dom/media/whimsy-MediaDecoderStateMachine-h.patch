@@ -1,0 +1,13 @@
+diff --git a/dom/media/MediaDecoderStateMachine.h b/dom/media/MediaDecoderStateMachine.h
+--- a/dom/media/MediaDecoderStateMachine.h
++++ b/dom/media/MediaDecoderStateMachine.h
+@@ -509,6 +509,9 @@
+ 
+   const bool mShouldResistFingerprinting;
+ 
++  // Whimsy W29: the element's equalizer gains, handed to each audio sink.
++  const RefPtr<WhimsyEqualizerParams> mWhimsyEqualizer;
++
+   bool mSeamlessLoopingAllowed;
+ 
+   // If media was in looping and had reached to the end before, then we need
