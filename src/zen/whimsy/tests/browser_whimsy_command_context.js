@@ -34,25 +34,15 @@ add_task(async function mail_counts_in_rows_and_hover() {
   const action = provider.getViewUpdate(rows[0]).action.l10n;
   is(action.id, "whimsy-command-mail-unread", "Mail row advertises unread count");
   is(action.args.count, 12, "Command bar shows the title count");
-  const panel = document.getElementById("tab-preview-panel");
-  try {
-    WhimsyTabs.updateMailHover(window, mail);
-    let row = panel.querySelector("#whimsy-mail-unread-preview");
-    is(document.l10n.getAttributes(row).args.count, 12, "Hover shows the same count");
-    mail.linkedBrowser.contentTitle = "Inbox - Gmail";
-    WhimsyTabs.updateMailHover(window, mail);
-    row = panel.querySelector("#whimsy-mail-unread-preview");
-    is(document.l10n.getAttributes(row).args.count, 0, "Reading mail clears the count");
-    WhimsyTabs.updateMailHover(window, mailTab("https://example.com", "(9) Example"));
-    ok(!panel.querySelector("#whimsy-mail-unread-preview"), "Next non-mail hover removes the summary");
-    for (const url of ["https://mail.google.com.evil.test/", "https://outlook.office.com/calendar/view/month"]) {
-      is(WhimsyTabs.mailUnreadCount(mailTab(url, "(7) Page")), null, "Only a mail site gets a summary");
-    }
-    is(WhimsyTabs.mailUnreadCount(mailTab("https://outlook.office.com/mail/", "(7) Inbox")), 7,
-      "Outlook mail is supported");
-  } finally {
-    panel.querySelector("#whimsy-mail-unread-preview")?.remove();
+  // W29: the count moved from the disabled #tab-preview-panel hook into the
+  // tab hover card itself (browser_whimsy_hover_cards.js covers that card).
+  mail.linkedBrowser.contentTitle = "Inbox - Gmail";
+  is(WhimsyTabs.mailUnreadCount(mail), 0, "Reading mail clears the count");
+  for (const url of ["https://mail.google.com.evil.test/", "https://outlook.office.com/calendar/view/month"]) {
+    is(WhimsyTabs.mailUnreadCount(mailTab(url, "(7) Page")), null, "Only a mail site gets a summary");
   }
+  is(WhimsyTabs.mailUnreadCount(mailTab("https://outlook.office.com/mail/", "(7) Inbox")), 7,
+    "Outlook mail is supported");
 });
 
 add_task(function meeting_uses_shared_timing_window() {
