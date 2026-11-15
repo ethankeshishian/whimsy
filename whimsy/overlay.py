@@ -2111,6 +2111,11 @@ FEATURES = [
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W29: Safety Check card (Settings → Privacy & Security): updates,
+    # breached passwords, risky extensions and unused site permissions, all
+    # checked locally.
+    {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
+     "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
 ]
 
 

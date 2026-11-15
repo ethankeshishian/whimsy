@@ -1302,3 +1302,9 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 
 # W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
 ["browser_whimsy_dim_inactive_window.js"]
+
+# W29 safety-check: WhimsySafetyCheck.sys.mjs itself (updates/passwords/extensions/permissions checks).
+["browser_whimsy_safety_check.js"]
+
+# W29 safety-check: Settings → Privacy & Security → Safety Check card and its sheet.
+["browser_whimsy_safety_check_settings.js"]
