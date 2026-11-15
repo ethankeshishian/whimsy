@@ -1108,6 +1108,29 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
     content: " · ";
   }
 }
+/* W29: "Remove photo details?", the sheet before an upload: Fire Button's
+   checkbox rows, each with how many photos carry that kind on its end. */
+.whimsy-photo-details-text {
+  margin: 0 0 8px;
+  padding-inline: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--whimsy-surface-muted);
+}
+.whimsy-photo-details-rows {
+  gap: 2px;
+}
+.whimsy-photo-details-count {
+  margin-inline-start: auto;
+  padding-inline-start: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--whimsy-surface-muted);
+}
+.whimsy-photo-details-row[disabled] {
+  opacity: 0.5;
+}
 /* fire-2.3: the picked spaces in one row, Change at its end. */
 .whimsy-fire-scope-group {
   gap: 8px;

@@ -144,6 +144,23 @@ function rectOf(element) {
   }
 }
 
+// W29: where the photo-details sheet opens, as a screen rect in device
+// pixels (the parent converts it to its own): `element`'s box, or a point.
+function screenRect(win, element, x = null, y = null) {
+  try {
+    const box = element ? element.getBoundingClientRect() : { left: x, top: y, width: 0, height: 0 };
+    const scale = win.devicePixelRatio || 1;
+    return {
+      left: (win.mozInnerScreenX + box.left) * scale,
+      top: (win.mozInnerScreenY + box.top) * scale,
+      width: box.width * scale,
+      height: box.height * scale,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 // Laid out (has a box) and not visibility:hidden.
 function isShown(element, minW = 8, minH = 8) {
   const rect = rectOf(element);
@@ -507,6 +524,9 @@ export class WhimsyUploadChild extends JSWindowActorChild {
   // change; both are held, the input's files are swapped for stripped
   // copies, and the page gets both events again. Our own events, and
   // inputs with nothing to strip, pass straight through.
+  // W29: with "Ask before each upload" on, the sheet picks which details
+  // go first; Cancel clears the input, as a cancelled picker leaves it,
+  // and the page gets no input or change.
   onFilesChosen(event) {
     const input = event.target;
     if (!event.isTrusted || this.redispatching || input?.localName != "input" || input.type != "file") {
@@ -525,22 +545,29 @@ export class WhimsyUploadChild extends JSWindowActorChild {
     this.stripping.add(input);
     const win = this.contentWindow;
     metadata
-      .stripFiles(files, win)
-      .then(stripped => {
-        if (stripped) {
-          input.mozSetFileArray(stripped);
-        }
-      })
-      .catch(e => console.error("Whimsy: removing photo details failed", e))
-      .finally(() => {
+      .filesToUpload(files, win, data => this.askDetails(data, screenRect(win, input)))
+      .then(out => {
         this.stripping.delete(input);
-        try {
-          this.redispatch(input, new win.Event("input", { bubbles: true, composed: true }));
-          this.redispatch(input, new win.Event("change", { bubbles: true }));
-        } catch (e) {
-          // The page is gone.
+        if (!out) {
+          input.mozSetFileArray([]);
+          return;
         }
+        if (out.some((f, i) => f !== files[i])) {
+          input.mozSetFileArray(out);
+        }
+        this.redispatch(input, new win.Event("input", { bubbles: true, composed: true }));
+        this.redispatch(input, new win.Event("change", { bubbles: true }));
+      })
+      .catch(e => {
+        // The page is gone.
+        this.stripping.delete(input);
       });
+  }
+
+  // W29: the photo-details sheet, in the parent. Resolves to the kinds to
+  // remove, or null when the upload is cancelled.
+  askDetails({ count, kinds }, rect) {
+    return this.sendQuery("WhimsyUpload:AskDetails", { count, kinds, rect }).catch(() => null);
   }
 
   // W27: photos dropped on a page that takes drops. The trusted drop is
@@ -589,12 +616,12 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       metaKey: event.metaKey,
     };
     metadata
-      .stripFiles(files, win)
-      .catch(e => {
-        console.error("Whimsy: removing photo details failed", e);
-        return null;
-      })
+      .filesToUpload(files, win, data => this.askDetails(data, screenRect(win, null, event.clientX, event.clientY)))
       .then(stripped => {
+        if (!stripped) {
+          // Cancelled in the sheet: the page gets no drop.
+          return;
+        }
         try {
           // The copy is filled as the page: data a DataTransfer gets from
           // Whimsy is chrome-only (the page can't read its files or text),
@@ -605,7 +632,7 @@ export class WhimsyUploadChild extends JSWindowActorChild {
           for (const [type, value] of strings) {
             copy.setData(type, value);
           }
-          for (const file of stripped ?? files) {
+          for (const file of stripped) {
             copy.items.add(Cu.cloneInto(file, win));
           }
           copy.dropEffect = data.dropEffect;
@@ -739,8 +766,9 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       baseline: this.baseline(resolved.element),
       // Read now, while the Cmd+V is fresh for the parent's gesture check;
       // used only if Whimsy delivers.
+      // W29: { token } when the photo-details sheet should ask first.
       filePromise: this.sendQuery("WhimsyUpload:Paste").then(
-        result => result?.file ?? null,
+        result => (result?.token ? result : (result?.file ?? null)),
         () => null
       ),
     };
@@ -799,7 +827,22 @@ export class WhimsyUploadChild extends JSWindowActorChild {
 
   async deliverPending(pending, why) {
     pending.baseline.stop();
-    const file = await pending.filePromise;
+    let file = await pending.filePromise;
+    if (file?.token) {
+      // W29: the page didn't take the paste, so the sheet asks now, by
+      // the box it goes to.
+      const element = pending.resolved.element;
+      const rect = element?.isConnected ? screenRect(this.contentWindow, element) : null;
+      try {
+        file = (await this.sendQuery("WhimsyUpload:AskPaste", { token: file.token, rect }))?.file ?? null;
+      } catch (e) {
+        file = null;
+      }
+      if (!file) {
+        log("the photo-details sheet was cancelled");
+        return;
+      }
+    }
     if (!file) {
       log("nothing to upload on the clipboard (or the Cmd+V wasn't the parent's)");
       return;
@@ -976,6 +1019,10 @@ export class WhimsyUploadChild extends JSWindowActorChild {
         }
         log("Whimsy delivers: badge or command");
         return { ok: await this.deliver(element, message.data.file) };
+      }
+      case "WhimsyUpload:RectOf": {
+        const element = this.known.get(message.data?.id);
+        return element?.isConnected ? screenRect(this.contentWindow, element) : null;
       }
       case "WhimsyUpload:Resolve": {
         const resolved = this.resolveTarget();
