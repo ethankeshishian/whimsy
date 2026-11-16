@@ -392,15 +392,15 @@ authorized targeted run; isolated old passes are not validation of these edits.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
 
-## 2026-11-16 — W29 context-group restart load wait
+## 2026-11-15 — Tab menu regrouping after upstream Tab Notes
 
-- Traced journey 4's timeout to its content-load wait: SSTabRestoring marks
-  history restoration, but the test then allowed only TestUtils' default
-  50 polls (about five seconds) for content restoration and page loading.
-- Capture SSTabRestored before each setTabState call, then await the selected
-  tab's completion. This handles eager and on-demand restoration without
-  missing the event. Retained pending/document checks and tightened the URI
-  assertion to the exact saved URL; removed the catch that hid spawn errors.
-- Validation: node --check passes for browser_whimsy_chat_context_groups.js.
-  Browser tests are unavailable here, so the runtime result remains unverified.
-  No product changes, sleeps, engine edits, mach, or git commands.
+- Regroup hidden rows as well as visible ones so asynchronously revealed
+  upstream actions cannot precede New Tab Below. Unregistered tab/Essential
+  actions keep their relative order after Share and Save, before AI/Archive.
+- Restore reused separator positions and remove separators created for an
+  opening, preserving the original child order when visible groups change.
+- Existing browser test expectations remain unchanged. Node syntax check and
+  a focused harness using the actual module passed for tab, Essential, page,
+  and selection menus, late visibility, unknown rows, and exact restoration
+  across three openings each. Browser integration tests were not run; no
+  engine edits, mach, or git commands.

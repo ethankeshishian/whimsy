@@ -1,0 +1,47 @@
+W29 ambient-audio: sources and licences for the bundled loops.
+
+Each page below was opened on 2026-11-14 and showed "Creative Commons 0"
+("You can copy, modify, distribute and perform the sound, even for
+commercial purposes, all without asking permission"). The deed is
+https://creativecommons.org/publicdomain/zero/1.0/. CC0 needs no
+attribution; a snapshot of each page is kept next to this file
+(<name>-page.html) as the record the builder plan asked for.
+
+Rain
+  Clip:    Rain from Indoors – Perfect loop
+  Author:  samesamesame
+  Source:  https://freesound.org/people/samesamesame/sounds/242889/
+  Licence: CC0
+  File:    rain.opus (from rain-page.html)
+
+Cafe
+  Clip:    People talking at cafe ambience
+  Author:  priesjensen
+  Source:  https://freesound.org/people/priesjensen/sounds/482990/
+  Licence: CC0
+  File:    cafe.opus (from cafe-page.html; crossfaded loop point)
+
+Woods
+  Clip:    Quiet Spring Woodland Ambience.wav
+  Author:  ecfike
+  Source:  https://freesound.org/people/ecfike/sounds/160893/
+  Licence: CC0
+  File:    woods.opus (from woods-page.html)
+
+Fireplace
+  Clip:    Crackling fireplace
+  Author:  nielstii
+  Source:  https://freesound.org/people/nielstii/sounds/346321/
+  Licence: CC0
+  File:    fireplace.opus (from fireplace-page.html)
+
+Ocean
+  Clip:    Ocean Waves on Beach
+  Author:  goochiano
+  Source:  https://freesound.org/people/goochiano/sounds/623052/
+  Licence: CC0
+  File:    ocean.opus (from ocean-page.html; crossfaded loop point)
+
+Brown noise
+  Generated live in Web Audio (integrated white noise). No file, no
+  licence needed.

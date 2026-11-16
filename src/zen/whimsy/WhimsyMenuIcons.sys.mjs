@@ -224,6 +224,7 @@ const ICONS = {
   "context-pdfjs-select-all": SELECTABLE("checkbox"),
   "context-add-engine": ZEN("search-glass"),
   "context-searchselect": ZEN("search-glass"),
+  "context-whimsy-searchwith": ZEN("search-glass"),
   "context-searchselect-private": ZEN("private-window"),
   "context-translate-selection": ZEN("translations"),
   "context-ask-chat": ZEN("sparkles"),

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="application-name" content="Whimsy Call"><title>Whimsy Call</title></head>
+<body>
+<!-- W29: a web call with its own share button (as Meet's "Share screen",
+     Zoom's "Share Screen", or Teams' "Share"). The call bar holds a mic
+     and a camera toggle (data-is-muted, as Meet) and the share button,
+     whose click asks for the screen with getDisplayMedia, as every web
+     call does. window.shareResult says how that went; window.shares
+     counts the presses. -->
+<video id="self" muted autoplay playsinline style="width: 160px; height: 90px"></video>
+<div id="bar" role="toolbar" style="display: flex; gap: 12px; padding: 12px"></div>
+<script>
+  window.state = { mic: "on", camera: "on" };
+  window.hasShare = true;
+  window.shares = 0;
+  window.shareResult = null;
+  window.shareEnded = false;
+  let stream = null;
+  let pc = null;
+  let shared = null;
+
+  function render() {
+    const bar = document.getElementById("bar");
+    bar.textContent = "";
+    for (const [kind, name] of [["mic", "microphone"], ["camera", "camera"]]) {
+      const button = document.createElement("button");
+      const on = window.state[kind] == "on";
+      button.setAttribute("data-is-muted", String(!on));
+      button.setAttribute("aria-label", `Turn ${on ? "off" : "on"} ${name}`);
+      button.textContent = kind;
+      button.addEventListener("click", () => {
+        window.state[kind] = on ? "off" : "on";
+        render();
+      });
+      bar.append(button);
+    }
+    if (window.hasShare) {
+      const share = document.createElement("button");
+      share.id = "share";
+      share.setAttribute("aria-label", "Share screen");
+      share.textContent = "share";
+      share.addEventListener("click", () => {
+        window.shares++;
+        window.shareResult = null;
+        navigator.mediaDevices.getDisplayMedia({ video: true }).then(
+          result => {
+            shared = result;
+            window.shareResult = "shared";
+            result.getVideoTracks()[0].addEventListener("ended", () => (window.shareEnded = true));
+          },
+          e => (window.shareResult = e.name)
+        );
+      });
+      bar.append(share);
+    }
+  }
+
+  window.setShare = function (on) {
+    window.hasShare = on;
+    render();
+    return true;
+  };
+
+  window.shareState = function () {
+    return {
+      shares: window.shares,
+      result: window.shareResult,
+      live: shared?.getVideoTracks()[0]?.readyState == "live",
+    };
+  };
+
+  window.startCall = async function () {
+    pc = new RTCPeerConnection();
+    pc.createDataChannel("whimsy");
+    await pc.setLocalDescription(await pc.createOffer());
+    render();
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    const video = document.getElementById("self");
+    video.srcObject = stream;
+    await video.play();
+    return true;
+  };
+
+  window.endCall = function () {
+    shared?.getTracks().forEach(track => track.stop());
+    shared = null;
+    stream?.getTracks().forEach(track => track.stop());
+    stream = null;
+    document.getElementById("self").srcObject = null;
+    pc?.close();
+    pc = null;
+    return true;
+  };
+</script>
+</body>
+</html>
