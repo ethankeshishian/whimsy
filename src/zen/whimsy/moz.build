@@ -225,6 +225,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVideoSpeed.sys.mjs",
     "WhimsyVideoSpeedChild.sys.mjs",
     "WhimsyVPN.sys.mjs",
+    "WhimsyVPNCallChild.sys.mjs",
+    "WhimsyVPNCallParent.sys.mjs",
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",

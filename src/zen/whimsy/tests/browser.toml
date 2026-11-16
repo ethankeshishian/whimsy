@@ -375,6 +375,9 @@ support-files = ["whimsy_calendar.sjs"]
 # W13 F02: the address bar VPN control (A) and This Site's VPN row with the site icon badge (B).
 ["browser_whimsy_vpn_controls.js"]
 
+# W29 vpncalls: a call's relay lookup is asked as its page (whimsy-WebrtcTCPSocket-cpp.patch).
+["browser_whimsy_vpn_calls.js"]
+
 # legacy: Firefox/Zen/Mozilla leftovers (prefs, branding URLs, About dialog,
 # default bookmarks, Zen strings, and what was kept at upstream values).
 ["browser_whimsy_legacy.js"]
