@@ -961,13 +961,14 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
    the preset menu are WhimsySurface's (whimsy-surface.css .whimsy-surface-
    rule, .whimsy-surface-dropdown); the bands are the volume slider turned
    upright, with a dashed 0 dB line. */
-/* With the Equalizer rows the panel is 280px of content (equalizer.html
-   .apanel width 300px less 10px padding a side), volume row included. */
+/* The 300px panel includes its border and 10px padding per side. Both
+   rows must fit the remaining content width. */
 #whimsy-volume-panel:has(> .whimsy-eq:not([hidden])) {
   width: 300px;
 
   > .whimsy-volume-row {
     width: 280px;
+    max-width: 100%;
   }
 }
 #whimsy-volume-panel .whimsy-eq {

@@ -99,10 +99,18 @@ add_task(async function test_rows_presets_and_custom() {
   ok(panel.querySelector(".whimsy-volume-row").compareDocumentPosition(eq) & Node.DOCUMENT_POSITION_FOLLOWING, "They come after the volume row");
   Assert.greaterOrEqual(eq.getBoundingClientRect().top, panel.querySelector(".whimsy-volume-row").getBoundingClientRect().bottom, "The Equalizer rows are laid out below the volume row");
   ok(eq.querySelector(".whimsy-surface-rule"), "A hairline separates them");
-  const rowWidth = panel.querySelector(".whimsy-volume-row").getBoundingClientRect().width;
-  is(Math.round(eq.getBoundingClientRect().width), 280, "The Equalizer rows are 280px wide");
-  is(Math.round(rowWidth), 280, "The volume row matches them");
-  Assert.lessOrEqual(Math.round(panel.getBoundingClientRect().width), 320, "The panel hugs its rows");
+  // The popup's border and padding reduce the space available to both rows.
+  const eqRect = eq.getBoundingClientRect();
+  const volumeRect = panel.querySelector(".whimsy-volume-row").getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  is(Math.round(eqRect.left), Math.round(volumeRect.left), "The rows align at the left edge");
+  is(Math.round(eqRect.right), Math.round(volumeRect.right), "The rows align at the right edge");
+  for (const rect of [eqRect, volumeRect]) {
+    Assert.greater(rect.width, 0, "The row has a positive width");
+    Assert.greaterOrEqual(rect.left, panelRect.left, "The row fits inside the popup's left edge");
+    Assert.lessOrEqual(rect.right, panelRect.right, "The row fits inside the popup's right edge");
+  }
+  Assert.lessOrEqual(Math.round(panelRect.width), 320, "The panel hugs its rows");
   is(eq.querySelector(".whimsy-eq-label").textContent, "Equalizer", "The row is labelled Equalizer");
   const button = panel.querySelector("#whimsy-eq-preset");
   is(button.getAttribute("aria-label"), "Equalizer preset", "The preset menu is named");
