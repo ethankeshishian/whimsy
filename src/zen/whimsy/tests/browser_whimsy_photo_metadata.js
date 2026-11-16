@@ -248,7 +248,9 @@ async function chooseFiles(browser) {
 // One failure must not leave tabs or the setting behind for the next task.
 async function withPhotoPage(prefOn, task) {
   if (prefOn) {
-    await SpecialPowers.pushPrefEnv({ set: [[PREF, true]] });
+    // W29: every kind, without the sheet (browser_whimsy_photo_details.js
+    // covers it).
+    await SpecialPowers.pushPrefEnv({ set: [[PREF, true], [`${PREF}.ask`, false], [`${PREF}.date`, true]] });
   }
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PHOTO_PAGE);
   try {

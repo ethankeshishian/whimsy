@@ -1,0 +1,14 @@
+diff --git a/xpfe/appshell/nsIAppWindow.idl b/xpfe/appshell/nsIAppWindow.idl
+--- a/xpfe/appshell/nsIAppWindow.idl
++++ b/xpfe/appshell/nsIAppWindow.idl
+@@ -152,4 +152,10 @@
+    * navigation right now for the initial viewer.
+    */
+   void showInitialViewer();
++
++  /**
++   * Whether this window's native widget should float above other
++   * applications' windows.
++   */
++  attribute boolean alwaysOnTop;
+ };

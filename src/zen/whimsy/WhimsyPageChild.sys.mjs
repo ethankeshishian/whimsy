@@ -356,6 +356,10 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // hang-up control (WhimsyCallControls.findLeave).
       case "Whimsy:CallLeave":
         return this.leaveCall();
+      // W29: Call Options › Share this tab presses the page's own share
+      // control (WhimsyCallControls.findShare).
+      case "Whimsy:CallShare":
+        return this.shareCall();
       // fix7: automatic picture-in-picture fallback (WhimsyMedia).
       case "Whimsy:AutoPip":
         return this.autoPip();
@@ -416,9 +420,16 @@ export class WhimsyPageChild extends JSWindowActorChild {
 
   // Sends the state when it differs from the last one sent.
   reportCallControls() {
-    const state = { ...lazy.WhimsyCallControls.readState(this.document), app: lazy.WhimsyCallControls.appName(this.document) };
+    const state = {
+      ...lazy.WhimsyCallControls.readState(this.document),
+      app: lazy.WhimsyCallControls.appName(this.document),
+      share: !!lazy.WhimsyCallControls.findShare(this.document),
+    };
     const last = this._callState;
-    if (!last || last.mic != state.mic || last.camera != state.camera || last.app != state.app) {
+    if (
+      !last || last.mic != state.mic || last.camera != state.camera || last.app != state.app ||
+      last.share != state.share
+    ) {
       this._callState = state;
       this.callLog("state", state);
       try {
@@ -483,6 +494,24 @@ export class WhimsyPageChild extends JSWindowActorChild {
     }
     lazy.WhimsyCallControls.press(win, el);
     this.callLog("leave: pressed");
+    return true;
+  }
+
+  // W29: presses the page's share control. The page asks for the screen
+  // in that click (getDisplayMedia needs the click to count as the user's,
+  // which a click from this actor alone doesn't), so it gets a user
+  // gesture first, as a real click would give it. Firefox's prompt still
+  // follows. Resolves to whether there was a control to press.
+  shareCall() {
+    const win = this.contentWindow;
+    const el = lazy.WhimsyCallControls.findShare(this.document);
+    if (!el || !win) {
+      this.callLog("share: no control");
+      return false;
+    }
+    el.ownerDocument.notifyUserGestureActivation();
+    lazy.WhimsyCallControls.press(win, el);
+    this.callLog("share: pressed");
     return true;
   }
 

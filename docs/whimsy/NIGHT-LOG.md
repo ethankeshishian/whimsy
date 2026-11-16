@@ -392,15 +392,15 @@ authorized targeted run; isolated old passes are not validation of these edits.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
 
-## 2026-11-16 — Mail-hover fixture reset
+## 2026-11-15 — Tab menu regrouping after upstream Tab Notes
 
-- Root cause: opening the foreground fixture can trigger a native hover
-  before mail detection is stubbed. TabHover.enter reuses an already-open
-  card for the same tab, so the synthetic hover can retain the ordinary
-  fixture card and never call fillExtra.
-- openMailTab closes pending or open hovers after loading, before returning
-  the tab for stubbing and a fresh hover. Uses the existing closed-state
-  wait; no delay or product change.
-- Validation: Node reproduction using the product TabHover.enter/hide
-  confirms stale-card reuse and the reset; node --check passes for the
-  hover module and browser test. Browser tests were not run. No git or mach.
+- Regroup hidden rows as well as visible ones so asynchronously revealed
+  upstream actions cannot precede New Tab Below. Unregistered tab/Essential
+  actions keep their relative order after Share and Save, before AI/Archive.
+- Restore reused separator positions and remove separators created for an
+  opening, preserving the original child order when visible groups change.
+- Existing browser test expectations remain unchanged. Node syntax check and
+  a focused harness using the actual module passed for tab, Essential, page,
+  and selection menus, late visibility, unknown rows, and exact restoration
+  across three openings each. Browser integration tests were not run; no
+  engine edits, mach, or git commands.
