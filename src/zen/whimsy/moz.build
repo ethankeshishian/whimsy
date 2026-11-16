@@ -163,6 +163,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyRecentTabs.sys.mjs",
     "WhimsyRedactChild.sys.mjs",
     "WhimsyRedactParent.sys.mjs",
+    "WhimsySafetyCheck.sys.mjs",
     "WhimsySearchDeck.sys.mjs",
     "WhimsySearchDeckChild.sys.mjs",
     "WhimsySeasons.sys.mjs",

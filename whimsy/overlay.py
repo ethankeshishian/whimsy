@@ -2128,6 +2128,11 @@ FEATURES = [
     {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
      "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
                 ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
+    # W29: Safety Check card (Settings → Privacy & Security): updates,
+    # breached passwords, risky extensions and unused site permissions, all
+    # checked locally.
+    {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
+     "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
 ]
 
 

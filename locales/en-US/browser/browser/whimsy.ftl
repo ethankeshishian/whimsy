@@ -8405,3 +8405,53 @@ whimsy-minimap =
     .aria-label = Page minimap
 # Shown when it's turned on while the current page is too short for it.
 whimsy-minimap-short-toast = Page Minimap shows on long pages
+## W29 safety-check: Settings → Privacy & Security → Safety Check. A check
+## of updates, breached passwords, risky extensions, and unused site
+## permissions, run on this device only.
+
+whimsy-safety-check-header =
+    .label = Safety Check
+whimsy-safety-check-description = A check of the things that most often go wrong. It runs on this device when you open this page, and sends nothing anywhere.
+whimsy-safety-check-run-button =
+    .label = Check again
+whimsy-safety-check-checking = Checking…
+whimsy-safety-check-last-run = Checked { $ago }
+
+whimsy-safety-check-updates-ok = Whimsy is up to date
+whimsy-safety-check-updates-ok-detail = Version { $v }, installed { $date }. Updates install on their own.
+whimsy-safety-check-updates-warn = An update is ready
+whimsy-safety-check-updates-warn-detail = Version { $v } is downloaded. It installs when Whimsy restarts.
+whimsy-safety-check-updates-restart =
+    .label = Restart to update
+
+whimsy-safety-check-passwords-ok = No breached passwords
+whimsy-safety-check-passwords-ok-detail = None of your { $count } saved passwords appear in known data breaches.
+whimsy-safety-check-passwords-warn = { $n } passwords appeared in data breaches
+whimsy-safety-check-passwords-warn-detail = { $sites }. Change them on those sites.
+whimsy-safety-check-passwords-review =
+    .label = Review
+
+whimsy-safety-check-extensions-ok = Extensions look fine
+whimsy-safety-check-extensions-ok-detail = All { $n } extensions are from addons.mozilla.org or are ones you added yourself.
+whimsy-safety-check-extensions-warn = { $n } extension can read every site
+whimsy-safety-check-extensions-warn-detail = { $name } isn’t from addons.mozilla.org and can see every page you open.
+whimsy-safety-check-extensions-review =
+    .label = Review
+
+whimsy-safety-check-permissions-ok = No unused permissions
+whimsy-safety-check-permissions-ok-detail = Every site with camera, microphone, location, or notification access was visited in the last 90 days.
+whimsy-safety-check-permissions-warn = { $n } sites you haven’t visited in 90 days still have access
+whimsy-safety-check-permissions-warn-detail = { $types }.
+whimsy-safety-check-permissions-review =
+    .label = Review
+
+whimsy-safety-check-sheet-title = Unused site permissions
+whimsy-safety-check-sheet-text = These sites can still use these permissions, but you haven’t visited them in 90 days.
+whimsy-safety-check-sheet-row = { $perms } · last visited in { $month }
+whimsy-safety-check-sheet-remove = Remove
+    .aria-label = Remove { $site }’s access
+whimsy-safety-check-sheet-remove-all =
+    .label = Remove all
+whimsy-safety-check-sheet-done =
+    .label = Done
+whimsy-safety-check-removed-toast = Removed { $site }’s access

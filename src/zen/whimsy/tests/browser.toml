@@ -1349,3 +1349,8 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 ["browser_whimsy_local_plugins.js"]
 # W29/newtabopts: New Private Tab in the sidebar foot's + button (Zen's Create New menu), right after New Tab; the same command as the File menu's own row and Cmd+Option+T.
 ["browser_whimsy_private_create_new.js"]
+# W29 safety-check: WhimsySafetyCheck.sys.mjs itself (updates/passwords/extensions/permissions checks).
+["browser_whimsy_safety_check.js"]
+
+# W29 safety-check: Settings → Privacy & Security → Safety Check card and its sheet.
+["browser_whimsy_safety_check_settings.js"]

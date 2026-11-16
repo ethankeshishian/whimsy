@@ -150,6 +150,57 @@
 
 # Settings → Privacy & Security: moved in above Firefox's privacy groups.
 <html:template id="template-whimsyPrivacy" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <!-- W29 safety-check: a check of the things that most often go wrong,
+       run on this device when the pane opens or Check again is pressed
+       (WhimsySafetyCheck.sys.mjs). Four rows, always in this order:
+       Updates, Passwords, Extensions, Site permissions. -->
+  <html:div id="whimsySafetyCheckGroup" data-category="panePrivacy" data-whimsy-feature="safety-check" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-safety-check-header" headinglevel="3"
+                         iconsrc="chrome://global/skin/illustrations/shield-check.svg">
+        <description class="description-deemphasized" data-l10n-id="whimsy-safety-check-description"/>
+        <hbox align="center" class="whimsy-safety-check-head">
+          <html:span id="whimsySafetyCheckLastRun" class="whimsy-updates-detail" role="status"/>
+          <spacer flex="1"/>
+          <button id="whimsySafetyCheckRun" data-l10n-id="whimsy-safety-check-run-button"/>
+        </hbox>
+        <html:ul id="whimsySafetyCheckList" class="whimsy-safety-check-list">
+          <html:li id="whimsySafetyCheckRow-updates" class="whimsy-safety-check-row">
+            <html:span class="whimsy-safety-check-icon" aria-hidden="true"/>
+            <html:div class="whimsy-safety-check-text">
+              <html:span class="whimsy-safety-check-status"/>
+              <html:span class="whimsy-safety-check-detail"/>
+            </html:div>
+            <button class="whimsy-safety-check-action" hidden="hidden"/>
+          </html:li>
+          <html:li id="whimsySafetyCheckRow-passwords" class="whimsy-safety-check-row">
+            <html:span class="whimsy-safety-check-icon" aria-hidden="true"/>
+            <html:div class="whimsy-safety-check-text">
+              <html:span class="whimsy-safety-check-status"/>
+              <html:span class="whimsy-safety-check-detail"/>
+            </html:div>
+            <button class="whimsy-safety-check-action" hidden="hidden"/>
+          </html:li>
+          <html:li id="whimsySafetyCheckRow-extensions" class="whimsy-safety-check-row">
+            <html:span class="whimsy-safety-check-icon" aria-hidden="true"/>
+            <html:div class="whimsy-safety-check-text">
+              <html:span class="whimsy-safety-check-status"/>
+              <html:span class="whimsy-safety-check-detail"/>
+            </html:div>
+            <button class="whimsy-safety-check-action" hidden="hidden"/>
+          </html:li>
+          <html:li id="whimsySafetyCheckRow-permissions" class="whimsy-safety-check-row">
+            <html:span class="whimsy-safety-check-icon" aria-hidden="true"/>
+            <html:div class="whimsy-safety-check-text">
+              <html:span class="whimsy-safety-check-status"/>
+              <html:span class="whimsy-safety-check-detail"/>
+            </html:div>
+            <button class="whimsy-safety-check-action" hidden="hidden"/>
+          </html:li>
+        </html:ul>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <groupbox id="whimsyAutofillGroup" data-category="panePrivacy" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-autofill-header"/></label>
     <description id="whimsyAutofillManagerNote"
