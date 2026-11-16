@@ -7,6 +7,21 @@
    gap on its page side is the resize grip, drawn like Zen's sidebar
    splitter (zen-browser-ui.css). Colours are the surface tokens. */
 
+/* W28 tab-state-indicators: the chat-reads tab badge (whimsy-agent.css)
+   lives on the tab row, outside #whimsy-chat, so it needs these two
+   tokens at :root. Kept byte-for-byte equal to the #whimsy-chat copies
+   below; change both together. */
+:root {
+  --whimsy-chat-accent: light-dark(
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.35, l, 0.6) c h),
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.7, l, 0.85) c h)
+  );
+  --whimsy-chat-accent-bg: light-dark(
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.35, l, 0.6) c h),
+    oklch(from var(--zen-primary-color, AccentColor) clamp(0.55, l, 0.7) c h)
+  );
+}
+
 /* The tokens, shared with the side panel popover's header (W29,
    whimsy-side-panel.css). */
 :is(#whimsy-chat, .browserSidebarContainer[whimsy-popover]) {

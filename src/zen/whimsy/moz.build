@@ -95,6 +95,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyHome.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
     "WhimsyHoverCards.sys.mjs",
+    "WhimsyImageMetadata.sys.mjs",
     "WhimsyInspector.sys.mjs",
     "WhimsyInspectorChild.sys.mjs",
     "WhimsyInspectorParent.sys.mjs",
@@ -155,6 +156,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyProfiles.sys.mjs",
     "WhimsyProfileSettings.sys.mjs",
     "WhimsyProfileSync.sys.mjs",
+    "WhimsyProfileZoom.sys.mjs",
     "WhimsyProtocol.sys.mjs",
     "WhimsyQRCode.sys.mjs",
     "WhimsyQuickWindow.sys.mjs",
@@ -301,6 +303,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFindCard.sys.mjs",
 ]
 
+# W28: Page Minimap
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyMinimap.sys.mjs",
+    "WhimsyMinimapChild.sys.mjs",
+]
+
 # W27: Press Esc twice to leave full screen
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyFullscreenEscape.sys.mjs",
@@ -388,6 +396,12 @@ EXTRA_JS_MODULES.whimsy += [
 # W26 passkeys: the front end of Whimsy's Touch ID passkeys (passkeys/).
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyPasskeys.sys.mjs",
+]
+
+# W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md
+# option A, step 1).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyOpenInBrowser.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

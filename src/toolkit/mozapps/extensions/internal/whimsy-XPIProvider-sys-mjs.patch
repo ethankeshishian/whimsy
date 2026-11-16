@@ -1,0 +1,270 @@
+diff --git a/toolkit/mozapps/extensions/internal/XPIProvider.sys.mjs b/toolkit/mozapps/extensions/internal/XPIProvider.sys.mjs
+index 74d738e..2f67aa3 100644
+--- a/toolkit/mozapps/extensions/internal/XPIProvider.sys.mjs
++++ b/toolkit/mozapps/extensions/internal/XPIProvider.sys.mjs
+@@ -113,6 +113,12 @@ const KEY_APP_SYSTEM_LOCAL = "app-system-local";
+ const KEY_APP_SYSTEM_SHARE = "app-system-share";
+ const KEY_APP_SYSTEM_USER = "app-system-user";
+ const KEY_APP_TEMPORARY = "app-temporary";
++// Whimsy: the owner's own unsigned extensions, one unpacked folder each in
++// <profile>/whimsy-plugins. This is the only location where signing is
++// waived (see WhimsyPluginsLocation and AddonInternal.isCorrectlySigned).
++const KEY_APP_WHIMSY_PLUGINS = "whimsy-local-plugins";
++const DIR_WHIMSY_PLUGINS = "whimsy-plugins";
++const PREF_WHIMSY_PLUGINS = "whimsy.feature.local-plugins";
+ 
+ const TEMPORARY_ADDON_SUFFIX = "@temporary-addon";
+ 
+@@ -629,6 +635,17 @@ class XPIState {
+         e,
+       });
+     }
++    // Whimsy: a plugin folder's own time misses a manifest.json edited in
++    // place, so the manifest's time counts too.
++    if (this.location?.name == KEY_APP_WHIMSY_PLUGINS) {
++      try {
++        let manifest = aFile.clone();
++        manifest.append("manifest.json");
++        mtime = Math.max(mtime, manifest.lastModifiedTime);
++      } catch (e) {
++        // No manifest: readAddons() skips the folder.
++      }
++    }
+ 
+     let changed = mtime != this.lastModifiedTime;
+     this.lastModifiedTime = mtime;
+@@ -1255,6 +1272,180 @@ class DirectoryLocation extends XPIStateLocation {
+   }
+ }
+ 
++/**
++ * Whimsy: the owner's local plugins, <profile>/whimsy-plugins. Each plugin is
++ * a real folder (not a link, pointer file or .xpi) directly inside it that
++ * holds an unpacked WebExtension whose manifest.json names its id in
++ * browser_specific_settings.gecko.id. Signing is waived only for add-ons
++ * loaded from here (AddonInternal.isCorrectlySigned checks the location and
++ * that the add-on's folder really is one of these). A folder carries no
++ * signature, so a plugin is never privileged. The location is locked, so no
++ * install (from a page, a file, or about:addons) can put anything here; the
++ * only way in is a file the owner writes into the folder. New plugins, and
++ * a running plugin whose version or permissions change, start turned off
++ * until the owner approves them (XPIDatabaseReconcile).
++ */
++class WhimsyPluginsLocation extends DirectoryLocation {
++  constructor(name, dir, scope) {
++    super(name, dir, scope, /* locked */ true, /* system */ false);
++  }
++
++  /**
++   * Whether aFile is a plugin folder of this location: a real directory
++   * whose parent is this location's own (real) directory.
++   *
++   * @param {nsIFile?} aFile
++   * @returns {boolean}
++   */
++  isWhimsyPluginFolder(aFile) {
++    try {
++      return (
++        !!aFile &&
++        this._isRealDir(this.dir) &&
++        this._isRealDir(aFile) &&
++        !!aFile.parent &&
++        aFile.parent.equals(this.dir)
++      );
++    } catch (e) {
++      return false;
++    }
++  }
++
++  _isRealDir(aFile) {
++    try {
++      return aFile.exists() && !aFile.isSymlink() && aFile.isDirectory();
++    } catch (e) {
++      return false;
++    }
++  }
++
++  /**
++   * True when nothing inside the plugin folder is a symlink (which could
++   * point outside it) or anything but plain files and folders, within
++   * limits that keep the startup scan cheap. A folder that can't be read
++   * fully counts as not self-contained.
++   *
++   * @param {nsIFile} aDir
++   * @returns {boolean}
++   */
++  _isSelfContained(aDir) {
++    let budget = 4096;
++    let walk = (dir, depth) => {
++      if (depth > 16) {
++        return false;
++      }
++      let entries = dir.directoryEntries;
++      try {
++        let entry;
++        while ((entry = entries.nextFile)) {
++          if (--budget < 0 || entry.isSymlink()) {
++            return false;
++          }
++          if (entry.isDirectory()) {
++            if (!walk(entry, depth + 1)) {
++              return false;
++            }
++          } else if (!entry.isFile()) {
++            return false;
++          }
++        }
++      } finally {
++        entries.close();
++      }
++      return true;
++    };
++    try {
++      return walk(aDir, 0);
++    } catch (e) {
++      logger.warn(`Can't read local plugin folder ${aDir.path}`, e);
++      return false;
++    }
++  }
++
++  /**
++   * The add-on id a plugin folder's manifest.json names, or null.
++   *
++   * @param {nsIFile} aDir
++   * @returns {string?}
++   */
++  _readId(aDir) {
++    let manifest = aDir.clone();
++    manifest.append("manifest.json");
++    if (
++      !manifest.exists() ||
++      manifest.isSymlink() ||
++      !manifest.isFile() ||
++      manifest.fileSize > 1024 * 1024
++    ) {
++      return null;
++    }
++    // Like ExtensionData.readJSON, lines that start with // are comments.
++    let text = Cu.readUTF8File(manifest).replace(/^\s*\/\/.*/gm, "");
++    let json = JSON.parse(text);
++    let gecko = (json?.browser_specific_settings || json?.applications)
++      ?.gecko;
++    let id = gecko?.id;
++    return typeof id == "string" && gIDTest.test(id) ? id : null;
++  }
++
++  isLinkedAddon(/* aId */) {
++    return false;
++  }
++
++  readAddons() {
++    let addons = new Map();
++    if (!this._isRealDir(this.dir)) {
++      return addons;
++    }
++    let skipped = new Set();
++    for (let entry of Array.from(iterDirectory(this.dir))) {
++      if (entry.leafName.startsWith(".")) {
++        continue;
++      }
++      // Only real folders: no .xpi files, pointer files, or symlinks, so
++      // nothing outside this folder is ever loaded from here.
++      if (!this._isRealDir(entry)) {
++        logger.warn(`Ignoring local plugin ${entry.path}: not a folder`);
++        continue;
++      }
++      let id = null;
++      try {
++        id = this._readId(entry);
++      } catch (e) {
++        logger.warn(`Can't read local plugin manifest in ${entry.path}`, e);
++      }
++      if (!id) {
++        logger.warn(
++          `Ignoring local plugin ${entry.path}: manifest.json must name an id in browser_specific_settings.gecko.id`
++        );
++        continue;
++      }
++      if (!this._isSelfContained(entry)) {
++        logger.warn(
++          `Ignoring local plugin ${entry.path}: it contains a link or special file`
++        );
++        continue;
++      }
++      // A plugin never takes over an id another location already holds.
++      if (XPIStates.findAddon(id, loc => loc !== this)) {
++        logger.warn(
++          `Ignoring local plugin ${entry.path}: ${id} is already installed`
++        );
++        continue;
++      }
++      // Two folders claiming one id: load neither.
++      if (addons.has(id) || skipped.has(id)) {
++        logger.warn(`Ignoring local plugins that share the id ${id}`);
++        addons.delete(id);
++        skipped.add(id);
++        continue;
++      }
++      addons.set(id, entry);
++    }
++    return addons;
++  }
++}
++
+ /**
+  * An object which identifies a directory install location for system add-ons
+  * updates.
+@@ -1637,7 +1828,13 @@ var XPIStates = {
+       changed = changed || loc.changed;
+ 
+       // Don't bother checking scopes where we don't accept side-loads.
+-      if (ignoreSideloads && !(loc.scope & startupScanScopes)) {
++      // Whimsy: local plugins are scanned on every startup, so an edited
++      // or removed plugin is picked up on the next restart.
++      if (
++        ignoreSideloads &&
++        !(loc.scope & startupScanScopes) &&
++        loc.name != KEY_APP_WHIMSY_PLUGINS
++      ) {
+         continue;
+       }
+ 
+@@ -2535,6 +2732,19 @@ export var XPIProvider = {
+       return new SystemAddonLocation(aName, dir, aScope, aAppChanged);
+     }
+ 
++    // Whimsy: the local plugins folder, only while its feature is on.
++    function WhimsyPluginsLoc(aName, aScope) {
++      if (!Services.prefs.getBoolPref(PREF_WHIMSY_PLUGINS, false)) {
++        return null;
++      }
++      try {
++        var dir = lazy.FileUtils.getDir(KEY_PROFILEDIR, [DIR_WHIMSY_PLUGINS]);
++      } catch (e) {
++        return null;
++      }
++      return new WhimsyPluginsLocation(aName, dir, aScope);
++    }
++
+     function RegistryLoc(aName, aScope, aKey) {
+       if ("nsIWindowsRegKey" in Ci) {
+         return new WinRegLocation(aName, Ci.nsIWindowsRegKey[aKey], aScope);
+@@ -2630,6 +2840,10 @@ export var XPIProvider = {
+         AddonManager.SCOPE_SYSTEM,
+         "ROOT_KEY_LOCAL_MACHINE",
+       ],
++
++      // Whimsy: lowest priority, so a local plugin never shadows an add-on
++      // installed anywhere else.
++      [WhimsyPluginsLoc, KEY_APP_WHIMSY_PLUGINS, AddonManager.SCOPE_PROFILE],
+     ];
+ 
+     for (let [constructor, name, scope, ...args] of locations) {
+@@ -3680,6 +3894,7 @@ export var XPIInternal = {
+   KEY_APP_SYSTEM_ADDONS,
+   KEY_APP_SYSTEM_BUILTINS,
+   KEY_APP_SYSTEM_PROFILE,
++  KEY_APP_WHIMSY_PLUGINS,
+   PREF_BRANCH_INSTALLED_ADDON,
+   PREF_SYSTEM_ADDON_SET,
+   SystemAddonLocation,

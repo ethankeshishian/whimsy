@@ -2105,6 +2105,9 @@ FEATURES = [
     # the command bar, with a toast.
     {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
      "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(page-animations|stop-animations)[\w-]*\s*=")]},
+    # W28: Page Minimap (command bar; off by default).
+    {"id": "page-minimap", "title": "Page Minimap: a live picture of a long page at its right edge with the view outlined; click to jump, drag to scroll",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(page[-_.]?)?minimap")]},
     # W27: Show space name in window title (Settings → Tab Management): the
     # space's name as the window's titlepreface. Superseded if Zen's spaces
     # touch the title.
@@ -2116,6 +2119,20 @@ FEATURES = [
     # or Essential popover.
     {"id": "side-panels", "title": "Side panels: Essentials open in a resizable popover next to the sidebar (Open in Side Panel), chat can too",
      "detect": [("src/zen", r"(?i)zen[-_.]?(side[-_.]?panel|essential[-_.]?popover|popover[-_.]?essential)")]},
+    # W28: "Open in Safari" / "Open in Chrome" in the command bar, one row
+    # per installed browser (research/multi-engine.md option A, step 1).
+    {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
+     "detect": [("src/zen", r"(?i)zen[-_.]?open[-_.]?in[-_.]?(safari|chrome|browser)")]},
+    {"id": "photo-metadata", "title": "Remove location and camera details (Exif, GPS, XMP, and text) from JPEG and PNG photos you upload, losslessly",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(strip[-_.]?image[-_.]?metadata|photo[-_.]?metadata)")]},
+    # W28: local plugins. Each folder in <profile>/whimsy-plugins is an
+    # unpacked WebExtension that loads unsigned (signing stays required
+    # everywhere else), turned off until approved. Engine patches on
+    # XPIProvider and XPIDatabase. Superseded if Zen ships its own folder of
+    # unsigned add-ons.
+    {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
+                ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
 ]
 
 

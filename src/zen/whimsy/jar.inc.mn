@@ -168,6 +168,7 @@
         content/browser/whimsy/icons/background.svg (../../zen/whimsy/content/icons/background.svg)
         content/browser/whimsy/icons/brain.svg (../../zen/whimsy/content/icons/brain.svg)
         content/browser/whimsy/icons/chat-hide.svg (../../zen/whimsy/content/icons/chat-hide.svg)
+        content/browser/whimsy/icons/chat-reads.svg (../../zen/whimsy/content/icons/chat-reads.svg)
         content/browser/whimsy/icons/claude.svg (../../zen/whimsy/content/icons/claude.svg)
         content/browser/whimsy/icons/clock.svg (../../zen/whimsy/content/icons/clock.svg)
         content/browser/whimsy/icons/chevron-down.svg (../../zen/whimsy/content/icons/chevron-down.svg)
@@ -230,6 +231,7 @@
         content/browser/whimsy/whimsy-chat-answer.css (../../zen/whimsy/content/whimsy-chat-answer.css)
 # W23 page-read: Find as a floating card
         content/browser/whimsy/whimsy-find-card.css (../../zen/whimsy/content/whimsy-find-card.css)
+        content/browser/whimsy/whimsy-minimap.css (../../zen/whimsy/content/whimsy-minimap.css)
 # W24 tabsearch: reveal the other-space label on a switch-to-tab row
         content/browser/whimsy/whimsy-tabsearch.css (../../zen/whimsy/content/whimsy-tabsearch.css)
 # W23 connectors: Settings › AI › Connectors

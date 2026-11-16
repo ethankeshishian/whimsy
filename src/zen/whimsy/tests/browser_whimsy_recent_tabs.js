@@ -53,7 +53,9 @@ add_task(async function test_mru_order_and_boundaries() {
     // Stable MRU timestamps, independent of clock resolution: tabs[0] oldest.
     tabs.forEach((tab, i) => Object.defineProperty(tab, "lastAccessed", { configurable: true, value: Date.now() + 1e6 + i }));
     let list = provider.tabs(window);
-    is(list.length, 5, "At most five recent tabs");
+    // W29/cmdrecent: dropped from 5 to 4 to make room for Recently Closed
+    // and Synced Tabs, so the empty bar still fits a 13-inch screen.
+    is(list.length, 4, "At most four recent tabs");
     ok(!list.includes(gBrowser.selectedTab), "The current tab is never listed");
     is(list[0], tabs[5], "Most recently used tab first");
     is(list[1], tabs[4], "Then in descending order of use");
