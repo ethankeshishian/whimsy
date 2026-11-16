@@ -102,6 +102,7 @@ add_task(async function rows_and_copy() {
     SpecialPowers.clipboardCopyString("");
     const code = await totp(GITHUB, NOW);
     const copy = github.querySelector(".whimsy-totp-copy");
+    copy.scrollIntoView({ block: "center" });
     is(copy.label || copy.textContent, "Copy code", "Copy code");
     EventUtils.synthesizeMouseAtCenter(copy, {}, win);
     await TestUtils.waitForCondition(() => SpecialPowers.getClipboardData("text/plain") == code, "The code was copied");
@@ -141,6 +142,7 @@ add_task(async function delete_and_undo() {
     const remove = github.querySelector(".whimsy-totp-delete");
     await TestUtils.waitForCondition(() => remove.getAttribute("aria-label"), "The Delete button's label");
     is(remove.getAttribute("aria-label"), "Delete the verification code for github.com", "Delete names its site");
+    remove.scrollIntoView({ block: "center" });
     const gone = TestUtils.waitForCondition(() => rows(doc).length == 1, "The row went");
     EventUtils.synthesizeMouseAtCenter(remove, {}, win);
     await gone;
@@ -167,7 +169,9 @@ add_task(async function add_code_with_a_key() {
   await removeCodes();
   await withSettings(async (win, doc) => {
     const shown = BrowserTestUtils.waitForEvent(document, "popupshown", false, e => e.target.id == "whimsy-totp-add");
-    EventUtils.synthesizeMouseAtCenter(doc.getElementById("whimsyTotpAdd"), {}, win);
+    const add = doc.getElementById("whimsyTotpAdd");
+    add.scrollIntoView({ block: "center" });
+    EventUtils.synthesizeMouseAtCenter(add, {}, win);
     const { target: panel } = await shown;
     is(panel.dataset.state, "key", "Add Code… asks for the setup key");
     const key = panel.querySelector("#whimsy-totp-key");
