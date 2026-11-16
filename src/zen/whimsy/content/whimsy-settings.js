@@ -352,6 +352,9 @@ var gWhimsySettings = {
       // through the transparency feature.
       "liquid-glass":
         AppConstants.isPlatformAndVersionAtLeast("macosx", "25") && Whimsy.featureEnabled("transparency"),
+      // W28: Keep Window on Top needs the Cocoa widget's always-on-top
+      // support, macOS only.
+      "window-on-top": AppConstants.platform == "macosx",
     };
     for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
       const id = row.dataset.whimsyFeature;

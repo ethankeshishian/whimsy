@@ -222,6 +222,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
+    "WhimsyWindowOnTop.sys.mjs",
     "WhimsyWindowTitle.sys.mjs",
     "WhimsyZap.sys.mjs",
     "WhimsyZapChild.sys.mjs",

@@ -83,6 +83,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // batch7: new feature modules
   WhimsySeasons: "resource:///modules/whimsy/WhimsySeasons.sys.mjs",
   WhimsyWindowClose: "resource:///modules/whimsy/WhimsyWindowClose.sys.mjs",
+  WhimsyWindowOnTop: "resource:///modules/whimsy/WhimsyWindowOnTop.sys.mjs",
   WhimsyUrlbar: "resource:///modules/whimsy/WhimsyUrlbar.sys.mjs",
   WhimsyDownloads: "resource:///modules/whimsy/WhimsyDownloads.sys.mjs",
   WhimsySidebarNav: "resource:///modules/whimsy/WhimsySidebarNav.sys.mjs",
@@ -921,6 +922,9 @@ export const Whimsy = {
     run("seasons", () => lazy.WhimsySeasons.initWindow(win));
     // batch7: Cmd+W on a lone empty tab closes the window (Arc).
     run("window-close", () => lazy.WhimsyWindowClose.initWindow(win));
+    // W28: Keep Window on Top (Settings → Look and Feel, macOS only). A
+    // global pref, applied to every window including Mini Whimsy.
+    run("window-on-top", () => lazy.WhimsyWindowOnTop.initWindow(win));
     // batch7: full URL on click.
     run("full-url-click", () => lazy.WhimsyUrlbar.initWindow(win));
     // batch7: Dock badge/bounce (once per session), Quick Look and keeping
