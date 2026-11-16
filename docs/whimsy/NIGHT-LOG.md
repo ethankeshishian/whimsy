@@ -404,3 +404,93 @@ authorized targeted run; isolated old passes are not validation of these edits.
   and selection menus, late visibility, unknown rows, and exact restoration
   across three openings each. Browser integration tests were not run; no
   engine edits, mach, or git commands.
+
+## 2026-11-16 — W28 TOTP/dev merge conflict resolution
+
+- Root cause: independent additions shared insertion points in the privacy Settings initializer map and module/build declarations.
+- Removed conflict markers while retaining TOTP and Safety Check initializers, TOTP modules and the QR decoder, and Lucide and Phosphor license declarations.
+- Validation: Settings JavaScript passed node --check; moz.build passed Python AST parsing; static checks confirmed no conflict markers in either file and each conflicting addition retained exactly once. Referenced TOTP/QR files and icon licenses exist. No browser tests, mach, or git commands ran.
+
+
+
+## 2026-11-16 — Pass Keys localization assertions
+
+- Traced the pill and toast to asynchronous document.l10n.setAttributes calls: mounting/visibility does not establish translation completion. The tooltip assertion read immediately after visibility; the reported toast assertion failure also concerns localized words, though this checkout already contained a text-condition wait rather than that immediate assertion.
+- Updated only browser_whimsy_pass_keys.js to await translateElements for the pill and translateFragment for the off toast before checking the original expected copy. Product strings, key handling, and timing remain unchanged; no sleeps added.
+- Validation: node --check passed for the test. Browser tests were not run, so runtime confirmation remains outstanding. No engine, Zen-source, mach, or git operations.
+
+
+## 2026-11-16 — Equalizer panel layout
+
+- Root cause: the volume panel omitted orient="vertical". XUL panel content
+  defaults to a row (also documented in WhimsySurface.create), so its newly
+  added equalizer sat beside the volume row, outside the narrow popup's
+  clickable area. This explains both the missed chevron and preset clicks.
+- Set the panel's orientation to vertical, and added a geometric regression
+  assertion: equalizer rows must sit below the volume row. DOM order alone
+  did not detect the layout error. Existing interaction expectations remain.
+- Validation: node --check passed for WhimsyMedia.sys.mjs and
+  browser_whimsy_equalizer_panel.js. Browser tests cannot run here;
+  no engine edits, mach, git, builds, or browser tests were run.
+
+
+## 2026-11-16 — Mail-hover fixture reset
+
+- Root cause: opening the foreground fixture can trigger a native hover
+  before mail detection is stubbed. TabHover.enter reuses an already-open
+  card for the same tab, so the synthetic hover can retain the ordinary
+  fixture card and never call fillExtra.
+- openMailTab closes pending or open hovers after loading, before returning
+  the tab for stubbing and a fresh hover. Uses the existing closed-state
+  wait; no delay or product change.
+- Validation: Node reproduction using the product TabHover.enter/hide
+  confirms stale-card reuse and the reset; node --check passes for the
+  hover module and browser test. Browser tests were not run. No git or mach.
+
+
+## 2026-11-16 — W29 context-group restart load wait
+
+- Traced journey 4's timeout to its content-load wait: SSTabRestoring marks
+  history restoration, but the test then allowed only TestUtils' default
+  50 polls (about five seconds) for content restoration and page loading.
+- Capture SSTabRestored before each setTabState call, then await the selected
+  tab's completion. This handles eager and on-demand restoration without
+  missing the event. Retained pending/document checks and tightened the URI
+  assertion to the exact saved URL; removed the catch that hid spawn errors.
+- Validation: node --check passes for browser_whimsy_chat_context_groups.js.
+  Browser tests are unavailable here, so the runtime result remains unverified.
+  No product changes, sleeps, engine edits, mach, or git commands.
+
+
+## 2026-11-16 — card_scrolls_first wait correction
+
+- Root cause: the test waited for LinkHover.overPanel, which W29 deliberately
+  reserves for the People card's hover bridge. Plain link cards never set it.
+- Wait for the popup's computed pointer-events to become auto instead, matching
+  HostPointer's wheel-input behavior and the adjacent tab-card test. Product
+  behavior and the existing card-first/page-next scroll assertions are unchanged.
+- Validation: node --check passes for browser_whimsy_hover_cards.js. Browser
+  tests, builds, and git commands were not run, as requested.
+
+
+
+### 2026-11-16 — W29 focus failure investigation (partial, code only)
+
+- Stay on this tab: the CSS nested state selectors prefixed an outer selector
+  that already contained :root. Their expansion required one document root
+  below another, so none of the fade/hide rules could match. Removed only
+  the redundant outer root prefix; the nested state selectors still scope
+  every declaration to the session window. Existing visibility assertions remain.
+- Reopening paused tabs: replaced the test's unregistered HTTPS subdomain
+  sub.example.org with test1.example.org, registered in Mozilla's
+  build/pgo/server-locations.txt (including certificate generation). The load
+  wait targets that exact destination, excluding a late paused-page load.
+  Also register the repeated-navigation load wait before starting navigation.
+- Open anyway: the timeout alone does not establish whether navigation failed
+  or its event was missed. No corresponding failure log was found in this
+  checkout or the main checkout's verify logs. Left product navigation and
+  the Open anyway expectation unchanged; requested the relevant failure log.
+- Validation: node --check passed for the focus test, WhimsyFocusSession,
+  WhimsyFocusTab, and whimsy-focus.js. No browser tests, engine edits, mach,
+  git, import, build, or verify run. Browser behavior remains unverified.
+

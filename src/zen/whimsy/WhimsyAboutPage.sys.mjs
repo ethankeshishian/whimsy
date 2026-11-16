@@ -13,6 +13,9 @@ const PAGES = {
   replay: "chrome://browser/content/whimsy/whimsy-replay.html",
   // wave5: Easel (about:whimsy?easel&id=<id>; WhimsyEasel.sys.mjs).
   easel: "chrome://browser/content/whimsy/whimsy-easel.html",
+  // W29/help: the built-in manual (about:whimsy?help; WhimsyAccessCommands
+  // registers cmd_whimsyHelp, F1).
+  help: "chrome://browser/content/whimsy/whimsy-help.html",
   // W29: a site paused by a focus session (about:whimsy?focus&url=<url>;
   // WhimsyFocusSession.sys.mjs).
   focus: "chrome://browser/content/whimsy/whimsy-focus.html",

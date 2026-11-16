@@ -1,0 +1,249 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W29/help: whimsy://help, the built-in manual. A plain reference page
+   (not a branded product page), so it borrows the cheat sheet's rail +
+   row shape and the system accent, with its own light-dark() tokens
+   (self-contained, like whimsy-replay.css: this page has no in-content
+   theme to inherit from). */
+
+:root {
+  color-scheme: light dark;
+
+  --help-bg: light-dark(#ffffff, #1b1b1b);
+  --help-rail-bg: light-dark(#f4f4f4, #1f1f1f);
+  --help-text: light-dark(#111111, #ffffff);
+  --help-muted: light-dark(rgba(0, 0, 0, 0.6), rgba(255, 255, 255, 0.6));
+  --help-faint: light-dark(rgba(0, 0, 0, 0.4), rgba(255, 255, 255, 0.4));
+  --help-hairline: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+  --help-hover: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.07));
+  --help-active: light-dark(rgba(0, 0, 0, 0.09), rgba(255, 255, 255, 0.12));
+  --help-track: light-dark(rgba(0, 0, 0, 0.045), rgba(255, 255, 255, 0.06));
+  --help-accent: AccentColor;
+  --help-accent-text: light-dark(color-mix(in srgb, AccentColor 80%, black), color-mix(in srgb, AccentColor 55%, white));
+  --help-match: color-mix(in srgb, AccentColor 30%, transparent);
+  --help-font: -apple-system, "SF Pro Text", BlinkMacSystemFont, ui-sans-serif, system-ui, sans-serif;
+  --help-radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--help-bg);
+  color: var(--help-text);
+  font: 13px/1.4 var(--help-font);
+  -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  flex-direction: column;
+}
+
+h1 {
+  margin: 0;
+}
+
+#whimsy-help-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: none;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--help-hairline);
+}
+#whimsy-help-header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.whimsy-help-search-field {
+  flex: 1;
+  max-width: 420px;
+}
+#whimsy-help-search {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--help-hairline);
+  border-radius: var(--help-radius);
+  background: var(--help-track);
+  color: var(--help-text);
+  font: inherit;
+  font-size: 13px;
+}
+#whimsy-help-search:focus-visible {
+  outline: 2px solid var(--help-accent);
+  outline-offset: 1px;
+}
+#whimsy-help-search::placeholder {
+  color: var(--help-faint);
+}
+
+#whimsy-help-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+}
+
+#whimsy-help-rail {
+  overflow-y: auto;
+  padding: 10px 8px;
+  background: var(--help-rail-bg);
+  border-right: 1px solid var(--help-hairline);
+}
+.whimsy-help-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--help-radius);
+  background: transparent;
+  color: var(--help-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: default;
+}
+.whimsy-help-rail-item:hover {
+  background: var(--help-hover);
+}
+.whimsy-help-rail-item.is-selected {
+  background: var(--help-active);
+  font-weight: 600;
+}
+.whimsy-help-rail-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whimsy-help-rail-count {
+  color: var(--help-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-help-rail-sep {
+  height: 1px;
+  margin: 8px 10px;
+  background: var(--help-hairline);
+}
+
+#whimsy-help-main {
+  overflow-y: auto;
+  padding: 6px 20px 24px;
+}
+#whimsy-help-list,
+#whimsy-help-changelog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.whimsy-help-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 11px 6px;
+  border-bottom: 1px solid var(--help-hairline);
+}
+.whimsy-help-row.is-off {
+  opacity: 0.55;
+}
+.whimsy-help-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.whimsy-help-row-name {
+  font-weight: 600;
+}
+.whimsy-help-row-text {
+  color: var(--help-muted);
+}
+.whimsy-help-row-setting {
+  margin-top: 2px;
+  color: var(--help-accent-text);
+  font-size: 12px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-align: start;
+}
+.whimsy-help-row-setting:hover {
+  text-decoration: underline;
+}
+.whimsy-help-row.is-off .whimsy-help-row-setting {
+  color: var(--help-muted);
+}
+.whimsy-help-row-keys {
+  flex: none;
+  display: flex;
+  gap: 3px;
+  padding-top: 1px;
+}
+.whimsy-help-row-keys kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--help-hairline);
+  border-radius: 5px;
+  background: var(--help-track);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: inherit;
+}
+
+mark.whimsy-help-match {
+  background: var(--help-match);
+  color: inherit;
+  border-radius: 2px;
+}
+
+.whimsy-help-changelog-entry {
+  display: flex;
+  gap: 10px;
+  padding: 9px 6px;
+  border-bottom: 1px solid var(--help-hairline);
+  color: var(--help-muted);
+}
+.whimsy-help-changelog-kind {
+  flex: none;
+  width: 58px;
+  color: var(--help-faint);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding-top: 1px;
+}
+.whimsy-help-changelog-text {
+  color: var(--help-text);
+}
+
+.whimsy-help-empty {
+  padding: 40px 6px;
+  color: var(--help-muted);
+  text-align: center;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --help-hairline: currentColor;
+  }
+}
