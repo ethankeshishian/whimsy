@@ -391,3 +391,24 @@ authorized targeted run; isolated old passes are not validation of these edits.
   builds, import, verify, install, ship, and commits were not run as directed.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
+
+
+### 2026-11-16 — W29 focus failure investigation (partial, code only)
+
+- Stay on this tab: the CSS nested state selectors prefixed an outer selector
+  that already contained :root. Their expansion required one document root
+  below another, so none of the fade/hide rules could match. Removed only
+  the redundant outer root prefix; the nested state selectors still scope
+  every declaration to the session window. Existing visibility assertions remain.
+- Reopening paused tabs: replaced the test's unregistered HTTPS subdomain
+  sub.example.org with test1.example.org, registered in Mozilla's
+  build/pgo/server-locations.txt (including certificate generation). The load
+  wait targets that exact destination, excluding a late paused-page load.
+  Also register the repeated-navigation load wait before starting navigation.
+- Open anyway: the timeout alone does not establish whether navigation failed
+  or its event was missed. No corresponding failure log was found in this
+  checkout or the main checkout's verify logs. Left product navigation and
+  the Open anyway expectation unchanged; requested the relevant failure log.
+- Validation: node --check passed for the focus test, WhimsyFocusSession,
+  WhimsyFocusTab, and whimsy-focus.js. No browser tests, engine edits, mach,
+  git, import, build, or verify run. Browser behavior remains unverified.

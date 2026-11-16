@@ -8538,8 +8538,9 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
    focus-this-tab.md). While a session runs with it ticked, the window shows
    only the kept tab: the rest fade out (200ms, the exit curve), then hide;
    when it ends they fade back in (300ms, the standard curve). Glance can't
-   become a tab or a split meanwhile. */
-:root[whimsy-focus-tab] :is(
+   become a tab or a split meanwhile. State roots belong only in the nested
+   rules; repeating the root outside would require a root below a root. */
+:is(
   .tabbrowser-tab:not([whimsy-focus-keep], [zen-glance-tab]),
   zen-folder:not(:has([whimsy-focus-keep])),
   tab-group:not(:has([whimsy-focus-keep])),

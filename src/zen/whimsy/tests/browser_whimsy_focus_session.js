@@ -407,22 +407,24 @@ add_task(async function listed_sites_are_paused() {
   EventUtils.synthesizeMouseAtCenter(doc.getElementById("whimsy-focus-open"), {}, doc.defaultView);
   await within(loaded, "Open anyway loading the site");
   is(browser.currentURI.host, "example.org", "Open anyway opens the site");
+  const loadedAgain = BrowserTestUtils.browserLoaded(browser, false, "https://example.org/?again");
   BrowserTestUtils.startLoadingURIString(browser, "https://example.org/?again");
-  await within(BrowserTestUtils.browserLoaded(browser), "Loading it again");
+  await within(loadedAgain, "Loading it again");
   is(browser.currentURI.host, "example.org", "It stays open in that tab");
 
   info("Ending reopens paused tabs");
   // Ending the session opens paused tabs.
   const second = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank"), "Opening a second blank tab");
-  BrowserTestUtils.startLoadingURIString(second.linkedBrowser, "https://sub.example.org/");
+  // Use a subdomain registered with Mochitest's HTTPS server/certificate.
+  BrowserTestUtils.startLoadingURIString(second.linkedBrowser, "https://test1.example.org/");
   await TestUtils.waitForCondition(
     () => second.linkedBrowser.currentURI.spec.startsWith("about:whimsy?focus"),
     "A subdomain is paused too"
   );
-  const reopened = BrowserTestUtils.browserLoaded(second.linkedBrowser);
+  const reopened = BrowserTestUtils.browserLoaded(second.linkedBrowser, false, "https://test1.example.org/");
   WhimsyFocusSession.end();
   await within(reopened, "Reopening the paused tab");
-  is(second.linkedBrowser.currentURI.host, "sub.example.org", "Ending the session opens the site");
+  is(second.linkedBrowser.currentURI.host, "test1.example.org", "Ending the session opens the site");
 
   BrowserTestUtils.removeTab(second);
   BrowserTestUtils.removeTab(tab);
