@@ -292,6 +292,13 @@ function backgroundOf(win, el) {
   }
   return win.getComputedStyle(win.document.documentElement).backgroundColor;
 }
+function describeOpened(tab) {
+  return tab ? JSON.stringify({
+    uri: tab.linkedBrowser?.currentURI?.spec,
+    glance: tab.hasAttribute("zen-glance-tab"),
+    attributes: Object.fromEntries([...tab.attributes].map(a => [a.name, a.value])),
+  }) : "null";
+}
 function checkContrast(win, el, what, min = 4.5) {
   const fg = resolvedRGB(win, win.getComputedStyle(el).color);
   const bg = resolvedRGB(win, backgroundOf(win, el));
@@ -995,7 +1002,14 @@ addFocusTask(async function stay_on_this_tab() {
     a.textContent = "link";
     content.document.body.append(a);
   }), "Adding the target=_blank fixture");
+  let openedBlank = null;
+  gBrowser.tabContainer.addEventListener("TabOpen", e => { openedBlank ??= e.target; });
+  const windowsBeforeBlank = [...Services.wm.getEnumerator("navigator:browser")].length;
   await within(BrowserTestUtils.synthesizeMouseAtCenter("#whimsy-blank", {}, keep.linkedBrowser), "Clicking the target=_blank fixture");
+  // Diagnostics only: wait for the click's outcome so the line below reports it.
+  await TestUtils.waitForCondition(() => openedBlank || glanceOver(keep), "The target=_blank click opens something").catch(() => {});
+  info(`Diag target=_blank opened=${describeOpened(openedBlank)} windows=${windowsBeforeBlank}->` +
+    `${[...Services.wm.getEnumerator("navigator:browser")].length} keepURI=${keep.linkedBrowser.currentURI.spec}`);
   const blankTabs = gBrowser.tabs.filter(tab => !tabsBeforeBlank.has(tab));
   const describeBlankTab = tab => tab ? JSON.stringify({
     uri: tab.linkedBrowser?.currentURI?.spec,
