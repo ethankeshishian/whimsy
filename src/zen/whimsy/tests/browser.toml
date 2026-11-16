@@ -110,6 +110,9 @@ support-files = ["whimsy_test_image.png"]
 
 ["browser_whimsy_hide_switcher.js"]
 
+# W29 icon-sets: the Lucide/Phosphor icon pack picker and its live apply.
+["browser_whimsy_icon_packs.js"]
+
 ["browser_whimsy_media_indicators.js"]
 
 ["browser_whimsy_menu_icons.js"]
@@ -269,6 +272,15 @@ support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_di
 ["browser_whimsy_seasonal_themes.js"]
 
 ["browser_whimsy_window_close.js"]
+
+["browser_whimsy_window_on_top.js"]
+
+# W28: the real floating effect needs a headed window (HeadlessWidget under
+# --headless doesn't override SetAlwaysOnTop/GetAlwaysOnTop); verify.sh's
+# whimsy-native suite runs it.
+["browser_whimsy_window_on_top_native.js"]
+run-if = ["os == 'mac'"]
+skip-if = ["headless"] # real window-level floating needs a real window; verify.sh runs it headed
 
 ["browser_whimsy_full_url_click.js"]
 
@@ -623,6 +635,10 @@ support-files = ["whimsy_link_hints.html"]
 ["browser_whimsy_search_deck.js"]
 support-files = ["whimsy_search_results.html", "whimsy_search_results_coop.html", "whimsy_search_results_coop.html^headers^", "whimsy_search_card.html"]
 
+# W28: Search With ▸ in the selection menu (order, tab placement parity with the default row, background pref, private window, hiding).
+["browser_whimsy_search_with.js"]
+support-files = ["whimsy_verbs.html"]
+
 # wave6: Already open (Arc): Return on an open address goes to its tab and space.
 ["browser_whimsy_already_open.js"]
 
@@ -660,6 +676,10 @@ support-files = ["whimsy_page_actions.html"]
 
 # wave6/parity: Option+click a sidebar tab to split (Peek keeps Zen's Option+click on links).
 ["browser_whimsy_split_alt_click.js"]
+
+# W29-tabclicks: Cmd+click (Ctrl+click off macOS) on a page link opens a new
+# background tab, as Firefox's own does, and the clicked tab doesn't navigate.
+["browser_whimsy_link_accel_click.js"]
 
 # wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
 ["browser_whimsy_split_arc_keys.js"]
@@ -716,6 +736,10 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave7/menus: space menu order (Delete last), no Volume… row, Glance chip vs unread badge on an Essential.
 ["browser_whimsy_menu_order.js"]
 
+# W29/ctxmenu: the page and tab menus, regrouped (most-used first); the tab menu's "Ask AI" label and its own AI group; link/image/selection menus unchanged.
+["browser_whimsy_menu_regroup_order.js"]
+support-files = ["whimsy_test_image.png"]
+
 # wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
 ["browser_whimsy_archive_tab_menu.js"]
 # wave10 (W10-06): archiving a tab (Archive Tab row, Archive Tabs Below, Cmd+W) shows no Undo toast; Cmd+Z and Edit → Undo still restore it.
@@ -734,13 +758,28 @@ support-files = ["whimsy_page_animations.html"]
 support-files = ["whimsy_minimap_long.html", "whimsy_minimap_short.html"]
 # W27: Show space name in window title (Settings → Tab Management, off by default): titlepreface "<space> — ", space switch and rename, any space count, its switch, the private lock.
 ["browser_whimsy_window_title_space.js"]
+# W29: Match the page (space colour editor, off by default): the row/switch
+# in the theme picker, switching restores the gradient exactly and dims the
+# pad/swatches, a theme-color change repaints live, Reduce Motion is instant,
+# private windows aren't tinted, the favicon fallback.
+["browser_whimsy_page_tint.js"]
+support-files = ["whimsy_page_tint.html"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
+# W29 ambient-audio: the Ambient sound sheet (six tiles, one at a time, closing the sheet doesn't stop it), the two ⌘K commands and their live detail text, tab mute independence, and the playing tile's text contrast.
+["browser_whimsy_ambient.js"]
 
 # W24 passkey 2: page-world password-manager interception across profiles,
 # windows, frames, CSP, document_start and private-browsing permission.
 ["browser_whimsy_passkey_extension.js"]
 support-files = ["whimsy_passkey_extension.sjs", "whimsy_passkey_extension_page.js"]
+
+# W29 1Password on Google: a password manager's page-world hook asks its own
+# isolated script and background over postMessage and runtime messaging before
+# it answers; that round trip works on a nonce/Trusted Types page, in a profile
+# tab, with Whimsy's passkeys on, and never opens Firefox's security-key prompt.
+["browser_whimsy_passkey_extension_bridge.js"]
+support-files = ["whimsy_passkey_bridge.sjs", "whimsy_passkey_extension_page.js"]
 
 # W26 passkeys: Whimsy's own Touch ID passkeys through Gecko's WebAuthn with
 # the Secure Enclave helper stubbed (create/get/discoverable/exclude/replace,
@@ -1029,6 +1068,12 @@ support-files = ["whimsy_meet.html", "whimsy_zoom.html", "whimsy_teams.html", "w
 ["browser_whimsy_call_options_panel.js"]
 support-files = ["whimsy_meet.html"]
 
+# W29: Call Options › Share this tab and Share This Tab in Call: the call's
+# own share button, Firefox's prompt on this tab with it picked, Stop from
+# any tab.
+["browser_whimsy_call_share_tab.js"]
+support-files = ["whimsy_call_share.html"]
+
 # wave13/toast: one toast, Zen's, extended (WhimsyZenToasts.sys.mjs): icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" buttons, persistence and handles, buttons with words, close and Esc, stacking, "+k more", Reduce Motion, keyed replace, 480px.
 ["browser_whimsy_zen_toasts.js"]
 
@@ -1058,6 +1103,8 @@ support-files = ["whimsy_ai_sensitive.html"]
 ["browser_whimsy_chat_hover.js"]
 
 ["browser_whimsy_chat_motion.js"]
+
+["browser_whimsy_sidebar_close.js"]
 
 ["browser_whimsy_chat_shell.js"]
 
@@ -1135,6 +1182,9 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 # W27: photos you upload lose their location and camera details, losslessly.
 ["browser_whimsy_photo_metadata.js"]
 support-files = ["whimsy_photo_meta.jpg", "whimsy_photo_meta_mpf.jpg", "whimsy_photo_meta.png", "whimsy_photo_upload.html"]
+# W29: choose which photo details to remove, in every format, with the sheet.
+["browser_whimsy_photo_details.js"]
+support-files = ["whimsy_photo_builders.js", "whimsy_photo_upload.html"]
 ["browser_whimsy_screens_w23_commands.js"]
 support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
 
@@ -1345,3 +1395,8 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 ["browser_whimsy_local_plugins.js"]
 # W29/newtabopts: New Private Tab in the sidebar foot's + button (Zen's Create New menu), right after New Tab; the same command as the File menu's own row and Cmd+Option+T.
 ["browser_whimsy_private_create_new.js"]
+# W29 safety-check: WhimsySafetyCheck.sys.mjs itself (updates/passwords/extensions/permissions checks).
+["browser_whimsy_safety_check.js"]
+
+# W29 safety-check: Settings → Privacy & Security → Safety Check card and its sheet.
+["browser_whimsy_safety_check_settings.js"]

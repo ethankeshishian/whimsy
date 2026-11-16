@@ -16,6 +16,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAIReader.sys.mjs",
     "WhimsyAITabs.sys.mjs",
     "WhimsyAlreadyOpen.sys.mjs",
+    "WhimsyAmbient.sys.mjs",
     "WhimsyAnnotations.sys.mjs",
     "WhimsyAnnotationsChild.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
@@ -95,6 +96,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyHome.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
     "WhimsyHoverCards.sys.mjs",
+    "WhimsyIconPack.sys.mjs",
     "WhimsyImageMetadata.sys.mjs",
     "WhimsyInspector.sys.mjs",
     "WhimsyInspectorChild.sys.mjs",
@@ -136,6 +138,9 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPageDevParent.sys.mjs",
     "WhimsyPageMarkdown.sys.mjs",
     "WhimsyPageParent.sys.mjs",
+    "WhimsyPageTint.sys.mjs",
+    "WhimsyPageTintChild.sys.mjs",
+    "WhimsyPageTintParent.sys.mjs",
     "WhimsyPageWatch.sys.mjs",
     "WhimsyPanels.sys.mjs",
     "WhimsyPasteGuard.sys.mjs",
@@ -163,13 +168,16 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyRecentTabs.sys.mjs",
     "WhimsyRedactChild.sys.mjs",
     "WhimsyRedactParent.sys.mjs",
+    "WhimsySafetyCheck.sys.mjs",
     "WhimsySearchDeck.sys.mjs",
     "WhimsySearchDeckChild.sys.mjs",
+    "WhimsySearchWith.sys.mjs",
     "WhimsySeasons.sys.mjs",
     "WhimsySeasonToast.sys.mjs",
     "WhimsySelectionMarkdown.sys.mjs",
     "WhimsySettingsCommands.sys.mjs",
     "WhimsyShareMenu.sys.mjs",
+    "WhimsyShareTab.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySidebarNav.sys.mjs",
     "WhimsySidePanel.sys.mjs",
@@ -221,6 +229,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
+    "WhimsyWindowOnTop.sys.mjs",
     "WhimsyWindowTitle.sys.mjs",
     "WhimsyZap.sys.mjs",
     "WhimsyZapChild.sys.mjs",
@@ -397,6 +406,15 @@ EXTRA_JS_MODULES.whimsy += [
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyPasskeys.sys.mjs",
 ]
+
+# W29 icon-sets: Lucide and Phosphor, vendored at content/icon-packs/. Zen's
+# own icons (zen-icons/, Nucleo) carry Zen's license; these two need their
+# own about:license entries since they ship under different licenses.
+LICENSES += ["lucide", "phosphor"]
+LICENSES["lucide"].title = "Lucide icons (ISC)"
+LICENSES["lucide"].text = "content/icon-packs/lucide/LICENSE"
+LICENSES["phosphor"].title = "Phosphor icons (MIT)"
+LICENSES["phosphor"].text = "content/icon-packs/phosphor-fill/LICENSE"
 
 # W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md
 # option A, step 1).

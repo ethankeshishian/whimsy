@@ -99,6 +99,17 @@
         </menupopup>
       </menulist>
     </hbox>
+    <!-- W29 icon-sets: Lucide and Phosphor alternatives to Zen's own
+         Nucleo icons. Three cards, each previewing the same six icons;
+         picking one swaps the whole window's icons immediately (no
+         restart), same as the font row above. A toolbar preview strip
+         under the cards shows the pick too. -->
+    <vbox id="whimsyIconPackRow" data-whimsy-feature="icon-pack">
+      <label id="whimsyIconPackLabel" data-l10n-id="whimsy-look-icon-pack-label"/>
+      <html:div id="whimsyIconPackList" role="radiogroup" aria-labelledby="whimsyIconPackLabel"></html:div>
+      <description class="description-deemphasized" data-l10n-id="whimsy-look-icon-pack-preview-caption"/>
+      <html:div id="whimsyIconPackPreview"></html:div>
+    </vbox>
     <!-- wave5/look: Firefox's density, which each space can override
          (right-click a space → Edit Look…). wave9/designfix: the only
          density control; old #appearance-windowDensity links land here. -->
@@ -143,6 +154,10 @@
          ships off (overlay.py PREF_OVERRIDES, W10-31) -->
     <checkbox id="whimsyDimInactiveWindow"
               data-l10n-id="whimsy-look-dim-inactive-window" preference="zen.view.grey-out-inactive-windows"/>
+    <!-- W28: Keep Window on Top (macOS only, off by default). Global: one
+         pref applies to every Whimsy window, including Mini Whimsy. -->
+    <checkbox id="whimsyWindowOnTop" data-whimsy-feature="window-on-top"
+              data-l10n-id="whimsy-look-window-on-top" preference="whimsy.window-on-top.enabled"/>
     <!-- W11-07: the homepage is chosen in Home and startup (New windows,
          New tabs), not with a second switch here. -->
   </groupbox>
@@ -150,6 +165,57 @@
 
 # Settings → Privacy & Security: moved in above Firefox's privacy groups.
 <html:template id="template-whimsyPrivacy" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <!-- W29 safety-check: a check of the things that most often go wrong,
+       run on this device when the pane opens or Check again is pressed
+       (WhimsySafetyCheck.sys.mjs). Four rows, always in this order:
+       Updates, Passwords, Extensions, Site permissions. -->
+  <html:div id="whimsySafetyCheckGroup" data-category="panePrivacy" data-whimsy-feature="safety-check" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-safety-check-header" headinglevel="3"
+                         iconsrc="chrome://global/skin/illustrations/shield-check.svg">
+        <description class="description-deemphasized" data-l10n-id="whimsy-safety-check-description"/>
+        <hbox align="center" class="whimsy-safety-check-head">
+          <html:span id="whimsySafetyCheckLastRun" class="whimsy-updates-detail" role="status"/>
+          <spacer flex="1"/>
+          <button id="whimsySafetyCheckRun" data-l10n-id="whimsy-safety-check-run-button"/>
+        </hbox>
+        <html:ul id="whimsySafetyCheckList" class="whimsy-safety-check-list">
+          <html:li id="whimsySafetyCheckRow-updates" class="whimsy-safety-check-row">
+            <html:span class="whimsy-safety-check-icon" aria-hidden="true"/>
+            <html:div class="whimsy-safety-check-text">
+              <html:span class="whimsy-safety-check-status"/>
+              <html:span class="whimsy-safety-check-detail"/>
+            </html:div>
+            <button class="whimsy-safety-check-action" hidden="hidden"/>
+          </html:li>
+          <html:li id="whimsySafetyCheckRow-passwords" class="whimsy-safety-check-row">
+            <html:span class="whimsy-safety-check-icon" aria-hidden="true"/>
+            <html:div class="whimsy-safety-check-text">
+              <html:span class="whimsy-safety-check-status"/>
+              <html:span class="whimsy-safety-check-detail"/>
+            </html:div>
+            <button class="whimsy-safety-check-action" hidden="hidden"/>
+          </html:li>
+          <html:li id="whimsySafetyCheckRow-extensions" class="whimsy-safety-check-row">
+            <html:span class="whimsy-safety-check-icon" aria-hidden="true"/>
+            <html:div class="whimsy-safety-check-text">
+              <html:span class="whimsy-safety-check-status"/>
+              <html:span class="whimsy-safety-check-detail"/>
+            </html:div>
+            <button class="whimsy-safety-check-action" hidden="hidden"/>
+          </html:li>
+          <html:li id="whimsySafetyCheckRow-permissions" class="whimsy-safety-check-row">
+            <html:span class="whimsy-safety-check-icon" aria-hidden="true"/>
+            <html:div class="whimsy-safety-check-text">
+              <html:span class="whimsy-safety-check-status"/>
+              <html:span class="whimsy-safety-check-detail"/>
+            </html:div>
+            <button class="whimsy-safety-check-action" hidden="hidden"/>
+          </html:li>
+        </html:ul>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <groupbox id="whimsyAutofillGroup" data-category="panePrivacy" hidden="true" class="highlighting-group">
     <label><html:h2 data-l10n-id="whimsy-autofill-header"/></label>
     <description id="whimsyAutofillManagerNote"
@@ -186,12 +252,24 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
-  <!-- W27: photos you upload lose their location and camera details. -->
+  <!-- W27: photos you upload lose their location and camera details.
+       W29: which details go, and whether to ask before each upload, nested
+       under the main box and shown only while it's ticked. -->
   <html:div id="whimsyPhotoMetadataGroup" data-category="panePrivacy" data-whimsy-feature="photo-metadata" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">
       <html:moz-fieldset data-l10n-id="whimsy-photo-metadata-header" headinglevel="3"
                          iconsrc="chrome://browser/skin/zen-icons/camera.svg">
-        <html:moz-checkbox id="whimsyStripImageMetadata" data-l10n-id="whimsy-photo-metadata-toggle"/>
+        <html:moz-checkbox id="whimsyStripImageMetadata" data-l10n-id="whimsy-photo-metadata-toggle">
+          <html:div slot="nested" id="whimsyPhotoDetailsOptions" class="whimsy-photo-details-options">
+            <html:div class="whimsy-photo-details-inner">
+              <html:moz-checkbox id="whimsyPhotoDetailsLocation" data-kind="location" data-l10n-id="whimsy-photo-details-location"/>
+              <html:moz-checkbox id="whimsyPhotoDetailsCamera" data-kind="camera" data-l10n-id="whimsy-photo-details-camera"/>
+              <html:moz-checkbox id="whimsyPhotoDetailsDate" data-kind="date" data-l10n-id="whimsy-photo-details-date"/>
+              <html:moz-checkbox id="whimsyPhotoDetailsOther" data-kind="other" data-l10n-id="whimsy-photo-details-other"/>
+              <html:moz-checkbox id="whimsyPhotoDetailsAsk" data-l10n-id="whimsy-photo-details-ask"/>
+            </html:div>
+          </html:div>
+        </html:moz-checkbox>
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
@@ -710,6 +788,21 @@
               aria-describedby="whimsyBatterySaverHelp"/>
     <description id="whimsyBatterySaverHelp" class="description-deemphasized indent" data-l10n-id="whimsy-battery-saver-help"/>
   </groupbox>
+</html:template>
+
+# W29: the field editor button's own setting (Settings → General, after
+# Battery Saver), a card like Email aliases (moz-card, moz-fieldset with
+# the code icon, one moz-checkbox): whimsy-preferences-head.inc.xhtml:259-266
+# is the model.
+<html:template id="template-whimsyFieldEditor" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <html:div id="whimsyFieldEditorGroup" data-category="paneGeneral" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-field-editor-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/selectable/code.svg">
+        <html:moz-checkbox id="whimsyFieldEditorButton" data-l10n-id="whimsy-field-editor-button"/>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
 </html:template>
 
 # W23 video: Settings › Media (content/whimsy-settings-media.js moves these

@@ -111,6 +111,143 @@ HOTFIXES = [
                "            this.sidebar,\n"
                "            this.sidebarIsOnRight\n",
     },
+    # W29: ⌘S (toggle(true)) closes the sidebar and sets _ignoreNextHover so
+    # the pointer resting on the bar does not reveal it. Zen dropped that flag
+    # one task after the slide (or 500ms after an instant hide), and a repeat
+    # ⌘S mid-slide cleared it too. When the hidden bar's edge strip settled
+    # under the pointer, the queued mouseover then revealed it: the bar flashed
+    # back and stayed open until the pointer moved off. The flag now holds
+    # while the pointer is on the settled bar (or its edge splitter) and ends
+    # when the pointer moves off it, so the next approach to the edge reveals
+    # the bar as usual.
+    {
+        "id": "compact-close-hover-hold",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "An explicit close ignores hover until the pointer leaves the sidebar.",
+        "old": "  toggle(ignoreHover = false) {\n"
+               "    // Only ignore the next hover when we are enabling compact mode\n"
+               "    this._ignoreNextHover = ignoreHover && !this.preference;\n",
+        "new": "  // Whimsy hotfix: an explicit close (⌘S) ignores hover until the pointer\n"
+               "  // leaves the sidebar, so a pointer resting on the bar, or on the edge\n"
+               "  // strip the bar settles into, does not reveal it again.\n"
+               "  _whimsyStartHoverHold() {\n"
+               "    this._whimsyEndHoverHold();\n"
+               "    this._ignoreNextHover = true;\n"
+               "    const hold = (this._whimsyHoverHold = new AbortController());\n"
+               "    const options = { capture: true, signal: hold.signal };\n"
+               "    // The bar's area is the sidebar and its edge splitter. Only a real move\n"
+               "    // counts: hover that changes because the bar moved under a still pointer\n"
+               "    // keeps the coordinates, and must not end the hold.\n"
+               "    const splitter = document.getElementById(\"zen-sidebar-splitter\");\n"
+               "    const onMove = event => {\n"
+               "      const [x, y] = this._whimsyHoldPoint ?? [];\n"
+               "      const moved = event.clientX !== x || event.clientY !== y;\n"
+               "      this._whimsyHoldPoint = [event.clientX, event.clientY];\n"
+               "      const onBar =\n"
+               "        this.sidebar.contains(event.target) || splitter?.contains(event.target);\n"
+               "      if (!this._ignoreNextHover || (hold.settled && moved && !onBar)) {\n"
+               "        this._whimsyEndHoverHold();\n"
+               "      }\n"
+               "    };\n"
+               "    window.addEventListener(\"mousemove\", onMove, options);\n"
+               "    window.addEventListener(\"mouseover\", onMove, options);\n"
+               "  },\n"
+               "\n"
+               "  // Whimsy hotfix: once the bar has settled, keep ignoring hover only while\n"
+               "  // the pointer is on it. The last pointer position counts too, because the\n"
+               "  // bar's edge strip can settle under a pointer the bar slid away from.\n"
+               "  _whimsySettleHoverHold() {\n"
+               "    const hold = this._whimsyHoverHold;\n"
+               "    if (!hold || !this._ignoreNextHover) {\n"
+               "      this._whimsyEndHoverHold();\n"
+               "      return;\n"
+               "    }\n"
+               "    const rect = this.sidebar.getBoundingClientRect();\n"
+               "    const [x, y] = this._whimsyHoldPoint ?? [NaN, NaN];\n"
+               "    const onBar =\n"
+               "      this.sidebar.matches(\":hover\") ||\n"
+               "      document.getElementById(\"zen-sidebar-splitter\")?.matches(\":hover\") ||\n"
+               "      (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);\n"
+               "    if (!onBar) {\n"
+               "      this._whimsyEndHoverHold();\n"
+               "      return;\n"
+               "    }\n"
+               "    hold.settled = true;\n"
+               "  },\n"
+               "\n"
+               "  _whimsyEndHoverHold() {\n"
+               "    const hold = this._whimsyHoverHold;\n"
+               "    if (!hold) {\n"
+               "      return;\n"
+               "    }\n"
+               "    hold.abort();\n"
+               "    this._whimsyHoverHold = null;\n"
+               "    delete this._whimsyHoldPoint;\n"
+               "    delete this._ignoreNextHover;\n"
+               "  },\n"
+               "\n"
+               "  toggle(ignoreHover = false) {\n"
+               "    // Whimsy hotfix: the setter ignores a toggle mid-slide; return before\n"
+               "    // the explicit close's hover hold is dropped.\n"
+               "    if (document.documentElement.hasAttribute(\"zen-compact-animating\")) {\n"
+               "      return this.preference;\n"
+               "    }\n"
+               "    this._whimsyEndHoverHold(); // Whimsy hotfix\n"
+               "    // Only ignore the next hover when we are enabling compact mode\n"
+               "    this._ignoreNextHover = ignoreHover && !this.preference;\n"
+               "    if (this._ignoreNextHover) {\n"
+               "      this._whimsyStartHoverHold(); // Whimsy hotfix\n"
+               "    }\n",
+    },
+    {
+        "id": "compact-close-hover-hold-slide",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "The slide-out keeps ignoring hover while the pointer is on the settled bar.",
+        "old": "            if (this._ignoreNextHover) {\n"
+               "              setTimeout(() => {\n"
+               "                delete this._ignoreNextHover;\n"
+               "              });\n"
+               "            }\n"
+               "\n"
+               "            document.documentElement.removeAttribute(\"zen-compact-animating\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-right\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-left\");\n"
+               "            this.sidebar.style.removeProperty(\"transform\");\n"
+               "            this.sidebar.style.removeProperty(\"point-events\");\n",
+        "new": "            document.documentElement.removeAttribute(\"zen-compact-animating\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-right\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-left\");\n"
+               "            this.sidebar.style.removeProperty(\"transform\");\n"
+               "            this.sidebar.style.removeProperty(\"point-events\");\n"
+               "            this._whimsySettleHoverHold(); // Whimsy hotfix\n",
+    },
+    {
+        "id": "compact-close-hover-hold-instant",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "An instant hide keeps ignoring hover while the pointer is on the bar.",
+        "old": "        setTimeout(() => {\n"
+               "          this.sidebar.style.transition = \"\";\n"
+               "          delete this._ignoreNextHover;\n"
+               "        }, 500);\n",
+        "new": "        setTimeout(() => {\n"
+               "          this.sidebar.style.transition = \"\";\n"
+               "        }, 500);\n"
+               "        this._whimsySettleHoverHold(); // Whimsy hotfix\n",
+    },
+    {
+        "id": "compact-close-hover-hold-edge",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "Leaving the window at the edge does not reveal a sidebar that ignores hover.",
+        "old": "    document.documentElement.addEventListener(\"mouseleave\", event => {\n"
+               "      setTimeout(() => {\n"
+               "        const screenEdgeCrossed = this._getCrossedEdge(\n",
+        "new": "    document.documentElement.addEventListener(\"mouseleave\", event => {\n"
+               "      setTimeout(() => {\n"
+               "        if (this._ignoreNextHover) {\n"
+               "          return; // Whimsy hotfix\n"
+               "        }\n"
+               "        const screenEdgeCrossed = this._getCrossedEdge(\n",
+    },
     # Drain a retired store before a later init opens another writer for it.
     {
         "id": "live-folders-finalize-store",
@@ -1499,6 +1636,8 @@ FEATURES = [
      "detect": [("src/browser/themes/shared/zen-icons", r"#context-copylink|#context-openlinkintab|#context_duplicateTab")]},
     {"id": "ui-font", "title": "Interface font setting (the browser's own text, not web pages)",
      "detect": [("prefs", r"name:\s*zen\.[\w.-]*(ui|interface|chrome)-font")]},
+    {"id": "icon-pack", "title": "Icon pack picker: Lucide and Phosphor alternatives to Zen's Nucleo icons",
+     "detect": [("prefs", r"name:\s*zen\.[\w.-]*icon[_-]?pack")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "background-mute", "title": "Mute background tabs (Vivaldi's Tab Muting: while the current tab plays, or always; setting)",
@@ -1506,6 +1645,8 @@ FEATURES = [
                 ("prefs", r"name:\s*zen\.[\w.-]*(background|inactive)[\w.-]*mute")]},
     {"id": "mute-site", "title": "Remember muted sites: Mute Site in the tab menu (Chrome)",
      "detect": [("src/zen", r"(?i)context_\w*MuteSite|mute-?site\b")]},
+    {"id": "page-tint", "title": "Match the page: tint a space with the current site's colour (theme picker toggle, off by default)",
+     "detect": [("src/zen/spaces", r"matchPage|theme-color.*gradientColors|gradientColors.*theme-color")]},
     {"id": "tab-volume", "title": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
      "detect": [("src/zen", r"(?i)tab-?volume-?(slider|panel)|setTabVolume")]},
     {"id": "pip-snap-back", "title": "PiP snaps back into the page when you return to its tab (Arc), automatic PiP setting",
@@ -2076,6 +2217,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?media[-_.]?settings|paneMedia")]},
     {"id": "routines", "title": "Routines: AI runs on a schedule or a trigger and leaves results in Updates and a thread",
      "detect": [("src/zen", r"(?i)zen[-_.]?routines?")]},
+    {"id": "ambient-audio", "title": "Ambient sound: six bundled loops (rain, cafe, woods, fireplace, ocean, brown noise) via ⌘K, played from the chrome window",
+     "detect": [("src/zen", r"(?i)zen[-_.]?ambient[-_.]?(sound|audio|noise)")]},
     # W23 cmdbar-ai
     {"id": "command-bar-numbers", "title": "⌘1–⌘9 pick a row while the command bar is open; hold ⌘ to see the numbers",
      "detect": [("src/zen/urlbar", r"(?i)(accel|cmd)[-_]?digit[-_]?row|row[-_]?numbers")]},
@@ -2119,6 +2262,12 @@ FEATURES = [
     # or Essential popover.
     {"id": "side-panels", "title": "Side panels: Essentials open in a resizable popover next to the sidebar (Open in Side Panel), chat can too",
      "detect": [("src/zen", r"(?i)zen[-_.]?(side[-_.]?panel|essential[-_.]?popover|popover[-_.]?essential)")]},
+    # W28: Keep Window on Top (Settings → Look and Feel, macOS only): one
+    # global setting floats every Whimsy window, including Mini Whimsy,
+    # above other apps' windows; persists across restarts.
+    {"id": "window-on-top", "title": "Keep Window on Top: float every Whimsy window above other apps' windows (Settings → Look and Feel, macOS, off by default)",
+     "detect": [("src/widget/cocoa", r"(?i)SetAlwaysOnTop|GetAlwaysOnTop"),
+                ("src/xpfe/appshell", r"(?i)alwaysOnTop")]},
     # W28: "Open in Safari" / "Open in Chrome" in the command bar, one row
     # per installed browser (research/multi-engine.md option A, step 1).
     {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
@@ -2133,6 +2282,17 @@ FEATURES = [
     {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
      "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
                 ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
+    # W29: Safety Check card (Settings → Privacy & Security): updates,
+    # breached passwords, risky extensions and unused site permissions, all
+    # checked locally.
+    {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
+     "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
+    # W28: Search With ▸, right after the selection menu's "Search <engine>
+    # for "…"" row: lists the other visible engines, each opening the
+    # selection exactly like that row.
+    {"id": "search-with", "title": "Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*search-with[\w-]*\s*="),
+                ("src/zen", r"(?i)zen[-_.]?search[-_.]?with|searchwith-?menu")]},
 ]
 
 
