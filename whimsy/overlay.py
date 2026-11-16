@@ -111,6 +111,143 @@ HOTFIXES = [
                "            this.sidebar,\n"
                "            this.sidebarIsOnRight\n",
     },
+    # W29: ⌘S (toggle(true)) closes the sidebar and sets _ignoreNextHover so
+    # the pointer resting on the bar does not reveal it. Zen dropped that flag
+    # one task after the slide (or 500ms after an instant hide), and a repeat
+    # ⌘S mid-slide cleared it too. When the hidden bar's edge strip settled
+    # under the pointer, the queued mouseover then revealed it: the bar flashed
+    # back and stayed open until the pointer moved off. The flag now holds
+    # while the pointer is on the settled bar (or its edge splitter) and ends
+    # when the pointer moves off it, so the next approach to the edge reveals
+    # the bar as usual.
+    {
+        "id": "compact-close-hover-hold",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "An explicit close ignores hover until the pointer leaves the sidebar.",
+        "old": "  toggle(ignoreHover = false) {\n"
+               "    // Only ignore the next hover when we are enabling compact mode\n"
+               "    this._ignoreNextHover = ignoreHover && !this.preference;\n",
+        "new": "  // Whimsy hotfix: an explicit close (⌘S) ignores hover until the pointer\n"
+               "  // leaves the sidebar, so a pointer resting on the bar, or on the edge\n"
+               "  // strip the bar settles into, does not reveal it again.\n"
+               "  _whimsyStartHoverHold() {\n"
+               "    this._whimsyEndHoverHold();\n"
+               "    this._ignoreNextHover = true;\n"
+               "    const hold = (this._whimsyHoverHold = new AbortController());\n"
+               "    const options = { capture: true, signal: hold.signal };\n"
+               "    // The bar's area is the sidebar and its edge splitter. Only a real move\n"
+               "    // counts: hover that changes because the bar moved under a still pointer\n"
+               "    // keeps the coordinates, and must not end the hold.\n"
+               "    const splitter = document.getElementById(\"zen-sidebar-splitter\");\n"
+               "    const onMove = event => {\n"
+               "      const [x, y] = this._whimsyHoldPoint ?? [];\n"
+               "      const moved = event.clientX !== x || event.clientY !== y;\n"
+               "      this._whimsyHoldPoint = [event.clientX, event.clientY];\n"
+               "      const onBar =\n"
+               "        this.sidebar.contains(event.target) || splitter?.contains(event.target);\n"
+               "      if (!this._ignoreNextHover || (hold.settled && moved && !onBar)) {\n"
+               "        this._whimsyEndHoverHold();\n"
+               "      }\n"
+               "    };\n"
+               "    window.addEventListener(\"mousemove\", onMove, options);\n"
+               "    window.addEventListener(\"mouseover\", onMove, options);\n"
+               "  },\n"
+               "\n"
+               "  // Whimsy hotfix: once the bar has settled, keep ignoring hover only while\n"
+               "  // the pointer is on it. The last pointer position counts too, because the\n"
+               "  // bar's edge strip can settle under a pointer the bar slid away from.\n"
+               "  _whimsySettleHoverHold() {\n"
+               "    const hold = this._whimsyHoverHold;\n"
+               "    if (!hold || !this._ignoreNextHover) {\n"
+               "      this._whimsyEndHoverHold();\n"
+               "      return;\n"
+               "    }\n"
+               "    const rect = this.sidebar.getBoundingClientRect();\n"
+               "    const [x, y] = this._whimsyHoldPoint ?? [NaN, NaN];\n"
+               "    const onBar =\n"
+               "      this.sidebar.matches(\":hover\") ||\n"
+               "      document.getElementById(\"zen-sidebar-splitter\")?.matches(\":hover\") ||\n"
+               "      (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);\n"
+               "    if (!onBar) {\n"
+               "      this._whimsyEndHoverHold();\n"
+               "      return;\n"
+               "    }\n"
+               "    hold.settled = true;\n"
+               "  },\n"
+               "\n"
+               "  _whimsyEndHoverHold() {\n"
+               "    const hold = this._whimsyHoverHold;\n"
+               "    if (!hold) {\n"
+               "      return;\n"
+               "    }\n"
+               "    hold.abort();\n"
+               "    this._whimsyHoverHold = null;\n"
+               "    delete this._whimsyHoldPoint;\n"
+               "    delete this._ignoreNextHover;\n"
+               "  },\n"
+               "\n"
+               "  toggle(ignoreHover = false) {\n"
+               "    // Whimsy hotfix: the setter ignores a toggle mid-slide; return before\n"
+               "    // the explicit close's hover hold is dropped.\n"
+               "    if (document.documentElement.hasAttribute(\"zen-compact-animating\")) {\n"
+               "      return this.preference;\n"
+               "    }\n"
+               "    this._whimsyEndHoverHold(); // Whimsy hotfix\n"
+               "    // Only ignore the next hover when we are enabling compact mode\n"
+               "    this._ignoreNextHover = ignoreHover && !this.preference;\n"
+               "    if (this._ignoreNextHover) {\n"
+               "      this._whimsyStartHoverHold(); // Whimsy hotfix\n"
+               "    }\n",
+    },
+    {
+        "id": "compact-close-hover-hold-slide",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "The slide-out keeps ignoring hover while the pointer is on the settled bar.",
+        "old": "            if (this._ignoreNextHover) {\n"
+               "              setTimeout(() => {\n"
+               "                delete this._ignoreNextHover;\n"
+               "              });\n"
+               "            }\n"
+               "\n"
+               "            document.documentElement.removeAttribute(\"zen-compact-animating\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-right\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-left\");\n"
+               "            this.sidebar.style.removeProperty(\"transform\");\n"
+               "            this.sidebar.style.removeProperty(\"point-events\");\n",
+        "new": "            document.documentElement.removeAttribute(\"zen-compact-animating\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-right\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-left\");\n"
+               "            this.sidebar.style.removeProperty(\"transform\");\n"
+               "            this.sidebar.style.removeProperty(\"point-events\");\n"
+               "            this._whimsySettleHoverHold(); // Whimsy hotfix\n",
+    },
+    {
+        "id": "compact-close-hover-hold-instant",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "An instant hide keeps ignoring hover while the pointer is on the bar.",
+        "old": "        setTimeout(() => {\n"
+               "          this.sidebar.style.transition = \"\";\n"
+               "          delete this._ignoreNextHover;\n"
+               "        }, 500);\n",
+        "new": "        setTimeout(() => {\n"
+               "          this.sidebar.style.transition = \"\";\n"
+               "        }, 500);\n"
+               "        this._whimsySettleHoverHold(); // Whimsy hotfix\n",
+    },
+    {
+        "id": "compact-close-hover-hold-edge",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "Leaving the window at the edge does not reveal a sidebar that ignores hover.",
+        "old": "    document.documentElement.addEventListener(\"mouseleave\", event => {\n"
+               "      setTimeout(() => {\n"
+               "        const screenEdgeCrossed = this._getCrossedEdge(\n",
+        "new": "    document.documentElement.addEventListener(\"mouseleave\", event => {\n"
+               "      setTimeout(() => {\n"
+               "        if (this._ignoreNextHover) {\n"
+               "          return; // Whimsy hotfix\n"
+               "        }\n"
+               "        const screenEdgeCrossed = this._getCrossedEdge(\n",
+    },
     # Drain a retired store before a later init opens another writer for it.
     {
         "id": "live-folders-finalize-store",
@@ -1499,6 +1636,8 @@ FEATURES = [
      "detect": [("src/browser/themes/shared/zen-icons", r"#context-copylink|#context-openlinkintab|#context_duplicateTab")]},
     {"id": "ui-font", "title": "Interface font setting (the browser's own text, not web pages)",
      "detect": [("prefs", r"name:\s*zen\.[\w.-]*(ui|interface|chrome)-font")]},
+    {"id": "icon-pack", "title": "Icon pack picker: Lucide and Phosphor alternatives to Zen's Nucleo icons",
+     "detect": [("prefs", r"name:\s*zen\.[\w.-]*icon[_-]?pack")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "background-mute", "title": "Mute background tabs (Vivaldi's Tab Muting: while the current tab plays, or always; setting)",
@@ -2105,6 +2244,9 @@ FEATURES = [
     # the command bar, with a toast.
     {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
      "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(page-animations|stop-animations)[\w-]*\s*=")]},
+    # W28: Page Minimap (command bar; off by default).
+    {"id": "page-minimap", "title": "Page Minimap: a live picture of a long page at its right edge with the view outlined; click to jump, drag to scroll",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(page[-_.]?)?minimap")]},
     # W27: Show space name in window title (Settings → Tab Management): the
     # space's name as the window's titlepreface. Superseded if Zen's spaces
     # touch the title.
@@ -2115,6 +2257,25 @@ FEATURES = [
     # corner, distracting sites paused, Do Not Disturb, and a break reminder.
     {"id": "focus-sessions", "title": "Focus sessions: a dial to set the length, a countdown in the page's corner, distracting sites paused, and confetti at the end",
      "detect": [("src/zen", r"(?i)zen[-_.]?focus[-_.]?(session|mode|timer)|pomodoro")]},
+    # W28: "Open in Safari" / "Open in Chrome" in the command bar, one row
+    # per installed browser (research/multi-engine.md option A, step 1).
+    {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
+     "detect": [("src/zen", r"(?i)zen[-_.]?open[-_.]?in[-_.]?(safari|chrome|browser)")]},
+    {"id": "photo-metadata", "title": "Remove location and camera details (Exif, GPS, XMP, and text) from JPEG and PNG photos you upload, losslessly",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(strip[-_.]?image[-_.]?metadata|photo[-_.]?metadata)")]},
+    # W28: local plugins. Each folder in <profile>/whimsy-plugins is an
+    # unpacked WebExtension that loads unsigned (signing stays required
+    # everywhere else), turned off until approved. Engine patches on
+    # XPIProvider and XPIDatabase. Superseded if Zen ships its own folder of
+    # unsigned add-ons.
+    {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
+                ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
+    # W29: Safety Check card (Settings → Privacy & Security): updates,
+    # breached passwords, risky extensions and unused site permissions, all
+    # checked locally.
+    {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
+     "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
 ]
 
 

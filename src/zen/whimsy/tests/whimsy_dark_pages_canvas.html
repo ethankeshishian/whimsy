@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Canvas editor — Dark pages</title>
+<!-- A canvas-drawn editor (like an online document editor): the page is
+     white CSS, a transparent canvas draws the text and the selection, and a
+     highlight is a CSS box under the canvas. -->
+<style>
+  body { margin: 0; background: #ffffff; }
+  #highlight { position: absolute; left: 100px; top: 10px; width: 120px; height: 40px; background: #fff2cc; }
+  canvas { position: absolute; left: 0; top: 0; }
+</style>
+<div id="highlight"></div>
+<canvas id="editor" width="400" height="200"></canvas>
+<script>
+  const ctx = document.getElementById("editor").getContext("2d");
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(10, 10, 60, 30);
+  ctx.fillRect(110, 20, 40, 20);
+  ctx.fillStyle = "rgba(26, 115, 232, 0.3)";
+  ctx.fillRect(250, 10, 120, 40);
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(260, 20, 40, 20);
+</script>

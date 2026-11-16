@@ -6249,8 +6249,37 @@ panel.whimsy-sheet.whimsy-snooze {
 .whimsy-site-settings-caption {
   min-height: 24px;
   & > .whimsy-surface-caption-label {
-    flex: 1;
+    flex-shrink: 0;
     font-size: 13px;
+  }
+  /* W26: the profile's name or the site's host, after the heading. */
+  & > .whimsy-site-settings-caption-who {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    margin-inline-start: 0;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Zen's More (Page Info's permissions), moved in beside Site Settings. */
+  & > .whimsy-site-settings-more {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: light-dark(
+      color-mix(in srgb, var(--zen-primary-color, AccentColor) 75%, black),
+      color-mix(in srgb, var(--zen-primary-color, AccentColor) 65%, white)
+    );
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--whimsy-surface-hover);
+    }
   }
 }
 .whimsy-site-settings-item .whimsy-surface-row-label {
@@ -8562,4 +8591,17 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     overflow: hidden;
     text-overflow: ellipsis;
   }
+/* ext: "Run in profiles:" in Firefox's add-extension prompt
+   (WhimsySpaceExtensions.installPromptItem). The checkboxes are Firefox's
+   moz-checkbox, as for "Allow extension to run in private windows";
+   spaced like its other optional items (addon-notification.css). */
+.whimsy-ext-install-profiles {
+  margin-top: var(--space-medium);
+}
+.whimsy-ext-install-profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xsmall);
+  margin-block-start: var(--space-xsmall);
+  padding-inline-start: var(--space-xlarge);
 }
