@@ -350,21 +350,31 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
   const before = [root, tap, airbnb, maps];
   const restored = [];
   const contentRestored = [];
+  await SpecialPowers.pushPrefEnv({ set: [["browser.sessionstore.restore_on_demand", true]] });
   try {
     const rootKey = WhimsyTreeTabs.groupKeyOf(root);
     ok(rootKey, "The root has a key");
     await Promise.all(before.map(t => TabStateFlusher.flush(t.linkedBrowser)));
     const keys = before.map(t => t.getAttribute("whimsy-ai-key"));
-    const states = before.map(t => SessionStore.getTabState(t));
+    const states = before.map(t => {
+      const state = SessionStore.getTabState(t);
+      const saved = JSON.parse(state);
+      is(saved.entries[saved.index - 1]?.url, t.linkedBrowser.currentURI.spec, "The saved history contains the page's URL");
+      return state;
+    });
     ok(JSON.parse(states[3]).extData?.["whimsy-opener"], "The opener is saved with the tab");
     removeTabs(before);
     await TestUtils.waitForCondition(() => before.every(t => !t.isConnected), "The tabs are gone, as after quitting");
 
     for (const state of [...states].reverse()) {
-      const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true });
+      const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true, createLazyBrowser: true });
       const ready = BrowserTestUtils.waitForEvent(tab, "SSTabRestoring");
       contentRestored.unshift(BrowserTestUtils.waitForEvent(tab, "SSTabRestored"));
       SessionStore.setTabState(tab, state);
+      ok(!tab.linkedPanel && tab.hasAttribute("pending"), "The restored tab starts lazy and pending");
+      // Insert only after supplying the saved state. This restores history
+      // without starting a competing blank browser before setTabState.
+      gBrowser.insertBrowser(tab);
       await ready;
       restored.unshift(tab);
     }
@@ -388,12 +398,15 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
     BrowserTestUtils.removeTab(copy);
 
     // A restored tab loads when it's selected, as after a real restart.
-    // SSTabRestoring only covers history; content restoration finishes later.
-    // Listen before setTabState above so an eager restore cannot race this wait.
-    gBrowser.selectedTab = t;
+    // SSTabRestored can also follow an interrupted restore; wait for the
+    // actual saved document, with the listener installed before selection.
+    const url = `${PAGE}?${encodeURIComponent("TAP Air Portugal")}`;
+    const loaded = BrowserTestUtils.browserLoaded(t.linkedBrowser, false, url);
+    await BrowserTestUtils.switchTab(gBrowser, t);
     await contentRestored[1];
+    await loaded;
     ok(!t.hasAttribute("pending"), "The restored tab is no longer pending");
-    is(t.linkedBrowser.currentURI.spec, `${PAGE}?${encodeURIComponent("TAP Air Portugal")}`, "The restored tab loads its saved URL");
+    is(t.linkedBrowser.currentURI.spec, url, "The restored tab loads its saved URL");
     ok(await SpecialPowers.spawn(t.linkedBrowser, [], () => content.document.readyState == "complete" && content.location.search.includes("TAP")), "The restored document is loaded");
     await openChatOn(t);
     const menu = await openAddMenu();
@@ -414,5 +427,6 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
   } finally {
     await closeChat();
     removeTabs(restored);
+    await SpecialPowers.popPrefEnv();
   }
 });
