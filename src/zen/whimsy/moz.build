@@ -323,6 +323,7 @@ EXTRA_JS_MODULES.whimsy += [
 # W27: Press Esc twice to leave full screen
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyFullscreenEscape.sys.mjs",
+    "WhimsyKeysToPage.sys.mjs",
 ]
 
 # W23 video
