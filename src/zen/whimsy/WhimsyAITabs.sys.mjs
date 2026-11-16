@@ -33,6 +33,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const TIDY_PREF = "whimsy.feature.tidy-tabs";
 const TITLES_PREF = "whimsy.feature.tidy-titles";
+const LIVE_ITEM_ATTR = "zen-live-folder-item-id";
 // Arc: Tidy Tabs needs more than six Today tabs.
 export const MIN_TIDY_TABS = 7;
 const SECTION_ATTR = "whimsy-tidy-section";
@@ -108,7 +109,17 @@ export const WhimsyAITabs = {
         this.onTabPinned(event.target);
       }
     }, true);
-    container.addEventListener("SSTabRestoring", event => this.restoreSection(win, event.target));
+    container.addEventListener("SSTabRestoring", event => {
+      this.restoreSection(win, event.target);
+      if (event.target.hasAttribute(LIVE_ITEM_ATTR)) {
+        this.untidyLiveFolderTab(win, event.target);
+      }
+    });
+    for (const tab of win.gBrowser.tabs) {
+      if (tab.hasAttribute(LIVE_ITEM_ATTR)) {
+        this.untidyLiveFolderTab(win, tab);
+      }
+    }
     win.addEventListener("ZenWorkspacesUIUpdate", render);
     win.addEventListener("TabSelect", render);
     const prefs = [TIDY_PREF, "whimsy.ai.enabled", "whimsy.feature.ai-providers"];
@@ -630,6 +641,10 @@ export const WhimsyAITabs = {
   async onTabPinned(tab) {
     const win = tab?.documentGlobal;
     const state = windows.get(win);
+    if (tab?.hasAttribute?.(LIVE_ITEM_ATTR)) {
+      this.untidyLiveFolderTab(win, tab);
+      return;
+    }
     if (!state || tab.localName != "tab" || !tab.pinned || tab.closing ||
         !Services.prefs.getBoolPref(TITLES_PREF, true) || tab.zenStaticLabel ||
         tab.hasAttribute("zen-empty-tab") || tab.hasAttribute("zen-glance-tab") ||
@@ -654,6 +669,7 @@ export const WhimsyAITabs = {
       // Unpinned, renamed by hand or navigated while we asked: leave it.
       if (short && state.titleRequests.get(tab) == request && tab.isConnected &&
           tab.pinned && !tab.closing && !tab.zenStaticLabel && tab.label == title &&
+          !tab.hasAttribute(LIVE_ITEM_ATTR) &&
           tab.linkedBrowser.currentURI.spec == spec &&
           !tab.querySelector(".tab-label-container-editing") &&
           Services.prefs.getBoolPref(TITLES_PREF, true)) {
@@ -689,6 +705,28 @@ export const WhimsyAITabs = {
       if (state.titleRequests.get(tab) == request) {
         state.titleRequests.delete(tab);
       }
+    }
+  },
+
+  // Live folders (GitHub pull requests, issues, RSS) make and replace their
+  // own tabs, so those keep the page title. Names tidied before this rule
+  // were fixed labels; give those back their page title.
+  untidyLiveFolderTab(win, tab) {
+    const state = windows.get(win);
+    state?.waitingTitles.delete(tab);
+    state?.titleRequests.delete(tab);
+    if (!win || typeof tab.zenStaticLabel != "string") {
+      return;
+    }
+    delete tab.zenStaticLabel;
+    tab.removeAttribute("whimsy-title-tidied");
+    if (tab.linkedPanel) {
+      win.gBrowser.setTabTitle(tab);
+      return;
+    }
+    const title = lazy.SessionStore.getLazyTabValue(tab, "title");
+    if (title) {
+      win.gBrowser._setTabLabel(tab, title);
     }
   },
 

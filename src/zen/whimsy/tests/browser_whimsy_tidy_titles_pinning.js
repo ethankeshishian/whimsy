@@ -257,3 +257,35 @@ add_task(async function test_loading_pin_and_reduced_motion() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+add_task(async function test_live_folder_tabs_keep_page_titles() {
+  // Live folders pin the tabs they make; those keep the page title.
+  const before = calls;
+  const tab = await page();
+  try {
+    tab.setAttribute("zen-live-folder-item-id", "test-live:1");
+    gBrowser.pinTab(tab);
+    await TestUtils.waitForTick();
+    await new Promise(resolve => setTimeout(resolve, 300));
+    is(calls, before, "No title request for a live folder tab");
+    is(tab.zenStaticLabel, undefined, "Live folder tab has no fixed name");
+    is(tab.label, TITLE, "Live folder tab shows the page title");
+  } finally {
+    await closeTab(tab);
+  }
+});
+
+add_task(async function test_live_folder_tabs_tidied_earlier_get_page_titles_back() {
+  const tab = await page();
+  try {
+    gBrowser.pinTab(tab);
+    await TestUtils.waitForCondition(() => tab.zenStaticLabel == SHORT, "Ordinary pin tidies the title");
+    tab.setAttribute("zen-live-folder-item-id", "test-live:2");
+    WhimsyAITabs.untidyLiveFolderTab(window, tab);
+    is(tab.zenStaticLabel, undefined, "Fixed name is cleared");
+    ok(!tab.hasAttribute("whimsy-title-tidied"), "Tidy marker is cleared");
+    await TestUtils.waitForCondition(() => tab.label == TITLE, "Page title is back");
+  } finally {
+    await closeTab(tab);
+  }
+});
