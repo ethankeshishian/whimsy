@@ -18,6 +18,9 @@ const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/wh
 const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
 const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
 const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+const { WhimsyConnectors } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectors.sys.mjs");
+const { WhimsyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
+const { WhimsyAIContext } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIContext.sys.mjs");
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const PAGE = ROOT + "whimsy_ai_page.html";
@@ -35,6 +38,11 @@ let reads = [];
 let fetches = [];
 let imageBytes = null;
 let answer = () => JSON.stringify({ title: "Planning notes", description: DESCRIPTION, points: POINTS });
+// Diagnostic only (temporary): records every fillExtra() call so a timeout
+// waiting for ".whimsy-hc-extra" can say whether fillExtra ran at all, and
+// with what state, instead of just "timed out".
+let fillExtraCalls = [];
+const realFillExtra = WhimsyHoverCards.fillExtra.bind(WhimsyHoverCards);
 
 add_setup(async () => {
   await SimpleTest.promiseFocus(window);
@@ -49,6 +57,10 @@ add_setup(async () => {
   imageBytes = new Uint8Array(await (await fetch(IMAGE)).arrayBuffer());
   // Descriptions kept from an earlier run go (as Fire does), so each run reads.
   Services.obs.notifyObservers(null, "whimsy-ai-store-cleared");
+  WhimsyHoverCards.fillExtra = (win, card, state) => {
+    fillExtraCalls.push(state ? { ...state } : state);
+    return realFillExtra(win, card, state);
+  };
   WhimsyAIProviders.setTestProvider(request => {
     asked.push(request);
     return answer(request);
@@ -74,6 +86,7 @@ add_setup(async () => {
     WhimsyAIProviders.setTestProvider(null);
     WhimsyAIReader.setTestReader(null);
     WhimsyHoverCards.setTestFetcher(null);
+    WhimsyHoverCards.fillExtra = realFillExtra;
   });
 });
 
@@ -81,6 +94,7 @@ function reset() {
   asked = [];
   reads = [];
   fetches = [];
+  fillExtraCalls = [];
   answer = () => JSON.stringify({ title: "Planning notes", description: DESCRIPTION, points: POINTS });
 }
 
@@ -865,5 +879,331 @@ add_task(async function descriptions_are_cached_per_container() {
       reads.push({ url, ...options });
       return "The offsite is on March 14 in Lisbon. The espresso machine costs $129.";
     });
+  }
+});
+
+// W29: a Gmail or Outlook tab's card shows its 3 newest inbox messages
+// (via the existing connectors, never AI) instead of an AI description; no
+// connector, or nowhere to go for it, falls back to an unread count or a
+// Connect button. Locked space and screen-sharing keep the card to its
+// picture, title and address, same as everything else off limits.
+
+// Patches WhimsyTabs' own mail detection for `tab` alone, so these tests
+// don't need a real network load of a mail host to exercise the card.
+// Like waiting for ".whimsy-hc-extra" directly, but a timeout carries
+// diagnostic state in its message (card contents, the panel's state, and
+// what the connector stub currently answers) instead of just "timed out".
+async function waitForExtra(card, label) {
+  // TestUtils.waitForCondition rejects with a plain string, not an Error, so
+  // this stringifies `error` directly rather than reading a `.message` that
+  // doesn't exist on a string. The most useful fields come first because the
+  // lane summary truncates long failure messages.
+  return TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-extra"), label).catch(async error => {
+    const list = await WhimsyConnectors.list().then(
+      entries => JSON.stringify(entries),
+      e => `list() rejected: ${e}`
+    );
+    throw new Error(
+      `${error} | fillExtra calls=${JSON.stringify(fillExtraCalls)} | list()=${list} | ` +
+        `isConnected=${card.isConnected} panel=${tabPanel()?.state}`
+    );
+  });
+}
+
+function stubMailTab(tab, { provider = "google", count = 0, matches = true } = {}) {
+  const real = {
+    provider: WhimsyTabs.mailProvider,
+    count: WhimsyTabs.mailUnreadCount,
+    matches: WhimsyTabs.mailAccountMatches,
+  };
+  WhimsyTabs.mailProvider = t => (t == tab ? provider : real.provider(t));
+  WhimsyTabs.mailUnreadCount = t => (t == tab ? count : real.count(t));
+  WhimsyTabs.mailAccountMatches = (t, account) => (t == tab ? matches : real.matches(t, account));
+  return function restoreMailTab() {
+    WhimsyTabs.mailProvider = real.provider;
+    WhimsyTabs.mailUnreadCount = real.count;
+    WhimsyTabs.mailAccountMatches = real.matches;
+  };
+}
+
+// Patches WhimsyConnectors.list/recentInbox/connect; restore() undoes all three.
+function stubConnectors({ entries = [], inbox = {}, connect = null } = {}) {
+  const real = { list: WhimsyConnectors.list, recentInbox: WhimsyConnectors.recentInbox, connect: WhimsyConnectors.connect };
+  let inboxCalls = 0;
+  WhimsyConnectors.list = async () => entries;
+  WhimsyConnectors.recentInbox = async id => {
+    inboxCalls++;
+    return inbox[id] ?? [];
+  };
+  WhimsyConnectors.connect = connect ?? (async () => {});
+  const restore = function restoreConnectors() {
+    WhimsyConnectors.list = real.list;
+    WhimsyConnectors.recentInbox = real.recentInbox;
+    WhimsyConnectors.connect = real.connect;
+  };
+  restore.inboxCalls = () => inboxCalls;
+  return restore;
+}
+
+async function openMailTab(url = PAGE + "?mail-hover") {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  // A native hover during loading can open a card before the mail stubs
+  // exist. Close it so enter() doesn't reuse that same tab's ordinary card.
+  await closeAll();
+  return tab;
+}
+
+add_task(async function mail_hover_shows_three_newest_rows_and_no_ai_request() {
+  reset();
+  const tab = await openMailTab();
+  const rows = [
+    { from: "Ada", subject: "Standup notes", at: Date.now() - 1000, unread: true },
+    { from: "Bo", subject: "Re: Lunch", at: Date.now() - 2000, unread: false },
+    { from: "Cy", subject: "Invoice", at: Date.now() - 3000, unread: true },
+  ];
+  const restoreMail = stubMailTab(tab, { provider: "google", count: 5, matches: true });
+  const restoreConnectors = stubConnectors({
+    entries: [{ id: "google", connected: true, account: "me@gmail.com", status: "ok", scopes: [{ id: "gmail", on: true }] }],
+    inbox: { google: rows },
+  });
+  try {
+    hoverTab(tab);
+    const card = await openTabCard();
+    const extra = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-extra"), "The inbox block arrives");
+    is(extra.dataset.kind, "rows", "Rows, not a count or a Connect button");
+    const items = extra.querySelectorAll(".whimsy-hc-inbox-row");
+    is(items.length, 3, "Exactly 3 rows");
+    Assert.deepEqual([...items].map(li => li.querySelector(".whimsy-hc-inbox-from").textContent), ["Ada", "Bo", "Cy"],
+      "Newest first, in the connector's own order");
+    is(items[0].dataset.unread, "true", "The unread dot shows");
+    ok(!items[1].dataset.unread, "...and only for unread rows");
+    ok(!card.querySelector(".whimsy-hc-desc"), "No AI description on a mail tab");
+    ok(!card.querySelector(".whimsy-hc-points"), "...and no bullets");
+    is(asked.length, 0, "The AI was never asked (today's inbox never reaches it)");
+    is(reads.length, 0, "Nothing was read for AI either");
+  } finally {
+    restoreConnectors();
+    restoreMail();
+    await closeAll();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function mail_hover_inbox_is_cached_for_60_seconds() {
+  Services.obs.notifyObservers(null, "whimsy-connectors-changed");
+  const realApi = WhimsyConnectors._api;
+  let calls = 0;
+  WhimsyConnectors._api = async (_id, path) => {
+    calls++;
+    if (path.includes("maxResults")) {
+      return { messages: [{ id: "m1" }] };
+    }
+    return {
+      payload: { headers: [{ name: "Subject", value: "Hi" }, { name: "From", value: "A" }, { name: "Date", value: "Mon, 1 Jan 2026 00:00:00 +0000" }] },
+      labelIds: [],
+    };
+  };
+  try {
+    const first = await WhimsyConnectors.recentInbox("google");
+    const afterFirst = calls;
+    Assert.greater(afterFirst, 0, "The first call fetches from the connector");
+    const second = await WhimsyConnectors.recentInbox("google");
+    is(calls, afterFirst, "A second call within 60 seconds reuses the cached rows, not the API");
+    Assert.deepEqual(second, first, "Same rows, from the cache");
+  } finally {
+    WhimsyConnectors._api = realApi;
+    Services.obs.notifyObservers(null, "whimsy-connectors-changed");
+  }
+});
+
+add_task(async function mail_hover_shows_connect_button_when_disconnected() {
+  reset();
+  const tab = await openMailTab();
+  const restoreMail = stubMailTab(tab, { provider: "google", count: 0, matches: true });
+  const calls = [];
+  const restoreConnectors = stubConnectors({
+    entries: [{ id: "google", connected: false, account: "", status: "off", scopes: [{ id: "gmail", on: true }] }],
+    connect: async (win, id, options) => {
+      calls.push({ win, id, options });
+    },
+  });
+  try {
+    hoverTab(tab);
+    const card = await openTabCard();
+    const extra = await waitForExtra(card, "An extra block arrives");
+    is(extra.dataset.kind, "connect", "A Connect button, not a count");
+    const btn = extra.querySelector(".whimsy-hc-connect");
+    ok(btn, "The button is there");
+    ok(btn.classList.contains("whimsy-surface-text-button"), "Styled with the shared quiet-button class");
+    is(btn.dataset.provider, "google", "For the right provider");
+    is(btn.getAttribute("data-l10n-id"), "whimsy-connectors-connect", "The existing Connect string, not new copy");
+    is(asked.length, 0, "No AI description on a mail tab, connected or not");
+    btn.click();
+    await TestUtils.waitForCondition(() => calls.length == 1, "Clicking it starts that provider's connect flow");
+    is(calls[0].id, "google", "...for Gmail");
+    Assert.deepEqual(calls[0].options.scopes, ["gmail"], "...asking for the mail scope");
+  } finally {
+    restoreConnectors();
+    restoreMail();
+    await closeAll();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function mail_hover_falls_back_to_a_count_when_mismatched_or_expired() {
+  reset();
+  for (const entries of [
+    [{ id: "google", connected: true, account: "someone-else@gmail.com", status: "ok", scopes: [{ id: "gmail", on: true }] }],
+    [{ id: "google", connected: true, account: "me@gmail.com", status: "expired", scopes: [{ id: "gmail", on: true }] }],
+  ]) {
+    const tab = await openMailTab();
+    const restoreMail = stubMailTab(tab, { provider: "google", count: 4, matches: entries[0].account == "me@gmail.com" });
+    const restoreConnectors = stubConnectors({ entries, inbox: { google: [{ from: "X", subject: "Y", at: Date.now(), unread: true }] } });
+    try {
+      hoverTab(tab);
+      const card = await openTabCard();
+      const extra = await waitForExtra(card, "An extra block arrives");
+      is(extra.dataset.kind, "count", `Count fallback for status ${entries[0].status}`);
+      is(restoreConnectors.inboxCalls(), 0, "The inbox itself is never fetched for the wrong or expired account");
+    } finally {
+      restoreConnectors();
+      restoreMail();
+      await closeAll();
+      BrowserTestUtils.removeTab(tab);
+    }
+  }
+});
+
+add_task(async function mail_hover_shows_nothing_extra_for_a_mail_host_without_a_connector() {
+  // Yahoo, Proton, iCloud, and AOL: WhimsyTabs still reads an unread count
+  // from the title (so the AI gets no description, same privacy rule), but
+  // there's no connector for these, so mailProvider is null and the card
+  // gets nothing extra at all -- no count, no Connect button.
+  reset();
+  const tab = await openMailTab();
+  const restoreMail = stubMailTab(tab, { provider: null, count: 3 });
+  const restoreConnectors = stubConnectors({});
+  try {
+    hoverTab(tab);
+    const card = await openTabCard();
+    await new Promise(r => setTimeout(r, 200));
+    ok(!card.querySelector(".whimsy-hc-extra"), "Nothing extra for a no-connector mail host");
+    ok(!card.querySelector(".whimsy-hc-desc"), "Still no AI description");
+    is(asked.length, 0, "Nothing was asked");
+  } finally {
+    restoreConnectors();
+    restoreMail();
+    await closeAll();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function mail_hover_shows_empty_message_for_an_empty_inbox() {
+  reset();
+  const tab = await openMailTab();
+  const restoreMail = stubMailTab(tab, { provider: "microsoft", count: 0, matches: true });
+  const restoreConnectors = stubConnectors({
+    entries: [{ id: "microsoft", connected: true, account: "me@outlook.com", status: "ok", scopes: [{ id: "outlook", on: true }] }],
+    inbox: { microsoft: [] },
+  });
+  try {
+    hoverTab(tab);
+    const card = await openTabCard();
+    const extra = await waitForExtra(card, "An extra block arrives");
+    is(extra.dataset.kind, "empty", "The empty-inbox message, not rows or a count");
+    is(extra.querySelector(".whimsy-hc-extra-note").getAttribute("data-l10n-id"), "whimsy-hover-card-inbox-empty");
+  } finally {
+    restoreConnectors();
+    restoreMail();
+    await closeAll();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function mail_hover_shows_nothing_on_a_locked_space() {
+  reset();
+  const tab = await openMailTab();
+  const restoreMail = stubMailTab(tab, { provider: "google", count: 2, matches: true });
+  let listCalls = 0;
+  const restoreConnectors = stubConnectors({
+    entries: [{ id: "google", connected: true, account: "me@gmail.com", status: "ok", scopes: [{ id: "gmail", on: true }] }],
+  });
+  const realList = WhimsyConnectors.list;
+  WhimsyConnectors.list = async () => {
+    listCalls++;
+    return realList();
+  };
+  const originalOffLimits = WhimsyAIContext.isOffLimits;
+  WhimsyAIContext.isOffLimits = t => (t == tab ? "locked" : originalOffLimits(t));
+  try {
+    hoverTab(tab);
+    const card = await openTabCard();
+    await new Promise(r => setTimeout(r, 200));
+    ok(!card.querySelector(".whimsy-hc-extra"), "A locked space's card gets no inbox block");
+    ok(!card.querySelector(".whimsy-hc-desc"), "...and no AI description");
+    is(listCalls, 0, "The connector is never even consulted for a locked space");
+    is(asked.length, 0, "Nothing was asked");
+  } finally {
+    WhimsyAIContext.isOffLimits = originalOffLimits;
+    restoreConnectors();
+    restoreMail();
+    await closeAll();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function mail_hover_shows_nothing_while_screen_sharing() {
+  reset();
+  const { webrtcUI } = ChromeUtils.importESModule("resource:///modules/webrtcUI.sys.mjs");
+  const tab = await openMailTab();
+  const restoreMail = stubMailTab(tab, { provider: "google", count: 2, matches: true });
+  let listCalls = 0;
+  const realList = WhimsyConnectors.list;
+  WhimsyConnectors.list = async () => {
+    listCalls++;
+    return [{ id: "google", connected: true, account: "me@gmail.com", status: "ok", scopes: [{ id: "gmail", on: true }] }];
+  };
+  const wasSharing = webrtcUI.sharingScreen;
+  webrtcUI.sharingScreen = true;
+  try {
+    hoverTab(tab);
+    const card = await openTabCard();
+    await new Promise(r => setTimeout(r, 200));
+    ok(!card.querySelector(".whimsy-hc-extra"), "Nothing private while the screen is shared");
+    ok(!card.querySelector(".whimsy-hc-desc"), "...and no AI description");
+    is(listCalls, 0, "The connector is never consulted while screen-sharing");
+  } finally {
+    webrtcUI.sharingScreen = wasSharing;
+    WhimsyConnectors.list = realList;
+    restoreMail();
+    await closeAll();
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+add_task(async function mail_hover_private_mail_tab_makes_no_connector_request() {
+  reset();
+  const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE);
+  const restoreMail = stubMailTab(tab, { provider: "google", count: 2, matches: true });
+  let listCalls = 0;
+  const realList = WhimsyConnectors.list;
+  WhimsyConnectors.list = async () => {
+    listCalls++;
+    return [];
+  };
+  try {
+    hoverTab(tab);
+    const card = await openTabCard();
+    const note = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-note"), "A note");
+    is(note.dataset.note, "private", "A private tab still just says it gets no description");
+    await new Promise(r => setTimeout(r, 200));
+    ok(!card.querySelector(".whimsy-hc-extra"), "No inbox block in a private tab either");
+    is(listCalls, 0, "The connector is never consulted for a private tab");
+  } finally {
+    WhimsyConnectors.list = realList;
+    restoreMail();
+    await closeAll();
+    BrowserTestUtils.removeTab(tab);
   }
 });

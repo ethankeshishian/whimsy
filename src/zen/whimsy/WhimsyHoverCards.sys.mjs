@@ -32,8 +32,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
+  WhimsyConnectors: "resource:///modules/whimsy/WhimsyConnectors.sys.mjs",
   WhimsyHoverCard: "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs",
   WhimsyPeople: "resource:///modules/whimsy/WhimsyPeople.sys.mjs",
+  WhimsyTabs: "resource:///modules/whimsy/WhimsyTabs.sys.mjs",
+  webrtcUI: "resource:///modules/webrtcUI.sys.mjs",
 });
 
 const PREF = "whimsy.feature.hover-cards";
@@ -57,6 +60,9 @@ const FETCH_TIMEOUT_MS = 8000;
 const META_CACHE_MAX = 60;
 const META_CACHE_MS = 30 * 60 * 1000;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"];
+// W29: a mail tab's Inbox block gives up and falls back to the count line
+// after this long, so the card never sits empty-but-loading for long.
+const INBOX_TIMEOUT_MS = 2000;
 
 // url -> { at, data: { title, image, description } }: a link's own title,
 // preview image address, and summary from its tags (never the page's text).
@@ -81,6 +87,81 @@ function hostOf(url) {
     return parsed.host.replace(/^www\./, "");
   } catch {
     return String(url ?? "");
+  }
+}
+
+// W29: the same screen/window-sharing check WhimsyPrivateLock makes
+// (WhimsyPrivateLock.sys.mjs) before locking spaces, so Inbox senders and
+// subjects never end up in a recording.
+function sharingScreen() {
+  return !!(lazy.webrtcUI.sharingScreen || lazy.webrtcUI.sharingWindow);
+}
+
+// Rejects after `ms` instead of waiting on `promise` forever.
+function raceTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = lazy.setTimeout(() => reject(new Error("timeout")), ms);
+    const done = fn => value => {
+      lazy.clearTimeout(timer);
+      fn(value);
+    };
+    promise.then(done(resolve), done(reject));
+  });
+}
+
+// "2:41 PM" today, "Yesterday", or "Nov 12" (the design's Intl rule; only
+// "Yesterday" needs translation).
+function fillInboxTime(doc, span, at, now) {
+  if (!at) {
+    return;
+  }
+  const locale = Services.locale.appLocaleAsBCP47;
+  const start = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((start(new Date(now)) - start(new Date(at))) / 86400000);
+  if (diffDays <= 0) {
+    span.textContent = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(at);
+  } else if (diffDays == 1) {
+    doc.l10n.setAttributes(span, "whimsy-hover-card-inbox-yesterday");
+  } else {
+    span.textContent = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(at);
+  }
+}
+
+/**
+ * The mail extra slot's state for `tab`, or null for nothing (not a mail
+ * host, a locked or hidden space, or the screen is being shared). Never
+ * reaches any AI feature: this is local display only (W29).
+ * @returns {Promise<object|null>}
+ */
+async function mailExtraState(tab, mailCount, signal) {
+  if (lazy.WhimsyAIContext.isOffLimits(tab) || sharingScreen()) {
+    return null;
+  }
+  const provider = lazy.WhimsyTabs.mailProvider(tab);
+  if (!provider) {
+    // No connector for this host (Yahoo, Proton, AOL, iCloud): the owner's
+    // call is to show nothing extra, not even the count.
+    return null;
+  }
+  const scopeId = provider == "google" ? "gmail" : "outlook";
+  try {
+    const entry = (await lazy.WhimsyConnectors.list()).find(c => c.id == provider);
+    if (signal.aborted) {
+      return null;
+    }
+    if (!entry?.connected || entry.scopes.find(s => s.id == scopeId)?.on === false) {
+      return { kind: "connect", provider, scopeId };
+    }
+    if (entry.status == "expired" || !lazy.WhimsyTabs.mailAccountMatches(tab, entry.account)) {
+      return { kind: "count", count: mailCount };
+    }
+    const rows = await raceTimeout(lazy.WhimsyConnectors.recentInbox(provider), INBOX_TIMEOUT_MS);
+    if (signal.aborted) {
+      return null;
+    }
+    return rows.length ? { kind: "rows", rows, count: mailCount } : { kind: "empty" };
+  } catch {
+    return signal.aborted ? null : { kind: "count", count: mailCount };
   }
 }
 
@@ -331,6 +412,91 @@ export const WhimsyHoverCards = {
       }
       card.append(list);
     }
+  },
+
+  /**
+   * The mail extra slot, in place of an AI description on a mail tab:
+   * Inbox rows, the unread count, "no emails", or a Connect button. Never
+   * sent to AI (W29).
+   * @param {object|null} state null removes the slot; otherwise one of
+   *   { kind: "rows", rows, count }, { kind: "count", count },
+   *   { kind: "empty" }, { kind: "connect", onConnect }.
+   */
+  fillExtra(win, card, state) {
+    const doc = win.document;
+    card.querySelector(".whimsy-hc-extra")?.remove();
+    if (!state) {
+      return;
+    }
+    const extra = doc.createElementNS(HTML, "div");
+    extra.className = "whimsy-hc-extra";
+    extra.dataset.kind = state.kind;
+    if (state.kind == "connect") {
+      const btn = doc.createElementNS(HTML, "button");
+      btn.type = "button";
+      btn.className = "whimsy-surface-text-button whimsy-hc-connect";
+      btn.dataset.provider = state.provider;
+      doc.l10n.setAttributes(btn, "whimsy-connectors-connect");
+      btn.addEventListener("click", () => state.onConnect?.());
+      extra.append(btn);
+    } else if (state.kind == "empty") {
+      const label = doc.createElementNS(HTML, "span");
+      label.className = "whimsy-hc-extra-note";
+      doc.l10n.setAttributes(label, "whimsy-hover-card-inbox-empty");
+      extra.append(label);
+    } else if (state.kind == "count") {
+      const label = doc.createElementNS(HTML, "span");
+      label.className = "whimsy-hc-extra-note";
+      doc.l10n.setAttributes(label, "whimsy-mail-unread-preview", { count: state.count });
+      extra.append(label);
+    } else if (state.kind == "rows") {
+      const caption = doc.createElementNS(HTML, "div");
+      caption.className = "whimsy-hc-extra-caption";
+      const label = doc.createElementNS(HTML, "span");
+      doc.l10n.setAttributes(label, "whimsy-hover-card-inbox");
+      caption.append(label);
+      if (state.count != null) {
+        const count = doc.createElementNS(HTML, "span");
+        count.className = "whimsy-hc-extra-count";
+        doc.l10n.setAttributes(count, "whimsy-mail-unread-preview", { count: state.count });
+        caption.append(count);
+      }
+      extra.append(caption);
+      const list = doc.createElementNS(HTML, "ul");
+      list.className = "whimsy-hc-inbox";
+      const now = Date.now();
+      let i = 0;
+      for (const row of state.rows.slice(0, 3)) {
+        const item = doc.createElementNS(HTML, "li");
+        item.className = "whimsy-hc-inbox-row";
+        item.style.setProperty("--whimsy-hc-row-i", i++);
+        if (row.unread) {
+          item.dataset.unread = "true";
+        }
+        const dot = doc.createElementNS(HTML, "span");
+        dot.className = "whimsy-hc-inbox-dot";
+        item.append(dot);
+        const text = doc.createElementNS(HTML, "div");
+        text.className = "whimsy-hc-inbox-text";
+        const top = doc.createElementNS(HTML, "div");
+        top.className = "whimsy-hc-inbox-top";
+        const from = doc.createElementNS(HTML, "span");
+        from.className = "whimsy-hc-inbox-from";
+        from.textContent = String(row.from || "").slice(0, 80);
+        const time = doc.createElementNS(HTML, "span");
+        time.className = "whimsy-hc-inbox-time";
+        fillInboxTime(doc, time, row.at, now);
+        top.append(from, time);
+        const subject = doc.createElementNS(HTML, "div");
+        subject.className = "whimsy-hc-inbox-subject";
+        subject.textContent = String(row.subject || "").slice(0, 160);
+        text.append(top, subject);
+        item.append(text);
+        list.append(item);
+      }
+      extra.append(list);
+    }
+    card.append(extra);
   },
 
   // A described page: the description and its bullets, from one answer.
@@ -936,17 +1102,32 @@ class TabHover {
     });
     const isPrivate = WhimsyHoverCards.isPrivateTab(tab);
     const unloaded = tab.hasAttribute("pending") || !tab.linkedPanel;
+    // W29: a mail host never gets an AI description (it would send the
+    // inbox page's text to the model); its hover card gets Inbox rows, a
+    // count, "no emails", or a Connect button instead, independent of the
+    // AI switch.
+    const mailCount = isPrivate ? null : lazy.WhimsyTabs.mailUnreadCount(tab);
     let describe = false;
     if (WhimsyHoverCards.aiOn) {
       if (isPrivate) {
         WhimsyHoverCards.fillDescription(win, card, { note: "private" });
-      } else if (lazy.WhimsyAIReader.isReadableUrl(url) && !lazy.WhimsyAIContext.isOffLimits(tab)) {
+      } else if (mailCount == null && lazy.WhimsyAIReader.isReadableUrl(url) && !lazy.WhimsyAIContext.isOffLimits(tab)) {
         if (unloaded) {
           WhimsyHoverCards.fillDescription(win, card, { note: "unloaded" });
         } else {
           describe = true;
         }
       }
+    }
+    if (!isPrivate && mailCount != null) {
+      mailExtraState(tab, mailCount, signal).then(state => {
+        if (!signal.aborted) {
+          if (state?.kind == "connect") {
+            state.onConnect = () => lazy.WhimsyConnectors.connect(win, state.provider, { scopes: [state.scopeId] }).catch(() => {});
+          }
+          WhimsyHoverCards.fillExtra(win, card, state);
+        }
+      });
     }
     const panel = this.#ensurePanel();
     const swap = panel.state == "open" || panel.state == "showing";

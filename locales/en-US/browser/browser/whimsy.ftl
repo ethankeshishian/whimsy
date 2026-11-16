@@ -1348,6 +1348,10 @@ whimsy-mail-unread-preview =
         [one] { $count } unread message
        *[other] { $count } unread messages
     }
+# W29: the tab hover card's Inbox block (Gmail or Outlook, connected).
+whimsy-hover-card-inbox = Inbox
+whimsy-hover-card-inbox-empty = No emails in your inbox
+whimsy-hover-card-inbox-yesterday = Yesterday
 # W29/cmdrecent: Recently Closed and Synced Tabs join the empty command bar
 # after Recent Documents (nothing already there moves).
 whimsy-command-recently-closed = Recently Closed
