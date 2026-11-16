@@ -322,6 +322,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
 });
 
+// W28 verification codes (TOTP).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTOTP: "resource:///modules/whimsy/WhimsyTOTP.sys.mjs",
+});
+
 // W24 emoji: emoji from the command bar (":" or the Emoji command).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmoji: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs",
@@ -521,6 +526,18 @@ export const Whimsy = {
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyEmailAliasesChild.sys.mjs",
         events: { focusin: { capture: true }, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
+    // W28 verification codes: the field button in code fields and reading
+    // a setup QR code on right-click; keys stay in the parent.
+    ChromeUtils.registerWindowActor("WhimsyTOTP", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyTOTPParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyTOTPChild.sys.mjs",
+        events: { focusin: { capture: true }, contextmenu: { capture: true }, pagehide: {} },
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
@@ -837,6 +854,7 @@ export const Whimsy = {
     // W26 passkeys: once per session (the profile-delete hook and the
     // Secure Enclave probe); the prompt opens per request.
     run("passkeys", () => lazy.WhimsyPasskeys.init());
+    run("totp", () => lazy.WhimsyTOTP.init());
     // batch6: split view extras; each action checks its own switch.
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).
@@ -1276,6 +1294,7 @@ export const Whimsy = {
     // wave7/small: Create Email Alias (command bar), at the focused email
     // field. Checks its switch on use.
     later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    later("totp", () => lazy.WhimsyTOTP.initWindow(win));
     // W27: Edit Field in Text Editor (command bar), at the focused field.
     later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
     // W28: "Open in Safari" / "Open in Chrome" (command bar), one row per

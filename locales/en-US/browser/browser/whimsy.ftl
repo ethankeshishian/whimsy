@@ -5147,6 +5147,8 @@ whimsy-auth-reason-space = open the locked space “{ $space }”
 
 whimsy-auth-reason-private = show your private tabs
 whimsy-auth-reason-private-off = turn off the private lock
+# W28: Settings → Verification codes → Copy code (once per session).
+whimsy-auth-reason-totp = show your verification codes
 whimsy-private-lock-tab-label = Private tab
 whimsy-private-lock-window-name = Private Window
 whimsy-private-lock-urlbar = Locked
@@ -8534,6 +8536,59 @@ whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
 whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
 whimsy-setting-passkeys = Passkeys
 
+## W28 verification codes (TOTP): kept with the saved passwords, read from a
+## site's setup QR code, and filled from a button in the code field.
+
+whimsy-totp-context-add =
+    .label = Add Verification Code…
+# $site (string) - the site's host name, like github.com
+whimsy-totp-add-title = Add a verification code for { $site }
+whimsy-totp-account = Account
+whimsy-totp-code = Code
+# $seconds (number) - seconds until the code changes
+whimsy-totp-changes-in = Changes in { $seconds }s
+# Shown under an account that matches a saved password for the site.
+whimsy-totp-saved-login = Saved login
+# $profile (string) - the profile's name
+whimsy-totp-help = { -brand-short-name } keeps this with your passwords, in your { $profile } profile. Enter the code on the page to finish setting it up.
+whimsy-totp-cancel =
+    .label = Cancel
+whimsy-totp-save =
+    .label = Save
+whimsy-totp-replace =
+    .label = Replace
+# $account (string) - the account name
+whimsy-totp-exists-title = A code for { $account } is already saved
+whimsy-totp-exists-text = Replace it if { $site } gave you a new one.
+whimsy-totp-key-label = Setup key
+whimsy-totp-key-placeholder =
+    .placeholder = Paste the key from { $site }
+whimsy-totp-key-error = That key doesn’t look right. Check for missing letters.
+whimsy-totp-site = Site
+whimsy-totp-field-button = Fill verification code
+whimsy-totp-choose-title = Choose an account
+# $code (string) - the six-digit code, $seconds (number) - seconds left
+whimsy-totp-choose-detail = { $code } · { $seconds }s
+whimsy-totp-saved-toast = Verification code saved for { $site }
+whimsy-totp-copied-toast = Code copied. It changes in { $seconds }s.
+whimsy-totp-deleted-toast = Verification code for { $site } deleted
+whimsy-totp-deleted-detail = { $site } will ask for a code from another app
+whimsy-totp-header =
+    .label = Verification codes
+whimsy-totp-description = Codes that sites ask for after your password. They’re encrypted with your saved passwords and sync to your other devices when password sync is on. Keep a second way to get them too, like the site’s backup codes.
+whimsy-totp-empty = No verification codes saved yet. Right-click a site’s setup QR code to add one.
+whimsy-totp-error = Your verification codes can’t be read on this Mac.
+# $account (string), $profile (string), $date (string) - when it was added
+whimsy-totp-row-meta = { $account } · { $profile } · Added { $date }
+whimsy-totp-copy =
+    .label = Copy code
+whimsy-totp-delete =
+    .label = Delete
+    .aria-label = Delete the verification code for { $site }
+whimsy-totp-add-code =
+    .label = Add Code…
+whimsy-setting-totp = Verification Codes
+    .keywords = two-factor, 2fa, authenticator, one-time code, otp, totp, qr code
 # W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md),
 # command-bar rows shown only when that browser is installed.
 whimsy-action-open-in-safari = Open in Safari
