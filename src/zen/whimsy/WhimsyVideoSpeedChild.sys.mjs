@@ -19,7 +19,7 @@
 // The actor starts with the first media event of a page; the pointer and
 // key listeners never create it, so pages without video pay nothing.
 
-import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+import { clearInterval, clearTimeout, setInterval, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
@@ -44,6 +44,12 @@ const AI_PREF = "whimsy.ai.enabled";
 // Up to this wide, Summarize is its icon alone.
 const COMPACT_WIDTH = 260;
 const NOTE_MS = 2000;
+// W29 video: the seek note shows for less time than other speednote messages.
+const SEEK_NOTE_MS = 900;
+const SEEK_STEP = 10;
+const SEEK_MIN_DURATION = 15;
+const SEEK_HOLD_DELAY_MS = 400;
+const SEEK_HOLD_REPEAT_MS = 300;
 const PRESETS = Array.from({ length: 16 }, (_, i) => (i + 1) / 4);
 // Smaller videos (thumbnails, avatars, inline previews) get no control.
 const MIN_WIDTH = 120;
@@ -61,6 +67,14 @@ const SVG_UTURN = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.2
 const SVG_SPARKLE = `<svg viewBox="0 0 16 16" aria-hidden="true"><path class="fill" d="M8 1.5c.4 3.2 2.3 5.1 5.5 5.5-3.2.4-5.1 2.3-5.5 5.5C7.6 9.3 5.7 7.4 2.5 7 5.7 6.6 7.6 4.7 8 1.5Z"/><path class="fill" d="M13 11.2c.15 1 .8 1.65 1.8 1.8-1 .15-1.65.8-1.8 1.8-.15-1-.8-1.65-1.8-1.8 1-.15 1.65-.8 1.8-1.8Z"/></svg>`;
 const SVG_PIP = `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="3" width="12.4" height="10" rx="2"/><rect class="fill" x="8" y="8" width="4.6" height="3.4" rx=".9"/></svg>`;
 const SVG_PIP_OUT = `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="3" width="12.4" height="10" rx="2"/><path d="M6 10.5 10 6.5m0 0H7.2m2.8 0v2.8"/></svg>`;
+// W29 video: the four seek buttons, in their own plate at the bottom centre
+// of the video (owner: "Bottom center plate"). Start/end are a bar plus one
+// triangle (skip to); back/forward are a double triangle alone (jump by), so
+// the two pairs read differently at a glance.
+const SVG_SEEK_START = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3v10"/><path d="M12.5 4 6.8 8l5.7 4"/></svg>`;
+const SVG_SEEK_BACK = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 4 4.8 8l4.7 4"/><path d="M13.5 4 8.8 8l4.7 4"/></svg>`;
+const SVG_SEEK_FORWARD = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 4l4.7 4-4.7 4"/><path d="M2.5 4l4.7 4-4.7 4"/></svg>`;
+const SVG_SEEK_END = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12 3v10"/><path d="M3.5 4l5.7 4-5.7 4"/></svg>`;
 const MARKUP = `<template>
   <link rel="stylesheet" href="${STYLESHEET}"/>
   <div id="bar" hidden="">
@@ -77,6 +91,12 @@ const MARKUP = `<template>
   <div id="right" hidden="">
     <div id="summplate" class="plate" hidden=""><button id="summ" type="button" aria-pressed="false">${SVG_SPARKLE}<span class="spinner" aria-hidden="true"></span><span id="summlabel"></span></button></div>
     <div id="pipplate" class="plate"><button id="pip" type="button" aria-pressed="false">${SVG_PIP}${SVG_PIP_OUT}</button></div>
+  </div>
+  <div id="seekplate" class="plate" hidden="">
+    <button id="seekstart" type="button" hidden="">${SVG_SEEK_START}</button>
+    <button id="seekback" type="button" hidden="">${SVG_SEEK_BACK}</button>
+    <button id="seekforward" type="button" hidden="">${SVG_SEEK_FORWARD}</button>
+    <button id="seekend" type="button" hidden="">${SVG_SEEK_END}</button>
   </div>
   <div id="captions" role="region" hidden=""><div id="note"></div><div id="cue" dir="auto"></div></div>
 </template>`;
@@ -110,6 +130,18 @@ export function parseRate(text) {
 // No English copies of the ftl: a string that can't load stays empty
 // rather than drifting from whimsy.ftl.
 const W23_FALLBACK = Object.fromEntries(["reset", "fastest", "summarize", "summarizing", "summarizeTip", "hideSummary", "showSummary", "pip", "pipBack"].map(k => [k, ""]));
+
+// W29 video: the seek group's own batch, so a missing id can't blank the
+// rest of the control either.
+const SEEK_FALLBACK = {
+  seekStart: "Go to start",
+  seekBack: "Back 10 seconds",
+  seekForward: "Forward 10 seconds",
+  seekEnd: "Go to end",
+  seekNoteBack: "−10 s · {time}",
+  seekNoteForward: "+10 s · {time}",
+  seekNoteJump: "{time}",
+};
 
 export class WhimsyVideoSpeedChild extends JSWindowActorChild {
   // Videos seen in this document (pruned when they leave it).
@@ -592,6 +624,63 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     }
   }
 
+  // W29 video: whether the current video is long enough, and finite, for
+  // the seek buttons to make sense (live streams are Infinity).
+  canSeek(el) {
+    return Number.isFinite(el?.duration) && el.duration >= SEEK_MIN_DURATION;
+  }
+
+  // mm:ss, rounded to the nearest second.
+  formatClock(seconds) {
+    const total = Math.max(0, Math.round(seconds));
+    const minutes = Math.floor(total / 60);
+    const rest = total % 60;
+    return `${minutes}:${String(rest).padStart(2, "0")}`;
+  }
+
+  seekTo(time) {
+    const el = this.current;
+    if (!el || !Number.isFinite(el.duration)) {
+      return;
+    }
+    const clamped = Math.max(0, Math.min(time, el.duration - 0.1));
+    el.currentTime = clamped;
+    this.showNote(this.strings.seekNoteJump.replace("{time}", this.formatClock(clamped)), SEEK_NOTE_MS);
+  }
+
+  seekBy(delta) {
+    const el = this.current;
+    if (!el || !Number.isFinite(el.duration)) {
+      return;
+    }
+    const clamped = Math.max(0, Math.min(el.currentTime + delta, el.duration - 0.1));
+    el.currentTime = clamped;
+    const template = delta < 0 ? this.strings.seekNoteBack : this.strings.seekNoteForward;
+    this.showNote(template.replace("{time}", this.formatClock(clamped)), SEEK_NOTE_MS);
+  }
+
+  // Holding Back/Forward repeats the seek every SEEK_HOLD_REPEAT_MS after a
+  // SEEK_HOLD_DELAY_MS delay. The click that follows mouseup is suppressed
+  // once the hold has actually fired (see onPointerButton).
+  startHoldSeek(delta) {
+    this.heldSeek = false;
+    clearTimeout(this.holdTimer);
+    clearInterval(this.holdInterval);
+    this.holdDelta = delta;
+    this.holdTimer = setTimeout(() => {
+      this.heldSeek = true;
+      this.seekBy(this.holdDelta);
+      this.holdInterval = setInterval(() => this.seekBy(this.holdDelta), SEEK_HOLD_REPEAT_MS);
+    }, SEEK_HOLD_DELAY_MS);
+  }
+
+  stopHoldSeek() {
+    clearTimeout(this.holdTimer);
+    clearInterval(this.holdInterval);
+    this.holdTimer = null;
+    this.holdInterval = null;
+  }
+
   // The user picked a speed: play at it and remember it for the site.
   setRate(rate) {
     const el = this.current;
@@ -635,7 +724,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     return best;
   }
 
-  showNote(text) {
+  showNote(text, ms = NOTE_MS) {
     const { speednote } = this.els;
     clearTimeout(this.noteTimer);
     speednote.textContent = text;
@@ -644,7 +733,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.noteTimer = setTimeout(() => {
       speednote.toggleAttribute("data-leaving", true);
       this.noteTimer = setTimeout(() => (speednote.hidden = true), 180);
-    }, NOTE_MS);
+    }, ms);
   }
 
   // The Cmd+Opt shortcuts (WhimsyPageChild) changed the speed: it's the
@@ -760,9 +849,10 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.place();
     this.render();
     if (this.sheetReady) {
-      // Both sides share one timer: they fade in and out together.
+      // All three share one timer: they fade in and out together.
       this.els.bar.toggleAttribute("data-shown", true);
       this.els.right.toggleAttribute("data-shown", true);
+      this.els.seekplate.toggleAttribute("data-shown", true);
     }
     this.keepAlive();
     this.querySummary(video);
@@ -827,11 +917,13 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.cancelEdit();
     this.els.bar.removeAttribute("data-shown");
     this.els.right.removeAttribute("data-shown");
+    this.els.seekplate.removeAttribute("data-shown");
   }
 
   clearTimers() {
     clearTimeout(this.hideTimer);
     clearTimeout(this.idleTimer);
+    this.stopHoldSeek();
   }
 
   place() {
@@ -847,7 +939,16 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     const edge = Math.max(INSET, Math.min(r.right, win.innerWidth) - INSET);
     this.els.right.style.left = `${Math.round(edge)}px`;
     this.els.right.style.top = `${Math.round(top)}px`;
-    this.els.right.toggleAttribute("data-compact", r.width <= COMPACT_WIDTH);
+    const compact = r.width <= COMPACT_WIDTH;
+    this.els.right.toggleAttribute("data-compact", compact);
+    // W29 video: Start/End drop out of the seek group under the same width.
+    this.compactVideo = compact;
+    // The seek plate sits on its own, centred under the video, at its
+    // bottom edge (owner: "Bottom center plate").
+    const plateLeft = Math.min(Math.max(r.left + r.width / 2, INSET), win.innerWidth - INSET);
+    const plateTop = Math.min(Math.max(r.bottom - 26 - INSET, INSET), win.innerHeight - 26 - INSET);
+    this.els.seekplate.style.left = `${Math.round(plateLeft)}px`;
+    this.els.seekplate.style.top = `${Math.round(plateTop)}px`;
   }
 
   format(rate) {
@@ -860,8 +961,17 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       return;
     }
     const rate = this.current.playbackRate;
-    const { value, menu } = this.els;
+    const { value, menu, seekstart, seekback, seekforward, seekend } = this.els;
     this.els.bar.hidden = !this.sheetReady || !this.isEligible(this.current);
+    // W29 video: Back/Forward show whenever the video is seekable and long
+    // enough; Start/End additionally drop out under the compact width.
+    const seekOk = this.isEligible(this.current) && this.canSeek(this.current);
+    seekback.hidden = !seekOk;
+    seekforward.hidden = !seekOk;
+    const seekEnds = seekOk && !this.compactVideo;
+    seekstart.hidden = !seekEnds;
+    seekend.hidden = !seekEnds;
+    this.els.seekplate.hidden = !this.sheetReady || !seekOk;
     value.textContent = this.format(rate);
     value.setAttribute("aria-label", this.strings.value.replace("{rate}", this.format(rate)));
     for (const item of menu.children) {
@@ -973,6 +1083,11 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       value: root.getElementById("value"),
       input: root.getElementById("input"),
       toggle: root.getElementById("toggle"),
+      seekplate: root.getElementById("seekplate"),
+      seekstart: root.getElementById("seekstart"),
+      seekback: root.getElementById("seekback"),
+      seekforward: root.getElementById("seekforward"),
+      seekend: root.getElementById("seekend"),
       menu: root.getElementById("menu"),
       cc: root.getElementById("cc"),
       captions: root.getElementById("captions"),
@@ -996,6 +1111,16 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     menu.setAttribute("aria-label", this.strings.presets);
     this.els.cc.title = this.strings.captions;
     this.els.cc.setAttribute("aria-label", this.strings.captions);
+    const { seekstart, seekback, seekforward, seekend } = this.els;
+    for (const [button, text] of [
+      [seekstart, this.strings.seekStart],
+      [seekback, this.strings.seekBack],
+      [seekforward, this.strings.seekForward],
+      [seekend, this.strings.seekEnd],
+    ]) {
+      button.title = text;
+      button.setAttribute("aria-label", text);
+    }
     for (const rate of PRESETS) {
       const item = doc.createElement("button");
       item.type = "button";
@@ -1048,9 +1173,36 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         presets: attr(presets, "aria-label") ?? fallback.presets,
         captions: this.loadCaptionsString() ?? fallback.captions,
         ...this.loadW23Strings(),
+        ...this.loadSeekStrings(),
       };
     } catch (e) {
       return fallback;
+    }
+  }
+
+  // W29 video: its own batch too, so a missing seek id can't blank the rest.
+  loadSeekStrings() {
+    const ids = {
+      seekStart: "whimsy-video-seek-start",
+      seekBack: "whimsy-video-seek-back",
+      seekForward: "whimsy-video-seek-forward",
+      seekEnd: "whimsy-video-seek-end",
+      seekNoteBack: "whimsy-video-seek-note-back",
+      seekNoteForward: "whimsy-video-seek-note-forward",
+      seekNoteJump: "whimsy-video-seek-note-jump",
+    };
+    try {
+      const keys = Object.keys(ids);
+      const messages = lazy.l10n.formatMessagesSync(keys.map(k => ({ id: ids[k], args: { time: "{time}" } })));
+      return Object.fromEntries(
+        keys.map((k, i) => {
+          const message = messages[i];
+          const attr = message?.attributes?.find(a => a.name == "aria-label")?.value;
+          return [k, attr ?? message?.value ?? SEEK_FALLBACK[k]];
+        })
+      );
+    } catch (e) {
+      return SEEK_FALLBACK;
     }
   }
 
@@ -1117,11 +1269,22 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       }
       return;
     }
+    // W29 video: Back/Forward repeat while held; see startHoldSeek.
+    const heldButton = target.closest?.("button") ?? target.parentElement?.closest("button");
+    if ((event.type == "mousedown" || event.type == "pointerdown") && event.button == 0) {
+      if (heldButton == this.els.seekback) {
+        this.startHoldSeek(-SEEK_STEP);
+      } else if (heldButton == this.els.seekforward) {
+        this.startHoldSeek(SEEK_STEP);
+      }
+    } else if (event.type == "mouseup" || event.type == "pointerup") {
+      this.stopHoldSeek();
+    }
     if (event.type != "click" || event.button != 0) {
       return;
     }
     const button = target.closest?.("button") ?? target.parentElement?.closest("button");
-    const { value, toggle, menu, cc, reset, summ, pip } = this.els;
+    const { value, toggle, menu, cc, reset, summ, pip, seekstart, seekback, seekforward, seekend } = this.els;
     if (button == reset) {
       this.closeMenu();
       this.cancelEdit();
@@ -1145,6 +1308,31 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       this.captions.toggle(this.current);
       this.render();
       this.release();
+    } else if (button == seekstart) {
+      this.closeMenu();
+      this.cancelEdit();
+      this.seekTo(0);
+      this.release();
+    } else if (button == seekend) {
+      this.closeMenu();
+      this.cancelEdit();
+      this.seekTo(this.current.duration - 0.1);
+      this.release();
+    } else if (button == seekback) {
+      this.closeMenu();
+      this.cancelEdit();
+      // A quick tap seeks once; a hold already repeated via startHoldSeek.
+      if (!this.heldSeek) {
+        this.seekBy(-SEEK_STEP);
+      }
+      this.heldSeek = false;
+    } else if (button == seekforward) {
+      this.closeMenu();
+      this.cancelEdit();
+      if (!this.heldSeek) {
+        this.seekBy(SEEK_STEP);
+      }
+      this.heldSeek = false;
     } else if (button == value) {
       this.startEdit();
     } else if (button == toggle) {
@@ -1287,6 +1475,16 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         ...rect(this.els.reset),
       },
       note: this.els.speednote.hidden ? null : this.els.speednote.textContent,
+      seek: {
+        // Back/Forward show whenever the group does; Start/End also need
+        // the non-compact width.
+        shown: !this.els.seekback.hidden,
+        endsShown: !this.els.seekstart.hidden,
+        start: rect(this.els.seekstart),
+        back: rect(this.els.seekback),
+        forward: rect(this.els.seekforward),
+        end: rect(this.els.seekend),
+      },
       right: {
         shown: this.els.right.hasAttribute("data-shown") && !this.els.right.hidden,
         compact: this.els.right.hasAttribute("data-compact"),
@@ -1304,10 +1502,14 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         bar: this.els.bar.getBoundingClientRect().toJSON(),
         summ: this.els.summplate.getBoundingClientRect().toJSON(),
         pip: this.anon.root.getElementById("pipplate").getBoundingClientRect().toJSON(),
+        // W29 video: its own plate, bottom centre of the video, separate
+        // from the bar.
+        seek: this.els.seekplate.getBoundingClientRect().toJSON(),
       },
       opacity: {
         bar: Number(this.contentWindow.getComputedStyle(this.els.bar).opacity),
         right: Number(this.contentWindow.getComputedStyle(this.els.right).opacity),
+        seekplate: Number(this.contentWindow.getComputedStyle(this.els.seekplate).opacity),
       },
       focusOrder: [...this.anon.root.querySelectorAll("button, input")]
         .filter(el => !el.hidden && !el.closest("[hidden]") && el.parentElement.id != "menu")

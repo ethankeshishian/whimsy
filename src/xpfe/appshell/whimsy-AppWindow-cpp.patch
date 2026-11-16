@@ -1,0 +1,23 @@
+diff --git a/xpfe/appshell/AppWindow.cpp b/xpfe/appshell/AppWindow.cpp
+--- a/xpfe/appshell/AppWindow.cpp
++++ b/xpfe/appshell/AppWindow.cpp
+@@ -317,6 +317,19 @@
+   return NS_OK;
+ }
+ 
++NS_IMETHODIMP AppWindow::SetAlwaysOnTop(bool aAlwaysOnTop) {
++  if (mWindow) {
++    mWindow->SetAlwaysOnTop(aAlwaysOnTop);
++  }
++  return NS_OK;
++}
++
++NS_IMETHODIMP AppWindow::GetAlwaysOnTop(bool* aAlwaysOnTop) {
++  NS_ENSURE_ARG_POINTER(aAlwaysOnTop);
++  *aAlwaysOnTop = mWindow && mWindow->GetAlwaysOnTop();
++  return NS_OK;
++}
++
+ NS_IMETHODIMP AppWindow::GetPrimaryContentShell(
+     nsIDocShellTreeItem** aDocShellTreeItem) {
+   NS_ENSURE_ARG_POINTER(aDocShellTreeItem);

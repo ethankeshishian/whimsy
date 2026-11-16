@@ -265,6 +265,10 @@ export const WhimsyCommands = {
    *   command bar (the module offers it there some other way).
    * @param {string} [spec.menu] The menu-bar menu id it belongs to, for
    *   the cheat sheet's grouping (else MENU_OF, else where it sits).
+   * @param {object|Function} [spec.extraPayload] Extra payload for the
+   *   command-bar row (and for each variant without its own); a function
+   *   is called fresh on every query, so a field can carry on live state
+   *   (e.g. { get prettyName() {...} }, ZenUBActionsProvider's detail text).
    * @param {object|Function} [spec.l10nArgs] Arguments for l10nId (and
    *   for each variant without its own), or a function returning them,
    *   called only when the name is shown. Lets one message name many
@@ -496,12 +500,24 @@ export const WhimsyCommands = {
       // A variant with its own run ("Turn Liquid Glass On") runs it; any
       // other row runs the registered <command>, so its shortcut shows.
       const run = variant.run;
+      // Object or function (re-read on every query, like WhimsySpaces' own
+      // manual globalActions.push), so a row's detail (ZenUBActionsProvider's
+      // payload.prettyName) can change with live state, e.g. W29 ambient's
+      // "Ambient Sound…" showing the sound list, then "Change the sound or
+      // its volume" once one is playing.
+      const extraPayloadSource = variant.extraPayload ?? spec.extraPayload ?? null;
       globalActions.push({
         l10nId: variant.l10nId,
         command: typeof run == "function" ? run : entry.id,
         commandId: entry.id,
         icon: spec.icon,
-        extraPayload: {},
+        get extraPayload() {
+          try {
+            return (typeof extraPayloadSource == "function" ? extraPayloadSource() : extraPayloadSource) ?? {};
+          } catch (e) {
+            return {};
+          }
+        },
         whimsyCommand: entry.id,
         // An array, or a function giving one the first time it's needed.
         get whimsyKeywords() {

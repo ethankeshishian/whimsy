@@ -281,6 +281,15 @@ support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_di
 
 ["browser_whimsy_window_close.js"]
 
+["browser_whimsy_window_on_top.js"]
+
+# W28: the real floating effect needs a headed window (HeadlessWidget under
+# --headless doesn't override SetAlwaysOnTop/GetAlwaysOnTop); verify.sh's
+# whimsy-native suite runs it.
+["browser_whimsy_window_on_top_native.js"]
+run-if = ["os == 'mac'"]
+skip-if = ["headless"] # real window-level floating needs a real window; verify.sh runs it headed
+
 ["browser_whimsy_full_url_click.js"]
 
 ["browser_whimsy_hw_decode.js"]
@@ -634,6 +643,10 @@ support-files = ["whimsy_link_hints.html"]
 ["browser_whimsy_search_deck.js"]
 support-files = ["whimsy_search_results.html", "whimsy_search_results_coop.html", "whimsy_search_results_coop.html^headers^", "whimsy_search_card.html"]
 
+# W28: Search With ▸ in the selection menu (order, tab placement parity with the default row, background pref, private window, hiding).
+["browser_whimsy_search_with.js"]
+support-files = ["whimsy_verbs.html"]
+
 # wave6: Already open (Arc): Return on an open address goes to its tab and space.
 ["browser_whimsy_already_open.js"]
 
@@ -731,6 +744,10 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave7/menus: space menu order (Delete last), no Volume… row, Glance chip vs unread badge on an Essential.
 ["browser_whimsy_menu_order.js"]
 
+# W29/ctxmenu: the page and tab menus, regrouped (most-used first); the tab menu's "Ask AI" label and its own AI group; link/image/selection menus unchanged.
+["browser_whimsy_menu_regroup_order.js"]
+support-files = ["whimsy_test_image.png"]
+
 # wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
 ["browser_whimsy_archive_tab_menu.js"]
 # wave10 (W10-06): archiving a tab (Archive Tab row, Archive Tabs Below, Cmd+W) shows no Undo toast; Cmd+Z and Edit → Undo still restore it.
@@ -749,8 +766,16 @@ support-files = ["whimsy_page_animations.html"]
 support-files = ["whimsy_minimap_long.html", "whimsy_minimap_short.html"]
 # W27: Show space name in window title (Settings → Tab Management, off by default): titlepreface "<space> — ", space switch and rename, any space count, its switch, the private lock.
 ["browser_whimsy_window_title_space.js"]
+# W29: Match the page (space colour editor, off by default): the row/switch
+# in the theme picker, switching restores the gradient exactly and dims the
+# pad/swatches, a theme-color change repaints live, Reduce Motion is instant,
+# private windows aren't tinted, the favicon fallback.
+["browser_whimsy_page_tint.js"]
+support-files = ["whimsy_page_tint.html"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
+# W29 ambient-audio: the Ambient sound sheet (six tiles, one at a time, closing the sheet doesn't stop it), the two ⌘K commands and their live detail text, tab mute independence, and the playing tile's text contrast.
+["browser_whimsy_ambient.js"]
 
 # W24 passkey 2: page-world password-manager interception across profiles,
 # windows, frames, CSP, document_start and private-browsing permission.
@@ -1051,6 +1076,12 @@ support-files = ["whimsy_meet.html", "whimsy_zoom.html", "whimsy_teams.html", "w
 ["browser_whimsy_call_options_panel.js"]
 support-files = ["whimsy_meet.html"]
 
+# W29: Call Options › Share this tab and Share This Tab in Call: the call's
+# own share button, Firefox's prompt on this tab with it picked, Stop from
+# any tab.
+["browser_whimsy_call_share_tab.js"]
+support-files = ["whimsy_call_share.html"]
+
 # wave13/toast: one toast, Zen's, extended (WhimsyZenToasts.sys.mjs): icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" buttons, persistence and handles, buttons with words, close and Esc, stacking, "+k more", Reduce Motion, keyed replace, 480px.
 ["browser_whimsy_zen_toasts.js"]
 
@@ -1159,6 +1190,9 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 # W27: photos you upload lose their location and camera details, losslessly.
 ["browser_whimsy_photo_metadata.js"]
 support-files = ["whimsy_photo_meta.jpg", "whimsy_photo_meta_mpf.jpg", "whimsy_photo_meta.png", "whimsy_photo_upload.html"]
+# W29: choose which photo details to remove, in every format, with the sheet.
+["browser_whimsy_photo_details.js"]
+support-files = ["whimsy_photo_builders.js", "whimsy_photo_upload.html"]
 ["browser_whimsy_screens_w23_commands.js"]
 support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
 

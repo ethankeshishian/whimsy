@@ -118,6 +118,14 @@
 # chevron; remembered for every tab).
 - name: whimsy.media.eq-bands-open
   value: false
+# Ambient sound (⌘K "Ambient Sound…"): the volume slider's last value
+# (0-100) and the last sound played ("", "rain", "cafe", "woods",
+# "fireplace", "ocean" or "brown"), remembered across sessions.
+- name: whimsy.ambient.volume
+  value: 60
+
+- name: whimsy.ambient.last
+  value: ""
 
 # A speed button in the picture-in-picture player (Firefox's, off there).
 - name: media.videocontrols.picture-in-picture.playback-speed.enabled
@@ -201,12 +209,22 @@
 # The page loads normally; its visit isn't kept (WhimsyAdultHistory).
 - name: whimsy.adult-history.enabled
   value: true
-# W27: Settings → Privacy & Security → "Remove location and camera details
-# from photos you upload". JPEG and PNG files chosen in file inputs or
-# dropped on pages lose Exif, GPS, XMP, and text metadata, losslessly
-# (WhimsyImageMetadata). Off by default.
+# W27/W29: Settings → Privacy & Security → "Remove details from photos you
+# upload". Photos chosen in file inputs, dropped on pages, or pasted lose the
+# kinds of details ticked below, losslessly (WhimsyImageMetadata). Off by
+# default. With .ask on, a sheet asks before each upload that has details.
 - name: whimsy.privacy.strip-image-metadata
   value: false
+- name: whimsy.privacy.strip-image-metadata.location
+  value: true
+- name: whimsy.privacy.strip-image-metadata.camera
+  value: true
+- name: whimsy.privacy.strip-image-metadata.date
+  value: false
+- name: whimsy.privacy.strip-image-metadata.other
+  value: true
+- name: whimsy.privacy.strip-image-metadata.ask
+  value: true
 # batch10: Library sidebar panels.
 
 # Profile subdirectory a screenshot capture is saved into (Library → Files).
@@ -970,3 +988,9 @@
 # Minimap in the command bar). Off by default.
 - name: whimsy.minimap.enabled
   value: false
+# W28: Keep Window on Top (Settings → Look and Feel, macOS only). One
+# global setting for every Whimsy window, including Mini Whimsy; it
+# persists across restarts (WhimsyWindowOnTop.sys.mjs).
+- name: whimsy.window-on-top.enabled
+  value: false
+

@@ -17,6 +17,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyCallPip: "resource:///modules/whimsy/WhimsyCallPip.sys.mjs",
+  WhimsyShareTab: "resource:///modules/whimsy/WhimsyShareTab.sys.mjs",
 });
 
 const PANEL_ID = "whimsy-call-options-panel";
@@ -30,6 +31,7 @@ const LABEL = {
 };
 const HINT = { mic: "whimsy-call-options-mic-hint", camera: "whimsy-call-options-camera-hint" };
 const MISSING = { mic: "whimsy-call-options-mic-missing", camera: "whimsy-call-options-camera-missing" };
+const SHARE_ICON = "chrome://browser/skin/zen-icons/screen.svg";
 
 // Open panels: panel -> { browser, update }.
 const open = new Map();
@@ -183,6 +185,68 @@ export const WhimsyCallOptionsPanel = {
       view.append(heading.caption, group);
     }
 
+    // W29: Share, one row: Share this tab (the tab you're looking at, in
+    // the call's window), Stop sharing while the call shares anything.
+    const shareHeading = S.caption(doc, { l10nId: "whimsy-call-options-share-heading" });
+    const shareGroup = S.group(doc);
+    const share = S.row(doc, {
+      l10nId: "whimsy-call-options-share-tab",
+      detail: "",
+      id: "whimsy-call-options-share",
+      onCommand: () => {
+        if (share.row.getAttribute("aria-disabled") == "true") {
+          return;
+        }
+        const sharing = lazy.WhimsyShareTab.isSharing(browser);
+        S.close(view.closest("panel"));
+        if (sharing) {
+          pip.stopSharing(browser);
+        } else {
+          pip.shareTab(browser.documentGlobal, browser);
+        }
+      },
+    });
+    share.row.classList.add("whimsy-call-options-share");
+    const shareIcon = doc.createXULElement("image");
+    shareIcon.className = "whimsy-call-options-icon";
+    shareIcon.setAttribute("src", SHARE_ICON);
+    share.row.prepend(shareIcon);
+    const shareDetail = share.row.querySelector(".whimsy-surface-row-detail");
+    shareDetail.id = "whimsy-call-options-share-detail";
+    share.row.setAttribute("aria-describedby", shareDetail.id);
+    shareGroup.append(share.row);
+    view.append(shareHeading.caption, shareGroup);
+
+    const updateShare = args => {
+      const sharing = lazy.WhimsyShareTab.isSharing(browser);
+      const available = sharing || pip.shareAvailable(browser);
+      share.row.classList.toggle("whimsy-call-options-dim", !available);
+      if (available) {
+        share.row.removeAttribute("aria-disabled");
+        share.row.setAttribute("tabindex", "0");
+      } else {
+        share.row.setAttribute("aria-disabled", "true");
+        share.row.removeAttribute("tabindex");
+      }
+      if (sharing) {
+        const title = lazy.WhimsyShareTab.sharedTitle(browser);
+        setL10n(doc, share.label, "whimsy-call-options-share-stop");
+        shareDetail.hidden = !title;
+        if (title) {
+          setL10n(doc, shareDetail, "whimsy-call-options-share-sharing", { title });
+        }
+      } else {
+        setL10n(doc, share.label, "whimsy-call-options-share-tab");
+        shareDetail.hidden = false;
+        if (available) {
+          const title = browser.documentGlobal?.gBrowser?.selectedBrowser?.contentTitle || "";
+          setL10n(doc, shareDetail, "whimsy-call-options-share-detail", { title });
+        } else {
+          setL10n(doc, shareDetail, "whimsy-call-options-share-missing", args);
+        }
+      }
+    };
+
     const update = () => {
       const args = appArgs(browser);
       seg.select(pip.buttonsDefault);
@@ -244,6 +308,7 @@ export const WhimsyCallOptionsPanel = {
           toggle.removeAttribute("aria-description");
         }
       }
+      updateShare(args);
     };
     update();
     return update;
