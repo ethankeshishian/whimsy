@@ -349,6 +349,7 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
   const maps = await openFrom(airbnb, "Lisbon to Sintra");
   const before = [root, tap, airbnb, maps];
   const restored = [];
+  const contentRestored = [];
   try {
     const rootKey = WhimsyTreeTabs.groupKeyOf(root);
     ok(rootKey, "The root has a key");
@@ -362,6 +363,7 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
     for (const state of [...states].reverse()) {
       const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true });
       const ready = BrowserTestUtils.waitForEvent(tab, "SSTabRestoring");
+      contentRestored.unshift(BrowserTestUtils.waitForEvent(tab, "SSTabRestored"));
       SessionStore.setTabState(tab, state);
       await ready;
       restored.unshift(tab);
@@ -386,12 +388,13 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
     BrowserTestUtils.removeTab(copy);
 
     // A restored tab loads when it's selected, as after a real restart.
+    // SSTabRestoring only covers history; content restoration finishes later.
+    // Listen before setTabState above so an eager restore cannot race this wait.
     gBrowser.selectedTab = t;
-    await TestUtils.waitForCondition(
-      async () => !t.hasAttribute("pending") && t.linkedBrowser.currentURI.spec.includes("?TAP") &&
-        (await SpecialPowers.spawn(t.linkedBrowser, [], () => content.document.readyState == "complete" && content.location.search.includes("TAP")).catch(() => false)),
-      "The restored tab loads"
-    );
+    await contentRestored[1];
+    ok(!t.hasAttribute("pending"), "The restored tab is no longer pending");
+    is(t.linkedBrowser.currentURI.spec, `${PAGE}?${encodeURIComponent("TAP Air Portugal")}`, "The restored tab loads its saved URL");
+    ok(await SpecialPowers.spawn(t.linkedBrowser, [], () => content.document.readyState == "complete" && content.location.search.includes("TAP")), "The restored document is loaded");
     await openChatOn(t);
     const menu = await openAddMenu();
     const row = menu.querySelector("[data-group]");

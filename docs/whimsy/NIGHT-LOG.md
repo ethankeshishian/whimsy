@@ -391,3 +391,16 @@ authorized targeted run; isolated old passes are not validation of these edits.
   builds, import, verify, install, ship, and commits were not run as directed.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
+
+## 2026-11-16 — W29 context-group restart load wait
+
+- Traced journey 4's timeout to its content-load wait: SSTabRestoring marks
+  history restoration, but the test then allowed only TestUtils' default
+  50 polls (about five seconds) for content restoration and page loading.
+- Capture SSTabRestored before each setTabState call, then await the selected
+  tab's completion. This handles eager and on-demand restoration without
+  missing the event. Retained pending/document checks and tightened the URI
+  assertion to the exact saved URL; removed the catch that hid spawn errors.
+- Validation: node --check passes for browser_whimsy_chat_context_groups.js.
+  Browser tests are unavailable here, so the runtime result remains unverified.
+  No product changes, sleeps, engine edits, mach, or git commands.
