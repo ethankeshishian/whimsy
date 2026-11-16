@@ -418,6 +418,11 @@
 - name: whimsy.email-aliases.button
   value: true
 
+# W29: show the field editor button in qualifying multi-line boxes. Off,
+# Edit Field in Text Editor still follows the same field check.
+- name: whimsy.field-editor.button
+  value: true
+
 
 # wave3: handoff. Offer the current page to your other Apple devices
 # (Firefox's Handoff; private tabs and Scratch are never offered).

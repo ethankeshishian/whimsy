@@ -224,6 +224,7 @@ export const SETTINGS = [
     onCommand: "cmd_whimsyVPNToggle" },
   { name: "email-aliases", setting: "whimsyEmailAliasesButton", pref: "whimsy.email-aliases.button",
     feature: ["email-aliases"] },
+  { name: "field-editor-button", setting: "whimsyFieldEditorButton", pref: "whimsy.field-editor.button" },
   { name: "handoff", setting: "whimsyHandoffSend", pref: "whimsy.handoff.send", feature: ["handoff"], when: mac },
   // W23 agent-chat: Settings › AI › Agent, Outside agents, and Activity.
   { name: "agent-mode", setting: "whimsyAIAgentMode", pref: "whimsy.ai.agent.mode", when: aiAllowed,

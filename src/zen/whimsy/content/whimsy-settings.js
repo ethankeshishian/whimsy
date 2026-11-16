@@ -2098,6 +2098,11 @@ Object.assign(gWhimsySettings, {
         this.insertBatterySaverGroup?.(
           document.querySelector('[groupid="performance"]')?.getAttribute("data-category") || "paneGeneral"
         ),
+      // W29: the field editor button's card, right after Battery Saver
+      () =>
+        this.insertFieldEditorGroup?.(
+          document.querySelector('[groupid="performance"]')?.getAttribute("data-category") || "paneGeneral"
+        ),
       // About (async: it waits for Firefox's Updates group to render)
       () =>
         this.insertAboutGroup(
@@ -3072,6 +3077,42 @@ Object.assign(gWhimsySettings, {
 document.addEventListener("paneshown", event => {
   if (["paneGeneral", "paneZenTabManagement"].includes(event.detail.category)) {
     gWhimsySettings.insertBatterySaverGroup(event.detail.category);
+  }
+});
+
+// W29: the field editor button's card, right after Battery Saver (or
+// Performance, without it).
+Object.assign(gWhimsySettings, {
+  insertFieldEditorGroup(category = "paneGeneral") {
+    const template = document.getElementById("template-whimsyFieldEditor");
+    if (!template) {
+      const group = document.getElementById("whimsyFieldEditorGroup");
+      if (group) {
+        group.dataset.category = category;
+        group.hidden = false;
+      }
+      return;
+    }
+    const group = template.content.firstElementChild;
+    template.remove();
+    const anchor =
+      document.getElementById("whimsyBatterySaverGroup") ||
+      document.getElementById("whimsyPerformanceGroup") ||
+      document.querySelector('[groupid="performance"]');
+    group.dataset.category = category;
+    if (anchor) {
+      anchor.after(group);
+    } else {
+      document.getElementById("mainPrefPane").append(group);
+    }
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+    this.initPrefCheckbox("whimsyFieldEditorButton", "whimsy.field-editor.button");
+  },
+});
+document.addEventListener("paneshown", event => {
+  if (["paneGeneral", "paneZenTabManagement"].includes(event.detail.category)) {
+    gWhimsySettings.insertFieldEditorGroup(event.detail.category);
   }
 });
 

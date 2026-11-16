@@ -692,12 +692,17 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
-    // W27: Edit Field in Text Editor. The child only reads and writes the
+    // W27: Edit Field in Text Editor. The child reads and writes the
     // page's own focused field, on request; the temp file and the editor
-    // live in the parent (WhimsyFieldEditor.sys.mjs).
+    // live in the parent (WhimsyFieldEditor.sys.mjs). W29: the child also
+    // shows a button in a qualifying field's own corner on focusin, and
+    // watches focusout to notice focus leaving it.
     ChromeUtils.registerWindowActor("WhimsyFieldEditor", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs" },
-      child: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs",
+        events: { focusin: { capture: true }, focusout: { capture: true }, pagehide: {} },
+      },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
       safeForUntrustedWebProcess: true,
