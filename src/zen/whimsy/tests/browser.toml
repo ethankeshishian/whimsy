@@ -110,6 +110,9 @@ support-files = ["whimsy_test_image.png"]
 
 ["browser_whimsy_hide_switcher.js"]
 
+# W29 icon-sets: the Lucide/Phosphor icon pack picker and its live apply.
+["browser_whimsy_icon_packs.js"]
+
 ["browser_whimsy_media_indicators.js"]
 
 ["browser_whimsy_menu_icons.js"]
@@ -337,6 +340,10 @@ support-files = ["whimsy_calendar.sjs"]
 
 # ext: per-space extensions
 ["browser_whimsy_space_extensions.js"]
+
+# W28 ext: "Run in profiles:" in Firefox's add-extension prompt, and adding
+# a profile to an already-installed extension without reinstalling it.
+["browser_whimsy_space_extensions_install.js"]
 
 # batch hist: visit metadata and the Library History space filter.
 ["browser_whimsy_space_history.js"]
@@ -657,6 +664,10 @@ support-files = ["whimsy_page_actions.html"]
 # wave6/parity: Option+click a sidebar tab to split (Peek keeps Zen's Option+click on links).
 ["browser_whimsy_split_alt_click.js"]
 
+# W29-tabclicks: Cmd+click (Ctrl+click off macOS) on a page link opens a new
+# background tab, as Firefox's own does, and the clicked tab doesn't navigate.
+["browser_whimsy_link_accel_click.js"]
+
 # wave6/parity: Arc's Split View commands and Ctrl+Shift keys.
 ["browser_whimsy_split_arc_keys.js"]
 
@@ -725,6 +736,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # W27: Turn Off / Turn On Page Animations: a user sheet stops CSS animations and transitions on this tab only, a reload clears it, other tabs keep theirs, state-aware names, the toast, its switch.
 ["browser_whimsy_page_animations.js"]
 support-files = ["whimsy_page_animations.html"]
+# W28: Page Minimap: off by default, only on pages over two screens (a toast on a short one), click to jump, drag to scroll, fades when idle, sits under the find card, the pref in a new window, light and dark shots.
+["browser_whimsy_minimap.js"]
+support-files = ["whimsy_minimap_long.html", "whimsy_minimap_short.html"]
 # W27: Show space name in window title (Settings → Tab Management, off by default): titlepreface "<space> — ", space switch and rename, any space count, its switch, the private lock.
 ["browser_whimsy_window_title_space.js"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
@@ -734,6 +748,13 @@ support-files = ["whimsy_page_animations.html"]
 # windows, frames, CSP, document_start and private-browsing permission.
 ["browser_whimsy_passkey_extension.js"]
 support-files = ["whimsy_passkey_extension.sjs", "whimsy_passkey_extension_page.js"]
+
+# W29 1Password on Google: a password manager's page-world hook asks its own
+# isolated script and background over postMessage and runtime messaging before
+# it answers; that round trip works on a nonce/Trusted Types page, in a profile
+# tab, with Whimsy's passkeys on, and never opens Firefox's security-key prompt.
+["browser_whimsy_passkey_extension_bridge.js"]
+support-files = ["whimsy_passkey_bridge.sjs", "whimsy_passkey_extension_page.js"]
 
 # W26 passkeys: Whimsy's own Touch ID passkeys through Gecko's WebAuthn with
 # the Secure Enclave helper stubbed (create/get/discoverable/exclude/replace,
@@ -939,7 +960,7 @@ support-files = ["whimsy_mini_links.html", "whimsy_oauth_opener.html", "whimsy_o
 
 # Mini windows archive after inactivity; manual closes share the Mini reason.
 ["browser_whimsy_mini_archive.js"]
-# wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
+# wave9: W9-04 site settings ("Site Settings" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
 ["browser_whimsy_site_settings.js"]
 head = "head.js head-leakcheck.js"
 support-files = ["whimsy_article.html"]
@@ -1052,6 +1073,8 @@ support-files = ["whimsy_ai_sensitive.html"]
 
 ["browser_whimsy_chat_motion.js"]
 
+["browser_whimsy_sidebar_close.js"]
+
 ["browser_whimsy_chat_shell.js"]
 
 ["browser_whimsy_chat_threads.js"]
@@ -1065,6 +1088,11 @@ support-files = ["whimsy_chat_article.html"]
 support-files = ["whimsy_chat_article.html"]
 
 ["browser_whimsy_chat_context.js"]
+support-files = ["whimsy_chat_article.html"]
+
+# W28 tab-state-indicators: the sparkle badge ([whimsy-chat-reads] /
+# [whimsy-chat-reading]) tracks chat attachment, option A (the sparkle).
+["browser_whimsy_chat_reads_marks.js"]
 support-files = ["whimsy_chat_article.html"]
 
 ["browser_whimsy_screens_w23_chat-answers.js"]
@@ -1118,6 +1146,11 @@ support-files = ["head_cmdbar_ai.js", "whimsy_chat_article.html"]
 
 # W23 commands: the store, Link commands, Settings › AI › Commands, and screenshots
 ["browser_whimsy_ai_commands.js"]
+# W27: Quiz Me on This Page, a built-in command.
+["browser_whimsy_ai_quiz.js"]
+# W27: photos you upload lose their location and camera details, losslessly.
+["browser_whimsy_photo_metadata.js"]
+support-files = ["whimsy_photo_meta.jpg", "whimsy_photo_meta_mpf.jpg", "whimsy_photo_meta.png", "whimsy_photo_upload.html"]
 ["browser_whimsy_screens_w23_commands.js"]
 support-files = ["whimsy_cmdk.html", "whimsy_test_image.png", "whimsy_ai_selection.html"]
 
@@ -1265,6 +1298,16 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 ["browser_whimsy_dark_pages_dynamic.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
+["browser_whimsy_dark_pages_live.js"]
+support-files = [
+  "head_whimsy_dark_pages.js",
+  "whimsy_dark_pages.html",
+  "whimsy_dark_pages_sandbox.html",
+  "whimsy_dark_pages_sandbox.html^headers^",
+  "whimsy_dark_pages_canvas.html",
+  "whimsy_test_image.png",
+]
+
 ["browser_whimsy_dark_pages_screens_match.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
@@ -1275,6 +1318,10 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
 ["browser_whimsy_dark_pages_screens_site_panel.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
+# W26 site panel: Profile Settings + Site Settings, profiles keep their own permissions, dark mode, and zoom; the migration.
+["browser_whimsy_site_panel_profiles.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
 ["browser_whimsy_dark_pages_screens_settings.js"]
@@ -1300,5 +1347,19 @@ support-files = ["whimsy_field_editor.html"]
 ["browser_whimsy_popups_as_tabs.js"]
 support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 
+# W28: "Open in Safari" / "Open in Chrome", one command-bar row per
+# installed browser, hands the tab's address to `open -a <app> <url>`.
+["browser_whimsy_open_in_browser.js"]
+
 # W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
 ["browser_whimsy_dim_inactive_window.js"]
+
+# W28 local plugins: unsigned extensions from the profile's whimsy-plugins folder only.
+["browser_whimsy_local_plugins.js"]
+# W29/newtabopts: New Private Tab in the sidebar foot's + button (Zen's Create New menu), right after New Tab; the same command as the File menu's own row and Cmd+Option+T.
+["browser_whimsy_private_create_new.js"]
+# W29 safety-check: WhimsySafetyCheck.sys.mjs itself (updates/passwords/extensions/permissions checks).
+["browser_whimsy_safety_check.js"]
+
+# W29 safety-check: Settings → Privacy & Security → Safety Check card and its sheet.
+["browser_whimsy_safety_check_settings.js"]

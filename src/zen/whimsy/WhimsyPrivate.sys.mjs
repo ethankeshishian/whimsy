@@ -741,6 +741,21 @@ export const WhimsyPrivate = {
         }
       });
     }
+    // W29/newtabopts: the sidebar foot's + button (Zen's Create New menu)
+    // gets New Private Tab too, right after New Tab, so it's reachable
+    // without opening the File menu. Same command as everywhere else
+    // (runNewPrivateTab): a private window when private tabs aren't in this
+    // window (feature off, the setting off, or policy), a tab otherwise.
+    const createNewPopup = document.getElementById("zenCreateNewPopup");
+    const newTabItem = createNewPopup?.querySelector('menuitem[command="cmd_newNavigatorTab"]');
+    if (newTabItem && !document.getElementById("menu_whimsyNewPrivateTabCreateNew")) {
+      const item = document.createXULElement("menuitem");
+      item.id = "menu_whimsyNewPrivateTabCreateNew";
+      item.setAttribute("data-l10n-id", "whimsy-menu-new-private-tab");
+      item.setAttribute("command", "cmd_whimsyNewPrivateTab");
+      item.setAttribute("image", "chrome://browser/skin/zen-icons/private-window.svg");
+      newTabItem.after(item);
+    }
     // Zen's space menu (right-click a space icon, or the space's "..."):
     // Scratch's own actions.
     const spaceMenu = document.getElementById("zenWorkspaceMoreActions");

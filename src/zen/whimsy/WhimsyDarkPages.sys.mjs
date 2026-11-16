@@ -7,6 +7,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySiteSettings: "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
 });
 
 import { DARK_PAGES_KEY } from "resource:///modules/whimsy/WhimsyDarkPagesConfig.sys.mjs";
@@ -15,6 +16,9 @@ const privateSites = new Map();
 const states = new WeakMap();
 const windows = new Set();
 const ICON = "chrome://browser/content/whimsy/icons/moon.svg";
+// W26 site panel: each profile's Automatic Dark Mode, for the page actors
+// (WhimsyDarkPagesChild's profileSites).
+const PROFILES_KEY = "Whimsy:DarkPagesProfiles";
 
 export const WhimsyDarkPages = {
   get enabled() {
@@ -47,12 +51,19 @@ export const WhimsyDarkPages = {
     return `${oa.userContextId || 0}|${uri.prePath}`;
   },
 
+  // The site's choice: what's remembered for it, else what its profile's
+  // Automatic Dark Mode gives ("automatic" when that's the global setting).
   choice(browser) {
+    return this.storedChoice(browser) || this.profileChoice(browser);
+  },
+
+  storedChoice(browser) {
     const key = this.siteKey(browser);
-    return (browser.browsingContext.originAttributes.privateBrowsingId ? privateSites.get(key) : this.sites()[key]) || "automatic";
+    return (browser.browsingContext.originAttributes.privateBrowsingId ? privateSites.get(key) : this.sites()[key]) || null;
   },
 
   setChoice(browser, value) {
+    value = this.forProfile(browser, value);
     const key = this.siteKey(browser);
     if (!key || !["automatic", "on", "off"].includes(value)) {
       return;
@@ -83,10 +94,54 @@ export const WhimsyDarkPages = {
     }
     this._initialized = true;
     this._dark = Services.prefs.getIntPref("ui.systemUsesDarkTheme", 0) == 1;
+    this.initProfiles();
     Services.prefs.addObserver(PREFIX, this);
     Services.prefs.addObserver("whimsy.feature.dark-pages", this);
     Services.obs.addObserver(this, "last-pb-context-exited");
     this.publish();
+  },
+
+  // The page actor. Whimsy's startup hook registers it after session
+  // restore, so pages already open then get their child started here.
+  registerActor() {
+    this.init();
+    if (this._actorRegistered) {
+      return;
+    }
+    this._actorRegistered = true;
+    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
+        events: {
+          DOMDocElementInserted: {},
+          StyleSheetApplicableStateChanged: {},
+          StyleRuleAdded: {},
+          StyleRuleRemoved: {},
+          StyleRuleChanged: {},
+          DOMContentLoaded: {},
+          pageshow: {},
+          pagehide: {},
+          beforeprint: {},
+          afterprint: {},
+          load: { capture: true },
+        },
+      },
+      matches: ["http://*/*", "https://*/*"],
+      allFrames: false,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      for (const browser of win.gBrowser?.browsers || []) {
+        try {
+          browser.browsingContext?.currentWindowGlobal?.getActor("WhimsyDarkPages")
+            .sendAsyncMessage("Whimsy:DarkPagesStart");
+        } catch (e) {
+          // Not a web page (the actor only matches http and https).
+        }
+      }
+    }
   },
 
   observe(subject, topic, data) {
@@ -127,6 +182,7 @@ export const WhimsyDarkPages = {
     const theme = () => {
       const previous = this.active;
       this._dark = media.matches;
+      this.publishProfiles();
       this.publish();
       if (previous != this.active) {
         lazy.WhimsyPage.applyDarkPdf({ reload: true });
@@ -158,8 +214,8 @@ export const WhimsyDarkPages = {
 
   // The URL bar's moon: a page action like Reader view (the shared
   // .urlbar-page-action > .urlbar-icon markup, so Zen's hover pill and
-  // auto-hide apply). One click flips this site between dark and original,
-  // live; no menu.
+  // auto-hide apply). It shows only on an overridden site; one click sets
+  // the site back to the global setting, live; no menu.
   addButton(win) {
     const doc = win.document;
     const anchor = doc.getElementById("page-action-buttons");
@@ -211,7 +267,10 @@ export const WhimsyDarkPages = {
       return;
     }
     const dark = this.isDark(browser);
-    button.hidden = !this.enabled || !this.siteKey(browser);
+    // Owner, W29: the global setting decides; the site switch overrides it.
+    // The moon shows only on a site that differs from the global setting,
+    // and a click sets it back.
+    button.hidden = !this.enabled || !this.siteKey(browser) || dark == this.active;
     button.toggleAttribute("active", dark);
     // Keep an open site panel's row in step, only when this site's choice
     // or state actually changed (a re-render would close other controls).
@@ -281,9 +340,163 @@ export const WhimsyDarkPages = {
     });
     return lazy.WhimsySiteSettings.row(doc, {
       kind: "dark-pages",
-      l10nId: "whimsy-dark-pages-site-title",
+      l10nId: "whimsy-site-settings-dark-mode",
       labelId,
-      on: this.choice(browser) != "automatic",
+      on: this.storedChoice(browser) != null,
+      trailing: [toggle],
+    });
+  },
+
+  // ---------------------------------------------------------------------
+  // W26 site panel: Automatic Dark Mode per profile. Each profile has one
+  // two-state switch, its default for every site; a site's own switch
+  // overrides it. A profile nobody has switched follows Settings'
+  // dark-pages mode (on unless it's Off). Switched on, a profile is dark
+  // when Whimsy is (or always, with Settings' Always).
+
+  profiles() {
+    try {
+      const profiles = JSON.parse(Services.prefs.getStringPref(PREFIX + "profiles", "{}"));
+      return profiles && typeof profiles == "object" && !Array.isArray(profiles) ? profiles : {};
+    } catch (e) {
+      return {};
+    }
+  },
+
+  // The profile's switch.
+  profileOn(userContextId) {
+    const stored = this.profiles()[userContextId || 0];
+    return typeof stored == "boolean" ? stored : this.mode != "off";
+  },
+
+  setProfileOn(userContextId, on) {
+    const profiles = this.profiles();
+    const id = String(userContextId || 0);
+    if (!!on == (this.mode != "off")) {
+      delete profiles[id];
+    } else {
+      profiles[id] = !!on;
+    }
+    Services.prefs.setStringPref(PREFIX + "profiles", JSON.stringify(profiles));
+  },
+
+  // Whether pages in the profile are dark unless a site says otherwise.
+  activeFor(userContextId) {
+    return this.enabled && this.profileOn(userContextId) && (this.mode == "always" || !!this._dark);
+  },
+
+  userContextIdOf(browser) {
+    return browser?.browsingContext?.originAttributes?.userContextId || 0;
+  },
+
+  // A site with nothing remembered: "automatic" when its profile does what
+  // the global setting does, else the profile's own on or off.
+  profileChoice(browser) {
+    const own = this.activeFor(this.userContextIdOf(browser));
+    return own == this.active ? "automatic" : own ? "on" : "off";
+  },
+
+  // setChoice's value against the site's profile: "automatic" (the global
+  // setting's, from setDark) is kept as an explicit choice where the profile
+  // differs, and a choice that matches the profile is not remembered.
+  forProfile(browser, value) {
+    if (!browser?.browsingContext) {
+      return value;
+    }
+    const own = this.activeFor(this.userContextIdOf(browser));
+    if (value == "automatic") {
+      if (own == this.active) {
+        return value;
+      }
+      return this.active && this.state(browser) != "locked" ? "on" : "off";
+    }
+    if ((value == "on") == own && this.state(browser) != "locked") {
+      return "automatic";
+    }
+    return value;
+  },
+
+  // Forgets the site's own choice (Forget All), back to its profile's.
+  forget(browser) {
+    const key = this.siteKey(browser);
+    if (!key || !this.storedChoice(browser)) {
+      return;
+    }
+    if (browser.browsingContext.originAttributes.privateBrowsingId) {
+      privateSites.delete(key);
+      this.publish();
+    } else {
+      const sites = this.sites();
+      delete sites[key];
+      Services.prefs.setStringPref(PREFIX + "sites", JSON.stringify(sites));
+    }
+  },
+
+  // Restores a choice exactly as it was remembered (Undo of Forget All).
+  restoreChoice(browser, stored) {
+    if (stored) {
+      this.setChoice(browser, stored);
+    } else {
+      this.forget(browser);
+    }
+  },
+
+  initProfiles() {
+    this._profilesObserver = {
+      QueryInterface: ChromeUtils.generateQI(["nsIObserver", "nsISupportsWeakReference"]),
+      observe: () => {
+        this.publishProfiles();
+        this.publish();
+      },
+    };
+    for (const pref of [PREFIX + "profiles", PREFIX + "mode", "whimsy.feature.dark-pages"]) {
+      Services.prefs.addObserver(pref, this._profilesObserver);
+    }
+    lazy.WhimsyProfiles.onDelete(id => {
+      const profiles = this.profiles();
+      if (String(id) in profiles) {
+        delete profiles[String(id)];
+        Services.prefs.setStringPref(PREFIX + "profiles", JSON.stringify(profiles));
+      }
+    });
+    this.publishProfiles();
+  },
+
+  // The page actors' copy: {userContextId: dark} for every profile that
+  // differs from the global setting; flushed with the next publish().
+  publishProfiles() {
+    const differs = {};
+    for (const id of Object.keys(this.profiles())) {
+      const own = this.activeFor(Number(id));
+      if (own != this.active) {
+        differs[id] = own;
+      }
+    }
+    Services.ppmm.sharedData.set(PROFILES_KEY, differs);
+  },
+
+  // The site panel's Profile Settings row: the profile's Automatic Dark
+  // Mode switch.
+  profileRow(win, userContextId) {
+    if (!this.enabled) {
+      return null;
+    }
+    const doc = win.document;
+    const labelId = "whimsy-site-settings-profile-dark-label";
+    const toggle = lazy.WhimsySurface.switch(doc, {
+      checked: this.profileOn(userContextId),
+      labelledBy: labelId,
+      id: "whimsy-site-settings-profile-dark-switch",
+      onChange: checked => {
+        this.setProfileOn(userContextId, checked);
+        lazy.WhimsySiteSettings.render(win);
+      },
+    });
+    return lazy.WhimsySiteSettings.row(doc, {
+      kind: "profile-dark-pages",
+      l10nId: "whimsy-site-settings-profile-dark-mode",
+      labelId,
+      on: typeof this.profiles()[userContextId || 0] == "boolean",
       trailing: [toggle],
     });
   },

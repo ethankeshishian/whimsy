@@ -9,6 +9,11 @@ import {
 } from "resource:///modules/whimsy/WhimsyDarkPagesConfig.sys.mjs";
 
 const GATE = "@media screen { html { background: #1c1b22 !important; } body { opacity: 0 !important; } }";
+// Canvas pixels never pass through CSS colors, so the paint-time inversion
+// leaves canvas-drawn text (editors, charts, maps) dark on the dark page.
+// Give canvases the same lightness flip, keeping hue, so text stays light
+// and highlights and selections keep their color.
+const CANVAS = "@media screen { canvas { filter: invert(1) hue-rotate(180deg) !important; } }";
 const FADE = "::view-transition-old(root), ::view-transition-new(root) { animation-duration: 240ms !important; }";
 
 function luminance(value) {
@@ -19,19 +24,11 @@ function luminance(value) {
 export class WhimsyDarkPagesChild extends JSWindowActorChild {
   handleEvent(event) {
     if (event.type == "DOMDocElementInserted") {
-      if (this.document.contentType != "text/html") {
-        return;
-      }
-      this._record = beginDarkPage(this.browsingContext);
-      this._originalScheme = this._record.originalScheme;
-      this._sharedChange = e => {
-        if (e.changedKeys.includes(DARK_PAGES_KEY)) {
-          this.configure();
-        }
-      };
-      Services.cpmm.sharedData.addEventListener("change", this._sharedChange);
-      this.document.styleSheetChangeEventsEnabled = true;
-      this.configure();
+      this.start();
+    } else if (!this._record && event.type == "pageshow" && event.persisted) {
+      // Back from the cache, from before the actor was registered.
+      this._ready = true;
+      this.start();
     } else if (this._record && (event.type == "DOMContentLoaded" || event.type == "pageshow")) {
       this._ready = true;
       if (event.type == "pageshow" && event.persisted) {
@@ -47,6 +44,7 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
         this._observer?.disconnect();
         setAdaptiveDarkPage(this._record, false);
         this.sheet("dim", null);
+        this.sheet("canvas", null);
       } else if (event.type == "afterprint") {
         this._printing = false;
         this.configure();
@@ -56,6 +54,32 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
         this.schedule();
       }
     }
+  }
+
+  // A page open before the actor was registered (Whimsy's startup hook
+  // runs after session restore) missed DOMDocElementInserted; the parent
+  // starts it with this message, so settings apply to it live.
+  receiveMessage({ name }) {
+    if (name == "Whimsy:DarkPagesStart" && !this._record) {
+      this._ready = this.document.readyState != "loading";
+      this.start();
+    }
+  }
+
+  start() {
+    if (this._record || this.document.contentType != "text/html") {
+      return;
+    }
+    this._record = beginDarkPage(this.browsingContext);
+    this._originalScheme = this._record.originalScheme;
+    this._sharedChange = e => {
+      if (e.changedKeys.includes(DARK_PAGES_KEY)) {
+        this.configure();
+      }
+    };
+    Services.cpmm.sharedData.addEventListener("change", this._sharedChange);
+    this.document.styleSheetChangeEventsEnabled = true;
+    this.configure();
   }
 
   sheet(name, css) {
@@ -79,10 +103,12 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
 
   configure() {
     const config = Services.cpmm.sharedData.get(DARK_PAGES_KEY);
-    const principal = this.document.nodePrincipal;
-    const key = `${principal.originAttributes.userContextId || 0}|${principal.originNoSuffix}`;
-    const isPrivate = !!principal.originAttributes.privateBrowsingId;
-    const sites = isPrivate ? config?.privateSites : config?.sites;
+    // The parent's key (WhimsyDarkPages.siteKey): the page's address, not
+    // its principal, which is opaque for a CSP-sandboxed page.
+    const oa = this.browsingContext.originAttributes;
+    const key = `${oa.userContextId || 0}|${this.document.documentURIObject.prePath}`;
+    const isPrivate = !!oa.privateBrowsingId;
+    const sites = profileSites(config, isPrivate, key);
     const choice = sites?.[key] || "automatic";
     const active = !!config?.enabled && choice != "off" && (choice == "on" || config.active);
     const manual = config?.manual;
@@ -161,6 +187,7 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
     const forced = this.contentWindow.matchMedia("(forced-colors: active)").matches;
     const state = !this._active || forced ? "original" : this.isDark() ? "native" : "generated";
     setAdaptiveDarkPage(this._record, state == "generated");
+    this.sheet("canvas", state == "generated" ? CANVAS : null);
     this.sheet("dim", this._dim && state != "original" ? "@media screen { img, video { filter: brightness(.8) !important; } }" : null);
     this.document.documentElement.setAttribute("data-whimsy-dark-page", state);
     this.sendAsyncMessage("Whimsy:DarkPagesState", state);
@@ -202,4 +229,20 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
       this._record = null;
     }
   }
+}
+
+// W26 site panel: a site with no choice of its own takes its profile's
+// Automatic Dark Mode where that differs from the global setting
+// (WhimsyDarkPages.publishProfiles).
+function profileSites(config, isPrivate, key) {
+  const sites = isPrivate ? config?.privateSites : config?.sites;
+  if (sites?.[key]) {
+    return sites;
+  }
+  const profiles = Services.cpmm.sharedData.get("Whimsy:DarkPagesProfiles");
+  const own = profiles?.[key.slice(0, key.indexOf("|"))];
+  if (typeof own != "boolean") {
+    return sites;
+  }
+  return { ...sites, [key]: own ? "on" : "off" };
 }

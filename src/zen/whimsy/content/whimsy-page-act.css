@@ -417,7 +417,9 @@ notification-message.whimsy-scam {
   background-color: transparent;
   color: color-mix(in srgb, currentColor 78%, transparent);
   font-size: 0.85em;
-  cursor: pointer;
+  /* The default arrow, same as Watch price and the other page actions
+     in this row, not a link's hand cursor. */
+  cursor: default;
   transition: background-color 100ms ease-out;
   &:hover {
     background-color: var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));

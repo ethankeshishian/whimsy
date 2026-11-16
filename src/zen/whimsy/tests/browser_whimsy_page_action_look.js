@@ -53,6 +53,7 @@ add_task(async function test_plain_address_bar_button() {
   is(style.borderTopLeftRadius, radius, `The address bar's radius (${radius}), not a 99px pill`);
   Assert.greaterOrEqual(el.getBoundingClientRect().height, 25.5, "26px tall, like its neighbours");
   is(style.backgroundColor, "rgba(0, 0, 0, 0)", "No tint at rest");
+  is(style.cursor, "default", "A toolbar button's arrow, not a link's hand cursor");
 
   // Hover: the neighbours' hover fill (Firefox's urlbar box hover).
   const hoverFill = resolved("var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent))");
