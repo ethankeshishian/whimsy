@@ -188,7 +188,12 @@ async function setUpNavigated(kind) {
   } else {
     gZenPinnedTabManager.addToEssentials(tab);
   }
-  await TestUtils.waitForCondition(() => tab.pinned, "Set up");
+  // Pinning records the canonical page asynchronously after a state flush.
+  // Let it capture home before navigation can change that state.
+  await TestUtils.waitForCondition(
+    () => tab.pinned && tab._zenPinnedInitialState?.entry?.url == home,
+    "The pinned page is recorded before navigating away"
+  );
   gBrowser.selectedTab = tab;
   const away = uniqueURL(`away-${kind}`);
   const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, away);
