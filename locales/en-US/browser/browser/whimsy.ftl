@@ -8384,3 +8384,14 @@ whimsy-setting-passkeys = Passkeys
 # command-bar rows shown only when that browser is installed.
 whimsy-action-open-in-safari = Open in Safari
 whimsy-action-open-in-chrome = Open in Chrome
+## W28: Page Minimap, a picture of a long page at its right edge with the
+## visible part outlined. Toggled from the command bar; off by default.
+
+whimsy-action-page-minimap-toggle = Show or Hide Page Minimap
+whimsy-action-page-minimap-show = Show Page Minimap
+whimsy-action-page-minimap-hide = Hide Page Minimap
+whimsy-keywords-page-minimap = minimap, overview, scroll map
+whimsy-minimap =
+    .aria-label = Page minimap
+# Shown when it's turned on while the current page is too short for it.
+whimsy-minimap-short-toast = Page Minimap shows on long pages

@@ -251,6 +251,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 // wave6: Page actions (schema.org data -> a pill in the address bar).
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMinimap: "resource:///modules/whimsy/WhimsyMinimap.sys.mjs",
   WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
 });
 
@@ -1163,6 +1164,8 @@ export const Whimsy = {
     // wave6: Page actions. Its page actor is registered once even when off;
     // the child checks the switch on every page.
     run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
+    // W28: Page Minimap. Off by default; Show Page Minimap turns it on.
+    run("page-minimap", () => lazy.WhimsyMinimap.initWindow(win));
     // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
     // its switch on each use.
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));

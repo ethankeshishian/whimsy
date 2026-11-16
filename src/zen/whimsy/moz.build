@@ -302,6 +302,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyFindCard.sys.mjs",
 ]
 
+# W28: Page Minimap
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyMinimap.sys.mjs",
+    "WhimsyMinimapChild.sys.mjs",
+]
+
 # W27: Press Esc twice to leave full screen
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyFullscreenEscape.sys.mjs",
