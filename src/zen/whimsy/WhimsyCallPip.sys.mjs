@@ -42,6 +42,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PictureInPicture: "moz-src:///toolkit/components/pictureinpicture/PictureInPicture.sys.mjs",
   SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
   WhimsyCallOptionsPanel: "resource:///modules/whimsy/WhimsyCallOptionsPanel.sys.mjs",
+  WhimsyShareTab: "resource:///modules/whimsy/WhimsyShareTab.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.call-pip";
@@ -288,6 +289,21 @@ export const WhimsyCallPip = {
         isAvailable: w => !!this.commandTarget(w, kind, true),
       });
     }
+    // W29: Share This Tab in Call (no key by default): what Call Options ›
+    // Share this tab does, for the selected tab.
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyCallShareTab",
+      l10nId: "whimsy-action-call-share-tab",
+      run: w => {
+        const browser = this.shareTarget(w);
+        if (browser) {
+          this.shareTab(w, browser);
+        }
+      },
+      key: null,
+      icon: "chrome://browser/skin/zen-icons/screen.svg",
+      isAvailable: w => !!this.shareTarget(w),
+    });
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyCallButtonsDefault",
       l10nId: "whimsy-action-call-buttons-default",
@@ -1011,6 +1027,7 @@ export const WhimsyCallPip = {
     }
     this._calls.delete(browser);
     this._states.delete(browser);
+    lazy.WhimsyShareTab.forget(browser);
     if (stopWatching) {
       this._cardOffered.delete(browser);
     }
@@ -1039,11 +1056,39 @@ export const WhimsyCallPip = {
         state.seen[kind] = true;
       }
     }
+    if (data && "share" in data) {
+      state.share = data.share === true;
+    }
     if (data && "app" in data) {
       const app = typeof data.app == "string" ? data.app.replace(/\s+/g, " ").trim().slice(0, 40) : "";
       state.app = app || null;
     }
     this.render(browser);
+  },
+
+  // W29: whether the call page has a share button Whimsy can press.
+  shareAvailable(browser) {
+    return !!this._states.get(browser)?.share;
+  },
+
+  // W29: Share this tab: presses the call's share button for `win`'s
+  // selected tab (Firefox's prompt then opens there, that tab picked).
+  shareTab(win, browser) {
+    if (!win?.gBrowser || !this._calls.has(browser) || !this.shareAvailable(browser)) {
+      return Promise.resolve(false);
+    }
+    return lazy.WhimsyShareTab.share(win, browser);
+  },
+
+  // W29: Stop sharing, from any tab.
+  stopSharing(browser) {
+    lazy.WhimsyShareTab.stop(browser);
+  },
+
+  // W29: the call the share command is for, chosen as the other call
+  // commands choose theirs.
+  shareTarget(win) {
+    return this.callWhere(win, browser => !!browser && this._calls.has(browser) && this.shareAvailable(browser));
   },
 
   // W14-6: the call app's name from its page (Meet, Zoom, Teams...), or null.
@@ -1565,7 +1610,12 @@ export const WhimsyCallPip = {
   // `any`: the device-mute commands need no in-call controls to be found
   // (the device mute always works), unlike the in-call-only commands.
   commandTarget(win, kind, any = false) {
-    const usable = browser => !!browser && this._calls.has(browser) && (any || !!this.shownState(browser, kind));
+    return this.callWhere(win, browser => !!browser && this._calls.has(browser) && (any || !!this.shownState(browser, kind)));
+  },
+
+  // The selected tab's call, else the one in an open PiP window, else the
+  // only call, among those `usable` accepts.
+  callWhere(win, usable) {
     const selected = win?.gBrowser?.selectedBrowser;
     if (usable(selected)) {
       return selected;

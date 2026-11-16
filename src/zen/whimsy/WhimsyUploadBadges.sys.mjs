@@ -585,14 +585,26 @@ export const WhimsyUploadBadges = {
   },
 
   // Reads the clipboard here (the click or the command is the gesture) and
-  // hands the file to the page side for that box.
+  // hands the file to the page side for that box. Resolves to whether the
+  // page took it, or null when the photo-details sheet was cancelled.
   async pasteInto(browser, id) {
     const actor = actorFor(browser);
     if (!actor) {
       return false;
     }
+    // W29: the photo-details sheet may ask first, by the box.
+    let rect = null;
+    try {
+      rect = await actor.sendQuery("WhimsyUpload:RectOf", { id });
+    } catch (e) {
+      rect = null;
+    }
+    const file = await lazy.WhimsyUploadParent.readClipboardFile({ win: browser.ownerDocument.documentGlobal, rect });
+    if (file === false) {
+      // Cancelled in the sheet, as a cancelled file picker: no status.
+      return null;
+    }
     this.setStatus(browser, id, "uploading");
-    const file = await lazy.WhimsyUploadParent.readClipboardFile();
     let ok = false;
     if (file) {
       try {
@@ -621,7 +633,7 @@ export const WhimsyUploadBadges = {
     }
     const ok = await this.pasteInto(browser, resolved.id);
     // No badge to say it (private tab, the setting off): a toast instead.
-    if (!ok && this.modeFor(browser) == "off") {
+    if (ok === false && this.modeFor(browser) == "off") {
       win.gZenUIManager?.toasts?.open("whimsy-upload-status-failed", { browser, timeout: TOAST_TIMEOUT_MS });
     }
   },

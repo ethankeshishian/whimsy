@@ -392,12 +392,15 @@ authorized targeted run; isolated old passes are not validation of these edits.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
 
-## 2026-11-16 — card_scrolls_first wait correction
+## 2026-11-15 — Tab menu regrouping after upstream Tab Notes
 
-- Root cause: the test waited for LinkHover.overPanel, which W29 deliberately
-  reserves for the People card's hover bridge. Plain link cards never set it.
-- Wait for the popup's computed pointer-events to become auto instead, matching
-  HostPointer's wheel-input behavior and the adjacent tab-card test. Product
-  behavior and the existing card-first/page-next scroll assertions are unchanged.
-- Validation: node --check passes for browser_whimsy_hover_cards.js. Browser
-  tests, builds, and git commands were not run, as requested.
+- Regroup hidden rows as well as visible ones so asynchronously revealed
+  upstream actions cannot precede New Tab Below. Unregistered tab/Essential
+  actions keep their relative order after Share and Save, before AI/Archive.
+- Restore reused separator positions and remove separators created for an
+  opening, preserving the original child order when visible groups change.
+- Existing browser test expectations remain unchanged. Node syntax check and
+  a focused harness using the actual module passed for tab, Essential, page,
+  and selection menus, late visibility, unknown rows, and exact restoration
+  across three openings each. Browser integration tests were not run; no
+  engine edits, mach, or git commands.
