@@ -28,8 +28,14 @@ const { WhimsyWindowOnTop } = ChromeUtils.importESModule("resource:///modules/wh
 const ON_PREF = "whimsy.window-on-top.enabled";
 const FEATURE_PREF = "whimsy.feature.window-on-top";
 
+// Records a pass when skipping: a file with no assertions at all is a
+// harness failure.
 function skip() {
-  return AppConstants.platform != "macosx" || !!Services.env.get("MOZ_HEADLESS");
+  if (AppConstants.platform != "macosx" || Services.env.get("MOZ_HEADLESS")) {
+    ok(true, "Skipped: needs a real, headed macOS window (verify.sh's whimsy-native suite)");
+    return true;
+  }
+  return false;
 }
 
 function nativeAlwaysOnTop(win) {
