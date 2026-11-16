@@ -983,7 +983,10 @@ addFocusTask(async function stay_on_this_tab() {
   is(gBrowser.tabs.length, before, "No tab is added");
   await closeGlance(keep);
 
-  // A target=_blank link too.
+  // A target=_blank link too. Dismissal must not leave a stale Glance that
+  // would make openTabInGlance bail before adopting the content-created tab.
+  is(WhimsyFocusTab.glanceOf(window), null, "The previous Glance is fully dismissed");
+  const tabsBeforeBlank = new Set(gBrowser.tabs);
   await within(SpecialPowers.spawn(keep.linkedBrowser, [], () => {
     const a = content.document.createElement("a");
     a.href = "https://example.org/?blank";
@@ -993,6 +996,18 @@ addFocusTask(async function stay_on_this_tab() {
     content.document.body.append(a);
   }), "Adding the target=_blank fixture");
   await within(BrowserTestUtils.synthesizeMouseAtCenter("#whimsy-blank", {}, keep.linkedBrowser), "Clicking the target=_blank fixture");
+  const blankTabs = gBrowser.tabs.filter(tab => !tabsBeforeBlank.has(tab));
+  const describeBlankTab = tab => tab ? JSON.stringify({
+    uri: tab.linkedBrowser?.currentURI?.spec,
+    connected: tab.isConnected,
+    closing: !!tab.closing,
+    selected: tab == gBrowser.selectedTab,
+    attributes: Object.fromEntries([...tab.attributes].map(a => [a.name, a.value])),
+  }) : "null";
+  info(`Diag target=_blank tabs=${tabsBeforeBlank.size}->${gBrowser.tabs.length} newTab=${!!blankTabs.length} ` +
+    `newTabs=${blankTabs.map(describeBlankTab).join(",")} keepGlanceId=${keep.getAttribute("glance-id")} ` +
+    `glanceOver=${describeBlankTab(glanceOver(keep))} glanceOf=${describeBlankTab(WhimsyFocusTab.glanceOf(window))} ` +
+    `closingGlance=${gZenGlanceManager.closingGlance} animatingOpen=${gZenGlanceManager.animatingOpen}`);
   const contentGlance = await TestUtils.waitForCondition(() => glanceOver(keep), "A target=_blank link opens in Glance");
   await TestUtils.waitForCondition(() => contentGlance.linkedBrowser.currentURI.spec == "https://example.org/?blank",
     "The content-created browser loads the target URL in Glance");

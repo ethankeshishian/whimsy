@@ -106,7 +106,22 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
            );
            b.registeredOpenURI = lazyBrowserURI;
          }
-@@ -7160,7 +7200,7 @@
+@@ -4281,6 +4321,14 @@
+       beforeRouteResult,
+     );
+ 
++    // Content opens return this exact browser to Gecko for navigation. Adopt
++    // it only after construction, including skipLoad/about:blank opens that
++    // Zen's pinned-owner-only Glance policy would otherwise leave as tabs.
++    if (openWindowInfo) {
++      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFocusTab.sys.mjs")
++        .WhimsyFocusTab.openTabInGlance(this.documentGlobal, t);
++    }
++
+     return t;
+   }
+ 
+@@ -7160,7 +7208,7 @@
          browser.registeredOpenURI.spec,
          userContextId,
          aTab.group?.id,
@@ -115,7 +130,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete browser.registeredOpenURI;
      }
-@@ -7776,7 +7816,7 @@
+@@ -7776,7 +7824,7 @@
          otherBrowser.registeredOpenURI.spec,
          userContextId,
          aOtherTab.group?.id,
@@ -124,7 +139,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
        delete otherBrowser.registeredOpenURI;
      }
-@@ -8106,7 +8146,7 @@
+@@ -8106,7 +8154,7 @@
     *   The context for the operation for telemetry purposes.
     */
    selectTabAtIndex(aIndex, { event, metricsContext } = {}) {
@@ -133,7 +148,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
  
      // count backwards for aIndex < 0
      if (aIndex < 0) {
-@@ -9878,13 +9918,13 @@
+@@ -9878,13 +9926,13 @@
          uri.spec,
          tab.userContextId,
          null,
@@ -149,7 +164,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
      }
    }
-@@ -9902,13 +9942,13 @@
+@@ -9902,13 +9950,13 @@
          uri.spec,
          tab.userContextId,
          originalGroup.id,
@@ -165,7 +180,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
        );
      }
    }
-@@ -10202,7 +10242,7 @@
+@@ -10202,7 +10250,7 @@
            browser.registeredOpenURI.spec,
            userContextId,
            tab.group?.id,
@@ -174,7 +189,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
          );
          delete browser.registeredOpenURI;
        }
-@@ -11273,7 +11313,7 @@
+@@ -11273,7 +11321,7 @@
            uri.spec,
            userContextId,
            this._tab.group?.id,
@@ -183,7 +198,7 @@ diff --git a/browser/components/tabbrowser/Tabbrowser.sys.mjs b/browser/componen
          );
          delete this._browser.registeredOpenURI;
        }
-@@ -11282,7 +11322,7 @@
+@@ -11282,7 +11330,7 @@
            aLocation.spec,
            userContextId,
            this._tab.group?.id,

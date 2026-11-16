@@ -40,43 +40,6 @@ const OUT_MS = 200;
 const IN_MS = 300;
 
 const state = new WeakMap();
-let contentHooksInstalled = false;
-
-// Content opens first construct an unloaded browser (openWindowInfo/skipLoad)
-// and return it to the caller that will navigate it. Adopt that exact browser
-// at the BrowserDOMWindow boundary, rather than redirecting its initial
-// about:blank load or relying on Zen's pinned-tab-only onTabOpen policy.
-function installContentHooks() {
-  if (contentHooksInstalled) {
-    return;
-  }
-  const { BrowserDOMWindow } = ChromeUtils.importESModule("resource:///modules/BrowserDOMWindow.sys.mjs");
-  for (const name of ["createContentWindow", "openURI", "createContentWindowInFrame", "openURIInFrame"]) {
-    const original = BrowserDOMWindow.prototype[name];
-    BrowserDOMWindow.prototype[name] = function (...args) {
-      const entry = state.get(this.win);
-      if (!entry) {
-        return original.apply(this, args);
-      }
-      entry.contentOpenDepth++;
-      let result;
-      try {
-        result = original.apply(this, args);
-      } finally {
-        entry.contentOpenDepth--;
-      }
-      // The InFrame methods return a browser, the others a BrowsingContext.
-      const browser = name.endsWith("InFrame") ? result : result?.top?.embedderElement;
-      const tab = browser && this.win.gBrowser.getTabForBrowser(browser);
-      if (!entry.contentOpenDepth && state.get(this.win) == entry && tab && tab != entry.keep &&
-          !tab.hasAttribute("zen-glance-tab")) {
-        WhimsyFocusTab.openTabInGlance(this.win, tab);
-      }
-      return result;
-    };
-  }
-  contentHooksInstalled = true;
-}
 
 function reducedMotion(win) {
   return win.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -161,19 +124,20 @@ export const WhimsyFocusTab = {
     }
     keep.setAttribute(KEEP, "true");
 
-    installContentHooks();
-    const entry = { keep, session, restore: [], line: null, timer: null, contentOpenDepth: 0 };
+    const entry = { keep, session, restore: [], line: null, timer: null };
     state.set(win, entry);
 
-    // New tabs open in Glance over the kept tab.
+    // New tabs open in Glance over the kept tab. Content opens must return
+    // their own unloaded browser to Gecko; the Whimsy tabbrowser patch adopts
+    // those tabs after construction, before returning to BrowserDOMWindow.
     const addTab = gBrowser.addTab;
     let passthrough = false;
     gBrowser.addTab = function (uri, options = {}) {
-      if (passthrough || entry.contentOpenDepth || options.adoptedTab || !state.has(win)) {
+      if (passthrough || options.openWindowInfo || options.adoptedTab || !state.has(win)) {
         return addTab.call(this, uri, options);
       }
       const glance = WhimsyFocusTab.glanceOf(win);
-      if (glance && typeof uri == "string" && uri && !options.openWindowInfo) {
+      if (glance && typeof uri == "string" && uri) {
         try {
           glance.linkedBrowser.fixupAndLoadURIString(uri, {
             triggeringPrincipal: options.triggeringPrincipal ?? Services.scriptSecurityManager.getSystemPrincipal(),
