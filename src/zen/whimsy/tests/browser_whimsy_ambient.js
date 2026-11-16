@@ -130,6 +130,14 @@ add_task(async function test_playing_tile_label_contrast() {
   await TestUtils.waitForCondition(() => sheet());
   await WhimsyAmbient.toggle(window, "rain");
   await TestUtils.waitForCondition(() => tile("rain").classList.contains("is-on"));
+  // The tile's own background-color/color transition (150ms, declared on
+  // .whimsy-ambient-tile in whimsy-ambient.css) can still be running right
+  // after the class flips. The diagnostic probe (now removed) confirmed the
+  // real tile sits on the same document the sheet loaded onto (ruling out a
+  // context/shadow-boundary problem), so the measured colours matching the
+  // base (not is-on) rule look like a transition caught mid-fade rather
+  // than the rule never applying. Settle before reading them.
+  await whimsySettled();
 
   const lum = rgb => {
     const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map(Number).map(c => {
@@ -143,26 +151,10 @@ add_task(async function test_playing_tile_label_contrast() {
   const textColor = window.getComputedStyle(label).color;
   const [hi, lo] = [lum(textColor), lum(style.backgroundColor)].sort((a, b) => b - a);
 
-  // Diagnostic only (temporary): document.styleSheets showed zero rules
-  // mentioning whimsy-ambient-tile at all, which means loadSheetUsingURIString
-  // sheets don't enumerate there - a dead end. Check instead whether the real
-  // tile even lives in the document the sheet was loaded onto, and whether a
-  // probe element with the same two classes, appended straight to that
-  // document, gets the .is-on background - isolating a context problem from
-  // a selector/sheet one.
-  const tileEl = tile("rain");
-  const sameDoc = tileEl.ownerDocument == document;
-  const probeDoc = tileEl.ownerDocument;
-  const probe = probeDoc.createElement("div");
-  probe.className = "whimsy-ambient-tile is-on";
-  probeDoc.documentElement.appendChild(probe);
-  const probeBg = probeDoc.defaultView.getComputedStyle(probe).backgroundColor;
-  probe.remove();
-
   Assert.greaterOrEqual(
     (hi + 0.05) / (lo + 0.05),
     4.5,
-    `The playing tile's label passes 4.5:1 against its filled background (text=${textColor} bg=${style.backgroundColor}) sameDoc=${sameDoc} docURI=${probeDoc.documentURI} probeBg=${probeBg}`
+    `The playing tile's label passes 4.5:1 against its filled background (text=${textColor} bg=${style.backgroundColor})`
   );
 
   WhimsyAmbient.stop(window, { immediate: true });
