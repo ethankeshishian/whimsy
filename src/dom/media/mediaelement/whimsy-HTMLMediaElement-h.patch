@@ -1,0 +1,27 @@
+diff --git a/dom/media/mediaelement/HTMLMediaElement.h b/dom/media/mediaelement/HTMLMediaElement.h
+--- a/dom/media/mediaelement/HTMLMediaElement.h
++++ b/dom/media/mediaelement/HTMLMediaElement.h
+@@ -725,6 +725,13 @@
+                                              DecoderDoctorReportType aType);
+   void SetDecodeError(const nsAString& aError, ErrorResult& aRv);
+   void SetAudioSinkFailedStartup();
++
++  // Whimsy W29: the equalizer's eight band gains in dB (60 Hz to 15 kHz). They
++  // stay with the element and pass to each decoder it creates.
++  void WhimsySetEqualizer(const Sequence<float>& aGains);
++  // False when this element's audio can't be equalized: a MediaStream source
++  // (srcObject), or a decoder whose audio an external media engine plays.
++  bool WhimsyEqualizerApplies() const;
+ 
+   // Synchronously, return the next video frame and mark the element unable to
+   // participate in decode suspending.
+@@ -1615,6 +1622,9 @@
+ 
+   // Current audio volume
+   double mVolume = 1.0;
++
++  // Whimsy W29: the equalizer gains, in dB.
++  float mWhimsyEqualizerGains[8] = {};
+ 
+   // True if the audio track is not silent.
+   bool mIsAudioTrackAudible = false;

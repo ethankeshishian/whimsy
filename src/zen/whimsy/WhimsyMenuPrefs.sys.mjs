@@ -89,7 +89,7 @@ export function defaultHiddenIdsFor(menuId) {
 }
 
 // The class of the separators the registry order (W10-20) puts between its
-// groups, reused from one opening to the next.
+// groups while the popup is open.
 export const ORDER_SEP_CLASS = "whimsy-menu-order-sep";
 
 // One row of a menu: `id` is the stable key stored in the pref; `ids` the
@@ -138,45 +138,31 @@ function contextTabIsEssential(win) {
 
 // The tab menu (tabContextMenu). Essentials open the same menu; they get
 // their own copy of this list, so an Essential's menu can differ.
+//
+// W29/ctxmenu: regrouped, most-used first (design's option B): this tab,
+// where it lives, split view, sound and time, share and save, the AI rows
+// (grouped on their own per the owner, 2026-11-14), label, then archive
+// and close last, as in Safari, Chrome and Arc. `order: "registry"` below
+// (on the tab and essential menus) is what makes the popup draw this way.
 const TAB_ITEMS = [
+  // This tab.
   item("new-tab", "whimsy-menus-tab-new-tab", ["context_openANewTab"]),
-  item("move-to-folder", "whimsy-menus-tab-move-to-folder", ["context_zenMoveToFolder"]),
-  item("group-by-site", "whimsy-menus-tab-group-by-site", ["context_whimsyGroupByDomain"]),
-  item("split", "whimsy-menus-tab-split", ["context_zenSplitTabs"]),
-  item("share-split", "whimsy-menus-tab-share-split", ["context_zenShareSplitView"]),
-  SEPARATOR,
+  item("duplicate", "whimsy-menus-tab-duplicate", ["context_duplicateTab", "context_duplicateTabs"]),
   item("reload", "whimsy-menus-tab-reload", ["context_reloadTab", "context_reloadSelectedTabs"]),
-  item("play", "whimsy-menus-tab-play", ["context_playTab", "context_playSelectedTabs"]),
-  item("mute", "whimsy-menus-tab-mute", ["context_toggleMuteTab", "context_toggleMuteSelectedTabs"]),
-  item("mute-site", "whimsy-menus-tab-mute-site", ["context_whimsyMuteSite"]),
-  // wave9/menus (W9-09): off by default.
-  item("tab-volume", "whimsy-menus-tab-tab-volume", ["context_whimsyTabVolume"]),
-  item("playlist", "whimsy-menus-tab-playlist", ["context_whimsyPlaylistSave"]),
-  item("snooze", "whimsy-menus-tab-snooze", ["context_whimsySnooze"]),
+  item("unload", "whimsy-menus-tab-unload", ["context_unloadTab"]),
   SEPARATOR,
-  item("essentials", "whimsy-menus-tab-essentials", ["context_zen-add-essential", "context_zen-remove-essential"], {
-    altL10n: "whimsy-menus-tab-essentials-alt",
-  }),
-  // W10-62: an Essential's Show Unread Badge (only Essentials have it).
-  item("unread-badge", "whimsy-menus-tab-unread-badge", ["context_whimsyUnreadBadge"]),
-  item("rename", "whimsy-menus-tab-rename", ["context_zen-edit-tab-title"]),
-  item("change-icon", "whimsy-menus-tab-change-icon", ["context_zen-edit-tab-icon"]),
-  SEPARATOR,
+  // Where it lives.
   item("pin", "whimsy-menus-tab-pin", [
     "context_pinTab",
     "context_unpinTab",
     "context_pinSelectedTabs",
     "context_unpinSelectedTabs",
   ], { altL10n: "whimsy-menus-tab-pin-alt" }),
-  item("unload", "whimsy-menus-tab-unload", ["context_unloadTab"]),
-  item("duplicate", "whimsy-menus-tab-duplicate", ["context_duplicateTab", "context_duplicateTabs"]),
-  item("copy-links", "whimsy-menus-tab-copy-links", ["context_whimsyCopyLinks"]),
-  // wave9/menus (W9-09): off by default.
-  item("copy-markdown", "whimsy-menus-tab-copy-markdown", ["context_whimsyCopyLinkMarkdown"]),
-  SEPARATOR,
-  item("ask-chat", "whimsy-menus-tab-ask-chat", ["context_askChat", "context_askChatSummarize", "context_createAITab"]),
-  item("bookmark", "whimsy-menus-tab-bookmark", ["context_bookmarkTab", "context_bookmarkSelectedTabs"]),
-  item("watch", "whimsy-menus-tab-watch", ["context_whimsyWatchPage"]),
+  item("essentials", "whimsy-menus-tab-essentials", ["context_zen-add-essential", "context_zen-remove-essential"], {
+    altL10n: "whimsy-menus-tab-essentials-alt",
+  }),
+  // W29: an Essential's Open in Side Panel (only Essentials have it).
+  item("side-panel", "whimsy-menus-tab-side-panel", ["context_whimsySidePanel"]),
   // wave9/menus: New Space… is in the Move Tab submenu, first
   // (design-full-4 L10, W9-09). W13 F06: Settings shows it under Move Tab.
   item("move-tab", "whimsy-menus-tab-move-tab", ["context_moveTabOptions"], {
@@ -185,25 +171,58 @@ const TAB_ITEMS = [
   // W11-13 (d13): on by default (the user asked for it in the tab menu);
   // only shown for a private tab.
   item("move-out-of-private", "whimsy-menus-tab-move-out-of-private", ["context_whimsyMoveOutOfPrivate"]),
-  item("select-all", "whimsy-menus-tab-select-all", ["context_selectAllTabs"]),
+  item("move-to-folder", "whimsy-menus-tab-move-to-folder", ["context_zenMoveToFolder"]),
+  item("group-by-site", "whimsy-menus-tab-group-by-site", ["context_whimsyGroupByDomain"]),
+  item("space-routing", "whimsy-menus-tab-space-routing", ["context_zen-add-domain-to-routing"]),
   SEPARATOR,
+  // Split view.
+  item("split", "whimsy-menus-tab-split", ["context_zenSplitTabs"]),
+  item("share-split", "whimsy-menus-tab-share-split", ["context_zenShareSplitView"]),
+  item("follower", "whimsy-menus-tab-follower", ["context_whimsyFollowerSplit"]),
+  SEPARATOR,
+  // Sound and time.
+  item("play", "whimsy-menus-tab-play", ["context_playTab", "context_playSelectedTabs"]),
+  item("mute", "whimsy-menus-tab-mute", ["context_toggleMuteTab", "context_toggleMuteSelectedTabs"]),
+  item("mute-site", "whimsy-menus-tab-mute-site", ["context_whimsyMuteSite"]),
+  // wave9/menus (W9-09): off by default.
+  item("tab-volume", "whimsy-menus-tab-tab-volume", ["context_whimsyTabVolume"]),
+  item("playlist", "whimsy-menus-tab-playlist", ["context_whimsyPlaylistSave"]),
+  item("snooze", "whimsy-menus-tab-snooze", ["context_whimsySnooze"]),
+  SEPARATOR,
+  // Share and save. Share ▸ has no icon of its own (it's the macOS
+  // services submenu, with no fixed id to hang one on), so it goes last:
+  // menu-icons (browser_whimsy_menu_icons.js) expects icon-less rows
+  // after every row that has one, within a section.
+  item("copy-links", "whimsy-menus-tab-copy-links", ["context_whimsyCopyLinks"]),
+  // wave9/menus (W9-09): off by default.
+  item("copy-markdown", "whimsy-menus-tab-copy-markdown", ["context_whimsyCopyLinkMarkdown"]),
+  item("send-to-device", "whimsy-menus-tab-send-to-device", ["context_sendTabToDevice"]),
+  item("bookmark", "whimsy-menus-tab-bookmark", ["context_bookmarkTab", "context_bookmarkSelectedTabs"]),
   // wave9/menus: Firefox's Share ▸ submenu (with the macOS services,
   // WhimsyShareMenu) and its content-sharing row for several tabs.
   bySelector("share", "whimsy-menus-tab-share", ["#context_shareSelectedTabs", ".share-tab-url-item"], {
     altL10n: "whimsy-menus-tab-share-alt",
   }),
-  item("send-to-device", "whimsy-menus-tab-send-to-device", ["context_sendTabToDevice"]),
   SEPARATOR,
+  // AI (the owner, 2026-11-14: "I wonder if we should group the ai ones").
+  item("watch", "whimsy-menus-tab-watch", ["context_whimsyWatchPage"]),
+  item("ask-chat", "whimsy-menus-tab-ask-chat", ["context_askChat", "context_askChatSummarize", "context_createAITab"]),
+  SEPARATOR,
+  // Label.
+  item("rename", "whimsy-menus-tab-rename", ["context_zen-edit-tab-title"]),
+  // W10-62: an Essential's Show Unread Badge (only Essentials have it).
+  item("unread-badge", "whimsy-menus-tab-unread-badge", ["context_whimsyUnreadBadge"]),
+  item("edit-pinned", "whimsy-menus-tab-edit-pinned", ["context_zen-edit-pinned-page"]),
+  item("reset-pinned", "whimsy-menus-tab-reset-pinned", ["context_zen-reset-pinned-tab"]),
+  item("change-icon", "whimsy-menus-tab-change-icon", ["context_zen-edit-tab-icon"]),
+  item("select-all", "whimsy-menus-tab-select-all", ["context_selectAllTabs"]),
+  SEPARATOR,
+  // Archive.
   item("close", "whimsy-menus-tab-close", ["context_closeTab"]),
   item("archive-below", "whimsy-menus-tab-archive-below", ["context_closeTabsToTheEnd", "context_whimsyArchiveTabsBelow"]),
   item("close-duplicates", "whimsy-menus-tab-close-duplicates", ["context_closeDuplicateTabs"]),
   item("close-multiple", "whimsy-menus-tab-close-multiple", ["context_closeTabOptions"]),
   item("reopen", "whimsy-menus-tab-reopen", ["context_undoCloseTab"]),
-  SEPARATOR,
-  item("space-routing", "whimsy-menus-tab-space-routing", ["context_zen-add-domain-to-routing"]),
-  item("edit-pinned", "whimsy-menus-tab-edit-pinned", ["context_zen-edit-pinned-page"]),
-  item("reset-pinned", "whimsy-menus-tab-reset-pinned", ["context_zen-reset-pinned-tab"]),
-  item("follower", "whimsy-menus-tab-follower", ["context_whimsyFollowerSplit"]),
 ];
 
 // Every menu, in the order Settings shows them. `popup` matches the
@@ -216,6 +235,11 @@ const MENUS = [
     l10n: "whimsy-menus-tab",
     popup: "#tabContextMenu, #moveTabOptionsMenu",
     when: win => !contextTabIsEssential(win),
+    // W29/ctxmenu: the regrouped order above.
+    order: "registry",
+    // Unregistered tab actions (including upstream Tab Notes) follow Share
+    // and Save, in their original relative order, before AI and Archive.
+    extrasAfter: "share",
     items: TAB_ITEMS,
   },
   {
@@ -223,6 +247,8 @@ const MENUS = [
     l10n: "whimsy-menus-essential",
     popup: "#tabContextMenu, #moveTabOptionsMenu",
     when: contextTabIsEssential,
+    order: "registry",
+    extrasAfter: "share",
     items: TAB_ITEMS,
   },
   {
@@ -265,29 +291,41 @@ const MENUS = [
     l10n: "whimsy-menus-page",
     popup: "#contentAreaContextMenu",
     when: win => contentContext(win) == "page",
+    // W29/ctxmenu: regrouped, most-used first (design's option B): go,
+    // keep or share, make, save, developer. Send to Device moves out of
+    // the developer rows; New Note joins the other "make something" rows.
+    // Allow Copy and Paste stays next to Select All, where it shows.
+    order: "registry",
     items: [
+      // Go.
       item("back", "whimsy-menus-page-back", ["context-back"]),
       item("forward", "whimsy-menus-page-forward", ["context-forward"]),
       item("reload", "whimsy-menus-page-reload", ["context-reload", "context-stop"]),
+      SEPARATOR,
+      // Keep or share.
       item("bookmark", "whimsy-menus-page-bookmark", ["context-bookmarkpage"]),
-      SEPARATOR,
-      item("save", "whimsy-menus-page-save", ["context-savepage"]),
-      item("qr-code", "whimsy-menus-page-qr-code", ["context-whimsy-qrcode"]),
       item("copy-markdown", "whimsy-menus-page-copy-markdown", ["context-whimsy-copy-markdown"]),
-      item("new-note", "whimsy-menus-page-new-note", ["context-whimsy-new-note"]),
-      item("select-all", "whimsy-menus-select-all", ["context-selectall"]),
-      // wave9/menus (W9-09): shows only on pages that block copying.
-      item("allow-copy", "whimsy-menus-page-allow-copy", ["context-whimsy-allow-copy"]),
+      item("qr-code", "whimsy-menus-page-qr-code", ["context-whimsy-qrcode"]),
+      item("send-to-device", "whimsy-menus-page-send-to-device", ["context-sendpagetodevice"]),
       SEPARATOR,
+      // Make.
+      item("new-note", "whimsy-menus-page-new-note", ["context-whimsy-new-note"]),
       item("screenshot", "whimsy-menus-page-screenshot", ["context-take-screenshot"]),
       // wave9/menus (W9-09): off by default.
       item("capture-full-page", "whimsy-menus-page-capture-full-page", ["context-whimsy-capture-full-page"]),
       item("capture-portrait", "whimsy-menus-page-capture-portrait", ["context-whimsy-capture-portrait"]),
       item("edit-text", "whimsy-menus-page-edit-text", ["context-whimsy-edit-page"]),
       SEPARATOR,
-      item("send-to-device", "whimsy-menus-page-send-to-device", ["context-sendpagetodevice"]),
-      item("wayback", "whimsy-menus-page-wayback", ["context-whimsy-wayback"]),
+      // Save.
+      item("save", "whimsy-menus-page-save", ["context-savepage"]),
+      item("select-all", "whimsy-menus-select-all", ["context-selectall"]),
+      // wave9/menus (W9-09): shows only on pages that block copying.
+      item("allow-copy", "whimsy-menus-page-allow-copy", ["context-whimsy-allow-copy"]),
+      SEPARATOR,
+      // Developer.
       item("view-source", "whimsy-menus-page-view-source", ["context-viewsource"]),
+      // wave9/menus (W9-09): off by default.
+      item("wayback", "whimsy-menus-page-wayback", ["context-whimsy-wayback"]),
       item("dev-mode", "whimsy-menus-page-dev-mode", ["context-whimsy-dev-mode"]),
       item("inspect-a11y", "whimsy-menus-inspect-a11y", ["context-inspect-a11y"]),
       item("inspect", "whimsy-menus-inspect", ["context-inspect"]),
@@ -309,6 +347,7 @@ const MENUS = [
     extrasAfter: "print",
     items: [
       item("search", "whimsy-menus-selection-search", ["context-searchselect"]),
+      item("search-with", "whimsy-menus-selection-search-with", ["context-whimsy-searchwith"]),
       item("translate", "whimsy-menus-selection-translate", ["context-translate-selection"], {
         hintL10n: "whimsy-menus-hint-translate",
       }),
@@ -800,6 +839,9 @@ export const WhimsyMenuPrefs = {
     if (!menu) {
       return;
     }
+    if (menu.id == "tab" || menu.id == "essential") {
+      this.relabelAskAI(popup);
+    }
     if (this.apply(win, popup, menu.id) && !this.hasVisibleItem(win, popup)) {
       // Every row is off: no empty menu.
       event.preventDefault();
@@ -807,6 +849,21 @@ export const WhimsyMenuPrefs = {
     }
     if (menu.order == "registry") {
       this.reorder(win, popup, menu);
+    }
+  },
+
+  // W29/ctxmenu: the owner's shorter name for the chat row ("Ask an AI
+  // Chatbot" → "Ask AI"), on whichever of Ask Chat's rows is showing: the
+  // classic submenu (context_askChat) or the tab-opening fallback
+  // (context_createAITab, with no chat sidebar). The alt layout's flat
+  // row (context_askChatSummarize, "Summarize Page") keeps its own
+  // wording — it's a different action, not this one renamed.
+  relabelAskAI(popup) {
+    for (const id of ["context_askChat", "context_createAITab"]) {
+      const node = popup.querySelector(`#${cssEscape(id)}`);
+      if (node && node.getAttribute("data-l10n-id") != "whimsy-tab-context-ask-ai") {
+        node.setAttribute("data-l10n-id", "whimsy-tab-context-ask-ai");
+      }
     }
   },
 
@@ -823,9 +880,10 @@ export const WhimsyMenuPrefs = {
       log.push({ node, prev: node.previousElementSibling, next: node.nextElementSibling });
       popup.append(node);
     };
-    const rows = [...popup.children].filter(
-      node => !isSeparator(node) && this.visible(win, node)
-    );
+    // Move hidden rows too: upstream can reveal them asynchronously after
+    // popupshowing (e.g. Tab Notes). Leaving them behind would put them
+    // before the regrouped rows and outside the restoration log.
+    const rows = [...popup.children].filter(node => !isSeparator(node));
     const used = new Set();
     const groups = [[]];
     let extrasGroup = -1;
@@ -849,24 +907,43 @@ export const WhimsyMenuPrefs = {
       groups.splice(extrasGroup == -1 ? groups.length : extrasGroup + 1, 0, extras);
     }
     // Firefox's separators sit between its own groups; ours replace them.
-    for (const node of popup.children) {
+    // Moved out of the way too (not just hidden), so a stray one can't end
+    // up wedged between two rows this pulls apart (one of Firefox's own
+    // landed next to Save Page As); its spot comes back with restoreOrder
+    // like any other moved row.
+    for (const node of [...popup.children]) {
       if (isSeparator(node) && !node.classList.contains(ORDER_SEP_CLASS) && this.visible(win, node)) {
         this.hideRow(node);
+        move(node);
       }
     }
     const spare = [...popup.querySelectorAll(`:scope > menuseparator.${ORDER_SEP_CLASS}`)];
     let first = true;
-    for (const group of groups.filter(g => g.length)) {
-      if (!first) {
-        let separator = spare.shift();
-        if (!separator) {
-          separator = win.document.createXULElement("menuseparator");
-          separator.classList.add(ORDER_SEP_CLASS);
-        }
-        separator.hidden = false;
-        popup.append(separator);
+    for (const group of groups) {
+      if (!group.length) {
+        continue;
       }
-      first = false;
+      // A group entirely made of rows Settings has turned off has nothing
+      // visible in it, so it must not get a separator of its own (that
+      // would strand one first, last, or doubled up against the next
+      // shown group's). Its rows still move, to stay with the group when
+      // turned back on.
+      const shown = group.some(node => this.visible(win, node));
+      if (shown) {
+        if (!first) {
+          let separator = spare.shift();
+          if (!separator) {
+            separator = win.document.createXULElement("menuseparator");
+            separator.classList.add(ORDER_SEP_CLASS);
+            log.push({ node: separator, created: true });
+            popup.append(separator);
+          } else {
+            move(separator);
+          }
+          separator.hidden = false;
+        }
+        first = false;
+      }
       for (const node of group) {
         move(node);
       }
@@ -886,7 +963,8 @@ export const WhimsyMenuPrefs = {
   },
 
   // Puts every row reorder() moved back where Firefox had it, newest move
-  // first. A row's old neighbour may be gone (an extension's rows are
+  // first, removing separators created for this opening. A row's old
+  // neighbour may be gone (an extension's rows are
   // removed when the menu closes); then its other neighbour, or the end.
   restoreOrder(popup) {
     const log = popup._whimsyOrderLog;
@@ -894,8 +972,12 @@ export const WhimsyMenuPrefs = {
       return;
     }
     popup._whimsyOrderLog = null;
-    for (const { node, prev, next } of log.reverse()) {
+    for (const { node, prev, next, created } of log.reverse()) {
       if (node.parentNode != popup) {
+        continue;
+      }
+      if (created) {
+        node.remove();
         continue;
       }
       if (next && next != node && next.parentNode == popup) {

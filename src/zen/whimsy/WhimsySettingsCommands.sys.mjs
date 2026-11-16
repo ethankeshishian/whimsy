@@ -163,6 +163,9 @@ export const SETTINGS = [
   // W26 passkeys: the saved passkeys, one Delete each (undo in the toast).
   { name: "passkeys", setting: "whimsyPasskeysList", feature: ["passkeys"], covers: "#whimsyPasskeysGroup",
     exempt: "each saved passkey's own Delete button; passkeys are made on sites" },
+  // W28 verification codes: the saved codes (Copy code, Delete) and Add Code….
+  { name: "totp", setting: "whimsyTotpList", feature: ["totp"], covers: "#whimsyTotpGroup",
+    exempt: "each saved code's own Copy code and Delete buttons, and Add Code…, which opens a form" },
   // W23: the connected providers (order, switches, details) and the
   // connect sheets are many small controls, set in the page.
   { name: "ai-commands", setting: "whimsyCommandsBuiltIn", covers: "#whimsyCommandsBuiltIn", when: aiAllowed,
@@ -428,6 +431,10 @@ export const SETTINGS = [
   { name: "history-preview", setting: "whimsyHoverHistory", pref: "whimsy.feature.history-preview",
     feature: ["history-preview"] },
   { name: "people-cards", setting: "whimsyHoverPeople", pref: "whimsy.feature.people-cards", feature: ["people-cards"] },
+  // W29: the sites a focus session pauses (General › Focus Sessions).
+  { name: "focus-social", setting: "whimsyFocusSocial", pref: "whimsy.focus.social", feature: ["focus-sessions"] },
+  { name: "focus-video", setting: "whimsyFocusVideo", pref: "whimsy.focus.video", feature: ["focus-sessions"] },
+  { name: "focus-sites", setting: "whimsyFocusSites", exempt: "the list of sites to pause, edited as text in Settings" },
 
   // Settings → Menus: a switch for every row of every right-click menu
   // (hundreds, and turning one off is done where you'd miss it, in its

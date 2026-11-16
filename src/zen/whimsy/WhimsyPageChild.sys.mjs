@@ -30,6 +30,13 @@ const TOGGLE_TIMEOUT_MS = 4000;
 // and media elements never attached to the page aren't reached.
 const MEDIA = new WeakMap();
 
+// W29 tab equalizer: the gains (8 numbers, in dB) each media element was
+// last given, as a string, so an element is told only when they change.
+// Gecko filters the element's own audio output (whimsySetEqualizer); a
+// flat equalizer is never sent to an element that hasn't had one.
+const EQ = new WeakMap();
+const EQ_FLAT = "0,0,0,0,0,0,0,0";
+
 // Allow copy and paste: the page events Whimsy keeps from the page, and the
 // sheet that undoes user-select: none.
 const COPY_EVENTS = ["copy", "cut", "paste", "contextmenu", "selectstart", "dragstart"];
@@ -61,6 +68,8 @@ export class WhimsyPageChild extends JSWindowActorChild {
   // The tab's volume level (1 = as the page sets it), or null when it
   // hasn't been asked for yet.
   volumeLevel = null;
+  // W29: the site's equalizer gains, or null when not asked for yet.
+  eqGains = null;
 
   // wave9/lens (review design-full-4 L9): Zap's restore rows show what was
   // zapped, not a CSS selector. For each selector: null when the element
@@ -281,6 +290,22 @@ export class WhimsyPageChild extends JSWindowActorChild {
           }
         }
         return null;
+      // W29 tab equalizer: the site's gains changed (or the feature went off).
+      case "Whimsy:SetEq":
+        this.eqGains = message.data?.gains ?? [];
+        for (const el of this.document?.querySelectorAll("audio, video") ?? []) {
+          this.applyEq(el);
+        }
+        for (const el of this.trackedMedia ?? []) {
+          const media = el.deref();
+          if (media && !media.isConnected) {
+            this.applyEq(media);
+          }
+        }
+        return null;
+      // W29: whether the frame's playing media can be filtered at all.
+      case "Whimsy:EqInfo":
+        return this.eqInfo();
       case "Whimsy:GetVolume":
         return this.mediaVolumes();
       // wave9/lens: readable names for Zap's restore rows.
@@ -356,6 +381,10 @@ export class WhimsyPageChild extends JSWindowActorChild {
       // hang-up control (WhimsyCallControls.findLeave).
       case "Whimsy:CallLeave":
         return this.leaveCall();
+      // W29: Call Options › Share this tab presses the page's own share
+      // control (WhimsyCallControls.findShare).
+      case "Whimsy:CallShare":
+        return this.shareCall();
       // fix7: automatic picture-in-picture fallback (WhimsyMedia).
       case "Whimsy:AutoPip":
         return this.autoPip();
@@ -416,9 +445,16 @@ export class WhimsyPageChild extends JSWindowActorChild {
 
   // Sends the state when it differs from the last one sent.
   reportCallControls() {
-    const state = { ...lazy.WhimsyCallControls.readState(this.document), app: lazy.WhimsyCallControls.appName(this.document) };
+    const state = {
+      ...lazy.WhimsyCallControls.readState(this.document),
+      app: lazy.WhimsyCallControls.appName(this.document),
+      share: !!lazy.WhimsyCallControls.findShare(this.document),
+    };
     const last = this._callState;
-    if (!last || last.mic != state.mic || last.camera != state.camera || last.app != state.app) {
+    if (
+      !last || last.mic != state.mic || last.camera != state.camera || last.app != state.app ||
+      last.share != state.share
+    ) {
       this._callState = state;
       this.callLog("state", state);
       try {
@@ -483,6 +519,24 @@ export class WhimsyPageChild extends JSWindowActorChild {
     }
     lazy.WhimsyCallControls.press(win, el);
     this.callLog("leave: pressed");
+    return true;
+  }
+
+  // W29: presses the page's share control. The page asks for the screen
+  // in that click (getDisplayMedia needs the click to count as the user's,
+  // which a click from this actor alone doesn't), so it gets a user
+  // gesture first, as a real click would give it. Firefox's prompt still
+  // follows. Resolves to whether there was a control to press.
+  shareCall() {
+    const win = this.contentWindow;
+    const el = lazy.WhimsyCallControls.findShare(this.document);
+    if (!el || !win) {
+      this.callLog("share: no control");
+      return false;
+    }
+    el.ownerDocument.notifyUserGestureActivation();
+    lazy.WhimsyCallControls.press(win, el);
+    this.callLog("share: pressed");
     return true;
   }
 
@@ -778,6 +832,56 @@ export class WhimsyPageChild extends JSWindowActorChild {
       }
     }
     this.scaleVolume(el);
+    if (this.eqGains === null) {
+      try {
+        const gains = await this.sendQuery("Whimsy:EqGains");
+        // A Whimsy:SetEq that came in meanwhile is newer.
+        this.eqGains ??= gains ?? [];
+      } catch (e) {
+        return;
+      }
+    }
+    this.applyEq(el);
+  }
+
+  // W29: gives one element the site's equalizer. Chrome-only API, so a
+  // build without it (or a page's own element subclass) is left alone.
+  applyEq(el) {
+    if (typeof el.whimsySetEqualizer != "function") {
+      return;
+    }
+    const gains = Array.from({ length: 8 }, (_, i) => {
+      const db = Number(this.eqGains?.[i]);
+      return Number.isFinite(db) ? Math.max(-12, Math.min(12, Math.round(db))) : 0;
+    });
+    const key = gains.join(",");
+    const previous = EQ.get(el);
+    if (previous === key || (previous === undefined && key == EQ_FLAT)) {
+      return;
+    }
+    if (previous === undefined && !MEDIA.has(el)) {
+      (this.trackedMedia ??= []).push(new WeakRef(el));
+    }
+    EQ.set(el, key);
+    el.whimsySetEqualizer(gains);
+  }
+
+  // W29: how many of the frame's media elements have something to play, and
+  // how many of those Gecko can't filter (a MediaStream, or protected media
+  // that plays outside Gecko).
+  eqInfo() {
+    let total = 0;
+    let unsupported = 0;
+    for (const el of this.document?.querySelectorAll("audio, video") ?? []) {
+      if (!(el.srcObject || el.currentSrc) || typeof el.whimsySetEqualizer != "function") {
+        continue;
+      }
+      total++;
+      if (!el.whimsyEqualizerApplies) {
+        unsupported++;
+      }
+    }
+    return { total, unsupported };
   }
 
   // Applies the level to one element. A volume the page set since the last

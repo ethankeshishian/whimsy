@@ -96,7 +96,8 @@ add_task(async function test_page_menu_item() {
   menu = await openPageMenu(page.linkedBrowser, "#plain");
   const item = document.getElementById("context-whimsy-qrcode");
   ok(!item.hidden, "shown on the page");
-  ok(item.parentNode.querySelector("#context-savepage ~ #context-whimsy-qrcode"), "sits after Save Page As");
+  // W29/ctxmenu: Keep or share, right after Copy Page as Markdown.
+  ok(item.parentNode.querySelector("#context-whimsy-copy-markdown ~ #context-whimsy-qrcode"), "sits after Copy Page as Markdown");
   menu.activateItem(item);
   const opened = await waitForQRDialog(page.linkedBrowser);
   is(opened.doc.getElementById("qrcode-url").textContent, PAGE, "the menu item encodes the page");

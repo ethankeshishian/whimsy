@@ -349,6 +349,12 @@ export const WhimsyShortcuts = {
   // here in the window's capture phase, before the page sees it: its
   // preventDefault() also keeps it from being sent to the page's process.
 
+  // W29 Pass Keys to Page (WhimsyKeysToPage): while the selected tab's page
+  // gets every key, Whimsy's key listeners leave keys alone. The shared check.
+  isPassing(win) {
+    return win?.gBrowser?.selectedBrowser?.whimsyPassKeys === true;
+  },
+
   get pressAgainEnabled() {
     return Services.prefs.getBoolPref(PRESS_AGAIN_PREF, true);
   },
@@ -457,7 +463,7 @@ export const WhimsyShortcuts = {
   // Returns the key it was, or null.
   onPageTookKey(browser, signatures) {
     const win = browser?.ownerDocument?.defaultView;
-    if (!this.pressAgainEnabled || !win?.gBrowser || win.closed || !Array.isArray(signatures)) {
+    if (!this.pressAgainEnabled || !win?.gBrowser || win.closed || !Array.isArray(signatures) || this.isPassing(win)) {
       return null;
     }
     signatures = signatures.filter(s => typeof s == "string" && s.length < 64).slice(0, 8);

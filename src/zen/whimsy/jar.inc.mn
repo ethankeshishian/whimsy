@@ -36,6 +36,10 @@
         content/browser/whimsy/whimsy-year.html                                  (../../zen/whimsy/content/whimsy-year.html)
         content/browser/whimsy/whimsy-year.css                                   (../../zen/whimsy/content/whimsy-year.css)
         content/browser/whimsy/whimsy-year.js                                    (../../zen/whimsy/content/whimsy-year.js)
+# W29: focus sessions, the paused-site page (about:whimsy?focus)
+        content/browser/whimsy/whimsy-focus.html                                         (../../zen/whimsy/content/whimsy-focus.html)
+        content/browser/whimsy/whimsy-focus.css                                          (../../zen/whimsy/content/whimsy-focus.css)
+        content/browser/whimsy/whimsy-focus.js                                           (../../zen/whimsy/content/whimsy-focus.js)
 # wave1/fun: Whimsy network error branding
         content/browser/whimsy/whimsy-neterror.css                              (../../zen/whimsy/content/whimsy-neterror.css)
         content/browser/whimsy/whimsy-deflated-balloon.svg                        (../../zen/whimsy/content/whimsy-deflated-balloon.svg)
@@ -186,6 +190,7 @@
         content/browser/whimsy/icons/google-drive.svg (../../zen/whimsy/content/icons/google-drive.svg)
         content/browser/whimsy/icons/granola.svg (../../zen/whimsy/content/icons/granola.svg)
         content/browser/whimsy/icons/hand.svg (../../zen/whimsy/content/icons/hand.svg)
+        content/browser/whimsy/icons/keyboard.svg (../../zen/whimsy/content/icons/keyboard.svg)
         content/browser/whimsy/icons/ibeam.svg (../../zen/whimsy/content/icons/ibeam.svg)
         content/browser/whimsy/icons/image-chip.svg (../../zen/whimsy/content/icons/image-chip.svg)
         content/browser/whimsy/icons/image-text.svg (../../zen/whimsy/content/icons/image-text.svg)
@@ -224,6 +229,8 @@
         content/browser/whimsy/ai-settings/whimsy-ai-settings-providers.js (../../zen/whimsy/content/ai-settings/whimsy-ai-settings-providers.js)
 # W23 chat-shell: the chat panel
         content/browser/whimsy/whimsy-chat.css (../../zen/whimsy/content/whimsy-chat.css)
+# W29 side panels: an Essential in a popover next to the sidebar
+        content/browser/whimsy/whimsy-side-panel.css (../../zen/whimsy/content/whimsy-side-panel.css)
         content/browser/whimsy/icons/chat-list.svg (../../zen/whimsy/content/icons/chat-list.svg)
 # W23 chat-answers
         content/browser/whimsy/whimsy-chat-answer.css (../../zen/whimsy/content/whimsy-chat-answer.css)
@@ -600,3 +607,11 @@
         content/browser/whimsy/icon-packs/phosphor-fill/xr-fill.svg (../../zen/whimsy/content/icon-packs/phosphor-fill/xr-fill.svg)
         content/browser/whimsy/icon-packs/phosphor-fill/xr.svg (../../zen/whimsy/content/icon-packs/phosphor-fill/xr.svg)
         content/browser/whimsy/icon-packs/phosphor-fill/zoom-out.svg (../../zen/whimsy/content/icon-packs/phosphor-fill/zoom-out.svg)
+# W29 ambient-audio: six bundled CC0 loops (rain, cafe, woods, fireplace,
+# ocean; brown noise is generated, no file) plus their licence snapshots.
+        content/browser/whimsy/whimsy-ambient.css (../../zen/whimsy/content/whimsy-ambient.css)
+        content/browser/whimsy/ambient/rain.opus (../../zen/whimsy/content/ambient/rain.opus)
+        content/browser/whimsy/ambient/cafe.opus (../../zen/whimsy/content/ambient/cafe.opus)
+        content/browser/whimsy/ambient/woods.opus (../../zen/whimsy/content/ambient/woods.opus)
+        content/browser/whimsy/ambient/fireplace.opus (../../zen/whimsy/content/ambient/fireplace.opus)
+        content/browser/whimsy/ambient/ocean.opus (../../zen/whimsy/content/ambient/ocean.opus)

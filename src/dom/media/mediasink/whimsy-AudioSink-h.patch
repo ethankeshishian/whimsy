@@ -1,0 +1,32 @@
+diff --git a/dom/media/mediasink/AudioSink.h b/dom/media/mediasink/AudioSink.h
+--- a/dom/media/mediasink/AudioSink.h
++++ b/dom/media/mediasink/AudioSink.h
+@@ -15,6 +15,7 @@
+ #include "mozilla/Monitor.h"
+ #include "mozilla/MozPromise.h"
+ #include "mozilla/RefPtr.h"
++#include "mozilla/WhimsyEqualizer.h"
+ #include "nsISupportsImpl.h"
+ 
+ namespace mozilla {
+@@ -44,6 +45,10 @@
+ 
+   ~AudioSink();
+ 
++  // Whimsy W29: filter the output through the element's equalizer. Called on
++  // the MDSM task queue right after construction, before the stream starts.
++  void WhimsySetEqualizer(WhimsyEqualizerParams* aParams);
++
+   // Allocate and initialize mAudioStream. Returns NS_OK on success.
+   nsresult InitializeAudioStream(const RefPtr<AudioDeviceInfo>& aAudioDevice,
+                                  InitializationType aInitializationType);
+@@ -210,6 +215,9 @@
+   uint32_t mOutputRate;
+   uint32_t mOutputChannels;
+   AudibilityMonitor mAudibilityMonitor;
++  // Whimsy W29: set before the stream starts, then used only in PopFrames on
++  // the audio thread.
++  UniquePtr<WhimsyEqualizer> mWhimsyEqualizer;
+   Atomic<bool> mIsAudioDataAudible;
+   MediaEventProducer<bool> mAudibleEvent;
+   // Only signed on the real-time audio thread.

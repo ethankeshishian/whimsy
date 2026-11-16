@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Whimsy equalizer test</title>
+<audio id="audio" loop></audio>
+<script>
+  // W29 tab equalizer: ?src=<tone URL>; measure() reads what the audio
+  // sounds like after Gecko's equalizer (through Web Audio, which takes
+  // the element's filtered output).
+  const audio = document.getElementById("audio");
+  const params = new URLSearchParams(location.search);
+  audio.src = params.get("src") || "whimsy_eq_tone.sjs";
+  let analyser = null;
+  window.startAnalysis = () => {
+    const context = new AudioContext({ sampleRate: 48000 });
+    const source = context.createMediaElementSource(audio);
+    analyser = context.createAnalyser();
+    analyser.fftSize = 4096;
+    source.connect(analyser);
+    analyser.connect(context.destination);
+    return context.resume().then(() => audio.play());
+  };
+  window.graphInfo = () => ({
+    rate: analyser?.context.sampleRate,
+    state: analyser?.context.state,
+    paused: audio.paused,
+    time: audio.currentTime,
+  });
+  // { rms, exact }: exact counts the samples that are, bit for bit, the
+  // float a 16-bit sample decodes to (Gecko scales positive samples by
+  // 1/32767 and negative ones by 1/32768).
+  const INV = Math.fround(1 / 32767);
+  const isDecoded16 = v => {
+    const n = Math.round(v * 32768);
+    const m = Math.round(v * 32767);
+    return (
+      Math.fround(n / 32768) === v ||
+      Math.fround(m / 32767) === v ||
+      Math.fround(m * INV) === v
+    );
+  };
+  window.measure = () => {
+    const buf = new Float32Array(analyser.fftSize);
+    analyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    let exact = 0;
+    for (const v of buf) {
+      sum += v * v;
+      if (isDecoded16(v)) {
+        exact++;
+      }
+    }
+    // The first sample that isn't exact (to see how far off it is).
+    const odd = buf.find(v => !isDecoded16(v));
+    return { rms: Math.sqrt(sum / buf.length), exact, total: buf.length, odd: odd === undefined ? null : odd * 32768 };
+  };
+  // A stream the equalizer can't reach (a call, a generated stream).
+  window.playStream = () => {
+    const context = new AudioContext();
+    const osc = context.createOscillator();
+    const dest = context.createMediaStreamDestination();
+    osc.connect(dest);
+    osc.start();
+    audio.removeAttribute("src");
+    audio.srcObject = dest.stream;
+    return audio.play();
+  };
+</script>

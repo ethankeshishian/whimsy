@@ -1,0 +1,37 @@
+diff --git a/dom/media/mediaelement/HTMLMediaElement.cpp b/dom/media/mediaelement/HTMLMediaElement.cpp
+--- a/dom/media/mediaelement/HTMLMediaElement.cpp
++++ b/dom/media/mediaelement/HTMLMediaElement.cpp
+@@ -2523,6 +2523,23 @@
+     }
+   }
+   aRv.Throw(NS_ERROR_FAILURE);
++}
++
++void HTMLMediaElement::WhimsySetEqualizer(const Sequence<float>& aGains) {
++  for (size_t i = 0; i < std::size(mWhimsyEqualizerGains); i++) {
++    mWhimsyEqualizerGains[i] = i < aGains.Length() ? aGains[i] : 0.0f;
++  }
++  if (mDecoder) {
++    mDecoder->WhimsyEqualizer()->SetGains(mWhimsyEqualizerGains,
++                                          std::size(mWhimsyEqualizerGains));
++  }
++}
++
++bool HTMLMediaElement::WhimsyEqualizerApplies() const {
++  if (mDecoder) {
++    return mDecoder->WhimsyEqualizerApplies();
++  }
++  return !mSrcStream;
+ }
+ 
+ void HTMLMediaElement::SetAudioSinkFailedStartup() {
+@@ -5974,6 +5991,9 @@
+   // Set mDecoder now so if methods like GetCurrentSrc get called between
+   // here and Load(), they work.
+   SetDecoder(aDecoder);
++  // Whimsy W29: the new decoder plays with the element's equalizer.
++  aDecoder->WhimsyEqualizer()->SetGains(mWhimsyEqualizerGains,
++                                        std::size(mWhimsyEqualizerGains));
+ 
+   // Notify the decoder of the initial activity status.
+   NotifyDecoderActivityChanges();

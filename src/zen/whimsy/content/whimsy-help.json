@@ -331,11 +331,31 @@
       "command": null
     },
     {
+      "id": "page-tint",
+      "name": "Page Tint",
+      "text": "Match the page: tint a space with the current site's colour (theme picker toggle, off by default)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.page-tint",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "tab-volume",
       "name": "Tab Volume",
       "text": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
       "section": "Tabs and spaces",
       "pref": "whimsy.feature.tab-volume",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "tab-eq",
+      "name": "Tab Eq",
+      "text": "Tab equalizer: presets and 8 bands under the tab volume slider, per site (W29)",
+      "section": "Media",
+      "pref": "whimsy.feature.tab-eq",
       "pane": null,
       "paneId": null,
       "command": null
@@ -903,9 +923,29 @@
     {
       "id": "sidebar-nav",
       "name": "Sidebar Nav",
-      "text": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
+      "text": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow/Enter/Delete/Esc, Left/Right to collapse/expand a folder or tree-tab parent, Option+Up/Down to move the focused tab; Space opens a Glance",
       "section": "Keyboard",
       "pref": "whimsy.feature.sidebar-nav",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "move-tab",
+      "name": "Move Tab",
+      "text": "Move Tab Up/Down commands (Ctrl+Shift+Up/Down, rebindable): step the current tab one place, folder- and pinned-aware, never across the pinned/essentials boundary",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.move-tab",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "paste-tabs",
+      "name": "Paste Tabs",
+      "text": "With the sidebar focused, Cmd+V opens the clipboard's http(s) URLs (one per line, up to 50) as tabs below the focused tab; Cmd+X marks the selection so the next Cmd+V moves it there, even across spaces",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.paste-tabs",
       "pane": null,
       "paneId": null,
       "command": null
@@ -2231,6 +2271,16 @@
       "command": null
     },
     {
+      "id": "pass-keys-to-page",
+      "name": "Pass Keys To Page",
+      "text": "Pass Keys to Page: a command that gives the current tab's page every key, \u2318T and \u2318W too, until you hold Esc or switch tabs",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.pass-keys-to-page",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "ai-video-summary",
       "name": "AI Video Summary",
       "text": "Summarize a video: summary, chapters, and transcript in chat; timestamps jump the video",
@@ -2311,6 +2361,16 @@
       "command": null
     },
     {
+      "id": "ambient-audio",
+      "name": "Ambient Audio",
+      "text": "Ambient sound: six bundled loops (rain, cafe, woods, fireplace, ocean, brown noise) via \u2318K, played from the chrome window",
+      "section": "Media",
+      "pref": "whimsy.feature.ambient-audio",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "command-bar-numbers",
       "name": "Command Bar Numbers",
       "text": "\u23181\u2013\u23189 pick a row while the command bar is open; hold \u2318 to see the numbers",
@@ -2371,6 +2431,16 @@
       "command": null
     },
     {
+      "id": "totp",
+      "name": "TOTP",
+      "text": "Verification codes: keep a site's authenticator codes and fill them with a click",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.totp",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "restart-command",
       "name": "Restart Command",
       "text": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
@@ -2406,6 +2476,26 @@
       "text": "Show space name in window title: \"<space> \u2014 <page title>\" (Settings \u2192 Tab Management, off by default)",
       "section": "Tabs and spaces",
       "pref": "whimsy.feature.window-title-space",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "focus-sessions",
+      "name": "Focus Sessions",
+      "text": "Focus sessions: a dial to set the length, a countdown in the page's corner, distracting sites paused, and confetti at the end",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.focus-sessions",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "side-panels",
+      "name": "Side Panels",
+      "text": "Side panels: Essentials open in a resizable popover next to the sidebar (Open in Side Panel), chat can too",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.side-panels",
       "pane": null,
       "paneId": null,
       "command": null
@@ -2456,6 +2546,16 @@
       "text": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
       "section": "Privacy and security",
       "pref": "whimsy.feature.safety-check",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "search-with",
+      "name": "Search With",
+      "text": "Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.search-with",
       "pane": null,
       "paneId": null,
       "command": null

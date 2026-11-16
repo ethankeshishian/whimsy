@@ -1646,8 +1646,12 @@ FEATURES = [
                 ("prefs", r"name:\s*zen\.[\w.-]*(background|inactive)[\w.-]*mute")]},
     {"id": "mute-site", "title": "Remember muted sites: Mute Site in the tab menu (Chrome)",
      "detect": [("src/zen", r"(?i)context_\w*MuteSite|mute-?site\b")]},
+    {"id": "page-tint", "title": "Match the page: tint a space with the current site's colour (theme picker toggle, off by default)",
+     "detect": [("src/zen/spaces", r"matchPage|theme-color.*gradientColors|gradientColors.*theme-color")]},
     {"id": "tab-volume", "title": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
      "detect": [("src/zen", r"(?i)tab-?volume-?(slider|panel)|setTabVolume")]},
+    {"id": "tab-eq", "title": "Tab equalizer: presets and 8 bands under the tab volume slider, per site (W29)",
+     "detect": [("src/zen", r"(?i)zen-?(tab-?)?equali[sz]er|zenEqualizer")]},
     {"id": "pip-snap-back", "title": "PiP snaps back into the page when you return to its tab (Arc), automatic PiP setting",
      "detect": [("src/zen", r"(?i)pip-?snap|snapBackPip")]},
     {"id": "playback-speed", "title": "Playback speed shortcuts (Cmd+Opt+. and ,) and the PiP speed control",
@@ -1785,8 +1789,12 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
     {"id": "delete-to-trash", "title": "Deleting a download from the Library or the downloads panel moves its file to the Trash instead of erasing it",
      "detect": [("src/zen", r"(?i)trashApp|mac-web-app-utils")]},
-    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
+    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow/Enter/Delete/Esc, Left/Right to collapse/expand a folder or tree-tab parent, Option+Up/Down to move the focused tab; Space opens a Glance",
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
+    {"id": "move-tab", "title": "Move Tab Up/Down commands (Ctrl+Shift+Up/Down, rebindable): step the current tab one place, folder- and pinned-aware, never across the pinned/essentials boundary",
+     "detect": [("src/zen", r"(?i)move-?tab-?up|move-?tab-?down|cmd_whimsyMoveTab(Up|Down)")]},
+    {"id": "paste-tabs", "title": "With the sidebar focused, Cmd+V opens the clipboard's http(s) URLs (one per line, up to 50) as tabs below the focused tab; Cmd+X marks the selection so the next Cmd+V moves it there, even across spaces",
+     "detect": [("src/zen", r"(?i)paste-?tabs|whimsyPasteTabs")]},
     {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
      "detect": [("src/zen", r"(?i)cheat-?sheet")]},
     {"id": "inbox-zero", "title": "Inbox-zero balloons: a small celebration when a mail tab's unread count hits 0",
@@ -2200,6 +2208,10 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?find[-_.]?(card|floating)")]},
     {"id": "double-escape", "title": "Press Esc twice to leave a page's full screen",
      "detect": [("src/zen", r"(?i)zen[-_.]?(double|twice)[-_.]?esc")]},
+    # W29: Pass Keys to Page. Superseded if Zen adds its own way to hand
+    # the browser's keys to a page.
+    {"id": "pass-keys-to-page", "title": "Pass Keys to Page: a command that gives the current tab's page every key, ⌘T and ⌘W too, until you hold Esc or switch tabs",
+     "detect": [("src/zen", r"(?i)zen[-_.]?pass[-_.]?(all[-_.]?)?keys")]},
     {"id": "ai-video-summary", "title": "Summarize a video: summary, chapters, and transcript in chat; timestamps jump the video",
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?video[-_.]?summar")]},
     {"id": "video-speed-range", "title": "Video speed from 1/16× to 16×",
@@ -2216,6 +2228,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?media[-_.]?settings|paneMedia")]},
     {"id": "routines", "title": "Routines: AI runs on a schedule or a trigger and leaves results in Updates and a thread",
      "detect": [("src/zen", r"(?i)zen[-_.]?routines?")]},
+    {"id": "ambient-audio", "title": "Ambient sound: six bundled loops (rain, cafe, woods, fireplace, ocean, brown noise) via ⌘K, played from the chrome window",
+     "detect": [("src/zen", r"(?i)zen[-_.]?ambient[-_.]?(sound|audio|noise)")]},
     # W23 cmdbar-ai
     {"id": "command-bar-numbers", "title": "⌘1–⌘9 pick a row while the command bar is open; hold ⌘ to see the numbers",
      "detect": [("src/zen/urlbar", r"(?i)(accel|cmd)[-_]?digit[-_]?row|row[-_]?numbers")]},
@@ -2236,6 +2250,11 @@ FEATURES = [
     {"id": "passkeys", "title": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
      "detect": [("src/dom/webauthn", r"mPlatformService\s*="),
                 ("src/zen", r"(?i)zen[-_.]?passkeys?\.(sys\.)?mjs|SecureEnclave\.P256")]},
+    # W28: verification codes (TOTP): kept in the login store, read from a
+    # setup QR code, filled from a field button. Superseded if Zen ships its
+    # own authenticator.
+    {"id": "totp", "title": "Verification codes: keep a site's authenticator codes and fill them with a click",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(totp|authenticator)\.(sys\.)?mjs")]},
     # W27: Restart Whimsy in the command bar (quit with eRestart, session
     # restored). Superseded if Zen's command bar gets a restart action.
     {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
@@ -2254,6 +2273,15 @@ FEATURES = [
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W29: Focus sessions: a timer with a dial, a countdown in the page's
+    # corner, distracting sites paused, Do Not Disturb, and a break reminder.
+    {"id": "focus-sessions", "title": "Focus sessions: a dial to set the length, a countdown in the page's corner, distracting sites paused, and confetti at the end",
+     "detect": [("src/zen", r"(?i)zen[-_.]?focus[-_.]?(session|mode|timer)|pomodoro")]},
+    # W29: Essentials open in a floating popover next to the sidebar
+    # (WhimsySidePanel.sys.mjs). Superseded if Zen ships its own side panel
+    # or Essential popover.
+    {"id": "side-panels", "title": "Side panels: Essentials open in a resizable popover next to the sidebar (Open in Side Panel), chat can too",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(side[-_.]?panel|essential[-_.]?popover|popover[-_.]?essential)")]},
     # W28: Keep Window on Top (Settings → Look and Feel, macOS only): one
     # global setting floats every Whimsy window, including Mini Whimsy,
     # above other apps' windows; persists across restarts.
@@ -2279,6 +2307,12 @@ FEATURES = [
     # checked locally.
     {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
      "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
+    # W28: Search With ▸, right after the selection menu's "Search <engine>
+    # for "…"" row: lists the other visible engines, each opening the
+    # selection exactly like that row.
+    {"id": "search-with", "title": "Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*search-with[\w-]*\s*="),
+                ("src/zen", r"(?i)zen[-_.]?search[-_.]?with|searchwith-?menu")]},
 ]
 
 # W29/help: whimsy://help (WhimsyHelp.sys.mjs) reads one sentence and one

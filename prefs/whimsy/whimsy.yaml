@@ -114,6 +114,19 @@
 - name: whimsy.media.pip-snap-back
   value: true
 
+# W29: whether the Tab volume panel shows the equalizer's 8 bands (the
+# chevron; remembered for every tab).
+- name: whimsy.media.eq-bands-open
+  value: false
+# Ambient sound (⌘K "Ambient Sound…"): the volume slider's last value
+# (0-100) and the last sound played ("", "rain", "cafe", "woods",
+# "fireplace", "ocean" or "brown"), remembered across sessions.
+- name: whimsy.ambient.volume
+  value: 60
+
+- name: whimsy.ambient.last
+  value: ""
+
 # A speed button in the picture-in-picture player (Firefox's, off there).
 - name: media.videocontrols.picture-in-picture.playback-speed.enabled
   value: true
@@ -153,6 +166,11 @@
 # W27: Press Esc twice to leave a page's full screen (Settings → Look and
 # Feel): off by default. whimsy-PresShell-cpp.patch reads it.
 - name: whimsy.fullscreen.double-escape
+  value: false
+
+# W29 Pass Keys to Page: its first-use toast ("Keys go to this page") has
+# shown, so it doesn't show again.
+- name: whimsy.pass-keys-to-page.toast-shown
   value: false
 
 # Where a link from another app opens (Settings → Tab Management):
@@ -842,6 +860,16 @@
 - name: whimsy.chat.width
   value: 380
 
+# W29 side panels: chat shows in the side panel popover instead of its
+# column (Show Chat as Popover, chat's header menu).
+- name: whimsy.chat.popover
+  value: false
+
+# W29 side panels: each site's popover width in pixels, by host, as JSON
+# ({"x.com": 420}); a site that isn't listed gets 380 (320 in a narrow window).
+- name: whimsy.side-panel.widths
+  value: "{}"
+
 # The AI-off ⌘E toast has shown; the next ⌘E opens setup. Reset when AI turns on.
 - name: whimsy.chat.ai-off-toast-seen
   value: false
@@ -907,6 +935,51 @@
 # Summarize and picture-in-picture at the top right of videos.
 - name: whimsy.video.top-buttons
   value: true
+
+# W29 focus sessions (WhimsyFocusSession.sys.mjs). The length and the
+# sheet's ticks are written on Start and are the next sheet's defaults:
+# 25 minutes the first time, then the last pick.
+- name: whimsy.focus.lastLength
+  value: 25
+
+- name: whimsy.focus.dnd
+  value: true
+
+- name: whimsy.focus.pauseSites
+  value: true
+
+- name: whimsy.focus.muteBackground
+  value: false
+
+# Stay on this tab (intake-w29/designs/focus-this-tab.md): off by default.
+- name: whimsy.focus.stayOnTab
+  value: false
+
+- name: whimsy.focus.breakReminder
+  value: true
+
+# Sites paused during a session (Settings › General › Focus Sessions): the
+# two built-in lists, and your own, one per line.
+- name: whimsy.focus.social
+  value: true
+
+- name: whimsy.focus.video
+  value: true
+
+- name: whimsy.focus.sites
+  value: ""
+
+# The running session: when it ends, in seconds since 1970 (0 when there's
+# none), so a restart picks it up; whether Do Not Disturb was already on;
+# whether the session turned background muting on.
+- name: whimsy.focus.endsAt
+  value: 0
+
+- name: whimsy.focus.dndWasOn
+  value: false
+
+- name: whimsy.focus.mutedBySession
+  value: false
 
 # W23 voice-image: dictation
 # Hold Fn (300ms) to dictate into the focused field (Settings › Media).

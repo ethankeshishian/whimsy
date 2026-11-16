@@ -306,6 +306,8 @@ var gWhimsySettings = {
       "private-lock": () => this.initPrivateLock(),
       // W26: the Touch ID passkeys Whimsy holds.
       passkeys: () => this.initPasskeys(),
+      // W28: verification codes.
+      totp: () => this.initTotp(),
       // W29: Safety Check.
       "safety-check": () => this.initSafetyCheck(),
       // tierC-vpn: VPN (Firefox's built-in IP Protection).
@@ -769,6 +771,114 @@ var gWhimsySettings = {
     }, { site: record.rpId }, { detail });
   },
 
+  // W28 verification codes: Settings → Privacy & Security → Verification
+  // codes. Passkeys' rows (favicon, site, one meta line), with Copy code
+  // (Touch ID once per session) and Delete (Undo in the toast); Add Code…
+  // opens the add surface with a field for the setup key.
+  get totp() {
+    return ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTOTP.sys.mjs").WhimsyTOTP;
+  },
+
+  initTotp() {
+    const refresh = () => this.renderTotp().catch(e => console.error("Whimsy: verification codes list", e?.name ?? "error"));
+    Services.obs.addObserver(refresh, "whimsy-totp-changed");
+    window.addEventListener("unload", () => Services.obs.removeObserver(refresh, "whimsy-totp-changed"), { once: true });
+    document.getElementById("whimsyTotpAdd")?.addEventListener("command", () => {
+      const chromeWin = window.browsingContext.topChromeWindow;
+      this.totp.openAdd(chromeWin).catch(e => console.error("Whimsy: verification codes", e?.name ?? "error"));
+    });
+    refresh();
+  },
+
+  async renderTotp() {
+    const list = document.getElementById("whimsyTotpList");
+    const empty = document.getElementById("whimsyTotpEmpty");
+    const error = document.getElementById("whimsyTotpError");
+    if (!list || !empty || !error) {
+      return;
+    }
+    let records;
+    try {
+      // Like Firefox's saved passwords, this may ask for the primary
+      // password once; cancelling it shows the error line.
+      records = await this.totp.list();
+    } catch (e) {
+      if (!list.isConnected) {
+        return;
+      }
+      list.hidden = true;
+      empty.hidden = true;
+      error.hidden = false;
+      return;
+    }
+    if (!list.isConnected) {
+      return;
+    }
+    error.hidden = true;
+    const html = tag => document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+    list.replaceChildren();
+    for (const record of records) {
+      const row = html("li");
+      row.className = "whimsy-profile-row whimsy-passkey-row whimsy-totp-row";
+      row.dataset.guid = record.guid;
+      const head = html("div");
+      head.className = "whimsy-profile-head whimsy-passkey-head whimsy-totp-head";
+      const icon = html("img");
+      icon.className = "whimsy-passkey-favicon";
+      icon.alt = "";
+      icon.src = `page-icon:https://${record.site}/`;
+      const text = html("div");
+      const name = html("p");
+      name.className = "whimsy-profile-name";
+      name.textContent = record.site;
+      const meta = html("p");
+      meta.className = "whimsy-profile-meta";
+      document.l10n.setAttributes(meta, "whimsy-totp-row-meta", {
+        account: record.account,
+        profile: record.profileName,
+        date: dateFormat.format(record.created),
+      });
+      text.append(name, meta);
+      const copy = document.createXULElement("button");
+      copy.className = "whimsy-totp-copy";
+      document.l10n.setAttributes(copy, "whimsy-totp-copy");
+      copy.addEventListener("command", () => {
+        this.totp.copyCode(window.browsingContext.topChromeWindow, record.guid)
+          .catch(e => console.error("Whimsy: verification codes", e?.name ?? "error"));
+      });
+      const remove = document.createXULElement("button");
+      remove.className = "whimsy-totp-delete ghost-button";
+      document.l10n.setAttributes(remove, "whimsy-totp-delete", { site: record.site });
+      remove.addEventListener("command", () => this.deleteTotp(record, row));
+      head.append(icon, text, copy, remove);
+      row.append(head);
+      list.append(row);
+    }
+    list.hidden = !records.length;
+    empty.hidden = !!records.length;
+  },
+
+  async deleteTotp(record, row) {
+    const chromeWin = window.browsingContext.topChromeWindow;
+    const { WhimsyUndo } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyUndo.sys.mjs");
+    const removed = await this.totp.remove(record.guid);
+    if (!removed) {
+      return;
+    }
+    row.remove();
+    const list = document.getElementById("whimsyTotpList");
+    const empty = document.getElementById("whimsyTotpEmpty");
+    if (list && empty) {
+      list.hidden = !list.children.length;
+      empty.hidden = !!list.children.length;
+    }
+    const detail = await document.l10n.formatValue("whimsy-totp-deleted-detail", { site: record.site });
+    WhimsyUndo.showToast(chromeWin, "whimsy-totp-deleted-toast", {
+      undo: () => this.totp.restore(removed).catch(e => console.error("Whimsy: verification code undo", e?.name ?? "error")),
+    }, { site: record.site }, { detail });
+  },
+
   initPrivateLock() {
     const { WhimsyPrivateLock } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivateLock.sys.mjs");
     const chromeWin = () => window.browsingContext.topChromeWindow;
@@ -1052,6 +1162,7 @@ var gWhimsySettings = {
       card.className = "whimsy-icon-pack-card";
       card.setAttribute("role", "radio");
       card.dataset.pack = pack;
+      card.dataset.value = pack;
 
       const glyphs = document.createElement("div");
       glyphs.className = "whimsy-icon-pack-glyphs";
@@ -1580,6 +1691,76 @@ Object.assign(gWhimsySettings, {
     (anchor?.parentElement || document.getElementById("mainPrefPane"))?.insertBefore(
       fragment, anchor?.nextSibling || null
     );
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+  },
+});
+
+// W29: Settings › General › Focus Sessions: the sites a focus session
+// pauses. Two built-in lists and your own (one per line; Save checks every
+// line first, like Bang Shortcuts). The Focus session sheet's Edit link
+// opens it (#general-whimsyFocus).
+document.addEventListener("paneshown", event => {
+  if (event.detail.category == whimsyGeneralPane()) {
+    gWhimsySettings.insertFocusGroup(event.detail.category);
+    // Spotlight runs before paneshown, so the group wasn't there yet.
+    if (event.detail.subcategory == "whimsyFocus") {
+      spotlight("whimsyFocus", event.detail.category);
+    }
+  }
+});
+
+Object.assign(gWhimsySettings, {
+  insertFocusGroup(pane = whimsyGeneralPane()) {
+    const template = document.getElementById("template-whimsyFocus");
+    if (!template) {
+      return;
+    }
+    if (!Services.prefs.getBoolPref("whimsy.feature.focus-sessions", true)) {
+      return;
+    }
+    const fragment = template.content;
+    const group = fragment.firstElementChild;
+    template.remove();
+    const { WhimsyFocusSession, SOCIAL_SITES, VIDEO_SITES, SOCIAL_SAMPLE, VIDEO_SAMPLE } = ChromeUtils.importESModule(
+      "resource:///modules/whimsy/WhimsyFocusSession.sys.mjs"
+    );
+    Preferences.addAll(
+      ["whimsy.focus.social", "whimsy.focus.video"].filter(id => !Preferences.get(id)).map(id => ({ id, type: "bool" }))
+    );
+    group.dataset.category = pane;
+    const anchor = [...document.querySelectorAll(`#mainPrefPane > [data-category="${pane}"]`)].at(-1);
+    (anchor?.parentElement || document.getElementById("mainPrefPane"))?.insertBefore(
+      fragment,
+      anchor?.nextSibling || null
+    );
+    const sample = (id, sites, all) =>
+      document.l10n.setAttributes(document.getElementById(id), "whimsy-focus-settings-sample", {
+        sites: sites.join(", "),
+        count: all.length - sites.length,
+      });
+    sample("whimsyFocusSocialSample", SOCIAL_SAMPLE, SOCIAL_SITES);
+    sample("whimsyFocusVideoSample", VIDEO_SAMPLE, VIDEO_SITES);
+
+    const list = document.getElementById("whimsyFocusSites");
+    const status = document.getElementById("whimsyFocusStatus");
+    list.value = WhimsyFocusSession.ownSites.join("\n");
+    list.addEventListener("input", () => {
+      status.removeAttribute("data-l10n-id");
+      status.textContent = "";
+      list.removeAttribute("aria-invalid");
+    });
+    document.getElementById("whimsyFocusSave").addEventListener("command", () => {
+      const result = WhimsyFocusSession.saveSites(list.value);
+      if (result.sites) {
+        list.value = result.sites.join("\n");
+        list.removeAttribute("aria-invalid");
+        document.l10n.setAttributes(status, "whimsy-focus-settings-saved");
+      } else {
+        list.setAttribute("aria-invalid", "true");
+        document.l10n.setAttributes(status, "whimsy-focus-settings-invalid", { line: result.invalid });
+      }
+    });
     group.hidden = false;
     Preferences.queueUpdateOfAllElements();
   },
@@ -2444,6 +2625,7 @@ Object.assign(gWhimsySettings, {
       () => this.insertGroups(),
       () => this.insertNextMeetingGroup(),
       () => this.insertHoverGroup(), // W25: General › Hover cards
+      () => this.insertFocusGroup(), // W29: General › Focus Sessions
       () => this.adoptZenGlance(),
       () => this.insertTeachGroup(), // wave9/designfix (H2)
       // Privacy & Security

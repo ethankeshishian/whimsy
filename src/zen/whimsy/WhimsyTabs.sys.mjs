@@ -156,7 +156,6 @@ export const WhimsyTabs = {
     update();
     this.initLoadingLine(win);
     this.initBadges(win);
-    this.initMailHover(win);
     this.initGroupByDomain(win);
     this.initPinnedMarks(win);
   },
@@ -182,50 +181,52 @@ export const WhimsyTabs = {
     }
   },
 
-  updateMailHover(win, tab) {
-    const panel = win.document.getElementById("tab-preview-panel");
-    if (!panel) {
-      return;
+  // W29: which connector (if any) owns this mail host, so the hover card
+  // can show its Inbox or a Connect button. Yahoo, Proton, AOL and iCloud
+  // have no connector here, so they get null (no extra UI, per the owner).
+  mailProvider(tab) {
+    const browser = this.contentOwner(tab)?.linkedBrowser;
+    try {
+      const host = new URL(browser?.currentURI?.spec).hostname;
+      if (host == "mail.google.com") {
+        return "google";
+      }
+      if (["outlook.live.com", "outlook.office.com", "outlook.office365.com"].includes(host)) {
+        return "microsoft";
+      }
+    } catch {
+      // Not a URL (about:, a crashed tab, ...).
     }
-    let row = panel.querySelector("#whimsy-mail-unread-preview");
-    const count = tab ? this.mailUnreadCount(tab) : null;
-    if (count == null) {
-      row?.remove();
-      return;
-    }
-    if (!row) {
-      row = win.document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-      row.id = "whimsy-mail-unread-preview";
-      // Keep the summary beside the native preview's title and address.
-      (panel.querySelector(".tab-preview-title")?.parentElement || panel).append(row);
-    }
-    win.document.l10n.setAttributes(row, "whimsy-mail-unread-preview", { count });
+    return null;
   },
 
-  initMailHover(win) {
-    let hovered = null;
-    const onHover = event => {
-      hovered = event.target.closest?.("tab");
-      this.updateMailHover(win, hovered);
-    };
-    const onPopup = event => {
-      if (event.target.id == "tab-preview-panel") {
-        this.updateMailHover(win, hovered);
-      }
-    };
-    const onTitle = event => {
-      if (event.target == hovered) {
-        this.updateMailHover(win, hovered);
-      }
-    };
-    win.addEventListener("TabHoverStart", onHover);
-    win.addEventListener("popupshowing", onPopup);
-    win.gBrowser.tabContainer.addEventListener("TabAttrModified", onTitle);
-    win.addEventListener("unload", () => {
-      win.removeEventListener("TabHoverStart", onHover);
-      win.removeEventListener("popupshowing", onPopup);
-      win.gBrowser.tabContainer.removeEventListener("TabAttrModified", onTitle);
-    }, { once: true });
+  // W29: is this mail tab the same inbox the connector signed in to?
+  // Gmail's title carries the address; Outlook's doesn't, so a personal
+  // account (outlook.com, hotmail.com, live.com, msn.com) is told apart by
+  // host (outlook.live.com) from a work or school one (outlook.office.com,
+  // outlook.office365.com).
+  mailAccountMatches(tab, account) {
+    if (!account) {
+      return false;
+    }
+    const browser = this.contentOwner(tab)?.linkedBrowser;
+    let host;
+    try {
+      host = new URL(browser?.currentURI?.spec).hostname;
+    } catch {
+      return false;
+    }
+    if (host == "mail.google.com") {
+      return (browser.contentTitle || tab.label || "").includes(account);
+    }
+    const personal = /@(outlook\.com|hotmail\.com|live\.com|msn\.com)$/i.test(account);
+    if (host == "outlook.live.com") {
+      return personal;
+    }
+    if (host == "outlook.office.com" || host == "outlook.office365.com") {
+      return !personal;
+    }
+    return false;
   },
 
   // fix7/tabs: stray blue lines on pinned tabs. Two things drew them:

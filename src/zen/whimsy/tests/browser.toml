@@ -192,6 +192,14 @@ support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_
 ["browser_whimsy_tab_volume.js"]
 support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
+# W29: the tab equalizer's DSP (band gain changes the level, flat is bit-identical, AudioSink and captured paths, cross-origin stays audible).
+["browser_whimsy_equalizer_dsp.js"]
+support-files = ["whimsy_eq.html", "whimsy_eq_tone.sjs"]
+
+# W29: the tab equalizer's panel rows (presets, Custom, 8 bands, chevron, per-site persistence, tooltip, disabled state).
+["browser_whimsy_equalizer_panel.js"]
+support-files = ["whimsy_eq.html", "whimsy_eq_tone.sjs"]
+
 ["browser_whimsy_title_lines.js"]
 
 ["browser_whimsy_transparency.js"]
@@ -374,6 +382,9 @@ support-files = ["whimsy_calendar.sjs"]
 
 # W13 F02: the address bar VPN control (A) and This Site's VPN row with the site icon badge (B).
 ["browser_whimsy_vpn_controls.js"]
+
+# W29 vpncalls: a call's relay lookup is asked as its page (whimsy-WebrtcTCPSocket-cpp.patch).
+["browser_whimsy_vpn_calls.js"]
 
 # legacy: Firefox/Zen/Mozilla leftovers (prefs, branding URLs, About dialog,
 # default bookmarks, Zen strings, and what was kept at upstream values).
@@ -635,6 +646,10 @@ support-files = ["whimsy_link_hints.html"]
 ["browser_whimsy_search_deck.js"]
 support-files = ["whimsy_search_results.html", "whimsy_search_results_coop.html", "whimsy_search_results_coop.html^headers^", "whimsy_search_card.html"]
 
+# W28: Search With ▸ in the selection menu (order, tab placement parity with the default row, background pref, private window, hiding).
+["browser_whimsy_search_with.js"]
+support-files = ["whimsy_verbs.html"]
+
 # wave6: Already open (Arc): Return on an open address goes to its tab and space.
 ["browser_whimsy_already_open.js"]
 
@@ -732,6 +747,10 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # wave7/menus: space menu order (Delete last), no Volume… row, Glance chip vs unread badge on an Essential.
 ["browser_whimsy_menu_order.js"]
 
+# W29/ctxmenu: the page and tab menus, regrouped (most-used first); the tab menu's "Ask AI" label and its own AI group; link/image/selection menus unchanged.
+["browser_whimsy_menu_regroup_order.js"]
+support-files = ["whimsy_test_image.png"]
+
 # wave7/menus2: Archive Tab / Archive Tabs Below / Restore Last Closed Tab in the tab menu.
 ["browser_whimsy_archive_tab_menu.js"]
 # wave10 (W10-06): archiving a tab (Archive Tab row, Archive Tabs Below, Cmd+W) shows no Undo toast; Cmd+Z and Edit → Undo still restore it.
@@ -745,13 +764,28 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # W27: Turn Off / Turn On Page Animations: a user sheet stops CSS animations and transitions on this tab only, a reload clears it, other tabs keep theirs, state-aware names, the toast, its switch.
 ["browser_whimsy_page_animations.js"]
 support-files = ["whimsy_page_animations.html"]
+# W29: Pass Keys to Page (whimsy-GlobalKeyListener-cpp.patch): ⌘T and ⌘W reach the page, Whimsy's listeners skipped, hold Esc, tab switch, pill, other site, contrast.
+["browser_whimsy_pass_keys.js"]
+support-files = ["whimsy_pass_keys.html"]
 # W28: Page Minimap: off by default, only on pages over two screens (a toast on a short one), click to jump, drag to scroll, fades when idle, sits under the find card, the pref in a new window, light and dark shots.
 ["browser_whimsy_minimap.js"]
 support-files = ["whimsy_minimap_long.html", "whimsy_minimap_short.html"]
 # W27: Show space name in window title (Settings → Tab Management, off by default): titlepreface "<space> — ", space switch and rename, any space count, its switch, the private lock.
 ["browser_whimsy_window_title_space.js"]
+# W29: Match the page (space colour editor, off by default): the row/switch
+# in the theme picker, switching restores the gradient exactly and dims the
+# pad/swatches, a theme-color change repaints live, Reduce Motion is instant,
+# private windows aren't tinted, the favicon fallback.
+["browser_whimsy_page_tint.js"]
+support-files = ["whimsy_page_tint.html"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
+# W29 ambient-audio: the Ambient sound sheet (six tiles, one at a time, closing the sheet doesn't stop it), the two ⌘K commands and their live detail text, tab mute independence, and the playing tile's text contrast.
+["browser_whimsy_ambient.js"]
+
+# W29 focus sessions: the session sheet and its ticks, the countdown notch,
+# site pausing, the end (confetti, Done, toast, break reminder), Settings.
+["browser_whimsy_focus_session.js"]
 
 # W24 passkey 2: page-world password-manager interception across profiles,
 # windows, frames, CSP, document_start and private-browsing permission.
@@ -1052,6 +1086,12 @@ support-files = ["whimsy_meet.html", "whimsy_zoom.html", "whimsy_teams.html", "w
 ["browser_whimsy_call_options_panel.js"]
 support-files = ["whimsy_meet.html"]
 
+# W29: Call Options › Share this tab and Share This Tab in Call: the call's
+# own share button, Firefox's prompt on this tab with it picked, Stop from
+# any tab.
+["browser_whimsy_call_share_tab.js"]
+support-files = ["whimsy_call_share.html"]
+
 # wave13/toast: one toast, Zen's, extended (WhimsyZenToasts.sys.mjs): icon, Fluent second line, tab-owned toasts, in-place busy updates, "keep" buttons, persistence and handles, buttons with words, close and Esc, stacking, "+k more", Reduce Motion, keyed replace, 480px.
 ["browser_whimsy_zen_toasts.js"]
 
@@ -1099,6 +1139,9 @@ support-files = ["whimsy_chat_article.html"]
 ["browser_whimsy_chat_context.js"]
 support-files = ["whimsy_chat_article.html"]
 
+# W29 context groups: the group row in chat's Add menu, its chip, and the
+# journeys (closing the first page, a tab moving space, a restart).
+["browser_whimsy_chat_context_groups.js"]
 # W28 tab-state-indicators: the sparkle badge ([whimsy-chat-reads] /
 # [whimsy-chat-reading]) tracks chat attachment, option A (the sparkle).
 ["browser_whimsy_chat_reads_marks.js"]
@@ -1368,6 +1411,19 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 
 # W29/help: whimsy://help, the built-in manual (F1, Help menu, command bar; search; off features; settings links).
 ["browser_whimsy_help.js"]
+# W29 side panels: Essentials open in a popover next to the sidebar (default
+# on, resizable per site); Show Chat as Popover shares the surface.
+["browser_whimsy_side_panels.js"]
+# W28 verification codes (WhimsyTOTP.sys.mjs).
+["browser_whimsy_totp_math.js"]
+
+["browser_whimsy_totp_capture.js"]
+support-files = ["whimsy_totp_page.html"]
+
+["browser_whimsy_totp_fill.js"]
+support-files = ["whimsy_totp_page.html"]
+
+["browser_whimsy_totp_settings.js"]
 # W28 local plugins: unsigned extensions from the profile's whimsy-plugins folder only.
 ["browser_whimsy_local_plugins.js"]
 # W29/newtabopts: New Private Tab in the sidebar foot's + button (Zen's Create New menu), right after New Tab; the same command as the File menu's own row and Cmd+Option+T.
@@ -1377,3 +1433,10 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 
 # W29 safety-check: Settings → Privacy & Security → Safety Check card and its sheet.
 ["browser_whimsy_safety_check_settings.js"]
+# w27-tabkeys: Move Tab Up/Down (WhimsyTabMove) and the sidebar's Left/Right
+# tree navigation + Option+Up/Down (WhimsySidebarNav), which reuses it.
+["browser_whimsy_tab_move.js"]
+
+# w27-tabkeys: Paste Tabs (clipboard URLs, cut-to-move), sidebar focused only.
+["browser_whimsy_paste_tabs.js"]
+skip-if = ["os != 'mac'"] # Cmd+V/Cmd+X are a Mac-only gesture, like browser_whimsy_cmd_tab_numbers.js

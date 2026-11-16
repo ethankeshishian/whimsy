@@ -1,0 +1,31 @@
+diff --git a/dom/media/mediasink/AudioDecoderInputTrack.cpp b/dom/media/mediasink/AudioDecoderInputTrack.cpp
+--- a/dom/media/mediasink/AudioDecoderInputTrack.cpp
++++ b/dom/media/mediasink/AudioDecoderInputTrack.cpp
+@@ -270,6 +270,17 @@
+         LOG_M("Apply preserves pitch={}", this, aPreservesPitch);
+         mPreservesPitch = aPreservesPitch;
+         SetTempoAndRateForTimeStretcher();
++      });
++}
++
++void AudioDecoderInputTrack::WhimsySetEqualizer(
++    WhimsyEqualizerParams* aParams) {
++  MOZ_ASSERT(NS_IsMainThread());
++  UniquePtr<WhimsyEqualizer> eq =
++      aParams ? MakeUnique<WhimsyEqualizer>(aParams) : nullptr;
++  QueueControlMessageWithNoShutdown(
++      [self = RefPtr{this}, this, eq = std::move(eq)]() mutable {
++        mWhimsyEqualizer = std::move(eq);
+       });
+ }
+ 
+@@ -384,6 +395,9 @@
+   // Apply any necessary change on the segement which would be outputed to the
+   // graph.
+   const TrackTime appendedDuration = outputSegment.GetDuration();
++  if (mWhimsyEqualizer) {
++    mWhimsyEqualizer->ProcessSegment(outputSegment, Graph()->GraphRate());
++  }
+   ApplyTrackDisabling(&outputSegment);
+   mSegment->AppendFrom(&outputSegment);
+ 

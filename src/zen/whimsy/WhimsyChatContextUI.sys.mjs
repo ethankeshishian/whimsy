@@ -19,6 +19,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyChatAnswer: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
   WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
+  WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
 });
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -119,7 +120,8 @@ function chipArgs(chip) {
     text: c.text ? 1 : 0,
     images: Number(c.images) || 0,
     videos: Number(c.videos) || 0,
-    pages: Number(c.pages) || 0,
+    pages: chip.kind == "group" ? 0 : Number(c.pages) || 0,
+    tabs: chip.kind == "group" ? Number(c.pages) || 0 : 0,
   };
 }
 
@@ -185,6 +187,10 @@ export const WhimsyChatContextUI = {
       const ctx = await lazy.WhimsyAIContext.allTabs(prompt ?? "", win);
       return { ...ctx, widened: [] };
     }
+    // W29: a page and the tabs opened from it, read when the message is sent.
+    if (desc.kind == "group") {
+      return lazy.WhimsyAIContext.forGroup(win, desc);
+    }
     // W23 video: "This video", what Summarize read.
     if (desc.kind == "video") {
       return lazy.WhimsyVideoSummary.contextFor(win, desc);
@@ -229,6 +235,7 @@ export const WhimsyChatContextUI = {
     const isRemoved = chip => removed.has(chip.id) || (chip.kind == "tabs" && removed.has("tabs")) || (widenedTabs && (chip.kind == "tab" || chip.kind == "pane"));
     return {
       ...out,
+      widened: (out.widened ?? []).filter(w => !w.chipId || !removed.has(w.chipId)),
       chips: out.chips.filter(c => !isRemoved(c)),
       parts: out.parts.filter(p => !out.chips.some(c => c.id == p.chipId && isRemoved(c))),
     };
@@ -328,7 +335,7 @@ export const WhimsyChatContextUI = {
     const counts = chip.counts ?? {};
     // W25 designfix: a tab leads with its own favicon (Firefox's default
     // one when the page has none); All my tabs keeps its tabs icon.
-    const mark = chip.icon || (chip.kind == "tab" || chip.kind == "pane" ? DEFAULT_FAVICON : KIND_ICON.text);
+    const mark = chip.icon || (chip.kind == "tab" || chip.kind == "pane" || chip.kind == "group" ? DEFAULT_FAVICON : KIND_ICON.text);
     const lead =
       !/^chrome:\/\/browser\/content\/whimsy\/icons\//.test(mark)
         ? h(doc, "img", { class: "whimsy-chat-chip-mark", src: mark, alt: "" })
@@ -341,10 +348,10 @@ export const WhimsyChatContextUI = {
     // full breakdown stays in the body's tooltip (whimsy-chat-chip-words).
     const count = (kind, n) => h(doc, "span", { class: "whimsy-chat-chip-count", "data-kind": kind, l10n: ["whimsy-chat-chip-count", { kind: n && kind == "text" ? "pages" : kind, count: n || 0 }] });
     const summary = [
-      counts.text && chip.kind != "tabs" ? count("text", chip.kind == "file" || chip.kind == "pdf" ? counts.pages : 0) : null,
+      counts.text && chip.kind != "tabs" && chip.kind != "group" ? count("text", chip.kind == "file" || chip.kind == "pdf" ? counts.pages : 0) : null,
       counts.images ? count("images", counts.images) : null,
       counts.videos ? count("videos", counts.videos) : null,
-      chip.kind == "tabs" ? count("tabs", counts.pages) : null,
+      chip.kind == "tabs" || chip.kind == "group" ? count("tabs", counts.pages) : null,
     ].filter(Boolean);
     return h(
       doc,
@@ -458,7 +465,7 @@ export const WhimsyChatContextUI = {
       doc,
       "div",
       { class: "whimsy-chat-used" },
-      used.map(u => h(doc, "span", {}, icon(doc, u.kind == "tabs" ? KIND_ICON.tabs : `${ICONS}pdf.svg`), h(doc, "span", { l10n: ["whimsy-chat-used", { kind: u.kind, count: u.count ?? 0, label: u.label ?? "" }] })))
+      used.map(u => h(doc, "span", {}, icon(doc, u.kind == "tabs" || u.kind == "group" ? KIND_ICON.tabs : `${ICONS}pdf.svg`), h(doc, "span", { l10n: ["whimsy-chat-used", { kind: u.kind, count: u.count ?? 0, label: u.label ?? "" }] })))
     );
   },
 
@@ -467,6 +474,13 @@ export const WhimsyChatContextUI = {
     panel.el.querySelector(".whimsy-chat-menu")?.remove();
     const current = new Set(this.chipsFor(win, panel.thread).map(c => c.sourceId));
     const tabs = win.gBrowser.visibleTabs.filter(t => !t.closing && !current.has(lazy.WhimsyAIContext.tabKey(t)) && !lazy.WhimsyAIContext.isOffLimits(t) && /^(https?|file):/.test(t.linkedBrowser.currentURI.spec)).slice(0, 6);
+    // W29: the group this tab belongs to, as one row (none for a lone tab,
+    // or once its chip is in).
+    const selected = win.gBrowser.selectedTab;
+    const group = lazy.WhimsyTreeTabs.groupOf(selected);
+    const groupId = group && `group:${group.rootKey}`;
+    const groupTabs = group && !current.has(groupId) ? lazy.WhimsyAIContext.groupTabs(win, group.rootKey, selected).tabs : [];
+    const groupRow = groupTabs.length > 1 ? { id: groupId, rootKey: group.rootKey, label: group.title, icon: group.icon, count: groupTabs.length } : null;
     const close = () => menu.remove();
     const item = (attrs, ...children) => h(doc, "button", { class: "whimsy-chat-option", role: "menuitem", tabindex: "-1", ...attrs }, ...children);
     const menu = h(
@@ -497,6 +511,14 @@ export const WhimsyChatContextUI = {
         )
       ),
       tabs.length ? h(doc, "hr", { class: "whimsy-chat-menu-rule" }) : null,
+      groupRow
+        ? item(
+          { "data-group": groupRow.id, onclick: () => (close(), this.addChip(win, { id: groupRow.id, kind: "group", rootKey: groupRow.rootKey, label: groupRow.label })) },
+          h(doc, "img", { class: "whimsy-chat-brand", src: groupRow.icon || DEFAULT_FAVICON, alt: "" }),
+          h(doc, "span", { class: "whimsy-chat-option-label" }, groupRow.label),
+          h(doc, "span", { class: "whimsy-chat-option-detail", l10n: ["whimsy-chat-chip-count", { kind: "tabs", count: groupRow.count }] })
+        )
+        : null,
       item({ onclick: () => (close(), this.addChip(win, { id: "tabs", kind: "tabs" })) }, icon(doc, KIND_ICON.tabs), h(doc, "span", { class: "whimsy-chat-option-label", l10n: "whimsy-chat-add-all-tabs" })),
       item({ onclick: () => (close(), this.pickFile(win)) }, icon(doc, `${ICONS}pdf.svg`), h(doc, "span", { class: "whimsy-chat-option-label", l10n: "whimsy-chat-add-file" }))
     );

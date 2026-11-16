@@ -326,6 +326,25 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
+  <!-- W28 verification codes (WhimsyTOTP.sys.mjs): the codes Whimsy keeps
+       with the saved passwords, listed like Passkeys' rows with Copy code
+       (Touch ID once per session) and Delete (undo in the toast). Add Code…
+       opens the same surface as the page's Add Verification Code…, with a
+       field for the setup key. -->
+  <html:div id="whimsyTotpGroup" data-category="panePrivacy" data-whimsy-feature="totp" hidden="hidden" class="whimsy-setting-card">
+    <html:moz-card role="presentation">
+      <html:moz-fieldset data-l10n-id="whimsy-totp-header" headinglevel="3"
+                         iconsrc="chrome://browser/skin/zen-icons/selectable/lock-closed.svg">
+        <description class="description-deemphasized" data-l10n-id="whimsy-totp-description"/>
+        <html:ul id="whimsyTotpList" class="whimsy-profiles-list whimsy-passkeys-list whimsy-totp-list" hidden="hidden"></html:ul>
+        <description id="whimsyTotpEmpty" class="description-deemphasized" data-l10n-id="whimsy-totp-empty"/>
+        <description id="whimsyTotpError" class="whimsy-totp-error" role="alert" hidden="true" data-l10n-id="whimsy-totp-error"/>
+        <hbox class="whimsy-profiles-actions" align="center">
+          <button id="whimsyTotpAdd" data-l10n-id="whimsy-totp-add-code"/>
+        </hbox>
+      </html:moz-fieldset>
+    </html:moz-card>
+  </html:div>
   <!-- tierC-vpn: VPN (Firefox's built-in IP Protection). The checkbox is the
        real master switch (browser.ipProtection.enabled): off removes
        Firefox's own toolbar button too, not just this card. -->
@@ -627,6 +646,29 @@
               data-l10n-id="whimsy-hover-people" preference="whimsy.feature.people-cards"/>
     <description id="whimsyHoverPeopleHelp" data-whimsy-feature="people-cards"
                  class="description-deemphasized" data-l10n-id="whimsy-hover-people-help"/>
+  </groupbox>
+</html:template>
+
+# W29: Settings › General › Focus Sessions. The sites a focus session
+# pauses: two built-in lists (on by default) and your own, one per line
+# (the Bang Shortcuts pattern above). The sheet's Edit link opens this.
+<html:template id="template-whimsyFocus" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyFocusGroup" data-category="paneGeneral" data-subcategory="whimsyFocus" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-focus-settings-header"/></label>
+    <description id="whimsyFocusHelp" class="description-deemphasized" data-l10n-id="whimsy-focus-settings-help"/>
+    <checkbox id="whimsyFocusSocial" preference="whimsy.focus.social" data-l10n-id="whimsy-focus-settings-social"
+              aria-describedby="whimsyFocusSocialSample"/>
+    <description id="whimsyFocusSocialSample" class="description-deemphasized indent"/>
+    <checkbox id="whimsyFocusVideo" preference="whimsy.focus.video" data-l10n-id="whimsy-focus-settings-video"
+              aria-describedby="whimsyFocusVideoSample"/>
+    <description id="whimsyFocusVideoSample" class="description-deemphasized indent"/>
+    <label id="whimsyFocusSitesLabel" control="whimsyFocusSites" data-l10n-id="whimsy-focus-settings-yours"/>
+    <description id="whimsyFocusSitesHelp" class="description-deemphasized" data-l10n-id="whimsy-focus-settings-yours-help"/>
+    <html:textarea id="whimsyFocusSites" rows="6" spellcheck="false" aria-describedby="whimsyFocusSitesHelp whimsyFocusStatus"/>
+    <hbox align="center">
+      <button id="whimsyFocusSave" data-l10n-id="whimsy-focus-settings-save"/>
+      <html:span id="whimsyFocusStatus" role="status" aria-live="polite"/>
+    </hbox>
   </groupbox>
 </html:template>
 

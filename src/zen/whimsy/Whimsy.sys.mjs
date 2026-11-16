@@ -42,6 +42,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyRoutinesUI: "resource:///modules/whimsy/WhimsyRoutinesUI.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
+  WhimsyAmbient: "resource:///modules/whimsy/WhimsyAmbient.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
@@ -58,6 +59,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySnooze: "resource:///modules/whimsy/WhimsySnooze.sys.mjs",
   WhimsyFaviconHome: "resource:///modules/whimsy/WhimsyFaviconHome.sys.mjs",
   WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
+  // w27-tabkeys: Move Tab Up/Down and Paste Tabs (keyboard sidebar focus).
+  WhimsyTabMove: "resource:///modules/whimsy/WhimsyTabMove.sys.mjs",
+  WhimsyPasteTabs: "resource:///modules/whimsy/WhimsyPasteTabs.sys.mjs",
   WhimsyFireButton: "resource:///modules/whimsy/WhimsyFireButton.sys.mjs",
   WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
   // W11-07: Whimsy Home or Firefox Home for new windows and new tabs.
@@ -128,6 +132,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // batch3glance: Glance size and split view (Arc parity).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyGlance: "resource:///modules/whimsy/WhimsyGlance.sys.mjs",
+  WhimsySidePanel: "resource:///modules/whimsy/WhimsySidePanel.sys.mjs",
   WhimsySplitFlow: "resource:///modules/whimsy/WhimsySplitFlow.sys.mjs",
   WhimsySplitLayouts: "resource:///modules/whimsy/WhimsySplitLayouts.sys.mjs",
 });
@@ -240,6 +245,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
 });
 
+// W28: Search With ▸ in the selection menu.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySearchWith: "resource:///modules/whimsy/WhimsySearchWith.sys.mjs",
+});
+
 // wave6: Already open (Arc parity).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
@@ -276,6 +286,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave7/focus: Do Not Disturb and paste guard.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
+  WhimsyFocusSession: "resource:///modules/whimsy/WhimsyFocusSession.sys.mjs",
   WhimsyPasskeys: "resource:///modules/whimsy/WhimsyPasskeys.sys.mjs",
   WhimsyPasteGuard: "resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs",
 });
@@ -316,6 +327,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
 });
 
+// W28 verification codes (TOTP).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTOTP: "resource:///modules/whimsy/WhimsyTOTP.sys.mjs",
+});
+
 // W24 emoji: emoji from the command bar (":" or the Emoji command).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmoji: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs",
@@ -354,6 +370,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // W27: Press Esc twice to leave full screen.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFullscreenEscape: "resource:///modules/whimsy/WhimsyFullscreenEscape.sys.mjs",
+  WhimsyKeysToPage: "resource:///modules/whimsy/WhimsyKeysToPage.sys.mjs",
 });
 
 // wave9: form protection (W9-03)
@@ -384,6 +401,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // W27: the window title names its space.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyWindowTitle: "resource:///modules/whimsy/WhimsyWindowTitle.sys.mjs",
+});
+
+// W29: Match the page, the space colour editor's per-space page tint.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPageTint: "resource:///modules/whimsy/WhimsyPageTint.sys.mjs",
 });
 
 // wave9: Inspector (Font Inspector & Element Inspector lite).
@@ -510,6 +532,18 @@ export const Whimsy = {
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyEmailAliasesChild.sys.mjs",
         events: { focusin: { capture: true }, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
+    // W28 verification codes: the field button in code fields and reading
+    // a setup QR code on right-click; keys stay in the parent.
+    ChromeUtils.registerWindowActor("WhimsyTOTP", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyTOTPParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyTOTPChild.sys.mjs",
+        events: { focusin: { capture: true }, contextmenu: { capture: true }, pagehide: {} },
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
@@ -708,6 +742,21 @@ export const Whimsy = {
       allFrames: true,
       safeForUntrustedWebProcess: true,
     });
+
+    // W29: Match the page. Reads each tab's theme-color (the favicon
+    // fallback runs in the parent, from the tab's own icon, no actor
+    // needed); WhimsyPageTint blends it into the space's gradient colour.
+    ChromeUtils.registerWindowActor("WhimsyPageTint", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageTintParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPageTintChild.sys.mjs",
+        events: { DOMMetaChanged: {}, pageshow: {} },
+      },
+      matches: ["http://*/*", "https://*/*"],
+      allFrames: false,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {
@@ -790,6 +839,12 @@ export const Whimsy = {
         ?.then(() => lazy.WhimsySpaces.initWindow(win))
         .catch(e => console.error("Whimsy: spaces", e))
     );
+    // W29: after Zen's spaces (the space colour editor) are ready.
+    run("page-tint", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyPageTint.initWindow(win))
+        .catch(e => console.error("Whimsy: page-tint", e))
+    );
     run("look", () => lazy.WhimsyLook.initWindow(win));
     run("actors", () => this.registerActors());
     // Library sidebar panels (Notes, Finder folders, Screenshot to
@@ -799,11 +854,13 @@ export const Whimsy = {
     run("library-sections", () => lazy.WhimsyLibrarySection.initWindow(win));
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
+    run("ambient-audio", () => lazy.WhimsyAmbient.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
     run("dark-pages", () => lazy.WhimsyDarkPages.initWindow(win));
     // W26 passkeys: once per session (the profile-delete hook and the
     // Secure Enclave probe); the prompt opens per request.
     run("passkeys", () => lazy.WhimsyPasskeys.init());
+    run("totp", () => lazy.WhimsyTOTP.init());
     // batch6: split view extras; each action checks its own switch.
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).
@@ -935,6 +992,10 @@ export const Whimsy = {
     });
     // batch7: keyboard sidebar navigation (Arc).
     run("sidebar-nav", () => lazy.WhimsySidebarNav.initWindow(win));
+    // w27-tabkeys: Move Tab Up/Down (also used by sidebar nav's Option+Up/Down).
+    run("tab-move", () => lazy.WhimsyTabMove.initWindow(win));
+    // w27-tabkeys: Paste Tabs — Cmd+V/Cmd+X with the sidebar focused.
+    run("paste-tabs", () => lazy.WhimsyPasteTabs.initWindow(win));
     // batch7: shortcut cheat sheet.
     run("cheatsheet", () => lazy.WhimsyCheatSheet.initWindow(win));
     // batch7: inbox-zero balloons.
@@ -1061,6 +1122,9 @@ export const Whimsy = {
     // batch3glance: Glance size. Always installed (checks its switch on
     // each Glance), so turning it on or off applies without a restart.
     run("glance-size", () => lazy.WhimsyGlance.initWindow(win));
+    // W29 side panels: Essentials open in a popover next to the sidebar.
+    // Always installed; each click checks the switch.
+    run("side-panels", () => lazy.WhimsySidePanel.initWindow(win));
     // batch3glance: Cmd+T in a split opens into the focused pane (Arc).
     // Always installed; checks its switch on each Cmd+T.
     run("split-new-tab", () => lazy.WhimsySplitFlow.initWindow(win));
@@ -1202,6 +1266,9 @@ export const Whimsy = {
     // menu action, menu rows for commands, Share ▸ lists the share services.
     // Its rows listen on their popups, so Settings → Menus still sees them.
     run("menu-parity", () => lazy.WhimsyMenuParity.initWindow(win));
+    // W28: Search With ▸, right after the selection menu's search row.
+    // Always installed; checks its switch on every show.
+    run("search-with", () => lazy.WhimsySearchWith.initWindow(win));
     // wave7/menuprefs: rows turned off in Settings → Menus. Keep this the
     // last menu listener: it hides rows after every other module has shown
     // or moved them. Always installed; checks its switch on every show.
@@ -1219,6 +1286,10 @@ export const Whimsy = {
     // guard. Each command checks its switch on use.
     run("do-not-disturb", () => lazy.WhimsyDoNotDisturb.initWindow(win));
     run("paste-guard", () => lazy.WhimsyPasteGuard.initWindow(win));
+    // W29: focus sessions (the sheet, the countdown notch, paused sites).
+    // The command checks its switch on use; a running session shows its
+    // countdown in every new window.
+    run("focus-sessions", () => lazy.WhimsyFocusSession.initWindow(win));
 
     // wave7/teach: Teach once.
     if (this.featureEnabled("teach-once")) {
@@ -1240,6 +1311,7 @@ export const Whimsy = {
     // wave7/small: Create Email Alias (command bar), at the focused email
     // field. Checks its switch on use.
     later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    later("totp", () => lazy.WhimsyTOTP.initWindow(win));
     // W27: Edit Field in Text Editor (command bar), at the focused field.
     later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
     // W28: "Open in Safari" / "Open in Chrome" (command bar), one row per
@@ -1269,6 +1341,8 @@ export const Whimsy = {
     run("battery-saver", () => lazy.WhimsyBatterySaver.initWindow(win));
     // W27: the full-screen notice's "Press Esc again" (whimsy-PresShell-cpp.patch).
     run("double-escape", () => lazy.WhimsyFullscreenEscape.initWindow(win));
+    // W29: Pass Keys to Page (whimsy-GlobalKeyListener-cpp.patch).
+    run("pass-keys-to-page", () => lazy.WhimsyKeysToPage.initWindow(win));
 
     // wave9: form protection (W9-03)
     run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));

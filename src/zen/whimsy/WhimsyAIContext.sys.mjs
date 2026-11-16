@@ -21,6 +21,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyHiddenSpaces: "resource:///modules/whimsy/WhimsyHiddenSpaces.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
 });
 
@@ -246,7 +247,12 @@ export const WhimsyAIContext = {
     return win?.gZenWorkspaces?.getWorkspaces?.() ?? [];
   },
 
-  /** A key for a tab that survives restarts (per-tab chats use it). */
+  /**
+   * A key for a tab that survives restarts (per-tab chats and context groups
+   * use it). Kept as a SessionStore custom tab value: TabAttributes no longer
+   * persists added attributes (persistTabAttribute is gone), and
+   * restoreKey() puts it back on the tab when it's restored.
+   */
   tabKey(tab) {
     if (!tab) {
       return null;
@@ -256,10 +262,32 @@ export const WhimsyAIContext = {
       key = Services.uuid.generateUUID().toString().slice(1, -1);
       tab.setAttribute(KEY_ATTR, key);
       try {
-        lazy.SessionStore.persistTabAttribute(KEY_ATTR);
+        lazy.SessionStore.setCustomTabValue(tab, KEY_ATTR, key);
       } catch {}
     }
     return key;
+  },
+
+  /**
+   * Puts a restored tab's saved key back. A duplicate carries its original's
+   * key, so a key another open tab already has gets a fresh one instead.
+   */
+  restoreKey(tab) {
+    let saved = "";
+    try {
+      saved = lazy.SessionStore.getCustomTabValue(tab, KEY_ATTR);
+    } catch {}
+    if (!saved || tab.getAttribute(KEY_ATTR) == saved) {
+      return;
+    }
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      if (win.gBrowser?.tabs.some(t => t != tab && t.getAttribute(KEY_ATTR) == saved)) {
+        tab.removeAttribute(KEY_ATTR);
+        this.tabKey(tab);
+        return;
+      }
+    }
+    tab.setAttribute(KEY_ATTR, saved);
   },
 
   // --- Extraction and masking (WhimsyAIContext actor) ---
@@ -429,8 +457,24 @@ export const WhimsyAIContext = {
     }
     const kept = tabs.slice(0, MAX_WIDE_TABS);
     const chipId = `tabs:${win ? this.tabKey(win.gBrowser.selectedTab) : "all"}`;
+    const pages = await this.readPages(kept, chipId);
+    context.chips.push({
+      id: chipId,
+      kind: "tabs",
+      label: "",
+      icon: "chrome://browser/content/whimsy/icons/tabs-all.svg",
+      counts: { pages: pages.length },
+      sourceId: "all-tabs",
+    });
+    context.parts.push(...pages);
+    context.widened.push({ kind: "tabs", count: pages.length, leftOut: { ...context.leftOut }, more: Math.max(0, tabs.length - kept.length) });
+    return context;
+  },
+
+  /** One page part per tab, read the way All my tabs reads them. */
+  async readPages(tabs, chipId) {
     const pages = [];
-    for (const tab of kept) {
+    for (const tab of tabs) {
       const browser = tab.linkedBrowser;
       const loaded = !tab.hasAttribute("pending") && browser?.browsingContext?.currentWindowGlobal;
       const data = loaded ? await this.extract(browser) : null;
@@ -447,17 +491,50 @@ export const WhimsyAIContext = {
         tabKey: this.tabKey(tab),
       });
     }
-    context.chips.push({
-      id: chipId,
-      kind: "tabs",
-      label: "",
-      icon: "chrome://browser/content/whimsy/icons/tabs-all.svg",
-      counts: { pages: pages.length },
-      sourceId: "all-tabs",
-    });
-    context.parts.push(...pages);
-    context.widened.push({ kind: "tabs", count: pages.length, leftOut: { ...context.leftOut }, more: Math.max(0, tabs.length - kept.length) });
-    return context;
+    return pages;
+  },
+
+  /**
+   * The web tabs of a context group (WhimsyTreeTabs.groupFor), in the space
+   * of `ref`, less what's off limits, capped like All my tabs.
+   */
+  groupTabs(win, rootKey, ref = win?.gBrowser?.selectedTab) {
+    const group = lazy.WhimsyTreeTabs.groupFor(win, rootKey, ref);
+    const leftOut = emptyLeftOut();
+    const tabs = [];
+    for (const tab of group.tabs) {
+      if (!isWebTab(tab)) {
+        continue;
+      }
+      const off = this.isOffLimits(tab);
+      if (off) {
+        leftOut[off]++;
+      } else {
+        tabs.push(tab);
+      }
+    }
+    return { ...group, tabs: tabs.slice(0, MAX_WIDE_TABS), leftOut };
+  },
+
+  /** What a context group chip reads: read when the message is sent. */
+  async forGroup(win, desc) {
+    const group = this.groupTabs(win, desc.rootKey);
+    const pages = await this.readPages(group.tabs, desc.id);
+    const label = group.title || desc.label || "";
+    return {
+      chips: [{
+        id: desc.id,
+        kind: "group",
+        label,
+        icon: group.icon || "",
+        counts: { pages: pages.length },
+        sourceId: desc.id,
+      }],
+      parts: pages,
+      leftOut: group.leftOut,
+      destination: null,
+      widened: [{ kind: "group", chipId: desc.id, count: pages.length, label }],
+    };
   },
 
   // Overridable in tests.

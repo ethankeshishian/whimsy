@@ -41,7 +41,10 @@ add_setup(async () => {
 });
 
 async function closed() {
-  await TestUtils.waitForCondition(() => !panel() || panel().state == "closed", "The cards are gone");
+  await TestUtils.waitForCondition(() => !panel() || panel().state == "closed", "The cards are gone").catch(e => {
+    info(`Still open: target ${host.target?.key} kind ${host.target?.kind} shown ${host.target?.shown}, pending ${host.pending?.key}, overPanel ${host.overPanel}, panel ${panel()?.state}, open-attr ${panel()?.hasAttribute("whimsy-open")}`);
+    throw e;
+  });
 }
 
 async function openCards() {
@@ -163,14 +166,39 @@ const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", 
 const TARGET = ROOT + "whimsy_ai_page.html";
 
 // A tall page with the link 400px down, scrolled 200px so a wheel either
-// way moves it; a second link right beside the first.
+// way moves it; a second link right beside the first, and a profile link
+// (People card) beside that.
 async function tallPage(browser) {
   await SpecialPowers.spawn(browser, [TARGET], target => {
     content.document.body.style.cssText = "margin: 0; height: 4000px";
     content.document.body.innerHTML = `
       <p style="margin: 0; padding: 20px; position: fixed; top: 0; left: 0"><a id="away" href="#">away</a></p>
-      <p style="margin: 380px 40px 0"><a id="link" href="${target}?clicked">a link</a> <a id="next" href="${target}?next">next link</a></p>`;
+      <p style="margin: 380px 40px 0"><a id="link" href="${target}?clicked">a link</a>
+        <a id="next" href="${target}?next">next link</a>
+        <a id="person" href="https://github.com/octocat">The Octocat</a></p>`;
     content.scrollTo(0, 200);
+  });
+}
+
+// Like tallPage, but with nothing beside the link: a big plain element
+// (not a link - landing on one of those while swapping with no delay, W29,
+// is the SWAP_MS case and stays as-is) right under it, in the hover card's
+// own footprint, for the regression test below (whatever's there gets the
+// hover and the click once a plain card is gone). Its own page because the
+// other tests here scroll a little with the pointer still resting where the
+// link was, and a page-wide #below would end up under that resting pointer
+// too.
+async function pageWithLinkBelow(browser) {
+  await SpecialPowers.spawn(browser, [TARGET], target => {
+    content.document.body.style.cssText = "margin: 0; height: 4000px";
+    content.document.body.innerHTML = `
+      <p style="margin: 0; padding: 20px; position: fixed; top: 0; left: 0"><a id="away" href="#">away</a></p>
+      <p style="margin: 380px 40px 0"><a id="link" href="${target}?clicked">a link</a></p>
+      <div id="below" style="display: block; width: 300px; height: 300px; margin: 0 40px">below the link</div>`;
+    content.scrollTo(0, 200);
+    content.document.getElementById("below").addEventListener("click", () => {
+      content.wrappedJSObject.belowClicked = true;
+    });
   });
 }
 
@@ -211,6 +239,19 @@ async function hoverLinkCard(browser, { loading = false } = {}) {
   }
   ok(p.hasAttribute("noautohide"), "The card's popup isn't a rollup popup, so nothing outside it is swallowed");
   is(getComputedStyle(p).pointerEvents, "none", "...and its window lets the pointer through until it's on the card");
+  return p;
+}
+
+// Same, but on the profile link: the People card, which keeps the hover
+// bridge and survives the pointer reaching it (unlike the plain card
+// above).
+async function hoverPeopleCard(browser) {
+  await scrollPageTo(browser, 200);
+  await whimsyNativeMoveTo(browser, "#away");
+  await closed();
+  await whimsyNativeMoveTo(browser, "#person");
+  const p = await openCards();
+  Assert.deepEqual(cards(), ["people"], "The profile link: the People card");
   return p;
 }
 
@@ -259,9 +300,13 @@ add_task(async function page_scrolls_under_an_open_card() {
       await pageScrolls(browser, "A real wheel over the card's shadow room", () => whimsyNativeWheel(room.x, room.y, -3));
       await closed();
 
-      // Over the card itself, which has nothing to scroll: the page scrolls,
-      // and the card goes at once so the rest of the gesture lands there.
-      p = await hoverLinkCard(browser, { loading: true });
+      // Over the card itself: the plain card has nothing to click or
+      // scroll, so leaving the link already closed it (W29) and this
+      // scenario only still applies to the People card, which keeps the
+      // hover bridge. It isn't the card's to scroll either: the page
+      // scrolls, and the card goes at once so the rest of the gesture
+      // lands there.
+      p = await hoverPeopleCard(browser);
       await pointerOnCard(p);
       await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
       is(getComputedStyle(p).pointerEvents, "auto", "...which takes the mouse now");
@@ -302,8 +347,10 @@ add_task(async function page_zooms_with_a_card_open() {
       FullZoom.reset(browser);
       await TestUtils.waitForCondition(() => zoom() == 1, "Zoom back to 100%");
 
-      // Over the card: it isn't the card's to scroll; the page zooms.
-      p = await hoverLinkCard(browser, { loading: true });
+      // Over the card: the People card, since a plain one is gone by the
+      // time the pointer gets there (W29). It isn't the card's to scroll
+      // either; the page zooms.
+      p = await hoverPeopleCard(browser);
       await pointerOnCard(p);
       await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
       await zooms("Ctrl and the wheel over the card", () =>
@@ -376,8 +423,7 @@ add_task(async function page_scrolls_under_a_card_while_loading() {
   }
 });
 
-// One click: on the link under the card's room, on the link beside it, and
-// on the card itself (which opens the link).
+// One click: on the link under the card's room, and on the link beside it.
 add_task(async function one_click_with_a_card_open() {
   const restore = stubAI(true);
   try {
@@ -396,17 +442,67 @@ add_task(async function one_click_with_a_card_open() {
         BrowserTestUtils.startLoadingURIString(browser, "https://example.com/browser/");
         await BrowserTestUtils.browserLoaded(browser);
       }
+      // The plain card itself no longer takes a click (W29): it's gone by
+      // the time the pointer gets there. See
+      // plain_card_closes_and_lets_the_page_through below, and the People
+      // card equivalent is still covered by the bridge tests.
+    });
+  } finally {
+    host.hide({ animate: false });
+    await whimsyParkPointer();
+    await closed();
+    restore();
+  }
+});
 
-      // The card itself still takes the click.
-      await tallPage(browser);
+// W29: "the hover card tends to cover things below it" - a plain card used
+// to keep the hover bridge too, so moving the pointer down onto it (as you
+// naturally would, reaching for whatever's under it) kept it open and
+// covering that content. Now leaving the link closes it, pointer or not,
+// and whatever's underneath takes the hover and the click.
+add_task(async function plain_card_closes_and_lets_the_page_through() {
+  const restore = stubAI(true);
+  try {
+    await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
+      await pageWithLinkBelow(browser);
       const p = await hoverLinkCard(browser);
-      const card = p.querySelector(".whimsy-link-hover-card");
+      const card = cardRect(p);
+      await pointerOnCard(p);
+      await closed();
+      is(host.overPanel, false, "The pointer reaching the card never kept it open");
+
+      // The element below the card (#below) now gets the hover and the
+      // click the card used to sit on top of.
+      ok(
+        await SpecialPowers.spawn(browser, [], () => !!content.document.querySelector("#below:hover")),
+        "The element under the card is hovered now the card is gone"
+      );
+      whimsyMouseAt(card.x + card.width / 2, card.y + card.height / 2);
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(browser, [], () => !!content.wrappedJSObject.belowClicked),
+        "The element under the card took the click"
+      );
+    });
+  } finally {
+    host.hide({ animate: false });
+    await whimsyParkPointer();
+    await closed();
+    restore();
+  }
+});
+
+// The People card is the opposite: it has buttons, so the pointer reaching
+// it (the hover bridge) keeps it open past CARD_LEAVE_MS and LEAVE_GRACE_MS.
+add_task(async function people_card_survives_the_pointer_reaching_it() {
+  const restore = stubAI(false);
+  try {
+    await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
+      await tallPage(browser);
+      const p = await hoverPeopleCard(browser);
       await pointerOnCard(p);
       await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
-      const loaded = BrowserTestUtils.browserLoaded(browser, false, url => url.endsWith("?clicked"));
-      EventUtils.synthesizeMouseAtCenter(card, {});
-      await loaded;
-      ok(true, "Clicking the card opens its link");
+      await new Promise(resolve => setTimeout(resolve, WhimsyLinkHover.LEAVE_GRACE_MS + 150)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      is(panel()?.state, "open", "The People card stays while the pointer rests on it");
     });
   } finally {
     host.hide({ animate: false });

@@ -334,6 +334,72 @@ whimsy-volume-slider =
 whimsy-volume-mute =
     .tooltiptext = Mute or unmute the tab
 
+## W29 tab equalizer: the rows under the volume slider in the Tab volume panel
+
+whimsy-eq-label = Equalizer
+whimsy-eq-preset-flat = Flat
+whimsy-eq-preset-voice = Voice
+whimsy-eq-preset-bass-boost = Bass Boost
+whimsy-eq-preset-treble-boost = Treble Boost
+whimsy-eq-preset-loudness = Loudness
+whimsy-eq-preset-custom = Custom
+whimsy-eq-preset-menu =
+    .aria-label = Equalizer preset
+whimsy-eq-show-bands =
+    .tooltiptext = Show bands
+    .aria-label = Show bands
+whimsy-eq-hide-bands =
+    .tooltiptext = Hide bands
+    .aria-label = Hide bands
+# $freq (string) - the band's frequency as its label shows it, e.g. 1k
+# $db (number) - the band's gain in decibels, e.g. -3
+whimsy-eq-band =
+    .aria-label = { $freq } Hz
+# The value a screen reader reads for an equalizer band.
+whimsy-eq-band-value = { $db } decibels
+# Shown under the presets when the tab's audio can't be filtered (protected
+# or live-stream media).
+whimsy-eq-unsupported = This site's audio can't be adjusted.
+# The tab speaker's tooltip while the site's equalizer is on: Firefox's own
+# tooltip, then the preset.
+# $action (string) - which Firefox tooltip: mute, unmute, mute-background, unmute-background
+# $preset (string) - flat, voice, bass-boost, treble-boost, loudness, or custom
+whimsy-eq-speaker-tooltip =
+    .label =
+        { $action ->
+            [unmute] { tabbrowser-unmute-tab-audio-tooltip.label }
+            [mute-background] { tabbrowser-mute-tab-audio-background-tooltip.label }
+            [unmute-background] { tabbrowser-unmute-tab-audio-background-tooltip.label }
+           *[mute] { tabbrowser-mute-tab-audio-tooltip.label }
+        } · Equalizer: { $preset ->
+            [voice] { whimsy-eq-preset-voice }
+            [bass-boost] { whimsy-eq-preset-bass-boost }
+            [treble-boost] { whimsy-eq-preset-treble-boost }
+            [loudness] { whimsy-eq-preset-loudness }
+            [flat] { whimsy-eq-preset-flat }
+           *[custom] { whimsy-eq-preset-custom }
+        }
+## Ambient sound (⌘K, or the sheet it opens): six bundled loops played
+## from the chrome window, not a tab, so muting a tab or switching tabs
+## or spaces never touches them.
+
+whimsy-ambient-sheet-title = Ambient sound
+whimsy-ambient-tile-rain = Rain
+whimsy-ambient-tile-cafe = Café
+whimsy-ambient-tile-woods = Woods
+whimsy-ambient-tile-fireplace = Fireplace
+whimsy-ambient-tile-ocean = Ocean
+whimsy-ambient-tile-brown = Brown noise
+# $sound (string) - the sound's name, e.g. Rain
+whimsy-ambient-tile-playing =
+    .aria-label = Stop { $sound }
+whimsy-ambient-volume =
+    .aria-label = Ambient sound volume
+whimsy-action-ambient-sound = Ambient Sound…
+whimsy-action-ambient-stop = Stop Ambient Sound
+whimsy-ambient-detail-idle = Rain, café, woods, fireplace, ocean, or brown noise
+whimsy-ambient-detail-playing = Change the sound or its volume
+
 ## Playback speed (shortcuts and command bar)
 
 whimsy-action-speed-up = Speed Up Video
@@ -1327,6 +1393,10 @@ whimsy-mail-unread-preview =
         [one] { $count } unread message
        *[other] { $count } unread messages
     }
+# W29: the tab hover card's Inbox block (Gmail or Outlook, connected).
+whimsy-hover-card-inbox = Inbox
+whimsy-hover-card-inbox-empty = No emails in your inbox
+whimsy-hover-card-inbox-yesterday = Yesterday
 # W29/cmdrecent: Recently Closed and Synced Tabs join the empty command bar
 # after Recent Documents (nothing already there moves).
 whimsy-command-recently-closed = Recently Closed
@@ -2496,6 +2566,9 @@ whimsy-action-capture = Capture…
 whimsy-action-tab-next = Next Tab
 whimsy-action-tab-prev = Previous Tab
 whimsy-action-focus-sidebar = Focus Sidebar
+whimsy-action-move-tab-up = Move Tab Up
+whimsy-action-move-tab-down = Move Tab Down
+whimsy-action-paste-tabs = Paste Tabs
 whimsy-action-devmode-on = Turn Developer Mode On for This Site
 whimsy-action-devmode-off = Turn Developer Mode Off for This Site
 whimsy-action-vpn-toggle = Turn VPN On or Off
@@ -2539,6 +2612,21 @@ tab-context-whimsy-unread-badge =
 whimsy-action-toggle-unread-badge = Show or Hide Unread Badge
 whimsy-action-show-unread-badge = Show Unread Badge
 whimsy-action-hide-unread-badge = Hide Unread Badge
+
+# W29 side panels: an Essential's context menu (a checkbox, on by default)
+# and its command. Checked, the Essential opens in a popover next to the
+# sidebar; unchecked, as a normal tab.
+tab-context-whimsy-side-panel =
+    .label = Open in Side Panel
+whimsy-action-side-panel = Open in Side Panel or Tab
+whimsy-action-open-in-side-panel = Open in Side Panel
+whimsy-action-open-in-tab = Open in Tab
+# The popover's header button, and its resize grip.
+whimsy-side-panel-hide-button =
+    .title = Hide side panel
+    .aria-label = Hide side panel
+whimsy-side-panel-splitter =
+    .aria-label = Resize side panel
 
 # wave5/uxfix: read out with a pinned tab's unread badge.
 # $count (number) - unread items the site reports
@@ -3092,6 +3180,10 @@ whimsy-tab-context-restore-closed-tabs =
             [1] Restore Last Closed Tab
            *[other] Restore Last Closed Tabs
         }
+# W29/ctxmenu: the owner's shorter name for the tab menu's chat row (was
+# "Ask an AI Chatbot"), grouped with Watch This Page….
+whimsy-tab-context-ask-ai =
+    .label = Ask AI
 # File menu, Cmd+W. $tabCount (number) - selected tabs
 whimsy-menu-archive-tab =
     .label =
@@ -3143,6 +3235,19 @@ whimsy-keywords-page-animations = Reduce Motion, Reduced Motion, Motion, Animati
 whimsy-page-animations-off-toast = Animations are off on this page until it reloads
 whimsy-page-animations-on-toast = Animations are back on for this page
 
+## W29 Pass Keys to Page: the current tab's page gets every key until Esc is
+## held, the pill is clicked, or the tab changes.
+
+whimsy-action-pass-keys-to-page = Pass Keys to Page
+whimsy-keywords-pass-keys-to-page = Keyboard, Shortcuts, Keys, Keyboard Lock, Vim, Terminal, Remote Desktop, Games
+whimsy-pass-keys-pill = Keys to page
+whimsy-pass-keys-pill-tooltip =
+    .tooltiptext = Keys go to this page. Hold Esc or click to stop.
+whimsy-pass-keys-on-toast = Keys go to this page
+whimsy-pass-keys-on-detail = Hold Esc to stop.
+whimsy-pass-keys-hold = Keep holding Esc to stop passing keys
+whimsy-pass-keys-off-toast = { -brand-short-name }’s shortcuts are back
+
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)
 
@@ -3152,6 +3257,137 @@ whimsy-action-dnd-off = Turn Do Not Disturb Off
 whimsy-dnd-on-toast = Do Not Disturb on
 whimsy-dnd-on-toast-description = Site notifications are paused until you turn it off or quit
 whimsy-dnd-off-toast = Do Not Disturb off
+
+## W29 focus sessions: the sheet (a dial for the length and what the
+## session turns on), the countdown in the page's top-right corner, sites
+## paused while it runs, the finish, and the break reminder.
+
+whimsy-action-focus-toggle = Start or End Focus Session
+whimsy-action-focus-start = Start Focus Session
+whimsy-action-focus-end = End Focus Session
+whimsy-keywords-focus = Focus, Pomodoro, Timer, Block, Distraction
+whimsy-focus-sheet-title = Focus session
+whimsy-focus-length =
+    .aria-label = Length
+# What VoiceOver reads for the length picker.
+# $minutes (Number) - the length the picker is set to.
+# $time (String) - when a session that long would end, such as 3:40 PM.
+whimsy-focus-length-spoken = { $minutes ->
+    [one] { $minutes } minute, ends at { $time }
+   *[other] { $minutes } minutes, ends at { $time }
+}
+# The unit under the dial's big number.
+whimsy-focus-min = min
+# $time (String) - a time of day, "3:40 PM".
+whimsy-focus-ends = Ends at { $time }
+whimsy-focus-during = During the session
+whimsy-focus-just-timer = Just a timer
+whimsy-focus-dnd = Do Not Disturb
+whimsy-focus-dnd-detail = Notifications wait until the session ends
+whimsy-focus-pause = Pause distracting sites
+# $count (Number) - how many of your own sites are on the list.
+whimsy-focus-pause-both = { $count ->
+    [0] Social media and video
+    [one] Social media, video, and { $count } more site
+   *[other] Social media, video, and { $count } more sites
+}
+whimsy-focus-pause-social = { $count ->
+    [0] Social media
+    [one] Social media and { $count } more site
+   *[other] Social media and { $count } more sites
+}
+whimsy-focus-pause-video = { $count ->
+    [0] Video
+    [one] Video and { $count } more site
+   *[other] Video and { $count } more sites
+}
+whimsy-focus-pause-own = { $count ->
+    [0] No sites yet
+    [one] { $count } site
+   *[other] { $count } sites
+}
+whimsy-focus-edit = Edit
+whimsy-focus-mute = Mute background tabs
+whimsy-focus-mute-detail = Only the tab you’re on can play sound
+# W29 Stay on this tab: a tick in the sheet.
+whimsy-focus-stay = Stay on this tab
+whimsy-focus-stay-detail = Hides your other tabs. New tabs open in Glance.
+# The line under the kept tab. $count (Number) - tabs hidden; $time (String) - when the session ends.
+whimsy-focus-tabs-hidden = { $count ->
+    [one] { $count } tab hidden until { $time }
+   *[other] { $count } tabs hidden until { $time }
+}
+whimsy-focus-break = Break reminder
+# $minutes (Number) - the break's length.
+whimsy-focus-break-detail = A { $minutes }-minute break when it ends, then a nudge
+whimsy-focus-cancel =
+    .label = Cancel
+whimsy-focus-start =
+    .label = Start
+# The countdown in the page's corner. $time (String) - when it ends;
+# $minutes (Number) - minutes left, rounded up.
+whimsy-focus-notch =
+    .title = Ends at { $time }
+    .aria-label = { $minutes ->
+        [one] Focus session, { $minutes } minute left
+       *[other] Focus session, { $minutes } minutes left
+    }
+whimsy-focus-done = Done
+# The countdown's panel. $time (String) - when it ends.
+whimsy-focus-panel-ends = Ends at { $time }.
+# $time (String); $list (String) - what the session turned on, joined.
+whimsy-focus-panel-text = Ends at { $time }. { $list }.
+# Two of the parts below, joined.
+whimsy-focus-panel-pair = { $first }, and { $second }
+whimsy-focus-panel-dnd = Do Not Disturb is on
+# $count (Number) - sites paused.
+whimsy-focus-panel-sites = { $count ->
+    [one] { $count } site is paused
+   *[other] { $count } sites are paused
+}
+whimsy-focus-panel-mute = background tabs are muted
+# $minutes (Number) - the break's length.
+whimsy-focus-panel-break = a { $minutes }-minute break follows
+# Stay on this tab, after the panel's first sentence.
+whimsy-focus-panel-tabs = Your other tabs come back when it ends.
+whimsy-focus-end-session =
+    .label = End session
+whimsy-focus-done-toast = Focus session done
+whimsy-focus-done-break = Time for a break.
+whimsy-focus-start-another = Start another
+whimsy-focus-break-over = Break’s over
+# $minutes (Number) - the length of the session that just ended.
+whimsy-focus-break-over-description = Ready for another { $minutes } minutes?
+
+## W29 focus sessions: the page a paused site shows
+
+whimsy-focus-page-title = Paused for focus
+whimsy-focus-page-brand = Whimsy
+# $site (String) - the site's name, "x.com".
+whimsy-focus-page-heading = { $site } is paused during your focus session
+# $time (String) - when the session ends, "3:40 PM".
+whimsy-focus-page-text = It opens again at { $time }, when the session ends.
+whimsy-focus-page-back = Go back
+whimsy-focus-page-open = Open anyway
+whimsy-focus-page-this-site = This site
+
+## W29 focus sessions: Settings › General › Focus Sessions
+
+whimsy-focus-settings-header = Focus Sessions
+whimsy-focus-settings-help = Sites to pause during a focus session. Their subdomains are paused too.
+whimsy-focus-settings-social =
+    .label = Social media
+whimsy-focus-settings-video =
+    .label = Video and entertainment
+# $sites (String) - the first few sites; $count (Number) - how many more.
+whimsy-focus-settings-sample = { $sites }, and { $count } more
+whimsy-focus-settings-yours = Your sites
+whimsy-focus-settings-yours-help = One per line.
+whimsy-focus-settings-save =
+    .label = Save
+whimsy-focus-settings-saved = Sites saved.
+# $line (String) - the line that isn't a site, as typed.
+whimsy-focus-settings-invalid = “{ $line }” isn’t a site name. Nothing was saved.
 
 ## wave7/focus: paste guard (asks before pasting something that looks
 ## like a secret into a web page)
@@ -3401,6 +3637,9 @@ whimsy-menus-tab-essentials =
 whimsy-menus-tab-unread-badge =
     .label = Show Unread Badge
     .description = On Essentials
+whimsy-menus-tab-side-panel =
+    .label = Open in Side Panel
+    .description = On Essentials
 whimsy-menus-tab-rename =
     .label = Change Label…
 whimsy-menus-tab-change-icon =
@@ -3414,7 +3653,7 @@ whimsy-menus-tab-duplicate =
 whimsy-menus-tab-copy-links =
     .label = Copy Link
 whimsy-menus-tab-ask-chat =
-    .label = Ask an AI Chatbot
+    .label = Ask AI
     .description = When the AI chatbot is on
 whimsy-menus-tab-bookmark =
     .label = Bookmark Tab
@@ -3505,6 +3744,8 @@ whimsy-menus-page-view-source =
 
 whimsy-menus-selection-search =
     .label = Search for the Selection
+whimsy-menus-selection-search-with =
+    .label = Search With
 whimsy-menus-selection-search-private =
     .label = Search in a Private Window
 whimsy-menus-selection-translate =
@@ -3892,6 +4133,11 @@ whimsy-context-verb-linear-search =
 # (macOS's own name for this).
 whimsy-context-quick-actions =
     .label = Quick Actions
+## W28: Search With, the submenu listing other search engines for the
+## selection, right after "Search { $engine } for "…"".
+whimsy-context-search-with =
+    .label = Search With
+    .accesskey = W
 ## W10-26: the Quick Note card (New Note) and its "Note saved" toast.
 whimsy-quick-note-title = New Note
 whimsy-quick-note-name =
@@ -4233,6 +4479,19 @@ whimsy-link-lasso-open-toast =
     { $count ->
         [one] Opened 1 tab
        *[other] Opened { $count } tabs
+    }
+
+## w27-tabkeys: Paste Tabs (clipboard URLs, and cut-tabs-to-move), sidebar focused.
+
+whimsy-paste-tabs-open-toast =
+    { $count ->
+        [one] Opened 1 tab
+       *[other] Opened { $count } tabs
+    }
+whimsy-paste-tabs-move-toast =
+    { $count ->
+        [one] Moved 1 tab
+       *[other] Moved { $count } tabs
     }
 
 ## wave9: Font Inspector (What Font Is This?) and Element Inspector Lite.
@@ -4828,6 +5087,12 @@ whimsy-setting-menus = Right-Click Menus
     .keywords = menus, context menus, menu items, hide menu items, customize menus
 whimsy-setting-bangs-list = Bang List
     .keywords = bangs, custom bangs, edit bangs
+whimsy-setting-focus-social = Social Media Pausing
+    .keywords = focus, focus session, pomodoro, block, distraction, social media, pause sites
+whimsy-setting-focus-video = Video Pausing
+    .keywords = focus, focus session, pomodoro, block, distraction, video, entertainment, youtube, pause sites
+whimsy-setting-focus-sites = Focus Session Sites
+    .keywords = focus, focus session, pomodoro, block, distraction, your sites, pause sites, blocklist
 whimsy-setting-profiles = Profile Settings
     .keywords = profiles, search engine per profile, download folder per profile
 whimsy-setting-profile-name = Profile Name
@@ -5131,6 +5396,8 @@ whimsy-auth-reason-space = open the locked space “{ $space }”
 
 whimsy-auth-reason-private = show your private tabs
 whimsy-auth-reason-private-off = turn off the private lock
+# W28: Settings → Verification codes → Copy code (once per session).
+whimsy-auth-reason-totp = show your verification codes
 whimsy-private-lock-tab-label = Private tab
 whimsy-private-lock-window-name = Private Window
 whimsy-private-lock-urlbar = Locked
@@ -5236,6 +5503,8 @@ whimsy-action-call-camera-in-call = Turn Off Camera In the Call
 whimsy-action-call-microphone-block = Block Microphone On This Device
 whimsy-action-call-camera-block = Block Camera On This Device
 whimsy-action-call-buttons-default = Call Buttons Mute: The Call / This Device
+# W29: presses the web call's own share button for the selected tab.
+whimsy-action-call-share-tab = Share This Tab in Call
 # W14 21.7: a press the call page didn't answer. $app (string) - the call
 # app's name from its page; $known (string) - "yes" when it gave one.
 whimsy-call-mic-failed-toast =
@@ -5370,6 +5639,22 @@ whimsy-call-options-camera-missing =
     { $known ->
         [yes] { $app }'s camera button wasn't found
        *[no] The call's camera button wasn't found
+    }
+
+## W29: Call Options › Share. The row presses the call page's own share
+## button; Firefox's sharing prompt then opens on this tab, with it picked.
+
+whimsy-call-options-share-heading = Share
+whimsy-call-options-share-tab = Share this tab
+# $title: the selected tab's title.
+whimsy-call-options-share-detail = { $title }
+whimsy-call-options-share-stop = Stop sharing
+# $title: the title of the tab the call shares.
+whimsy-call-options-share-sharing = Sharing { $title }
+whimsy-call-options-share-missing =
+    { $known ->
+        [yes] { $app }'s share button wasn't found
+       *[no] The call's share button wasn't found
     }
 
 ## W14 21.8: Ctrl+Tab with more tabs than its card shows
@@ -5534,6 +5819,9 @@ whimsy-chat-menu-move-left =
     .label = Move Chat to the Left
 whimsy-chat-menu-move-right =
     .label = Move Chat to the Right
+# W29 side panels: chat floats in the side panel popover (a checkbox).
+whimsy-chat-menu-popover =
+    .label = Show Chat as Popover
 whimsy-chat-cmd-toggle = Open or Hide Chat
 whimsy-chat-cmd-open = Open Chat
 whimsy-chat-cmd-hide = Hide Chat
@@ -5599,11 +5887,13 @@ whimsy-chat-cmd-add-context = Add to Chat’s Context…
 whimsy-chat-cmd-model = Choose Chat’s Model and Thinking…
 whimsy-chat-chip-this-tab = This tab
 whimsy-chat-chip-all-tabs = All my tabs
-# $kind is tab, pane, pdf, file, or tabs. Counts are 0 when absent.
+# $kind is tab, pane, pdf, file, tabs, or group (a page and the tabs
+# opened from it, named $label). Counts are 0 when absent.
 whimsy-chat-chip-words =
     .title = { $kind ->
         [tab] This tab
         [tabs] All my tabs
+        [group] { $label } and the tabs opened from it
        *[other] { $label }
     }{ $text ->
         [0] {""}
@@ -5620,10 +5910,15 @@ whimsy-chat-chip-words =
         [0] {""}
         [one] {" · "}1 page
        *[other] {" · "}{ $pages } pages
+    }{ $tabs ->
+        [0] {""}
+        [one] {" · "}1 tab
+       *[other] {" · "}{ $tabs } tabs
     }. Show what AI sees
     .aria-label = { $kind ->
         [tab] This tab
         [tabs] All my tabs
+        [group] { $label } and the tabs opened from it
        *[other] { $label }
     }{ $text ->
         [0] {""}
@@ -5640,6 +5935,10 @@ whimsy-chat-chip-words =
         [0] {""}
         [one] {", "}1 page
        *[other] {", "}{ $pages } pages
+    }{ $tabs ->
+        [0] {""}
+        [one] {", "}1 tab
+       *[other] {", "}{ $tabs } tabs
     }. Show what AI sees
 # One part of a chip's contents line, after its name. $kind is text,
 # images, videos, pages, or tabs; $count how many.
@@ -5702,9 +6001,13 @@ whimsy-chat-note-left-out = Left out: { $private ->
            *[other] { $locked } tabs in locked spaces
         }
     }.
-# $kind is tabs or pdf.
+# $kind is tabs, group, or pdf.
 whimsy-chat-used = { $kind ->
         [tabs] Used all my tabs · { $count }
+        [group] Used { $label } · { $count ->
+            [one] 1 tab
+           *[other] { $count } tabs
+        }
        *[other] Used { $label }
     }
 whimsy-chat-status-reading-tabs = Reading your tabs…
@@ -6806,6 +7109,29 @@ whimsy-media-top-buttons =
     .label = Show Summarize and picture-in-picture at the top right of videos
 whimsy-media-new-badge = New
 whimsy-media-voice-heading = Read aloud and dictation
+
+## W29 video: four seek buttons (Go to start, Back 10 seconds, Forward 10
+## seconds, Go to end) in their own plate at the bottom centre of the video.
+
+whimsy-video-seek-start =
+    .title = Go to start
+    .aria-label = Go to start
+whimsy-video-seek-back =
+    .title = Back 10 seconds
+    .aria-label = Back 10 seconds
+whimsy-video-seek-forward =
+    .title = Forward 10 seconds
+    .aria-label = Forward 10 seconds
+whimsy-video-seek-end =
+    .title = Go to end
+    .aria-label = Go to end
+# $time (String) - the time seeked to, like "4:02"
+whimsy-video-seek-note-back = −10 s · { $time }
+# $time (String) - the time seeked to, like "4:22"
+whimsy-video-seek-note-forward = +10 s · { $time }
+# $time (String) - the time seeked to, like "11:05"
+whimsy-video-seek-note-jump = { $time }
+
 ## W23 memory-fire: Memory (auto-saved facts, Settings › AI › Memory), the
 ## command bar's Related results by meaning, and the Fire button redesign
 ## (one row of settings: range, spaces, items, including AI data).
@@ -8477,6 +8803,59 @@ whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
 whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
 whimsy-setting-passkeys = Passkeys
 
+## W28 verification codes (TOTP): kept with the saved passwords, read from a
+## site's setup QR code, and filled from a button in the code field.
+
+whimsy-totp-context-add =
+    .label = Add Verification Code…
+# $site (string) - the site's host name, like github.com
+whimsy-totp-add-title = Add a verification code for { $site }
+whimsy-totp-account = Account
+whimsy-totp-code = Code
+# $seconds (number) - seconds until the code changes
+whimsy-totp-changes-in = Changes in { $seconds }s
+# Shown under an account that matches a saved password for the site.
+whimsy-totp-saved-login = Saved login
+# $profile (string) - the profile's name
+whimsy-totp-help = { -brand-short-name } keeps this with your passwords, in your { $profile } profile. Enter the code on the page to finish setting it up.
+whimsy-totp-cancel =
+    .label = Cancel
+whimsy-totp-save =
+    .label = Save
+whimsy-totp-replace =
+    .label = Replace
+# $account (string) - the account name
+whimsy-totp-exists-title = A code for { $account } is already saved
+whimsy-totp-exists-text = Replace it if { $site } gave you a new one.
+whimsy-totp-key-label = Setup key
+whimsy-totp-key-placeholder =
+    .placeholder = Paste the key from { $site }
+whimsy-totp-key-error = That key doesn’t look right. Check for missing letters.
+whimsy-totp-site = Site
+whimsy-totp-field-button = Fill verification code
+whimsy-totp-choose-title = Choose an account
+# $code (string) - the six-digit code, $seconds (number) - seconds left
+whimsy-totp-choose-detail = { $code } · { $seconds }s
+whimsy-totp-saved-toast = Verification code saved for { $site }
+whimsy-totp-copied-toast = Code copied. It changes in { $seconds }s.
+whimsy-totp-deleted-toast = Verification code for { $site } deleted
+whimsy-totp-deleted-detail = { $site } will ask for a code from another app
+whimsy-totp-header =
+    .label = Verification codes
+whimsy-totp-description = Codes that sites ask for after your password. They’re encrypted with your saved passwords and sync to your other devices when password sync is on. Keep a second way to get them too, like the site’s backup codes.
+whimsy-totp-empty = No verification codes saved yet. Right-click a site’s setup QR code to add one.
+whimsy-totp-error = Your verification codes can’t be read on this Mac.
+# $account (string), $profile (string), $date (string) - when it was added
+whimsy-totp-row-meta = { $account } · { $profile } · Added { $date }
+whimsy-totp-copy =
+    .label = Copy code
+whimsy-totp-delete =
+    .label = Delete
+    .aria-label = Delete the verification code for { $site }
+whimsy-totp-add-code =
+    .label = Add Code…
+whimsy-setting-totp = Verification Codes
+    .keywords = two-factor, 2fa, authenticator, one-time code, otp, totp, qr code
 # W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md),
 # command-bar rows shown only when that browser is installed.
 whimsy-action-open-in-safari = Open in Safari
@@ -8542,3 +8921,14 @@ whimsy-safety-check-sheet-remove-all =
 whimsy-safety-check-sheet-done =
     .label = Done
 whimsy-safety-check-removed-toast = Removed { $site }’s access
+# W29: "Match the page" toggle in the space colour editor (theme picker).
+whimsy-theme-picker-match-page = Match the page
+whimsy-theme-picker-match-page-detail = Tints this space with each site’s colour
+whimsy-theme-picker-match-page-switch =
+    .aria-label = Match the page
+
+# W29 r4: the per-space style choice (a segmented control) under the
+# switch above - Blend, Gradient or Replace.
+whimsy-theme-picker-match-page-style-blend = Blend
+whimsy-theme-picker-match-page-style-gradient = Gradient
+whimsy-theme-picker-match-page-style-replace = Replace

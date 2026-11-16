@@ -16,6 +16,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAIReader.sys.mjs",
     "WhimsyAITabs.sys.mjs",
     "WhimsyAlreadyOpen.sys.mjs",
+    "WhimsyAmbient.sys.mjs",
     "WhimsyAnnotations.sys.mjs",
     "WhimsyAnnotationsChild.sys.mjs",
     "WhimsyAppIcon.sys.mjs",
@@ -76,11 +77,17 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyExtensionPins.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
     "WhimsyFaviconHome.sys.mjs",
+    "WhimsyFieldButton.sys.mjs",
     "WhimsyFieldEditor.sys.mjs",
     "WhimsyFieldEditorChild.sys.mjs",
     "WhimsyFilesSection.sys.mjs",
     "WhimsyFinderFoldersSection.sys.mjs",
     "WhimsyFireButton.sys.mjs",
+    "WhimsyFocusNotch.sys.mjs",
+    "WhimsyFocusPicker.sys.mjs",
+    "WhimsyFocusSession.sys.mjs",
+    "WhimsyFocusSheet.sys.mjs",
+    "WhimsyFocusTab.sys.mjs",
     "WhimsyFolderColors.sys.mjs",
     "WhimsyFollowerTabs.sys.mjs",
     "WhimsyFormProtection.sys.mjs",
@@ -137,11 +144,15 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPageDevParent.sys.mjs",
     "WhimsyPageMarkdown.sys.mjs",
     "WhimsyPageParent.sys.mjs",
+    "WhimsyPageTint.sys.mjs",
+    "WhimsyPageTintChild.sys.mjs",
+    "WhimsyPageTintParent.sys.mjs",
     "WhimsyPageWatch.sys.mjs",
     "WhimsyPanels.sys.mjs",
     "WhimsyPasteGuard.sys.mjs",
     "WhimsyPasteGuardChild.sys.mjs",
     "WhimsyPasteGuardParent.sys.mjs",
+    "WhimsyPasteTabs.sys.mjs",
     "WhimsyPeople.sys.mjs",
     "WhimsyPeopleChild.sys.mjs",
     "WhimsyPeopleParent.sys.mjs",
@@ -167,13 +178,16 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySafetyCheck.sys.mjs",
     "WhimsySearchDeck.sys.mjs",
     "WhimsySearchDeckChild.sys.mjs",
+    "WhimsySearchWith.sys.mjs",
     "WhimsySeasons.sys.mjs",
     "WhimsySeasonToast.sys.mjs",
     "WhimsySelectionMarkdown.sys.mjs",
     "WhimsySettingsCommands.sys.mjs",
     "WhimsyShareMenu.sys.mjs",
+    "WhimsyShareTab.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySidebarNav.sys.mjs",
+    "WhimsySidePanel.sys.mjs",
     "WhimsySitePopups.sys.mjs",
     "WhimsySiteSettings.sys.mjs",
     "WhimsySmartButtons.sys.mjs",
@@ -200,6 +214,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyStartup.sys.mjs",
     "WhimsyStats.sys.mjs",
     "WhimsySurface.sys.mjs",
+    "WhimsyTabMove.sys.mjs",
     "WhimsyTabs.sys.mjs",
     "WhimsyTeach.sys.mjs",
     "WhimsyTeachHints.sys.mjs",
@@ -219,6 +234,8 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVideoSpeed.sys.mjs",
     "WhimsyVideoSpeedChild.sys.mjs",
     "WhimsyVPN.sys.mjs",
+    "WhimsyVPNCallChild.sys.mjs",
+    "WhimsyVPNCallParent.sys.mjs",
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
@@ -314,6 +331,7 @@ EXTRA_JS_MODULES.whimsy += [
 # W27: Press Esc twice to leave full screen
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyFullscreenEscape.sys.mjs",
+    "WhimsyKeysToPage.sys.mjs",
 ]
 
 # W23 video
@@ -400,6 +418,16 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyPasskeys.sys.mjs",
 ]
 
+# W28 verification codes (TOTP), and the QR decoder they're read with.
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyTOTP.sys.mjs",
+    "WhimsyTOTPChild.sys.mjs",
+    "WhimsyTOTPParent.sys.mjs",
+]
+EXTRA_JS_MODULES.whimsy.third_party += [
+    "third_party/jsQR.mjs",
+]
+
 # W29 icon-sets: Lucide and Phosphor, vendored at content/icon-packs/. Zen's
 # own icons (zen-icons/, Nucleo) carry Zen's license; these two need their
 # own about:license entries since they ship under different licenses.
@@ -433,7 +461,8 @@ BROWSER_CHROME_MANIFESTS += [
 # on-device Speech), embedding/ (the meaning index's on-device sentence
 # embeddings, NaturalLanguage, wave23/memory-fire) and passkeys/ (W26:
 # Whimsy's Touch ID passkeys, C++ over a Swift Secure Enclave helper).
-DIRS += ["audiotap"]
+# equalizer/ is W29's per-site equalizer DSP (plain C++, every platform).
+DIRS += ["audiotap", "equalizer"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     DIRS += [

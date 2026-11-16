@@ -96,7 +96,13 @@
 - name: whimsy.feature.mute-site
   value: true
 
+- name: whimsy.feature.page-tint
+  value: true
+
 - name: whimsy.feature.tab-volume
+  value: true
+
+- name: whimsy.feature.tab-eq
   value: true
 
 - name: whimsy.feature.pip-snap-back
@@ -268,6 +274,12 @@
   value: true
 
 - name: whimsy.feature.sidebar-nav
+  value: true
+
+- name: whimsy.feature.move-tab
+  value: true
+
+- name: whimsy.feature.paste-tabs
   value: true
 
 - name: whimsy.feature.cheatsheet
@@ -666,6 +678,9 @@
 - name: whimsy.feature.double-escape
   value: true
 
+- name: whimsy.feature.pass-keys-to-page
+  value: true
+
 - name: whimsy.feature.ai-video-summary
   value: true
 
@@ -690,6 +705,9 @@
 - name: whimsy.feature.routines
   value: true
 
+- name: whimsy.feature.ambient-audio
+  value: true
+
 - name: whimsy.feature.command-bar-numbers
   value: true
 
@@ -708,6 +726,9 @@
 - name: whimsy.feature.passkeys
   value: true
 
+- name: whimsy.feature.totp
+  value: true
+
 - name: whimsy.feature.restart-command
   value: true
 
@@ -718,6 +739,12 @@
   value: true
 
 - name: whimsy.feature.window-title-space
+  value: true
+
+- name: whimsy.feature.focus-sessions
+  value: true
+
+- name: whimsy.feature.side-panels
   value: true
 
 - name: whimsy.feature.window-on-top
@@ -733,6 +760,9 @@
   value: true
 
 - name: whimsy.feature.safety-check
+  value: true
+
+- name: whimsy.feature.search-with
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.
