@@ -82,10 +82,13 @@ add_task(async function test_paste_opens_clipboard_urls_below_focused_tab() {
   await TestUtils.waitForCondition(() => gBrowser.tabs.length == before.size + 2, "Two valid http(s) URLs opened as tabs");
   const opened = gBrowser.tabs.filter(t => !before.has(t));
   is(opened.length, 2, "The ftp:// line and the blank line are ignored");
-  // addTab()'s returned tab doesn't navigate synchronously; wait for each to
-  // actually finish loading its target URL before reading currentURI.
-  await BrowserTestUtils.browserLoaded(opened[0].linkedBrowser, false, "https://example.org/paste-1");
-  await BrowserTestUtils.browserLoaded(opened[1].linkedBrowser, false, "https://example.org/paste-2");
+  // Both background navigations start together and can finish in either
+  // order. Wait for URI state, so an already-completed load isn't missed.
+  await TestUtils.waitForCondition(
+    () => opened[0].linkedBrowser.currentURI.spec == "https://example.org/paste-1" &&
+      opened[1].linkedBrowser.currentURI.spec == "https://example.org/paste-2",
+    "Both pasted tabs reached their target URLs"
+  );
   is(opened[0].linkedBrowser.currentURI.spec, "https://example.org/paste-1", "In clipboard order");
   is(opened[1].linkedBrowser.currentURI.spec, "https://example.org/paste-2", "");
   is(gBrowser.tabs[anchor.index + 1], opened[0], "Placed right below the focused tab");
