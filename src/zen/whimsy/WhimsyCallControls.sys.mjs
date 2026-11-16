@@ -301,6 +301,73 @@ export function findLeave(doc) {
   return best;
 }
 
+// W29: the call page's own share or present control, for Call Options ›
+// Share this tab. The same rule as findLeave, general to any call page: a
+// button (or role=button), not disabled, not in someone else's row,
+// whose accessible name, tooltip or title says share your screen, share
+// content or present (Meet's "Present now" or "Share screen", Zoom's
+// "Share Screen", Teams' "Share content"), in English and the common
+// phrasings in es, pt, fr, de, it, and nl, or Material's "present_to_all"
+// or "screen_share" icon ligature. A bare "Share" or "Present" only
+// counts inside the call bar (elsewhere it shares a link). Never a stop
+// control ("Stop presenting"). No per-site list.
+const SHARE_WORDS = new RegExp(
+  [
+    "\\bshare\\s+(your\\s+|the\\s+|my\\s+)?(screen|content|window|tab)\\b",
+    "\\bscreen\\s*-?\\s*shar(e|ing)\\b",
+    "\\b(present\\s+now|start\\s+presenting|present\\s+(your\\s+)?screen)\\b",
+    "\\b(present_to_all|screen_share)\\b",
+    // es, pt, fr, de, it, nl
+    "\\bcompartir\\s+(la\\s+)?pantalla\\b",
+    "\\bcompartilhar\\s+(a\\s+)?tela\\b",
+    "\\bpresentar\\s+ahora\\b",
+    "\\bapresentar\\s+agora\\b",
+    "\\bpartager\\s+(l['’]|votre\\s+)?[ée]cran\\b",
+    "\\bpr[ée]senter\\s+maintenant\\b",
+    "\\bbildschirm\\s+(teilen|freigeben)\\b",
+    "\\bjetzt\\s+pr[äa]sentieren\\b",
+    "\\bcondividi\\s+(lo\\s+)?schermo\\b",
+    "\\bpresenta\\s+ora\\b",
+    "\\bscherm\\s+delen\\b",
+    "\\bnu\\s+presenteren\\b",
+  ].join("|"),
+  "iu"
+);
+const BARE_SHARE_WORDS = /^\s*(share|present)\s*$/i;
+const STOP_WORDS = /\bstop|\bdetener|\bparar\b|\barr[êe]ter|\bbeenden\b|\binterrompi|\bstoppen\b|\bbe[eë]indigen\b/iu;
+
+// The share control, or null. Ranked as findLeave: closest to your mic
+// and camera toggles, then one with a layout box.
+export function findShare(doc) {
+  if (!doc) {
+    return null;
+  }
+  const { mic, camera } = findControls(doc);
+  const anchor = mic ?? camera;
+  const bar = mic && camera ? commonAncestor(mic, camera) : anchor?.parentElement ?? null;
+  let best = null;
+  let bestRank = null;
+  for (const el of doc.querySelectorAll("button, [role=button]")) {
+    if (isDisabled(el) || !isYours(el)) {
+      continue;
+    }
+    const label = leaveLabelOf(el);
+    if (STOP_WORDS.test(label)) {
+      continue;
+    }
+    const inBar = !!bar?.contains(el);
+    if (!SHARE_WORDS.test(label) && !(inBar && BARE_SHARE_WORDS.test(label))) {
+      continue;
+    }
+    const rank = [anchor ? distance(anchor, el) : 0, el.getClientRects().length > 0 ? 0 : 1];
+    if (!best || rank[0] < bestRank[0] || (rank[0] == bestRank[0] && rank[1] < bestRank[1])) {
+      best = el;
+      bestRank = rank;
+    }
+  }
+  return best;
+}
+
 // W14-6: the call app's name as the page gives it (Meet, Zoom, Teams...),
 // for "Buttons mute: <app>"; null when the page doesn't say.
 const APP_NAME_SELECTOR = [
@@ -321,4 +388,4 @@ export function appName(doc) {
 
 // The module's API as one object (the name WhimsyPageChild's lazy getter
 // imports).
-export const WhimsyCallControls = { KINDS, kindOf, findControls, findLeave, readState, isRelevant, press, appName };
+export const WhimsyCallControls = { KINDS, kindOf, findControls, findLeave, findShare, readState, isRelevant, press, appName };

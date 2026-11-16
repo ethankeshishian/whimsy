@@ -392,8 +392,15 @@ authorized targeted run; isolated old passes are not validation of these edits.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
 
-## 2026-11-16 — W28 TOTP/dev merge conflict resolution
+## 2026-11-15 — Tab menu regrouping after upstream Tab Notes
 
-- Root cause: independent additions shared insertion points in the privacy Settings initializer map and module/build declarations.
-- Removed conflict markers while retaining TOTP and Safety Check initializers, TOTP modules and the QR decoder, and Lucide and Phosphor license declarations.
-- Validation: Settings JavaScript passed node --check; moz.build passed Python AST parsing; static checks confirmed no conflict markers in either file and each conflicting addition retained exactly once. Referenced TOTP/QR files and icon licenses exist. No browser tests, mach, or git commands ran.
+- Regroup hidden rows as well as visible ones so asynchronously revealed
+  upstream actions cannot precede New Tab Below. Unregistered tab/Essential
+  actions keep their relative order after Share and Save, before AI/Archive.
+- Restore reused separator positions and remove separators created for an
+  opening, preserving the original child order when visible groups change.
+- Existing browser test expectations remain unchanged. Node syntax check and
+  a focused harness using the actual module passed for tab, Essential, page,
+  and selection menus, late visibility, unknown rows, and exact restoration
+  across three openings each. Browser integration tests were not run; no
+  engine edits, mach, or git commands.

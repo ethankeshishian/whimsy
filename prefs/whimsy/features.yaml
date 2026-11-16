@@ -96,6 +96,9 @@
 - name: whimsy.feature.mute-site
   value: true
 
+- name: whimsy.feature.page-tint
+  value: true
+
 - name: whimsy.feature.tab-volume
   value: true
 
@@ -690,6 +693,9 @@
 - name: whimsy.feature.routines
   value: true
 
+- name: whimsy.feature.ambient-audio
+  value: true
+
 - name: whimsy.feature.command-bar-numbers
   value: true
 
@@ -723,6 +729,9 @@
 - name: whimsy.feature.window-title-space
   value: true
 
+- name: whimsy.feature.window-on-top
+  value: true
+
 - name: whimsy.feature.open-in-browser
   value: true
 
@@ -733,6 +742,9 @@
   value: true
 
 - name: whimsy.feature.safety-check
+  value: true
+
+- name: whimsy.feature.search-with
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

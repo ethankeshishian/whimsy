@@ -1,0 +1,12 @@
+diff --git a/widget/cocoa/nsCocoaWindow.h b/widget/cocoa/nsCocoaWindow.h
+--- a/widget/cocoa/nsCocoaWindow.h
++++ b/widget/cocoa/nsCocoaWindow.h
+@@ -480,6 +480,8 @@
+   void UpdateThemeGeometries(
+       const nsTArray<ThemeGeometry>& aThemeGeometries) override;
+   void LockAspectRatio(bool aShouldLock) override;
++  void SetAlwaysOnTop(bool aOnTop) override;
++  bool GetAlwaysOnTop() override { return mAlwaysOnTop; }
+ 
+   void DispatchSizeModeEvent();
+   void DispatchOcclusionEvent();
