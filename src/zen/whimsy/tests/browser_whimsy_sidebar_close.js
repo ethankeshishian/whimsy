@@ -105,39 +105,6 @@ async function revealFromEdge(label) {
   await TestUtils.waitForCondition(() => !sidebar().hasAttribute("zen-has-hover"), `${label}: bar hides again`);
 }
 
-
-// PROBE (temporary): who ends the hold and who reveals the bar.
-function probeInstall() {
-  const m = gZenCompactModeManager;
-  const log = [];
-  const realEnd = m._whimsyEndHoverHold;
-  const realSet = m._setElementExpandAttribute;
-  const realSettle = m._whimsySettleHoverHold;
-  const where = () => new Error().stack.split("\n").slice(1, 5).map(l => l.replace(/@.*\//, "@")).join(" < ");
-  m._whimsySettleHoverHold = function (...a) {
-    const r = this.sidebar.getBoundingClientRect();
-    log.push(`settle hover=${this.sidebar.matches(":hover")} pt=${this._whimsyHoldPoint} rect=${r.left},${r.right} hold=${!!this._whimsyHoverHold} ign=${this._ignoreNextHover}`);
-    const res = realSettle.apply(this, a);
-    log.push(`  settled=${this._whimsyHoverHold?.settled} ign=${this._ignoreNextHover}`);
-    return res;
-  };
-  m._whimsyEndHoverHold = function (...a) {
-    if (this._whimsyHoverHold) log.push(`end ${where()}`);
-    return realEnd.apply(this, a);
-  };
-  m._setElementExpandAttribute = function (el, v, attr = "zen-has-hover") {
-    if (el === this.sidebar && v) log.push(`set ${attr} ign=${this._ignoreNextHover} ${where()}`);
-    return realSet.call(this, el, v, attr);
-  };
-  const onEv = e => { if (e.type != "mousemove") log.push(`${e.type} ${e.target.id || e.target.localName} ${e.clientX},${e.clientY}`); };
-  for (const t of ["mouseover", "mouseleave", "mousemove"]) window.addEventListener(t, onEv, true);
-  return () => {
-    m._whimsyEndHoverHold = realEnd; m._setElementExpandAttribute = realSet; m._whimsySettleHoverHold = realSettle;
-    for (const t of ["mouseover", "mouseleave", "mousemove"]) window.removeEventListener(t, onEv, true);
-    ok(false, "TRACE\n" + log.slice(0, 40).join("\n"));
-  };
-}
-
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -163,11 +130,9 @@ add_task(async function cmd_s_with_pointer_on_bar_edge_stays_closed() {
     const at = pointOnBar(3);
     moveTo(at);
     await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), `${label}: pointer on the bar`);
-    const done = jitter ? () => {} : probeInstall();
     const edges = await closeAndWatch({
       onFrame: frame => jitter && moveTo({ x: at.x + (frame % 2), y: at.y }),
     });
-    done();
     assertSlidOutOnce(edges, label);
     assertHidden(label);
     await revealFromEdge(label);

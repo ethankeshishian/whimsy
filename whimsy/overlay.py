@@ -117,8 +117,9 @@ HOTFIXES = [
     # ⌘S mid-slide cleared it too. When the hidden bar's edge strip settled
     # under the pointer, the queued mouseover then revealed it: the bar flashed
     # back and stayed open until the pointer moved off. The flag now holds
-    # while the pointer is on the settled bar and ends when it leaves, so the
-    # next approach to the edge reveals the bar as usual.
+    # while the pointer is on the settled bar (or its edge splitter) and ends
+    # when the pointer moves off it, so the next approach to the edge reveals
+    # the bar as usual.
     {
         "id": "compact-close-hover-hold",
         "file": "src/zen/compact-mode/ZenCompactMode.mjs",
@@ -134,21 +135,22 @@ HOTFIXES = [
                "    this._ignoreNextHover = true;\n"
                "    const hold = (this._whimsyHoverHold = new AbortController());\n"
                "    const options = { capture: true, signal: hold.signal };\n"
+               "    // The bar's area is the sidebar and its edge splitter. Only a real move\n"
+               "    // counts: hover that changes because the bar moved under a still pointer\n"
+               "    // keeps the coordinates, and must not end the hold.\n"
+               "    const splitter = document.getElementById(\"zen-sidebar-splitter\");\n"
                "    const onMove = event => {\n"
+               "      const [x, y] = this._whimsyHoldPoint ?? [];\n"
+               "      const moved = event.clientX !== x || event.clientY !== y;\n"
                "      this._whimsyHoldPoint = [event.clientX, event.clientY];\n"
-               "      if (!this._ignoreNextHover) {\n"
-               "        this._whimsyEndHoverHold();\n"
-               "      } else if (hold.settled && !this.sidebar.contains(event.target)) {\n"
+               "      const onBar =\n"
+               "        this.sidebar.contains(event.target) || splitter?.contains(event.target);\n"
+               "      if (!this._ignoreNextHover || (hold.settled && moved && !onBar)) {\n"
                "        this._whimsyEndHoverHold();\n"
                "      }\n"
                "    };\n"
                "    window.addEventListener(\"mousemove\", onMove, options);\n"
                "    window.addEventListener(\"mouseover\", onMove, options);\n"
-               "    this.sidebar.addEventListener(\n"
-               "      \"mouseleave\",\n"
-               "      () => hold.settled && this._whimsyEndHoverHold(),\n"
-               "      options\n"
-               "    );\n"
                "  },\n"
                "\n"
                "  // Whimsy hotfix: once the bar has settled, keep ignoring hover only while\n"
@@ -164,6 +166,7 @@ HOTFIXES = [
                "    const [x, y] = this._whimsyHoldPoint ?? [NaN, NaN];\n"
                "    const onBar =\n"
                "      this.sidebar.matches(\":hover\") ||\n"
+               "      document.getElementById(\"zen-sidebar-splitter\")?.matches(\":hover\") ||\n"
                "      (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);\n"
                "    if (!onBar) {\n"
                "      this._whimsyEndHoverHold();\n"

@@ -590,21 +590,22 @@ window.gZenCompactModeManager = {
     this._ignoreNextHover = true;
     const hold = (this._whimsyHoverHold = new AbortController());
     const options = { capture: true, signal: hold.signal };
+    // The bar's area is the sidebar and its edge splitter. Only a real move
+    // counts: hover that changes because the bar moved under a still pointer
+    // keeps the coordinates, and must not end the hold.
+    const splitter = document.getElementById("zen-sidebar-splitter");
     const onMove = event => {
+      const [x, y] = this._whimsyHoldPoint ?? [];
+      const moved = event.clientX !== x || event.clientY !== y;
       this._whimsyHoldPoint = [event.clientX, event.clientY];
-      if (!this._ignoreNextHover) {
-        this._whimsyEndHoverHold();
-      } else if (hold.settled && !this.sidebar.contains(event.target)) {
+      const onBar =
+        this.sidebar.contains(event.target) || splitter?.contains(event.target);
+      if (!this._ignoreNextHover || (hold.settled && moved && !onBar)) {
         this._whimsyEndHoverHold();
       }
     };
     window.addEventListener("mousemove", onMove, options);
     window.addEventListener("mouseover", onMove, options);
-    this.sidebar.addEventListener(
-      "mouseleave",
-      () => hold.settled && this._whimsyEndHoverHold(),
-      options
-    );
   },
 
   // Whimsy hotfix: once the bar has settled, keep ignoring hover only while
@@ -620,6 +621,7 @@ window.gZenCompactModeManager = {
     const [x, y] = this._whimsyHoldPoint ?? [NaN, NaN];
     const onBar =
       this.sidebar.matches(":hover") ||
+      document.getElementById("zen-sidebar-splitter")?.matches(":hover") ||
       (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
     if (!onBar) {
       this._whimsyEndHoverHold();
