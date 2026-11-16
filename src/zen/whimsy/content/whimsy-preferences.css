@@ -43,6 +43,87 @@
   }
 }
 
+/* W29 icon-sets: three cards (Settings → Look and Feel → Look, after
+   Interface font) and a toolbar preview strip underneath. */
+#whimsyIconPackList {
+  display: flex;
+  gap: 10px;
+  margin-block: 8px 10px;
+}
+
+.whimsy-icon-pack-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover {
+    background-color: color-mix(in srgb, currentColor 7%, transparent);
+  }
+
+  &[aria-checked="true"] {
+    border-color: var(--zen-colors-primary);
+  }
+}
+
+.whimsy-icon-pack-glyphs {
+  display: flex;
+  gap: 6px;
+
+  & img {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.whimsy-icon-pack-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.whimsy-icon-pack-radio {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border: 1.5px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 50%;
+}
+
+.whimsy-icon-pack-card[aria-checked="true"] .whimsy-icon-pack-radio {
+  border-color: var(--zen-colors-primary);
+  background: radial-gradient(circle, var(--zen-colors-primary) 0 42%, transparent 44%);
+}
+
+.whimsy-icon-pack-detail {
+  font-size: 0.85em;
+  color: var(--text-color-deemphasized);
+}
+
+#whimsyIconPackPreview {
+  display: flex;
+  gap: 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+
+  & img {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 /* Whimsy's rows at the end of Firefox's Updates group. */
 #whimsyUpdatesGroup {
   display: flex;
@@ -807,5 +888,121 @@ mark.whimsy-search-mark {
 
   .whimsy-surface-seg {
     margin: 0 12px 12px;
+  }
+}
+
+/* W29 safety-check: Settings → Privacy & Security → Safety Check. The head
+   (last-run text + Check again) sits above a bordered list of four rows,
+   one per check, in the profiles/passkeys list's own card style. */
+.whimsy-safety-check-head {
+  gap: 8px;
+  margin-block-end: 10px;
+}
+
+.whimsy-safety-check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  border-radius: 10px;
+  background: var(--background-color-box, transparent);
+  overflow: clip;
+}
+
+.whimsy-safety-check-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: start;
+  padding: 11px 14px;
+  transition: background-color 260ms var(--whimsy-surface-ease, ease);
+
+  & + & {
+    border-top: 1px solid var(--border-color-card, color-mix(in srgb, currentColor 12%, transparent));
+  }
+
+  &.is-landed {
+    background-color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 10%, transparent);
+  }
+}
+
+.whimsy-safety-check-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-block-start: 2px;
+  border-radius: 50%;
+  background-color: var(--whimsy-surface-muted, color-mix(in srgb, currentColor 40%, transparent));
+}
+
+.whimsy-safety-check-row.is-ok .whimsy-safety-check-icon {
+  background-color: var(--text-color-success, #2e7d32);
+  mask-image: url("chrome://global/skin/icons/check-filled.svg");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+.whimsy-safety-check-row.is-warn .whimsy-safety-check-icon {
+  background-color: var(--text-color-warning, #d78100);
+  mask-image: url("chrome://global/skin/icons/warning-fill-12.svg");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+}
+
+.whimsy-safety-check-icon.is-spinning {
+  width: 12px;
+  height: 12px;
+  margin-block-start: 3px;
+  border-radius: 50%;
+  background: none;
+  mask-image: none;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  opacity: 0.6;
+  animation: whimsy-surface-spin 800ms linear infinite;
+}
+
+.whimsy-safety-check-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.whimsy-safety-check-status {
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.whimsy-safety-check-detail {
+  font-size: 12px;
+  color: var(--text-color-deemphasized, color-mix(in srgb, currentColor 68%, transparent));
+  overflow-wrap: anywhere;
+}
+
+.whimsy-safety-check-action {
+  margin: 0;
+  align-self: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-safety-check-row {
+    transition: none;
+  }
+
+  .whimsy-safety-check-row.is-landed {
+    background-color: transparent;
+  }
+
+  .whimsy-safety-check-icon.is-spinning {
+    animation: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .whimsy-safety-check-row.is-ok .whimsy-safety-check-icon,
+  .whimsy-safety-check-row.is-warn .whimsy-safety-check-icon {
+    outline: 1px solid currentColor;
   }
 }
