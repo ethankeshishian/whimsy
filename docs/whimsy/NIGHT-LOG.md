@@ -391,3 +391,10 @@ authorized targeted run; isolated old passes are not validation of these edits.
   builds, import, verify, install, ship, and commits were not run as directed.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
+
+
+## 2026-11-16 — Pass Keys localization assertions
+
+- Traced the pill and toast to asynchronous document.l10n.setAttributes calls: mounting/visibility does not establish translation completion. The tooltip assertion read immediately after visibility; the reported toast assertion failure also concerns localized words, though this checkout already contained a text-condition wait rather than that immediate assertion.
+- Updated only browser_whimsy_pass_keys.js to await translateElements for the pill and translateFragment for the off toast before checking the original expected copy. Product strings, key handling, and timing remain unchanged; no sleeps added.
+- Validation: node --check passed for the test. Browser tests were not run, so runtime confirmation remains outstanding. No engine, Zen-source, mach, or git operations.

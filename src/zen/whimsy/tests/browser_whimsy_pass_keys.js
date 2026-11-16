@@ -130,6 +130,7 @@ add_task(async function test_reserved_keys_reach_the_page() {
     ok(WhimsyShortcuts.isPassing(window), "The shared check says so");
     ok(!action()?.isAvailable(window), "Not offered again while it's on");
     await TestUtils.waitForCondition(() => pill() && BrowserTestUtils.isVisible(pill()), "The pill shows");
+    await document.l10n.translateElements([pill()]);
     is(pill().getAttribute("tooltiptext"), "Keys go to this page. Hold Esc or click to stop.", "Its tooltip");
     await TestUtils.waitForCondition(() => toastFor("whimsy-pass-keys-on-toast"), "The one-time toast shows");
     ok(Services.prefs.getBoolPref(TOAST_SHOWN_PREF), "and won't show again");
@@ -214,12 +215,10 @@ add_task(async function test_hold_escape() {
     ok(!browser.hasAttribute("whimsy-pass-keys"), "The engine mark is gone");
     ok(pill().hidden, "The pill hides");
     await TestUtils.waitForCondition(() => toastFor("whimsy-pass-keys-off-toast"), "The off toast shows");
-    // Fluent fills the words a beat after the toast is in.
-    await TestUtils.waitForCondition(
-      () => toastFor("whimsy-pass-keys-off-toast")?.element.textContent.includes("shortcuts are back"),
-      "Its words"
-    );
-    ok(true, "Its words");
+    // A mounted toast can still be waiting for Fluent to fill its words.
+    const offToast = toastFor("whimsy-pass-keys-off-toast");
+    await document.l10n.translateFragment(offToast.element);
+    ok(offToast.element.textContent.includes("shortcuts are back"), "Its words");
     await TestUtils.waitForCondition(() => !toastFor("whimsy-pass-keys-hold"), "The hold notice goes");
   } finally {
     WhimsyKeysToPage.stop(window, browser);
