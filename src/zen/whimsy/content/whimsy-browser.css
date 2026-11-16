@@ -8447,7 +8447,7 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
 .whimsy-focus-ends {
   margin: 0;
   font-size: 12px;
-  color: var(--whimsy-surface-muted);
+  color: var(--text-color-deemphasized, currentColor);
   font-variant-numeric: tabular-nums;
 }
 .whimsy-focus-check-row {
@@ -8464,7 +8464,7 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   padding: 0;
   margin: 0;
   font: inherit;
-  color: var(--whimsy-accent-text, color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, currentColor));
+  color: var(--link-color, currentColor);
   cursor: pointer;
 
   &:hover {

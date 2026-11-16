@@ -993,7 +993,10 @@ addFocusTask(async function stay_on_this_tab() {
     content.document.body.append(a);
   }), "Adding the target=_blank fixture");
   await within(BrowserTestUtils.synthesizeMouseAtCenter("#whimsy-blank", {}, keep.linkedBrowser), "Clicking the target=_blank fixture");
-  await TestUtils.waitForCondition(() => glanceOver(keep), "A target=_blank link opens in Glance");
+  const contentGlance = await TestUtils.waitForCondition(() => glanceOver(keep), "A target=_blank link opens in Glance");
+  await TestUtils.waitForCondition(() => contentGlance.linkedBrowser.currentURI.spec == "https://example.org/?blank",
+    "The content-created browser loads the target URL in Glance");
+  is(gBrowser.selectedTab, contentGlance, "The content-created Glance is selected");
   await closeGlance(keep);
 
   // ⌘K: no switch-to-tab rows.
@@ -1084,6 +1087,13 @@ addFocusTask(async function screens() {
     checkContrast(window, start, "Start");
     checkContrast(window, parts.ends, "Ends at");
     checkContrast(window, parts.panel.querySelector(".whimsy-focus-edit"), "Edit");
+    // Text tokens must remain readable even for extreme space accents.
+    for (const accent of ["white", "black", "yellow", "cyan"]) {
+      parts.panel.style.setProperty("--zen-primary-color", accent);
+      checkContrast(window, parts.ends, `Ends at with ${accent} accent`);
+      checkContrast(window, parts.panel.querySelector(".whimsy-focus-edit"), `Edit with ${accent} accent`);
+    }
+    parts.panel.style.removeProperty("--zen-primary-color");
     for (const row of parts.panel.querySelectorAll(".whimsy-surface-row-label")) {
       notClipped(row, `The ${row.textContent} label`);
     }

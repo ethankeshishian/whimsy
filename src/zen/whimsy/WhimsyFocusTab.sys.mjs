@@ -40,6 +40,43 @@ const OUT_MS = 200;
 const IN_MS = 300;
 
 const state = new WeakMap();
+let contentHooksInstalled = false;
+
+// Content opens first construct an unloaded browser (openWindowInfo/skipLoad)
+// and return it to the caller that will navigate it. Adopt that exact browser
+// at the BrowserDOMWindow boundary, rather than redirecting its initial
+// about:blank load or relying on Zen's pinned-tab-only onTabOpen policy.
+function installContentHooks() {
+  if (contentHooksInstalled) {
+    return;
+  }
+  const { BrowserDOMWindow } = ChromeUtils.importESModule("resource:///modules/BrowserDOMWindow.sys.mjs");
+  for (const name of ["createContentWindow", "openURI", "createContentWindowInFrame", "openURIInFrame"]) {
+    const original = BrowserDOMWindow.prototype[name];
+    BrowserDOMWindow.prototype[name] = function (...args) {
+      const entry = state.get(this.win);
+      if (!entry) {
+        return original.apply(this, args);
+      }
+      entry.contentOpenDepth++;
+      let result;
+      try {
+        result = original.apply(this, args);
+      } finally {
+        entry.contentOpenDepth--;
+      }
+      // The InFrame methods return a browser, the others a BrowsingContext.
+      const browser = name.endsWith("InFrame") ? result : result?.top?.embedderElement;
+      const tab = browser && this.win.gBrowser.getTabForBrowser(browser);
+      if (!entry.contentOpenDepth && state.get(this.win) == entry && tab && tab != entry.keep &&
+          !tab.hasAttribute("zen-glance-tab")) {
+        WhimsyFocusTab.openTabInGlance(this.win, tab);
+      }
+      return result;
+    };
+  }
+  contentHooksInstalled = true;
+}
 
 function reducedMotion(win) {
   return win.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -67,6 +104,17 @@ function isSwitchKey(event) {
 export const WhimsyFocusTab = {
   ATTR,
   KEEP,
+
+  openTabInGlance(win, tab) {
+    const keep = this.keptTab(win);
+    if (keep && !this.glanceOf(win) && win.gZenGlanceManager) {
+      try {
+        win.gZenGlanceManager.openGlance({ url: undefined }, tab, keep);
+      } catch (e) {
+        console.error("Focus: couldn't open the new tab in Glance", e);
+      }
+    }
+  },
 
   isOn(win) {
     return state.has(win);
@@ -113,14 +161,15 @@ export const WhimsyFocusTab = {
     }
     keep.setAttribute(KEEP, "true");
 
-    const entry = { keep, session, restore: [], line: null, timer: null };
+    installContentHooks();
+    const entry = { keep, session, restore: [], line: null, timer: null, contentOpenDepth: 0 };
     state.set(win, entry);
 
     // New tabs open in Glance over the kept tab.
     const addTab = gBrowser.addTab;
     let passthrough = false;
     gBrowser.addTab = function (uri, options = {}) {
-      if (passthrough || options.adoptedTab || !state.has(win)) {
+      if (passthrough || entry.contentOpenDepth || options.adoptedTab || !state.has(win)) {
         return addTab.call(this, uri, options);
       }
       const glance = WhimsyFocusTab.glanceOf(win);
@@ -141,9 +190,7 @@ export const WhimsyFocusTab = {
       if (!glance && tab && win.gZenGlanceManager) {
         passthrough = true;
         try {
-          win.gZenGlanceManager.openGlance({ url: undefined }, tab, keep);
-        } catch (e) {
-          console.error("Focus: couldn't open the new tab in Glance", e);
+          WhimsyFocusTab.openTabInGlance(win, tab);
         } finally {
           passthrough = false;
         }
