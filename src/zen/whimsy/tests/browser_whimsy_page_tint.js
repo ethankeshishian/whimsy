@@ -121,7 +121,7 @@ async function waitForSwatchesOpacity(expected, message) {
   is(swatchesOpacity(), expected, message);
 }
 
-function endMatchPage(workspace = gZenWorkspaces.getActiveWorkspace()) {
+async function endMatchPage(workspace = gZenWorkspaces.getActiveWorkspace()) {
   // Also drop a lingering non-default style, so a test never inherits an
   // earlier one's Blend/Replace choice along with Match the page itself.
   if (workspace.theme?.matchPage || workspace.theme?.matchPageStyle) {
@@ -131,6 +131,14 @@ function endMatchPage(workspace = gZenWorkspaces.getActiveWorkspace()) {
     gZenThemePicker.onWorkspaceChange(workspace);
   }
   WhimsyPageTint._resetCache();
+  // Every test starts here, so this is also the one place that can
+  // guarantee a previous test's crossfade (toggling the switch, or just
+  // switching style, each starts one - see crossfadeBackground) has
+  // actually finished, rather than leaving "animating-background" set on
+  // the shared background element for whichever test runs next to trip
+  // over.
+  const bg = gZenThemePicker.browserBackgroundElement;
+  await TestUtils.waitForCondition(() => !bg.hasAttribute("animating-background"));
 }
 
 // A fixed, known 2-stop gradient so the Gradient style's stops are
@@ -153,9 +161,9 @@ add_setup(async () => {
   registerCleanupFunction(closePanel);
 });
 
-registerCleanupFunction(() => {
+registerCleanupFunction(async () => {
   Services.prefs.clearUserPref(FEATURE);
-  endMatchPage();
+  await endMatchPage();
 });
 
 add_task(async function test_row_and_names() {
@@ -185,7 +193,7 @@ add_task(async function test_row_and_names() {
 });
 
 add_task(async function test_style_row_shows_with_the_switch_and_defaults_to_gradient() {
-  endMatchPage();
+  await endMatchPage();
   toggle().click();
   await TestUtils.waitForCondition(() => !styleRow().hidden, "Turning it on shows the style row");
   is(styleButton("gradient").getAttribute("aria-checked"), "true", "Gradient is the per-space default");
@@ -195,7 +203,7 @@ add_task(async function test_style_row_shows_with_the_switch_and_defaults_to_gra
 });
 
 add_task(async function test_switching_restores_exactly_and_dims_under_replace_only() {
-  endMatchPage();
+  await endMatchPage();
   const workspace = gZenWorkspaces.getActiveWorkspace();
   const before = background();
 
@@ -234,7 +242,7 @@ add_task(async function test_switching_restores_exactly_and_dims_under_replace_o
 });
 
 add_task(async function test_blend_paint_output() {
-  endMatchPage();
+  await endMatchPage();
   const workspace = gZenWorkspaces.getActiveWorkspace();
   setSpaceGradient(workspace, [[235, 133, 112], [196, 154, 227]]); // coral to lilac
 
@@ -255,7 +263,7 @@ add_task(async function test_blend_paint_output() {
 });
 
 add_task(async function test_gradient_paint_output() {
-  endMatchPage();
+  await endMatchPage();
   const workspace = gZenWorkspaces.getActiveWorkspace();
   setSpaceGradient(workspace, [[235, 133, 112], [196, 154, 227]]); // coral to lilac
   workspace.theme.matchPageStyle = "gradient";
@@ -278,7 +286,7 @@ add_task(async function test_gradient_paint_output() {
 });
 
 add_task(async function test_replace_paint_output() {
-  endMatchPage();
+  await endMatchPage();
   const workspace = gZenWorkspaces.getActiveWorkspace();
   setSpaceGradient(workspace, [[235, 133, 112], [196, 154, 227]]); // coral to lilac, far from the site below
   workspace.theme.matchPageStyle = "replace";
@@ -307,7 +315,7 @@ add_task(async function test_replace_paint_output() {
 });
 
 add_task(async function test_style_persists_per_space() {
-  endMatchPage();
+  await endMatchPage();
   const home = gZenWorkspaces.getActiveWorkspace();
   const other = await gZenWorkspaces.createAndSaveWorkspace("W29 other", undefined, true);
   try {
@@ -335,8 +343,8 @@ add_task(async function test_style_persists_per_space() {
     is(styleButton("replace").getAttribute("aria-checked"), "true", "Home kept its own Replace choice");
     ok(toggle().pressed, "...and its switch stayed on");
 
-    endMatchPage(home);
-    endMatchPage(other);
+    await endMatchPage(home);
+    await endMatchPage(other);
   } finally {
     await closePanel();
     if (gZenWorkspaces.activeWorkspace != home.uuid) {
@@ -348,8 +356,9 @@ add_task(async function test_style_persists_per_space() {
 });
 
 add_task(async function test_theme_color_change_updates_the_tint() {
-  endMatchPage();
+  await endMatchPage();
   const workspace = gZenWorkspaces.getActiveWorkspace();
+  const bg = gZenThemePicker.browserBackgroundElement;
 
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
     toggle().click();
@@ -365,11 +374,15 @@ add_task(async function test_theme_color_change_updates_the_tint() {
 
     toggle().click();
     await TestUtils.waitForCondition(() => !workspace.theme?.matchPage);
+    // Let the off-crossfade finish before leaving: it's a real, un-reduced
+    // 300ms animation here, and leaving its "animating-background" attribute
+    // in flight would otherwise leak into whichever test runs next.
+    await TestUtils.waitForCondition(() => !bg.hasAttribute("animating-background"));
   });
 });
 
 add_task(async function test_reduced_motion_is_instant() {
-  endMatchPage();
+  await endMatchPage();
   const workspace = gZenWorkspaces.getActiveWorkspace();
   const bg = gZenThemePicker.browserBackgroundElement;
 
@@ -397,7 +410,7 @@ add_task(async function test_reduced_motion_is_instant() {
 });
 
 add_task(async function test_motion_crossfades_by_default() {
-  endMatchPage();
+  await endMatchPage();
   const workspace = gZenWorkspaces.getActiveWorkspace();
   const bg = gZenThemePicker.browserBackgroundElement;
 
