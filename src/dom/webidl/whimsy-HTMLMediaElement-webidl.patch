@@ -1,0 +1,21 @@
+diff --git a/dom/webidl/HTMLMediaElement.webidl b/dom/webidl/HTMLMediaElement.webidl
+--- a/dom/webidl/HTMLMediaElement.webidl
++++ b/dom/webidl/HTMLMediaElement.webidl
+@@ -258,6 +258,17 @@
+ 
+   [ChromeOnly]
+   undefined setAudioSinkFailedStartup();
++
++  // Whimsy W29: the tab equalizer's eight band gains in dB (60, 150, 400,
++  // 1000, 2400, 6000, 10000, and 15000 Hz), clamped to +-12. All zero
++  // bypasses it.
++  [ChromeOnly]
++  undefined whimsySetEqualizer(sequence<float> gains);
++
++  // False when the element's audio can't be equalized (a MediaStream source,
++  // or audio an external media engine plays).
++  [ChromeOnly]
++  readonly attribute boolean whimsyEqualizerApplies;
+ };
+ 
+ /* Audio Output Devices API

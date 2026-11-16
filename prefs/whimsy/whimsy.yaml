@@ -114,6 +114,10 @@
 - name: whimsy.media.pip-snap-back
   value: true
 
+# W29: whether the Tab volume panel shows the equalizer's 8 bands (the
+# chevron; remembered for every tab).
+- name: whimsy.media.eq-bands-open
+  value: false
 # Ambient sound (⌘K "Ambient Sound…"): the volume slider's last value
 # (0-100) and the last sound played ("", "rain", "cafe", "woods",
 # "fireplace", "ocean" or "brown"), remembered across sessions.

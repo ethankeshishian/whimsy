@@ -192,6 +192,14 @@ support-files = ["whimsy_pagedev.html", "whimsy_pagedev.html^headers^", "whimsy_
 ["browser_whimsy_tab_volume.js"]
 support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
+# W29: the tab equalizer's DSP (band gain changes the level, flat is bit-identical, AudioSink and captured paths, cross-origin stays audible).
+["browser_whimsy_equalizer_dsp.js"]
+support-files = ["whimsy_eq.html", "whimsy_eq_tone.sjs"]
+
+# W29: the tab equalizer's panel rows (presets, Custom, 8 bands, chevron, per-site persistence, tooltip, disabled state).
+["browser_whimsy_equalizer_panel.js"]
+support-files = ["whimsy_eq.html", "whimsy_eq_tone.sjs"]
+
 ["browser_whimsy_title_lines.js"]
 
 ["browser_whimsy_transparency.js"]
