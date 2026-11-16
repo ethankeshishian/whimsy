@@ -38,6 +38,11 @@ let reads = [];
 let fetches = [];
 let imageBytes = null;
 let answer = () => JSON.stringify({ title: "Planning notes", description: DESCRIPTION, points: POINTS });
+// Diagnostic only (temporary): records every fillExtra() call so a timeout
+// waiting for ".whimsy-hc-extra" can say whether fillExtra ran at all, and
+// with what state, instead of just "timed out".
+let fillExtraCalls = [];
+const realFillExtra = WhimsyHoverCards.fillExtra.bind(WhimsyHoverCards);
 
 add_setup(async () => {
   await SimpleTest.promiseFocus(window);
@@ -52,6 +57,10 @@ add_setup(async () => {
   imageBytes = new Uint8Array(await (await fetch(IMAGE)).arrayBuffer());
   // Descriptions kept from an earlier run go (as Fire does), so each run reads.
   Services.obs.notifyObservers(null, "whimsy-ai-store-cleared");
+  WhimsyHoverCards.fillExtra = (win, card, state) => {
+    fillExtraCalls.push(state ? { ...state } : state);
+    return realFillExtra(win, card, state);
+  };
   WhimsyAIProviders.setTestProvider(request => {
     asked.push(request);
     return answer(request);
@@ -77,6 +86,7 @@ add_setup(async () => {
     WhimsyAIProviders.setTestProvider(null);
     WhimsyAIReader.setTestReader(null);
     WhimsyHoverCards.setTestFetcher(null);
+    WhimsyHoverCards.fillExtra = realFillExtra;
   });
 });
 
@@ -84,6 +94,7 @@ function reset() {
   asked = [];
   reads = [];
   fetches = [];
+  fillExtraCalls = [];
   answer = () => JSON.stringify({ title: "Planning notes", description: DESCRIPTION, points: POINTS });
 }
 
@@ -892,7 +903,10 @@ async function waitForExtra(card, label) {
       entries => JSON.stringify(entries),
       e => `list() rejected: ${e}`
     );
-    throw new Error(`${error} | list()=${list} | isConnected=${card.isConnected} panel=${tabPanel()?.state}`);
+    throw new Error(
+      `${error} | fillExtra calls=${JSON.stringify(fillExtraCalls)} | list()=${list} | ` +
+        `isConnected=${card.isConnected} panel=${tabPanel()?.state}`
+    );
   });
 }
 
