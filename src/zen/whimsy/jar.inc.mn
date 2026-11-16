@@ -596,3 +596,11 @@
         content/browser/whimsy/icon-packs/phosphor-fill/xr-fill.svg (../../zen/whimsy/content/icon-packs/phosphor-fill/xr-fill.svg)
         content/browser/whimsy/icon-packs/phosphor-fill/xr.svg (../../zen/whimsy/content/icon-packs/phosphor-fill/xr.svg)
         content/browser/whimsy/icon-packs/phosphor-fill/zoom-out.svg (../../zen/whimsy/content/icon-packs/phosphor-fill/zoom-out.svg)
+# W29 ambient-audio: six bundled CC0 loops (rain, cafe, woods, fireplace,
+# ocean; brown noise is generated, no file) plus their licence snapshots.
+        content/browser/whimsy/whimsy-ambient.css (../../zen/whimsy/content/whimsy-ambient.css)
+        content/browser/whimsy/ambient/rain.opus (../../zen/whimsy/content/ambient/rain.opus)
+        content/browser/whimsy/ambient/cafe.opus (../../zen/whimsy/content/ambient/cafe.opus)
+        content/browser/whimsy/ambient/woods.opus (../../zen/whimsy/content/ambient/woods.opus)
+        content/browser/whimsy/ambient/fireplace.opus (../../zen/whimsy/content/ambient/fireplace.opus)
+        content/browser/whimsy/ambient/ocean.opus (../../zen/whimsy/content/ambient/ocean.opus)

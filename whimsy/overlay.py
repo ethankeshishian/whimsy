@@ -1645,6 +1645,8 @@ FEATURES = [
                 ("prefs", r"name:\s*zen\.[\w.-]*(background|inactive)[\w.-]*mute")]},
     {"id": "mute-site", "title": "Remember muted sites: Mute Site in the tab menu (Chrome)",
      "detect": [("src/zen", r"(?i)context_\w*MuteSite|mute-?site\b")]},
+    {"id": "page-tint", "title": "Match the page: tint a space with the current site's colour (theme picker toggle, off by default)",
+     "detect": [("src/zen/spaces", r"matchPage|theme-color.*gradientColors|gradientColors.*theme-color")]},
     {"id": "tab-volume", "title": "Per-tab volume: a slider on the tab's speaker and in the tab menu",
      "detect": [("src/zen", r"(?i)tab-?volume-?(slider|panel)|setTabVolume")]},
     {"id": "pip-snap-back", "title": "PiP snaps back into the page when you return to its tab (Arc), automatic PiP setting",
@@ -2219,6 +2221,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?media[-_.]?settings|paneMedia")]},
     {"id": "routines", "title": "Routines: AI runs on a schedule or a trigger and leaves results in Updates and a thread",
      "detect": [("src/zen", r"(?i)zen[-_.]?routines?")]},
+    {"id": "ambient-audio", "title": "Ambient sound: six bundled loops (rain, cafe, woods, fireplace, ocean, brown noise) via ⌘K, played from the chrome window",
+     "detect": [("src/zen", r"(?i)zen[-_.]?ambient[-_.]?(sound|audio|noise)")]},
     # W23 cmdbar-ai
     {"id": "command-bar-numbers", "title": "⌘1–⌘9 pick a row while the command bar is open; hold ⌘ to see the numbers",
      "detect": [("src/zen/urlbar", r"(?i)(accel|cmd)[-_]?digit[-_]?row|row[-_]?numbers")]},
@@ -2257,6 +2261,12 @@ FEATURES = [
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W28: Keep Window on Top (Settings → Look and Feel, macOS only): one
+    # global setting floats every Whimsy window, including Mini Whimsy,
+    # above other apps' windows; persists across restarts.
+    {"id": "window-on-top", "title": "Keep Window on Top: float every Whimsy window above other apps' windows (Settings → Look and Feel, macOS, off by default)",
+     "detect": [("src/widget/cocoa", r"(?i)SetAlwaysOnTop|GetAlwaysOnTop"),
+                ("src/xpfe/appshell", r"(?i)alwaysOnTop")]},
     # W28: "Open in Safari" / "Open in Chrome" in the command bar, one row
     # per installed browser (research/multi-engine.md option A, step 1).
     {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
@@ -2276,6 +2286,12 @@ FEATURES = [
     # checked locally.
     {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
      "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
+    # W28: Search With ▸, right after the selection menu's "Search <engine>
+    # for "…"" row: lists the other visible engines, each opening the
+    # selection exactly like that row.
+    {"id": "search-with", "title": "Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*search-with[\w-]*\s*="),
+                ("src/zen", r"(?i)zen[-_.]?search[-_.]?with|searchwith-?menu")]},
 ]
 
 

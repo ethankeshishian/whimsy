@@ -392,9 +392,15 @@ authorized targeted run; isolated old passes are not validation of these edits.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
 
+## 2026-11-15 — Tab menu regrouping after upstream Tab Notes
 
-## 2026-11-16 — Pass Keys localization assertions
-
-- Traced the pill and toast to asynchronous document.l10n.setAttributes calls: mounting/visibility does not establish translation completion. The tooltip assertion read immediately after visibility; the reported toast assertion failure also concerns localized words, though this checkout already contained a text-condition wait rather than that immediate assertion.
-- Updated only browser_whimsy_pass_keys.js to await translateElements for the pill and translateFragment for the off toast before checking the original expected copy. Product strings, key handling, and timing remain unchanged; no sleeps added.
-- Validation: node --check passed for the test. Browser tests were not run, so runtime confirmation remains outstanding. No engine, Zen-source, mach, or git operations.
+- Regroup hidden rows as well as visible ones so asynchronously revealed
+  upstream actions cannot precede New Tab Below. Unregistered tab/Essential
+  actions keep their relative order after Share and Save, before AI/Archive.
+- Restore reused separator positions and remove separators created for an
+  opening, preserving the original child order when visible groups change.
+- Existing browser test expectations remain unchanged. Node syntax check and
+  a focused harness using the actual module passed for tab, Essential, page,
+  and selection menus, late visibility, unknown rows, and exact restoration
+  across three openings each. Browser integration tests were not run; no
+  engine edits, mach, or git commands.

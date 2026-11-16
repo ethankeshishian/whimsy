@@ -891,6 +891,40 @@ mark.whimsy-search-mark {
   }
 }
 
+/* W29: photo details. The kinds and "Ask before each upload" sit under the
+   main box and open with the row height while it's ticked (200ms, surface
+   ease, fading in); Reduce Motion: they appear. Closed, they're inert. */
+.whimsy-photo-details-options {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-block-start: 0;
+  transition: grid-template-rows 200ms cubic-bezier(0.2, 0, 0, 1), opacity 200ms cubic-bezier(0.2, 0, 0, 1),
+    margin-block-start 200ms cubic-bezier(0.2, 0, 0, 1);
+
+  &.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    margin-block-start: var(--space-large);
+  }
+}
+
+.whimsy-photo-details-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-large);
+  min-height: 0;
+  /* Clipped while it opens, but never a focus ring. */
+  overflow: clip;
+  overflow-clip-margin: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-photo-details-options {
+    transition: none;
+  }
+}
+
 /* W29 safety-check: Settings → Privacy & Security → Safety Check. The head
    (last-run text + Check again) sits above a bordered list of four rows,
    one per check, in the profiles/passkeys list's own card style. */
