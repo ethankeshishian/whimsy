@@ -246,6 +246,68 @@
   position: relative;
 }
 
+/* ---------- The tab: the chat-reads sparkle badge (W28 tab-state-indicators, option A) ---------- */
+
+/* Marks a tab the current chat thread reads from (its own tab/pane/pdf
+   chip, a group chip, or "All my tabs"): an 11px chat-accent disc with a
+   white four-point sparkle, set by WhimsyChatContextUI.markReadTabs. It
+   sits at the favicon's bottom-left (::before) so it never collides with
+   the agent-opened dot at bottom-right (::after, above); never shown on
+   the selected tab. */
+.tabbrowser-tab[whimsy-chat-reads]:not([selected]) .tab-icon-stack::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  bottom: -4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--whimsy-chat-accent-bg) url("chrome://browser/content/whimsy/icons/chat-reads.svg") center / 7px no-repeat;
+  box-shadow: 0 0 0 1.5px var(--zen-colors-tertiary, Canvas);
+  pointer-events: none;
+
+  @media not (prefers-reduced-motion: reduce) {
+    animation: whimsy-chat-reads-in 520ms var(--whimsy-ease) both;
+  }
+}
+
+.tabbrowser-tab[whimsy-chat-reads] .tab-icon-stack {
+  position: relative;
+}
+
+@keyframes whimsy-chat-reads-in {
+  from {
+    scale: 0;
+  }
+}
+
+/* While the chat is actively answering (not just attached), the badge
+   glints once every 1.6s. The mockup animates the glyph alone inside a
+   nested <svg>; a native tab only has one free pseudo-element here
+   (::after is already the agent-opened dot), so the rotate+scale plays
+   on the whole disc instead - a plain circle's own rotation doesn't
+   read, so this still shows as the glyph glinting. Same specificity as
+   the rule above; coming later in source, it wins and replaces the
+   pop-in with the twinkle for as long as the chat is reading. */
+.tabbrowser-tab[whimsy-chat-reading]:not([selected]) .tab-icon-stack::before {
+  @media not (prefers-reduced-motion: reduce) {
+    animation: whimsy-chat-reads-twinkle 1.6s var(--whimsy-ease) infinite;
+  }
+}
+
+@keyframes whimsy-chat-reads-twinkle {
+  0%,
+  55%,
+  100% {
+    rotate: 0deg;
+    scale: 1;
+  }
+  25% {
+    rotate: 90deg;
+    scale: 1.35;
+  }
+}
+
 /* ---------- The task folder (an unpinned-folder row, like Zen's) ---------- */
 
 .whimsy-task-folder {

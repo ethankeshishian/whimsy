@@ -9,6 +9,12 @@
 // the parent validates it again before using it.
 
 const FEATURE_PREF = "whimsy.feature.page-actions";
+// W27: Turn Off Page Animations. A user sheet, so its !important beats the
+// page's own; it belongs to this document, so a reload drops it.
+const STILL_SHEET =
+  "data:text/css," + encodeURIComponent("*,*::before,*::after{transition:none!important;animation:none!important}");
+// The documents whose animations are off (the sheet is per document).
+const stilled = new WeakSet();
 const MAX_SCRIPTS = 20;
 const MAX_SCRIPT_LENGTH = 300000;
 const MAX_NODES = 2000;
@@ -407,6 +413,31 @@ export function findAction(doc) {
 }
 
 export class WhimsyPageActionsChild extends JSWindowActorChild {
+  // W27: the parent asks this page to stop or restart its CSS motion.
+  receiveMessage(message) {
+    if (message.name != "WhimsyPageActions:Animations") {
+      return null;
+    }
+    const win = this.contentWindow;
+    const utils = win?.windowUtils;
+    if (!utils) {
+      return null;
+    }
+    const off = !!message.data?.off;
+    const doc = this.document;
+    if (!doc || off == stilled.has(doc)) {
+      return off;
+    }
+    if (off) {
+      utils.loadSheetUsingURIString(STILL_SHEET, utils.USER_SHEET);
+      stilled.add(doc);
+    } else {
+      utils.removeSheetUsingURIString(STILL_SHEET, utils.USER_SHEET);
+      stilled.delete(doc);
+    }
+    return off;
+  }
+
   // DOMContentLoaded: the data is in the page's HTML, so the pill needn't
   // wait for every ad and image to load (on an ad-heavy page like Allrecipes
   // "load" can take many seconds). pageshow again for data a script added

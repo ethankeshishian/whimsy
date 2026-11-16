@@ -367,6 +367,18 @@ export const WhimsyAgentGuard = {
     return result;
   },
 
+  /**
+   * W27 save_pdf: saving a page as a file pauses like a download, with the
+   * file's name and the site it comes from.
+   *
+   * @param {{file: string, host: string}} what
+   * @returns {{kind: "download", host: string, preview: object}}
+   */
+  saving({ file, host }) {
+    host = String(host ?? "");
+    return { kind: "download", host, preview: preview("download", {}, host, { file: clip(file, 80) }) };
+  },
+
   /** A URL's site: its registrable domain ("mail.google.com" → "google.com"). */
   siteOf(uri) {
     try {

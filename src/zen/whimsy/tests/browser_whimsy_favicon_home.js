@@ -215,6 +215,55 @@ add_task(async function strings_and_accel_sublabel_resolve() {
   });
 });
 
+add_task(function test_up_one_level_parses_urls() {
+  const up = url => WhimsyFaviconHome.upOneLevel(url);
+  is(up("https://example.com/a/b/c"), "https://example.com/a/b/", "Drops the last path segment");
+  is(up("https://example.com/a/"), "https://example.com/", "One segment goes to the origin root");
+  is(up("https://example.com/"), null, "The origin root has nowhere left to go");
+  is(up("https://example.com/?q"), "https://example.com/", "No path segment: drops the query");
+  is(up("https://example.com/#h"), "https://example.com/", "No path or query: drops the hash");
+  is(up("about:blank"), null, "Non-http(s) addresses are excluded");
+  is(up("file:///a/b"), null, "file: addresses are excluded");
+  is(up("not a url"), null, "An unparsable address is excluded");
+  is(up(undefined), null, "No address is excluded");
+});
+
+add_task(async function test_go_up_level_command() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const entry = WhimsyCommands.get("cmd_whimsyGoUpLevel");
+  ok(entry, "cmd_whimsyGoUpLevel is registered");
+  is(entry.l10nId, "whimsy-action-go-up-level", "Named Go Up One Level");
+  const keyEl = entry.keyId && document.getElementById(entry.keyId);
+  ok(!keyEl?.hasAttribute("key") && !keyEl?.hasAttribute("keycode"), "No default shortcut");
+  const action = () => globalActions.find(a => a.whimsyCommand == "cmd_whimsyGoUpLevel");
+  await withTabs(async () => {
+    const tab = await openPage(HOME + "a/b/c");
+    gBrowser.selectedTab = tab;
+    ok(action()?.isAvailable(window), "Available with a path to go up from");
+    let loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, HOME + "a/b/");
+    document.getElementById("cmd_whimsyGoUpLevel").doCommand();
+    await loaded;
+    is(tab.linkedBrowser.currentURI.spec, HOME + "a/b/", "Go Up One Level drops the last segment in the current tab");
+    // One level at a time: "a/b/" -> "a/", not straight to the root.
+    loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, HOME + "a/");
+    document.getElementById("cmd_whimsyGoUpLevel").doCommand();
+    await loaded;
+    is(tab.linkedBrowser.currentURI.spec, HOME + "a/", "A second Go Up drops one more segment");
+    ok(action()?.isAvailable(window), "Still available with one segment left");
+    loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, HOME);
+    document.getElementById("cmd_whimsyGoUpLevel").doCommand();
+    await loaded;
+    is(tab.linkedBrowser.currentURI.spec, HOME, "A third Go Up reaches the origin root");
+    ok(!action()?.isAvailable(window), "Unavailable at the site root");
+  });
+  await withTabs(async () => {
+    const tab = await openPage("about:blank");
+    gBrowser.selectedTab = tab;
+    ok(!action()?.isAvailable(window), "Unavailable on a non-http(s) page");
+  });
+});
+
 add_task(async function multiselection_navigates_only_clicked_tab() {
   await withTabs(async () => {
     const tab = await openPage();

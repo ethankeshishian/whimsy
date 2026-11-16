@@ -922,3 +922,15 @@ add_task(async function screenshots_and_guards() {
   }
   BrowserTestUtils.removeTab(tab);
 });
+
+// The real helper ships where the front end looks for it (GreBinD, beside
+// plugin-container.app); W27 found it built into Contents/Resources/browser,
+// which broke packaging and left every build without Touch ID passkeys.
+add_task(async function helper_is_bundled_beside_the_binary() {
+  const file = Services.dirsvc.get("GreBinD", Ci.nsIFile);
+  for (const part of ["whimsy-passkeys.app", "Contents", "MacOS", "whimsy-passkeys"]) {
+    file.append(part);
+  }
+  ok(file.exists(), `the passkeys helper is at ${file.path}`);
+  ok(file.isExecutable(), "the passkeys helper is executable");
+});

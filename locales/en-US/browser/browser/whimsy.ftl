@@ -461,6 +461,10 @@ whimsy-emoji-search-empty =
 
 whimsy-spaces-hide-switcher =
     .label = Hide the space switcher (swipe to change spaces; it shows while you drag a tab)
+# W27: the window title starts with the space's name (Mission Control, the
+# Window menu, and screen-share pickers show it).
+whimsy-spaces-window-title-name =
+    .label = Show space name in window title
 
 ## Open Link in Space (link context menu)
 
@@ -515,6 +519,16 @@ whimsy-look-peek-essential-links =
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
+# W29 icon-sets: three cards (Nucleo, Lucide, Phosphor-fill), each a radio
+# with a name and a short detail ("Default · Nucleo").
+whimsy-look-icon-pack-label = Icons
+whimsy-look-icon-pack-nucleo = Whimsy
+whimsy-look-icon-pack-nucleo-detail = Default · Nucleo
+whimsy-look-icon-pack-lucide = Outline
+whimsy-look-icon-pack-lucide-detail = Lucide · thin strokes
+whimsy-look-icon-pack-phosphor-fill = Filled
+whimsy-look-icon-pack-phosphor-fill-detail = Phosphor · solid
+whimsy-look-icon-pack-preview-caption = Preview
 
 ## batch8: tab lifecycle — Settings → Tab Management
 
@@ -826,8 +840,16 @@ whimsy-look-seasonal-themes-description = The balloon dresses for the season, an
 whimsy-tabs-close-window-with-last-tab =
     .label = Close the window when the last tab closes
 
+# W27 winprefs: nested under Firefox's "Open links in tabs instead of new windows".
+whimsy-tabs-popups-as-tabs =
+    .label = Open pop-up windows as tabs
+
 whimsy-look-always-full-url =
     .label = Always show the full address, not just the domain
+
+# W27 winprefs: zen.view.grey-out-inactive-windows.
+whimsy-look-dim-inactive-window =
+    .label = Dim the window when it’s not in front
 
 ## batch7: Settings → General → Performance
 
@@ -1300,8 +1322,14 @@ whimsy-mail-unread-preview =
         [one] { $count } unread message
        *[other] { $count } unread messages
     }
+# W29/cmdrecent: Recently Closed and Synced Tabs join the empty command bar
+# after Recent Documents (nothing already there moves).
+whimsy-command-recently-closed = Recently Closed
+whimsy-command-reopen-tab = Closed { $ago } · Reopen Tab
+whimsy-command-synced-tabs = Synced Tabs
+whimsy-command-open-tab = { $device } · Open Tab
 whimsy-command-recent-tabs-toggle =
-    .label = Show recent tabs when the command bar opens empty
+    .label = Show recent, closed, and synced tabs when the command bar opens empty
 
 # wave3/cmdbar: offline bangs (Settings -> Search).
 whimsy-bangs-header = Bang Shortcuts
@@ -1848,6 +1876,11 @@ whimsy-meeting-untitled = Meeting
 # wave4: extension space picker in about:addons
 whimsy-space-extensions-picker = Run in Profiles
 whimsy-space-extensions-all-text = All Profiles
+# Firefox's "Add extension" prompt, under "Optional settings:": one
+# checkbox per profile (named as the user named it); the profile you're in
+# is checked and locked, with this detail under its name.
+whimsy-space-extensions-install-label = Run in profiles:
+whimsy-space-extensions-install-current = this profile
 whimsy-space-extensions-shared-note = Installed once: its settings and saved data are shared by every profile, and it can still read history and downloads from all of them.
 
 # wave4: Mini Whimsy's bar (Arc's Little Arc layout). $title is the page
@@ -1965,6 +1998,7 @@ whimsy-replay-tool =
         [form_input] Filled in a field
         [scroll] Scrolled
         [screenshot] Took a screenshot
+        [save_pdf] Saved the page as a PDF
         [shield] Shield paused Claude
        *[other] { $tool }
     }
@@ -2060,6 +2094,10 @@ whimsy-verb-email = Email
 whimsy-verb-copy-markdown = Copy as Markdown
 whimsy-verb-note = Add to Note
 whimsy-verb-calendar = Add to Calendar
+whimsy-verb-call = Call
+whimsy-verb-facetime = FaceTime
+whimsy-verb-message = Message
+whimsy-verb-add-contact = Add to Contacts
 whimsy-verb-linear-new = New Linear Issue
 whimsy-verb-linear-search = Search Linear
 whimsy-verb-copied-toast = Copied as Markdown
@@ -3073,6 +3111,22 @@ whimsy-action-manage-spaces = Manage Spaces…
 whimsy-action-air-traffic-control = Air Traffic Control…
 whimsy-action-add-finder-folder = Add Finder Folder…
 whimsy-action-whats-new = What’s New
+
+## W27: Restart Whimsy (command bar). Comma-separated search words.
+
+whimsy-action-restart = Restart Whimsy
+whimsy-keywords-restart = Relaunch, Reopen, Reboot, Restart Browser
+
+## W27: page animations on the current tab (until it reloads) from the command bar, and
+## the toast that confirms the change. Keywords are comma-separated search words.
+
+whimsy-action-page-animations-toggle = Turn Page Animations On or Off
+whimsy-action-page-animations-off = Turn Off Page Animations
+whimsy-action-page-animations-on = Turn On Page Animations
+whimsy-keywords-page-animations = Reduce Motion, Reduced Motion, Motion, Animations, Stop Animations
+whimsy-page-animations-off-toast = Animations are off on this page until it reloads
+whimsy-page-animations-on-toast = Animations are back on for this page
+
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)
 
@@ -4332,7 +4386,13 @@ whimsy-pagedev-evidence =
     }
 ## wave9: W9-04 site settings ("This Site" in the site panel)
 whimsy-action-site-settings = Site Settings…
-whimsy-site-settings-title = This Site
+# W26: the site panel's two headings. Each is followed by the profile's
+# name or the site's host.
+whimsy-site-settings-profile-heading = Profile Settings
+whimsy-site-settings-site-heading = Site Settings
+whimsy-site-settings-profile-dark-mode = Automatic Dark Mode
+whimsy-site-settings-dark-mode = Dark Mode
+whimsy-site-settings-tracking = Tracking Protection
 whimsy-site-settings-forget-all = Forget All
 whimsy-site-settings-zoom = Zoom
 # W10-16: the zoom stepper (− / the % / +); the % resets.
@@ -4365,6 +4425,69 @@ whimsy-site-settings-useragent-custom = Custom…
 whimsy-site-settings-private-note = Private window: these settings are forgotten when you close your private tabs.
 # $site (string) - the site's host, e.g. example.com
 whimsy-site-settings-forgot-toast = Forgot settings for { $site }
+# W28: hover tooltips for each row of Profile Settings and Site Settings,
+# one short sentence on what the setting does.
+whimsy-site-settings-profile-dark-pages-tooltip =
+    .tooltiptext = Gives every site in this profile a dark look, unless a site has its own Dark Mode setting.
+whimsy-site-settings-dark-pages-tooltip =
+    .tooltiptext = Gives this site a dark look, using its own dark theme when it has one.
+whimsy-site-settings-tracking-tooltip =
+    .tooltiptext = Blocks trackers that follow you across sites.
+whimsy-site-settings-zoom-tooltip =
+    .tooltiptext = Sets how large this site’s pages appear, and remembers it.
+whimsy-site-settings-autoplay-tooltip =
+    .tooltiptext = Chooses whether this site can play sound and video by itself.
+whimsy-site-settings-reader-tooltip =
+    .tooltiptext = Opens this site’s articles in Reader View, without ads, menus, and clutter.
+whimsy-site-settings-fullscreen-tooltip =
+    .tooltiptext = Fills the whole screen whenever this site is in front.
+whimsy-site-settings-useragent-tooltip =
+    .tooltiptext = Tells this site you’re using a different browser, for sites that only work in one.
+# Each permission row (Firefox's SitePermissions ids).
+whimsy-site-settings-permission-tooltip =
+    .tooltiptext = Chooses whether this site can use this feature.
+whimsy-site-settings-permission-cookie-tooltip =
+    .tooltiptext = Chooses whether this site can save cookies, which keep you signed in and remember your choices.
+whimsy-site-settings-permission-desktop-notification-tooltip =
+    .tooltiptext = Chooses whether this site can send you notifications.
+whimsy-site-settings-permission-camera-tooltip =
+    .tooltiptext = Chooses whether this site can use your camera.
+whimsy-site-settings-permission-microphone-tooltip =
+    .tooltiptext = Chooses whether this site can use your microphone.
+whimsy-site-settings-permission-screen-tooltip =
+    .tooltiptext = Chooses whether this site can see and share your screen or windows.
+whimsy-site-settings-permission-speaker-tooltip =
+    .tooltiptext = Chooses whether this site can pick which speakers play its sound.
+whimsy-site-settings-permission-popup-tooltip =
+    .tooltiptext = Chooses whether this site can open pop-up windows.
+whimsy-site-settings-permission-install-tooltip =
+    .tooltiptext = Chooses whether this site can offer to install add-ons.
+whimsy-site-settings-permission-geo-tooltip =
+    .tooltiptext = Chooses whether this site can know your location.
+whimsy-site-settings-permission-open-protocol-handler-tooltip =
+    .tooltiptext = Chooses whether this site can open other apps on your computer.
+whimsy-site-settings-permission-xr-tooltip =
+    .tooltiptext = Chooses whether this site can use virtual reality headsets.
+whimsy-site-settings-permission-focus-tab-by-prompt-tooltip =
+    .tooltiptext = Chooses whether this site can bring its tab to the front when it shows an alert.
+whimsy-site-settings-permission-persistent-storage-tooltip =
+    .tooltiptext = Chooses whether this site can keep its data when your disk runs low on space.
+whimsy-site-settings-permission-persist-data-on-shutdown-tooltip =
+    .tooltiptext = Chooses whether this site’s cookies and data are kept when Whimsy closes.
+whimsy-site-settings-permission-shortcuts-tooltip =
+    .tooltiptext = Chooses whether this site can take over Whimsy’s keyboard shortcuts.
+whimsy-site-settings-permission-canvas-tooltip =
+    .tooltiptext = Chooses whether this site can read drawn image data, which can be used to identify you.
+whimsy-site-settings-permission-midi-tooltip =
+    .tooltiptext = Chooses whether this site can use your MIDI instruments and devices.
+whimsy-site-settings-permission-midi-sysex-tooltip =
+    .tooltiptext = Chooses whether this site can send advanced commands to your MIDI devices, such as updates.
+whimsy-site-settings-permission-serial-tooltip =
+    .tooltiptext = Chooses whether this site can connect to devices plugged into your computer.
+whimsy-site-settings-permission-loopback-network-tooltip =
+    .tooltiptext = Chooses whether this site can connect to apps running on this computer.
+whimsy-site-settings-permission-local-network-tooltip =
+    .tooltiptext = Chooses whether this site can connect to devices on your home or office network.
 ## wave7/easel: View Easels…, Add Page to Easel, Copy Link
 
 whimsy-action-view-easels = View Easels…
@@ -4443,6 +4566,8 @@ whimsy-setting-dark-pdf = Dark PDFs
     .keywords = pdf dark mode, night mode, invert pdf
 whimsy-setting-ui-font = Interface Font
     .keywords = font, typeface, sidebar font, system font
+whimsy-setting-icon-pack = Icons
+    .keywords = icon pack, lucide, phosphor, outline, filled, nucleo, toolbar icons
 whimsy-setting-density = Density
     .keywords = compact, roomy, spacing, tab height
 whimsy-setting-transparency = Transparency
@@ -4455,6 +4580,8 @@ whimsy-setting-seasons = Seasonal Touches
     .keywords = seasons, seasonal themes, halloween, holidays, pumpkins, snow
 whimsy-setting-full-url = Full Address
     .keywords = full url, whole url, domain only, address bar, url bar
+whimsy-setting-dim-inactive-window = Dim Inactive Windows
+    .keywords = grey out, gray out, inactive window, background window, unfocused window, fade
 whimsy-setting-new-windows = New Window Page
     .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
 whimsy-setting-new-tabs = New Tab Page
@@ -4501,6 +4628,8 @@ whimsy-setting-vpn = Built-In VPN
     .keywords = vpn, ip protection, proxy, hide ip
 whimsy-setting-email-aliases = Private Email Button
     .keywords = hide my email, firefox relay, email alias, email mask, icloud
+whimsy-setting-field-editor-button = Text Editor Button
+    .keywords = edit field in text editor, textarea, contenteditable, comment box
 whimsy-setting-handoff = Handoff
     .keywords = continuity, iphone, ipad, continue on another device
 whimsy-setting-claude = Outside Agents
@@ -4523,6 +4652,8 @@ whimsy-setting-ai-memory = AI Memory
     .keywords = memories, remember, saved facts, personal context, use and save memories
 whimsy-setting-memory-search = Search Memories
     .keywords = find memory, saved memories, filter memories
+whimsy-setting-ai-style = How AI Writes
+    .keywords = writing style, tone, voice, ai style, custom instructions
 whimsy-setting-ai-commands = Built-in Commands
     .keywords = improve writing, fix spelling, summarize, ai commands
 whimsy-setting-update-channel = Update Channel
@@ -4545,6 +4676,8 @@ whimsy-setting-loading-line = Loading Progress Line
     .keywords = safari progress bar, loading line, progress line
 whimsy-setting-hide-switcher = Space Switcher
     .keywords = hide space switcher, workspace icons, spaces bar, swipe spaces
+whimsy-setting-window-title-space = Space Name in Window Title
+    .keywords = window title, space name, Mission Control, Window menu, screen sharing
 whimsy-setting-tab-badges = Tab Badges
     .keywords = unread counts, notification dots, update dots, badges
 whimsy-setting-background-mute = Background Tab Sound
@@ -4603,6 +4736,8 @@ whimsy-setting-command-recent-tabs = Recent Tabs in the Command Bar
     .keywords = command bar, recent tabs, empty command bar
 whimsy-setting-close-window-with-last-tab = Close Window with Last Tab
     .keywords = last tab, keep window open, close window
+whimsy-setting-popups-as-tabs = Pop-up Windows as Tabs
+    .keywords = popups, pop-ups, popup windows, sign-in windows
 whimsy-setting-dock-badge = Dock Download Badge
     .keywords = dock, badge, download count
 whimsy-setting-quick-look = Quick Look for Downloads
@@ -5233,6 +5368,17 @@ whimsy-favicon-home-sublabel-new-tab = Open site home in new tab
 whimsy-favicon-home-button =
     .aria-label = Go to Site Home
 whimsy-action-site-home = Go to Site Home
+whimsy-action-go-up-level = Go Up One Level
+whimsy-action-edit-field-in-editor = Edit Field in Text Editor
+
+## W29: the field editor button's own Settings card (General), and its
+## Settings-search entry.
+
+whimsy-field-editor-header =
+    .label = Text editor
+whimsy-field-editor-button =
+    .label = Show the text editor button on text boxes
+    .description = A small button in the corner of the box you’re typing in. Edit Field in Text Editor works in the same boxes either way.
 
 ## W23 ai-core: errors from the provider router (toasts; chat's error block
 ## lists what was tried itself).
@@ -6308,6 +6454,14 @@ whimsy-look-find-card =
     .label = Find as a floating card at the top right of the page
 whimsy-setting-find-card = Floating Find
     .keywords = find bar, find in page, search page, cmd f, find card
+# W27: Settings › Look and Feel. The first Esc in a page's full screen goes
+# to the page; a second one within a second leaves full screen.
+whimsy-look-double-escape =
+    .label = Press Esc twice to leave full screen
+whimsy-setting-double-escape = Esc Twice for Full Screen
+    .keywords = escape, esc, full screen, fullscreen, video, exit full screen, double escape
+# The full-screen notice's button after the first Esc (the setting above is on).
+whimsy-fullscreen-press-esc-again = Press Esc again to exit full screen
 whimsy-find-more =
     .tooltiptext = More find options
     .aria-label = More find options
@@ -6661,6 +6815,11 @@ whimsy-memory-count = { $count ->
 }
 whimsy-memory-no-match = No memories match.
 whimsy-memory-export-button = Export Markdown…
+# W27: Settings › AI › Memory. The person's own words, added to every AI
+# request as their style preference.
+whimsy-ai-style-label = How AI writes
+whimsy-ai-style-detail = Tone and style for every answer, in your own words.
+whimsy-ai-style-placeholder = Short and plain, no emoji, and British spelling.
 # The exported file's heading, the save dialog's title, and its file type.
 whimsy-memory-export-heading = Memory
 whimsy-memory-export-picker-title = Export Memory
@@ -7186,6 +7345,11 @@ whimsy-agent-tabs-undo = Undo
 # The chat card when your click or key press in an agent's tab paused it. $site is the page's site, like casaamora.pt.
 whimsy-agent-tabs-collision-title = Paused so you can use { $site }
 whimsy-agent-chat-hand-over-collision = Carry on when you’re done, or keep this tab and I’ll leave it out.
+
+## W28 tab-state-indicators: the sparkle badge on a tab the current chat
+## thread reads from (WhimsyChatContextUI.markReadTabs).
+
+whimsy-chat-reads-tab = Chat reads this tab
 
 ## W23 routines-ui: Library › Routines, the routine form, and Watch This Page
 
@@ -7966,7 +8130,6 @@ whimsy-dark-pages-dim = Dim images
 whimsy-dark-pages-dim-description = Photos a little darker on dark pages
 whimsy-dark-pages-sites = Sites you changed
 whimsy-dark-pages-reset = Reset
-whimsy-dark-pages-site-title = Automatic dark mode
 whimsy-dark-pages-dark = Dark
 whimsy-dark-pages-original = Original
 whimsy-dark-pages-button-dark =
@@ -8279,3 +8442,69 @@ whimsy-passkeys-delete =
 whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
 whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
 whimsy-setting-passkeys = Passkeys
+
+# W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md),
+# command-bar rows shown only when that browser is installed.
+whimsy-action-open-in-safari = Open in Safari
+whimsy-action-open-in-chrome = Open in Chrome
+## W28: Page Minimap, a picture of a long page at its right edge with the
+## visible part outlined. Toggled from the command bar; off by default.
+
+whimsy-action-page-minimap-toggle = Show or Hide Page Minimap
+whimsy-action-page-minimap-show = Show Page Minimap
+whimsy-action-page-minimap-hide = Hide Page Minimap
+whimsy-keywords-page-minimap = minimap, overview, scroll map
+whimsy-minimap =
+    .aria-label = Page minimap
+# Shown when it's turned on while the current page is too short for it.
+whimsy-minimap-short-toast = Page Minimap shows on long pages
+## W29 safety-check: Settings → Privacy & Security → Safety Check. A check
+## of updates, breached passwords, risky extensions, and unused site
+## permissions, run on this device only.
+
+whimsy-safety-check-header =
+    .label = Safety Check
+whimsy-safety-check-description = A check of the things that most often go wrong. It runs on this device when you open this page, and sends nothing anywhere.
+whimsy-safety-check-run-button =
+    .label = Check again
+whimsy-safety-check-checking = Checking…
+whimsy-safety-check-last-run = Checked { $ago }
+
+whimsy-safety-check-updates-ok = Whimsy is up to date
+whimsy-safety-check-updates-ok-detail = Version { $v }, installed { $date }. Updates install on their own.
+whimsy-safety-check-updates-warn = An update is ready
+whimsy-safety-check-updates-warn-detail = Version { $v } is downloaded. It installs when Whimsy restarts.
+whimsy-safety-check-updates-restart =
+    .label = Restart to update
+
+whimsy-safety-check-passwords-ok = No breached passwords
+whimsy-safety-check-passwords-ok-detail = None of your { $count } saved passwords appear in known data breaches.
+whimsy-safety-check-passwords-warn = { $n } passwords appeared in data breaches
+whimsy-safety-check-passwords-warn-detail = { $sites }. Change them on those sites.
+whimsy-safety-check-passwords-review =
+    .label = Review
+
+whimsy-safety-check-extensions-ok = Extensions look fine
+whimsy-safety-check-extensions-ok-detail = All { $n } extensions are from addons.mozilla.org or are ones you added yourself.
+whimsy-safety-check-extensions-warn = { $n } extension can read every site
+whimsy-safety-check-extensions-warn-detail = { $name } isn’t from addons.mozilla.org and can see every page you open.
+whimsy-safety-check-extensions-review =
+    .label = Review
+
+whimsy-safety-check-permissions-ok = No unused permissions
+whimsy-safety-check-permissions-ok-detail = Every site with camera, microphone, location, or notification access was visited in the last 90 days.
+whimsy-safety-check-permissions-warn = { $n } sites you haven’t visited in 90 days still have access
+whimsy-safety-check-permissions-warn-detail = { $types }.
+whimsy-safety-check-permissions-review =
+    .label = Review
+
+whimsy-safety-check-sheet-title = Unused site permissions
+whimsy-safety-check-sheet-text = These sites can still use these permissions, but you haven’t visited them in 90 days.
+whimsy-safety-check-sheet-row = { $perms } · last visited in { $month }
+whimsy-safety-check-sheet-remove = Remove
+    .aria-label = Remove { $site }’s access
+whimsy-safety-check-sheet-remove-all =
+    .label = Remove all
+whimsy-safety-check-sheet-done =
+    .label = Done
+whimsy-safety-check-removed-toast = Removed { $site }’s access

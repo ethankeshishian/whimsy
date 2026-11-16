@@ -84,6 +84,9 @@
 - name: whimsy.feature.ui-font
   value: true
 
+- name: whimsy.feature.icon-pack
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 
@@ -259,6 +262,9 @@
   value: true
 
 - name: whimsy.feature.drag-downloads
+  value: true
+
+- name: whimsy.feature.delete-to-trash
   value: true
 
 - name: whimsy.feature.sidebar-nav
@@ -603,7 +609,13 @@
 - name: whimsy.feature.ai-memory
   value: true
 
+- name: whimsy.feature.ai-style
+  value: true
+
 - name: whimsy.feature.ai-agent
+  value: true
+
+- name: whimsy.feature.ai-agent-save-pdf
   value: true
 
 - name: whimsy.feature.ai-task-folder
@@ -651,6 +663,9 @@
 - name: whimsy.feature.find-card
   value: true
 
+- name: whimsy.feature.double-escape
+  value: true
+
 - name: whimsy.feature.ai-video-summary
   value: true
 
@@ -693,7 +708,28 @@
 - name: whimsy.feature.passkeys
   value: true
 
+- name: whimsy.feature.restart-command
+  value: true
+
+- name: whimsy.feature.page-animations-command
+  value: true
+
+- name: whimsy.feature.page-minimap
+  value: true
+
+- name: whimsy.feature.window-title-space
+  value: true
+
+- name: whimsy.feature.open-in-browser
+  value: true
+
 - name: whimsy.feature.photo-metadata
+  value: true
+
+- name: whimsy.feature.local-plugins
+  value: true
+
+- name: whimsy.feature.safety-check
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

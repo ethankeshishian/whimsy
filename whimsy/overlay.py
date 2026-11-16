@@ -1499,6 +1499,8 @@ FEATURES = [
      "detect": [("src/browser/themes/shared/zen-icons", r"#context-copylink|#context-openlinkintab|#context_duplicateTab")]},
     {"id": "ui-font", "title": "Interface font setting (the browser's own text, not web pages)",
      "detect": [("prefs", r"name:\s*zen\.[\w.-]*(ui|interface|chrome)-font")]},
+    {"id": "icon-pack", "title": "Icon pack picker: Lucide and Phosphor alternatives to Zen's Nucleo icons",
+     "detect": [("prefs", r"name:\s*zen\.[\w.-]*icon[_-]?pack")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "background-mute", "title": "Mute background tabs (Vivaldi's Tab Muting: while the current tab plays, or always; setting)",
@@ -1643,6 +1645,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)qlmanage|QLPreviewPanel")]},
     {"id": "drag-downloads", "title": "A panel stays open while you drag a download out of it into a site",
      "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
+    {"id": "delete-to-trash", "title": "Deleting a download from the Library or the downloads panel moves its file to the Trash instead of erasing it",
+     "detect": [("src/zen", r"(?i)trashApp|mac-web-app-utils")]},
     {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
     {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
@@ -2020,8 +2024,12 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?(semantic|meaning)[-_.]?(index|search)|ZenEmbeddings")]},
     {"id": "ai-memory", "title": "Memory: stable facts about you, saved automatically with Undo, used in answers",
      "detect": [("src/zen", r"(?i)zen[-_.]?ai[-_.]?memory|ZenMemory")]},
+    {"id": "ai-style", "title": "How AI writes: your tone and style for every AI answer, plus your preferred language",
+     "detect": [("src/zen", r"(?i)zen[-_.]?ai[-_.]?(writing[-_.]?)?style|zen[-_.]?ai[-_.]?persona")]},
     {"id": "ai-agent", "title": "Agent: Drive (every step in your tabs) or Background, with pauses before anything risky",
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?agent\b|ZenAgent")]},
+    {"id": "ai-agent-save-pdf", "title": "Agent saves a page as a PDF in Downloads, after you approve",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?agent[^\n]{0,40}(save[-_.]?)?pdf")]},
     {"id": "ai-task-folder", "title": "Task folders: an agent's tabs sit in their own unpinned folder that dissolves when done",
      "detect": [("src/zen", r"(?i)zen[-_.]?task[-_.]?folder|unpinned[-_.]?folder")]},
     {"id": "ai-outside-agents", "title": "Outside agents: Claude Code and other apps work in your tabs through Whimsy's connector, under the same rules",
@@ -2052,6 +2060,8 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?tab[-_.]?requests?")]},
     {"id": "find-card", "title": "Find as a floating card at the top right, with Ask",
      "detect": [("src/zen", r"(?i)zen[-_.]?find[-_.]?(card|floating)")]},
+    {"id": "double-escape", "title": "Press Esc twice to leave a page's full screen",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(double|twice)[-_.]?esc")]},
     {"id": "ai-video-summary", "title": "Summarize a video: summary, chapters, and transcript in chat; timestamps jump the video",
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?video[-_.]?summar")]},
     {"id": "video-speed-range", "title": "Video speed from 1/16× to 16×",
@@ -2088,8 +2098,43 @@ FEATURES = [
     {"id": "passkeys", "title": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
      "detect": [("src/dom/webauthn", r"mPlatformService\s*="),
                 ("src/zen", r"(?i)zen[-_.]?passkeys?\.(sys\.)?mjs|SecureEnclave\.P256")]},
+    # W27: Restart Whimsy in the command bar (quit with eRestart, session
+    # restored). Superseded if Zen's command bar gets a restart action.
+    {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",
+     "detect": [("locales/en-US", r"(?im)^zen-action-[\w-]*restart[\w-]*\s*="),
+                ("src/zen/urlbar", r"(?i)eRestart")]},
+    # W27: Turn Off / Turn On Page Animations (this tab, until reload) in
+    # the command bar, with a toast.
+    {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(page-animations|stop-animations)[\w-]*\s*=")]},
+    # W28: Page Minimap (command bar; off by default).
+    {"id": "page-minimap", "title": "Page Minimap: a live picture of a long page at its right edge with the view outlined; click to jump, drag to scroll",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(page[-_.]?)?minimap")]},
+    # W27: Show space name in window title (Settings → Tab Management): the
+    # space's name as the window's titlepreface. Superseded if Zen's spaces
+    # touch the title.
+    {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
+     "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
+                ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W28: "Open in Safari" / "Open in Chrome" in the command bar, one row
+    # per installed browser (research/multi-engine.md option A, step 1).
+    {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
+     "detect": [("src/zen", r"(?i)zen[-_.]?open[-_.]?in[-_.]?(safari|chrome|browser)")]},
     {"id": "photo-metadata", "title": "Remove location and camera details (Exif, GPS, XMP, and text) from JPEG and PNG photos you upload, losslessly",
      "detect": [("src/zen", r"(?i)zen[-_.]?(strip[-_.]?image[-_.]?metadata|photo[-_.]?metadata)")]},
+    # W28: local plugins. Each folder in <profile>/whimsy-plugins is an
+    # unpacked WebExtension that loads unsigned (signing stays required
+    # everywhere else), turned off until approved. Engine patches on
+    # XPIProvider and XPIDatabase. Superseded if Zen ships its own folder of
+    # unsigned add-ons.
+    {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
+                ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
+    # W29: Safety Check card (Settings → Privacy & Security): updates,
+    # breached passwords, risky extensions and unused site permissions, all
+    # checked locally.
+    {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
+     "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
 ]
 
 

@@ -212,7 +212,7 @@ add_task(async function no_claude_space_created() {
   ok(body.result.instructions.includes(WhimsyAgentGuard.WAITING_TEXT), "The instructions say how a held call reads");
   ok(!/Claude space/.test(body.result.instructions), "and never mention a Claude space");
   const names = (await (await post({ jsonrpc: "2.0", id: 2, method: "tools/list" }, auth)).json()).result.tools.map(t => t.name);
-  for (const name of ["tabs_list", "tabs_create", "tabs_close", "navigate", "read_page", "get_page_text", "find", "click", "type", "key", "form_input", "scroll", "screenshot"]) {
+  for (const name of ["tabs_list", "tabs_create", "tabs_close", "navigate", "read_page", "get_page_text", "find", "click", "type", "key", "form_input", "scroll", "screenshot", "save_pdf"]) {
     ok(names.includes(name), `tools/list has ${name}`);
   }
   is((await post({ jsonrpc: "2.0", method: "notifications/initialized" }, auth)).status, 202, "Notifications get 202");

@@ -56,6 +56,9 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 # W10-27: the floating command bar's open/close motion.
 ["browser_whimsy_cmdbar_motion.js"]
 
+# W26: fast typing then Enter: the fading bar keeps every letter typed.
+["browser_whimsy_cmdbar_fade_text.js"]
+
 ["browser_whimsy_collapse_pinned.js"]
 
 ["browser_whimsy_copy.js"]
@@ -71,6 +74,10 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 
 ["browser_whimsy_dark_pdf.js"]
 support-files = ["whimsy_test.pdf"]
+
+# W27: Press Esc twice to leave full screen (setting off: one Esc; on: two, the page sees the first).
+["browser_whimsy_double_escape.js"]
+support-files = ["whimsy_double_escape.html"]
 
 ["browser_whimsy_dim_sleeping.js"]
 
@@ -102,6 +109,9 @@ support-files = ["whimsy_test_image.png"]
 ["browser_whimsy_hex_colors.js"]
 
 ["browser_whimsy_hide_switcher.js"]
+
+# W29 icon-sets: the Lucide/Phosphor icon pack picker and its live apply.
+["browser_whimsy_icon_packs.js"]
 
 ["browser_whimsy_media_indicators.js"]
 
@@ -330,6 +340,10 @@ support-files = ["whimsy_calendar.sjs"]
 
 # ext: per-space extensions
 ["browser_whimsy_space_extensions.js"]
+
+# W28 ext: "Run in profiles:" in Firefox's add-extension prompt, and adding
+# a profile to an already-installed extension without reinstalling it.
+["browser_whimsy_space_extensions_install.js"]
 
 # batch hist: visit metadata and the Library History space filter.
 ["browser_whimsy_space_history.js"]
@@ -713,6 +727,16 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 ["browser_whimsy_live_folders_restore.js"]
 # wave7/keys: commands with assignable shortcuts for Settings/menu-only features (tree, hidden spaces, switcher, UI zoom, background mute, bionic, dark PDF, live/Finder folders, Manage Spaces, ATC, Claude space, What's New).
 ["browser_whimsy_access_commands.js"]
+# W27: Restart Whimsy (command bar): asks as a restart, a cancel keeps the browser open, else quits with eAttemptQuit | eRestart (stubbed); its switch.
+["browser_whimsy_restart_command.js"]
+# W27: Turn Off / Turn On Page Animations: a user sheet stops CSS animations and transitions on this tab only, a reload clears it, other tabs keep theirs, state-aware names, the toast, its switch.
+["browser_whimsy_page_animations.js"]
+support-files = ["whimsy_page_animations.html"]
+# W28: Page Minimap: off by default, only on pages over two screens (a toast on a short one), click to jump, drag to scroll, fades when idle, sits under the find card, the pref in a new window, light and dark shots.
+["browser_whimsy_minimap.js"]
+support-files = ["whimsy_minimap_long.html", "whimsy_minimap_short.html"]
+# W27: Show space name in window title (Settings → Tab Management, off by default): titlepreface "<space> — ", space switch and rename, any space count, its switch, the private lock.
+["browser_whimsy_window_title_space.js"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
 
@@ -720,6 +744,13 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 # windows, frames, CSP, document_start and private-browsing permission.
 ["browser_whimsy_passkey_extension.js"]
 support-files = ["whimsy_passkey_extension.sjs", "whimsy_passkey_extension_page.js"]
+
+# W29 1Password on Google: a password manager's page-world hook asks its own
+# isolated script and background over postMessage and runtime messaging before
+# it answers; that round trip works on a nonce/Trusted Types page, in a profile
+# tab, with Whimsy's passkeys on, and never opens Firefox's security-key prompt.
+["browser_whimsy_passkey_extension_bridge.js"]
+support-files = ["whimsy_passkey_bridge.sjs", "whimsy_passkey_extension_page.js"]
 
 # W26 passkeys: Whimsy's own Touch ID passkeys through Gecko's WebAuthn with
 # the Secure Enclave helper stubbed (create/get/discoverable/exclude/replace,
@@ -925,7 +956,7 @@ support-files = ["whimsy_mini_links.html", "whimsy_oauth_opener.html", "whimsy_o
 
 # Mini windows archive after inactivity; manual closes share the Mini reason.
 ["browser_whimsy_mini_archive.js"]
-# wave9: W9-04 site settings ("This Site" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
+# wave9: W9-04 site settings ("Site Settings" in the site panel): rows, zoom reset, autoplay, always Reader, full screen, Forget All + Undo, private/profiles, command, switch.
 ["browser_whimsy_site_settings.js"]
 head = "head.js head-leakcheck.js"
 support-files = ["whimsy_article.html"]
@@ -1051,6 +1082,11 @@ support-files = ["whimsy_chat_article.html"]
 support-files = ["whimsy_chat_article.html"]
 
 ["browser_whimsy_chat_context.js"]
+support-files = ["whimsy_chat_article.html"]
+
+# W28 tab-state-indicators: the sparkle badge ([whimsy-chat-reads] /
+# [whimsy-chat-reading]) tracks chat attachment, option A (the sparkle).
+["browser_whimsy_chat_reads_marks.js"]
 support-files = ["whimsy_chat_article.html"]
 
 ["browser_whimsy_screens_w23_chat-answers.js"]
@@ -1184,6 +1220,8 @@ support-files = ["whimsy_claude.html", "whimsy_agent_checkout.html"]
 ["browser_whimsy_ai_index.js"]
 support-files = ["whimsy_chat_article.html"]
 
+["browser_whimsy_ai_long_context.js"]
+
 ["browser_whimsy_ai_off_everywhere.js"]
 support-files = ["whimsy_chat_article.html", "whimsy_cmdk.html"]
 
@@ -1257,6 +1295,16 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 ["browser_whimsy_dark_pages_dynamic.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
+["browser_whimsy_dark_pages_live.js"]
+support-files = [
+  "head_whimsy_dark_pages.js",
+  "whimsy_dark_pages.html",
+  "whimsy_dark_pages_sandbox.html",
+  "whimsy_dark_pages_sandbox.html^headers^",
+  "whimsy_dark_pages_canvas.html",
+  "whimsy_test_image.png",
+]
+
 ["browser_whimsy_dark_pages_screens_match.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
@@ -1269,6 +1317,10 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 ["browser_whimsy_dark_pages_screens_site_panel.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
+# W26 site panel: Profile Settings + Site Settings, profiles keep their own permissions, dark mode, and zoom; the migration.
+["browser_whimsy_site_panel_profiles.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
+
 ["browser_whimsy_dark_pages_screens_settings.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 ["browser_whimsy_mcp_approval.js"]
@@ -1277,3 +1329,34 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 
 ["browser_whimsy_cmd_tab_numbers.js"]
 skip-if = ["os != 'mac'"]
+
+# W27 aiwrite: How AI writes and the preferred language in every system prompt; Settings › AI row.
+["browser_whimsy_ai_style.js"]
+
+# W27 aiwrite: the agent's save_pdf tool (silent Save to PDF into Downloads, after approval).
+["browser_whimsy_agent_save_pdf.js"]
+support-files = ["whimsy_agent_settings.html"]
+# W27: the focused field's value goes to a temp file, "opened" in the Mac's
+# default text editor, watched, and written back until the tab navigates.
+["browser_whimsy_field_editor.js"]
+support-files = ["whimsy_field_editor.html"]
+# W27 winprefs: Settings → Tab Management → "Open pop-up windows as tabs" (off: a window; on: a tab that keeps window.opener).
+["browser_whimsy_popups_as_tabs.js"]
+support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
+
+# W28: "Open in Safari" / "Open in Chrome", one command-bar row per
+# installed browser, hands the tab's address to `open -a <app> <url>`.
+["browser_whimsy_open_in_browser.js"]
+
+# W27 winprefs: Settings → Look and Feel → "Dim the window when it’s not in front" (zen.view.grey-out-inactive-windows, off by default).
+["browser_whimsy_dim_inactive_window.js"]
+
+# W28 local plugins: unsigned extensions from the profile's whimsy-plugins folder only.
+["browser_whimsy_local_plugins.js"]
+# W29/newtabopts: New Private Tab in the sidebar foot's + button (Zen's Create New menu), right after New Tab; the same command as the File menu's own row and Cmd+Option+T.
+["browser_whimsy_private_create_new.js"]
+# W29 safety-check: WhimsySafetyCheck.sys.mjs itself (updates/passwords/extensions/permissions checks).
+["browser_whimsy_safety_check.js"]
+
+# W29 safety-check: Settings → Privacy & Security → Safety Check card and its sheet.
+["browser_whimsy_safety_check_settings.js"]

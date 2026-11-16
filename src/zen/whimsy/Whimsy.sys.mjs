@@ -251,6 +251,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 // wave6: Page actions (schema.org data -> a pill in the address bar).
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMinimap: "resource:///modules/whimsy/WhimsyMinimap.sys.mjs",
   WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
 });
 
@@ -349,9 +350,24 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyBatterySaver: "resource:///modules/whimsy/WhimsyBatterySaver.sys.mjs",
 });
 
+// W27: Press Esc twice to leave full screen.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFullscreenEscape: "resource:///modules/whimsy/WhimsyFullscreenEscape.sys.mjs",
+});
+
 // wave9: form protection (W9-03)
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFormProtection: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
+});
+
+// W27: Edit Field in Text Editor.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyFieldEditor: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs",
+});
+
+// W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyOpenInBrowser: "resource:///modules/whimsy/WhimsyOpenInBrowser.sys.mjs",
 });
 
 // batch9: W9-06 smart address bar buttons.
@@ -362,6 +378,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave9: W8-29 link lasso commands.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyLinkLasso: "resource:///modules/whimsy/WhimsyLinkLasso.sys.mjs",
+});
+
+// W27: the window title names its space.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyWindowTitle: "resource:///modules/whimsy/WhimsyWindowTitle.sys.mjs",
 });
 
 // wave9: Inspector (Font Inspector & Element Inspector lite).
@@ -405,30 +426,7 @@ export const Whimsy = {
       return;
     }
     this._actorsRegistered = true;
-    lazy.WhimsyDarkPages.init();
-    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
-      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
-      child: {
-        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
-        events: {
-          DOMDocElementInserted: {},
-          StyleSheetApplicableStateChanged: {},
-          StyleRuleAdded: {},
-          StyleRuleRemoved: {},
-          StyleRuleChanged: {},
-          DOMContentLoaded: {},
-          pageshow: {},
-          pagehide: {},
-          beforeprint: {},
-          afterprint: {},
-          load: { capture: true },
-        },
-      },
-      matches: ["http://*/*", "https://*/*"],
-      allFrames: false,
-      messageManagerGroups: ["browsers"],
-      safeForUntrustedWebProcess: true,
-    });
+    lazy.WhimsyDarkPages.registerActor();
     ChromeUtils.registerWindowActor("WhimsyPage", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageParent.sys.mjs" },
       child: {
@@ -693,6 +691,22 @@ export const Whimsy = {
       messageManagerGroups: ["browsers"],
       safeForUntrustedWebProcess: true,
     });
+
+    // W27: Edit Field in Text Editor. The child reads and writes the
+    // page's own focused field, on request; the temp file and the editor
+    // live in the parent (WhimsyFieldEditor.sys.mjs). W29: the child also
+    // shows a button in a qualifying field's own corner on focusin, and
+    // watches focusout to notice focus leaving it.
+    ChromeUtils.registerWindowActor("WhimsyFieldEditor", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs",
+        events: { focusin: { capture: true }, focusout: { capture: true }, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {
@@ -887,6 +901,15 @@ export const Whimsy = {
     // space badge. Wraps updatePreview after the private lock does; the two
     // compose either way. Checks whimsy.feature.ctrl-tab on each open.
     run("ctrl-tab-look", () => lazy.WhimsyCtrlTab.initWindow(win));
+    // W27: Show space name in window title (Settings → Tab Management, off
+    // by default): "<space> — " as the window's titlepreface, for Mission
+    // Control, the Window menu, and screen-share pickers. After Zen's spaces
+    // are ready.
+    run("window-title-space", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyWindowTitle.initWindow(win))
+        .catch(e => console.error("Whimsy: window-title-space", e))
+    );
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
     later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
@@ -1146,6 +1169,8 @@ export const Whimsy = {
     // wave6: Page actions. Its page actor is registered once even when off;
     // the child checks the switch on every page.
     run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
+    // W28: Page Minimap. Off by default; Show Page Minimap turns it on.
+    run("page-minimap", () => lazy.WhimsyMinimap.initWindow(win));
     // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
     // its switch on each use.
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
@@ -1211,6 +1236,11 @@ export const Whimsy = {
     // wave7/small: Create Email Alias (command bar), at the focused email
     // field. Checks its switch on use.
     later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    // W27: Edit Field in Text Editor (command bar), at the focused field.
+    later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
+    // W28: "Open in Safari" / "Open in Chrome" (command bar), one row per
+    // installed browser.
+    later("open-in-browser-commands", () => lazy.WhimsyOpenInBrowser.initWindow(win));
     // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
     // into the space it makes. After Zen's spaces are ready.
     run("move-to-new-space", () =>
@@ -1233,6 +1263,8 @@ export const Whimsy = {
     run("notes", () => lazy.WhimsyNotes.initWindow(win));
     // wave9: Battery saver (threshold, auto-off, throttles).
     run("battery-saver", () => lazy.WhimsyBatterySaver.initWindow(win));
+    // W27: the full-screen notice's "Press Esc again" (whimsy-PresShell-cpp.patch).
+    run("double-escape", () => lazy.WhimsyFullscreenEscape.initWindow(win));
 
     // wave9: form protection (W9-03)
     run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));

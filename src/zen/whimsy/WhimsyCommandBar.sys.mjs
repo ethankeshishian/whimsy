@@ -321,6 +321,10 @@ export class CommandBarMotion {
   #last = null;
   #picture = null;
   #pictureTimer = null;
+  // W26: after Enter the bar keeps the picture taken at that moment until it
+  // closes (or the user types again): picking a result can swap the text
+  // for the result's URL in the last few milliseconds before Zen hides it.
+  #held = false;
 
   constructor(win) {
     this.#win = win;
@@ -340,7 +344,26 @@ export class CommandBarMotion {
     // rows): re-take its picture once it settles.
     this.content = new win.MutationObserver(() => this.#queuePicture());
     this.content.observe(urlbar, { childList: true, subtree: true, characterData: true });
-    urlbar.inputField?.addEventListener("input", () => this.#queuePicture());
+    urlbar.inputField?.addEventListener("input", () => {
+      this.#held = false;
+      this.#queuePicture();
+    });
+    // W26: Enter or Esc can close the bar this very moment, and the settled
+    // picture can be up to 80ms old: fast typing then Enter faded out a
+    // picture without the last letters. So the bar is pictured as it is
+    // when the key goes down, before the bar acts on it (a capturing
+    // listener on the window runs before the bar's own).
+    win.addEventListener(
+      "keydown",
+      event => {
+        if (event.key == "Enter" || event.key == "Escape") {
+          this.#pictureNow(event.key == "Enter");
+        } else {
+          this.#held = false;
+        }
+      },
+      { capture: true }
+    );
     win.addEventListener(
       "unload",
       () => {
@@ -348,6 +371,8 @@ export class CommandBarMotion {
         this.resizer.disconnect();
         this.content.disconnect();
         win.clearTimeout(this.#pictureTimer);
+        this.#discard(this.#picture);
+        this.#picture = null;
       },
       { once: true }
     );
@@ -355,7 +380,8 @@ export class CommandBarMotion {
 
   #remember() {
     const urlbar = this.#win.gURLBar;
-    if (!this.#isFloatingOpen(urlbar)) {
+    // Held after Enter: the box goes with the picture taken then.
+    if (!this.#isFloatingOpen(urlbar) || this.#held) {
       return;
     }
     const background = urlbar.querySelector(".urlbar-background") ?? urlbar;
@@ -380,14 +406,62 @@ export class CommandBarMotion {
   // window's own compositor (drawSnapshot); never reads or changes the bar.
   #queuePicture() {
     const win = this.#win;
-    if (!this.enabled || !this.#isFloatingOpen(win.gURLBar)) {
+    if (!this.enabled || !this.#isFloatingOpen(win.gURLBar) || this.#held) {
       return;
     }
     win.clearTimeout(this.#pictureTimer);
     this.#pictureTimer = win.setTimeout(() => this.#takePicture(), 80);
   }
 
-  async #takePicture() {
+  // The bar's box and picture right now, before a key that may close it.
+  #pictureNow(hold) {
+    if (!this.enabled || !this.#isFloatingOpen(this.#win.gURLBar) || this.#animation) {
+      return;
+    }
+    this.#held = false;
+    this.#remember();
+    this.#win.clearTimeout(this.#pictureTimer);
+    this.#drawPicture();
+    this.#held = hold;
+  }
+
+  // The bar drawn into a canvas synchronously. A drawSnapshot taken at the
+  // keypress only lands a few frames after Zen hides the bar, so the first
+  // frames of the fade would have no text at all. drawWindow can't draw web
+  // pages, though: behind a see-through bar (Zen's acrylic bar) it shows the
+  // window's plain background where the page is. So the same moment is also
+  // taken with drawSnapshot (`exact`), which the stand-in switches to as
+  // soon as it lands.
+  #drawPicture() {
+    const win = this.#win;
+    const urlbar = win.gURLBar;
+    const background = urlbar.querySelector(".urlbar-background") ?? urlbar;
+    const rect = background.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
+    const scale = win.devicePixelRatio;
+    const canvas = win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+    canvas.width = Math.round(rect.width * scale);
+    canvas.height = Math.round(rect.height * scale);
+    try {
+      const context = canvas.getContext("2d");
+      context.scale(scale, scale);
+      context.drawWindow(win, rect.x, rect.y, rect.width, rect.height, "rgba(0,0,0,0)");
+    } catch (e) {
+      // Keep the settled picture.
+      return;
+    }
+    this.#discard(this.#picture);
+    this.#picture = { ready: Promise.resolve(canvas), exact: this.#snapshot(rect), rect };
+  }
+
+  // drawSnapshot records the window when it's called (after a layout flush)
+  // and only rasterises it later, so `ready` is the bar exactly as it is at
+  // this call, even if the bar closes or its text changes before it
+  // resolves. The picture is kept from the call on, so a close in between
+  // still shows it.
+  #takePicture() {
     const win = this.#win;
     const urlbar = win.gURLBar;
     if (!this.#isFloatingOpen(urlbar) || this.#animation) {
@@ -398,20 +472,30 @@ export class CommandBarMotion {
     if (!rect.width || !rect.height) {
       return;
     }
-    try {
-      const bitmap = await win.browsingContext.currentWindowGlobal.drawSnapshot(
-        new win.DOMRect(rect.x, rect.y, rect.width, rect.height), win.devicePixelRatio, "rgba(0,0,0,0)"
-      );
-      // Only if the bar is still the same (not closed or moved meanwhile).
-      if (this.#isFloatingOpen(urlbar)) {
-        this.#picture?.bitmap.close();
-        this.#picture = { bitmap, rect };
-      } else {
-        bitmap.close();
-      }
-    } catch (e) {
+    const ready = this.#snapshot(rect);
+    if (!ready) {
       // No picture: the stand-in is the bar's plain shape.
+      return;
     }
+    this.#discard(this.#picture);
+    this.#picture = { ready, rect };
+  }
+
+  // The window's compositor picture of rect (web pages included), or null.
+  #snapshot(rect) {
+    const win = this.#win;
+    try {
+      return win.browsingContext.currentWindowGlobal
+        .drawSnapshot(new win.DOMRect(rect.x, rect.y, rect.width, rect.height), win.devicePixelRatio, "rgba(0,0,0,0)")
+        .catch(() => null);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  #discard(picture) {
+    picture?.ready.then(bitmap => bitmap?.close?.());
+    picture?.exact?.then(bitmap => bitmap?.close?.());
   }
 
   // C1: the close, as a picture only. Zen has already hidden the bar.
@@ -420,10 +504,11 @@ export class CommandBarMotion {
     this.#last = null;
     const picture = this.#picture;
     this.#picture = null;
+    this.#held = false;
     const win = this.#win;
     win.clearTimeout(this.#pictureTimer);
     if (!last || !this.enabled || win.document.hidden) {
-      picture?.bitmap.close();
+      this.#discard(picture);
       return null;
     }
     const doc = win.document;
@@ -431,13 +516,36 @@ export class CommandBarMotion {
     // The bar as it last looked, if that picture is of this box.
     if (picture && Math.abs(picture.rect.top - last.rect.top) < 2 && Math.abs(picture.rect.height - last.rect.height) < 2) {
       const canvas = doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
-      canvas.width = picture.bitmap.width;
-      canvas.height = picture.bitmap.height;
-      canvas.getContext("2d").drawImage(picture.bitmap, 0, 0);
       Object.assign(canvas.style, { width: "100%", height: "100%", display: "block", borderRadius: "inherit" });
       ghost.append(canvas);
+      // Both a settled picture and one drawn at Enter are ready, so this
+      // lands in a microtask, before the stand-in's first frame.
+      picture.ready.then(bitmap => {
+        if (!bitmap) {
+          canvas.remove();
+          return;
+        }
+        if (ghost.isConnected) {
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          canvas.getContext("2d").drawImage(bitmap, 0, 0);
+        }
+        bitmap.close?.();
+      });
+      // The Enter picture's drawSnapshot twin: the same bar, with the page
+      // behind a see-through bar.
+      picture.exact?.then(bitmap => {
+        if (bitmap && ghost.isConnected && canvas.isConnected) {
+          // Setting the size clears the canvas.
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          canvas.getContext("2d").drawImage(bitmap, 0, 0);
+        }
+        bitmap?.close?.();
+      });
+    } else {
+      this.#discard(picture);
     }
-    picture?.bitmap.close();
     // The season trim sits outside the pictured box, so it rides along as a copy.
     const trim = win.gURLBar.querySelector(".whimsy-season-trim");
     if (trim) {

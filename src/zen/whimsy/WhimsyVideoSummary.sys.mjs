@@ -365,8 +365,9 @@ export const WhimsyVideoSummary = {
     return thread.id;
   },
 
-  // The prompt's description of the video.
-  describe(source, from) {
+  // The prompt's description of the video. `cap` is how much transcript it
+  // keeps (Infinity: all of it, for a chat question to pick passages from).
+  describe(source, from, { cap = TRANSCRIPT_CHARS } = {}) {
     const lines = [`Title: ${source.title ?? ""}`];
     if (source.channel) {
       lines.push(`From: ${source.channel}`);
@@ -384,7 +385,7 @@ export const WhimsyVideoSummary = {
       const now = source.live ? source.currentTime ?? 0 : 0;
       const at = c => (source.live ? `${Math.max(1, Math.round((now - c.start) / 60))} min ago` : formatTime(c.start));
       let transcript = source.cues.map(c => `${at(c)} ${c.text.replace(/\s+/g, " ")}`).join("\n");
-      transcript = transcript.slice(0, TRANSCRIPT_CHARS);
+      transcript = transcript.slice(0, cap);
       lines.push(`Transcript (from the ${from}):`, transcript);
     } else {
       lines.push("There's no transcript.");
@@ -418,10 +419,14 @@ export const WhimsyVideoSummary = {
     const record = [...threads.values()].find(r => r.videoId == desc.videoId);
     const [label] = lazy.l10n.formatValuesSync([{ id: "whimsy-video-chip" }]);
     const chip = { id: desc.id, kind: "video", label, icon: CHIP_ICON, counts: { videos: 1 }, sourceId: `${desc.tabKey}#video` };
-    const text = record ? this.describe(record.source, record.from) + (record.heard ? `\nSaid so far: ${record.heard}` : "") : "";
+    const heard = record?.heard ? `\nSaid so far: ${record.heard}` : "";
+    const text = record ? this.describe(record.source, record.from) + heard : "";
+    // W27 longctx: a transcript past TRANSCRIPT_CHARS rides along whole, so a
+    // question about a later part can still reach it (WhimsyAIPassages).
+    const full = record ? this.describe(record.source, record.from, { cap: Infinity }) + heard : "";
     return {
       chips: [chip],
-      parts: text ? [{ chipId: desc.id, kind: "text", size: text.length, text, title: record?.source.title ?? label }] : [],
+      parts: text ? [{ chipId: desc.id, kind: "text", size: text.length, text, title: record?.source.title ?? label, ...(full.length > text.length ? { fullText: full } : {}) }] : [],
       leftOut: { private: 0, hidden: 0, locked: 0 },
       widened: [],
     };

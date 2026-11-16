@@ -10,7 +10,9 @@
 // Screen (once per tab and site; off leaves the full screen it entered),
 // Pretend to Be picked in place, Forget All with Undo, private tabs and
 // profiles never sharing or persisting, the "Site Settings…" command and
-// the feature switch. W10-16: WhimsySurface parts, no per-row ✕.
+// the feature switch. W10-16: WhimsySurface parts, no per-row ✕. W26:
+// "Site Settings" with the host and Zen's More, in place of Zen's Settings
+// (its Tracking protection and permission rows are Whimsy rows now).
 
 const { WhimsySiteSettings, PERM_TYPES, COMMAND_ID } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs"
@@ -83,7 +85,7 @@ function clearAll() {
   for (const oa of [NORMAL, { userContextId: 0, privateBrowsingId: 1 }, { userContextId: 2, privateBrowsingId: 0 }]) {
     const principal = WhimsySiteSettings.sitePrincipal(HOST, oa);
     for (const kind of Object.keys(PERM_TYPES)) {
-      Services.perms.removeFromPrincipal(principal, WhimsySiteSettings.permType(kind, oa));
+      Services.perms.removeFromPrincipal(principal, WhimsySiteSettings.permType(kind));
     }
     Services.perms.removeFromPrincipal(principal, "autoplay-media");
   }
@@ -107,12 +109,16 @@ add_task(async function test_section_rows_and_command() {
 
   await BrowserTestUtils.withNewTab(PAGE, async () => {
     await openPanel();
-    ok(section() && !section().hidden, "The This Site section shows for a web page");
+    ok(section() && !section().hidden, "The Site Settings section shows for a web page");
     const zenSettings = document.getElementById("zen-site-data-settings-list").closest(".zen-site-data-section");
-    is(zenSettings.nextElementSibling, section(), "right after Zen's Settings section");
+    ok(zenSettings.hidden, "in place of Zen's Settings section");
+    is(document.getElementById("whimsy-site-settings-heading").textContent, "Site Settings", "Headed Site Settings");
+    is(section().querySelector(".whimsy-site-settings-caption-who").textContent, HOST, "with the site's host");
+    is(document.getElementById("zen-site-data-settings-more").parentNode,
+      section().querySelector(".whimsy-site-settings-caption"), "and Zen's More beside it");
     Assert.deepEqual(
       [...section().querySelectorAll("[whimsy-site-setting]")].map(r => r.getAttribute("whimsy-site-setting")),
-      ["zoom", "autoplay", "reader", "fullscreen", "useragent"],
+      ["tracking", "zoom", "autoplay", "reader", "fullscreen", "useragent"],
       "Rows in a fixed order, the optional one last"
     );
     ok(section().contains(document.activeElement), "The command puts focus in the section");
@@ -124,11 +130,7 @@ add_task(async function test_section_rows_and_command() {
     is(rowOf("reader").querySelector("input").getAttribute("role"), "switch", "Reader is a switch");
     is(rowOf("fullscreen").querySelector("input").getAttribute("role"), "switch", "Full Screen is a switch");
     ok(section().querySelector(".whimsy-site-settings-private-note").hidden, "No private note in a normal tab");
-    ok(
-      zenSettings.querySelector(".permission-popup-permission-item-site-protection"),
-      "Content blocking stays Zen's own Tracking protection row"
-    );
-    ok(!section().querySelector(".permission-popup-permission-item-site-protection"), "and isn't listed twice");
+    ok(rowOf("tracking").querySelector("input").checked, "Tracking Protection is on");
     await closePanel();
   });
 
@@ -138,6 +140,8 @@ add_task(async function test_section_rows_and_command() {
     WhimsySiteSettings.open(window);
     await shown;
     ok(section().hidden, "No section for a page that isn't a site");
+    const more = document.getElementById("zen-site-data-settings-more");
+    ok(more.parentNode.classList.contains("zen-site-data-section-header"), "More is back in Zen's heading");
     await closePanel();
   });
 });
@@ -321,7 +325,7 @@ add_task(async function test_autoplay_reuses_firefox_permission() {
       "#zen-site-data-settings-list .permission-popup-permission-item-autoplay-media"
     );
     ok(zenRow, "Zen lists the stored autoplay decision");
-    ok(zenRow.hidden, "but steps aside while This Site shows it");
+    ok(!zenRow.checkVisibility(), "but steps aside while Site Settings shows it");
     is(rowOf("autoplay").getAttribute("state"), "allow", "Autoplay is remembered here");
 
     // The dropdown opens a surface listbox, not a native menu.
@@ -352,11 +356,11 @@ add_task(async function test_autoplay_reuses_firefox_permission() {
     const shown = BrowserTestUtils.waitForPopupEvent(panel(), "shown");
     EventUtils.synthesizeMouseAtCenter(document.getElementById("zen-site-data-icon-button"), {});
     await shown;
-    ok(!section() || section().hidden, "Switch off: no This Site section");
+    ok(!section() || section().hidden, "Switch off: no Site Settings section");
     const zenRow = document.querySelector(
       "#zen-site-data-settings-list .permission-popup-permission-item-autoplay-media"
     );
-    ok(zenRow && !zenRow.hidden, "and Zen's Autoplay row is back");
+    ok(zenRow?.checkVisibility(), "and Zen's Autoplay row is back");
     await closePanel();
   });
   Services.prefs.clearUserPref(FEATURE_PREF);
@@ -691,7 +695,7 @@ add_task(async function test_reader_switch_disabled_when_not_readerable() {
       "and says why"
     );
     const kinds = [...section().querySelectorAll("[whimsy-site-setting]")].map(r => r.getAttribute("whimsy-site-setting"));
-    Assert.deepEqual(kinds.slice(0, 4), ["zoom", "autoplay", "reader", "fullscreen"],
+    Assert.deepEqual(kinds.slice(0, 5), ["tracking", "zoom", "autoplay", "reader", "fullscreen"],
       "disabled, not hidden: the row stays in place");
 
     // Navigating to an article while the panel is open enables it, once

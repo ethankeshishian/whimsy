@@ -75,6 +75,12 @@
 - name: whimsy.spaces.hide-switcher
   value: false
 
+# Start the window title with the space's name ("<space> — <page title>"),
+# for Mission Control, the Window menu, and screen-share pickers (Settings →
+# Tab Management). Off: the title is Firefox's.
+- name: whimsy.spaces.window-title-name
+  value: false
+
 # How see-through the sidebar and toolbars are, in percent (0–80; Settings →
 # Look and Feel, macOS). 0 is Zen's opaque look.
 - name: whimsy.look.transparency
@@ -89,6 +95,13 @@
 # the system font. Web pages keep their own fonts.
 - name: whimsy.look.ui-font
   value: ""
+
+# W29 icon-sets: which icon pack draws the toolbar, sidebar, panels and
+# right-click menus (Settings → Look and Feel → Icons). "nucleo" is Zen's
+# own set; "lucide" and "phosphor-fill" are vendored alternatives. Never the
+# space icon picker (common/selectable/), which this doesn't touch.
+- name: whimsy.look.icon-pack
+  value: "nucleo"
 
 # Mute background tabs (Settings → Tab Management): "prioritize" mutes them
 # only while the current tab plays sound, "background" lets only the current
@@ -135,6 +148,11 @@
 
 # Dark pages in PDFs (Settings → Look and Feel): off by default.
 - name: whimsy.pdf.dark
+  value: false
+
+# W27: Press Esc twice to leave a page's full screen (Settings → Look and
+# Feel): off by default. whimsy-PresShell-cpp.patch reads it.
+- name: whimsy.fullscreen.double-escape
   value: false
 
 # Where a link from another app opens (Settings → Tab Management):
@@ -417,6 +435,11 @@
 - name: whimsy.email-aliases.button
   value: true
 
+# W29: show the field editor button in qualifying multi-line boxes. Off,
+# Edit Field in Text Editor still follows the same field check.
+- name: whimsy.field-editor.button
+  value: true
+
 
 # wave3: handoff. Offer the current page to your other Apple devices
 # (Firefox's Handoff; private tabs and Scratch are never offered).
@@ -456,6 +479,11 @@
   value: ""
 
 - name: whimsy.ai.claude.auth
+  value: ""
+
+# W27: Settings › AI › How AI writes. The person's tone and style, added
+# to every AI request's system prompt (WhimsyAIRouter); empty adds nothing.
+- name: whimsy.ai.style
   value: ""
 
 # OpenAI's one-time "You're using your ChatGPT plan" note has been shown.
@@ -914,8 +942,28 @@
 - name: whimsy.dark-pages.dim-images
   value: false
 
+# A JSON object of per-site choices. ffprefs only quotes a value with a
+# letter, '.', a space or a quote in it, so "{}" came out as the invalid
+# pref("whimsy.dark-pages.sites", {}); "{ }" comes out as the string "{ }",
+# which JSON.parse reads as the same empty object.
 - name: whimsy.dark-pages.sites
-  value: "{}"
+  value: "{ }"
+
+# W26 site panel: each profile's Automatic Dark Mode, {userContextId: true
+# or false}; a profile not listed follows whimsy.dark-pages.mode.
+- name: whimsy.dark-pages.profiles
+  value: "{ }"
+
+# W26 site panel: profiles keep their own site permissions (Firefox's
+# permission manager keys them by container). Cookie exceptions, HTTPS-Only
+# exceptions, and VPN rules stay shared (Firefox always strips those).
+- name: permissions.isolateBy.userContext
+  value: true
+
+# W26 site panel: set once every existing profile has its copy of the
+# permissions it shared before (WhimsySiteSettings.migratePermissions).
+- name: whimsy.site-settings.profile-permissions-migrated
+  value: false
 
 - name: whimsy.dark-pages.offered
   value: false
@@ -923,3 +971,7 @@
 - name: whimsy.annotations.color
   value: "yellow"
 
+# W28: Page Minimap, a picture of a long page at its right edge (Show Page
+# Minimap in the command bar). Off by default.
+- name: whimsy.minimap.enabled
+  value: false
