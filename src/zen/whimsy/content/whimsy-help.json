@@ -291,6 +291,16 @@
       "command": null
     },
     {
+      "id": "icon-pack",
+      "name": "Icon Pack",
+      "text": "Icon pack picker: Lucide and Phosphor alternatives to Zen's Nucleo icons",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.icon-pack",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "strip-tracking",
       "name": "Strip Tracking",
       "text": "Strip tracking parameters from links (query stripping on by default + toggle)",
@@ -2381,11 +2391,31 @@
       "command": null
     },
     {
+      "id": "page-minimap",
+      "name": "Page Minimap",
+      "text": "Page Minimap: a live picture of a long page at its right edge with the view outlined; click to jump, drag to scroll",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.page-minimap",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "window-title-space",
       "name": "Window Title Space",
       "text": "Show space name in window title: \"<space> \u2014 <page title>\" (Settings \u2192 Tab Management, off by default)",
       "section": "Tabs and spaces",
       "pref": "whimsy.feature.window-title-space",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "window-on-top",
+      "name": "Window On Top",
+      "text": "Keep Window on Top: float every Whimsy window above other apps' windows (Settings \u2192 Look and Feel, macOS, off by default)",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.window-on-top",
       "pane": null,
       "paneId": null,
       "command": null
@@ -2416,6 +2446,16 @@
       "text": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
       "section": "Tabs and spaces",
       "pref": "whimsy.feature.local-plugins",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "safety-check",
+      "name": "Safety Check",
+      "text": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
+      "section": "Privacy and security",
+      "pref": "whimsy.feature.safety-check",
       "pane": null,
       "paneId": null,
       "command": null
