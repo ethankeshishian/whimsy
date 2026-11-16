@@ -244,6 +244,50 @@ export const WhimsyChatContextUI = {
     };
   },
 
+  /**
+   * The sparkle badge (W28 tab-state-indicators, option A): marks every
+   * tab the open chat's thread currently reads from with
+   * [whimsy-chat-reads] (plus [whimsy-chat-reading] while it's actively
+   * answering), next to the agent-opened dot (whimsy-agent.css). Never
+   * the selected tab. Call after a chip change, a chat switch, the chat
+   * opening or closing, TabSelect, and TabOpen/TabClose.
+   */
+  async markReadTabs(win) {
+    const panel = this._panel(win);
+    const selected = win.gBrowser?.selectedTab;
+    const thread = panel?.isOpen ? panel.thread : null;
+    const keys = new Set();
+    if (thread && !lazy.WhimsyAIContext.isPrivate(selected)) {
+      const ctx = await this.contextFor(panel, thread);
+      for (const chip of ctx.chips) {
+        if ((chip.kind == "tab" || chip.kind == "pane" || chip.kind == "pdf") && chip.sourceId) {
+          keys.add(chip.sourceId);
+        }
+      }
+      for (const part of ctx.parts) {
+        if (part.kind == "page" && part.tabKey) {
+          keys.add(part.tabKey);
+        }
+      }
+    }
+    const reading = !!(thread?.id && panel.streams?.has(thread.id));
+    for (const tab of win.gBrowser.tabs) {
+      const marked = tab != selected && keys.has(lazy.WhimsyAIContext.tabKey(tab));
+      tab.toggleAttribute("whimsy-chat-reads", marked);
+      tab.toggleAttribute("whimsy-chat-reading", marked && reading);
+      if (marked) {
+        tab.ownerDocument.l10n?.formatValue("whimsy-chat-reads-tab")
+          .then(value => {
+            if (tab.hasAttribute("whimsy-chat-reads")) {
+              tab.setAttribute("aria-description", value);
+            }
+          }).catch(() => {});
+      } else {
+        tab.removeAttribute("aria-description");
+      }
+    }
+  },
+
   // ---- Chips ----
 
   chipsFor(win, thread) {
@@ -256,6 +300,7 @@ export const WhimsyChatContextUI = {
     const token = (panel._chipToken = (panel._chipToken ?? 0) + 1);
     if (!thread || lazy.WhimsyAIContext.isPrivate(win.gBrowser.selectedTab)) {
       panel.chips.replaceChildren();
+      await this.markReadTabs(win);
       return;
     }
     const ctx = await this.contextFor(panel, thread);
@@ -275,6 +320,7 @@ export const WhimsyChatContextUI = {
     );
     panel.chips.replaceChildren(...nodes);
     await doc.l10n.translateFragment(panel.chips);
+    await this.markReadTabs(win);
   },
 
   chip(panel, chip) {

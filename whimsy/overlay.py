@@ -1499,6 +1499,8 @@ FEATURES = [
      "detect": [("src/browser/themes/shared/zen-icons", r"#context-copylink|#context-openlinkintab|#context_duplicateTab")]},
     {"id": "ui-font", "title": "Interface font setting (the browser's own text, not web pages)",
      "detect": [("prefs", r"name:\s*zen\.[\w.-]*(ui|interface|chrome)-font")]},
+    {"id": "icon-pack", "title": "Icon pack picker: Lucide and Phosphor alternatives to Zen's Nucleo icons",
+     "detect": [("prefs", r"name:\s*zen\.[\w.-]*icon[_-]?pack")]},
     {"id": "strip-tracking", "title": "Strip tracking parameters from links (query stripping on by default + toggle)",
      "detect": [("prefs", r"name:\s*privacy\.query_stripping\.enabled\s*$")]},
     {"id": "background-mute", "title": "Mute background tabs (Vivaldi's Tab Muting: while the current tab plays, or always; setting)",
@@ -2105,12 +2107,34 @@ FEATURES = [
     # the command bar, with a toast.
     {"id": "page-animations-command", "title": "Turn Off Page Animations: a command that stops CSS animations and transitions on the current tab until it reloads",
      "detect": [("locales/en-US", r"(?im)^zen-[\w-]*(page-animations|stop-animations)[\w-]*\s*=")]},
+    # W28: Page Minimap (command bar; off by default).
+    {"id": "page-minimap", "title": "Page Minimap: a live picture of a long page at its right edge with the view outlined; click to jump, drag to scroll",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(page[-_.]?)?minimap")]},
     # W27: Show space name in window title (Settings → Tab Management): the
     # space's name as the window's titlepreface. Superseded if Zen's spaces
     # touch the title.
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W28: "Open in Safari" / "Open in Chrome" in the command bar, one row
+    # per installed browser (research/multi-engine.md option A, step 1).
+    {"id": "open-in-browser", "title": "Open in Safari / Open in Chrome: hands the current tab's address to another installed browser",
+     "detect": [("src/zen", r"(?i)zen[-_.]?open[-_.]?in[-_.]?(safari|chrome|browser)")]},
+    {"id": "photo-metadata", "title": "Remove location and camera details (Exif, GPS, XMP, and text) from JPEG and PNG photos you upload, losslessly",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(strip[-_.]?image[-_.]?metadata|photo[-_.]?metadata)")]},
+    # W28: local plugins. Each folder in <profile>/whimsy-plugins is an
+    # unpacked WebExtension that loads unsigned (signing stays required
+    # everywhere else), turned off until approved. Engine patches on
+    # XPIProvider and XPIDatabase. Superseded if Zen ships its own folder of
+    # unsigned add-ons.
+    {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
+                ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
+    # W29: Safety Check card (Settings → Privacy & Security): updates,
+    # breached passwords, risky extensions and unused site permissions, all
+    # checked locally.
+    {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
+     "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
 ]
 
 

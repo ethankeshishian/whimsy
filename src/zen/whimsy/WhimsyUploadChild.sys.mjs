@@ -18,12 +18,22 @@
 //   this side lists the on-screen targets (scanTargets) with the same
 //   function the paste uses (uploadTargetFor), so a badge can't promise an
 //   upload that Cmd+V wouldn't do.
+// - W27: with "Remove location and camera details from photos you upload"
+//   on, a JPEG or PNG chosen in a file input or dropped on a page loses its
+//   metadata (WhimsyImageMetadata) before the page sees it: the trusted
+//   input, change, or drop is held in capture (before every page listener),
+//   the files are stripped, and the same events go to the page again.
 //
 // This actor runs with chrome privileges on the page, so it may call the
 // ChromeOnly mozSetFileArray.
 
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyImageMetadata: "resource:///modules/whimsy/WhimsyImageMetadata.sys.mjs",
+});
 
 const FEATURE_PREF = "whimsy.feature.upload-clipboard";
 // W13-R2: each paste decision in the Browser Console, for hand checks.
@@ -423,6 +433,21 @@ export class WhimsyUploadChild extends JSWindowActorChild {
   observer = null;
   mutationTimer = null;
   tabFrom = null;
+  // W27: file inputs whose chosen photos are being stripped (their trusted
+  // input and change both wait for it).
+  stripping = new WeakSet();
+  // W27: set while Whimsy hands a held event to the page again. Events
+  // Whimsy dispatches are trusted too, so isTrusted can't tell them apart.
+  redispatching = false;
+
+  redispatch(target, event) {
+    this.redispatching = true;
+    try {
+      target.dispatchEvent(event);
+    } finally {
+      this.redispatching = false;
+    }
+  }
 
   get isTop() {
     return this.browsingContext && this.browsingContext == this.browsingContext.top;
@@ -467,7 +492,128 @@ export class WhimsyUploadChild extends JSWindowActorChild {
       case "resize":
         this.scheduleReport();
         break;
+      case "input":
+      case "change":
+        this.onFilesChosen(event);
+        break;
+      case "drop":
+        this.onDrop(event);
+        break;
     }
+  }
+
+  // W27: photos chosen in a file input reach the page without their
+  // location and camera details. The browser fires a trusted input, then a
+  // change; both are held, the input's files are swapped for stripped
+  // copies, and the page gets both events again. Our own events, and
+  // inputs with nothing to strip, pass straight through.
+  onFilesChosen(event) {
+    const input = event.target;
+    if (!event.isTrusted || this.redispatching || input?.localName != "input" || input.type != "file") {
+      return;
+    }
+    if (this.stripping.has(input)) {
+      event.stopImmediatePropagation();
+      return;
+    }
+    const metadata = lazy.WhimsyImageMetadata;
+    const files = [...(input.files ?? [])];
+    if (!metadata.enabled || !files.some(f => metadata.candidate(f))) {
+      return;
+    }
+    event.stopImmediatePropagation();
+    this.stripping.add(input);
+    const win = this.contentWindow;
+    metadata
+      .stripFiles(files, win)
+      .then(stripped => {
+        if (stripped) {
+          input.mozSetFileArray(stripped);
+        }
+      })
+      .catch(e => console.error("Whimsy: removing photo details failed", e))
+      .finally(() => {
+        this.stripping.delete(input);
+        try {
+          this.redispatch(input, new win.Event("input", { bubbles: true, composed: true }));
+          this.redispatch(input, new win.Event("change", { bubbles: true }));
+        } catch (e) {
+          // The page is gone.
+        }
+      });
+  }
+
+  // W27: photos dropped on a page that takes drops. The trusted drop is
+  // held, and the page gets the same drop with stripped copies. A drop the
+  // page doesn't listen for, or one on a file input (the input's own
+  // input and change handle that), is left alone.
+  onDrop(event) {
+    if (!event.isTrusted || this.redispatching || event.defaultPrevented) {
+      return;
+    }
+    const data = event.dataTransfer;
+    const metadata = lazy.WhimsyImageMetadata;
+    const files = [...(data?.files ?? [])];
+    if (!files.length || !metadata.enabled || !files.some(f => metadata.candidate(f))) {
+      return;
+    }
+    const target = event.composedTarget ?? event.target;
+    const path = eventPath(event);
+    if (path.some(n => n?.localName == "input" && n.type == "file") || !pageListens(path, ["drop"])) {
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const win = this.contentWindow;
+    const strings = [];
+    for (const type of data.types) {
+      if (type != "Files" && type != "application/x-moz-file") {
+        try {
+          strings.push([type, data.getData(type)]);
+        } catch (e) {
+          // Not readable as a string.
+        }
+      }
+    }
+    const init = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      screenX: event.screenX,
+      screenY: event.screenY,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      metaKey: event.metaKey,
+    };
+    metadata
+      .stripFiles(files, win)
+      .catch(e => {
+        console.error("Whimsy: removing photo details failed", e);
+        return null;
+      })
+      .then(stripped => {
+        try {
+          // The copy is filled as the page: data a DataTransfer gets from
+          // Whimsy is chrome-only (the page can't read its files or text),
+          // and the stripped files are made in Whimsy's own global, so the
+          // page gets clones in its own.
+          const page = Cu.waiveXrays(win);
+          const copy = new page.DataTransfer();
+          for (const [type, value] of strings) {
+            copy.setData(type, value);
+          }
+          for (const file of stripped ?? files) {
+            copy.items.add(Cu.cloneInto(file, win));
+          }
+          copy.dropEffect = data.dropEffect;
+          this.redispatch(target, new win.DragEvent("drop", { ...init, dataTransfer: Cu.unwaiveXrays(copy) }));
+        } catch (e) {
+          console.error("Whimsy: dropping the photos failed", e);
+        }
+      });
   }
 
   // batch7: a trusted click on a file input shows Whimsy's popup first.

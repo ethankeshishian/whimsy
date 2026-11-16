@@ -69,6 +69,8 @@ add_task(async function compare_after_watch_price() {
     const pill = WhimsyAICompare.updatePill(window);
     ok(pill && !pill.hidden, "Compare shows on a product page");
     is(pill.previousElementSibling, watch, "Right after Watch price, which never moves");
+    is(getComputedStyle(pill).cursor, "default", "Compare's arrow, not a hand cursor");
+    is(getComputedStyle(watch).cursor, "default", "...same as Watch price");
     ok(WhimsyVerbs.registered.some(v => v.id == "compare" && v.group == "product"), "⌘K leads with it on product pages");
   });
   const pill = document.getElementById("whimsy-compare-action");

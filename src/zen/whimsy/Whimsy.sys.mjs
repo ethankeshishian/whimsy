@@ -251,6 +251,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 // wave6: Page actions (schema.org data -> a pill in the address bar).
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMinimap: "resource:///modules/whimsy/WhimsyMinimap.sys.mjs",
   WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
 });
 
@@ -364,6 +365,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFieldEditor: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs",
 });
 
+// W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyOpenInBrowser: "resource:///modules/whimsy/WhimsyOpenInBrowser.sys.mjs",
+});
+
 // batch9: W9-06 smart address bar buttons.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySmartButtons: "resource:///modules/whimsy/WhimsySmartButtons.sys.mjs",
@@ -420,30 +426,7 @@ export const Whimsy = {
       return;
     }
     this._actorsRegistered = true;
-    lazy.WhimsyDarkPages.init();
-    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
-      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
-      child: {
-        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
-        events: {
-          DOMDocElementInserted: {},
-          StyleSheetApplicableStateChanged: {},
-          StyleRuleAdded: {},
-          StyleRuleRemoved: {},
-          StyleRuleChanged: {},
-          DOMContentLoaded: {},
-          pageshow: {},
-          pagehide: {},
-          beforeprint: {},
-          afterprint: {},
-          load: { capture: true },
-        },
-      },
-      matches: ["http://*/*", "https://*/*"],
-      allFrames: false,
-      messageManagerGroups: ["browsers"],
-      safeForUntrustedWebProcess: true,
-    });
+    lazy.WhimsyDarkPages.registerActor();
     ChromeUtils.registerWindowActor("WhimsyPage", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageParent.sys.mjs" },
       child: {
@@ -484,6 +467,12 @@ export const Whimsy = {
           // The paste badges: the page asks for the indicator's state.
           pageshow: { mozSystemGroup: true },
           pagehide: { mozSystemGroup: true },
+          // W27: photos lose their location and camera details before the
+          // page sees them, so these come first: capture, in the default
+          // group (the system group runs after the page's listeners).
+          input: { capture: true },
+          change: { capture: true },
+          drop: { capture: true },
         },
       },
       allFrames: true,
@@ -703,12 +692,17 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
-    // W27: Edit Field in Text Editor. The child only reads and writes the
+    // W27: Edit Field in Text Editor. The child reads and writes the
     // page's own focused field, on request; the temp file and the editor
-    // live in the parent (WhimsyFieldEditor.sys.mjs).
+    // live in the parent (WhimsyFieldEditor.sys.mjs). W29: the child also
+    // shows a button in a qualifying field's own corner on focusin, and
+    // watches focusout to notice focus leaving it.
     ChromeUtils.registerWindowActor("WhimsyFieldEditor", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs" },
-      child: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs",
+        events: { focusin: { capture: true }, focusout: { capture: true }, pagehide: {} },
+      },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
       safeForUntrustedWebProcess: true,
@@ -1175,6 +1169,8 @@ export const Whimsy = {
     // wave6: Page actions. Its page actor is registered once even when off;
     // the child checks the switch on every page.
     run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
+    // W28: Page Minimap. Off by default; Show Page Minimap turns it on.
+    run("page-minimap", () => lazy.WhimsyMinimap.initWindow(win));
     // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
     // its switch on each use.
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));
@@ -1242,6 +1238,9 @@ export const Whimsy = {
     later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
     // W27: Edit Field in Text Editor (command bar), at the focused field.
     later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
+    // W28: "Open in Safari" / "Open in Chrome" (command bar), one row per
+    // installed browser.
+    later("open-in-browser-commands", () => lazy.WhimsyOpenInBrowser.initWindow(win));
     // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
     // into the space it makes. After Zen's spaces are ready.
     run("move-to-new-space", () =>
