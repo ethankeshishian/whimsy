@@ -387,7 +387,11 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
 
     // A restored tab loads when it's selected, as after a real restart.
     gBrowser.selectedTab = t;
-    await TestUtils.waitForCondition(() => !t.hasAttribute("pending") && !t.hasAttribute("busy") && t.linkedBrowser.currentURI.spec.includes("?TAP"), "The restored tab loads");
+    await TestUtils.waitForCondition(
+      async () => !t.hasAttribute("pending") && t.linkedBrowser.currentURI.spec.includes("?TAP") &&
+        (await SpecialPowers.spawn(t.linkedBrowser, [], () => content.document.readyState == "complete" && content.location.search.includes("TAP")).catch(() => false)),
+      "The restored tab loads"
+    );
     await openChatOn(t);
     const menu = await openAddMenu();
     const row = menu.querySelector("[data-group]");
