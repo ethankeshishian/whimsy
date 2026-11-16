@@ -742,6 +742,13 @@ support-files = ["whimsy_minimap_long.html", "whimsy_minimap_short.html"]
 ["browser_whimsy_passkey_extension.js"]
 support-files = ["whimsy_passkey_extension.sjs", "whimsy_passkey_extension_page.js"]
 
+# W29 1Password on Google: a password manager's page-world hook asks its own
+# isolated script and background over postMessage and runtime messaging before
+# it answers; that round trip works on a nonce/Trusted Types page, in a profile
+# tab, with Whimsy's passkeys on, and never opens Firefox's security-key prompt.
+["browser_whimsy_passkey_extension_bridge.js"]
+support-files = ["whimsy_passkey_bridge.sjs", "whimsy_passkey_extension_page.js"]
+
 # W26 passkeys: Whimsy's own Touch ID passkeys through Gecko's WebAuthn with
 # the Secure Enclave helper stubbed (create/get/discoverable/exclude/replace,
 # profiles, private windows, P5–P9, cancel/abort, back-off, the switch,
