@@ -24,6 +24,27 @@ const SECRET = "JBSWY3DPEHPK3PXP";
 const SETUP = `otpauth://totp/Example:octocat?secret=${SECRET}&issuer=Example`;
 const MENU_ID = "context-whimsy-totp-add";
 
+// DIAG-PREFS (temporary): which pref does this file leave changed?
+function diagUserPrefs() {
+  const out = {};
+  for (const n of Services.prefs.getChildList("")) {
+    if (Services.prefs.prefHasUserValue(n)) {
+      const t = Services.prefs.getPrefType(n);
+      out[n] = t == Services.prefs.PREF_BOOL ? Services.prefs.getBoolPref(n) : t == Services.prefs.PREF_INT ? Services.prefs.getIntPref(n) : Services.prefs.getStringPref(n).slice(0, 60);
+    }
+  }
+  return out;
+}
+const diagBefore = diagUserPrefs();
+registerCleanupFunction(() => registerCleanupFunction(() => registerCleanupFunction(function diagPrefs() {
+  const after = diagUserPrefs();
+  for (const n of new Set([...Object.keys(diagBefore), ...Object.keys(after)])) {
+    if (diagBefore[n] !== after[n]) {
+      info(`DIAGPREF ${n}: ${diagBefore[n]} -> ${after[n]}`);
+    }
+  }
+})));
+
 const toasts = [];
 const realToast = gZenUIManager.showToast;
 let setupQR, otherQR;
