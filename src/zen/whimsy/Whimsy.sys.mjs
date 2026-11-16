@@ -392,6 +392,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyWindowTitle: "resource:///modules/whimsy/WhimsyWindowTitle.sys.mjs",
 });
 
+// W29: Match the page, the space colour editor's per-space page tint.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPageTint: "resource:///modules/whimsy/WhimsyPageTint.sys.mjs",
+});
+
 // wave9: Inspector (Font Inspector & Element Inspector lite).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyInspector: "resource:///modules/whimsy/WhimsyInspector.sys.mjs",
@@ -714,6 +719,21 @@ export const Whimsy = {
       allFrames: true,
       safeForUntrustedWebProcess: true,
     });
+
+    // W29: Match the page. Reads each tab's theme-color (the favicon
+    // fallback runs in the parent, from the tab's own icon, no actor
+    // needed); WhimsyPageTint blends it into the space's gradient colour.
+    ChromeUtils.registerWindowActor("WhimsyPageTint", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageTintParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPageTintChild.sys.mjs",
+        events: { DOMMetaChanged: {}, pageshow: {} },
+      },
+      matches: ["http://*/*", "https://*/*"],
+      allFrames: false,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {
@@ -795,6 +815,12 @@ export const Whimsy = {
       win.gZenWorkspaces?.promiseInitialized
         ?.then(() => lazy.WhimsySpaces.initWindow(win))
         .catch(e => console.error("Whimsy: spaces", e))
+    );
+    // W29: after Zen's spaces (the space colour editor) are ready.
+    run("page-tint", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyPageTint.initWindow(win))
+        .catch(e => console.error("Whimsy: page-tint", e))
     );
     run("look", () => lazy.WhimsyLook.initWindow(win));
     run("actors", () => this.registerActors());

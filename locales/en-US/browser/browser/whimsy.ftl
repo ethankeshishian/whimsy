@@ -8558,3 +8558,14 @@ whimsy-safety-check-sheet-remove-all =
 whimsy-safety-check-sheet-done =
     .label = Done
 whimsy-safety-check-removed-toast = Removed { $site }’s access
+# W29: "Match the page" toggle in the space colour editor (theme picker).
+whimsy-theme-picker-match-page = Match the page
+whimsy-theme-picker-match-page-detail = Tints this space with each site’s colour
+whimsy-theme-picker-match-page-switch =
+    .aria-label = Match the page
+
+# W29 r4: the per-space style choice (a segmented control) under the
+# switch above - Blend, Gradient or Replace.
+whimsy-theme-picker-match-page-style-blend = Blend
+whimsy-theme-picker-match-page-style-gradient = Gradient
+whimsy-theme-picker-match-page-style-replace = Replace

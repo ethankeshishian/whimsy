@@ -758,6 +758,12 @@ support-files = ["whimsy_page_animations.html"]
 support-files = ["whimsy_minimap_long.html", "whimsy_minimap_short.html"]
 # W27: Show space name in window title (Settings → Tab Management, off by default): titlepreface "<space> — ", space switch and rename, any space count, its switch, the private lock.
 ["browser_whimsy_window_title_space.js"]
+# W29: Match the page (space colour editor, off by default): the row/switch
+# in the theme picker, switching restores the gradient exactly and dims the
+# pad/swatches, a theme-color change repaints live, Reduce Motion is instant,
+# private windows aren't tinted, the favicon fallback.
+["browser_whimsy_page_tint.js"]
+support-files = ["whimsy_page_tint.html"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
 # W29 ambient-audio: the Ambient sound sheet (six tiles, one at a time, closing the sheet doesn't stop it), the two ⌘K commands and their live detail text, tab mute independence, and the playing tile's text contrast.
