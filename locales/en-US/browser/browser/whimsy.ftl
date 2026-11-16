@@ -8074,10 +8074,51 @@ whimsy-setting-adult-history = History Filter for Adult Sites
 whimsy-photo-metadata-header =
     .label = Photo uploads
 whimsy-photo-metadata-toggle =
-    .label = Remove location and camera details from photos you upload
-    .description = JPEG and PNG photos lose their location, camera, and text details as you upload them; the picture itself isn’t changed. Photos you download aren’t touched.
-whimsy-setting-photo-metadata = Photo Location Removal
-    .keywords = exif, gps, location, metadata, camera, photo, picture, image, upload, privacy, strip
+    .label = Remove details from photos you upload
+    .description = Photos lose the details you choose as you upload them; the picture itself isn’t changed. Photos you download aren’t touched.
+## W29: which photo details go, in Settings and in the sheet that asks
+## before an upload.
+whimsy-photo-details-location =
+    .label = Location
+    .description = Where the photo was taken (GPS).
+whimsy-photo-details-camera =
+    .label = Camera and device
+    .description = Make, model, lens, serial number, and the app that edited it.
+whimsy-photo-details-date =
+    .label = Date and time taken
+    .description = When the photo was taken. Sites use this to sort photos.
+whimsy-photo-details-other =
+    .label = Everything else
+    .description = Captions, keywords, author, comments, and depth and HDR data.
+whimsy-photo-details-ask =
+    .label = Ask before each upload
+    .description = Choose these again when you upload a photo that has any of them. The boxes above are ticked to start.
+whimsy-photo-details-title = Remove photo details?
+whimsy-photo-details-row-location = Location
+whimsy-photo-details-row-camera = Camera and device
+whimsy-photo-details-row-date = Date and time taken
+whimsy-photo-details-row-other = Everything else
+# $count (number) - how many of the chosen photos carry details
+whimsy-photo-details-summary =
+    { $count ->
+        [one] 1 photo you chose carries details you may not mean to share.
+       *[other] { $count } photos you chose carry details you may not mean to share.
+    }
+# $count (number) - how many of the chosen photos carry this kind of detail
+whimsy-photo-details-count =
+    { $count ->
+        [one] 1 photo
+       *[other] { $count } photos
+    }
+whimsy-photo-details-none = None in these photos
+whimsy-photo-details-cancel =
+    .label = Cancel
+whimsy-photo-details-upload =
+    .label = Upload
+whimsy-photo-details-upload-as-is =
+    .label = Upload as is
+whimsy-setting-photo-metadata = Photo Details Removal
+    .keywords = exif, gps, location, metadata, camera, date, photo, picture, image, upload, privacy, strip, details
 ## W24 emoji: emoji from the command bar (":" or the Emoji command). Mockup:
 ## docs/superpowers/mockups/w24/05-emoji.html.
 

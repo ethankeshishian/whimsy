@@ -298,7 +298,8 @@ var gWhimsySettings = {
       // W24: keep adult sites out of history.
       "adult-history": () => this.initPrefCheckbox("whimsyAdultHistory", "whimsy.adult-history.enabled"),
       // W27: remove location and camera details from photos you upload.
-      "photo-metadata": () => this.initPrefCheckbox("whimsyStripImageMetadata", "whimsy.privacy.strip-image-metadata"),
+      // W29: which details, and whether to ask before each upload.
+      "photo-metadata": () => this.initPhotoDetails(),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
       // W11-14: lock private browsing.
@@ -808,6 +809,56 @@ var gWhimsySettings = {
       Services.prefs.setBoolPref("whimsy.privateLock.onLeave", onLeave.checked));
     Services.prefs.addObserver("whimsy.privateLock.", update);
     window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.privateLock.", update), { once: true });
+    update();
+  },
+
+  // W29: the main box turns removing photo details on; the four kinds and
+  // "Ask before each upload" sit under it, shown only while it's ticked.
+  // Unticking the last kind unticks the main box; ticking the main box with
+  // no kind ticked brings back the recommended ones.
+  initPhotoDetails() {
+    const PREF = "whimsy.privacy.strip-image-metadata";
+    const KINDS = ["location", "camera", "date", "other"];
+    const defaults = Services.prefs.getDefaultBranch("");
+    const main = document.getElementById("whimsyStripImageMetadata");
+    const options = document.getElementById("whimsyPhotoDetailsOptions");
+    const boxes = KINDS.map(kind => document.querySelector(`#whimsyPhotoDetailsOptions moz-checkbox[data-kind="${kind}"]`));
+    const ask = document.getElementById("whimsyPhotoDetailsAsk");
+    const kindOn = kind => Services.prefs.getBoolPref(`${PREF}.${kind}`, defaults.getBoolPref(`${PREF}.${kind}`, false));
+    const update = () => {
+      main.checked = Services.prefs.getBoolPref(PREF, false);
+      boxes.forEach((box, i) => {
+        box.checked = kindOn(KINDS[i]);
+      });
+      ask.checked = Services.prefs.getBoolPref(`${PREF}.ask`, true);
+      options.classList.toggle("is-open", main.checked);
+      options.inert = !main.checked;
+    };
+    main.addEventListener("change", event => {
+      // The nested boxes' changes bubble through the main box.
+      if (event.target != main) {
+        return;
+      }
+      // (Read first: clearing the kinds runs update(), which resets it.)
+      const on = main.checked;
+      if (on && !KINDS.some(kindOn)) {
+        for (const kind of KINDS) {
+          Services.prefs.clearUserPref(`${PREF}.${kind}`);
+        }
+      }
+      Services.prefs.setBoolPref(PREF, on);
+    });
+    boxes.forEach((box, i) => {
+      box.addEventListener("change", () => {
+        Services.prefs.setBoolPref(`${PREF}.${KINDS[i]}`, box.checked);
+        if (!KINDS.some(kindOn)) {
+          Services.prefs.setBoolPref(PREF, false);
+        }
+      });
+    });
+    ask.addEventListener("change", () => Services.prefs.setBoolPref(`${PREF}.ask`, ask.checked));
+    Services.prefs.addObserver(PREF, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(PREF, update), { once: true });
     update();
   },
 

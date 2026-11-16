@@ -252,12 +252,24 @@
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
-  <!-- W27: photos you upload lose their location and camera details. -->
+  <!-- W27: photos you upload lose their location and camera details.
+       W29: which details go, and whether to ask before each upload, nested
+       under the main box and shown only while it's ticked. -->
   <html:div id="whimsyPhotoMetadataGroup" data-category="panePrivacy" data-whimsy-feature="photo-metadata" hidden="hidden" class="whimsy-setting-card">
     <html:moz-card role="presentation">
       <html:moz-fieldset data-l10n-id="whimsy-photo-metadata-header" headinglevel="3"
                          iconsrc="chrome://browser/skin/zen-icons/camera.svg">
-        <html:moz-checkbox id="whimsyStripImageMetadata" data-l10n-id="whimsy-photo-metadata-toggle"/>
+        <html:moz-checkbox id="whimsyStripImageMetadata" data-l10n-id="whimsy-photo-metadata-toggle">
+          <html:div slot="nested" id="whimsyPhotoDetailsOptions" class="whimsy-photo-details-options">
+            <html:div class="whimsy-photo-details-inner">
+              <html:moz-checkbox id="whimsyPhotoDetailsLocation" data-kind="location" data-l10n-id="whimsy-photo-details-location"/>
+              <html:moz-checkbox id="whimsyPhotoDetailsCamera" data-kind="camera" data-l10n-id="whimsy-photo-details-camera"/>
+              <html:moz-checkbox id="whimsyPhotoDetailsDate" data-kind="date" data-l10n-id="whimsy-photo-details-date"/>
+              <html:moz-checkbox id="whimsyPhotoDetailsOther" data-kind="other" data-l10n-id="whimsy-photo-details-other"/>
+              <html:moz-checkbox id="whimsyPhotoDetailsAsk" data-l10n-id="whimsy-photo-details-ask"/>
+            </html:div>
+          </html:div>
+        </html:moz-checkbox>
       </html:moz-fieldset>
     </html:moz-card>
   </html:div>
