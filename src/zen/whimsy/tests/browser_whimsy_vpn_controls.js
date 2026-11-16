@@ -586,10 +586,13 @@ add_task(function test_command() {
   ok(globalActions.find(a => a.whimsyCommand == "cmd_whimsyVPNPauseCall")?.icon, "…and an icon");
 });
 
-// W14 4: a call can't connect on a page Firefox's VPN carries (Firefox
-// turns off direct connections for it). When one starts, Whimsy asks
-// "Pause VPN for this call?": yes adds a session-only "don't use the VPN"
-// rule for the site and reloads it; the rule goes when the call ends.
+// W14 4: Firefox's VPN turns off direct connections for a page it
+// carries, so a call there may only connect through a relay. W29 vpncalls:
+// a call tries the VPN first; only when it couldn't connect (a real ICE
+// failure: the mochitest proxy carries the page, so Firefox allows no
+// direct candidates) does Whimsy ask "Pause VPN for this call?": yes adds
+// a session-only "don't use the VPN" rule for the site and reloads it; the
+// rule goes when the call ends.
 add_task(async function test_call_asks_to_pause_the_vpn() {
   const { IPPChannelFilter } = ChromeUtils.importESModule(
     "moz-src:///toolkit/components/ipprotection/IPPChannelFilter.sys.mjs"
@@ -598,6 +601,9 @@ add_task(async function test_call_asks_to_pause_the_vpn() {
     ["media.peerconnection.ice.proxy_only_if_behind_proxy", true],
     ["media.navigator.permission.disabled", false],
     ["browser.ipProtection.mode", 0],
+    // How long ICE waits for the other side's candidates when it has no
+    // pairs; the failure itself is real.
+    ["media.peerconnection.ice.trickle_grace_period", 200],
   ] });
   const filter = IPPChannelFilter.create();
   filter.proxyInfo = {};
@@ -614,13 +620,30 @@ add_task(async function test_call_asks_to_pause_the_vpn() {
     await pc.createOffer({ offerToReceiveAudio: true });
     pc.close();
   });
+  // Two peers on the page: neither gets a candidate it may use, so ICE fails.
+  const failCall = () => SpecialPowers.spawn(browser, [], async () => {
+    const a = new content.RTCPeerConnection();
+    const b = new content.RTCPeerConnection();
+    a.addTransceiver("audio");
+    await a.setLocalDescription();
+    await b.setRemoteDescription(a.localDescription);
+    await b.setLocalDescription();
+    await a.setRemoteDescription(b.localDescription);
+    await ContentTaskUtils.waitForCondition(() => a.iceConnectionState == "failed", "The call couldn't connect");
+    a.close();
+    b.close();
+  });
   try {
     setStates(IPProtectionStates.READY, IPPProxyStates.ACTIVE);
     ok(WhimsyVPN.callBlocked(browser), "A call on this page can't connect through the VPN");
     ok(!rule(), "No rule for the site yet");
 
     await startCall();
-    const toast = await TestUtils.waitForCondition(callToast, "A call starts: Whimsy asks");
+    await settle(300);
+    ok(!callToast(), "A call that starts tries the VPN first: nothing is asked");
+    ok(WhimsyVPN.canPauseForCall(window), "…while Pause VPN for This Call stays in the command bar");
+    await failCall();
+    const toast = await TestUtils.waitForCondition(callToast, "The call couldn't connect: Whimsy asks");
     await toast.shown;
     await document.l10n.translateFragment(toast.element);
     ok(toast.element.textContent.includes("Pause VPN for this call?"), "Pause VPN for this call?");
@@ -662,9 +685,9 @@ add_task(async function test_call_asks_to_pause_the_vpn() {
     }
     is(control().getAttribute("state"), "paused", "Returning to the call restores the paused state");
     ok(!WhimsyVPN.callBlocked(browser), "The reloaded page's call connects directly");
-    await startCall();
+    await failCall();
     await settle(300);
-    ok(!callToast(), "No second ask for the call itself");
+    ok(!callToast(), "No ask while paused, even if a call fails for another reason");
 
     // The call: media starts on the reloaded page, then stops.
     gBrowser.updateBrowserSharing(browser, { webRTC: { sharing: "camera" } });
@@ -675,12 +698,12 @@ add_task(async function test_call_asks_to_pause_the_vpn() {
     is(getComputedStyle(dot()).backgroundColor, resolved("var(--whimsy-vpn-on)"), "The connected dot is green again");
 
     // Keep On: no more asks on this page.
-    await startCall();
-    const again = await TestUtils.waitForCondition(callToast, "A new call asks again");
+    await failCall();
+    const again = await TestUtils.waitForCondition(callToast, "A new failed call asks again");
     await again.shown;
     EventUtils.synthesizeMouseAtCenter(again.element.querySelector("#whimsy-vpn-call-keep"), {});
     await TestUtils.waitForCondition(() => !callToast(), "Keep On closes it");
-    await startCall();
+    await failCall();
     await settle(300);
     ok(!callToast(), "…and it doesn't ask again here");
     ok(!rule(), "Nothing changed for the site");

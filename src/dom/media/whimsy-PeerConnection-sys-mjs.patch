@@ -1,0 +1,18 @@
+diff --git a/dom/media/PeerConnection.sys.mjs b/dom/media/PeerConnection.sys.mjs
+--- a/dom/media/PeerConnection.sys.mjs
++++ b/dom/media/PeerConnection.sys.mjs
+@@ -1770,6 +1770,14 @@
+     switch (state) {
+       case "IceConnectionState":
+         this.logIceConnectionStateChange(this._dompc.iceConnectionState);
++        // whimsy (vpncalls): tell the page's WhimsyVPNCall actor a call
++        // couldn't connect, so the VPN offers its pause only then.
++        if (this._dompc.iceConnectionState === "failed") {
++          Services.obs.notifyObservers(
++            this._win,
++            "whimsy-peerconnection-ice-failed"
++          );
++        }
+         this.dispatchEvent(new this._win.Event("iceconnectionstatechange"));
+         break;
+ 

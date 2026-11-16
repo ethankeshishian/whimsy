@@ -164,6 +164,11 @@
 - name: whimsy.fullscreen.double-escape
   value: false
 
+# W29 Pass Keys to Page: its first-use toast ("Keys go to this page") has
+# shown, so it doesn't show again.
+- name: whimsy.pass-keys-to-page.toast-shown
+  value: false
+
 # Where a link from another app opens (Settings → Tab Management):
 # "glance" (a quick-look over the current tab), "tab" (Firefox's own
 # behavior), or "quick-window" for Mini Whimsy, Arc's "Little Arc"

@@ -1786,8 +1786,12 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)noautohide[^\n]*drag|drag[^\n]*noautohide")]},
     {"id": "delete-to-trash", "title": "Deleting a download from the Library or the downloads panel moves its file to the Trash instead of erasing it",
      "detect": [("src/zen", r"(?i)trashApp|mac-web-app-utils")]},
-    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow-key/Enter/Delete/Esc; Space opens a Glance",
+    {"id": "sidebar-nav", "title": "Cmd+Opt+Up/Down walks the sidebar's tabs; Focus Sidebar (a command; assign a shortcut in Settings) for arrow/Enter/Delete/Esc, Left/Right to collapse/expand a folder or tree-tab parent, Option+Up/Down to move the focused tab; Space opens a Glance",
      "detect": [("src/zen", r"(?i)focus-?sidebar|whimsy-tab-next")]},
+    {"id": "move-tab", "title": "Move Tab Up/Down commands (Ctrl+Shift+Up/Down, rebindable): step the current tab one place, folder- and pinned-aware, never across the pinned/essentials boundary",
+     "detect": [("src/zen", r"(?i)move-?tab-?up|move-?tab-?down|cmd_whimsyMoveTab(Up|Down)")]},
+    {"id": "paste-tabs", "title": "With the sidebar focused, Cmd+V opens the clipboard's http(s) URLs (one per line, up to 50) as tabs below the focused tab; Cmd+X marks the selection so the next Cmd+V moves it there, even across spaces",
+     "detect": [("src/zen", r"(?i)paste-?tabs|whimsyPasteTabs")]},
     {"id": "cheatsheet", "title": "Shortcut cheat sheet (Cmd+/): a searchable, centred panel of Whimsy's own shortcuts, with a link to about:keyboard",
      "detect": [("src/zen", r"(?i)cheat-?sheet")]},
     {"id": "inbox-zero", "title": "Inbox-zero balloons: a small celebration when a mail tab's unread count hits 0",
@@ -2201,6 +2205,10 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)zen[-_.]?find[-_.]?(card|floating)")]},
     {"id": "double-escape", "title": "Press Esc twice to leave a page's full screen",
      "detect": [("src/zen", r"(?i)zen[-_.]?(double|twice)[-_.]?esc")]},
+    # W29: Pass Keys to Page. Superseded if Zen adds its own way to hand
+    # the browser's keys to a page.
+    {"id": "pass-keys-to-page", "title": "Pass Keys to Page: a command that gives the current tab's page every key, ⌘T and ⌘W too, until you hold Esc or switch tabs",
+     "detect": [("src/zen", r"(?i)zen[-_.]?pass[-_.]?(all[-_.]?)?keys")]},
     {"id": "ai-video-summary", "title": "Summarize a video: summary, chapters, and transcript in chat; timestamps jump the video",
      "detect": [("src/zen", r"(?i)zen[-_.]?(ai[-_.]?)?video[-_.]?summar")]},
     {"id": "video-speed-range", "title": "Video speed from 1/16× to 16×",
@@ -2239,6 +2247,11 @@ FEATURES = [
     {"id": "passkeys", "title": "Passkeys with Touch ID, held by Whimsy in the Secure Enclave",
      "detect": [("src/dom/webauthn", r"mPlatformService\s*="),
                 ("src/zen", r"(?i)zen[-_.]?passkeys?\.(sys\.)?mjs|SecureEnclave\.P256")]},
+    # W28: verification codes (TOTP): kept in the login store, read from a
+    # setup QR code, filled from a field button. Superseded if Zen ships its
+    # own authenticator.
+    {"id": "totp", "title": "Verification codes: keep a site's authenticator codes and fill them with a click",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(totp|authenticator)\.(sys\.)?mjs")]},
     # W27: Restart Whimsy in the command bar (quit with eRestart, session
     # restored). Superseded if Zen's command bar gets a restart action.
     {"id": "restart-command", "title": "Restart Whimsy: a command that quits and reopens with every window and tab restored",

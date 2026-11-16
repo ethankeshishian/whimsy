@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Two-factor sign-in</title>
+<style>
+  body { font: 14px -apple-system, sans-serif; padding: 24px; }
+  input { display: block; width: 240px; margin: 8px 0 16px; padding: 6px; font: inherit; }
+  .qr { display: inline-block; width: 200px; height: 200px; margin: 8px; image-rendering: pixelated; }
+  #wide { width: 300px; height: 100px; }
+</style>
+</head>
+<body>
+  <form>
+    <label for="name">Name</label>
+    <input id="name" name="name" autocomplete="name">
+    <label for="otp">Authentication code</label>
+    <input id="otp" name="otp" autocomplete="one-time-code" inputmode="numeric">
+    <label for="verify">Enter the code from your app</label>
+    <input id="verify" name="verification_code" maxlength="6" inputmode="numeric">
+    <label for="promo">Promo code</label>
+    <input id="promo" name="promo_code" maxlength="8" inputmode="numeric" placeholder="Verification promo">
+  </form>
+  <div id="codes"></div>
+</body>
+</html>
