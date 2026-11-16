@@ -1064,6 +1064,7 @@ export const WhimsyMedia = {
     panel = document.createXULElement("panel");
     panel.id = VOLUME_PANEL_ID;
     panel.setAttribute("type", "arrow");
+    panel.setAttribute("orient", "vertical");
     panel.setAttribute("noautofocus", "true");
     panel.setAttribute("role", "dialog");
     document.l10n.setAttributes(panel, "whimsy-volume-panel");

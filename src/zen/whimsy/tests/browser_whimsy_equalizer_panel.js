@@ -97,6 +97,7 @@ add_task(async function test_rows_presets_and_custom() {
   const eq = panel.querySelector(".whimsy-eq");
   ok(eq.checkVisibility(), "The Equalizer rows show under the volume slider");
   ok(panel.querySelector(".whimsy-volume-row").compareDocumentPosition(eq) & Node.DOCUMENT_POSITION_FOLLOWING, "They come after the volume row");
+  Assert.greaterOrEqual(eq.getBoundingClientRect().top, panel.querySelector(".whimsy-volume-row").getBoundingClientRect().bottom, "The Equalizer rows are laid out below the volume row");
   ok(eq.querySelector(".whimsy-surface-rule"), "A hairline separates them");
   const rowWidth = panel.querySelector(".whimsy-volume-row").getBoundingClientRect().width;
   is(Math.round(eq.getBoundingClientRect().width), 280, "The Equalizer rows are 280px wide");

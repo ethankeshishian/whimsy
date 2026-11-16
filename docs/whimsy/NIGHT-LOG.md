@@ -391,3 +391,16 @@ authorized targeted run; isolated old passes are not validation of these edits.
   builds, import, verify, install, ship, and commits were not run as directed.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
+
+## 2026-11-16 — Equalizer panel layout
+
+- Root cause: the volume panel omitted orient="vertical". XUL panel content
+  defaults to a row (also documented in WhimsySurface.create), so its newly
+  added equalizer sat beside the volume row, outside the narrow popup's
+  clickable area. This explains both the missed chevron and preset clicks.
+- Set the panel's orientation to vertical, and added a geometric regression
+  assertion: equalizer rows must sit below the volume row. DOM order alone
+  did not detect the layout error. Existing interaction expectations remain.
+- Validation: node --check passed for WhimsyMedia.sys.mjs and
+  browser_whimsy_equalizer_panel.js. Browser tests cannot run here;
+  no engine edits, mach, git, builds, or browser tests were run.
