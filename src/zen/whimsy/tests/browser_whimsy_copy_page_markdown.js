@@ -49,7 +49,8 @@ add_task(async function test_page_menu_copies_article() {
   const item = document.getElementById("context-whimsy-copy-markdown");
   ok(!item.hidden, "shown on the page");
   is(item.getAttribute("data-l10n-id"), "whimsy-context-copy-page-markdown", "labelled for the page");
-  ok(item.parentNode.querySelector("#context-savepage ~ #context-whimsy-copy-markdown"), "after Save Page As");
+  // W29/ctxmenu: Keep or share, right after Bookmark Page.
+  ok(item.parentNode.querySelector("#context-bookmarkpage ~ #context-whimsy-copy-markdown"), "after Bookmark Page");
   isnot(
     item.getAttribute("data-l10n-id"),
     "zen-text-action-copy-url-markdown-shortcut",

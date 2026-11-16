@@ -3092,6 +3092,10 @@ whimsy-tab-context-restore-closed-tabs =
             [1] Restore Last Closed Tab
            *[other] Restore Last Closed Tabs
         }
+# W29/ctxmenu: the owner's shorter name for the tab menu's chat row (was
+# "Ask an AI Chatbot"), grouped with Watch This Page….
+whimsy-tab-context-ask-ai =
+    .label = Ask AI
 # File menu, Cmd+W. $tabCount (number) - selected tabs
 whimsy-menu-archive-tab =
     .label =
@@ -3414,7 +3418,7 @@ whimsy-menus-tab-duplicate =
 whimsy-menus-tab-copy-links =
     .label = Copy Link
 whimsy-menus-tab-ask-chat =
-    .label = Ask an AI Chatbot
+    .label = Ask AI
     .description = When the AI chatbot is on
 whimsy-menus-tab-bookmark =
     .label = Bookmark Tab
