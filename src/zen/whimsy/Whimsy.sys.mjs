@@ -42,6 +42,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyRoutinesUI: "resource:///modules/whimsy/WhimsyRoutinesUI.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
+  WhimsyAmbient: "resource:///modules/whimsy/WhimsyAmbient.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
@@ -804,6 +805,7 @@ export const Whimsy = {
     run("library-sections", () => lazy.WhimsyLibrarySection.initWindow(win));
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
+    run("ambient-audio", () => lazy.WhimsyAmbient.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
     run("dark-pages", () => lazy.WhimsyDarkPages.initWindow(win));
     // W26 passkeys: once per session (the profile-delete hook and the

@@ -760,6 +760,8 @@ support-files = ["whimsy_minimap_long.html", "whimsy_minimap_short.html"]
 ["browser_whimsy_window_title_space.js"]
 # wave7/focus: Do Not Disturb (command, alerts-service pause, WebRTC pref held/restored, quiet toasts, switch off, macOS Focus via Notification Center).
 ["browser_whimsy_do_not_disturb.js"]
+# W29 ambient-audio: the Ambient sound sheet (six tiles, one at a time, closing the sheet doesn't stop it), the two ⌘K commands and their live detail text, tab mute independence, and the playing tile's text contrast.
+["browser_whimsy_ambient.js"]
 
 # W24 passkey 2: page-world password-manager interception across profiles,
 # windows, frames, CSP, document_start and private-browsing permission.
