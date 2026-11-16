@@ -8464,7 +8464,8 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   padding: 0;
   margin: 0;
   font: inherit;
-  color: var(--text-color-deemphasized, currentColor);
+  /* The detail already mutes currentColor; don't mute it a second time. */
+  color: var(--link-color, LinkText);
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
   text-underline-offset: 2px;

@@ -265,11 +265,11 @@ async function endSession() {
 }
 
 // --- contrast (as browser_whimsy_ai_style.js) ------------------------------
-function resolvedRGB(win, value) {
+function resolvedRGB(win, value, background = "#000") {
   const canvas = win.document.createElementNS(XHTML, "canvas");
   canvas.width = canvas.height = 1;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#000";
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, 1, 1);
   ctx.fillStyle = value;
   ctx.fillRect(0, 0, 1, 1);
@@ -284,13 +284,19 @@ function contrastRatio(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 function backgroundOf(win, el) {
+  const layers = [];
   for (let node = el; node && node.nodeType == 1; node = node.parentElement) {
-    const color = win.getComputedStyle(node).backgroundColor;
-    if (!/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)|transparent/.test(color)) {
-      return color;
+    // Panel surfaces paint in their shadow content, behind their children.
+    const surface = node.localName == "panel" && node.shadowRoot?.querySelector("[part~='content']");
+    if (surface) {
+      layers.push(win.getComputedStyle(surface).backgroundColor);
     }
+    layers.push(win.getComputedStyle(node).backgroundColor);
   }
-  return win.getComputedStyle(win.document.documentElement).backgroundColor;
+  // Tracks and muted text have alpha: composite over the actual surface,
+  // rather than treating the first translucent track as a black-backed fill.
+  return layers.reverse().reduce((bg, color) =>
+    `rgb(${resolvedRGB(win, color, bg).join(", ")})`, "Canvas");
 }
 function describeOpened(tab) {
   return tab ? JSON.stringify({
@@ -300,8 +306,9 @@ function describeOpened(tab) {
   }) : "null";
 }
 function checkContrast(win, el, what, min = 4.5) {
-  const fg = resolvedRGB(win, win.getComputedStyle(el).color);
-  const bg = resolvedRGB(win, backgroundOf(win, el));
+  const background = backgroundOf(win, el);
+  const fg = resolvedRGB(win, win.getComputedStyle(el).color, background);
+  const bg = resolvedRGB(win, background);
   const ratio = contrastRatio(fg, bg);
   Assert.greaterOrEqual(ratio, min, `${what}: contrast ${ratio.toFixed(2)} is at least ${min}`);
 }
@@ -993,6 +1000,8 @@ addFocusTask(async function stay_on_this_tab() {
   // A target=_blank link too. Dismissal must not leave a stale Glance that
   // would make openTabInGlance bail before adopting the content-created tab.
   is(WhimsyFocusTab.glanceOf(window), null, "The previous Glance is fully dismissed");
+  await TestUtils.waitForCondition(() => keep.linkedBrowser.checkVisibility() && keep.linkedBrowser.docShellIsActive,
+    "The kept browser is visible and active after Glance closes");
   const tabsBeforeBlank = new Set(gBrowser.tabs);
   await within(SpecialPowers.spawn(keep.linkedBrowser, [], () => {
     const a = content.document.createElement("a");
@@ -1000,7 +1009,13 @@ addFocusTask(async function stay_on_this_tab() {
     a.target = "_blank";
     a.id = "whimsy-blank";
     a.textContent = "link";
+    // The server root is a long directory listing; appending an inline link
+    // puts it below the viewport. synthesizeMouseAtCenter does not scroll.
+    a.style.cssText = "position: fixed; top: 20px; left: 20px; z-index: 2147483647";
     content.document.body.append(a);
+    const rect = a.getBoundingClientRect();
+    Assert.equal(content.document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+      a, "The target=_blank fixture's center is in view and receives clicks");
   }), "Adding the target=_blank fixture");
   let openedBlank = null;
   gBrowser.tabContainer.addEventListener("TabOpen", e => { openedBlank ??= e.target; });
