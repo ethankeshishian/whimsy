@@ -163,16 +163,26 @@ add_task(async function test_opens_like_the_default_row_search_with_engine() {
   const restore = await onlyTheseEngines([engineA, engineB, engineC]);
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   const originalIndex = gBrowser.tabs.indexOf(tab);
+  // TEMP DIAGNOSTIC (W28): bisection point 1 — the tab strip before this
+  // task does anything, to see whether earlier tasks already left it with
+  // more than the one tab this task opened.
+  const tag = t => (t == tab ? "O" : t.linkedBrowser.currentURI.spec == "about:blank" ? "b" : "x");
+  ok(false, `start: n=${gBrowser.tabs.length} i=${originalIndex} map=${gBrowser.tabs.map(tag).join("")}`);
   let resultTab;
   try {
     resultTab = await searchAndGetResultTab(tab, async menu => {
       const searchWithRow = document.getElementById(ROW_ID);
       await openSubmenu(searchWithRow);
+      // TEMP DIAGNOSTIC (W28): bisection point 2 — right after the submenu
+      // opens, before activating a row, to see whether opening it alone
+      // (no activation yet) already shifts the tab strip.
+      ok(false, `mid: n=${gBrowser.tabs.length} map=${gBrowser.tabs.map(tag).join("")}`);
       menu.activateItem(rowFor(searchWithRow.menupopup, engineB.name));
     });
-    // TEMP DIAGNOSTIC (W28): a terse tab-list dump, short enough to survive
-    // reason.py's 220-char line truncation (the earlier verbose dump with
-    // full URLs got cut off before the useful part).
+    // TEMP DIAGNOSTIC (W28): bisection point 3 (final state) — a terse
+    // tab-list dump, short enough to survive reason.py's 220-char line
+    // truncation (the earlier verbose dump with full URLs got cut off
+    // before the useful part).
     const map = gBrowser.tabs
       .map(t => (t == tab ? "O" : t == resultTab ? "R" : t.linkedBrowser.currentURI.spec == "about:blank" ? "b" : "x"))
       .join("");
