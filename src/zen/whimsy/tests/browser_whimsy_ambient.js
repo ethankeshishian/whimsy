@@ -139,9 +139,12 @@ add_task(async function test_playing_tile_label_contrast() {
   // than the rule never applying. Settle before reading them.
   await whimsySettled();
 
+  // Computed colours come as rgb() (0-255) or, after color-mix(), as
+  // color(srgb r g b) with 0-1 channels.
   const lum = rgb => {
+    const scale = rgb.startsWith("color(") ? 1 : 255;
     const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map(Number).map(c => {
-      c /= 255;
+      c /= scale;
       return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
     });
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
