@@ -59,6 +59,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySnooze: "resource:///modules/whimsy/WhimsySnooze.sys.mjs",
   WhimsyFaviconHome: "resource:///modules/whimsy/WhimsyFaviconHome.sys.mjs",
   WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
+  // w27-tabkeys: Move Tab Up/Down and Paste Tabs (keyboard sidebar focus).
+  WhimsyTabMove: "resource:///modules/whimsy/WhimsyTabMove.sys.mjs",
+  WhimsyPasteTabs: "resource:///modules/whimsy/WhimsyPasteTabs.sys.mjs",
   WhimsyFireButton: "resource:///modules/whimsy/WhimsyFireButton.sys.mjs",
   WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
   // W11-07: Whimsy Home or Firefox Home for new windows and new tabs.
@@ -987,6 +990,10 @@ export const Whimsy = {
     });
     // batch7: keyboard sidebar navigation (Arc).
     run("sidebar-nav", () => lazy.WhimsySidebarNav.initWindow(win));
+    // w27-tabkeys: Move Tab Up/Down (also used by sidebar nav's Option+Up/Down).
+    run("tab-move", () => lazy.WhimsyTabMove.initWindow(win));
+    // w27-tabkeys: Paste Tabs — Cmd+V/Cmd+X with the sidebar focused.
+    run("paste-tabs", () => lazy.WhimsyPasteTabs.initWindow(win));
     // batch7: shortcut cheat sheet.
     run("cheatsheet", () => lazy.WhimsyCheatSheet.initWindow(win));
     // batch7: inbox-zero balloons.

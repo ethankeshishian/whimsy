@@ -2517,6 +2517,9 @@ whimsy-action-capture = Capture…
 whimsy-action-tab-next = Next Tab
 whimsy-action-tab-prev = Previous Tab
 whimsy-action-focus-sidebar = Focus Sidebar
+whimsy-action-move-tab-up = Move Tab Up
+whimsy-action-move-tab-down = Move Tab Down
+whimsy-action-paste-tabs = Paste Tabs
 whimsy-action-devmode-on = Turn Developer Mode On for This Site
 whimsy-action-devmode-off = Turn Developer Mode Off for This Site
 whimsy-action-vpn-toggle = Turn VPN On or Off
@@ -4262,6 +4265,19 @@ whimsy-link-lasso-open-toast =
     { $count ->
         [one] Opened 1 tab
        *[other] Opened { $count } tabs
+    }
+
+## w27-tabkeys: Paste Tabs (clipboard URLs, and cut-tabs-to-move), sidebar focused.
+
+whimsy-paste-tabs-open-toast =
+    { $count ->
+        [one] Opened 1 tab
+       *[other] Opened { $count } tabs
+    }
+whimsy-paste-tabs-move-toast =
+    { $count ->
+        [one] Moved 1 tab
+       *[other] Moved { $count } tabs
     }
 
 ## wave9: Font Inspector (What Font Is This?) and Element Inspector Lite.
