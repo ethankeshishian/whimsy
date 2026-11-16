@@ -11,9 +11,11 @@ Services.scriptloader.loadSubScript(
 
 requestLongerTimeout(2);
 
-// The URL bar moon: a shared page action that auto-hides like its siblings,
-// and one click flips the page between dark and original live, no reload.
-add_task(async function moon_toggles_live_without_reload() {
+// The URL bar moon: a shared page action that auto-hides like its siblings.
+// Owner (W29): the global setting decides and the site switch overrides
+// it, so the moon shows only on an overridden site; one click sets the site
+// back to the global setting, live, with no reload.
+add_task(async function moon_shows_on_overrides_and_resets_live() {
   await SpecialPowers.pushPrefEnv({ set: [[MODE, "off"]] });
   // A light browser: in a dark one (macOS's automatic appearance after
   // sunset), a site's own dark theme is already its original look, so the
@@ -24,9 +26,19 @@ add_task(async function moon_toggles_live_without_reload() {
     for (const theme of ["native", "light"]) {
       await BrowserTestUtils.withNewTab(`${PAGE}?theme=${theme}`, async browser => {
         await darkState(browser, "original");
+        ok(moon.hidden, "A site that follows the global setting shows no moon");
+        const before = await colors(browser);
+        ok(!before.scheme, "The browser is light, so the page starts in its light look");
+        const windowId = browser.innerWindowID;
+        // The site panel's switch overrides the global setting.
+        WhimsyDarkPages.setDark(browser, true);
+        await darkState(browser, theme == "native" ? "native" : "generated");
+        is(WhimsyDarkPages.choice(browser), "on", "The override is remembered for the site");
+        await TestUtils.waitForCondition(() => !moon.hidden && moon.hasAttribute("active"),
+          "The overridden site shows the moon, in the dark state");
         ok(moon.classList.contains("urlbar-page-action"), "The moon uses the shared page-action class");
         ok(moon.querySelector(":scope > .urlbar-icon"), "The moon's glyph is a shared urlbar icon");
-        ok(!moon.hidden && !moon.hasAttribute("active"), "The moon shows the original state");
+        is(moon.getAttribute("aria-pressed"), "true", "The moon is a pressed toggle");
         if (document.documentElement.getAttribute("zen-single-toolbar") == "true") {
           gNavToolbox.removeAttribute("zen-has-implicit-hover");
           await TestUtils.waitForCondition(() => getComputedStyle(moon).visibility != "visible",
@@ -35,16 +47,6 @@ add_task(async function moon_toggles_live_without_reload() {
         gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
         await TestUtils.waitForCondition(() => getComputedStyle(moon).visibility == "visible" &&
           getComputedStyle(moon).opacity == "1", "Hovering the toolbar reveals the moon");
-        const before = await colors(browser);
-        ok(!before.scheme, "The browser is light, so the page starts in its light look");
-        const windowId = browser.innerWindowID;
-        let popups = 0;
-        const counter = () => popups++;
-        document.addEventListener("popupshowing", counter);
-        EventUtils.synthesizeMouseAtCenter(moon, {}, window);
-        await darkState(browser, theme == "native" ? "native" : "generated");
-        await TestUtils.waitForCondition(() => moon.hasAttribute("active"), "The moon shows the dark state");
-        is(moon.getAttribute("aria-pressed"), "true", "The moon is a pressed toggle");
         const dark = await colors(browser);
         is(browser.innerWindowID, windowId, "Dark applied to the same document, without a reload");
         if (theme == "native") {
@@ -54,22 +56,51 @@ add_task(async function moon_toggles_live_without_reload() {
           ok(dark.inverted, "Generated colors applied live");
           ok(Math.max(...dark.paintedBackground.slice(0, 3)) < 100, "The painted page is dark");
         }
-        is(WhimsyDarkPages.choice(browser), "on", "The click is remembered for the site");
+        let popups = 0;
+        const counter = () => popups++;
+        document.addEventListener("popupshowing", counter);
         EventUtils.synthesizeMouseAtCenter(moon, {}, window);
         await darkState(browser, "original");
-        await TestUtils.waitForCondition(() => !moon.hasAttribute("active"), "The moon shows the original state again");
+        is(WhimsyDarkPages.choice(browser), "automatic", "Back at the global setting, nothing is remembered");
+        await TestUtils.waitForCondition(() => moon.hidden, "The moon goes away with the override");
         const original = await colors(browser);
         is(browser.innerWindowID, windowId, "Original restored in the same document");
         is(original.background, before.background, "The original colors are back");
         ok(!original.inverted, "No inversion remains");
         document.removeEventListener("popupshowing", counter);
         is(popups, 0, "A click never opens a menu or panel");
-        WhimsyDarkPages.setChoice(browser, "automatic");
       });
     }
   } finally {
     gNavToolbox.removeAttribute("zen-has-implicit-hover");
     await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// Global on: the switch starts on, a site turned off is the override that
+// shows the moon, and matching the global setting again clears the entry.
+add_task(async function override_is_stored_only_when_it_differs() {
+  await SpecialPowers.pushPrefEnv({ set: [[MODE, "always"]] });
+  const moon = document.getElementById("whimsy-dark-page-button");
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async browser => {
+      await darkState(browser, "generated");
+      ok(WhimsyDarkPages.isDark(browser), "The site switch starts at the global value");
+      ok(moon.hidden, "No override, no moon");
+      WhimsyDarkPages.setDark(browser, true);
+      is(WhimsyDarkPages.choice(browser), "automatic", "Matching the global setting stores nothing");
+      WhimsyDarkPages.setDark(browser, false);
+      await darkState(browser, "original");
+      is(WhimsyDarkPages.choice(browser), "off", "A site that differs is stored");
+      await TestUtils.waitForCondition(() => !moon.hidden && !moon.hasAttribute("active"),
+        "The overridden site shows the moon, in the original state");
+      WhimsyDarkPages.setDark(browser, true);
+      await darkState(browser, "generated");
+      Assert.deepEqual(WhimsyDarkPages.sites(), {}, "Setting it back clears the entry");
+      await TestUtils.waitForCondition(() => moon.hidden, "The moon goes away");
+    });
+  } finally {
     await SpecialPowers.popPrefEnv();
   }
 });
@@ -80,6 +111,9 @@ add_task(async function screenshots_moon_rest_and_hover() {
   try {
     await BrowserTestUtils.withNewTab(PAGE, async browser => {
       await darkState(browser, "original");
+      // The moon shows only on an overridden site.
+      WhimsyDarkPages.setDark(browser, true);
+      await darkState(browser, "generated");
       for (const dark of [false, true]) {
         await whimsySetScheme(dark);
         try {
@@ -100,6 +134,7 @@ add_task(async function screenshots_moon_rest_and_hover() {
           await SpecialPowers.popPrefEnv();
         }
       }
+      WhimsyDarkPages.setChoice(browser, "automatic");
     });
   } finally {
     gNavToolbox.removeAttribute("zen-has-implicit-hover");

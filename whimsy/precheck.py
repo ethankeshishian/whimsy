@@ -21,6 +21,7 @@ import xml.dom.minidom
 ROOT = os.environ.get("WHIMSY_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
 import buildkind  # noqa: E402
+import iconpacks  # noqa: E402
 import patchtools  # noqa: E402
 import urlcheck  # noqa: E402
 os.chdir(ROOT)
@@ -215,6 +216,26 @@ def check_urls():
     problems.extend(urlcheck.check(ROOT))
 
 
+def check_icon_packs():
+    # W29 icon-sets: the two override stylesheets are generated from Zen's
+    # zen-icons/icons.css and icon-packs/map.json; a Zen icons.css change (a
+    # Zen update) can leave them stale. The fallback list itself (a name
+    # either pack lacks) is only reported, not a failure here: that's the
+    # "reviewed fallbacks" icon-sets.md calls for, not a bug.
+    try:
+        outputs, _fallbacks = iconpacks.build(write=False)
+    except Exception as e:
+        problems.append(f"whimsy/tools/iconpacks.py failed: {e}")
+        return
+    for pack in iconpacks.PACKS:
+        path = os.path.join(iconpacks.PACKS_DIR, f"{pack}.css")
+        current = open(path, encoding="utf-8").read() if os.path.exists(path) else None
+        if current != outputs[pack]:
+            problems.append(
+                f"icon-packs/{pack}.css is stale; run `python3 whimsy/tools/iconpacks.py` and commit"
+            )
+
+
 files = changed_files()
 known = ftl_ids()
 check_js_syntax(files)
@@ -230,6 +251,7 @@ check_owner_global()
 check_moved_modules()
 check_patches()
 check_urls()
+check_icon_packs()
 
 overlay = subprocess.run([sys.executable, "whimsy/overlay.py", "check"], capture_output=True, text=True)
 if overlay.returncode:

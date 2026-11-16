@@ -2,7 +2,12 @@
 <meta charset="utf-8">
 <title>Edit field in text editor</title>
 <input id="text" value="hello">
-<textarea id="area">multi
+<textarea id="area" style="width:200px;height:80px">multi
 line</textarea>
-<div id="edit" contenteditable="true">rich <b>text</b></div>
+<div id="edit" contenteditable="true" style="width:200px;height:80px">rich <b>text</b></div>
 <input id="password" type="password" value="secret">
+<textarea id="otpArea" autocomplete="one-time-code" style="width:200px;height:80px"></textarea>
+<textarea id="ccArea" autocomplete="cc-number" style="width:200px;height:80px"></textarea>
+<textarea id="smallArea" style="width:50px;height:20px">small</textarea>
+<div id="smallEdit" contenteditable="true" style="width:50px;height:20px">small</div>
+<textarea id="readonlyArea" readonly="readonly" style="width:200px;height:80px">read-only</textarea>

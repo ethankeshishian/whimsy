@@ -198,7 +198,9 @@ panel.whimsy-surface.whimsy-trail {
   background-color: transparent;
   color: color-mix(in srgb, currentColor 78%, transparent);
   font-size: 0.85em;
-  cursor: pointer;
+  /* The default arrow, like its .urlbar-page-action neighbours (star,
+     reader view, translate): a toolbar button, not a link. */
+  cursor: default;
   transition: background-color 100ms ease-out;
   animation: whimsy-page-action-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }

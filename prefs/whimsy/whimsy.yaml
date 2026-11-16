@@ -96,6 +96,13 @@
 - name: whimsy.look.ui-font
   value: ""
 
+# W29 icon-sets: which icon pack draws the toolbar, sidebar, panels and
+# right-click menus (Settings → Look and Feel → Icons). "nucleo" is Zen's
+# own set; "lucide" and "phosphor-fill" are vendored alternatives. Never the
+# space icon picker (common/selectable/), which this doesn't touch.
+- name: whimsy.look.icon-pack
+  value: "nucleo"
+
 # Mute background tabs (Settings → Tab Management): "prioritize" mutes them
 # only while the current tab plays sound, "background" lets only the current
 # tab play, "off" lets every tab play.
@@ -194,6 +201,12 @@
 # The page loads normally; its visit isn't kept (WhimsyAdultHistory).
 - name: whimsy.adult-history.enabled
   value: true
+# W27: Settings → Privacy & Security → "Remove location and camera details
+# from photos you upload". JPEG and PNG files chosen in file inputs or
+# dropped on pages lose Exif, GPS, XMP, and text metadata, losslessly
+# (WhimsyImageMetadata). Off by default.
+- name: whimsy.privacy.strip-image-metadata
+  value: false
 # batch10: Library sidebar panels.
 
 # Profile subdirectory a screenshot capture is saved into (Library → Files).
@@ -415,6 +428,11 @@
 
 # wave3: email-aliases. Show the alias button in email fields.
 - name: whimsy.email-aliases.button
+  value: true
+
+# W29: show the field editor button in qualifying multi-line boxes. Off,
+# Edit Field in Text Editor still follows the same field check.
+- name: whimsy.field-editor.button
   value: true
 
 
@@ -926,9 +944,29 @@
 - name: whimsy.dark-pages.sites
   value: "{ }"
 
+# W26 site panel: each profile's Automatic Dark Mode, {userContextId: true
+# or false}; a profile not listed follows whimsy.dark-pages.mode.
+- name: whimsy.dark-pages.profiles
+  value: "{ }"
+
+# W26 site panel: profiles keep their own site permissions (Firefox's
+# permission manager keys them by container). Cookie exceptions, HTTPS-Only
+# exceptions, and VPN rules stay shared (Firefox always strips those).
+- name: permissions.isolateBy.userContext
+  value: true
+
+# W26 site panel: set once every existing profile has its copy of the
+# permissions it shared before (WhimsySiteSettings.migratePermissions).
+- name: whimsy.site-settings.profile-permissions-migrated
+  value: false
+
 - name: whimsy.dark-pages.offered
   value: false
 # W24 annotations: last highlight color chosen ("yellow", "green", "blue", "pink").
 - name: whimsy.annotations.color
   value: "yellow"
 
+# W28: Page Minimap, a picture of a long page at its right edge (Show Page
+# Minimap in the command bar). Off by default.
+- name: whimsy.minimap.enabled
+  value: false
