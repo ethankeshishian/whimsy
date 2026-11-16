@@ -883,15 +883,16 @@ add_task(async function descriptions_are_cached_per_container() {
 // diagnostic state in its message (card contents, the panel's state, and
 // what the connector stub currently answers) instead of just "timed out".
 async function waitForExtra(card, label) {
+  // TestUtils.waitForCondition rejects with a plain string, not an Error, so
+  // this stringifies `error` directly rather than reading a `.message` that
+  // doesn't exist on a string. The most useful fields come first because the
+  // lane summary truncates long failure messages.
   return TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-extra"), label).catch(async error => {
     const list = await WhimsyConnectors.list().then(
       entries => JSON.stringify(entries),
       e => `list() rejected: ${e}`
     );
-    throw new Error(
-      `${error.message} | card.isConnected=${card.isConnected} tabPanel.state=${tabPanel()?.state} ` +
-        `card.outerHTML=${card.outerHTML.slice(0, 500)} | WhimsyConnectors.list()=${list}`
-    );
+    throw new Error(`${error} | list()=${list} | isConnected=${card.isConnected} panel=${tabPanel()?.state}`);
   });
 }
 
