@@ -95,6 +95,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyHome.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
     "WhimsyHoverCards.sys.mjs",
+    "WhimsyIconPack.sys.mjs",
     "WhimsyImageMetadata.sys.mjs",
     "WhimsyInspector.sys.mjs",
     "WhimsyInspectorChild.sys.mjs",
@@ -163,6 +164,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyRecentTabs.sys.mjs",
     "WhimsyRedactChild.sys.mjs",
     "WhimsyRedactParent.sys.mjs",
+    "WhimsySafetyCheck.sys.mjs",
     "WhimsySearchDeck.sys.mjs",
     "WhimsySearchDeckChild.sys.mjs",
     "WhimsySeasons.sys.mjs",
@@ -220,6 +222,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
+    "WhimsyWindowOnTop.sys.mjs",
     "WhimsyWindowTitle.sys.mjs",
     "WhimsyZap.sys.mjs",
     "WhimsyZapChild.sys.mjs",
@@ -300,6 +303,12 @@ EXTRA_JS_MODULES.whimsy += [
 # W23 page-read
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyFindCard.sys.mjs",
+]
+
+# W28: Page Minimap
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyMinimap.sys.mjs",
+    "WhimsyMinimapChild.sys.mjs",
 ]
 
 # W27: Press Esc twice to leave full screen
@@ -390,6 +399,15 @@ EXTRA_JS_MODULES.whimsy += [
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyPasskeys.sys.mjs",
 ]
+
+# W29 icon-sets: Lucide and Phosphor, vendored at content/icon-packs/. Zen's
+# own icons (zen-icons/, Nucleo) carry Zen's license; these two need their
+# own about:license entries since they ship under different licenses.
+LICENSES += ["lucide", "phosphor"]
+LICENSES["lucide"].title = "Lucide icons (ISC)"
+LICENSES["lucide"].text = "content/icon-packs/lucide/LICENSE"
+LICENSES["phosphor"].title = "Phosphor icons (MIT)"
+LICENSES["phosphor"].text = "content/icon-packs/phosphor-fill/LICENSE"
 
 # W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md
 # option A, step 1).

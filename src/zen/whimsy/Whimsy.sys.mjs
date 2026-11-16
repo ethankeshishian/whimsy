@@ -83,6 +83,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // batch7: new feature modules
   WhimsySeasons: "resource:///modules/whimsy/WhimsySeasons.sys.mjs",
   WhimsyWindowClose: "resource:///modules/whimsy/WhimsyWindowClose.sys.mjs",
+  WhimsyWindowOnTop: "resource:///modules/whimsy/WhimsyWindowOnTop.sys.mjs",
   WhimsyUrlbar: "resource:///modules/whimsy/WhimsyUrlbar.sys.mjs",
   WhimsyDownloads: "resource:///modules/whimsy/WhimsyDownloads.sys.mjs",
   WhimsySidebarNav: "resource:///modules/whimsy/WhimsySidebarNav.sys.mjs",
@@ -251,6 +252,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 // wave6: Page actions (schema.org data -> a pill in the address bar).
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMinimap: "resource:///modules/whimsy/WhimsyMinimap.sys.mjs",
   WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
 });
 
@@ -425,30 +427,7 @@ export const Whimsy = {
       return;
     }
     this._actorsRegistered = true;
-    lazy.WhimsyDarkPages.init();
-    ChromeUtils.registerWindowActor("WhimsyDarkPages", {
-      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesParent.sys.mjs" },
-      child: {
-        esModuleURI: "resource:///modules/whimsy/WhimsyDarkPagesChild.sys.mjs",
-        events: {
-          DOMDocElementInserted: {},
-          StyleSheetApplicableStateChanged: {},
-          StyleRuleAdded: {},
-          StyleRuleRemoved: {},
-          StyleRuleChanged: {},
-          DOMContentLoaded: {},
-          pageshow: {},
-          pagehide: {},
-          beforeprint: {},
-          afterprint: {},
-          load: { capture: true },
-        },
-      },
-      matches: ["http://*/*", "https://*/*"],
-      allFrames: false,
-      messageManagerGroups: ["browsers"],
-      safeForUntrustedWebProcess: true,
-    });
+    lazy.WhimsyDarkPages.registerActor();
     ChromeUtils.registerWindowActor("WhimsyPage", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageParent.sys.mjs" },
       child: {
@@ -714,12 +693,17 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
-    // W27: Edit Field in Text Editor. The child only reads and writes the
+    // W27: Edit Field in Text Editor. The child reads and writes the
     // page's own focused field, on request; the temp file and the editor
-    // live in the parent (WhimsyFieldEditor.sys.mjs).
+    // live in the parent (WhimsyFieldEditor.sys.mjs). W29: the child also
+    // shows a button in a qualifying field's own corner on focusin, and
+    // watches focusout to notice focus leaving it.
     ChromeUtils.registerWindowActor("WhimsyFieldEditor", {
       parent: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditor.sys.mjs" },
-      child: { esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyFieldEditorChild.sys.mjs",
+        events: { focusin: { capture: true }, focusout: { capture: true }, pagehide: {} },
+      },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
       safeForUntrustedWebProcess: true,
@@ -938,6 +922,9 @@ export const Whimsy = {
     run("seasons", () => lazy.WhimsySeasons.initWindow(win));
     // batch7: Cmd+W on a lone empty tab closes the window (Arc).
     run("window-close", () => lazy.WhimsyWindowClose.initWindow(win));
+    // W28: Keep Window on Top (Settings → Look and Feel, macOS only). A
+    // global pref, applied to every window including Mini Whimsy.
+    run("window-on-top", () => lazy.WhimsyWindowOnTop.initWindow(win));
     // batch7: full URL on click.
     run("full-url-click", () => lazy.WhimsyUrlbar.initWindow(win));
     // batch7: Dock badge/bounce (once per session), Quick Look and keeping
@@ -1186,6 +1173,8 @@ export const Whimsy = {
     // wave6: Page actions. Its page actor is registered once even when off;
     // the child checks the switch on every page.
     run("page-actions", () => lazy.WhimsyPageActions.initWindow(win));
+    // W28: Page Minimap. Off by default; Show Page Minimap turns it on.
+    run("page-minimap", () => lazy.WhimsyMinimap.initWindow(win));
     // wave6/parity: Arc's Split View commands and Ctrl+Shift keys. Checks
     // its switch on each use.
     run("split-arc-keys", () => lazy.WhimsySplitKeys.initWindow(win));

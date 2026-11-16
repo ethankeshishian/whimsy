@@ -1010,3 +1010,10 @@ add_task(async function w15_screenshot_viewer() {
     }
   }
 });
+
+// W29/newtabopts: the sidebar foot's + button (Zen's Create New menu),
+// showing New Private Tab right after New Tab.
+add_task(async function w29_create_new_private_tab() {
+  await sheetShot("w29-createnew-private-tab", "zenCreateNewPopup", () =>
+    document.getElementById("zenCreateNewPopup").openPopup(document.getElementById("zen-create-new-button"), "before_start"));
+});

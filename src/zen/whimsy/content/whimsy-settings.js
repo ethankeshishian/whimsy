@@ -40,8 +40,14 @@ var gWhimsySettings = {
     ChromeUtils.defineESModuleGetters(lazy, {
       Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
       WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
+      WhimsyIconPack: "resource:///modules/whimsy/WhimsyIconPack.sys.mjs", // W29 icon-sets
       WhimsyUpdates: "resource:///modules/whimsy/WhimsyUpdates.sys.mjs",
       WhimsySpaceArchive: "resource:///modules/whimsy/WhimsySpaceArchive.sys.mjs", // batch9: spaces
+      // W29 safety-check
+      WhimsySafetyCheck: "resource:///modules/whimsy/WhimsySafetyCheck.sys.mjs",
+      WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
+      WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+      WhimsyTrails: "resource:///modules/whimsy/WhimsyTrails.sys.mjs",
     });
     // tierC-vpn: VPN (Firefox's built-in IP Protection) status card.
     ChromeUtils.defineESModuleGetters(lazy, {
@@ -292,13 +298,16 @@ var gWhimsySettings = {
       // W24: keep adult sites out of history.
       "adult-history": () => this.initPrefCheckbox("whimsyAdultHistory", "whimsy.adult-history.enabled"),
       // W27: remove location and camera details from photos you upload.
-      "photo-metadata": () => this.initPrefCheckbox("whimsyStripImageMetadata", "whimsy.privacy.strip-image-metadata"),
+      // W29: which details, and whether to ask before each upload.
+      "photo-metadata": () => this.initPhotoDetails(),
       // batch9p: Scratch and private tabs
       scratch: () => this.initPrefCheckbox("whimsyPrivateInWindow", "whimsy.private.in-window"),
       // W11-14: lock private browsing.
       "private-lock": () => this.initPrivateLock(),
       // W26: the Touch ID passkeys Whimsy holds.
       passkeys: () => this.initPasskeys(),
+      // W29: Safety Check.
+      "safety-check": () => this.initSafetyCheck(),
       // tierC-vpn: VPN (Firefox's built-in IP Protection).
       vpn: () => this.initVpn(),
       // wave3: email-aliases
@@ -344,6 +353,9 @@ var gWhimsySettings = {
       // through the transparency feature.
       "liquid-glass":
         AppConstants.isPlatformAndVersionAtLeast("macosx", "25") && Whimsy.featureEnabled("transparency"),
+      // W28: Keep Window on Top needs the Cocoa widget's always-on-top
+      // support, macOS only.
+      "window-on-top": AppConstants.platform == "macosx",
     };
     for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
       const id = row.dataset.whimsyFeature;
@@ -369,6 +381,7 @@ var gWhimsySettings = {
     }
     this.initTransparency();
     this.initUiFont();
+    this.initIconPacks();
   },
 
   // The font list: the system's families, after "System Font".
@@ -418,6 +431,250 @@ var gWhimsySettings = {
 
   initCookieBanners() {
     this.initPrefCheckbox("whimsyRejectCookieBanners", "whimsy.reject-cookie-banners");
+  },
+
+  // Overridable for tests: Services.startup.quit is a non-configurable,
+  // non-writable property on the real XPCOM singleton, so it can't be
+  // stubbed directly (not even via sinon). Production leaves this null and
+  // calls the real thing.
+  _quit: null,
+
+  // W29 safety-check: Settings → Privacy & Security → Safety Check. Four
+  // rows, always in this order (Updates, Passwords, Extensions, Site
+  // permissions), checked on pane show and on Check again, cached for 10
+  // minutes so reopening the pane doesn't always rerun every check.
+  initSafetyCheck() {
+    const run = document.getElementById("whimsySafetyCheckRun");
+    const list = document.getElementById("whimsySafetyCheckList");
+    if (!run || !list) {
+      return;
+    }
+    run.addEventListener("command", () => this.refreshSafetyCheck({ force: true }));
+    this.refreshSafetyCheck();
+  },
+
+  get safetyCheckRows() {
+    return {
+      updates: document.getElementById("whimsySafetyCheckRow-updates"),
+      passwords: document.getElementById("whimsySafetyCheckRow-passwords"),
+      extensions: document.getElementById("whimsySafetyCheckRow-extensions"),
+      permissions: document.getElementById("whimsySafetyCheckRow-permissions"),
+    };
+  },
+
+  async refreshSafetyCheck(options = {}) {
+    const { WhimsySafetyCheck } = this.lazy;
+    const rows = this.safetyCheckRows;
+    if (!rows.updates) {
+      return;
+    }
+    const fresh = this._safetyCheckAt && Date.now() - this._safetyCheckAt < 10 * 60 * 1000;
+    if (fresh && !options.force) {
+      this.renderSafetyCheckLastRun();
+      return;
+    }
+    this.setSafetyCheckRunning(rows);
+    const result = await WhimsySafetyCheck.run();
+    if (!rows.updates.isConnected) {
+      return;
+    }
+    this._safetyCheckAt = Date.now();
+    this._safetyCheckResult = result;
+    await this.renderSafetyCheckRow(rows.updates, "updates", result.updates);
+    await this.renderSafetyCheckRow(rows.passwords, "passwords", result.passwords);
+    await this.renderSafetyCheckRow(rows.extensions, "extensions", result.extensions);
+    await this.renderSafetyCheckRow(rows.permissions, "permissions", result.permissions);
+    this.renderSafetyCheckLastRun();
+  },
+
+  setSafetyCheckRunning(rows) {
+    document.l10n.setAttributes(document.getElementById("whimsySafetyCheckLastRun"), "whimsy-safety-check-checking");
+    for (const row of Object.values(rows)) {
+      if (!row) {
+        continue;
+      }
+      row.classList.remove("is-ok", "is-warn", "is-landed");
+      const icon = row.querySelector(".whimsy-safety-check-icon");
+      icon.classList.toggle("is-spinning", !this.reduceMotion);
+      document.l10n.setAttributes(row.querySelector(".whimsy-safety-check-status"), "whimsy-safety-check-checking");
+      row.querySelector(".whimsy-safety-check-detail").textContent = "";
+      const action = row.querySelector(".whimsy-safety-check-action");
+      action.hidden = true;
+      action.replaceChildren();
+    }
+  },
+
+  renderSafetyCheckLastRun() {
+    const lastRun = document.getElementById("whimsySafetyCheckLastRun");
+    if (!lastRun || !this._safetyCheckAt) {
+      return;
+    }
+    const { WhimsyTrails } = this.lazy;
+    document.l10n.setAttributes(lastRun, "whimsy-safety-check-last-run", { ago: WhimsyTrails.ago(this._safetyCheckAt) });
+  },
+
+  dateFormat(time) {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(time);
+  },
+
+  async renderSafetyCheckRow(row, kind, data) {
+    const { WhimsySafetyCheck } = this.lazy;
+    row.classList.remove("is-landed");
+    const icon = row.querySelector(".whimsy-safety-check-icon");
+    icon.classList.remove("is-spinning");
+    const status = row.querySelector(".whimsy-safety-check-status");
+    const detail = row.querySelector(".whimsy-safety-check-detail");
+    const action = row.querySelector(".whimsy-safety-check-action");
+    action.replaceChildren();
+    action.onclick = null;
+    row.classList.add(data.status == "ok" ? "is-ok" : "is-warn");
+
+    if (kind == "updates") {
+      if (data.status == "ok") {
+        document.l10n.setAttributes(status, "whimsy-safety-check-updates-ok");
+        document.l10n.setAttributes(detail, "whimsy-safety-check-updates-ok-detail", {
+          v: data.version,
+          date: data.installedAt ? this.dateFormat(new Date(data.installedAt)) : "",
+        });
+      } else {
+        document.l10n.setAttributes(status, "whimsy-safety-check-updates-warn");
+        document.l10n.setAttributes(detail, "whimsy-safety-check-updates-warn-detail", { v: data.version });
+        document.l10n.setAttributes(action, "whimsy-safety-check-updates-restart");
+        action.hidden = false;
+        action.onclick = () =>
+          (this._quit ?? (flags => Services.startup.quit(flags)))(Ci.nsIAppStartup.eAttemptQuit | Ci.nsIAppStartup.eRestart);
+      }
+    } else if (kind == "passwords") {
+      if (data.status == "ok") {
+        document.l10n.setAttributes(status, "whimsy-safety-check-passwords-ok");
+        document.l10n.setAttributes(detail, "whimsy-safety-check-passwords-ok-detail", { count: data.count });
+      } else {
+        document.l10n.setAttributes(status, "whimsy-safety-check-passwords-warn", { n: data.count });
+        const sites = new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format(data.sites);
+        document.l10n.setAttributes(detail, "whimsy-safety-check-passwords-warn-detail", { sites });
+        document.l10n.setAttributes(action, "whimsy-safety-check-passwords-review");
+        action.hidden = false;
+        action.onclick = () => {
+          Services.prefs.setCharPref("signon.management.page.sort", "alerts");
+          window.browsingContext.topChromeWindow.gBrowser.selectedTab =
+            window.browsingContext.topChromeWindow.gBrowser.addTab("about:logins", {
+              triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+            });
+        };
+      }
+    } else if (kind == "extensions") {
+      if (data.status == "ok") {
+        document.l10n.setAttributes(status, "whimsy-safety-check-extensions-ok");
+        document.l10n.setAttributes(detail, "whimsy-safety-check-extensions-ok-detail", { n: data.count });
+      } else {
+        document.l10n.setAttributes(status, "whimsy-safety-check-extensions-warn", { n: data.count });
+        document.l10n.setAttributes(detail, "whimsy-safety-check-extensions-warn-detail", { name: data.first.name });
+        document.l10n.setAttributes(action, "whimsy-safety-check-extensions-review");
+        action.hidden = false;
+        action.onclick = () => {
+          const chromeWin = window.browsingContext.topChromeWindow;
+          chromeWin.BrowserAddonUI.openAddonsMgr(`addons://detail/${encodeURIComponent(data.first.id)}`);
+        };
+      }
+    } else if (kind == "permissions") {
+      if (data.status == "ok") {
+        document.l10n.setAttributes(status, "whimsy-safety-check-permissions-ok");
+        document.l10n.setAttributes(detail, "whimsy-safety-check-permissions-ok-detail");
+      } else {
+        document.l10n.setAttributes(status, "whimsy-safety-check-permissions-warn", { n: data.count });
+        document.l10n.setAttributes(detail, "whimsy-safety-check-permissions-warn-detail", { types: data.typesText });
+        document.l10n.setAttributes(action, "whimsy-safety-check-permissions-review");
+        action.hidden = false;
+        action.onclick = () => this.openUnusedPermissionsSheet(WhimsySafetyCheck);
+      }
+    }
+    if (!this.reduceMotion) {
+      row.classList.add("is-landed");
+      setTimeout(() => row.classList.remove("is-landed"), 260);
+    }
+  },
+
+  // The Unused Permissions sheet (S.4): a WhimsySurface sheet, the routine
+  // form's (whimsy-routine-form.mjs:984). One row per site with a Remove
+  // button; Remove all is the primary footer button, Done closes it.
+  async openUnusedPermissionsSheet(WhimsySafetyCheck) {
+    const { WhimsySurface, WhimsyUndo } = this.lazy;
+    const S = WhimsySurface;
+    const sites = await WhimsySafetyCheck.getUnusedPermissions();
+    const chromeWin = window.browsingContext.topChromeWindow;
+    const monthFormat = new Intl.DateTimeFormat(undefined, { month: "long" });
+
+    const parts = S.create(window, {
+      id: "whimsy-safety-check-sheet",
+      width: 420,
+      close: true,
+      footer: true,
+      titleL10nId: "whimsy-safety-check-sheet-title",
+      className: "whimsy-safety-check-sheet",
+    });
+    const text = document.createXULElement("description");
+    text.className = "description-deemphasized";
+    document.l10n.setAttributes(text, "whimsy-safety-check-sheet-text");
+    parts.view.append(text);
+    const group = S.group(document, { role: "list" });
+    parts.view.append(group);
+
+    const removeSite = async site => {
+      WhimsySafetyCheck.removePermissions(site.principal, site.types);
+      const row = group.querySelector(`[data-origin="${CSS.escape(site.origin)}"]`);
+      const nextSibling = row?.nextElementSibling ?? null;
+      row?.remove();
+      if (!group.children.length) {
+        S.close(parts.panel);
+      }
+      WhimsyUndo.showToast(chromeWin, "whimsy-safety-check-removed-toast", {
+        undo: () => {
+          for (const type of site.types) {
+            Services.perms.addFromPrincipal(site.principal, type, Services.perms.ALLOW_ACTION);
+          }
+          if (row) {
+            group.insertBefore(row, nextSibling);
+          }
+        },
+      }, { site: site.host });
+      await this.refreshSafetyCheck({ force: true });
+    };
+
+    for (const site of sites) {
+      const perms = WhimsySafetyCheck.formatPermissionList(site.types);
+      const month = site.lastVisitMs ? monthFormat.format(site.lastVisitMs) : monthFormat.format(0);
+      const removeButton = S.textButton(document, {
+        l10nId: "whimsy-safety-check-sheet-remove",
+        l10nArgs: { site: site.host },
+        onCommand: () => removeSite(site),
+      });
+      const { row } = S.row(document, {
+        l10nId: "whimsy-safety-check-sheet-row",
+        l10nArgs: { perms, month },
+        trailing: [removeButton],
+      });
+      row.dataset.origin = site.origin;
+      group.append(row);
+    }
+
+    const removeAll = S.footerButton(document, {
+      l10nId: "whimsy-safety-check-sheet-remove-all",
+      primary: true,
+      onCommand: async () => {
+        for (const site of [...sites]) {
+          WhimsySafetyCheck.removePermissions(site.principal, site.types);
+        }
+        S.close(parts.panel);
+        await this.refreshSafetyCheck({ force: true });
+      },
+    });
+    const done = S.footerButton(document, {
+      l10nId: "whimsy-safety-check-sheet-done",
+      onCommand: () => S.close(parts.panel),
+    });
+    parts.footer.append(done, removeAll);
+    S.finish(parts);
+    S.open(window, parts.panel, { at: "page-top-center" });
   },
 
   // A checkbox bound to a bool pref, kept in sync both ways.
@@ -552,6 +809,56 @@ var gWhimsySettings = {
       Services.prefs.setBoolPref("whimsy.privateLock.onLeave", onLeave.checked));
     Services.prefs.addObserver("whimsy.privateLock.", update);
     window.addEventListener("unload", () => Services.prefs.removeObserver("whimsy.privateLock.", update), { once: true });
+    update();
+  },
+
+  // W29: the main box turns removing photo details on; the four kinds and
+  // "Ask before each upload" sit under it, shown only while it's ticked.
+  // Unticking the last kind unticks the main box; ticking the main box with
+  // no kind ticked brings back the recommended ones.
+  initPhotoDetails() {
+    const PREF = "whimsy.privacy.strip-image-metadata";
+    const KINDS = ["location", "camera", "date", "other"];
+    const defaults = Services.prefs.getDefaultBranch("");
+    const main = document.getElementById("whimsyStripImageMetadata");
+    const options = document.getElementById("whimsyPhotoDetailsOptions");
+    const boxes = KINDS.map(kind => document.querySelector(`#whimsyPhotoDetailsOptions moz-checkbox[data-kind="${kind}"]`));
+    const ask = document.getElementById("whimsyPhotoDetailsAsk");
+    const kindOn = kind => Services.prefs.getBoolPref(`${PREF}.${kind}`, defaults.getBoolPref(`${PREF}.${kind}`, false));
+    const update = () => {
+      main.checked = Services.prefs.getBoolPref(PREF, false);
+      boxes.forEach((box, i) => {
+        box.checked = kindOn(KINDS[i]);
+      });
+      ask.checked = Services.prefs.getBoolPref(`${PREF}.ask`, true);
+      options.classList.toggle("is-open", main.checked);
+      options.inert = !main.checked;
+    };
+    main.addEventListener("change", event => {
+      // The nested boxes' changes bubble through the main box.
+      if (event.target != main) {
+        return;
+      }
+      // (Read first: clearing the kinds runs update(), which resets it.)
+      const on = main.checked;
+      if (on && !KINDS.some(kindOn)) {
+        for (const kind of KINDS) {
+          Services.prefs.clearUserPref(`${PREF}.${kind}`);
+        }
+      }
+      Services.prefs.setBoolPref(PREF, on);
+    });
+    boxes.forEach((box, i) => {
+      box.addEventListener("change", () => {
+        Services.prefs.setBoolPref(`${PREF}.${KINDS[i]}`, box.checked);
+        if (!KINDS.some(kindOn)) {
+          Services.prefs.setBoolPref(PREF, false);
+        }
+      });
+    });
+    ask.addEventListener("change", () => Services.prefs.setBoolPref(`${PREF}.ask`, ask.checked));
+    Services.prefs.addObserver(PREF, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(PREF, update), { once: true });
     update();
   },
 
@@ -725,6 +1032,70 @@ var gWhimsySettings = {
     };
     Services.prefs.addObserver(WhimsyAppIcon.PREF, update);
     window.addEventListener("unload", () => Services.prefs.removeObserver(WhimsyAppIcon.PREF, update));
+    update();
+  },
+
+  // W29 icon-sets: three cards (Whimsy/Nucleo, Outline/Lucide,
+  // Filled/Phosphor), each previewing the same six icons; picking one
+  // applies live (WhimsyLook.initIconPack), same as the font row above it.
+  // A toolbar preview strip under the cards shows the pick too.
+  initIconPacks() {
+    const { WhimsyIconPack } = this.lazy;
+    const list = document.getElementById("whimsyIconPackList");
+    if (!list) {
+      return;
+    }
+    const preview = document.getElementById("whimsyIconPackPreview");
+    const cards = new Map();
+    for (const pack of WhimsyIconPack.PACKS) {
+      const card = document.createElement("button");
+      card.className = "whimsy-icon-pack-card";
+      card.setAttribute("role", "radio");
+      card.dataset.pack = pack;
+
+      const glyphs = document.createElement("div");
+      glyphs.className = "whimsy-icon-pack-glyphs";
+      for (const name of WhimsyIconPack.PREVIEW_ICONS) {
+        const img = document.createElement("img");
+        img.alt = "";
+        WhimsyIconPack.previewURL(pack, name).then(url => (img.src = url));
+        glyphs.append(img);
+      }
+
+      const nameRow = document.createElement("span");
+      nameRow.className = "whimsy-icon-pack-name";
+      const radio = document.createElement("span");
+      radio.className = "whimsy-icon-pack-radio";
+      const label = document.createElement("span");
+      document.l10n.setAttributes(label, `whimsy-look-icon-pack-${pack}`);
+      nameRow.append(radio, label);
+
+      const detail = document.createElement("span");
+      detail.className = "whimsy-icon-pack-detail";
+      document.l10n.setAttributes(detail, `whimsy-look-icon-pack-${pack}-detail`);
+
+      card.append(glyphs, nameRow, detail);
+      card.addEventListener("click", () => Services.prefs.setStringPref(WhimsyIconPack.PREF, pack));
+      list.append(card);
+      cards.set(pack, card);
+    }
+    const update = () => {
+      const selected = WhimsyIconPack.selectedPack;
+      for (const [pack, card] of cards) {
+        card.setAttribute("aria-checked", pack == selected);
+      }
+      if (preview) {
+        preview.replaceChildren();
+        for (const name of WhimsyIconPack.PREVIEW_ICONS) {
+          const img = document.createElement("img");
+          img.alt = "";
+          WhimsyIconPack.previewURL(selected, name).then(url => (img.src = url));
+          preview.append(img);
+        }
+      }
+    };
+    Services.prefs.addObserver(WhimsyIconPack.PREF, update);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(WhimsyIconPack.PREF, update));
     update();
   },
 
@@ -2098,6 +2469,11 @@ Object.assign(gWhimsySettings, {
         this.insertBatterySaverGroup?.(
           document.querySelector('[groupid="performance"]')?.getAttribute("data-category") || "paneGeneral"
         ),
+      // W29: the field editor button's card, right after Battery Saver
+      () =>
+        this.insertFieldEditorGroup?.(
+          document.querySelector('[groupid="performance"]')?.getAttribute("data-category") || "paneGeneral"
+        ),
       // About (async: it waits for Firefox's Updates group to render)
       () =>
         this.insertAboutGroup(
@@ -3072,6 +3448,42 @@ Object.assign(gWhimsySettings, {
 document.addEventListener("paneshown", event => {
   if (["paneGeneral", "paneZenTabManagement"].includes(event.detail.category)) {
     gWhimsySettings.insertBatterySaverGroup(event.detail.category);
+  }
+});
+
+// W29: the field editor button's card, right after Battery Saver (or
+// Performance, without it).
+Object.assign(gWhimsySettings, {
+  insertFieldEditorGroup(category = "paneGeneral") {
+    const template = document.getElementById("template-whimsyFieldEditor");
+    if (!template) {
+      const group = document.getElementById("whimsyFieldEditorGroup");
+      if (group) {
+        group.dataset.category = category;
+        group.hidden = false;
+      }
+      return;
+    }
+    const group = template.content.firstElementChild;
+    template.remove();
+    const anchor =
+      document.getElementById("whimsyBatterySaverGroup") ||
+      document.getElementById("whimsyPerformanceGroup") ||
+      document.querySelector('[groupid="performance"]');
+    group.dataset.category = category;
+    if (anchor) {
+      anchor.after(group);
+    } else {
+      document.getElementById("mainPrefPane").append(group);
+    }
+    group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
+    this.initPrefCheckbox("whimsyFieldEditorButton", "whimsy.field-editor.button");
+  },
+});
+document.addEventListener("paneshown", event => {
+  if (["paneGeneral", "paneZenTabManagement"].includes(event.detail.category)) {
+    gWhimsySettings.insertFieldEditorGroup(event.detail.category);
   }
 });
 

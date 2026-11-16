@@ -84,6 +84,9 @@
 - name: whimsy.feature.ui-font
   value: true
 
+- name: whimsy.feature.icon-pack
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 
@@ -711,7 +714,13 @@
 - name: whimsy.feature.page-animations-command
   value: true
 
+- name: whimsy.feature.page-minimap
+  value: true
+
 - name: whimsy.feature.window-title-space
+  value: true
+
+- name: whimsy.feature.window-on-top
   value: true
 
 - name: whimsy.feature.open-in-browser
@@ -721,6 +730,9 @@
   value: true
 
 - name: whimsy.feature.local-plugins
+  value: true
+
+- name: whimsy.feature.safety-check
   value: true
 
 # Arc-style Ctrl+Tab: recently used order.

@@ -519,6 +519,16 @@ whimsy-look-peek-essential-links =
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
+# W29 icon-sets: three cards (Nucleo, Lucide, Phosphor-fill), each a radio
+# with a name and a short detail ("Default · Nucleo").
+whimsy-look-icon-pack-label = Icons
+whimsy-look-icon-pack-nucleo = Whimsy
+whimsy-look-icon-pack-nucleo-detail = Default · Nucleo
+whimsy-look-icon-pack-lucide = Outline
+whimsy-look-icon-pack-lucide-detail = Lucide · thin strokes
+whimsy-look-icon-pack-phosphor-fill = Filled
+whimsy-look-icon-pack-phosphor-fill-detail = Phosphor · solid
+whimsy-look-icon-pack-preview-caption = Preview
 
 ## batch8: tab lifecycle — Settings → Tab Management
 
@@ -840,6 +850,11 @@ whimsy-look-always-full-url =
 # W27 winprefs: zen.view.grey-out-inactive-windows.
 whimsy-look-dim-inactive-window =
     .label = Dim the window when it’s not in front
+
+# W28: global, macOS only. Applies to every Whimsy window, including Mini
+# Whimsy, and persists across restarts.
+whimsy-look-window-on-top =
+    .label = Keep Window on Top
 
 ## batch7: Settings → General → Performance
 
@@ -3037,6 +3052,17 @@ whimsy-action-glance-size-compact = Glance Size: Compact
 whimsy-action-glance-size-standard = Glance Size: Standard
 whimsy-action-glance-size-wide = Glance Size: Wide
 
+# W28: Keep Window on Top (Settings → Look and Feel, macOS only; global,
+# not per-window). whimsy-action-window-on-top-toggle is the neutral,
+# shortcut-only name; the two variants are the command bar rows.
+whimsy-action-window-on-top-toggle = Keep or Stop Keeping Window on Top
+whimsy-action-window-on-top-on = Keep Window on Top
+whimsy-action-window-on-top-off = Stop Keeping Window on Top
+whimsy-keywords-window-on-top = float, pin, always on top, above
+whimsy-window-on-top-on-toast = Every Whimsy window stays on top
+whimsy-window-on-top-on-toast-description = Above other apps, on each window’s own desktop.
+whimsy-window-on-top-off-toast = Whimsy windows no longer stay on top
+
 # fix/panes: breadcrumbs on Firefox's sub-pages (Containers, Browser icon),
 # whose parent pane is now Zen's.
 whimsy-pane-looks-crumb =
@@ -4572,6 +4598,8 @@ whimsy-setting-dark-pdf = Dark PDFs
     .keywords = pdf dark mode, night mode, invert pdf
 whimsy-setting-ui-font = Interface Font
     .keywords = font, typeface, sidebar font, system font
+whimsy-setting-icon-pack = Icons
+    .keywords = icon pack, lucide, phosphor, outline, filled, nucleo, toolbar icons
 whimsy-setting-density = Density
     .keywords = compact, roomy, spacing, tab height
 whimsy-setting-transparency = Transparency
@@ -4586,6 +4614,8 @@ whimsy-setting-full-url = Full Address
     .keywords = full url, whole url, domain only, address bar, url bar
 whimsy-setting-dim-inactive-window = Dim Inactive Windows
     .keywords = grey out, gray out, inactive window, background window, unfocused window, fade
+whimsy-setting-window-on-top = Keep Window on Top
+    .keywords = float, pin, always on top, above, floating window, mini whimsy
 whimsy-setting-new-windows = New Window Page
     .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
 whimsy-setting-new-tabs = New Tab Page
@@ -4632,6 +4662,8 @@ whimsy-setting-vpn = Built-In VPN
     .keywords = vpn, ip protection, proxy, hide ip
 whimsy-setting-email-aliases = Private Email Button
     .keywords = hide my email, firefox relay, email alias, email mask, icloud
+whimsy-setting-field-editor-button = Text Editor Button
+    .keywords = edit field in text editor, textarea, contenteditable, comment box
 whimsy-setting-handoff = Handoff
     .keywords = continuity, iphone, ipad, continue on another device
 whimsy-setting-claude = Outside Agents
@@ -5372,7 +5404,15 @@ whimsy-favicon-home-button =
 whimsy-action-site-home = Go to Site Home
 whimsy-action-go-up-level = Go Up One Level
 whimsy-action-edit-field-in-editor = Edit Field in Text Editor
-whimsy-field-editor-toast-no-field = Click into a text field first
+
+## W29: the field editor button's own Settings card (General), and its
+## Settings-search entry.
+
+whimsy-field-editor-header =
+    .label = Text editor
+whimsy-field-editor-button =
+    .label = Show the text editor button on text boxes
+    .description = A small button in the corner of the box you’re typing in. Edit Field in Text Editor works in the same boxes either way.
 
 ## W23 ai-core: errors from the provider router (toasts; chat's error block
 ## lists what was tried itself).
@@ -7340,6 +7380,11 @@ whimsy-agent-tabs-undo = Undo
 whimsy-agent-tabs-collision-title = Paused so you can use { $site }
 whimsy-agent-chat-hand-over-collision = Carry on when you’re done, or keep this tab and I’ll leave it out.
 
+## W28 tab-state-indicators: the sparkle badge on a tab the current chat
+## thread reads from (WhimsyChatContextUI.markReadTabs).
+
+whimsy-chat-reads-tab = Chat reads this tab
+
 ## W23 routines-ui: Library › Routines, the routine form, and Watch This Page
 
 whimsy-library-routines-title = Routines
@@ -8045,10 +8090,51 @@ whimsy-setting-adult-history = History Filter for Adult Sites
 whimsy-photo-metadata-header =
     .label = Photo uploads
 whimsy-photo-metadata-toggle =
-    .label = Remove location and camera details from photos you upload
-    .description = JPEG and PNG photos lose their location, camera, and text details as you upload them; the picture itself isn’t changed. Photos you download aren’t touched.
-whimsy-setting-photo-metadata = Photo Location Removal
-    .keywords = exif, gps, location, metadata, camera, photo, picture, image, upload, privacy, strip
+    .label = Remove details from photos you upload
+    .description = Photos lose the details you choose as you upload them; the picture itself isn’t changed. Photos you download aren’t touched.
+## W29: which photo details go, in Settings and in the sheet that asks
+## before an upload.
+whimsy-photo-details-location =
+    .label = Location
+    .description = Where the photo was taken (GPS).
+whimsy-photo-details-camera =
+    .label = Camera and device
+    .description = Make, model, lens, serial number, and the app that edited it.
+whimsy-photo-details-date =
+    .label = Date and time taken
+    .description = When the photo was taken. Sites use this to sort photos.
+whimsy-photo-details-other =
+    .label = Everything else
+    .description = Captions, keywords, author, comments, and depth and HDR data.
+whimsy-photo-details-ask =
+    .label = Ask before each upload
+    .description = Choose these again when you upload a photo that has any of them. The boxes above are ticked to start.
+whimsy-photo-details-title = Remove photo details?
+whimsy-photo-details-row-location = Location
+whimsy-photo-details-row-camera = Camera and device
+whimsy-photo-details-row-date = Date and time taken
+whimsy-photo-details-row-other = Everything else
+# $count (number) - how many of the chosen photos carry details
+whimsy-photo-details-summary =
+    { $count ->
+        [one] 1 photo you chose carries details you may not mean to share.
+       *[other] { $count } photos you chose carry details you may not mean to share.
+    }
+# $count (number) - how many of the chosen photos carry this kind of detail
+whimsy-photo-details-count =
+    { $count ->
+        [one] 1 photo
+       *[other] { $count } photos
+    }
+whimsy-photo-details-none = None in these photos
+whimsy-photo-details-cancel =
+    .label = Cancel
+whimsy-photo-details-upload =
+    .label = Upload
+whimsy-photo-details-upload-as-is =
+    .label = Upload as is
+whimsy-setting-photo-metadata = Photo Details Removal
+    .keywords = exif, gps, location, metadata, camera, date, photo, picture, image, upload, privacy, strip, details
 ## W24 emoji: emoji from the command bar (":" or the Emoji command). Mockup:
 ## docs/superpowers/mockups/w24/05-emoji.html.
 
@@ -8395,3 +8481,64 @@ whimsy-setting-passkeys = Passkeys
 # command-bar rows shown only when that browser is installed.
 whimsy-action-open-in-safari = Open in Safari
 whimsy-action-open-in-chrome = Open in Chrome
+## W28: Page Minimap, a picture of a long page at its right edge with the
+## visible part outlined. Toggled from the command bar; off by default.
+
+whimsy-action-page-minimap-toggle = Show or Hide Page Minimap
+whimsy-action-page-minimap-show = Show Page Minimap
+whimsy-action-page-minimap-hide = Hide Page Minimap
+whimsy-keywords-page-minimap = minimap, overview, scroll map
+whimsy-minimap =
+    .aria-label = Page minimap
+# Shown when it's turned on while the current page is too short for it.
+whimsy-minimap-short-toast = Page Minimap shows on long pages
+## W29 safety-check: Settings → Privacy & Security → Safety Check. A check
+## of updates, breached passwords, risky extensions, and unused site
+## permissions, run on this device only.
+
+whimsy-safety-check-header =
+    .label = Safety Check
+whimsy-safety-check-description = A check of the things that most often go wrong. It runs on this device when you open this page, and sends nothing anywhere.
+whimsy-safety-check-run-button =
+    .label = Check again
+whimsy-safety-check-checking = Checking…
+whimsy-safety-check-last-run = Checked { $ago }
+
+whimsy-safety-check-updates-ok = Whimsy is up to date
+whimsy-safety-check-updates-ok-detail = Version { $v }, installed { $date }. Updates install on their own.
+whimsy-safety-check-updates-warn = An update is ready
+whimsy-safety-check-updates-warn-detail = Version { $v } is downloaded. It installs when Whimsy restarts.
+whimsy-safety-check-updates-restart =
+    .label = Restart to update
+
+whimsy-safety-check-passwords-ok = No breached passwords
+whimsy-safety-check-passwords-ok-detail = None of your { $count } saved passwords appear in known data breaches.
+whimsy-safety-check-passwords-warn = { $n } passwords appeared in data breaches
+whimsy-safety-check-passwords-warn-detail = { $sites }. Change them on those sites.
+whimsy-safety-check-passwords-review =
+    .label = Review
+
+whimsy-safety-check-extensions-ok = Extensions look fine
+whimsy-safety-check-extensions-ok-detail = All { $n } extensions are from addons.mozilla.org or are ones you added yourself.
+whimsy-safety-check-extensions-warn = { $n } extension can read every site
+whimsy-safety-check-extensions-warn-detail = { $name } isn’t from addons.mozilla.org and can see every page you open.
+whimsy-safety-check-extensions-review =
+    .label = Review
+
+whimsy-safety-check-permissions-ok = No unused permissions
+whimsy-safety-check-permissions-ok-detail = Every site with camera, microphone, location, or notification access was visited in the last 90 days.
+whimsy-safety-check-permissions-warn = { $n } sites you haven’t visited in 90 days still have access
+whimsy-safety-check-permissions-warn-detail = { $types }.
+whimsy-safety-check-permissions-review =
+    .label = Review
+
+whimsy-safety-check-sheet-title = Unused site permissions
+whimsy-safety-check-sheet-text = These sites can still use these permissions, but you haven’t visited them in 90 days.
+whimsy-safety-check-sheet-row = { $perms } · last visited in { $month }
+whimsy-safety-check-sheet-remove = Remove
+    .aria-label = Remove { $site }’s access
+whimsy-safety-check-sheet-remove-all =
+    .label = Remove all
+whimsy-safety-check-sheet-done =
+    .label = Done
+whimsy-safety-check-removed-toast = Removed { $site }’s access

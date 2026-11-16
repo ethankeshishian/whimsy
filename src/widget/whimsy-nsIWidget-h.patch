@@ -1,0 +1,23 @@
+diff --git a/widget/nsIWidget.h b/widget/nsIWidget.h
+--- a/widget/nsIWidget.h
++++ b/widget/nsIWidget.h
+@@ -781,6 +781,19 @@
+   virtual void LockAspectRatio(bool aShouldLock) {}
+ 
+   /**
++   * Set whether this widget's window should float above other
++   * applications' windows.
++   * @param aOnTop whether to float above other windows
++   */
++  virtual void SetAlwaysOnTop(bool aOnTop) {}
++
++  /**
++   * @return whether this widget's window currently floats above other
++   *   applications' windows.
++   */
++  virtual bool GetAlwaysOnTop() { return false; }
++
++  /**
+    * Move or resize this widget. Any size constraints set for the window by
+    * a previous call to SetSizeConstraints will be applied.
+    *
