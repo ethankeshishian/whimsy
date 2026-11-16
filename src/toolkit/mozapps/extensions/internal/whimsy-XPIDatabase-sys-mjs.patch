@@ -1,0 +1,120 @@
+diff --git a/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs b/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs
+index e9bab9d..8c99696 100644
+--- a/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs
++++ b/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs
+@@ -84,6 +84,8 @@ const KEY_APP_SYSTEM_SHARE = "app-system-share";
+ const KEY_APP_GLOBAL = "app-global";
+ const KEY_APP_PROFILE = "app-profile";
+ const KEY_APP_TEMPORARY = "app-temporary";
++// Whimsy: the owner's local plugins (XPIProvider's WhimsyPluginsLocation).
++const KEY_APP_WHIMSY_PLUGINS = "whimsy-local-plugins";
+ 
+ const DEFAULT_THEME_ID = "default-theme@mozilla.org";
+ 
+@@ -458,6 +460,16 @@ export class AddonInternal {
+         // Temporary and built-in add-ons do not require signing.
+         return true;
+ 
++      case KEY_APP_WHIMSY_PLUGINS:
++        // Whimsy: the owner's local plugins don't require signing, but only
++        // for extensions (not language packs, dictionaries, or themes) that
++        // really are a folder directly inside <profile>/whimsy-plugins (not
++        // a link to somewhere else).
++        return (
++          this.type == "extension" &&
++          !!this.location.isWhimsyPluginFolder?.(this._sourceBundle)
++        );
++
+       case KEY_APP_SYSTEM_SHARE:
+       case KEY_APP_SYSTEM_LOCAL:
+         // On UNIX platforms except OSX, an additional location for system
+@@ -876,6 +888,34 @@ export class AddonInternal {
+   }
+ }
+ 
++/**
++ * Whimsy: whether a local plugin's changed manifest needs the owner's
++ * approval again: a new version, or any permission, site, or data
++ * collection it didn't ask for before.
++ *
++ * @param {AddonInternal} oldAddon
++ * @param {AddonInternal} newAddon
++ * @returns {boolean}
++ */
++function whimsyPluginNeedsApproval(oldAddon, newAddon) {
++  if (oldAddon.version != newAddon.version) {
++    return true;
++  }
++  let asked = addon => {
++    let set = new Set();
++    for (let perms of [addon.userPermissions, addon.requestedPermissions]) {
++      for (let key of ["permissions", "origins", "data_collection"]) {
++        for (let value of perms?.[key] ?? []) {
++          set.add(`${key}:${value}`);
++        }
++      }
++    }
++    return set;
++  };
++  let before = asked(oldAddon);
++  return [...asked(newAddon)].some(perm => !before.has(perm));
++}
++
+ /**
+  * The AddonWrapper wraps an Addon to provide the data visible to consumers of
+  * the public API.
+@@ -3390,6 +3430,16 @@ export const XPIDatabaseReconcile = {
+       }
+     }
+ 
++    // Whimsy: a local plugin always starts turned off until the owner
++    // approves it, whatever extensions.autoDisableScopes says, and also when
++    // the database is rebuilt.
++    if (aLocation.name == KEY_APP_WHIMSY_PLUGINS) {
++      aNewAddon.foreignInstall = true;
++      aNewAddon.userDisabled = true;
++      aNewAddon.seen = false;
++      XPIExports.XPIInternal.XPIStates.sideLoadedAddons.set(aId, aAddonState);
++    }
++
+     return XPIDatabase.addToDatabase(aNewAddon, aAddonState.path);
+   },
+ 
+@@ -3463,17 +3513,36 @@ export const XPIDatabaseReconcile = {
+       return null;
+     }
+ 
++    // Whimsy: a local plugin with a new version, or a permission or site it
++    // didn't have, is turned off until the owner approves it again (also
++    // when it was off, so turning it on shows the permission prompt).
++    let whimsyReapprove =
++      aLocation.name == KEY_APP_WHIMSY_PLUGINS &&
++      whimsyPluginNeedsApproval(aOldAddon, aNewAddon);
++    if (whimsyReapprove) {
++      logger.warn(`Local plugin ${aNewAddon.id} changed; it needs approval`);
++      aNewAddon.userDisabled = true;
++    }
++
+     // Set the additional properties on the new AddonInternal
+     aNewAddon.updateDate = aAddonState.mtime;
+ 
+     XPIExports.XPIProvider.persistStartupData(aNewAddon, aAddonState);
+ 
+     // Update the database
+-    return XPIDatabase.updateAddonMetadata(
++    let updated = XPIDatabase.updateAddonMetadata(
+       aOldAddon,
+       aNewAddon,
+       aAddonState.path
+     );
++    if (whimsyReapprove) {
++      updated.seen = false;
++      XPIExports.XPIInternal.XPIStates.sideLoadedAddons.set(
++        updated.id,
++        aAddonState
++      );
++    }
++    return updated;
+   },
+ 
+   /**

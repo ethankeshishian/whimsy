@@ -85,6 +85,59 @@ function hasActiveSplit(win) {
   return !!win.gBrowser.selectedTab?.splitView;
 }
 
+// Zen Folders this tab currently sits inside, nearest first. Splitting the
+// last tab of a collapsed folder reselects a tab that ends up as the
+// folder's only (now two-pane) content, and ZenFolders.animateSelect treats
+// that as "every tab would be visible anyway" and expands the folder - see
+// snapshotCollapsedFolders below for the fix.
+function folderAncestors(tab) {
+  const folders = [];
+  let group = tab?.group;
+  while (group) {
+    if (group.isZenFolder) {
+      folders.push(group);
+    }
+    group = group.group;
+  }
+  return folders;
+}
+
+// Keep the split, not the side effect: record which of `tab`'s folders were
+// manually collapsed before a split reselects a tab, so the split can put
+// them back afterward instead of leaving them forced open.
+function snapshotCollapsedFolders(tab) {
+  return folderAncestors(tab)
+    .filter(folder => folder.collapsed)
+    .map(folder => folder);
+}
+
+function restoreCollapsedFolders(folders) {
+  for (const folder of folders) {
+    if (!folder.collapsed && folder.isConnected) {
+      folder.collapsed = true;
+    }
+  }
+}
+
+// splitTabs() selects the new tab before activating the split, and that
+// TabSelect is what drives ZenFolders#on_TabSelect's expand in the first
+// place: it's an async handler that only runs synchronously up to its first
+// await, then re-checks rootMostCollapsedFolder once that await resolves.
+// Restoring the collapse state synchronously, right after splitTabs()
+// returns, used to run inside that gap - on_TabSelect would find the folder
+// collapsed again on its re-check and expand it again, and since nothing
+// else was restoring it a second time, the two sides kept bouncing: each
+// restore fed another on_TabSelect iteration, which fed another restore.
+// Waiting a macrotask lets on_TabSelect's loop fully settle (it resolves in
+// a couple of microtask ticks once nothing is left collapsed) before this
+// runs, so there's nothing left for it to react to.
+function restoreCollapsedFoldersAfterSettle(win, folders) {
+  if (!folders.length) {
+    return;
+  }
+  win.setTimeout(() => restoreCollapsedFolders(folders), 0);
+}
+
 export const WhimsySplit = {
   // Called by WhimsyPageParent when the page actor reports a Shift+click on
   // a link. Opens the link next to the clicked tab, as a 2-pane split.
@@ -94,6 +147,7 @@ export const WhimsySplit = {
     }
     const splitter = win.gZenViewSplitter;
     const currentTab = win.gZenGlanceManager?.getTabOrGlanceParent(tab) ?? tab;
+    const collapsedFolders = snapshotCollapsedFolders(currentTab);
     const newTab = splitter.openAndSwitchToTab(href, {
       skipRoute: true,
       inBackground: false,
@@ -103,6 +157,7 @@ export const WhimsySplit = {
       return false;
     }
     splitter.splitTabs([currentTab, newTab], undefined, 1);
+    restoreCollapsedFoldersAfterSettle(win, collapsedFolders);
     return true;
   },
 

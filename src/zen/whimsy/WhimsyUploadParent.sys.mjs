@@ -15,6 +15,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   WhimsyUploadBadges: "resource:///modules/whimsy/WhimsyUploadBadges.sys.mjs",
+  WhimsyImageMetadata: "resource:///modules/whimsy/WhimsyImageMetadata.sys.mjs",
 });
 
 // The two clipboard flavors paste to upload reads. W13-R2: the badges check
@@ -144,7 +145,10 @@ async function withFile(result) {
     return result;
   }
   try {
-    return { ...result, file: await File.createFromFileName(result.path) };
+    const file = await File.createFromFileName(result.path);
+    // W27: without its location and camera details when that's on (the
+    // download on disk stays as it is).
+    return { ...result, file: await lazy.WhimsyImageMetadata.stripFile(file) };
   } catch (e) {
     console.error("Whimsy: reading the file to upload failed", e);
     return null;

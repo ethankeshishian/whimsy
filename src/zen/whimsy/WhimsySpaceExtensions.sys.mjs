@@ -28,11 +28,23 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AddonManager: "resource://gre/modules/AddonManager.sys.mjs",
   ExtensionCommon: "resource://gre/modules/ExtensionCommon.sys.mjs",
+  ExtensionsUI: "resource:///modules/ExtensionsUI.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySyncedMap: "resource:///modules/whimsy/WhimsyProfileSync.sys.mjs",
 });
 
+ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whimsy.ftl"], true));
+
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 const FEATURE_PREF = "whimsy.feature.space-extensions";
+const PROMPT_ELEMENT = "addon-webext-permissions-notification";
+// The profile dot in the install prompt: Firefox's container colours, as
+// Settings draws them (whimsy-preferences.css .whimsy-profile-dot); Default
+// has none, so it gets an outline.
+const DOT_COLORS = {
+  blue: "#37adff", turquoise: "#00c79a", green: "#51cd00", yellow: "#ffcb00",
+  orange: "#ff9f00", red: "#ff613d", pink: "#ff4bda", purple: "#af51f5",
+};
 // {extensionId: [profile key, ...]}; no entry means all profiles.
 const PROFILES_PREF = "whimsy.profiles.extensions";
 // The old per-space choice, migrated once to profiles.
@@ -490,6 +502,217 @@ export const WhimsySpaceExtensions = {
     [...choices.querySelectorAll("input")].find(input => input.dataset.profile === (focusKey ?? ""))?.focus();
   },
 
+  // -- "Run in profiles:" in Firefox's install prompt ---------------------
+  //
+  // Firefox's "Add { $extension }" prompt (addon-webext-permissions-
+  // notification) gains one item under "Optional settings:", built like its
+  // private-windows moz-checkbox: one checkbox per profile, the current one
+  // checked and locked, the others unchecked. It writes the same choice as
+  // Run in Profiles. Installing an extension that's already here but not
+  // allowed in this profile doesn't reinstall it: Add only adds this profile
+  // (and whichever others are checked) to its list.
+
+  // The strings object ExtensionsUI hands the prompt (its customElementOptions
+  // carry nothing else that names the add-on) → this prompt's choice.
+  _installPrompts: new WeakMap(),
+  // Add-on id → the profile keys (or null for all) chosen in the prompt,
+  // applied once the install starts.
+  _pendingInstalls: new Map(),
+
+  async installPromptContext(target, strings, { addon, shouldShowIncognitoCheckbox } = {}) {
+    // Only Firefox's install prompts (fresh or a sideload) show the
+    // incognito option; updates and optional-permission prompts don't.
+    if (!featureOn() || !shouldShowIncognitoCheckbox || addon?.type !== "extension" || !strings) {
+      return null;
+    }
+    const profiles = lazy.WhimsyProfiles.list();
+    if (profiles.length < 2) {
+      return null;
+    }
+    const win = target?.documentGlobal;
+    const currentKey = this.activeKey(win?.gZenWorkspaces ? win : lazy.WhimsyProfiles.mainWindow());
+    const existing = await lazy.AddonManager.getAddonByID(addon.id);
+    if (existing && this.isAllowedIn(addon.id, currentKey)) {
+      // Already runs here: Firefox's own reinstall, untouched.
+      return null;
+    }
+    const checked = new Set([currentKey, ...(existing ? this.getAllowedProfiles(addon.id) ?? [] : [])]);
+    const context = {
+      addonId: addon.id,
+      currentKey,
+      checked,
+      existing: !!existing,
+      sameVersion: !!existing && existing.version === addon.version,
+    };
+    this._installPrompts.set(strings, context);
+    return context;
+  },
+
+  // Called once Add or Cancel is chosen. Returns whether Firefox should go
+  // on installing.
+  finishInstallPrompt(context, accepted) {
+    if (!accepted || !featureOn()) {
+      return accepted;
+    }
+    const keys = lazy.WhimsyProfiles.list().map(profile => profile.key);
+    const chosen = keys.filter(key => context.checked.has(key) || key === context.currentKey);
+    // Every profile = no entry (All Profiles), so profiles added later get it.
+    const choice = chosen.length === keys.length ? null : chosen;
+    if (!context.existing) {
+      this._pendingInstalls.set(context.addonId, choice);
+      return accepted;
+    }
+    this.setAllowedProfiles(context.addonId, choice);
+    // The same version is already installed: enabling it here is all Add
+    // means, so Firefox doesn't reinstall it. A different version is an
+    // upgrade and goes ahead.
+    return !context.sameVersion;
+  },
+
+  applyPendingInstall(addon) {
+    if (!addon || !this._pendingInstalls.has(addon.id)) {
+      return;
+    }
+    const choice = this._pendingInstalls.get(addon.id);
+    this._pendingInstalls.delete(addon.id);
+    if (featureOn()) {
+      this.setAllowedProfiles(addon.id, choice);
+    }
+  },
+
+  wrapInstallPrompt() {
+    const ui = lazy.ExtensionsUI;
+    const original = ui.showPermissionsPrompt;
+    if (typeof original !== "function" || original._whimsySpaceExt) {
+      return;
+    }
+    const self = this;
+    const wrapped = async function (target, strings, icon, options = {}) {
+      let context = null;
+      try {
+        context = await self.installPromptContext(target, strings, options);
+      } catch (e) {
+        console.error("Whimsy: profiles in the install prompt", e);
+      }
+      const accepted = await original.call(this, target, strings, icon, options);
+      return context ? self.finishInstallPrompt(context, accepted) : accepted;
+    };
+    wrapped._whimsySpaceExt = true;
+    ui.showPermissionsPrompt = wrapped;
+  },
+
+  // addons.mozilla.org asks whether an extension is installed to choose
+  // between Add and Remove. In a profile it doesn't run in, it isn't there,
+  // so the site offers Add (which then just adds this profile).
+  wrapWebAPI() {
+    const api = lazy.AddonManager.webAPI;
+    const original = api?.getAddonByID;
+    if (typeof original !== "function" || original._whimsySpaceExt) {
+      return;
+    }
+    const self = this;
+    const wrapped = async function (target, id) {
+      const result = await original.call(this, target, id);
+      if (result && featureOn()) {
+        const key = lazy.WhimsyProfiles.keyFor(Number(target?.getAttribute?.("usercontextid")) || 0);
+        if (!self.isAllowedIn(id, key)) {
+          return null;
+        }
+      }
+      return result;
+    };
+    wrapped._whimsySpaceExt = true;
+    api.getAddonByID = wrapped;
+  },
+
+  dotIcon(profile) {
+    const fill = DOT_COLORS[profile.color];
+    const circle = profile.isDefault || !fill ?
+      '<circle cx="8" cy="8" r="5.25" fill="none" stroke="#8f8f9d" stroke-width="1.5"/>' :
+      `<circle cx="8" cy="8" r="6" fill="${fill}"/>`;
+    return `data:image/svg+xml,${encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">${circle}</svg>`)}`;
+  },
+
+  /** The prompt's "Run in profiles:" item, or null when it has none. */
+  installPromptItem(doc, strings) {
+    const context = strings && this._installPrompts.get(strings);
+    const profiles = lazy.WhimsyProfiles.list();
+    if (!context || !featureOn() || profiles.length < 2) {
+      return null;
+    }
+    const item = doc.createElementNS(HTML_NS, "li");
+    item.classList.add("webext-perm-optional", "whimsy-ext-install-profiles");
+    const label = doc.createElementNS(HTML_NS, "div");
+    label.id = "whimsy-ext-install-profiles-label";
+    doc.l10n.setAttributes(label, "whimsy-space-extensions-install-label");
+    const group = doc.createElementNS(HTML_NS, "div");
+    group.className = "whimsy-ext-install-profiles-list";
+    group.setAttribute("role", "group");
+    group.setAttribute("aria-labelledby", label.id);
+    for (const profile of profiles) {
+      const checkbox = doc.createElement("moz-checkbox");
+      // Attributes rather than properties, so the state is in the markup.
+      checkbox.dataset.profileKey = profile.key;
+      checkbox.setAttribute("label", profile.name);
+      checkbox.setAttribute("iconsrc", this.dotIcon(profile));
+      if (profile.key === context.currentKey) {
+        // You're installing it here: always on.
+        checkbox.toggleAttribute("checked", true);
+        checkbox.toggleAttribute("disabled", true);
+        checkbox.setAttribute("description",
+          lazy.l10n.formatValueSync("whimsy-space-extensions-install-current"));
+      } else {
+        checkbox.toggleAttribute("checked", context.checked.has(profile.key));
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) {
+            context.checked.add(profile.key);
+          } else {
+            context.checked.delete(profile.key);
+          }
+        });
+      }
+      group.appendChild(checkbox);
+    }
+    item.append(label, group);
+    return item;
+  },
+
+  // Firefox builds the prompt's lists in JS on every show; one hook adds
+  // Whimsy's item after its own, the way it adds the private-windows one.
+  wrapInstallPromptElement(win) {
+    const wrap = () => {
+      const proto = win.customElements.get(PROMPT_ELEMENT)?.prototype;
+      const original = proto?.render;
+      if (typeof original !== "function" || original._whimsySpaceExt) {
+        return;
+      }
+      const self = this;
+      const wrapped = function (...args) {
+        const result = original.apply(this, args);
+        try {
+          const strings = this.notification?.options?.customElementOptions?.strings;
+          const item = self.installPromptItem(this.ownerDocument, strings);
+          if (item && this.permsListOptionalEl) {
+            this.permsListOptionalEl.appendChild(item);
+            this.permsTitleOptionalEl.hidden = false;
+            this.permsListOptionalEl.hidden = false;
+          }
+        } catch (e) {
+          console.error("Whimsy: profiles in the install prompt", e);
+        }
+        return result;
+      };
+      wrapped._whimsySpaceExt = true;
+      proto.render = wrapped;
+    };
+    if (win.customElements.get(PROMPT_ELEMENT)) {
+      wrap();
+    } else {
+      win.customElements.whenDefined(PROMPT_ELEMENT).then(wrap);
+    }
+  },
+
   // -- wiring ------------------------------------------------------------
 
   wrapChangeWorkspace(win) {
@@ -528,7 +751,12 @@ export const WhimsySpaceExtensions = {
     lazy.AddonManager.addAddonListener({
       onEnabled: () => self.refreshAllWindows(),
       onDisabled: () => self.refreshAllWindows(),
-      onInstalled: () => self.refreshAllWindows(),
+      // Before it starts, so it never runs where it wasn't chosen.
+      onInstalling: addon => self.applyPendingInstall(addon),
+      onInstalled: addon => {
+        self.applyPendingInstall(addon);
+        self.refreshAllWindows();
+      },
       onUninstalled: addon => self.forgetExtension(addon.id),
     });
   },
@@ -574,6 +802,9 @@ export const WhimsySpaceExtensions = {
     this.wrapGetActivePolicies(win);
     this.initCustomizableUIListener(win);
     this.initAddonListener();
+    this.wrapInstallPrompt();
+    this.wrapWebAPI();
+    this.wrapInstallPromptElement(win);
     const refresh = () => this.applyVisibility(win);
     win.addEventListener("ZenWorkspaceDataChanged", refresh);
     win.addEventListener("ZenWorkspacesUIUpdate", refresh);
