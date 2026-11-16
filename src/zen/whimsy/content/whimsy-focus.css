@@ -1,0 +1,96 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* W29 focus sessions: the page a paused site shows (about:whimsy?focus).
+   The brand line and pill buttons are the network error page's
+   (whimsy-neterror.css:11-17, :61-73). */
+:root {
+  color-scheme: light dark;
+  --focus-text: light-dark(#1d1d1f, #f5f5f7);
+  --focus-muted: light-dark(#5f5f66, #a7a7ae);
+  background: light-dark(#fbfbfd, #1c1b22);
+  color: var(--focus-text);
+  font: message-box;
+  font-size: 15px;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+#whimsy-focus-page {
+  max-width: 440px;
+  padding: 0 24px 7rem;
+}
+
+#whimsy-focus-brand {
+  color: light-dark(#7142a0, #d5a7f0);
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-block: 0 1rem;
+}
+
+#whimsy-focus-heading {
+  margin: 0 0 0.6rem;
+  font-size: 1.6rem;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+#whimsy-focus-text {
+  margin: 0 0 1.5rem;
+  color: var(--focus-muted);
+  line-height: 1.5;
+}
+
+#whimsy-focus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#whimsy-focus-actions button {
+  border-radius: 999px;
+  padding: 0.7rem 1.3rem;
+  font: inherit;
+  font-weight: 600;
+  color: light-dark(#4b286c, #f3e4ff);
+  background: light-dark(#f0e3fa, #392849);
+  border: 1px solid light-dark(#d6b8ec, #73518e);
+  cursor: pointer;
+
+  &.primary {
+    color: light-dark(#fff, #2b1640);
+    background: light-dark(#7142a0, #d5a7f0);
+    border-color: transparent;
+  }
+
+  &:focus-visible {
+    outline: 2px solid light-dark(#7142a0, #d5a7f0);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #whimsy-focus-actions button {
+    transition: background-color 150ms ease;
+  }
+}
+
+@media (forced-colors: active) {
+  #whimsy-focus-brand {
+    color: CanvasText;
+  }
+  #whimsy-focus-actions button {
+    color: ButtonText;
+    background: ButtonFace;
+    border-color: ButtonText;
+  }
+}

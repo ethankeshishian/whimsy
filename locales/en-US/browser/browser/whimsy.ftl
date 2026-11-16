@@ -3258,6 +3258,137 @@ whimsy-dnd-on-toast = Do Not Disturb on
 whimsy-dnd-on-toast-description = Site notifications are paused until you turn it off or quit
 whimsy-dnd-off-toast = Do Not Disturb off
 
+## W29 focus sessions: the sheet (a dial for the length and what the
+## session turns on), the countdown in the page's top-right corner, sites
+## paused while it runs, the finish, and the break reminder.
+
+whimsy-action-focus-toggle = Start or End Focus Session
+whimsy-action-focus-start = Start Focus Session
+whimsy-action-focus-end = End Focus Session
+whimsy-keywords-focus = Focus, Pomodoro, Timer, Block, Distraction
+whimsy-focus-sheet-title = Focus session
+whimsy-focus-length =
+    .aria-label = Length
+# What VoiceOver reads for the length picker.
+# $minutes (Number) - the length the picker is set to.
+# $time (String) - when a session that long would end, such as 3:40 PM.
+whimsy-focus-length-spoken = { $minutes ->
+    [one] { $minutes } minute, ends at { $time }
+   *[other] { $minutes } minutes, ends at { $time }
+}
+# The unit under the dial's big number.
+whimsy-focus-min = min
+# $time (String) - a time of day, "3:40 PM".
+whimsy-focus-ends = Ends at { $time }
+whimsy-focus-during = During the session
+whimsy-focus-just-timer = Just a timer
+whimsy-focus-dnd = Do Not Disturb
+whimsy-focus-dnd-detail = Notifications wait until the session ends
+whimsy-focus-pause = Pause distracting sites
+# $count (Number) - how many of your own sites are on the list.
+whimsy-focus-pause-both = { $count ->
+    [0] Social media and video
+    [one] Social media, video, and { $count } more site
+   *[other] Social media, video, and { $count } more sites
+}
+whimsy-focus-pause-social = { $count ->
+    [0] Social media
+    [one] Social media and { $count } more site
+   *[other] Social media and { $count } more sites
+}
+whimsy-focus-pause-video = { $count ->
+    [0] Video
+    [one] Video and { $count } more site
+   *[other] Video and { $count } more sites
+}
+whimsy-focus-pause-own = { $count ->
+    [0] No sites yet
+    [one] { $count } site
+   *[other] { $count } sites
+}
+whimsy-focus-edit = Edit
+whimsy-focus-mute = Mute background tabs
+whimsy-focus-mute-detail = Only the tab you’re on can play sound
+# W29 Stay on this tab: a tick in the sheet.
+whimsy-focus-stay = Stay on this tab
+whimsy-focus-stay-detail = Hides your other tabs. New tabs open in Glance.
+# The line under the kept tab. $count (Number) - tabs hidden; $time (String) - when the session ends.
+whimsy-focus-tabs-hidden = { $count ->
+    [one] { $count } tab hidden until { $time }
+   *[other] { $count } tabs hidden until { $time }
+}
+whimsy-focus-break = Break reminder
+# $minutes (Number) - the break's length.
+whimsy-focus-break-detail = A { $minutes }-minute break when it ends, then a nudge
+whimsy-focus-cancel =
+    .label = Cancel
+whimsy-focus-start =
+    .label = Start
+# The countdown in the page's corner. $time (String) - when it ends;
+# $minutes (Number) - minutes left, rounded up.
+whimsy-focus-notch =
+    .title = Ends at { $time }
+    .aria-label = { $minutes ->
+        [one] Focus session, { $minutes } minute left
+       *[other] Focus session, { $minutes } minutes left
+    }
+whimsy-focus-done = Done
+# The countdown's panel. $time (String) - when it ends.
+whimsy-focus-panel-ends = Ends at { $time }.
+# $time (String); $list (String) - what the session turned on, joined.
+whimsy-focus-panel-text = Ends at { $time }. { $list }.
+# Two of the parts below, joined.
+whimsy-focus-panel-pair = { $first }, and { $second }
+whimsy-focus-panel-dnd = Do Not Disturb is on
+# $count (Number) - sites paused.
+whimsy-focus-panel-sites = { $count ->
+    [one] { $count } site is paused
+   *[other] { $count } sites are paused
+}
+whimsy-focus-panel-mute = background tabs are muted
+# $minutes (Number) - the break's length.
+whimsy-focus-panel-break = a { $minutes }-minute break follows
+# Stay on this tab, after the panel's first sentence.
+whimsy-focus-panel-tabs = Your other tabs come back when it ends.
+whimsy-focus-end-session =
+    .label = End session
+whimsy-focus-done-toast = Focus session done
+whimsy-focus-done-break = Time for a break.
+whimsy-focus-start-another = Start another
+whimsy-focus-break-over = Break’s over
+# $minutes (Number) - the length of the session that just ended.
+whimsy-focus-break-over-description = Ready for another { $minutes } minutes?
+
+## W29 focus sessions: the page a paused site shows
+
+whimsy-focus-page-title = Paused for focus
+whimsy-focus-page-brand = Whimsy
+# $site (String) - the site's name, "x.com".
+whimsy-focus-page-heading = { $site } is paused during your focus session
+# $time (String) - when the session ends, "3:40 PM".
+whimsy-focus-page-text = It opens again at { $time }, when the session ends.
+whimsy-focus-page-back = Go back
+whimsy-focus-page-open = Open anyway
+whimsy-focus-page-this-site = This site
+
+## W29 focus sessions: Settings › General › Focus Sessions
+
+whimsy-focus-settings-header = Focus Sessions
+whimsy-focus-settings-help = Sites to pause during a focus session. Their subdomains are paused too.
+whimsy-focus-settings-social =
+    .label = Social media
+whimsy-focus-settings-video =
+    .label = Video and entertainment
+# $sites (String) - the first few sites; $count (Number) - how many more.
+whimsy-focus-settings-sample = { $sites }, and { $count } more
+whimsy-focus-settings-yours = Your sites
+whimsy-focus-settings-yours-help = One per line.
+whimsy-focus-settings-save =
+    .label = Save
+whimsy-focus-settings-saved = Sites saved.
+# $line (String) - the line that isn't a site, as typed.
+whimsy-focus-settings-invalid = “{ $line }” isn’t a site name. Nothing was saved.
+
 ## wave7/focus: paste guard (asks before pasting something that looks
 ## like a secret into a web page)
 
@@ -4940,6 +5071,12 @@ whimsy-setting-menus = Right-Click Menus
     .keywords = menus, context menus, menu items, hide menu items, customize menus
 whimsy-setting-bangs-list = Bang List
     .keywords = bangs, custom bangs, edit bangs
+whimsy-setting-focus-social = Social Media Pausing
+    .keywords = focus, focus session, pomodoro, block, distraction, social media, pause sites
+whimsy-setting-focus-video = Video Pausing
+    .keywords = focus, focus session, pomodoro, block, distraction, video, entertainment, youtube, pause sites
+whimsy-setting-focus-sites = Focus Session Sites
+    .keywords = focus, focus session, pomodoro, block, distraction, your sites, pause sites, blocklist
 whimsy-setting-profiles = Profile Settings
     .keywords = profiles, search engine per profile, download folder per profile
 whimsy-setting-profile-name = Profile Name

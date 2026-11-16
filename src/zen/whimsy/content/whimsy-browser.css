@@ -8432,6 +8432,457 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   }
 }
 
+/* W29 focus sessions (WhimsyFocusSheet, WhimsyFocusPicker,
+   WhimsyFocusNotch; intake-w28/designs/focus-wellbeing.md). */
+
+/* The sheet: the picker centred, "Ends at" under it, then the checklist. */
+.whimsy-focus-picker-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 4px;
+  user-select: none;
+}
+.whimsy-focus-ends {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-color-deemphasized, currentColor);
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-focus-check-row {
+  cursor: default;
+
+  &:hover {
+    background-color: var(--whimsy-surface-hover);
+  }
+}
+.whimsy-focus-edit {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  /* The detail already mutes currentColor; don't mute it a second time. */
+  color: var(--link-color, LinkText);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 2px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-color: currentColor;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
+}
+
+/* A · the dial: Time Timer's wedge in the space's accent. */
+.whimsy-focus-dial {
+  position: relative;
+  width: 196px;
+  height: 196px;
+  border-radius: 50%;
+  touch-action: none;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 2px;
+  }
+  & > svg {
+    display: block;
+    width: 196px;
+    height: 196px;
+  }
+}
+.whimsy-focus-dial-face {
+  fill: var(--whimsy-surface-track);
+}
+.whimsy-focus-dial-tick {
+  stroke: color-mix(in srgb, currentColor 22%, transparent);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  transition: stroke 120ms;
+
+  &.is-5 {
+    stroke-width: 2;
+    stroke: color-mix(in srgb, currentColor 38%, transparent);
+  }
+  &.on {
+    stroke: var(--zen-primary-color, AccentColor);
+  }
+}
+.whimsy-focus-dial-wedge {
+  fill: var(--whimsy-accent-fill);
+  opacity: 0.9;
+}
+.whimsy-focus-dial-wedge2 {
+  fill: color-mix(in srgb, var(--whimsy-accent-fill), black 28%);
+}
+.whimsy-focus-dial-hub {
+  fill: var(--arrowpanel-background, Canvas);
+}
+.whimsy-focus-dial-knob {
+  fill: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+.whimsy-focus-dial-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+
+  & > b {
+    font-size: 34px;
+    font-weight: 650;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+
+    &.is-bump {
+      animation: whimsy-focus-bump 180ms var(--whimsy-ease-momentum);
+    }
+  }
+  & > span {
+    margin-top: 2px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--whimsy-surface-muted);
+  }
+}
+@keyframes whimsy-focus-bump {
+  50% {
+    scale: 1.06;
+  }
+}
+
+/* R · the Selector (intake-w29/designs/focus-clocks.md, round 3): a
+   chicken-head rotary switch on a 270° scale. The knob's colours are the
+   design's; the scale is the surface's text. */
+.whimsy-focus-selector {
+  position: relative;
+  width: 240px;
+  height: 204px;
+  border-radius: 12px;
+  touch-action: none;
+  cursor: grab;
+
+  &.is-held {
+    cursor: grabbing;
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus);
+    outline-offset: 2px;
+  }
+  & > svg {
+    display: block;
+    width: 240px;
+    height: 204px;
+    overflow: visible;
+  }
+}
+.whimsy-focus-selector-tick {
+  stroke: color-mix(in srgb, currentColor 40%, transparent);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+
+  &.is-15 {
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+}
+.whimsy-focus-selector-label {
+  fill: currentColor;
+  font-size: 10.5px;
+  font-weight: 650;
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-focus-selector-base {
+  fill: light-dark(#3a3a3c, #2c2c2e);
+}
+.whimsy-focus-selector-knurl {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 5;
+  stroke-dasharray: 2 2.6;
+}
+.whimsy-focus-selector-head {
+  fill: light-dark(#1d1d1f, #48484a);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+}
+.whimsy-focus-selector-line {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.whimsy-focus-selector-cap {
+  fill: rgba(255, 255, 255, 0.08);
+}
+.whimsy-focus-selector-knob {
+  transform-box: view-box;
+  transform-origin: 120px 100px;
+  transition: scale 100ms var(--whimsy-ease);
+
+  .whimsy-focus-selector.is-held & {
+    scale: 0.96;
+  }
+}
+.whimsy-focus-selector-read {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 4px;
+  pointer-events: none;
+
+  & > b {
+    display: inline-block;
+    font-size: 22px;
+    font-weight: 650;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+
+    &.is-bump {
+      animation: whimsy-focus-bump 180ms var(--whimsy-ease-momentum);
+    }
+  }
+  & > span {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--whimsy-surface-muted);
+  }
+}
+
+/* The countdown notch: the window background carved into the page's
+   top-right corner, with concave fillets at the page's corner radius
+   (--zen-native-inner-radius). */
+.whimsy-focus-notch {
+  --whimsy-focus-r: var(--zen-native-inner-radius, 10px);
+  position: absolute;
+  top: 0;
+  inset-inline-end: 0;
+  z-index: 20;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px 0 10px;
+  background: var(--zen-main-browser-background) fixed;
+  border-end-start-radius: var(--whimsy-focus-r);
+  color: var(--toolbox-textcolor, currentColor);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+  transition: translate 320ms var(--whimsy-surface-ease, cubic-bezier(0.2, 0, 0, 1)), opacity 200ms;
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    width: var(--whimsy-focus-r);
+    height: var(--whimsy-focus-r);
+    background: var(--zen-main-browser-background) fixed;
+    mask: radial-gradient(circle at 0 100%, transparent calc(var(--whimsy-focus-r) - 0.5px), black var(--whimsy-focus-r));
+    pointer-events: none;
+  }
+  &::before {
+    top: 0;
+    right: 100%;
+  }
+  &::after {
+    top: 100%;
+    right: 0;
+  }
+  &:hover {
+    background-image: linear-gradient(color-mix(in srgb, currentColor 6%, transparent), color-mix(in srgb, currentColor 6%, transparent));
+  }
+  &:focus-visible {
+    outline: 2px solid var(--focus-outline-color, AccentColor);
+    outline-offset: -2px;
+  }
+  &.is-last .whimsy-focus-time {
+    color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, currentColor);
+  }
+  &.is-gone {
+    translate: 0 -110%;
+    opacity: 0;
+  }
+  &.is-gone::after {
+    opacity: 0;
+  }
+  :root:is([inFullscreen], [inDOMFullscreen]) & {
+    display: none;
+  }
+}
+.whimsy-focus-pie {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--whimsy-accent-fill) calc(var(--p, 1) * 1turn),
+    color-mix(in srgb, currentColor 16%, transparent) 0
+  );
+}
+.whimsy-focus-time {
+  display: inline-flex;
+}
+.whimsy-focus-ch {
+  position: relative;
+  display: inline-block;
+  width: 0.62em;
+  height: 1.2em;
+  overflow: hidden;
+  text-align: center;
+
+  &.is-colon {
+    width: 0.3em;
+  }
+  & > i {
+    position: absolute;
+    inset: 0;
+    font-style: normal;
+    line-height: 1.2em;
+    transition: translate 280ms var(--whimsy-surface-ease, cubic-bezier(0.2, 0, 0, 1)), opacity 280ms;
+
+    &.is-in {
+      translate: 0 -70%;
+      opacity: 0;
+    }
+    &.is-out {
+      translate: 0 70%;
+      opacity: 0;
+    }
+  }
+}
+.whimsy-focus-done {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, currentColor);
+}
+.whimsy-focus-done-icon {
+  width: 14px;
+  height: 14px;
+  -moz-context-properties: fill;
+  fill: currentColor;
+}
+.whimsy-focus-notch.is-done {
+  & .whimsy-focus-done {
+    display: inline-flex;
+  }
+  & :is(.whimsy-focus-time, .whimsy-focus-pie) {
+    display: none;
+  }
+}
+.whimsy-focus-confetti {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 21;
+  pointer-events: none;
+}
+.whimsy-focus-panel-text {
+  margin: 0;
+  padding: 2px 8px 4px;
+  line-height: 1.4;
+}
+/* Toasts start below the notch while a session runs (like devmode's
+   offset above). */
+:root[whimsy-focus] #zen-toast-container {
+  top: calc(max(var(--whimsy-devmode-bar-bottom, 0px), var(--whimsy-focus-notch-bottom, 0px)) + var(--zen-toast-spacing));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-focus-dial-tick,
+  .whimsy-focus-notch,
+  .whimsy-focus-ch > i {
+    transition: none;
+  }
+  .whimsy-focus-dial-center > b.is-bump,
+  .whimsy-focus-selector-read > b.is-bump {
+    animation: none;
+  }
+  .whimsy-focus-selector-knob {
+    transition: none;
+  }
+}
+
+/* W29 Stay on this tab (WhimsyFocusTab.sys.mjs, intake-w29/designs/
+   focus-this-tab.md). While a session runs with it ticked, the window shows
+   only the kept tab: the rest fade out (200ms, the exit curve), then hide;
+   when it ends they fade back in (300ms, the standard curve). Glance can't
+   become a tab or a split meanwhile. State roots belong only in the nested
+   rules; repeating the root outside would require a root below a root. */
+:is(
+  .tabbrowser-tab:not([whimsy-focus-keep], [zen-glance-tab]),
+  zen-folder:not(:has([whimsy-focus-keep])),
+  tab-group:not(:has([whimsy-focus-keep])),
+  #zen-essentials:not(:has([whimsy-focus-keep])),
+  .zen-workspace-pinned-tabs-section:not(:has([whimsy-focus-keep])),
+  .pinned-tabs-container-separator,
+  #tabbrowser-arrowscrollbox-periphery,
+  #zen-workspaces-button,
+  .zen-glance-sidebar-open,
+  .zen-glance-sidebar-split
+) {
+  :root[whimsy-focus-tab="leaving"] & {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms var(--whimsy-ease-panel-exit);
+  }
+  :root[whimsy-focus-tab="on"] & {
+    display: none !important;
+  }
+  :root[whimsy-focus-tab="returning"] & {
+    animation: whimsy-focus-tab-in 300ms var(--whimsy-ease) both;
+  }
+}
+@keyframes whimsy-focus-tab-in {
+  from {
+    opacity: 0;
+  }
+}
+/* "13 tabs hidden until 3:40 PM", under the tab. */
+.whimsy-focus-tab-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
+  margin-inline: var(--tab-inline-margin, 0);
+  font-size: 11px;
+  white-space: nowrap;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+
+  & > img {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+  & > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 /* ext: "Run in profiles:" in Firefox's add-extension prompt
    (WhimsySpaceExtensions.installPromptItem). The checkboxes are Firefox's
    moz-checkbox, as for "Allow extension to run in private windows";

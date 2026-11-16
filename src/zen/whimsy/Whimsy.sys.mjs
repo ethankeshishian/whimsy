@@ -286,6 +286,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave7/focus: Do Not Disturb and paste guard.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyDoNotDisturb: "resource:///modules/whimsy/WhimsyDoNotDisturb.sys.mjs",
+  WhimsyFocusSession: "resource:///modules/whimsy/WhimsyFocusSession.sys.mjs",
   WhimsyPasskeys: "resource:///modules/whimsy/WhimsyPasskeys.sys.mjs",
   WhimsyPasteGuard: "resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs",
 });
@@ -1285,6 +1286,10 @@ export const Whimsy = {
     // guard. Each command checks its switch on use.
     run("do-not-disturb", () => lazy.WhimsyDoNotDisturb.initWindow(win));
     run("paste-guard", () => lazy.WhimsyPasteGuard.initWindow(win));
+    // W29: focus sessions (the sheet, the countdown notch, paused sites).
+    // The command checks its switch on use; a running session shows its
+    // countdown in every new window.
+    run("focus-sessions", () => lazy.WhimsyFocusSession.initWindow(win));
 
     // wave7/teach: Teach once.
     if (this.featureEnabled("teach-once")) {

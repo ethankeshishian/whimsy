@@ -649,6 +649,29 @@
   </groupbox>
 </html:template>
 
+# W29: Settings › General › Focus Sessions. The sites a focus session
+# pauses: two built-in lists (on by default) and your own, one per line
+# (the Bang Shortcuts pattern above). The sheet's Edit link opens this.
+<html:template id="template-whimsyFocus" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <groupbox id="whimsyFocusGroup" data-category="paneGeneral" data-subcategory="whimsyFocus" hidden="true" class="highlighting-group">
+    <label><html:h2 data-l10n-id="whimsy-focus-settings-header"/></label>
+    <description id="whimsyFocusHelp" class="description-deemphasized" data-l10n-id="whimsy-focus-settings-help"/>
+    <checkbox id="whimsyFocusSocial" preference="whimsy.focus.social" data-l10n-id="whimsy-focus-settings-social"
+              aria-describedby="whimsyFocusSocialSample"/>
+    <description id="whimsyFocusSocialSample" class="description-deemphasized indent"/>
+    <checkbox id="whimsyFocusVideo" preference="whimsy.focus.video" data-l10n-id="whimsy-focus-settings-video"
+              aria-describedby="whimsyFocusVideoSample"/>
+    <description id="whimsyFocusVideoSample" class="description-deemphasized indent"/>
+    <label id="whimsyFocusSitesLabel" control="whimsyFocusSites" data-l10n-id="whimsy-focus-settings-yours"/>
+    <description id="whimsyFocusSitesHelp" class="description-deemphasized" data-l10n-id="whimsy-focus-settings-yours-help"/>
+    <html:textarea id="whimsyFocusSites" rows="6" spellcheck="false" aria-describedby="whimsyFocusSitesHelp whimsyFocusStatus"/>
+    <hbox align="center">
+      <button id="whimsyFocusSave" data-l10n-id="whimsy-focus-settings-save"/>
+      <html:span id="whimsyFocusStatus" role="status" aria-live="polite"/>
+    </hbox>
+  </groupbox>
+</html:template>
+
 # system: Settings → Links. Every setting about where a link opens, in one
 # pane: links from other apps, Glance (Zen's own Glance group joins this
 # one), split view and space routing. whimsy-settings.js adds the pane to

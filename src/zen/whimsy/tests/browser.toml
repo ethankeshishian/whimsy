@@ -783,6 +783,10 @@ support-files = ["whimsy_page_tint.html"]
 # W29 ambient-audio: the Ambient sound sheet (six tiles, one at a time, closing the sheet doesn't stop it), the two ⌘K commands and their live detail text, tab mute independence, and the playing tile's text contrast.
 ["browser_whimsy_ambient.js"]
 
+# W29 focus sessions: the session sheet and its ticks, the countdown notch,
+# site pausing, the end (confetti, Done, toast, break reminder), Settings.
+["browser_whimsy_focus_session.js"]
+
 # W24 passkey 2: page-world password-manager interception across profiles,
 # windows, frames, CSP, document_start and private-browsing permission.
 ["browser_whimsy_passkey_extension.js"]
