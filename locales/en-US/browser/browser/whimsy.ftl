@@ -6822,6 +6822,29 @@ whimsy-media-top-buttons =
     .label = Show Summarize and picture-in-picture at the top right of videos
 whimsy-media-new-badge = New
 whimsy-media-voice-heading = Read aloud and dictation
+
+## W29 video: four seek buttons (Go to start, Back 10 seconds, Forward 10
+## seconds, Go to end) in their own plate at the bottom centre of the video.
+
+whimsy-video-seek-start =
+    .title = Go to start
+    .aria-label = Go to start
+whimsy-video-seek-back =
+    .title = Back 10 seconds
+    .aria-label = Back 10 seconds
+whimsy-video-seek-forward =
+    .title = Forward 10 seconds
+    .aria-label = Forward 10 seconds
+whimsy-video-seek-end =
+    .title = Go to end
+    .aria-label = Go to end
+# $time (String) - the time seeked to, like "4:02"
+whimsy-video-seek-note-back = −10 s · { $time }
+# $time (String) - the time seeked to, like "4:22"
+whimsy-video-seek-note-forward = +10 s · { $time }
+# $time (String) - the time seeked to, like "11:05"
+whimsy-video-seek-note-jump = { $time }
+
 ## W23 memory-fire: Memory (auto-saved facts, Settings › AI › Memory), the
 ## command bar's Related results by meaning, and the Fire button redesign
 ## (one row of settings: range, spaces, items, including AI data).
