@@ -391,3 +391,13 @@ authorized targeted run; isolated old passes are not validation of these edits.
   builds, import, verify, install, ship, and commits were not run as directed.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
+
+## 2026-11-16 — card_scrolls_first wait correction
+
+- Root cause: the test waited for LinkHover.overPanel, which W29 deliberately
+  reserves for the People card's hover bridge. Plain link cards never set it.
+- Wait for the popup's computed pointer-events to become auto instead, matching
+  HostPointer's wheel-input behavior and the adjacent tab-card test. Product
+  behavior and the existing card-first/page-next scroll assertions are unchanged.
+- Validation: node --check passes for browser_whimsy_hover_cards.js. Browser
+  tests, builds, and git commands were not run, as requested.

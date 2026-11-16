@@ -710,7 +710,8 @@ add_task(async function card_scrolls_first() {
       await TestUtils.waitForCondition(() => frame.scrollHeight > frame.clientHeight + 100, "The card overflows");
 
       EventUtils.synthesizeMouseAtCenter(frame, { type: "mousemove" });
-      await TestUtils.waitForCondition(() => host.overPanel, "The pointer is on the card");
+      // overPanel tracks only the People card's hover bridge, not wheel input.
+      await TestUtils.waitForCondition(() => getComputedStyle(linkPanel()).pointerEvents == "auto", "On the card, its popup takes the mouse");
       const at = cardOnScreen(linkPanel());
       const before = await pageY(browser);
       await whimsyWheelAt(at.x + 40, at.y + 40, 3);
