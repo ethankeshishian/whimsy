@@ -42,6 +42,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyRoutinesUI: "resource:///modules/whimsy/WhimsyRoutinesUI.sys.mjs",
   WhimsyLiveFolders: "resource:///modules/whimsy/WhimsyLiveFolders.sys.mjs",
   WhimsyLook: "resource:///modules/whimsy/WhimsyLook.sys.mjs",
+  WhimsyAmbient: "resource:///modules/whimsy/WhimsyAmbient.sys.mjs",
   WhimsyMedia: "resource:///modules/whimsy/WhimsyMedia.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
@@ -83,6 +84,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // batch7: new feature modules
   WhimsySeasons: "resource:///modules/whimsy/WhimsySeasons.sys.mjs",
   WhimsyWindowClose: "resource:///modules/whimsy/WhimsyWindowClose.sys.mjs",
+  WhimsyWindowOnTop: "resource:///modules/whimsy/WhimsyWindowOnTop.sys.mjs",
   WhimsyUrlbar: "resource:///modules/whimsy/WhimsyUrlbar.sys.mjs",
   WhimsyDownloads: "resource:///modules/whimsy/WhimsyDownloads.sys.mjs",
   WhimsySidebarNav: "resource:///modules/whimsy/WhimsySidebarNav.sys.mjs",
@@ -239,6 +241,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySearchDeck: "resource:///modules/whimsy/WhimsySearchDeck.sys.mjs",
 });
 
+// W28: Search With ▸ in the selection menu.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySearchWith: "resource:///modules/whimsy/WhimsySearchWith.sys.mjs",
+});
+
 // wave6: Already open (Arc parity).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAlreadyOpen: "resource:///modules/whimsy/WhimsyAlreadyOpen.sys.mjs",
@@ -384,6 +391,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // W27: the window title names its space.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyWindowTitle: "resource:///modules/whimsy/WhimsyWindowTitle.sys.mjs",
+});
+
+// W29: Match the page, the space colour editor's per-space page tint.
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyPageTint: "resource:///modules/whimsy/WhimsyPageTint.sys.mjs",
 });
 
 // wave9: Inspector (Font Inspector & Element Inspector lite).
@@ -708,6 +720,21 @@ export const Whimsy = {
       allFrames: true,
       safeForUntrustedWebProcess: true,
     });
+
+    // W29: Match the page. Reads each tab's theme-color (the favicon
+    // fallback runs in the parent, from the tab's own icon, no actor
+    // needed); WhimsyPageTint blends it into the space's gradient colour.
+    ChromeUtils.registerWindowActor("WhimsyPageTint", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyPageTintParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyPageTintChild.sys.mjs",
+        events: { DOMMetaChanged: {}, pageshow: {} },
+      },
+      matches: ["http://*/*", "https://*/*"],
+      allFrames: false,
+      messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
   },
 
   initWindow(win) {
@@ -790,6 +817,12 @@ export const Whimsy = {
         ?.then(() => lazy.WhimsySpaces.initWindow(win))
         .catch(e => console.error("Whimsy: spaces", e))
     );
+    // W29: after Zen's spaces (the space colour editor) are ready.
+    run("page-tint", () =>
+      win.gZenWorkspaces?.promiseInitialized
+        ?.then(() => lazy.WhimsyPageTint.initWindow(win))
+        .catch(e => console.error("Whimsy: page-tint", e))
+    );
     run("look", () => lazy.WhimsyLook.initWindow(win));
     run("actors", () => this.registerActors());
     // Library sidebar panels (Notes, Finder folders, Screenshot to
@@ -799,6 +832,7 @@ export const Whimsy = {
     run("library-sections", () => lazy.WhimsyLibrarySection.initWindow(win));
     // Media: each part checks its switch and prefs on use.
     run("media", () => lazy.WhimsyMedia.initWindow(win));
+    run("ambient-audio", () => lazy.WhimsyAmbient.initWindow(win));
     run("page", () => lazy.WhimsyPage.initWindow(win));
     run("dark-pages", () => lazy.WhimsyDarkPages.initWindow(win));
     // W26 passkeys: once per session (the profile-delete hook and the
@@ -922,6 +956,9 @@ export const Whimsy = {
     run("seasons", () => lazy.WhimsySeasons.initWindow(win));
     // batch7: Cmd+W on a lone empty tab closes the window (Arc).
     run("window-close", () => lazy.WhimsyWindowClose.initWindow(win));
+    // W28: Keep Window on Top (Settings → Look and Feel, macOS only). A
+    // global pref, applied to every window including Mini Whimsy.
+    run("window-on-top", () => lazy.WhimsyWindowOnTop.initWindow(win));
     // batch7: full URL on click.
     run("full-url-click", () => lazy.WhimsyUrlbar.initWindow(win));
     // batch7: Dock badge/bounce (once per session), Quick Look and keeping
@@ -1199,6 +1236,9 @@ export const Whimsy = {
     // menu action, menu rows for commands, Share ▸ lists the share services.
     // Its rows listen on their popups, so Settings → Menus still sees them.
     run("menu-parity", () => lazy.WhimsyMenuParity.initWindow(win));
+    // W28: Search With ▸, right after the selection menu's search row.
+    // Always installed; checks its switch on every show.
+    run("search-with", () => lazy.WhimsySearchWith.initWindow(win));
     // wave7/menuprefs: rows turned off in Settings → Menus. Keep this the
     // last menu listener: it hides rows after every other module has shown
     // or moved them. Always installed; checks its switch on every show.

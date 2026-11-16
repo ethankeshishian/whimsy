@@ -334,6 +334,27 @@ whimsy-volume-slider =
 whimsy-volume-mute =
     .tooltiptext = Mute or unmute the tab
 
+## Ambient sound (⌘K, or the sheet it opens): six bundled loops played
+## from the chrome window, not a tab, so muting a tab or switching tabs
+## or spaces never touches them.
+
+whimsy-ambient-sheet-title = Ambient sound
+whimsy-ambient-tile-rain = Rain
+whimsy-ambient-tile-cafe = Café
+whimsy-ambient-tile-woods = Woods
+whimsy-ambient-tile-fireplace = Fireplace
+whimsy-ambient-tile-ocean = Ocean
+whimsy-ambient-tile-brown = Brown noise
+# $sound (string) - the sound's name, e.g. Rain
+whimsy-ambient-tile-playing =
+    .aria-label = Stop { $sound }
+whimsy-ambient-volume =
+    .aria-label = Ambient sound volume
+whimsy-action-ambient-sound = Ambient Sound…
+whimsy-action-ambient-stop = Stop Ambient Sound
+whimsy-ambient-detail-idle = Rain, café, woods, fireplace, ocean, or brown noise
+whimsy-ambient-detail-playing = Change the sound or its volume
+
 ## Playback speed (shortcuts and command bar)
 
 whimsy-action-speed-up = Speed Up Video
@@ -850,6 +871,11 @@ whimsy-look-always-full-url =
 # W27 winprefs: zen.view.grey-out-inactive-windows.
 whimsy-look-dim-inactive-window =
     .label = Dim the window when it’s not in front
+
+# W28: global, macOS only. Applies to every Whimsy window, including Mini
+# Whimsy, and persists across restarts.
+whimsy-look-window-on-top =
+    .label = Keep Window on Top
 
 ## batch7: Settings → General → Performance
 
@@ -3047,6 +3073,17 @@ whimsy-action-glance-size-compact = Glance Size: Compact
 whimsy-action-glance-size-standard = Glance Size: Standard
 whimsy-action-glance-size-wide = Glance Size: Wide
 
+# W28: Keep Window on Top (Settings → Look and Feel, macOS only; global,
+# not per-window). whimsy-action-window-on-top-toggle is the neutral,
+# shortcut-only name; the two variants are the command bar rows.
+whimsy-action-window-on-top-toggle = Keep or Stop Keeping Window on Top
+whimsy-action-window-on-top-on = Keep Window on Top
+whimsy-action-window-on-top-off = Stop Keeping Window on Top
+whimsy-keywords-window-on-top = float, pin, always on top, above
+whimsy-window-on-top-on-toast = Every Whimsy window stays on top
+whimsy-window-on-top-on-toast-description = Above other apps, on each window’s own desktop.
+whimsy-window-on-top-off-toast = Whimsy windows no longer stay on top
+
 # fix/panes: breadcrumbs on Firefox's sub-pages (Containers, Browser icon),
 # whose parent pane is now Zen's.
 whimsy-pane-looks-crumb =
@@ -3076,6 +3113,10 @@ whimsy-tab-context-restore-closed-tabs =
             [1] Restore Last Closed Tab
            *[other] Restore Last Closed Tabs
         }
+# W29/ctxmenu: the owner's shorter name for the tab menu's chat row (was
+# "Ask an AI Chatbot"), grouped with Watch This Page….
+whimsy-tab-context-ask-ai =
+    .label = Ask AI
 # File menu, Cmd+W. $tabCount (number) - selected tabs
 whimsy-menu-archive-tab =
     .label =
@@ -3529,7 +3570,7 @@ whimsy-menus-tab-duplicate =
 whimsy-menus-tab-copy-links =
     .label = Copy Link
 whimsy-menus-tab-ask-chat =
-    .label = Ask an AI Chatbot
+    .label = Ask AI
     .description = When the AI chatbot is on
 whimsy-menus-tab-bookmark =
     .label = Bookmark Tab
@@ -3620,6 +3661,8 @@ whimsy-menus-page-view-source =
 
 whimsy-menus-selection-search =
     .label = Search for the Selection
+whimsy-menus-selection-search-with =
+    .label = Search With
 whimsy-menus-selection-search-private =
     .label = Search in a Private Window
 whimsy-menus-selection-translate =
@@ -3991,6 +4034,11 @@ whimsy-context-verb-linear-search =
 # (macOS's own name for this).
 whimsy-context-quick-actions =
     .label = Quick Actions
+## W28: Search With, the submenu listing other search engines for the
+## selection, right after "Search { $engine } for "…"".
+whimsy-context-search-with =
+    .label = Search With
+    .accesskey = W
 ## W10-26: the Quick Note card (New Note) and its "Note saved" toast.
 whimsy-quick-note-title = New Note
 whimsy-quick-note-name =
@@ -4713,6 +4761,8 @@ whimsy-setting-full-url = Full Address
     .keywords = full url, whole url, domain only, address bar, url bar
 whimsy-setting-dim-inactive-window = Dim Inactive Windows
     .keywords = grey out, gray out, inactive window, background window, unfocused window, fade
+whimsy-setting-window-on-top = Keep Window on Top
+    .keywords = float, pin, always on top, above, floating window, mini whimsy
 whimsy-setting-new-windows = New Window Page
     .keywords = homepage, home page, start page, new windows, whimsy home, firefox home
 whimsy-setting-new-tabs = New Tab Page
@@ -5339,6 +5389,8 @@ whimsy-action-call-camera-in-call = Turn Off Camera In the Call
 whimsy-action-call-microphone-block = Block Microphone On This Device
 whimsy-action-call-camera-block = Block Camera On This Device
 whimsy-action-call-buttons-default = Call Buttons Mute: The Call / This Device
+# W29: presses the web call's own share button for the selected tab.
+whimsy-action-call-share-tab = Share This Tab in Call
 # W14 21.7: a press the call page didn't answer. $app (string) - the call
 # app's name from its page; $known (string) - "yes" when it gave one.
 whimsy-call-mic-failed-toast =
@@ -5473,6 +5525,22 @@ whimsy-call-options-camera-missing =
     { $known ->
         [yes] { $app }'s camera button wasn't found
        *[no] The call's camera button wasn't found
+    }
+
+## W29: Call Options › Share. The row presses the call page's own share
+## button; Firefox's sharing prompt then opens on this tab, with it picked.
+
+whimsy-call-options-share-heading = Share
+whimsy-call-options-share-tab = Share this tab
+# $title: the selected tab's title.
+whimsy-call-options-share-detail = { $title }
+whimsy-call-options-share-stop = Stop sharing
+# $title: the title of the tab the call shares.
+whimsy-call-options-share-sharing = Sharing { $title }
+whimsy-call-options-share-missing =
+    { $known ->
+        [yes] { $app }'s share button wasn't found
+       *[no] The call's share button wasn't found
     }
 
 ## W14 21.8: Ctrl+Tab with more tabs than its card shows
@@ -6909,6 +6977,29 @@ whimsy-media-top-buttons =
     .label = Show Summarize and picture-in-picture at the top right of videos
 whimsy-media-new-badge = New
 whimsy-media-voice-heading = Read aloud and dictation
+
+## W29 video: four seek buttons (Go to start, Back 10 seconds, Forward 10
+## seconds, Go to end) in their own plate at the bottom centre of the video.
+
+whimsy-video-seek-start =
+    .title = Go to start
+    .aria-label = Go to start
+whimsy-video-seek-back =
+    .title = Back 10 seconds
+    .aria-label = Back 10 seconds
+whimsy-video-seek-forward =
+    .title = Forward 10 seconds
+    .aria-label = Forward 10 seconds
+whimsy-video-seek-end =
+    .title = Go to end
+    .aria-label = Go to end
+# $time (String) - the time seeked to, like "4:02"
+whimsy-video-seek-note-back = −10 s · { $time }
+# $time (String) - the time seeked to, like "4:22"
+whimsy-video-seek-note-forward = +10 s · { $time }
+# $time (String) - the time seeked to, like "11:05"
+whimsy-video-seek-note-jump = { $time }
+
 ## W23 memory-fire: Memory (auto-saved facts, Settings › AI › Memory), the
 ## command bar's Related results by meaning, and the Fire button redesign
 ## (one row of settings: range, spaces, items, including AI data).
@@ -8193,10 +8284,51 @@ whimsy-setting-adult-history = History Filter for Adult Sites
 whimsy-photo-metadata-header =
     .label = Photo uploads
 whimsy-photo-metadata-toggle =
-    .label = Remove location and camera details from photos you upload
-    .description = JPEG and PNG photos lose their location, camera, and text details as you upload them; the picture itself isn’t changed. Photos you download aren’t touched.
-whimsy-setting-photo-metadata = Photo Location Removal
-    .keywords = exif, gps, location, metadata, camera, photo, picture, image, upload, privacy, strip
+    .label = Remove details from photos you upload
+    .description = Photos lose the details you choose as you upload them; the picture itself isn’t changed. Photos you download aren’t touched.
+## W29: which photo details go, in Settings and in the sheet that asks
+## before an upload.
+whimsy-photo-details-location =
+    .label = Location
+    .description = Where the photo was taken (GPS).
+whimsy-photo-details-camera =
+    .label = Camera and device
+    .description = Make, model, lens, serial number, and the app that edited it.
+whimsy-photo-details-date =
+    .label = Date and time taken
+    .description = When the photo was taken. Sites use this to sort photos.
+whimsy-photo-details-other =
+    .label = Everything else
+    .description = Captions, keywords, author, comments, and depth and HDR data.
+whimsy-photo-details-ask =
+    .label = Ask before each upload
+    .description = Choose these again when you upload a photo that has any of them. The boxes above are ticked to start.
+whimsy-photo-details-title = Remove photo details?
+whimsy-photo-details-row-location = Location
+whimsy-photo-details-row-camera = Camera and device
+whimsy-photo-details-row-date = Date and time taken
+whimsy-photo-details-row-other = Everything else
+# $count (number) - how many of the chosen photos carry details
+whimsy-photo-details-summary =
+    { $count ->
+        [one] 1 photo you chose carries details you may not mean to share.
+       *[other] { $count } photos you chose carry details you may not mean to share.
+    }
+# $count (number) - how many of the chosen photos carry this kind of detail
+whimsy-photo-details-count =
+    { $count ->
+        [one] 1 photo
+       *[other] { $count } photos
+    }
+whimsy-photo-details-none = None in these photos
+whimsy-photo-details-cancel =
+    .label = Cancel
+whimsy-photo-details-upload =
+    .label = Upload
+whimsy-photo-details-upload-as-is =
+    .label = Upload as is
+whimsy-setting-photo-metadata = Photo Details Removal
+    .keywords = exif, gps, location, metadata, camera, date, photo, picture, image, upload, privacy, strip, details
 ## W24 emoji: emoji from the command bar (":" or the Emoji command). Mockup:
 ## docs/superpowers/mockups/w24/05-emoji.html.
 
@@ -8604,3 +8736,14 @@ whimsy-safety-check-sheet-remove-all =
 whimsy-safety-check-sheet-done =
     .label = Done
 whimsy-safety-check-removed-toast = Removed { $site }’s access
+# W29: "Match the page" toggle in the space colour editor (theme picker).
+whimsy-theme-picker-match-page = Match the page
+whimsy-theme-picker-match-page-detail = Tints this space with each site’s colour
+whimsy-theme-picker-match-page-switch =
+    .aria-label = Match the page
+
+# W29 r4: the per-space style choice (a segmented control) under the
+# switch above - Blend, Gradient or Replace.
+whimsy-theme-picker-match-page-style-blend = Blend
+whimsy-theme-picker-match-page-style-gradient = Gradient
+whimsy-theme-picker-match-page-style-replace = Replace

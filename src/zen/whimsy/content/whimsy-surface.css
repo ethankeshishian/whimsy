@@ -781,3 +781,18 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
   opacity: 0.45;
   cursor: default;
 }
+
+/* W29: Call Options › Share. The tab's title stays on one line; a share
+   button that wasn't found leaves the row dim and inert. */
+.whimsy-call-options-share .whimsy-surface-row-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whimsy-call-options-share[aria-disabled="true"] {
+  cursor: default;
+
+  &:hover {
+    background-color: transparent;
+  }
+}

@@ -392,23 +392,15 @@ authorized targeted run; isolated old passes are not validation of these edits.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
 
+## 2026-11-15 — Tab menu regrouping after upstream Tab Notes
 
-### 2026-11-16 — W29 focus failure investigation (partial, code only)
-
-- Stay on this tab: the CSS nested state selectors prefixed an outer selector
-  that already contained :root. Their expansion required one document root
-  below another, so none of the fade/hide rules could match. Removed only
-  the redundant outer root prefix; the nested state selectors still scope
-  every declaration to the session window. Existing visibility assertions remain.
-- Reopening paused tabs: replaced the test's unregistered HTTPS subdomain
-  sub.example.org with test1.example.org, registered in Mozilla's
-  build/pgo/server-locations.txt (including certificate generation). The load
-  wait targets that exact destination, excluding a late paused-page load.
-  Also register the repeated-navigation load wait before starting navigation.
-- Open anyway: the timeout alone does not establish whether navigation failed
-  or its event was missed. No corresponding failure log was found in this
-  checkout or the main checkout's verify logs. Left product navigation and
-  the Open anyway expectation unchanged; requested the relevant failure log.
-- Validation: node --check passed for the focus test, WhimsyFocusSession,
-  WhimsyFocusTab, and whimsy-focus.js. No browser tests, engine edits, mach,
-  git, import, build, or verify run. Browser behavior remains unverified.
+- Regroup hidden rows as well as visible ones so asynchronously revealed
+  upstream actions cannot precede New Tab Below. Unregistered tab/Essential
+  actions keep their relative order after Share and Save, before AI/Archive.
+- Restore reused separator positions and remove separators created for an
+  opening, preserving the original child order when visible groups change.
+- Existing browser test expectations remain unchanged. Node syntax check and
+  a focused harness using the actual module passed for tab, Essential, page,
+  and selection menus, late visibility, unknown rows, and exact restoration
+  across three openings each. Browser integration tests were not run; no
+  engine edits, mach, or git commands.
