@@ -52,8 +52,8 @@ registerCleanupFunction(() => {
 async function openSheet(win = window) {
   const parts = WhimsyFocusSession.openSheet(win);
   ok(parts, "The sheet opens");
-  await TestUtils.waitForCondition(() => parts.panel.state == "open", "The sheet is open");
-  await win.document.l10n.translateFragment(parts.panel);
+  await within(TestUtils.waitForCondition(() => parts.panel.state == "open", "The sheet is open"), "Opening the focus sheet");
+  await within(win.document.l10n.translateFragment(parts.panel), "Translating the focus sheet");
   return parts;
 }
 
@@ -649,12 +649,18 @@ add_task(async function the_selector() {
 add_task(async function settings_group_and_edit_link() {
   resetPrefs();
   const parts = await openSheet();
-  const tabOpened = BrowserTestUtils.waitForNewTab(gBrowser, url => url.startsWith("about:preferences"), true);
   EventUtils.synthesizeMouseAtCenter(parts.panel.querySelector(".whimsy-focus-edit"), {});
-  const tab = await tabOpened;
+  // openPreferences can reuse a tab (including about:settings), so there
+  // need not be a TabOpen or a new load event to wait for.
+  const tab = await TestUtils.waitForCondition(() =>
+    /^about:(preferences|settings)([?#]|$)/.test(gBrowser.selectedBrowser.currentURI.spec) && gBrowser.selectedTab,
+  "Edit selects the Settings tab");
+  await TestUtils.waitForCondition(() =>
+    tab.linkedBrowser.contentDocument?.readyState == "complete" &&
+    tab.linkedBrowser.contentDocument.getElementById("whimsyFocusGroup")?.checkVisibility(),
+  "Edit loads and shows Settings > General > Focus Sessions");
   const win = tab.linkedBrowser.contentWindow;
   const doc = win.document;
-  await TestUtils.waitForCondition(() => doc.getElementById("whimsyFocusGroup")?.checkVisibility(), "Edit opens Focus Sessions");
   is(parts.panel.state, "closed", "Edit closes the sheet");
 
   const social = doc.getElementById("whimsyFocusSocial");
@@ -678,11 +684,11 @@ add_task(async function settings_group_and_edit_link() {
   is(status.getAttribute("data-l10n-id"), "whimsy-focus-settings-saved", "Saved is said");
   ok(!list.hasAttribute("aria-invalid"), "The field is valid");
 
-  await whimsyBothSchemes("focus-settings", async () => {
+  await within(whimsyBothSchemes("focus-settings", async () => {
     doc.getElementById("whimsyFocusGroup").scrollIntoView();
     await whimsySettled(doc);
     checkContrast(win, doc.getElementById("whimsyFocusSocialSample"), "A sample line", 4.5);
-  });
+  }), "Capturing Focus Sessions settings in both colour schemes");
   BrowserTestUtils.removeTab(tab);
   resetPrefs();
 });
