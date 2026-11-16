@@ -347,3 +347,79 @@ panel.whimsy-surface.whimsy-trail {
   display: flex !important;
 }
 
+
+/* W29 Pass Keys to Page (WhimsyKeysToPage): while the page gets every key,
+   a filled pill in the address field says so (the shared accent pair,
+   --whimsy-accent-fill under --whimsy-on-accent, which clears WCAG AA).
+   It springs in on the momentum curve; with Reduce Motion it just appears.
+   Clicking it gives the keys back. */
+#whimsy-pass-keys-pill {
+  flex-shrink: 0;
+  gap: 5px;
+  margin-inline: 2px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background-color: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 100ms ease-out;
+  animation: whimsy-pass-keys-in 260ms var(--whimsy-ease-momentum, cubic-bezier(0.3, 1.5, 0.5, 1)) both;
+
+  & > .whimsy-page-action-icon {
+    width: 13px;
+    height: 13px;
+  }
+  &:hover {
+    background-color: color-mix(in srgb, var(--whimsy-accent-fill), black 12%);
+  }
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: 1px;
+  }
+  &[hidden] {
+    display: none;
+  }
+}
+@keyframes whimsy-pass-keys-in {
+  from {
+    opacity: 0;
+    scale: 0.8;
+  }
+}
+
+/* The hold-Esc notice's ring (a toast's leading mark): it fills linearly
+   over the whole hold, showing already part-filled (the notice comes after
+   the first 0.5s); with Reduce Motion in three steps. */
+@property --whimsy-pass-keys-progress {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+.whimsy-pass-keys-ring {
+  border-radius: 50%;
+  background: conic-gradient(var(--whimsy-accent-fill) calc(var(--whimsy-pass-keys-progress) * 1turn), color-mix(in srgb, currentColor 14%, transparent) 0);
+  mask: radial-gradient(circle, transparent 5.5px, #000 6px);
+  animation: whimsy-pass-keys-fill var(--whimsy-pass-keys-hold, 1500ms) linear var(--whimsy-pass-keys-shown, -500ms) both;
+}
+@keyframes whimsy-pass-keys-fill {
+  to {
+    --whimsy-pass-keys-progress: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-pass-keys-pill {
+    animation: none;
+  }
+  .whimsy-pass-keys-ring {
+    animation-timing-function: steps(3, end);
+  }
+}
+@media (forced-colors: active) {
+  #whimsy-pass-keys-pill {
+    background-color: ButtonText;
+    color: ButtonFace;
+  }
+}

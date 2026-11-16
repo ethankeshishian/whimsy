@@ -59,6 +59,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySnooze: "resource:///modules/whimsy/WhimsySnooze.sys.mjs",
   WhimsyFaviconHome: "resource:///modules/whimsy/WhimsyFaviconHome.sys.mjs",
   WhimsyTreeTabs: "resource:///modules/whimsy/WhimsyTreeTabs.sys.mjs",
+  // w27-tabkeys: Move Tab Up/Down and Paste Tabs (keyboard sidebar focus).
+  WhimsyTabMove: "resource:///modules/whimsy/WhimsyTabMove.sys.mjs",
+  WhimsyPasteTabs: "resource:///modules/whimsy/WhimsyPasteTabs.sys.mjs",
   WhimsyFireButton: "resource:///modules/whimsy/WhimsyFireButton.sys.mjs",
   WhimsyHeavyTabs: "resource:///modules/whimsy/WhimsyHeavyTabs.sys.mjs",
   // W11-07: Whimsy Home or Firefox Home for new windows and new tabs.
@@ -322,6 +325,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmailAliases: "resource:///modules/whimsy/WhimsyEmailAliases.sys.mjs",
 });
 
+// W28 verification codes (TOTP).
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyTOTP: "resource:///modules/whimsy/WhimsyTOTP.sys.mjs",
+});
+
 // W24 emoji: emoji from the command bar (":" or the Emoji command).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyEmoji: "resource:///modules/whimsy/WhimsyEmoji.sys.mjs",
@@ -360,6 +368,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // W27: Press Esc twice to leave full screen.
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyFullscreenEscape: "resource:///modules/whimsy/WhimsyFullscreenEscape.sys.mjs",
+  WhimsyKeysToPage: "resource:///modules/whimsy/WhimsyKeysToPage.sys.mjs",
 });
 
 // wave9: form protection (W9-03)
@@ -521,6 +530,18 @@ export const Whimsy = {
       child: {
         esModuleURI: "resource:///modules/whimsy/WhimsyEmailAliasesChild.sys.mjs",
         events: { focusin: { capture: true }, pagehide: {} },
+      },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+      safeForUntrustedWebProcess: true,
+    });
+    // W28 verification codes: the field button in code fields and reading
+    // a setup QR code on right-click; keys stay in the parent.
+    ChromeUtils.registerWindowActor("WhimsyTOTP", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyTOTPParent.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyTOTPChild.sys.mjs",
+        events: { focusin: { capture: true }, contextmenu: { capture: true }, pagehide: {} },
       },
       matches: ["https://*/*", "http://*/*"],
       allFrames: true,
@@ -837,6 +858,7 @@ export const Whimsy = {
     // W26 passkeys: once per session (the profile-delete hook and the
     // Secure Enclave probe); the prompt opens per request.
     run("passkeys", () => lazy.WhimsyPasskeys.init());
+    run("totp", () => lazy.WhimsyTOTP.init());
     // batch6: split view extras; each action checks its own switch.
     run("split", () => lazy.WhimsySplit.initWindow(win));
     // batch6: command bar extras ("/" filter, "New ..." actions).
@@ -968,6 +990,10 @@ export const Whimsy = {
     });
     // batch7: keyboard sidebar navigation (Arc).
     run("sidebar-nav", () => lazy.WhimsySidebarNav.initWindow(win));
+    // w27-tabkeys: Move Tab Up/Down (also used by sidebar nav's Option+Up/Down).
+    run("tab-move", () => lazy.WhimsyTabMove.initWindow(win));
+    // w27-tabkeys: Paste Tabs — Cmd+V/Cmd+X with the sidebar focused.
+    run("paste-tabs", () => lazy.WhimsyPasteTabs.initWindow(win));
     // batch7: shortcut cheat sheet.
     run("cheatsheet", () => lazy.WhimsyCheatSheet.initWindow(win));
     // batch7: inbox-zero balloons.
@@ -1276,6 +1302,7 @@ export const Whimsy = {
     // wave7/small: Create Email Alias (command bar), at the focused email
     // field. Checks its switch on use.
     later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    later("totp", () => lazy.WhimsyTOTP.initWindow(win));
     // W27: Edit Field in Text Editor (command bar), at the focused field.
     later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
     // W28: "Open in Safari" / "Open in Chrome" (command bar), one row per
@@ -1305,6 +1332,8 @@ export const Whimsy = {
     run("battery-saver", () => lazy.WhimsyBatterySaver.initWindow(win));
     // W27: the full-screen notice's "Press Esc again" (whimsy-PresShell-cpp.patch).
     run("double-escape", () => lazy.WhimsyFullscreenEscape.initWindow(win));
+    // W29: Pass Keys to Page (whimsy-GlobalKeyListener-cpp.patch).
+    run("pass-keys-to-page", () => lazy.WhimsyKeysToPage.initWindow(win));
 
     // wave9: form protection (W9-03)
     run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));

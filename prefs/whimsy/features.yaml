@@ -276,6 +276,12 @@
 - name: whimsy.feature.sidebar-nav
   value: true
 
+- name: whimsy.feature.move-tab
+  value: true
+
+- name: whimsy.feature.paste-tabs
+  value: true
+
 - name: whimsy.feature.cheatsheet
   value: true
 
@@ -672,6 +678,9 @@
 - name: whimsy.feature.double-escape
   value: true
 
+- name: whimsy.feature.pass-keys-to-page
+  value: true
+
 - name: whimsy.feature.ai-video-summary
   value: true
 
@@ -715,6 +724,9 @@
   value: true
 
 - name: whimsy.feature.passkeys
+  value: true
+
+- name: whimsy.feature.totp
   value: true
 
 - name: whimsy.feature.restart-command
