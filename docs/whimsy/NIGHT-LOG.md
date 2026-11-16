@@ -391,3 +391,16 @@ authorized targeted run; isolated old passes are not validation of these edits.
   builds, import, verify, install, ship, and commits were not run as directed.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
+
+## 2026-11-16 — Mail-hover fixture reset
+
+- Root cause: opening the foreground fixture can trigger a native hover
+  before mail detection is stubbed. TabHover.enter reuses an already-open
+  card for the same tab, so the synthetic hover can retain the ordinary
+  fixture card and never call fillExtra.
+- openMailTab closes pending or open hovers after loading, before returning
+  the tab for stubbing and a fresh hover. Uses the existing closed-state
+  wait; no delay or product change.
+- Validation: Node reproduction using the product TabHover.enter/hide
+  confirms stale-card reuse and the reset; node --check passes for the
+  hover module and browser test. Browser tests were not run. No git or mach.

@@ -946,7 +946,11 @@ function stubConnectors({ entries = [], inbox = {}, connect = null } = {}) {
 }
 
 async function openMailTab(url = PAGE + "?mail-hover") {
-  return BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  // A native hover during loading can open a card before the mail stubs
+  // exist. Close it so enter() doesn't reuse that same tab's ordinary card.
+  await closeAll();
+  return tab;
 }
 
 add_task(async function mail_hover_shows_three_newest_rows_and_no_ai_request() {
