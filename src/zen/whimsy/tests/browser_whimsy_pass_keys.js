@@ -84,17 +84,12 @@ function contrastRatio(a, b) {
 registerCleanupFunction(() => closeToasts());
 
 add_setup(async function () {
-  // DIAG: which prefs this file leaves changed.
-  const before = new Set(await SpecialPowers.comparePrefsToBaseline([]));
-  registerCleanupFunction(async () => {
-    await SpecialPowers.flushPrefEnv();
-    const after = [].concat(await SpecialPowers.comparePrefsToBaseline([]));
-    info(`WHIMSYDIAG changed: ${after.filter(k => !before.has(k)).join(", ")}`);
-  });
   await SpecialPowers.pushPrefEnv({
     set: [
       [TOAST_SHOWN_PREF, false],
       ["whimsy.feature.pass-keys-to-page", true],
+      // AI hints are toasts too; one landing mid-test would cover ours.
+      ["whimsy.feature.ai-hints", false],
     ],
   });
   closeToasts();
@@ -219,7 +214,12 @@ add_task(async function test_hold_escape() {
     ok(!browser.hasAttribute("whimsy-pass-keys"), "The engine mark is gone");
     ok(pill().hidden, "The pill hides");
     await TestUtils.waitForCondition(() => toastFor("whimsy-pass-keys-off-toast"), "The off toast shows");
-    is(toastFor("whimsy-pass-keys-off-toast").element.textContent.includes("shortcuts are back"), true, "Its words");
+    // Fluent fills the words a beat after the toast is in.
+    await TestUtils.waitForCondition(
+      () => toastFor("whimsy-pass-keys-off-toast")?.element.textContent.includes("shortcuts are back"),
+      "Its words"
+    );
+    ok(true, "Its words");
     await TestUtils.waitForCondition(() => !toastFor("whimsy-pass-keys-hold"), "The hold notice goes");
   } finally {
     WhimsyKeysToPage.stop(window, browser);
