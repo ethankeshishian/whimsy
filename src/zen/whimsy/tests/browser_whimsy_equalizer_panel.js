@@ -98,6 +98,10 @@ add_task(async function test_rows_presets_and_custom() {
   ok(eq.checkVisibility(), "The Equalizer rows show under the volume slider");
   ok(panel.querySelector(".whimsy-volume-row").compareDocumentPosition(eq) & Node.DOCUMENT_POSITION_FOLLOWING, "They come after the volume row");
   ok(eq.querySelector(".whimsy-surface-rule"), "A hairline separates them");
+  const rowWidth = panel.querySelector(".whimsy-volume-row").getBoundingClientRect().width;
+  is(Math.round(eq.getBoundingClientRect().width), 280, "The Equalizer rows are 280px wide");
+  is(Math.round(rowWidth), 280, "The volume row matches them");
+  Assert.lessOrEqual(Math.round(panel.getBoundingClientRect().width), 320, "The panel hugs its rows");
   is(eq.querySelector(".whimsy-eq-label").textContent, "Equalizer", "The row is labelled Equalizer");
   const button = panel.querySelector("#whimsy-eq-preset");
   is(button.getAttribute("aria-label"), "Equalizer preset", "The preset menu is named");
