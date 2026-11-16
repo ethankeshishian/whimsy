@@ -41,6 +41,10 @@ async function setupAI() {
       ["whimsy.feature.ai-hints", false],
       ["whimsy.ai.order", "claude,openai"],
       ["whimsy.ai.off", ""],
+      // These tests walk the empty bar's AI rows with the arrow keys and ⌘
+      // numbers. Tabs they close would come back as Recently Closed rows in
+      // the same bar (W29 cmdrecent) and shift them.
+      ["whimsy.feature.command-bar-recent-tabs", false],
     ],
   });
   WhimsyAIProviders.setTestProvider(async function* (provider, request) {

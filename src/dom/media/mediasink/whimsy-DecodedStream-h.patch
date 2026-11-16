@@ -1,0 +1,30 @@
+diff --git a/dom/media/mediasink/DecodedStream.h b/dom/media/mediasink/DecodedStream.h
+--- a/dom/media/mediasink/DecodedStream.h
++++ b/dom/media/mediasink/DecodedStream.h
+@@ -15,6 +15,7 @@
+ #include "mozilla/RefPtr.h"
+ #include "mozilla/StateMirroring.h"
+ #include "mozilla/UniquePtr.h"
++#include "mozilla/WhimsyEqualizer.h"
+ 
+ namespace mozilla {
+ 
+@@ -55,6 +56,10 @@
+   }
+ 
+   void SetVolume(double aVolume) override;
++  // Whimsy W29: equalize the captured audio. Owner thread, before Start().
++  void WhimsySetEqualizer(WhimsyEqualizerParams* aParams) {
++    mWhimsyEqualizer = aParams;
++  }
+   void SetPlaybackRate(double aPlaybackRate) override;
+   void SetPreservesPitch(bool aPreservesPitch) override;
+   void SetPlaying(bool aPlaying,
+@@ -127,6 +132,7 @@
+   double mVolume;
+   double mPlaybackRate;
+   bool mPreservesPitch;
++  RefPtr<WhimsyEqualizerParams> mWhimsyEqualizer;
+ 
+   // True if the audio output should be configured to mDevice.
+   const bool mShouldConfigAudioOutput;

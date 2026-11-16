@@ -54,6 +54,9 @@ export class WhimsyPageParent extends JSWindowActorParent {
     switch (message.name) {
       case "Whimsy:VolumeLevel":
         return lazy.WhimsyMedia.volumeFor(this.tab);
+      // W29 tab equalizer: the gains saved for the tab's site.
+      case "Whimsy:EqGains":
+        return lazy.WhimsyMedia.eqGainsFor(this.browsingContext.top.embedderElement);
       // W10-61: the page cancelled a browser key; a second press runs it.
       case "Whimsy:PageTookKey": {
         const browser = this.browsingContext.top.embedderElement;

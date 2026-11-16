@@ -114,6 +114,10 @@
 - name: whimsy.media.pip-snap-back
   value: true
 
+# W29: whether the Tab volume panel shows the equalizer's 8 bands (the
+# chevron; remembered for every tab).
+- name: whimsy.media.eq-bands-open
+  value: false
 # Ambient sound (⌘K "Ambient Sound…"): the volume slider's last value
 # (0-100) and the last sound played ("", "rain", "cafe", "woods",
 # "fireplace", "ocean" or "brown"), remembered across sessions.
@@ -162,6 +166,11 @@
 # W27: Press Esc twice to leave a page's full screen (Settings → Look and
 # Feel): off by default. whimsy-PresShell-cpp.patch reads it.
 - name: whimsy.fullscreen.double-escape
+  value: false
+
+# W29 Pass Keys to Page: its first-use toast ("Keys go to this page") has
+# shown, so it doesn't show again.
+- name: whimsy.pass-keys-to-page.toast-shown
   value: false
 
 # Where a link from another app opens (Settings → Tab Management):
@@ -850,6 +859,16 @@
 # Chat's width in pixels, shared across windows (320 to half the window).
 - name: whimsy.chat.width
   value: 380
+
+# W29 side panels: chat shows in the side panel popover instead of its
+# column (Show Chat as Popover, chat's header menu).
+- name: whimsy.chat.popover
+  value: false
+
+# W29 side panels: each site's popover width in pixels, by host, as JSON
+# ({"x.com": 420}); a site that isn't listed gets 380 (320 in a narrow window).
+- name: whimsy.side-panel.widths
+  value: "{}"
 
 # The AI-off ⌘E toast has shown; the next ⌘E opens setup. Reset when AI turns on.
 - name: whimsy.chat.ai-off-toast-seen

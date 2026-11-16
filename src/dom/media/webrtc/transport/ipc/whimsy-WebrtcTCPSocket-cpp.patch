@@ -1,0 +1,28 @@
+diff --git a/dom/media/webrtc/transport/ipc/WebrtcTCPSocket.cpp b/dom/media/webrtc/transport/ipc/WebrtcTCPSocket.cpp
+--- a/dom/media/webrtc/transport/ipc/WebrtcTCPSocket.cpp
++++ b/dom/media/webrtc/transport/ipc/WebrtcTCPSocket.cpp
+@@ -224,6 +224,24 @@
+   if (NS_WARN_IF(NS_FAILED(rv))) {
+     return rv;
+   }
++
++  // whimsy (vpncalls): ask the proxy filters on behalf of the page that
++  // made the call, with the same load info the CONNECT channel carries
++  // (OpenWithHttpProxy), not as the system. The VPN decides per page: by
++  // its site rule, private window, and profile (container). Asked as the
++  // system, a call on a page the VPN carries (so forced through a proxy)
++  // could get "direct" for its relay and then no relay connection at all.
++  if (mProxyConfig.isSome()) {
++    nsCOMPtr<nsILoadInfo> loadInfo;
++    if (NS_SUCCEEDED(ipc::LoadInfoArgsToLoadInfo(
++            mProxyConfig->loadInfoArgs(), dom::RemoteType::NotRemote(),
++            getter_AddRefs(loadInfo)))) {
++      rv = channel->SetLoadInfo(loadInfo);
++      if (NS_WARN_IF(NS_FAILED(rv))) {
++        return rv;
++      }
++    }
++  }
+ 
+   rv = pps->AsyncResolve(channel,
+                          nsIProtocolProxyService::RESOLVE_PREFER_HTTPS_PROXY |

@@ -334,6 +334,51 @@ whimsy-volume-slider =
 whimsy-volume-mute =
     .tooltiptext = Mute or unmute the tab
 
+## W29 tab equalizer: the rows under the volume slider in the Tab volume panel
+
+whimsy-eq-label = Equalizer
+whimsy-eq-preset-flat = Flat
+whimsy-eq-preset-voice = Voice
+whimsy-eq-preset-bass-boost = Bass Boost
+whimsy-eq-preset-treble-boost = Treble Boost
+whimsy-eq-preset-loudness = Loudness
+whimsy-eq-preset-custom = Custom
+whimsy-eq-preset-menu =
+    .aria-label = Equalizer preset
+whimsy-eq-show-bands =
+    .tooltiptext = Show bands
+    .aria-label = Show bands
+whimsy-eq-hide-bands =
+    .tooltiptext = Hide bands
+    .aria-label = Hide bands
+# $freq (string) - the band's frequency as its label shows it, e.g. 1k
+# $db (number) - the band's gain in decibels, e.g. -3
+whimsy-eq-band =
+    .aria-label = { $freq } Hz
+# The value a screen reader reads for an equalizer band.
+whimsy-eq-band-value = { $db } decibels
+# Shown under the presets when the tab's audio can't be filtered (protected
+# or live-stream media).
+whimsy-eq-unsupported = This site's audio can't be adjusted.
+# The tab speaker's tooltip while the site's equalizer is on: Firefox's own
+# tooltip, then the preset.
+# $action (string) - which Firefox tooltip: mute, unmute, mute-background, unmute-background
+# $preset (string) - flat, voice, bass-boost, treble-boost, loudness, or custom
+whimsy-eq-speaker-tooltip =
+    .label =
+        { $action ->
+            [unmute] { tabbrowser-unmute-tab-audio-tooltip.label }
+            [mute-background] { tabbrowser-mute-tab-audio-background-tooltip.label }
+            [unmute-background] { tabbrowser-unmute-tab-audio-background-tooltip.label }
+           *[mute] { tabbrowser-mute-tab-audio-tooltip.label }
+        } · Equalizer: { $preset ->
+            [voice] { whimsy-eq-preset-voice }
+            [bass-boost] { whimsy-eq-preset-bass-boost }
+            [treble-boost] { whimsy-eq-preset-treble-boost }
+            [loudness] { whimsy-eq-preset-loudness }
+            [flat] { whimsy-eq-preset-flat }
+           *[custom] { whimsy-eq-preset-custom }
+        }
 ## Ambient sound (⌘K, or the sheet it opens): six bundled loops played
 ## from the chrome window, not a tab, so muting a tab or switching tabs
 ## or spaces never touches them.
@@ -1348,6 +1393,10 @@ whimsy-mail-unread-preview =
         [one] { $count } unread message
        *[other] { $count } unread messages
     }
+# W29: the tab hover card's Inbox block (Gmail or Outlook, connected).
+whimsy-hover-card-inbox = Inbox
+whimsy-hover-card-inbox-empty = No emails in your inbox
+whimsy-hover-card-inbox-yesterday = Yesterday
 # W29/cmdrecent: Recently Closed and Synced Tabs join the empty command bar
 # after Recent Documents (nothing already there moves).
 whimsy-command-recently-closed = Recently Closed
@@ -2517,6 +2566,9 @@ whimsy-action-capture = Capture…
 whimsy-action-tab-next = Next Tab
 whimsy-action-tab-prev = Previous Tab
 whimsy-action-focus-sidebar = Focus Sidebar
+whimsy-action-move-tab-up = Move Tab Up
+whimsy-action-move-tab-down = Move Tab Down
+whimsy-action-paste-tabs = Paste Tabs
 whimsy-action-devmode-on = Turn Developer Mode On for This Site
 whimsy-action-devmode-off = Turn Developer Mode Off for This Site
 whimsy-action-vpn-toggle = Turn VPN On or Off
@@ -2560,6 +2612,21 @@ tab-context-whimsy-unread-badge =
 whimsy-action-toggle-unread-badge = Show or Hide Unread Badge
 whimsy-action-show-unread-badge = Show Unread Badge
 whimsy-action-hide-unread-badge = Hide Unread Badge
+
+# W29 side panels: an Essential's context menu (a checkbox, on by default)
+# and its command. Checked, the Essential opens in a popover next to the
+# sidebar; unchecked, as a normal tab.
+tab-context-whimsy-side-panel =
+    .label = Open in Side Panel
+whimsy-action-side-panel = Open in Side Panel or Tab
+whimsy-action-open-in-side-panel = Open in Side Panel
+whimsy-action-open-in-tab = Open in Tab
+# The popover's header button, and its resize grip.
+whimsy-side-panel-hide-button =
+    .title = Hide side panel
+    .aria-label = Hide side panel
+whimsy-side-panel-splitter =
+    .aria-label = Resize side panel
 
 # wave5/uxfix: read out with a pinned tab's unread badge.
 # $count (number) - unread items the site reports
@@ -3168,6 +3235,19 @@ whimsy-keywords-page-animations = Reduce Motion, Reduced Motion, Motion, Animati
 whimsy-page-animations-off-toast = Animations are off on this page until it reloads
 whimsy-page-animations-on-toast = Animations are back on for this page
 
+## W29 Pass Keys to Page: the current tab's page gets every key until Esc is
+## held, the pill is clicked, or the tab changes.
+
+whimsy-action-pass-keys-to-page = Pass Keys to Page
+whimsy-keywords-pass-keys-to-page = Keyboard, Shortcuts, Keys, Keyboard Lock, Vim, Terminal, Remote Desktop, Games
+whimsy-pass-keys-pill = Keys to page
+whimsy-pass-keys-pill-tooltip =
+    .tooltiptext = Keys go to this page. Hold Esc or click to stop.
+whimsy-pass-keys-on-toast = Keys go to this page
+whimsy-pass-keys-on-detail = Hold Esc to stop.
+whimsy-pass-keys-hold = Keep holding Esc to stop passing keys
+whimsy-pass-keys-off-toast = { -brand-short-name }’s shortcuts are back
+
 ## wave7/focus: Do Not Disturb (pauses site notifications until you turn
 ## it off or quit; macOS Focus already silences them on its own)
 
@@ -3425,6 +3505,9 @@ whimsy-menus-tab-essentials =
     .label = Add to Essentials
 whimsy-menus-tab-unread-badge =
     .label = Show Unread Badge
+    .description = On Essentials
+whimsy-menus-tab-side-panel =
+    .label = Open in Side Panel
     .description = On Essentials
 whimsy-menus-tab-rename =
     .label = Change Label…
@@ -4249,6 +4332,19 @@ whimsy-link-lasso-open-toast =
     { $count ->
         [one] Opened 1 tab
        *[other] Opened { $count } tabs
+    }
+
+## w27-tabkeys: Paste Tabs (clipboard URLs, and cut-tabs-to-move), sidebar focused.
+
+whimsy-paste-tabs-open-toast =
+    { $count ->
+        [one] Opened 1 tab
+       *[other] Opened { $count } tabs
+    }
+whimsy-paste-tabs-move-toast =
+    { $count ->
+        [one] Moved 1 tab
+       *[other] Moved { $count } tabs
     }
 
 ## wave9: Font Inspector (What Font Is This?) and Element Inspector Lite.
@@ -5147,6 +5243,8 @@ whimsy-auth-reason-space = open the locked space “{ $space }”
 
 whimsy-auth-reason-private = show your private tabs
 whimsy-auth-reason-private-off = turn off the private lock
+# W28: Settings → Verification codes → Copy code (once per session).
+whimsy-auth-reason-totp = show your verification codes
 whimsy-private-lock-tab-label = Private tab
 whimsy-private-lock-window-name = Private Window
 whimsy-private-lock-urlbar = Locked
@@ -5568,6 +5666,9 @@ whimsy-chat-menu-move-left =
     .label = Move Chat to the Left
 whimsy-chat-menu-move-right =
     .label = Move Chat to the Right
+# W29 side panels: chat floats in the side panel popover (a checkbox).
+whimsy-chat-menu-popover =
+    .label = Show Chat as Popover
 whimsy-chat-cmd-toggle = Open or Hide Chat
 whimsy-chat-cmd-open = Open Chat
 whimsy-chat-cmd-hide = Hide Chat
@@ -8549,6 +8650,59 @@ whimsy-passkeys-deleted-toast = Passkey for { $site } deleted
 whimsy-passkeys-deleted-detail = { $site } will ask you to sign in another way
 whimsy-setting-passkeys = Passkeys
 
+## W28 verification codes (TOTP): kept with the saved passwords, read from a
+## site's setup QR code, and filled from a button in the code field.
+
+whimsy-totp-context-add =
+    .label = Add Verification Code…
+# $site (string) - the site's host name, like github.com
+whimsy-totp-add-title = Add a verification code for { $site }
+whimsy-totp-account = Account
+whimsy-totp-code = Code
+# $seconds (number) - seconds until the code changes
+whimsy-totp-changes-in = Changes in { $seconds }s
+# Shown under an account that matches a saved password for the site.
+whimsy-totp-saved-login = Saved login
+# $profile (string) - the profile's name
+whimsy-totp-help = { -brand-short-name } keeps this with your passwords, in your { $profile } profile. Enter the code on the page to finish setting it up.
+whimsy-totp-cancel =
+    .label = Cancel
+whimsy-totp-save =
+    .label = Save
+whimsy-totp-replace =
+    .label = Replace
+# $account (string) - the account name
+whimsy-totp-exists-title = A code for { $account } is already saved
+whimsy-totp-exists-text = Replace it if { $site } gave you a new one.
+whimsy-totp-key-label = Setup key
+whimsy-totp-key-placeholder =
+    .placeholder = Paste the key from { $site }
+whimsy-totp-key-error = That key doesn’t look right. Check for missing letters.
+whimsy-totp-site = Site
+whimsy-totp-field-button = Fill verification code
+whimsy-totp-choose-title = Choose an account
+# $code (string) - the six-digit code, $seconds (number) - seconds left
+whimsy-totp-choose-detail = { $code } · { $seconds }s
+whimsy-totp-saved-toast = Verification code saved for { $site }
+whimsy-totp-copied-toast = Code copied. It changes in { $seconds }s.
+whimsy-totp-deleted-toast = Verification code for { $site } deleted
+whimsy-totp-deleted-detail = { $site } will ask for a code from another app
+whimsy-totp-header =
+    .label = Verification codes
+whimsy-totp-description = Codes that sites ask for after your password. They’re encrypted with your saved passwords and sync to your other devices when password sync is on. Keep a second way to get them too, like the site’s backup codes.
+whimsy-totp-empty = No verification codes saved yet. Right-click a site’s setup QR code to add one.
+whimsy-totp-error = Your verification codes can’t be read on this Mac.
+# $account (string), $profile (string), $date (string) - when it was added
+whimsy-totp-row-meta = { $account } · { $profile } · Added { $date }
+whimsy-totp-copy =
+    .label = Copy code
+whimsy-totp-delete =
+    .label = Delete
+    .aria-label = Delete the verification code for { $site }
+whimsy-totp-add-code =
+    .label = Add Code…
+whimsy-setting-totp = Verification Codes
+    .keywords = two-factor, 2fa, authenticator, one-time code, otp, totp, qr code
 # W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md),
 # command-bar rows shown only when that browser is installed.
 whimsy-action-open-in-safari = Open in Safari

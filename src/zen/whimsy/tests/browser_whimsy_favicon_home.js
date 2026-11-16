@@ -85,6 +85,9 @@ add_task(async function root_nonweb_and_exclusions() {
     is(root.linkedBrowser.currentURI.spec, HOME, "Normal root favicon click retains URL");
     const tab = await openPage();
     await ready(tab);
+    // On it as a page: a background Essential's click opens the side panel
+    // popover instead (W29), and a background fake Glance tab can't be selected.
+    gBrowser.selectedTab = tab;
     for (const attr of ["zen-essential", "zen-glance-tab"]) {
       tab.setAttribute(attr, "true");
       await TestUtils.waitForCondition(() => !tab.hasAttribute("whimsy-home-ready"), `${attr} excluded`);

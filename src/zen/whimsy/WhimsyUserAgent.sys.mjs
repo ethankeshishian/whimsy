@@ -196,7 +196,10 @@ export const WhimsyUserAgent = {
       const profileKey = lazy.WhimsyProfiles.keyFor(userContextId);
       options = { isPrivate, profileKey };
     }
-    const ua = host ? this.uaFor(host, options) : null;
+    // W29 side panels: a page shown in the side panel popover keeps the
+    // iPhone preset WhimsySidePanel gave it, whatever the site's own choice.
+    const popover = browsingContext.top?.embedderElement?._whimsySidePanelUA;
+    const ua = popover || (host ? this.uaFor(host, options) : null);
     const current = browsingContext.customUserAgent || "";
     if ((ua || "") != current) {
       browsingContext.customUserAgent = ua || "";
