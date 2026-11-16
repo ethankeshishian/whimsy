@@ -506,7 +506,11 @@ add_task(async function test_seek_plate_is_separate_and_bottom_center() {
   const videoCenter = videoRect.left + videoRect.width / 2;
   const seekCenter = seek.left + seek.width / 2;
   ok(Math.abs(seekCenter - videoCenter) < 5, "Centred under the video");
-  ok(state.opacity.seekplate == 1, "Visible, like the speed bar and the top-right plates");
+  // waitShown only waits for `hidden` to flip; the plate's own 120ms
+  // opacity/translate transition (#seekplate[data-shown] in
+  // whimsy-video-speed.css) can still be running right after that.
+  await TestUtils.waitForCondition(async () => (await control(browser)).opacity.seekplate == 1, "The seek plate's fade-in settles");
+  ok((await control(browser)).opacity.seekplate == 1, "Visible, like the speed bar and the top-right plates");
   BrowserTestUtils.removeTab(tab);
 });
 
