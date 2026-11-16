@@ -89,7 +89,7 @@ export function defaultHiddenIdsFor(menuId) {
 }
 
 // The class of the separators the registry order (W10-20) puts between its
-// groups, reused from one opening to the next.
+// groups while the popup is open.
 export const ORDER_SEP_CLASS = "whimsy-menu-order-sep";
 
 // One row of a menu: `id` is the stable key stored in the pref; `ids` the
@@ -235,6 +235,9 @@ const MENUS = [
     when: win => !contextTabIsEssential(win),
     // W29/ctxmenu: the regrouped order above.
     order: "registry",
+    // Unregistered tab actions (including upstream Tab Notes) follow Share
+    // and Save, in their original relative order, before AI and Archive.
+    extrasAfter: "share",
     items: TAB_ITEMS,
   },
   {
@@ -243,6 +246,7 @@ const MENUS = [
     popup: "#tabContextMenu, #moveTabOptionsMenu",
     when: contextTabIsEssential,
     order: "registry",
+    extrasAfter: "share",
     items: TAB_ITEMS,
   },
   {
@@ -873,14 +877,10 @@ export const WhimsyMenuPrefs = {
       log.push({ node, prev: node.previousElementSibling, next: node.nextElementSibling });
       popup.append(node);
     };
-    // A row Settings → Menus has turned off (apply() ran first and marked
-    // it with HIDDEN_ATTR) is still grouped and moved here like any other
-    // row, so turning it back on later doesn't leave it behind in
-    // Firefox's original spot, away from the row it's grouped with. Only
-    // rows Firefox itself leaves out (no matching context) are skipped.
-    const rows = [...popup.children].filter(
-      node => !isSeparator(node) && (node.hasAttribute(HIDDEN_ATTR) || this.visible(win, node))
-    );
+    // Move hidden rows too: upstream can reveal them asynchronously after
+    // popupshowing (e.g. Tab Notes). Leaving them behind would put them
+    // before the regrouped rows and outside the restoration log.
+    const rows = [...popup.children].filter(node => !isSeparator(node));
     const used = new Set();
     const groups = [[]];
     let extrasGroup = -1;
@@ -932,9 +932,12 @@ export const WhimsyMenuPrefs = {
           if (!separator) {
             separator = win.document.createXULElement("menuseparator");
             separator.classList.add(ORDER_SEP_CLASS);
+            log.push({ node: separator, created: true });
+            popup.append(separator);
+          } else {
+            move(separator);
           }
           separator.hidden = false;
-          popup.append(separator);
         }
         first = false;
       }
@@ -957,7 +960,8 @@ export const WhimsyMenuPrefs = {
   },
 
   // Puts every row reorder() moved back where Firefox had it, newest move
-  // first. A row's old neighbour may be gone (an extension's rows are
+  // first, removing separators created for this opening. A row's old
+  // neighbour may be gone (an extension's rows are
   // removed when the menu closes); then its other neighbour, or the end.
   restoreOrder(popup) {
     const log = popup._whimsyOrderLog;
@@ -965,8 +969,12 @@ export const WhimsyMenuPrefs = {
       return;
     }
     popup._whimsyOrderLog = null;
-    for (const { node, prev, next } of log.reverse()) {
+    for (const { node, prev, next, created } of log.reverse()) {
       if (node.parentNode != popup) {
+        continue;
+      }
+      if (created) {
+        node.remove();
         continue;
       }
       if (next && next != node && next.parentNode == popup) {
