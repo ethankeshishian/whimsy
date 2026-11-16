@@ -111,6 +111,143 @@ HOTFIXES = [
                "            this.sidebar,\n"
                "            this.sidebarIsOnRight\n",
     },
+    # W29: ⌘S (toggle(true)) closes the sidebar and sets _ignoreNextHover so
+    # the pointer resting on the bar does not reveal it. Zen dropped that flag
+    # one task after the slide (or 500ms after an instant hide), and a repeat
+    # ⌘S mid-slide cleared it too. When the hidden bar's edge strip settled
+    # under the pointer, the queued mouseover then revealed it: the bar flashed
+    # back and stayed open until the pointer moved off. The flag now holds
+    # while the pointer is on the settled bar (or its edge splitter) and ends
+    # when the pointer moves off it, so the next approach to the edge reveals
+    # the bar as usual.
+    {
+        "id": "compact-close-hover-hold",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "An explicit close ignores hover until the pointer leaves the sidebar.",
+        "old": "  toggle(ignoreHover = false) {\n"
+               "    // Only ignore the next hover when we are enabling compact mode\n"
+               "    this._ignoreNextHover = ignoreHover && !this.preference;\n",
+        "new": "  // Whimsy hotfix: an explicit close (⌘S) ignores hover until the pointer\n"
+               "  // leaves the sidebar, so a pointer resting on the bar, or on the edge\n"
+               "  // strip the bar settles into, does not reveal it again.\n"
+               "  _whimsyStartHoverHold() {\n"
+               "    this._whimsyEndHoverHold();\n"
+               "    this._ignoreNextHover = true;\n"
+               "    const hold = (this._whimsyHoverHold = new AbortController());\n"
+               "    const options = { capture: true, signal: hold.signal };\n"
+               "    // The bar's area is the sidebar and its edge splitter. Only a real move\n"
+               "    // counts: hover that changes because the bar moved under a still pointer\n"
+               "    // keeps the coordinates, and must not end the hold.\n"
+               "    const splitter = document.getElementById(\"zen-sidebar-splitter\");\n"
+               "    const onMove = event => {\n"
+               "      const [x, y] = this._whimsyHoldPoint ?? [];\n"
+               "      const moved = event.clientX !== x || event.clientY !== y;\n"
+               "      this._whimsyHoldPoint = [event.clientX, event.clientY];\n"
+               "      const onBar =\n"
+               "        this.sidebar.contains(event.target) || splitter?.contains(event.target);\n"
+               "      if (!this._ignoreNextHover || (hold.settled && moved && !onBar)) {\n"
+               "        this._whimsyEndHoverHold();\n"
+               "      }\n"
+               "    };\n"
+               "    window.addEventListener(\"mousemove\", onMove, options);\n"
+               "    window.addEventListener(\"mouseover\", onMove, options);\n"
+               "  },\n"
+               "\n"
+               "  // Whimsy hotfix: once the bar has settled, keep ignoring hover only while\n"
+               "  // the pointer is on it. The last pointer position counts too, because the\n"
+               "  // bar's edge strip can settle under a pointer the bar slid away from.\n"
+               "  _whimsySettleHoverHold() {\n"
+               "    const hold = this._whimsyHoverHold;\n"
+               "    if (!hold || !this._ignoreNextHover) {\n"
+               "      this._whimsyEndHoverHold();\n"
+               "      return;\n"
+               "    }\n"
+               "    const rect = this.sidebar.getBoundingClientRect();\n"
+               "    const [x, y] = this._whimsyHoldPoint ?? [NaN, NaN];\n"
+               "    const onBar =\n"
+               "      this.sidebar.matches(\":hover\") ||\n"
+               "      document.getElementById(\"zen-sidebar-splitter\")?.matches(\":hover\") ||\n"
+               "      (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);\n"
+               "    if (!onBar) {\n"
+               "      this._whimsyEndHoverHold();\n"
+               "      return;\n"
+               "    }\n"
+               "    hold.settled = true;\n"
+               "  },\n"
+               "\n"
+               "  _whimsyEndHoverHold() {\n"
+               "    const hold = this._whimsyHoverHold;\n"
+               "    if (!hold) {\n"
+               "      return;\n"
+               "    }\n"
+               "    hold.abort();\n"
+               "    this._whimsyHoverHold = null;\n"
+               "    delete this._whimsyHoldPoint;\n"
+               "    delete this._ignoreNextHover;\n"
+               "  },\n"
+               "\n"
+               "  toggle(ignoreHover = false) {\n"
+               "    // Whimsy hotfix: the setter ignores a toggle mid-slide; return before\n"
+               "    // the explicit close's hover hold is dropped.\n"
+               "    if (document.documentElement.hasAttribute(\"zen-compact-animating\")) {\n"
+               "      return this.preference;\n"
+               "    }\n"
+               "    this._whimsyEndHoverHold(); // Whimsy hotfix\n"
+               "    // Only ignore the next hover when we are enabling compact mode\n"
+               "    this._ignoreNextHover = ignoreHover && !this.preference;\n"
+               "    if (this._ignoreNextHover) {\n"
+               "      this._whimsyStartHoverHold(); // Whimsy hotfix\n"
+               "    }\n",
+    },
+    {
+        "id": "compact-close-hover-hold-slide",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "The slide-out keeps ignoring hover while the pointer is on the settled bar.",
+        "old": "            if (this._ignoreNextHover) {\n"
+               "              setTimeout(() => {\n"
+               "                delete this._ignoreNextHover;\n"
+               "              });\n"
+               "            }\n"
+               "\n"
+               "            document.documentElement.removeAttribute(\"zen-compact-animating\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-right\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-left\");\n"
+               "            this.sidebar.style.removeProperty(\"transform\");\n"
+               "            this.sidebar.style.removeProperty(\"point-events\");\n",
+        "new": "            document.documentElement.removeAttribute(\"zen-compact-animating\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-right\");\n"
+               "            this.sidebar.style.removeProperty(\"margin-left\");\n"
+               "            this.sidebar.style.removeProperty(\"transform\");\n"
+               "            this.sidebar.style.removeProperty(\"point-events\");\n"
+               "            this._whimsySettleHoverHold(); // Whimsy hotfix\n",
+    },
+    {
+        "id": "compact-close-hover-hold-instant",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "An instant hide keeps ignoring hover while the pointer is on the bar.",
+        "old": "        setTimeout(() => {\n"
+               "          this.sidebar.style.transition = \"\";\n"
+               "          delete this._ignoreNextHover;\n"
+               "        }, 500);\n",
+        "new": "        setTimeout(() => {\n"
+               "          this.sidebar.style.transition = \"\";\n"
+               "        }, 500);\n"
+               "        this._whimsySettleHoverHold(); // Whimsy hotfix\n",
+    },
+    {
+        "id": "compact-close-hover-hold-edge",
+        "file": "src/zen/compact-mode/ZenCompactMode.mjs",
+        "why": "Leaving the window at the edge does not reveal a sidebar that ignores hover.",
+        "old": "    document.documentElement.addEventListener(\"mouseleave\", event => {\n"
+               "      setTimeout(() => {\n"
+               "        const screenEdgeCrossed = this._getCrossedEdge(\n",
+        "new": "    document.documentElement.addEventListener(\"mouseleave\", event => {\n"
+               "      setTimeout(() => {\n"
+               "        if (this._ignoreNextHover) {\n"
+               "          return; // Whimsy hotfix\n"
+               "        }\n"
+               "        const screenEdgeCrossed = this._getCrossedEdge(\n",
+    },
     # Drain a retired store before a later init opens another writer for it.
     {
         "id": "live-folders-finalize-store",
