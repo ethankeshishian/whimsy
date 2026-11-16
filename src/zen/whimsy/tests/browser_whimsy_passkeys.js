@@ -270,6 +270,20 @@ function fresh() {
 
 let mona; // the first passkey: { id, x, y }
 
+// 0. Sites ask isUserVerifyingPlatformAuthenticatorAvailable() all the time.
+// The parent asks Whimsy from a background thread; that used to crash.
+add_task(async function uvpaa_from_the_page() {
+  const tab = await openPage();
+  for (const expected of [true, false]) {
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.passkeys", expected]] });
+    const answers = await SpecialPowers.spawn(tab.linkedBrowser, [], () =>
+      Promise.all(Array.from({ length: 5 }, () =>
+        content.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())));
+    Assert.deepEqual(answers, Array(5).fill(expected), `The page hears ${expected} with passkeys ${expected ? "on" : "off"}`);
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 // 1. create for a platform authenticator: P1, the sheet, a valid credential.
 add_task(async function create_platform() {
   fresh();

@@ -19,6 +19,7 @@
 #include "mozilla/JSONWriter.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/SyncRunnable.h"
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/WebAuthnEnumStrings.h"
 #include "nsIWebAuthnArgs.h"
@@ -580,6 +581,22 @@ void WhimsyPasskeyService::Delegate() {
 NS_IMETHODIMP
 WhimsyPasskeyService::GetIsUVPAA(bool* aAvailable) {
   *aAvailable = false;
+  // WebAuthnTransactionParent asks from a background task, but the front end
+  // is a JS service (and prefs are main-thread only): ask on the main thread.
+  if (!NS_IsMainThread()) {
+    bool available = false;
+    RefPtr<WhimsyPasskeyService> self = this;
+    nsCOMPtr<nsIRunnable> ask =
+        NS_NewRunnableFunction("WhimsyPasskeyService::GetIsUVPAA",
+                               [self, &available] {
+                                 (void)self->GetIsUVPAA(&available);
+                               });
+    if (NS_SUCCEEDED(SyncRunnable::DispatchToThread(
+            GetMainThreadSerialEventTarget(), ask))) {
+      *aAvailable = available;
+    }
+    return NS_OK;
+  }
   if (nsCOMPtr<nsIWhimsyPasskeys> frontEnd = FrontEnd()) {
     (void)frontEnd->GetAvailable(aAvailable);
   }
