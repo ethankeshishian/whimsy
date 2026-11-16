@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // The one hover host for links in pages (wave7/ux, reworked for W25's hover
-// cards). One card at a time, never stacked:
+// cards; W29 made a plain card leave the pointer once it leaves the link).
+// One card at a time, never stacked:
 //   - the People card on a profile link (WhimsyPeople), while People cards
 //     are on;
 //   - otherwise the hover card (WhimsyHoverCards): a picture on top, the
@@ -13,10 +14,13 @@
 // Both open after one 500ms delay against the link's box
 // (openPopupAtScreenRect), so layout flips the card above the link when
 // there's no room below and it never covers the link. Moving on to another
-// link swaps the hover card with no delay; a People card (which has
-// buttons) keeps the hover bridge, so links crossed on the way to it don't
-// replace it. Tabs have their own card (WhimsyHoverCards' TabHover) and
-// History rows keep WhimsyHoverCard.
+// link swaps the hover card with no delay. The hover card has no buttons:
+// leaving the link closes it on its own exit transition, even if the
+// pointer lands on the card itself on the way down, so it never sits there
+// covering whatever's underneath. The People card has buttons, so it keeps
+// the hover bridge instead: links crossed on the way to it don't replace
+// it, and the pointer reaching the card keeps it open. Tabs have their own
+// card (WhimsyHoverCards' TabHover) and History rows keep WhimsyHoverCard.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -33,7 +37,8 @@ const ENTER_DELAY_MS = 500;
 // reach its buttons (180 ms lost the card on LinkedIn's dense layouts).
 const LEAVE_GRACE_MS = 400;
 // The hover card has no buttons: it closes soon after the link is left,
-// leaving a moment for the next link's hover to swap it.
+// even onto the card itself (which has nothing to click), leaving a moment
+// for the next link's hover to swap it.
 const CARD_LEAVE_MS = 100;
 // A link entered this soon after a card closed opens its card at once.
 const SWAP_MS = 300;
@@ -153,14 +158,16 @@ class LinkHover {
       // place already there (no jump when it arrives).
       ai: kind == "link" ? lazy.WhimsyHoverCards.linkDescribes(browser, url).catch(() => false) : false,
     };
-    if (target?.shown && (target.kind == "people" || this.overPanel)) {
+    if (target?.shown && target.kind == "people") {
       // wave9/mini W8-28, the hover bridge: the pointer is probably on its
       // way to the open People card and crossing other links (LinkedIn
       // stacks a person's photo, name and headline as separate links). The
       // card stays; this link takes over only if the pointer rests on it for
-      // the whole delay, and never once the pointer reaches the card. Any
-      // card under the pointer stays the same way: the page under the
-      // card's edge sees the pointer arrive before the card does.
+      // the whole delay, and never once the pointer reaches the card. The
+      // People card under the pointer stays the same way: the page under
+      // its edge sees the pointer arrive before the card does. The hover
+      // card (no buttons) never bridges like this; it closes on its own
+      // once the link is left (overPanel never sets true for it).
       this.pending = next;
       next.enterTimer = this.win.setTimeout(() => this.#promote(next), ENTER_DELAY_MS);
       return;
@@ -223,16 +230,24 @@ class LinkHover {
       return;
     }
     this.win.clearTimeout(target.leaveTimer);
-    if (this.overPanel) {
+    if (target.kind == "people" && this.overPanel) {
       // The page's mouseout arrives over IPC, often after the pointer is
-      // already on the card: never start the countdown from there.
+      // already on the card: never start the countdown from there. Only
+      // the People card needs this; it has buttons worth reaching.
       return;
     }
     target.leaveTimer = this.win.setTimeout(() => {
-      if (this.target == target && !this.overPanel && !this.panel?.matches(":hover")) {
-        // A link the pointer is resting on may still take over.
-        this.hide({ keepPending: true });
+      if (this.target != target) {
+        return;
       }
+      if (target.kind == "people" && (this.overPanel || this.panel?.matches(":hover"))) {
+        // The pointer reached the People card (or a link still resting on
+        // it may yet take over): it stays.
+        return;
+      }
+      // The hover card has no buttons: it closes now, whether or not the
+      // pointer is resting on it.
+      this.hide({ keepPending: true });
     }, target.kind == "people" ? LEAVE_GRACE_MS : CARD_LEAVE_MS);
   }
 
@@ -326,6 +341,11 @@ class LinkHover {
   }
 
   #enterPanel() {
+    if (this.target?.kind != "people") {
+      // The hover card has no buttons: the pointer reaching it never keeps
+      // it open, so only the People card's hover bridge needs this.
+      return;
+    }
     this.overPanel = true;
     this.win.clearTimeout(this.target?.leaveTimer);
     this.cancelPending();

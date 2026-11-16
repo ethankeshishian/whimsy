@@ -161,6 +161,8 @@ const TAB_ITEMS = [
   item("essentials", "whimsy-menus-tab-essentials", ["context_zen-add-essential", "context_zen-remove-essential"], {
     altL10n: "whimsy-menus-tab-essentials-alt",
   }),
+  // W29: an Essential's Open in Side Panel (only Essentials have it).
+  item("side-panel", "whimsy-menus-tab-side-panel", ["context_whimsySidePanel"]),
   // wave9/menus: New Space… is in the Move Tab submenu, first
   // (design-full-4 L10, W9-09). W13 F06: Settings shows it under Move Tab.
   item("move-tab", "whimsy-menus-tab-move-tab", ["context_moveTabOptions"], {

@@ -1,0 +1,34 @@
+diff --git a/dom/media/MediaDecoder.h b/dom/media/MediaDecoder.h
+--- a/dom/media/MediaDecoder.h
++++ b/dom/media/MediaDecoder.h
+@@ -23,6 +23,7 @@
+ #  include "mozilla/ReentrantMonitor.h"
+ #  include "mozilla/StateMirroring.h"
+ #  include "mozilla/StateWatching.h"
++#  include "mozilla/WhimsyEqualizer.h"
+ #  include "mozilla/dom/MediaDebugInfoBinding.h"
+ #  include "nsCOMPtr.h"
+ #  include "nsIObserver.h"
+@@ -400,6 +401,12 @@
+   bool ShouldResistFingerprinting() const {
+     return mShouldResistFingerprinting;
+   }
++
++  // Whimsy W29: the equalizer gains the element sets, read by the audio sinks.
++  WhimsyEqualizerParams* WhimsyEqualizer() const { return mWhimsyEqualizer; }
++  // Main thread: false when the audio doesn't go through this process's sinks
++  // (an external media engine plays it).
++  bool WhimsyEqualizerApplies() const;
+ 
+   /******
+    * The following methods must only be called on the main
+@@ -684,6 +691,9 @@
+ 
+   // If true, the decoder should resist fingerprinting.
+   const bool mShouldResistFingerprinting;
++
++  const RefPtr<WhimsyEqualizerParams> mWhimsyEqualizer =
++      new WhimsyEqualizerParams();
+ 
+   MediaDecoderOwner::NextFrameStatus mNextFrameStatus =
+       MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE;

@@ -690,13 +690,15 @@ export const WhimsyVPN = {
   //
   // While Firefox's VPN is on it sets FORCE_PROXY_PREF (bug 2026571, so
   // WebRTC can't leak the real address): a page loaded through the proxy
-  // gets no UDP or direct candidates, only TURN over TCP, and Meet and most
-  // call sites can't connect (bug 1863984). When a call starts on such a
-  // page, Whimsy asks to pause the VPN for that call: a session-only "don't
-  // use the VPN" rule for the site (Firefox's own ipp-vpn site rule), a
-  // reload so the page and the call connect directly (the choice is read
-  // when the call is created), and the rule taken back off when the call
-  // ends, the tab leaves the site or closes.
+  // gets no UDP or direct candidates, only TURN over TCP or TLS through the
+  // VPN. W29 vpncalls: a call tries that first, and Whimsy asks to pause the
+  // VPN only when the call couldn't connect (its ICE failed; the
+  // WhimsyVPNCall actor reports it), since many call sites' relays take TCP
+  // or TLS (Meet often doesn't, bug 1863984). The pause is a session-only
+  // "don't use the VPN" rule for the site (Firefox's own ipp-vpn site
+  // rule), a reload so the page and the call connect directly (the choice
+  // is read when the call is created), and the rule taken back off when
+  // the call ends, the tab leaves the site or closes.
 
   _calls: new WeakSet(),
   _declined: new WeakMap(),
@@ -745,18 +747,51 @@ export const WhimsyVPN = {
         console.error("Whimsy: VPN call start", e);
       }
     });
+    // The child only forwards PeerConnection.sys.mjs's ICE-failed notice
+    // (whimsy-PeerConnection-sys-mjs.patch); the parent checks the tab.
+    try {
+      ChromeUtils.registerWindowActor("WhimsyVPNCall", {
+        parent: { esModuleURI: "resource:///modules/whimsy/WhimsyVPNCallParent.sys.mjs" },
+        child: {
+          esModuleURI: "resource:///modules/whimsy/WhimsyVPNCallChild.sys.mjs",
+          observers: ["whimsy-peerconnection-ice-failed"],
+        },
+        matches: ["http://*/*", "https://*/*"],
+        allFrames: true,
+        messageManagerGroups: ["browsers"],
+        safeForUntrustedWebProcess: true,
+      });
+    } catch (e) {
+      console.error("Whimsy: VPN call actor", e);
+    }
   },
 
-  onCallStart(params) {
-    const wgp = params?.innerWindowID ? WindowGlobalParent.getByInnerWindowId(params.innerWindowID) : null;
+  _browserForWindowId(innerWindowID) {
+    const wgp = innerWindowID ? WindowGlobalParent.getByInnerWindowId(innerWindowID) : null;
     const browser = wgp?.browsingContext?.top?.embedderElement;
+    return browser?.documentGlobal?.gBrowser?.getTabForBrowser(browser) ? browser : null;
+  },
+
+  // A call starts: it tries the VPN first, so nothing is asked yet; the
+  // command can still pause it.
+  onCallStart(params) {
+    const browser = this._browserForWindowId(params?.innerWindowID);
+    if (browser) {
+      this._calls.add(browser);
+    }
+  },
+
+  // A call on this tab couldn't connect: ask to pause the VPN, if the VPN
+  // is what keeps it from connecting.
+  onCallFailed(browser) {
     const win = browser?.documentGlobal;
     if (!win?.gBrowser?.getTabForBrowser(browser)) {
       return;
     }
     this._calls.add(browser);
     const origin = browser.contentPrincipal?.originNoSuffix;
-    if (this._paused.has(browser) || this._declined.get(browser) == origin || !this.callBlocked(browser)) {
+    if (this._paused.has(browser) || this._declined.get(browser) == origin || !this.callBlocked(browser) ||
+      win.gZenUIManager?.toasts?.getToast(CALL_TOAST)) {
       return;
     }
     this.askToPause(win, browser);

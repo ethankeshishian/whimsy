@@ -1,0 +1,27 @@
+diff --git a/dom/media/MediaDecoderStateMachine.cpp b/dom/media/MediaDecoderStateMachine.cpp
+--- a/dom/media/MediaDecoderStateMachine.cpp
++++ b/dom/media/MediaDecoderStateMachine.cpp
+@@ -3448,6 +3448,7 @@
+       mVideoDecodeMode(VideoDecodeMode::Normal),
+       mIsMSE(aDecoder->IsMSE()),
+       mShouldResistFingerprinting(aDecoder->ShouldResistFingerprinting()),
++      mWhimsyEqualizer(aDecoder->WhimsyEqualizer()),
+       mSeamlessLoopingAllowed(false),
+       mTotalBufferingDuration(TimeDuration::Zero()),
+       INIT_MIRROR(mStreamName, nsAutoString()),
+@@ -3522,6 +3523,7 @@
+         mOutputTracks, CanonicalOutputPrincipal(), mVolume, mPlaybackRate,
+         mPreservesPitch, outputCaptureInfo.mShouldConfigAudioOutput,
+         outputCaptureInfo.mDevice, mAudioQueue, mVideoQueue);
++    stream->WhimsySetEqualizer(mWhimsyEqualizer);
+     mAudibleListener.DisconnectIfExists();
+     mAudibleListener = stream->AudibleEvent().Connect(
+         OwnerThread(), this, &MediaDecoderStateMachine::AudioAudibleChanged);
+@@ -3535,6 +3537,7 @@
+     MOZ_ASSERT(OnTaskQueue());
+     UniquePtr<AudioSink> audioSink{new AudioSink(
+         mTaskQueue, mAudioQueue, Info().mAudio, mShouldResistFingerprinting)};
++    audioSink->WhimsySetEqualizer(mWhimsyEqualizer);
+     mAudibleListener.DisconnectIfExists();
+     mAudibleListener = audioSink->AudibleEvent().Connect(
+         mTaskQueue, this, &MediaDecoderStateMachine::AudioAudibleChanged);

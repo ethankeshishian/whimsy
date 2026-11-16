@@ -163,6 +163,9 @@ export const SETTINGS = [
   // W26 passkeys: the saved passkeys, one Delete each (undo in the toast).
   { name: "passkeys", setting: "whimsyPasskeysList", feature: ["passkeys"], covers: "#whimsyPasskeysGroup",
     exempt: "each saved passkey's own Delete button; passkeys are made on sites" },
+  // W28 verification codes: the saved codes (Copy code, Delete) and Add Code….
+  { name: "totp", setting: "whimsyTotpList", feature: ["totp"], covers: "#whimsyTotpGroup",
+    exempt: "each saved code's own Copy code and Delete buttons, and Add Code…, which opens a form" },
   // W23: the connected providers (order, switches, details) and the
   // connect sheets are many small controls, set in the page.
   { name: "ai-commands", setting: "whimsyCommandsBuiltIn", covers: "#whimsyCommandsBuiltIn", when: aiAllowed,

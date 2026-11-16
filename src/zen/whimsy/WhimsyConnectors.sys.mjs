@@ -66,6 +66,13 @@ export const CATALOG = {
 };
 
 const API = { google: "https://www.googleapis.com", microsoft: "https://graph.microsoft.com/v1.0" };
+// W29: the hover card's 3 newest inbox rows, kept in memory only (never on
+// disk, never sent to any AI feature) for 60 seconds so moving along the
+// tab strip doesn't refetch. Cleared on any connector change (sign-in,
+// sign-out, or a scope switched off).
+const inboxCache = new Map(); // id -> { at, rows }
+const INBOX_CACHE_MS = MINUTE;
+Services.obs.addObserver(() => inboxCache.clear(), TOPIC);
 const LINEAR_GRAPHQL = "https://client-api.linear.app/graphql";
 const LINEAR_CLIENT_ID = Math.random().toString(36).slice(2, 15);
 
@@ -725,6 +732,48 @@ export const WhimsyConnectors = {
       out.push({ subject: h.Subject ?? "", from: h.From ?? "", date: h.Date ?? "", snippet: m.snippet ?? "" });
     }
     return JSON.stringify(out);
+  },
+
+  /**
+   * The hover card's Inbox block: the 3 newest messages, newest first,
+   * never the body. Throws "expired" (via `_api`) when the sign-in needs
+   * refreshing. 60-second cache; the caller decides whether to call this
+   * at all (connected, mail scope on, right account).
+   * @returns {Promise<{from, subject, at, unread}[]>}
+   */
+  async recentInbox(id) {
+    const cached = inboxCache.get(id);
+    if (cached && Date.now() - cached.at < INBOX_CACHE_MS) {
+      return cached.rows;
+    }
+    const rows = await (id == "google" ? this._gmailInbox() : this._graphInbox());
+    inboxCache.set(id, { at: Date.now(), rows });
+    return rows;
+  },
+
+  // Gmail's Primary category, per the owner (r3 Q3): most people's "inbox"
+  // excludes Promotions and Social. `_gmail`'s metadata-fetch pattern.
+  async _gmailInbox() {
+    const params = new URLSearchParams({ maxResults: "3", q: "in:inbox category:primary" });
+    const list = await this._api("google", `/gmail/v1/users/me/messages?${params}`);
+    const out = [];
+    for (const { id } of list.messages ?? []) {
+      const m = await this._api("google", `/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`);
+      const h = Object.fromEntries((m.payload?.headers ?? []).map(x => [x.name, x.value]));
+      out.push({ from: h.From ?? "", subject: h.Subject ?? "", at: Date.parse(h.Date ?? "") || 0, unread: (m.labelIds ?? []).includes("UNREAD") });
+    }
+    return out;
+  },
+
+  async _graphInbox() {
+    const params = new URLSearchParams({ $top: "3", $select: "from,subject,receivedDateTime,isRead", $orderby: "receivedDateTime desc" });
+    const data = await this._api("microsoft", `/me/mailFolders/inbox/messages?${params}`);
+    return (data.value ?? []).map(m => ({
+      from: m.from?.emailAddress?.name || m.from?.emailAddress?.address || "",
+      subject: m.subject ?? "",
+      at: Date.parse(m.receivedDateTime) || 0,
+      unread: !m.isRead,
+    }));
   },
 
   async _drive(q) {

@@ -1,0 +1,15 @@
+diff --git a/dom/media/MediaDecoder.cpp b/dom/media/MediaDecoder.cpp
+--- a/dom/media/MediaDecoder.cpp
++++ b/dom/media/MediaDecoder.cpp
+@@ -197,6 +197,11 @@
+   return std::isinf(mDuration.match(DurationToDouble()));
+ }
+ 
++bool MediaDecoder::WhimsyEqualizerApplies() const {
++  MOZ_ASSERT(NS_IsMainThread());
++  return !GetStateMachine() || !GetStateMachine()->IsExternalEngineStateMachine();
++}
++
+ bool MediaDecoder::IsLiveStream() const {
+   MOZ_ASSERT(NS_IsMainThread());
+   return GetStateMachine() ? GetStateMachine()->IsLiveStream() : false;

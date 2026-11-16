@@ -1,0 +1,34 @@
+diff --git a/dom/events/GlobalKeyListener.cpp b/dom/events/GlobalKeyListener.cpp
+--- a/dom/events/GlobalKeyListener.cpp
++++ b/dom/events/GlobalKeyListener.cpp
+@@ -460,6 +460,19 @@
+   return false;
+ }
+ 
++// Whimsy: "Pass Keys to Page". While the browser's own chrome marks a tab's
++// <browser> with whimsy-pass-keys, its page gets the reserved keys (New Tab,
++// Close Tab, ...) the way fullscreen keyboard lock gives them, without full
++// screen; the exit-full-screen key stays the browser's. macOS's own keys (Quit,
++// Hide, Minimize) are the menu's (internal <key>s) and never come here.
++static bool WhimsyPassKeysTarget(WidgetKeyboardEvent* aKeyEvent) {
++  nsIContent* content =
++      nsIContent::FromEventTargetOrNull(aKeyEvent->mOriginalTarget);
++  return content && content->IsXULElement(nsGkAtoms::browser) &&
++         nsContentUtils::IsChromeDoc(content->OwnerDoc()) &&
++         content->AsElement()->HasAttribute(u"whimsy-pass-keys"_ns);
++}
++
+ bool GlobalKeyListener::IsReservedKey(WidgetKeyboardEvent* aKeyEvent,
+                                       KeyEventHandler* aHandler) {
+   // If the event is a reply event, it means that we've already sent the event
+@@ -480,6 +493,10 @@
+   // fullscreen-exit shortcut (View:FullScreen), which must always remain
+   // reserved so users can always exit fullscreen.
+   if (KeyboardLockEnabledAndIsReservedKey(reserved, mTarget)) {
++    return aHandler->IsCommand("View:FullScreen");
++  }
++
++  if (reserved == ReservedKey_True && WhimsyPassKeysTarget(aKeyEvent)) {
+     return aHandler->IsCommand("View:FullScreen");
+   }
+ 

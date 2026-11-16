@@ -1,0 +1,29 @@
+diff --git a/dom/media/mediasink/DecodedStream.cpp b/dom/media/mediasink/DecodedStream.cpp
+--- a/dom/media/mediasink/DecodedStream.cpp
++++ b/dom/media/mediasink/DecodedStream.cpp
+@@ -611,6 +611,9 @@
+           std::move(mAudioEndedPromise), std::move(mVideoEndedPromise),
+           mPlaybackRate, mVolume, mPreservesPitch, mAudioOutputKey, mDevice,
+           mDecoderThread);
++      if (mWhimsyEqualizer && mData->mAudioTrack) {
++        mData->mAudioTrack->WhimsySetEqualizer(mWhimsyEqualizer);
++      }
+       if (mAudioOutputKey && mData->mAudioOutputTrack) {
+         mData->mAudioOutputTrack->AddAudioOutput(mAudioOutputKey, mDevice);
+         mData->mAudioOutputTrack->SetAudioOutputVolume(mAudioOutputKey,
+@@ -621,6 +624,7 @@
+     }
+     UniquePtr<DecodedStreamData> ReleaseData() { return std::move(mData); }
+     bool mDidRegisterAudio = false;
++    RefPtr<WhimsyEqualizerParams> mWhimsyEqualizer;
+ 
+    private:
+     PlaybackInfoInit mInit;
+@@ -646,6 +650,7 @@
+             static_cast<float>(mPlaybackRate), static_cast<float>(mVolume),
+             mPreservesPitch, mShouldConfigAudioOutput ? this : nullptr, mDevice,
+             mOwnerThread);
++  static_cast<R*>(r.get())->mWhimsyEqualizer = mWhimsyEqualizer;
+   SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(), r);
+   if (static_cast<R*>(r.get())->mDidRegisterAudio) {
+     NS_DispatchToMainThread(NS_NewRunnableFunction(
