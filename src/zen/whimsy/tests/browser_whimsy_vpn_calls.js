@@ -26,6 +26,8 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
     ["media.peerconnection.ice.proxy_only_if_behind_proxy", true],
     ["media.navigator.permission.disabled", true],
     ["media.navigator.streams.fake", true],
+    // A fake mic counts as capturing (as a real one does) only with this on.
+    ["media.navigator.permission.fake", true],
     // The test relay lives on 127.0.0.1, and ICE skips loopback TURN servers
     // unless this is on.
     ["media.peerconnection.ice.loopback", true],
