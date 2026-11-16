@@ -196,7 +196,9 @@ add_task(async function menu_checkbox_and_open_in_tab() {
   ok(item && !item.hidden, "An Essential's menu has Open in Side Panel");
   is(item.getAttribute("type"), "checkbox", "as a checkbox");
   is(item.getAttribute("checked"), "true", "on by default");
-  is(item.previousElementSibling?.id, "context_whimsyUnreadBadge", "under Show Unread Badge");
+  // The regroup puts Side Panel beside Essentials in Where it lives;
+  // Show Unread Badge belongs to the later Label group.
+  is(item.previousElementSibling?.id, "context_zen-remove-essential", "under Remove from Essentials");
   await TestUtils.waitForCondition(() => item.label == "Open in Side Panel", "Its name");
   menu.activateItem(item);
   await BrowserTestUtils.waitForEvent(menu, "popuphidden");
