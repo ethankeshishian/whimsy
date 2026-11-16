@@ -2278,6 +2278,12 @@ FEATURES = [
     # checked locally.
     {"id": "safety-check", "title": "Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions",
      "detect": [("src/zen", r"(?i)WhimsySafetyCheck\.(sys\.)?mjs|zen[-_.]?safety[-_.]?check")]},
+    # W28: Search With ▸, right after the selection menu's "Search <engine>
+    # for "…"" row: lists the other visible engines, each opening the
+    # selection exactly like that row.
+    {"id": "search-with", "title": "Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above",
+     "detect": [("locales/en-US", r"(?im)^zen-[\w-]*search-with[\w-]*\s*="),
+                ("src/zen", r"(?i)zen[-_.]?search[-_.]?with|searchwith-?menu")]},
 ]
 
 

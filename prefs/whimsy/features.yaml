@@ -735,6 +735,9 @@
 - name: whimsy.feature.safety-check
   value: true
 
+- name: whimsy.feature.search-with
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

@@ -167,6 +167,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsySafetyCheck.sys.mjs",
     "WhimsySearchDeck.sys.mjs",
     "WhimsySearchDeckChild.sys.mjs",
+    "WhimsySearchWith.sys.mjs",
     "WhimsySeasons.sys.mjs",
     "WhimsySeasonToast.sys.mjs",
     "WhimsySelectionMarkdown.sys.mjs",

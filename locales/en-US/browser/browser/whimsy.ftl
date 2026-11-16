@@ -3509,6 +3509,8 @@ whimsy-menus-page-view-source =
 
 whimsy-menus-selection-search =
     .label = Search for the Selection
+whimsy-menus-selection-search-with =
+    .label = Search With
 whimsy-menus-selection-search-private =
     .label = Search in a Private Window
 whimsy-menus-selection-translate =
@@ -3880,6 +3882,11 @@ whimsy-context-verb-linear-search =
 # (macOS's own name for this).
 whimsy-context-quick-actions =
     .label = Quick Actions
+## W28: Search With, the submenu listing other search engines for the
+## selection, right after "Search { $engine } for "…"".
+whimsy-context-search-with =
+    .label = Search With
+    .accesskey = W
 ## W10-26: the Quick Note card (New Note) and its "Note saved" toast.
 whimsy-quick-note-title = New Note
 whimsy-quick-note-name =
