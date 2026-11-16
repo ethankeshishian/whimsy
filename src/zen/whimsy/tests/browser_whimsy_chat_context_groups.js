@@ -400,9 +400,9 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
     // actual saved document, with the listener installed before selection.
     const url = `${PAGE}?${encodeURIComponent("TAP Air Portugal")}`;
     const loaded = BrowserTestUtils.browserLoaded(t.linkedBrowser, false, url);
-    const restored = BrowserTestUtils.waitForEvent(t, "SSTabRestored");
+    const tabRestored = BrowserTestUtils.waitForEvent(t, "SSTabRestored");
     await BrowserTestUtils.switchTab(gBrowser, t);
-    await restored;
+    await tabRestored;
     await loaded;
     ok(!t.hasAttribute("pending"), "The restored tab is no longer pending");
     is(t.linkedBrowser.currentURI.spec, url, "The restored tab loads its saved URL");
