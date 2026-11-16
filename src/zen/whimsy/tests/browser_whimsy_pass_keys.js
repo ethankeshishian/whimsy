@@ -84,6 +84,13 @@ function contrastRatio(a, b) {
 registerCleanupFunction(() => closeToasts());
 
 add_setup(async function () {
+  // DIAG: which prefs this file leaves changed.
+  const before = new Set(await SpecialPowers.comparePrefsToBaseline([]));
+  registerCleanupFunction(async () => {
+    await SpecialPowers.flushPrefEnv();
+    const after = [].concat(await SpecialPowers.comparePrefsToBaseline([]));
+    info(`WHIMSYDIAG changed: ${after.filter(k => !before.has(k)).join(", ")}`);
+  });
   await SpecialPowers.pushPrefEnv({
     set: [
       [TOAST_SHOWN_PREF, false],
