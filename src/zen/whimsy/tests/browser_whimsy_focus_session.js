@@ -39,15 +39,183 @@ function resetPrefs() {
   Services.prefs.clearUserPref(MUTE_PREF);
 }
 
-registerCleanupFunction(() => {
-  WhimsyFocusSession.dropBreak();
-  WhimsyFocusSession.end();
+let taskState = null;
+let prefDepth = 0;
+
+// File cleanup alone is too late: a rejected task otherwise leaves addTab
+// intercepted, so the next task's openNewForegroundTab waits on a Glance.
+// Snapshot before each task, including tabs opened before a load rejects.
+// Failure-path audit (the normal tail cleanup is skipped on rejection):
+// - site_lines_and_matching: no resources.
+// - sheet_defaults_and_remembered_ticks: sheet/picker, session, mute, prefs.
+// - all_off_is_just_a_timer: sheet, session, notch panel, mute pref.
+// - start_and_end_early_restore_everything: two windows, session, DND/mute,
+//   notch panel, and prefs.
+// - the_time_runs_out: session, done/break timers, toasts, timing overrides.
+// - listed_sites_are_paused: tabs, session/HTTP observer, prefs, screenshot theme.
+// - reduced_motion: sheets, session, confetti/toasts, motion prefs, hold override.
+// - turning_the_feature_off_ends_a_session: session and feature pref environment.
+// - the_picker_is_swappable: detached picker elements only.
+// - the_selector: sheets/picker pointer capture, session, motion prefs.
+// - settings_group_and_edit_link: sheet, Settings tab, site prefs, theme.
+// - stay_on_this_tab: session/tab interception, Glance, tabs, window, sheet,
+//   notch panel, fake URL-bar row, and motion prefs.
+// - stay_on_this_tab_screens: session/tab interception, tabs, motion/theme prefs.
+// - screens: sheets/panel, stand-ins, session, done/break timers, toasts,
+//   timing override, mute pref, and theme environments.
+function addFocusTask(task) {
+  const isolated = async function () {
+    const windows = new Map([...Services.wm.getEnumerator("navigator:browser")].map(win =>
+      [win, { tabs: new Set(win.gBrowser.tabs), selected: win.gBrowser.selectedTab }]));
+    const prefs = [...Object.values(P), MUTE_PREF].map(name => {
+      const type = Services.prefs.getPrefType(name);
+      const hadUserValue = Services.prefs.prefHasUserValue(name);
+      return { name, type, hadUserValue, value: hadUserValue ? whimsyReadPref(name, type) : undefined };
+    });
+    taskState = { windows, prefs, paused: WhimsyDoNotDisturb.paused, undo: [] };
+    try {
+      resetPrefs();
+      WhimsyDoNotDisturb.setPaused(false);
+      await task();
+    } finally {
+      await cleanupFocusTask();
+    }
+  };
+  Object.defineProperty(isolated, "name", { value: task.name });
+  add_task(isolated);
+}
+
+async function cleanupFocusTask() {
+  if (!taskState) {
+    return;
+  }
+  const snapshot = taskState;
+  const errors = [];
+  const clean = async (what, fn) => {
+    try {
+      await fn();
+    } catch (error) {
+      errors.push(new Error(`${what}: ${error}`));
+    }
+  };
+  // End before clearing endsAt or removing tabs, to restore every wrapper,
+  // notification state, muting, and the paused-site observer.
+  await clean("Ending the task's focus session", () => {
+    WhimsyFocusSession.dropBreak();
+    WhimsyFocusSession.end();
+  });
+  for (const undo of snapshot.undo.reverse()) {
+    await clean("Removing a screenshot stand-in", undo);
+  }
+  for (const win of Services.wm.getEnumerator("navigator:browser")) {
+    await clean("Closing focus surfaces", async () => {
+      for (const id of [SHEET_ID, PANEL_ID]) {
+        const panel = win.document.querySelector(`panel#${id}`);
+        if (panel) {
+          await closeSheet({ panel });
+        }
+      }
+    });
+    await clean("Restoring focus UI", () => TestUtils.waitForCondition(() =>
+      !win.document.documentElement.hasAttribute("whimsy-focus-tab") &&
+      !win.document.getElementById(NOTCH_ID) &&
+      !win.document.querySelector(".whimsy-focus-confetti"),
+    "Task teardown removes the notch, confetti, and tab hiding"));
+    await clean("Closing leftover Glance", async () => {
+      const glance = win.gBrowser.tabs.find(tab => tab.hasAttribute("zen-glance-tab"));
+      if (glance) {
+        await closeGlanceTab(win, glance);
+      }
+    });
+    win.gZenUIManager?.toasts?.getToasts({ includeClosing: true }).forEach(toast => toast.close({ instant: true }));
+    const original = snapshot.windows.get(win);
+    if (!original) {
+      await clean("Closing a test window", () => within(BrowserTestUtils.closeWindow(win), "Closing a test window"));
+      continue;
+    }
+    for (const tab of [...win.gBrowser.tabs]) {
+      if (!original.tabs.has(tab)) {
+        await clean("Removing a test tab", () => within(
+          BrowserTestUtils.removeTab(tab, { skipPermitUnload: true }), "Removing a test tab"));
+      }
+    }
+    if (original.selected.isConnected && win.gBrowser.selectedTab != original.selected) {
+      await clean("Restoring the selected tab", () => within(
+        BrowserTestUtils.switchTab(win.gBrowser, original.selected), "Restoring the selected tab"));
+    }
+  }
+  while (prefDepth > 0) {
+    await clean("Restoring task preferences", popFocusPrefs);
+  }
   WhimsyFocusSession.breakMs = BREAK_MS;
   WhimsyFocusSession.doneHoldMs = HOLD_MS;
-  WhimsyDoNotDisturb.setPaused(false);
-  closeToasts();
+  WhimsyDoNotDisturb.setPaused(snapshot.paused);
   resetPrefs();
-});
+  for (const { name, type, hadUserValue, value } of snapshot.prefs) {
+    if (hadUserValue) {
+      whimsyWritePref(name, type, value);
+    }
+  }
+  taskState = null;
+  if (errors.length) {
+    throw new AggregateError(errors, `Focus task teardown failed: ${errors.map(error => error.message).join("; ")}`);
+  }
+}
+
+registerCleanupFunction(cleanupFocusTask);
+
+async function pushFocusPrefs(env) {
+  prefDepth++;
+  await within(SpecialPowers.pushPrefEnv(env), "Applying task preferences");
+}
+
+async function popFocusPrefs() {
+  prefDepth--;
+  await within(SpecialPowers.popPrefEnv(), "Restoring task preferences");
+}
+
+function standInFocusPopups(doc = document) {
+  const undo = whimsyStandInPopups(doc);
+  taskState.undo.push(undo);
+  return undo;
+}
+
+// Bound individual screenshot steps, so finally runs before task teardown.
+async function focusBothSchemes(name, prepare) {
+  for (const dark of [false, true]) {
+    let cleanup;
+    try {
+      await pushFocusPrefs({ set: [
+        ["ui.systemUsesDarkTheme", dark ? 1 : 0],
+        ["browser.theme.toolbar-theme", dark ? 0 : 1],
+        ["browser.theme.content-theme", dark ? 0 : 1],
+      ] });
+      const want = dark ? "dark" : "light";
+      await TestUtils.waitForCondition(() => window.matchMedia(`(prefers-color-scheme: ${want})`).matches,
+        `${name}: the window uses the ${want} scheme`);
+      window.gZenThemePicker?.onWorkspaceChange?.(window.gZenWorkspaces?.getActiveWorkspace?.());
+      await within(new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+        `${name}: painting the colour scheme`);
+      cleanup = await prepare(dark);
+      await within(focusSettled(), `${name}: settling animations`);
+      await within(whimsyShot(`${name}-${dark ? "dark" : "light"}`), `${name}: capturing the window`);
+    } finally {
+      try {
+        await cleanup?.();
+      } finally {
+        await popFocusPrefs();
+      }
+    }
+  }
+}
+
+// The shared screenshot helper logs and swallows animation timeouts. Here a
+// persistent animation must fail at the step that owns it.
+async function focusSettled(doc = document) {
+  await TestUtils.waitForCondition(() => doc.getAnimations().every(animation =>
+    animation.playState != "running" || animation.effect?.getComputedTiming().iterations == Infinity),
+  "The focus document's finite animations finish");
+}
 
 async function openSheet(win = window) {
   const parts = WhimsyFocusSession.openSheet(win);
@@ -59,16 +227,15 @@ async function openSheet(win = window) {
 
 async function closeSheet(parts) {
   if (parts.panel.state != "closed") {
-    const hidden = BrowserTestUtils.waitForEvent(parts.panel, "popuphidden");
     WhimsySurface.close(parts.panel);
-    await hidden;
+    await TestUtils.waitForCondition(() => parts.panel.state == "closed",
+      `The focus popup ${parts.panel.id} closes`);
   }
 }
 
 async function startFromSheet(parts) {
-  const hidden = BrowserTestUtils.waitForEvent(parts.panel, "popuphidden");
   parts.footer.querySelector(`#${SHEET_ID}-start`).click();
-  await hidden;
+  await TestUtils.waitForCondition(() => parts.panel.state == "closed", "Start closes the focus sheet");
   ok(WhimsyFocusSession.isActive, "Start starts the session");
 }
 
@@ -137,7 +304,7 @@ function notClipped(el, what) {
 
 // --- pure helpers -------------------------------------------------------------
 
-add_task(async function site_lines_and_matching() {
+addFocusTask(async function site_lines_and_matching() {
   is(siteFromLine("  "), "", "A blank line is skipped");
   is(siteFromLine("https://www.Reddit.com/r/all"), "reddit.com", "A URL becomes its site");
   is(siteFromLine("news.ycombinator.com"), "news.ycombinator.com", "A host stays");
@@ -156,7 +323,7 @@ add_task(async function site_lines_and_matching() {
 
 // --- the sheet: defaults, prefs, Just a timer ---------------------------------
 
-add_task(async function sheet_defaults_and_remembered_ticks() {
+addFocusTask(async function sheet_defaults_and_remembered_ticks() {
   resetPrefs();
   const parts = await openSheet();
   const { boxes, picker, justTimer } = parts;
@@ -197,7 +364,7 @@ add_task(async function sheet_defaults_and_remembered_ticks() {
   resetPrefs();
 });
 
-add_task(async function all_off_is_just_a_timer() {
+addFocusTask(async function all_off_is_just_a_timer() {
   resetPrefs();
   Services.prefs.setStringPref(MUTE_PREF, "off");
   WhimsyDoNotDisturb.setPaused(false);
@@ -206,7 +373,7 @@ add_task(async function all_off_is_just_a_timer() {
     EventUtils.synthesizeMouseAtCenter(parts.boxes[name], {});
   }
   ok(!parts.justTimer.hidden, "With nothing ticked, the caption says Just a timer");
-  await document.l10n.translateFragment(parts.panel);
+  await within(document.l10n.translateFragment(parts.panel), "Translating Just a timer");
   ok(parts.justTimer.textContent.trim().length, "Just a timer has its text");
   await startFromSheet(parts);
 
@@ -222,9 +389,8 @@ add_task(async function all_off_is_just_a_timer() {
   }, "The notch's panel opens");
   const text = panel.querySelector(`#${PANEL_ID}-text`);
   is(text.getAttribute("data-l10n-id"), "whimsy-focus-panel-ends", "Nothing ticked: only when it ends");
-  const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
   panel.querySelector(`#${PANEL_ID}-end`).click();
-  await hidden;
+  await TestUtils.waitForCondition(() => panel.state == "closed", "End session closes the notch panel");
   ok(!WhimsyFocusSession.isActive, "End session ends it");
   await TestUtils.waitForCondition(() => !document.getElementById(NOTCH_ID), "The notch goes");
   ok(!currentToast(), "Ending early shows no toast");
@@ -233,7 +399,7 @@ add_task(async function all_off_is_just_a_timer() {
 
 // --- start and end ----------------------------------------------------------------
 
-add_task(async function start_and_end_early_restore_everything() {
+addFocusTask(async function start_and_end_early_restore_everything() {
   resetPrefs();
   Services.prefs.setStringPref(MUTE_PREF, "off");
   WhimsyDoNotDisturb.setPaused(false);
@@ -241,7 +407,7 @@ add_task(async function start_and_end_early_restore_everything() {
   ok(action("whimsy-action-focus-start").isAvailable(window), "Start Focus Session is in the command bar");
   ok(!action("whimsy-action-focus-end").isAvailable(window), "End Focus Session isn't, yet");
 
-  const win2 = await BrowserTestUtils.openNewBrowserWindow();
+  const win2 = await within(BrowserTestUtils.openNewBrowserWindow(), "Opening another browser window");
   WhimsyFocusSession.start(window, { minutes: 25, dnd: true, pauseSites: true, muteBackground: true, breakReminder: true });
   ok(WhimsyFocusSession.isActive, "The session is on");
   Assert.greater(Services.prefs.getIntPref(P.endsAt), 1e9, "endsAt is stored in seconds");
@@ -255,9 +421,9 @@ add_task(async function start_and_end_early_restore_everything() {
   ok(!action("whimsy-action-focus-start").isAvailable(window), "Start isn't");
 
   // A window opened mid-session gets the notch too.
-  const win3 = await BrowserTestUtils.openNewBrowserWindow();
+  const win3 = await within(BrowserTestUtils.openNewBrowserWindow(), "Opening another browser window");
   await TestUtils.waitForCondition(() => win3.document.getElementById(NOTCH_ID), "A new window gets the notch");
-  await BrowserTestUtils.closeWindow(win3);
+  await within(BrowserTestUtils.closeWindow(win3), "Closing another browser window");
 
   // The notch: a timer, labelled, and its time.
   const notch = document.getElementById(NOTCH_ID);
@@ -281,7 +447,7 @@ add_task(async function start_and_end_early_restore_everything() {
   ok(/Do Not Disturb/.test(text.textContent), "It names Do Not Disturb");
   ok(/paused/.test(text.textContent), "It names the paused sites");
   ok(/,/.test(text.textContent), "Four things are listed with commas");
-  WhimsySurface.close(panel);
+  await closeSheet({ panel });
 
   WhimsyFocusSession.end();
   ok(!WhimsyFocusSession.isActive, "Ending it ends it");
@@ -294,7 +460,7 @@ add_task(async function start_and_end_early_restore_everything() {
     "The notch goes from every window"
   );
   ok(!document.documentElement.hasAttribute("whimsy-focus"), "The toast offset is dropped");
-  await BrowserTestUtils.closeWindow(win2);
+  await within(BrowserTestUtils.closeWindow(win2), "Closing another browser window");
 
   // Do Not Disturb that was already on stays on.
   WhimsyDoNotDisturb.setPaused(true);
@@ -306,7 +472,7 @@ add_task(async function start_and_end_early_restore_everything() {
   resetPrefs();
 });
 
-add_task(async function the_time_runs_out() {
+addFocusTask(async function the_time_runs_out() {
   resetPrefs();
   closeToasts();
   WhimsyFocusSession.doneHoldMs = 200;
@@ -352,7 +518,7 @@ add_task(async function the_time_runs_out() {
 
 // --- pausing sites -----------------------------------------------------------------
 
-add_task(async function listed_sites_are_paused() {
+addFocusTask(async function listed_sites_are_paused() {
   resetPrefs();
   Services.prefs.setBoolPref(P.social, false);
   Services.prefs.setBoolPref(P.video, false);
@@ -365,7 +531,7 @@ add_task(async function listed_sites_are_paused() {
   // reloadTab resolves once the reload has loaded.
   await within(BrowserTestUtils.reloadTab(before), "Reloading the open tab");
   is(before.linkedBrowser.currentURI.host, "example.org", "A tab that was open stays");
-  BrowserTestUtils.removeTab(before);
+  await within(BrowserTestUtils.removeTab(before), "Removing the focus test tab");
 
   info("A new load is paused");
   const tab = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank"), "Opening a blank tab");
@@ -386,7 +552,7 @@ add_task(async function listed_sites_are_paused() {
   // Other sites aren't.
   const other = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/"), "Opening example.com");
   is(other.linkedBrowser.currentURI.host, "example.com", "An unlisted site opens");
-  BrowserTestUtils.removeTab(other);
+  await within(BrowserTestUtils.removeTab(other), "Removing the focus test tab");
   // Closing it usually selects the paused tab again; switchTab would wait
   // forever for a switch that already happened.
   if (gBrowser.selectedTab != tab) {
@@ -394,12 +560,12 @@ add_task(async function listed_sites_are_paused() {
   }
   info("Paused-page shots");
 
-  await within(whimsyBothSchemes("focus-paused-page", async () => {
-    await whimsySettled(doc);
+  await focusBothSchemes("focus-paused-page", async () => {
+    await within(focusSettled(doc), "Settling the content document");
     checkContrast(doc.defaultView, doc.getElementById("whimsy-focus-back"), "Go back");
     checkContrast(doc.defaultView, doc.getElementById("whimsy-focus-heading"), "The paused heading");
     notClipped(doc.getElementById("whimsy-focus-open"), "Open anyway");
-  }), "The paused-page shots", 40000);
+  });
 
   info("Open anyway");
   // Open anyway: this tab, this site, for the rest of the session.
@@ -426,17 +592,17 @@ add_task(async function listed_sites_are_paused() {
   await within(reopened, "Reopening the paused tab");
   is(second.linkedBrowser.currentURI.host, "test1.example.org", "Ending the session opens the site");
 
-  BrowserTestUtils.removeTab(second);
-  BrowserTestUtils.removeTab(tab);
+  await within(BrowserTestUtils.removeTab(second), "Removing the focus test tab");
+  await within(BrowserTestUtils.removeTab(tab), "Removing the focus test tab");
   await TestUtils.waitForCondition(() => !document.getElementById(NOTCH_ID), "The notch goes");
   resetPrefs();
 });
 
 // --- reduced motion ---------------------------------------------------------------
 
-add_task(async function reduced_motion() {
+addFocusTask(async function reduced_motion() {
   resetPrefs();
-  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  await pushFocusPrefs({ set: [["ui.prefersReducedMotion", 1]] });
   const parts = await openSheet();
   const big = parts.picker.element.querySelector(".whimsy-focus-selector-value");
   parts.picker.element.focus();
@@ -453,10 +619,10 @@ add_task(async function reduced_motion() {
   closeToasts();
   await TestUtils.waitForCondition(() => !document.getElementById(NOTCH_ID), "The notch goes");
   WhimsyFocusSession.doneHoldMs = HOLD_MS;
-  await SpecialPowers.popPrefEnv();
+  await popFocusPrefs();
 
   // With motion: the reading bumps and confetti falls.
-  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
+  await pushFocusPrefs({ set: [["ui.prefersReducedMotion", 0]] });
   const moving = await openSheet();
   moving.picker.element.focus();
   EventUtils.synthesizeKey("KEY_ArrowUp", {});
@@ -473,26 +639,26 @@ add_task(async function reduced_motion() {
     "The notch and the confetti go"
   );
   WhimsyFocusSession.doneHoldMs = HOLD_MS;
-  await SpecialPowers.popPrefEnv();
+  await popFocusPrefs();
   resetPrefs();
 });
 
 // --- the feature switch, the picker interface --------------------------------------
 
-add_task(async function turning_the_feature_off_ends_a_session() {
+addFocusTask(async function turning_the_feature_off_ends_a_session() {
   resetPrefs();
   WhimsyFocusSession.start(window, { minutes: 10, dnd: false, pauseSites: true, muteBackground: false, breakReminder: false });
   ok(WhimsyFocusSession.isActive, "A session is on");
-  await SpecialPowers.pushPrefEnv({ set: [[WhimsyFocusSession.FEATURE_PREF, false]] });
+  await pushFocusPrefs({ set: [[WhimsyFocusSession.FEATURE_PREF, false]] });
   ok(!WhimsyFocusSession.isActive, "Turning focus sessions off ends it");
   ok(!action("whimsy-action-focus-start").isAvailable(window), "The command goes");
   is(WhimsyFocusSession.openSheet(window), null, "The sheet doesn't open");
   await TestUtils.waitForCondition(() => !document.getElementById(NOTCH_ID), "The notch goes");
-  await SpecialPowers.popPrefEnv();
+  await popFocusPrefs();
   resetPrefs();
 });
 
-add_task(async function the_picker_is_swappable() {
+addFocusTask(async function the_picker_is_swappable() {
   const changes = [];
   const picker = WhimsyFocusPicker.create(document, { value: 40, onChange: v => changes.push(v) });
   ok(picker.element, "A picker has an element");
@@ -535,9 +701,9 @@ function selectorMouse(picker, minutes, type) {
   EventUtils.synthesizeMouse(picker.element, x, y, { type }, picker.element.ownerDocument.defaultView);
 }
 
-add_task(async function the_selector() {
+addFocusTask(async function the_selector() {
   resetPrefs();
-  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  await pushFocusPrefs({ set: [["ui.prefersReducedMotion", 1]] });
   const parts = await openSheet();
   const { picker } = parts;
   const el = picker.element;
@@ -617,10 +783,10 @@ add_task(async function the_selector() {
   is(again.picker.value, 5, "The next sheet opens at it");
   pointsAt(again.picker, 5, "Pointing at it");
   await closeSheet(again);
-  await SpecialPowers.popPrefEnv();
+  await popFocusPrefs();
 
   // With motion: the knob springs to each stop, then stops asking for frames.
-  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
+  await pushFocusPrefs({ set: [["ui.prefersReducedMotion", 0]] });
   const moving = await openSheet();
   const p = moving.picker;
   selectorMouse(p, 30, "mousedown");
@@ -636,18 +802,22 @@ add_task(async function the_selector() {
   await TestUtils.waitForCondition(() => !p.moving, "It settles");
   pointsAt(p, 31, "Between the marks");
   const before = p.element.querySelector(".whimsy-focus-selector-rot").getAttribute("transform");
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await within(new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))), "Drawing two idle picker frames");
   is(p.element.querySelector(".whimsy-focus-selector-rot").getAttribute("transform"), before, "Idle, it draws nothing");
   ok(!p.moving, "And asks for no frames");
   await closeSheet(moving);
-  await SpecialPowers.popPrefEnv();
+  await popFocusPrefs();
   resetPrefs();
 });
 
 // --- Settings › General › Focus Sessions -------------------------------------------
 
-add_task(async function settings_group_and_edit_link() {
+addFocusTask(async function settings_group_and_edit_link() {
   resetPrefs();
+  // openPreferences may reuse the selected blank tab. Give it a test-owned
+  // one so it cannot navigate the harness's original tab to Settings.
+  await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank"),
+    "Opening the tab from which Edit should open Settings");
   const parts = await openSheet();
   EventUtils.synthesizeMouseAtCenter(parts.panel.querySelector(".whimsy-focus-edit"), {});
   // openPreferences can reuse a tab (including about:settings), so there
@@ -684,12 +854,14 @@ add_task(async function settings_group_and_edit_link() {
   is(status.getAttribute("data-l10n-id"), "whimsy-focus-settings-saved", "Saved is said");
   ok(!list.hasAttribute("aria-invalid"), "The field is valid");
 
-  await within(whimsyBothSchemes("focus-settings", async () => {
+  await focusBothSchemes("focus-settings", async () => {
     doc.getElementById("whimsyFocusGroup").scrollIntoView();
-    await whimsySettled(doc);
+    await within(focusSettled(doc), "Settling the content document");
     checkContrast(win, doc.getElementById("whimsyFocusSocialSample"), "A sample line", 4.5);
-  }), "Capturing Focus Sessions settings in both colour schemes");
-  BrowserTestUtils.removeTab(tab);
+  });
+  if (!taskState.windows.get(window).tabs.has(tab)) {
+    await within(BrowserTestUtils.removeTab(tab), "Removing the test Settings tab");
+  }
   resetPrefs();
 });
 
@@ -704,22 +876,44 @@ function glanceOver(keep) {
 }
 
 async function closeGlance(keep) {
-  if (!glanceOver(keep)) {
+  const glance = glanceOver(keep);
+  if (!glance) {
     return;
   }
-  gZenGlanceManager.closeGlance({ noAnimation: true, skipPermitUnload: true });
-  await TestUtils.waitForCondition(() => !glanceOver(keep) && gBrowser.selectedTab == keep, "The Glance closes");
+  // Stay on this tab blocks promotion, not dismissal. The test must dismiss
+  // its own Glance before testing the next link. Zen's noAnimation path only
+  // quick-closes the view; it never finalizes/removes the Glance tab.
+  await closeGlanceTab(window, glance);
+  await TestUtils.waitForCondition(() => gBrowser.selectedTab == keep, "Closing Glance selects the kept tab");
 }
 
-add_task(async function stay_on_this_tab() {
+async function closeGlanceTab(win, glance) {
+  const manager = win.gZenGlanceManager;
+  if (manager.closingGlance) {
+    await TestUtils.waitForCondition(() => !glance.isConnected && !manager.closingGlance,
+      "The already-closing Glance finishes dismissal");
+    return;
+  }
+  // A tab has its Glance attributes before the asynchronous opening animation
+  // finishes. closeGlance silently returns while opening, so wait for readiness.
+  await TestUtils.waitForCondition(() =>
+    manager.browserWrapper?.hasAttribute("has-finished-animation") &&
+    !manager.animatingOpen && !manager._animating,
+  "The Glance finishes opening before dismissal");
+  await within(manager.closeGlance({ skipPermitUnload: true }), "Dismissing the Glance");
+  await TestUtils.waitForCondition(() => !glance.isConnected && !manager.closingGlance,
+    "Dismissing Glance removes its tab and finishes closing");
+}
+
+addFocusTask(async function stay_on_this_tab() {
   resetPrefs();
   const others = [
-    await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/"),
-    await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/"),
+    await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/"), "Opening focus test tab https://example.org/"),
+    await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/"), "Opening focus test tab https://example.net/"),
   ];
-  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
-  const win2 = await BrowserTestUtils.openNewBrowserWindow();
-  await SimpleTest.promiseFocus(window);
+  const keep = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/"), "Opening focus test tab https://example.com/");
+  const win2 = await within(BrowserTestUtils.openNewBrowserWindow(), "Opening another browser window");
+  await within(SimpleTest.promiseFocus(window), "Focusing the test window");
 
   // The sheet: a tick under Pause distracting sites, off by default.
   const parts = await openSheet();
@@ -730,7 +924,7 @@ add_task(async function stay_on_this_tab() {
   await closeSheet(parts);
 
   // Start, with motion: the other tabs fade, then hide.
-  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
+  await pushFocusPrefs({ set: [["ui.prefersReducedMotion", 0]] });
   WhimsyFocusSession.start(window, STAY);
   ok(Services.prefs.getBoolPref(WhimsyFocusSession.PREFS.stayOnTab), "The tick is remembered");
   const root = document.documentElement;
@@ -760,24 +954,21 @@ add_task(async function stay_on_this_tab() {
   ok(line.textContent.includes(`${WhimsyFocusTab.hiddenCount(window)} tabs hidden`), "It counts the hidden tabs");
   notClipped(line.lastElementChild, "The hidden-tabs line");
 
-  // Switching away does nothing.
-  const tick = () => new Promise(r => setTimeout(r, 50));
+  // Key dispatch is synchronous: the capturing handler cancels switching.
   EventUtils.synthesizeKey("KEY_Tab", { ctrlKey: true });
-  await tick();
   is(gBrowser.selectedTab, keep, "Ctrl+Tab does nothing");
   EventUtils.synthesizeKey("1", { accelKey: true, code: "Digit1" });
-  await tick();
   is(gBrowser.selectedTab, keep, "Cmd+1 does nothing");
   gBrowser.selectedTab = others[0];
   await TestUtils.waitForCondition(() => gBrowser.selectedTab == keep, "Any other way back gives way to the kept tab");
-  await gZenWorkspaces.changeWorkspace?.(gZenWorkspaces.getActiveWorkspace?.());
+  await within(gZenWorkspaces.changeWorkspace?.(gZenWorkspaces.getActiveWorkspace?.()), "Attempting to change workspace during focus");
   ok(Object.hasOwn(gZenWorkspaces, "changeWorkspace"), "Spaces are held");
 
   // New tabs open in Glance, and Glance can't become a tab.
   openTrustedLinkIn("https://example.org/?glance", "tab");
   const glance = await TestUtils.waitForCondition(() => glanceOver(keep), "A new tab opens in Glance");
   is(gBrowser.selectedTab, glance, "The Glance shows");
-  await gZenGlanceManager.fullyOpenGlance();
+  await within(gZenGlanceManager.fullyOpenGlance(), "Attempting to promote Glance during focus");
   ok(glance.hasAttribute("zen-glance-tab"), "Glance can't become a tab");
   info(
     `Diag glance buttons=${[...document.querySelectorAll(".zen-glance-sidebar-open")]
@@ -793,15 +984,15 @@ add_task(async function stay_on_this_tab() {
   await closeGlance(keep);
 
   // A target=_blank link too.
-  await SpecialPowers.spawn(keep.linkedBrowser, [], () => {
+  await within(SpecialPowers.spawn(keep.linkedBrowser, [], () => {
     const a = content.document.createElement("a");
     a.href = "https://example.org/?blank";
     a.target = "_blank";
     a.id = "whimsy-blank";
     a.textContent = "link";
     content.document.body.append(a);
-  });
-  await BrowserTestUtils.synthesizeMouseAtCenter("#whimsy-blank", {}, keep.linkedBrowser);
+  }), "Adding the target=_blank fixture");
+  await within(BrowserTestUtils.synthesizeMouseAtCenter("#whimsy-blank", {}, keep.linkedBrowser), "Clicking the target=_blank fixture");
   await TestUtils.waitForCondition(() => glanceOver(keep), "A target=_blank link opens in Glance");
   await closeGlance(keep);
 
@@ -811,6 +1002,7 @@ add_task(async function stay_on_this_tab() {
     const fake = document.createElementNS(XHTML, "div");
     fake.className = "urlbarView-row";
     fake.setAttribute("type", "switchtab");
+    taskState.undo.push(() => fake.remove());
     results.append(fake);
     await TestUtils.waitForCondition(() => fake.hidden, "A switch-to-tab row is hidden");
     fake.setAttribute("type", "url");
@@ -819,13 +1011,11 @@ add_task(async function stay_on_this_tab() {
   }
 
   // The panel says the tabs come back.
-  const panel = await WhimsyFocusNotch.openPanel(window);
+  const panel = await within(WhimsyFocusNotch.openPanel(window), "Opening the focus notch panel");
   await TestUtils.waitForCondition(() => panel.panel.state == "open", "The panel opens");
   const back = panel.panel.querySelector(`#${PANEL_ID}-tabs`);
   is(back?.getAttribute("data-l10n-id"), "whimsy-focus-panel-tabs", "It says the other tabs come back");
-  let hidden = BrowserTestUtils.waitForEvent(panel.panel, "popuphidden");
-  WhimsySurface.close(panel.panel);
-  await hidden;
+  await closeSheet(panel);
 
   // Ending brings everything back, with a fade.
   WhimsyFocusSession.end();
@@ -838,37 +1028,37 @@ add_task(async function stay_on_this_tab() {
   ok(!Object.hasOwn(gZenWorkspaces, "changeWorkspace"), "Spaces change again");
   ok(!Object.hasOwn(gZenGlanceManager, "fullyOpenGlance"), "Glance opens as a tab again");
   gBrowser.selectedTab = others[0];
-  await new Promise(r => setTimeout(r, 50));
+  await within(TestUtils.waitForTick(), "Processing tab selection after ending focus");
   is(gBrowser.selectedTab, others[0], "Switching tabs works again");
-  await SpecialPowers.popPrefEnv();
+  await popFocusPrefs();
 
   // Reduce Motion: straight to hidden, straight back. Closing the kept tab
   // ends the hiding.
-  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  await pushFocusPrefs({ set: [["ui.prefersReducedMotion", 1]] });
   gBrowser.selectedTab = keep;
   WhimsyFocusSession.start(window, STAY);
   is(root.getAttribute("whimsy-focus-tab"), "on", "With Reduce Motion the tabs hide at once");
-  BrowserTestUtils.removeTab(keep);
+  await within(BrowserTestUtils.removeTab(keep), "Removing the focus test tab");
   await TestUtils.waitForCondition(() => !root.hasAttribute("whimsy-focus-tab"), "Closing the kept tab brings the others back");
   ok(WhimsyFocusSession.isActive, "The session goes on");
   await endSession();
-  await SpecialPowers.popPrefEnv();
+  await popFocusPrefs();
 
-  await BrowserTestUtils.closeWindow(win2);
+  await within(BrowserTestUtils.closeWindow(win2), "Closing another browser window");
   for (const tab of others) {
-    BrowserTestUtils.removeTab(tab);
+    await within(BrowserTestUtils.removeTab(tab), "Removing the focus test tab");
   }
   resetPrefs();
 });
 
-add_task(async function stay_on_this_tab_screens() {
+addFocusTask(async function stay_on_this_tab_screens() {
   resetPrefs();
-  const keep = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
-  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/");
+  const keep = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/"), "Opening focus test tab https://example.com/");
+  const other = await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/"), "Opening focus test tab https://example.org/");
   gBrowser.selectedTab = keep;
-  await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 1]] });
+  await pushFocusPrefs({ set: [["ui.prefersReducedMotion", 1]] });
   WhimsyFocusSession.start(window, STAY);
-  await whimsyBothSchemes("focus-stay-on-tab", async () => {
+  await focusBothSchemes("focus-stay-on-tab", async () => {
     const line = document.querySelector(".whimsy-focus-tab-line");
     await TestUtils.waitForCondition(() => line.textContent.includes("hidden"), "The line has its text");
     // The sidebar isn't a filled surface (it shows the window's material),
@@ -876,20 +1066,20 @@ add_task(async function stay_on_this_tab_screens() {
     notClipped(line.lastElementChild, "The hidden-tabs line");
   });
   await endSession();
-  await SpecialPowers.popPrefEnv();
-  BrowserTestUtils.removeTab(other);
-  BrowserTestUtils.removeTab(keep);
+  await popFocusPrefs();
+  await within(BrowserTestUtils.removeTab(other), "Removing the focus test tab");
+  await within(BrowserTestUtils.removeTab(keep), "Removing the focus test tab");
   resetPrefs();
 });
 
 // --- screenshots and contrast -------------------------------------------------------
 
-add_task(async function screens() {
+addFocusTask(async function screens() {
   resetPrefs();
   Services.prefs.setStringPref(MUTE_PREF, "off");
-  await whimsyBothSchemes("focus-sheet", async () => {
+  await focusBothSchemes("focus-sheet", async () => {
     const parts = await openSheet();
-    await whimsySettled();
+    await within(focusSettled(), "Settling the focus surface");
     const start = parts.footer.querySelector(`#${SHEET_ID}-start`);
     checkContrast(window, start, "Start");
     checkContrast(window, parts.ends, "Ends at");
@@ -897,21 +1087,21 @@ add_task(async function screens() {
     for (const row of parts.panel.querySelectorAll(".whimsy-surface-row-label")) {
       notClipped(row, `The ${row.textContent} label`);
     }
-    const undo = whimsyStandInPopups(document);
+    const undo = standInFocusPopups(document);
     return async () => {
       undo?.();
       await closeSheet(parts);
     };
   });
 
-  await whimsyBothSchemes("focus-sheet-just-timer", async () => {
+  await focusBothSchemes("focus-sheet-just-timer", async () => {
     const parts = await openSheet();
     for (const box of Object.values(parts.boxes)) {
       box.checked = false;
       box.dispatchEvent(new Event("change"));
     }
-    await whimsySettled();
-    const undo = whimsyStandInPopups(document);
+    await within(focusSettled(), "Settling the focus surface");
+    const undo = standInFocusPopups(document);
     return async () => {
       undo?.();
       await closeSheet(parts);
@@ -919,32 +1109,30 @@ add_task(async function screens() {
   });
 
   WhimsyFocusSession.start(window, { minutes: 25, dnd: false, pauseSites: true, muteBackground: false, breakReminder: true });
-  await whimsyBothSchemes("focus-notch", async () => {
+  await focusBothSchemes("focus-notch", async () => {
     const notch = document.getElementById(NOTCH_ID);
     await TestUtils.waitForCondition(() => notch.querySelector(".whimsy-focus-time").textContent, "The time shows");
     checkContrast(window, notch.querySelector(".whimsy-focus-time"), "The countdown");
   });
-  await whimsyBothSchemes("focus-notch-panel", async () => {
-    const parts = await WhimsyFocusNotch.openPanel(window);
+  await focusBothSchemes("focus-notch-panel", async () => {
+    const parts = await within(WhimsyFocusNotch.openPanel(window), "Opening the focus notch panel");
     await TestUtils.waitForCondition(() => parts.panel.state == "open", "The panel is open");
-    await whimsySettled();
+    await within(focusSettled(), "Settling the focus surface");
     checkContrast(window, parts.footer.querySelector(`#${PANEL_ID}-end`), "End session");
-    const undo = whimsyStandInPopups(document);
+    const undo = standInFocusPopups(document);
     return async () => {
       undo?.();
-      const hidden = BrowserTestUtils.waitForEvent(parts.panel, "popuphidden");
-      WhimsySurface.close(parts.panel);
-      await hidden;
+      await closeSheet(parts);
     };
   });
   await endSession();
 
   WhimsyFocusSession.doneHoldMs = 50;
-  await whimsyBothSchemes("focus-done-toast", async () => {
+  await focusBothSchemes("focus-done-toast", async () => {
     WhimsyFocusSession.start(window, { minutes: 25, dnd: false, pauseSites: false, muteBackground: false, breakReminder: true });
     WhimsyFocusSession.finish();
     const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-focus-done-toast"), "The toast shows");
-    await whimsySettled();
+    await within(focusSettled(), "Settling the focus surface");
     const notch = document.getElementById(NOTCH_ID);
     if (notch) {
       Assert.greaterOrEqual(
