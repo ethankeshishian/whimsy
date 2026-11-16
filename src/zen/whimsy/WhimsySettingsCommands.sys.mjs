@@ -55,6 +55,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyHome: "resource:///modules/whimsy/WhimsyHome.sys.mjs",
+  WhimsyIconPack: "resource:///modules/whimsy/WhimsyIconPack.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true));
 
@@ -105,6 +106,11 @@ export const SETTINGS = [
     // Any other font is picked from the list in Settings (every installed
     // font); the command goes back to the system font.
     choices: [{ value: "", l10nId: "whimsy-look-ui-font-system" }], partial: true },
+  // W29 icon-sets: Lucide and Phosphor-fill alternatives to Nucleo.
+  { name: "icon-pack", setting: "whimsyIconPackList", pref: "whimsy.look.icon-pack", feature: ["icon-pack"],
+    get choices() {
+      return lazy.WhimsyIconPack.PACKS.map(value => ({ value, l10nId: `whimsy-look-icon-pack-${value}` }));
+    } },
   { name: "density", setting: "whimsyDensity", pref: "browser.uidensity", feature: ["space-look"],
     choices: [
       { value: 1, l10nId: "whimsy-look-density-compact" },

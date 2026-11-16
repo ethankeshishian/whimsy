@@ -519,6 +519,16 @@ whimsy-look-peek-essential-links =
 whimsy-look-ui-font = Interface font
 whimsy-look-ui-font-system =
     .label = System font
+# W29 icon-sets: three cards (Nucleo, Lucide, Phosphor-fill), each a radio
+# with a name and a short detail ("Default · Nucleo").
+whimsy-look-icon-pack-label = Icons
+whimsy-look-icon-pack-nucleo = Whimsy
+whimsy-look-icon-pack-nucleo-detail = Default · Nucleo
+whimsy-look-icon-pack-lucide = Outline
+whimsy-look-icon-pack-lucide-detail = Lucide · thin strokes
+whimsy-look-icon-pack-phosphor-fill = Filled
+whimsy-look-icon-pack-phosphor-fill-detail = Phosphor · solid
+whimsy-look-icon-pack-preview-caption = Preview
 
 ## batch8: tab lifecycle — Settings → Tab Management
 
@@ -4556,6 +4566,8 @@ whimsy-setting-dark-pdf = Dark PDFs
     .keywords = pdf dark mode, night mode, invert pdf
 whimsy-setting-ui-font = Interface Font
     .keywords = font, typeface, sidebar font, system font
+whimsy-setting-icon-pack = Icons
+    .keywords = icon pack, lucide, phosphor, outline, filled, nucleo, toolbar icons
 whimsy-setting-density = Density
     .keywords = compact, roomy, spacing, tab height
 whimsy-setting-transparency = Transparency

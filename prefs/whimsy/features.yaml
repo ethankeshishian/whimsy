@@ -84,6 +84,9 @@
 - name: whimsy.feature.ui-font
   value: true
 
+- name: whimsy.feature.icon-pack
+  value: true
+
 - name: whimsy.feature.strip-tracking
   value: true
 

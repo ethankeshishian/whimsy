@@ -99,6 +99,17 @@
         </menupopup>
       </menulist>
     </hbox>
+    <!-- W29 icon-sets: Lucide and Phosphor alternatives to Zen's own
+         Nucleo icons. Three cards, each previewing the same six icons;
+         picking one swaps the whole window's icons immediately (no
+         restart), same as the font row above. A toolbar preview strip
+         under the cards shows the pick too. -->
+    <vbox id="whimsyIconPackRow" data-whimsy-feature="icon-pack">
+      <label id="whimsyIconPackLabel" data-l10n-id="whimsy-look-icon-pack-label"/>
+      <html:div id="whimsyIconPackList" role="radiogroup" aria-labelledby="whimsyIconPackLabel"></html:div>
+      <description class="description-deemphasized" data-l10n-id="whimsy-look-icon-pack-preview-caption"/>
+      <html:div id="whimsyIconPackPreview"></html:div>
+    </vbox>
     <!-- wave5/look: Firefox's density, which each space can override
          (right-click a space → Edit Look…). wave9/designfix: the only
          density control; old #appearance-windowDensity links land here. -->

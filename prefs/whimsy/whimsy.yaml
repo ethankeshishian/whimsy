@@ -96,6 +96,13 @@
 - name: whimsy.look.ui-font
   value: ""
 
+# W29 icon-sets: which icon pack draws the toolbar, sidebar, panels and
+# right-click menus (Settings → Look and Feel → Icons). "nucleo" is Zen's
+# own set; "lucide" and "phosphor-fill" are vendored alternatives. Never the
+# space icon picker (common/selectable/), which this doesn't touch.
+- name: whimsy.look.icon-pack
+  value: "nucleo"
+
 # Mute background tabs (Settings → Tab Management): "prioritize" mutes them
 # only while the current tab plays sound, "background" lets only the current
 # tab play, "off" lets every tab play.

@@ -95,6 +95,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyHome.sys.mjs",
     "WhimsyHoverCard.sys.mjs",
     "WhimsyHoverCards.sys.mjs",
+    "WhimsyIconPack.sys.mjs",
     "WhimsyImageMetadata.sys.mjs",
     "WhimsyInspector.sys.mjs",
     "WhimsyInspectorChild.sys.mjs",
@@ -397,6 +398,15 @@ EXTRA_JS_MODULES.whimsy += [
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyPasskeys.sys.mjs",
 ]
+
+# W29 icon-sets: Lucide and Phosphor, vendored at content/icon-packs/. Zen's
+# own icons (zen-icons/, Nucleo) carry Zen's license; these two need their
+# own about:license entries since they ship under different licenses.
+LICENSES += ["lucide", "phosphor"]
+LICENSES["lucide"].title = "Lucide icons (ISC)"
+LICENSES["lucide"].text = "content/icon-packs/lucide/LICENSE"
+LICENSES["phosphor"].title = "Phosphor icons (MIT)"
+LICENSES["phosphor"].text = "content/icon-packs/phosphor-fill/LICENSE"
 
 # W28: "Open in Safari" / "Open in Chrome" (research/multi-engine.md
 # option A, step 1).
