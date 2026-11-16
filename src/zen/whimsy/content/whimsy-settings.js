@@ -1162,6 +1162,7 @@ var gWhimsySettings = {
       card.className = "whimsy-icon-pack-card";
       card.setAttribute("role", "radio");
       card.dataset.pack = pack;
+      card.dataset.value = pack;
 
       const glyphs = document.createElement("div");
       glyphs.className = "whimsy-icon-pack-glyphs";
