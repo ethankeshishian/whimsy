@@ -741,6 +741,9 @@
 - name: whimsy.feature.window-title-space
   value: true
 
+- name: whimsy.feature.side-panels
+  value: true
+
 - name: whimsy.feature.window-on-top
   value: true
 

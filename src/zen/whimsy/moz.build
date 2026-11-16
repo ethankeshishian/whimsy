@@ -182,6 +182,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyShareTab.sys.mjs",
     "WhimsyShortcuts.sys.mjs",
     "WhimsySidebarNav.sys.mjs",
+    "WhimsySidePanel.sys.mjs",
     "WhimsySitePopups.sys.mjs",
     "WhimsySiteSettings.sys.mjs",
     "WhimsySmartButtons.sys.mjs",

@@ -2272,6 +2272,11 @@ FEATURES = [
     {"id": "window-title-space", "title": "Show space name in window title: \"<space> — <page title>\" (Settings → Tab Management, off by default)",
      "detect": [("src/zen/spaces", r"titlepreface|getWindowTitleForBrowser|updateTitlebar|document\.title\s*="),
                 ("src/zen", r"(?i)zen[-_.]?(window[-_.]?title[-_.]?(space|workspace)|(space|workspace)[-_.]?in[-_.]?(window[-_.]?)?title)")]},
+    # W29: Essentials open in a floating popover next to the sidebar
+    # (WhimsySidePanel.sys.mjs). Superseded if Zen ships its own side panel
+    # or Essential popover.
+    {"id": "side-panels", "title": "Side panels: Essentials open in a resizable popover next to the sidebar (Open in Side Panel), chat can too",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(side[-_.]?panel|essential[-_.]?popover|popover[-_.]?essential)")]},
     # W28: Keep Window on Top (Settings → Look and Feel, macOS only): one
     # global setting floats every Whimsy window, including Mini Whimsy,
     # above other apps' windows; persists across restarts.

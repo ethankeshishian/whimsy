@@ -132,6 +132,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // batch3glance: Glance size and split view (Arc parity).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyGlance: "resource:///modules/whimsy/WhimsyGlance.sys.mjs",
+  WhimsySidePanel: "resource:///modules/whimsy/WhimsySidePanel.sys.mjs",
   WhimsySplitFlow: "resource:///modules/whimsy/WhimsySplitFlow.sys.mjs",
   WhimsySplitLayouts: "resource:///modules/whimsy/WhimsySplitLayouts.sys.mjs",
 });
@@ -1120,6 +1121,9 @@ export const Whimsy = {
     // batch3glance: Glance size. Always installed (checks its switch on
     // each Glance), so turning it on or off applies without a restart.
     run("glance-size", () => lazy.WhimsyGlance.initWindow(win));
+    // W29 side panels: Essentials open in a popover next to the sidebar.
+    // Always installed; each click checks the switch.
+    run("side-panels", () => lazy.WhimsySidePanel.initWindow(win));
     // batch3glance: Cmd+T in a split opens into the focused pane (Arc).
     // Always installed; checks its switch on each Cmd+T.
     run("split-new-tab", () => lazy.WhimsySplitFlow.initWindow(win));
