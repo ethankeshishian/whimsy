@@ -42,6 +42,7 @@
       share.textContent = "share";
       share.addEventListener("click", () => {
         window.shares++;
+        window.shareResult = null;
         navigator.mediaDevices.getDisplayMedia({ video: true }).then(
           result => {
             shared = result;
