@@ -349,7 +349,6 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
   const maps = await openFrom(airbnb, "Lisbon to Sintra");
   const before = [root, tap, airbnb, maps];
   const restored = [];
-  const contentRestored = [];
   await SpecialPowers.pushPrefEnv({ set: [["browser.sessionstore.restore_on_demand", true]] });
   try {
     const rootKey = WhimsyTreeTabs.groupKeyOf(root);
@@ -369,7 +368,6 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
     for (const state of [...states].reverse()) {
       const tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { skipAnimation: true, createLazyBrowser: true });
       const ready = BrowserTestUtils.waitForEvent(tab, "SSTabRestoring");
-      contentRestored.unshift(BrowserTestUtils.waitForEvent(tab, "SSTabRestored"));
       SessionStore.setTabState(tab, state);
       ok(!tab.linkedPanel && tab.hasAttribute("pending"), "The restored tab starts lazy and pending");
       // Insert only after supplying the saved state. This restores history
@@ -402,8 +400,9 @@ add_task(async function journey4_group_and_tree_nesting_survive_a_restart() {
     // actual saved document, with the listener installed before selection.
     const url = `${PAGE}?${encodeURIComponent("TAP Air Portugal")}`;
     const loaded = BrowserTestUtils.browserLoaded(t.linkedBrowser, false, url);
+    const restored = BrowserTestUtils.waitForEvent(t, "SSTabRestored");
     await BrowserTestUtils.switchTab(gBrowser, t);
-    await contentRestored[1];
+    await restored;
     await loaded;
     ok(!t.hasAttribute("pending"), "The restored tab is no longer pending");
     is(t.linkedBrowser.currentURI.spec, url, "The restored tab loads its saved URL");
