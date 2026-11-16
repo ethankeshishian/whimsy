@@ -91,6 +91,19 @@ function rowFor(popup, label) {
   return [...popup.children].find(n => n.getAttribute("label") == label);
 }
 
+// BrowserTestUtils.removeTab() is a synchronous, fire-and-forget call into
+// gBrowser.removeTab() — it returns nothing to await. Zen's own tab-close
+// path (the Glance manager, the animated vertical-tabs close, etc.) can
+// finish the actual splice out of gBrowser.tabs well after that call
+// returns, and "TabClose" fires as the close *starts*, not once it's done.
+// Every task below measures tab positions against a clean strip, so wait
+// for the real removal rather than trusting removeTab()'s return.
+async function closeTab(tab) {
+  const browser = tab.documentGlobal.gBrowser;
+  BrowserTestUtils.removeTab(tab);
+  await TestUtils.waitForCondition(() => !browser.tabs.includes(tab), "tab actually removed from gBrowser.tabs");
+}
+
 let engineA, engineB, engineC;
 
 add_setup(async function () {
@@ -111,7 +124,7 @@ add_task(async function test_lists_other_engines_in_settings_order() {
     Assert.deepEqual(labels, [engineB.name, engineC.name], "Lists the other two engines, without the default, in Settings order");
     await closeMenu(menu);
   } finally {
-    await BrowserTestUtils.removeTab(tab);
+    await closeTab(tab);
     restore();
   }
 });
@@ -150,9 +163,9 @@ add_task(async function test_opens_like_the_default_row_default_engine() {
     is(resultTab.linkedBrowser.currentURI.spec, "https://example.com/a?q=whimsy+search+with+test", "The default engine's results, for the selection");
   } finally {
     if (resultTab) {
-      await BrowserTestUtils.removeTab(resultTab);
+      await closeTab(resultTab);
     }
-    await BrowserTestUtils.removeTab(tab);
+    await closeTab(tab);
     restore();
   }
 });
@@ -163,37 +176,21 @@ add_task(async function test_opens_like_the_default_row_search_with_engine() {
   const restore = await onlyTheseEngines([engineA, engineB, engineC]);
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   const originalIndex = gBrowser.tabs.indexOf(tab);
-  // TEMP DIAGNOSTIC (W28): bisection point 1 — the tab strip before this
-  // task does anything, to see whether earlier tasks already left it with
-  // more than the one tab this task opened.
-  const tag = t => (t == tab ? "O" : t.linkedBrowser.currentURI.spec == "about:blank" ? "b" : "x");
-  ok(false, `start: n=${gBrowser.tabs.length} i=${originalIndex} map=${gBrowser.tabs.map(tag).join("")}`);
   let resultTab;
   try {
     resultTab = await searchAndGetResultTab(tab, async menu => {
       const searchWithRow = document.getElementById(ROW_ID);
       await openSubmenu(searchWithRow);
-      // TEMP DIAGNOSTIC (W28): bisection point 2 — right after the submenu
-      // opens, before activating a row, to see whether opening it alone
-      // (no activation yet) already shifts the tab strip.
-      ok(false, `mid: n=${gBrowser.tabs.length} map=${gBrowser.tabs.map(tag).join("")}`);
       menu.activateItem(rowFor(searchWithRow.menupopup, engineB.name));
     });
-    // TEMP DIAGNOSTIC (W28): bisection point 3 (final state) — a terse
-    // tab-list dump, short enough to survive reason.py's 220-char line
-    // truncation (the earlier verbose dump with full URLs got cut off
-    // before the useful part).
-    const map = gBrowser.tabs
-      .map(t => (t == tab ? "O" : t == resultTab ? "R" : t.linkedBrowser.currentURI.spec == "about:blank" ? "b" : "x"))
-      .join("");
-    is(gBrowser.tabs.indexOf(resultTab), originalIndex + 1, `same placement as default row (orig=${originalIndex} n=${gBrowser.tabs.length} map=${map})`);
+    is(gBrowser.tabs.indexOf(resultTab), originalIndex + 1, "same placement as default row: right next to the tab that opened the menu");
     is(gBrowser.selectedTab, resultTab, "…in the foreground, exactly like the default row");
     is(resultTab.linkedBrowser.currentURI.spec, "https://example.com/b?q=whimsy+search+with+test", "That engine's results, for the same selection");
   } finally {
     if (resultTab) {
-      await BrowserTestUtils.removeTab(resultTab);
+      await closeTab(resultTab);
     }
-    await BrowserTestUtils.removeTab(tab);
+    await closeTab(tab);
     restore();
   }
 });
@@ -215,9 +212,9 @@ add_task(async function test_background_pref_matches_the_default_row() {
     is(gBrowser.selectedTab, tab, "Opens in the background, following browser.search.context.loadInBackground — same as the default row would");
   } finally {
     if (resultTab) {
-      await BrowserTestUtils.removeTab(resultTab);
+      await closeTab(resultTab);
     }
-    await BrowserTestUtils.removeTab(tab);
+    await closeTab(tab);
     await SpecialPowers.popPrefEnv();
     restore();
   }
@@ -263,7 +260,7 @@ add_task(async function test_private_window_excludes_the_private_default() {
     is(privateWin.gBrowser.tabs.indexOf(resultTab), originalIndex + 1, "Right next to the tab that opened the menu, same as in a regular window");
   } finally {
     if (resultTab) {
-      await BrowserTestUtils.removeTab(resultTab);
+      await closeTab(resultTab);
     }
     await BrowserTestUtils.closeWindow(privateWin);
     await SearchService.setDefaultPrivate(previousPrivate, SearchService.CHANGE_REASON.UNKNOWN);
@@ -281,7 +278,7 @@ add_task(async function test_one_visible_engine_hides_the_row() {
     ok(!shows(document.getElementById(ROW_ID)), "With only the default engine visible, the row is hidden");
     await closeMenu(menu);
   } finally {
-    await BrowserTestUtils.removeTab(tab);
+    await closeTab(tab);
     restore();
   }
 });
@@ -296,7 +293,7 @@ add_task(async function test_settings_menus_can_hide_it() {
     ok(!shows(document.getElementById(ROW_ID)), "Settings → Menus can turn the row off");
     await closeMenu(menu);
   } finally {
-    await BrowserTestUtils.removeTab(tab);
+    await closeTab(tab);
     WhimsyMenuPrefs.restoreDefaults("selection");
     restore();
   }
