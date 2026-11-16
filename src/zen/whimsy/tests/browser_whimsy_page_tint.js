@@ -44,15 +44,16 @@ function rgbOf(value) {
   return match.slice(1, 4).map(n => Number(n.trim()));
 }
 
-// nsZenThemePicker's blendWithWhiteOverlay (ZenGradientGenerator.mjs) is
-// not a pure opacity-setter: on macOS it also blends the colour toward a
-// window-vibrancy overlay, by an amount that depends on the opacity it's
-// given. The toolbar is always painted at opacity 1 (forced in
-// singleColorValue) while the background keeps the space's own, lower
-// opacity, so the two call it with different arguments and land close
-// but not pixel-identical for what is still, visibly, the same flat
-// colour. A few points of channel drift is that formula, not a bug, so
-// compare with a small tolerance rather than exact equality.
+// singleColorValue's toolbar and background branches take genuinely
+// different paths through nsZenThemePicker's own formula (see the
+// add_setup note above on canBeTransparent and the light/dark base), and
+// blendWithWhiteOverlay's macOS vibrancy blend is itself not a pure
+// opacity-setter - the toolbar's forced opacity of 1 vs. the background's
+// own, lower opacity means the two land close but not pixel-identical for
+// what is still, visibly, the same flat colour. A few points of channel
+// drift is that formula, not a bug (add_setup pins light mode so this
+// stays small and deterministic), so compare with a small tolerance
+// rather than exact equality.
 function assertSameFlatColour(toolbar, other, message) {
   const [t, o] = [rgbOf(toolbar), rgbOf(other)];
   const deltas = t.map((v, i) => Math.abs(v - o[i]));
@@ -157,6 +158,18 @@ function setSpaceGradient(workspace, [c1, c2]) {
 
 add_setup(async () => {
   await gZenThemePicker.promiseInitialized;
+  // nsZenThemePicker's #getSingleRGBColor (singleColorValue's model) only
+  // blends the toolbar toward a near-white base when canBeTransparent is
+  // false; on macOS (canBeTransparent is always true here) it instead
+  // blends 90% toward getToolbarModifiedBaseRaw(), which is near-white in
+  // light mode but near-black in dark mode, while the background's own
+  // branch never reads that base at all. The two formulas only land close
+  // together in light mode - zen.view.window.scheme defaults to "auto"
+  // (2), which falls back to the system's prefers-color-scheme, so pin it
+  // to light (1) rather than let assertSameFlatColour's result depend on
+  // whatever colour scheme the test host (or a pref changed by another
+  // lane landing concurrently) happens to report.
+  await SpecialPowers.pushPrefEnv({ set: [["zen.view.window.scheme", 1]] });
   await openPanel();
   registerCleanupFunction(closePanel);
 });
