@@ -391,3 +391,9 @@ authorized targeted run; isolated old passes are not validation of these edits.
   builds, import, verify, install, ship, and commits were not run as directed.
 - Full evidence, changes, proof plan, and limits: codex-flakes-report.md at
   the worktree root (handoff directory is outside writable roots).
+
+## 2026-11-16 — W28 TOTP/dev merge conflict resolution
+
+- Root cause: independent additions shared insertion points in the privacy Settings initializer map and module/build declarations.
+- Removed conflict markers while retaining TOTP and Safety Check initializers, TOTP modules and the QR decoder, and Lucide and Phosphor license declarations.
+- Validation: Settings JavaScript passed node --check; moz.build passed Python AST parsing; static checks confirmed no conflict markers in either file and each conflicting addition retained exactly once. Referenced TOTP/QR files and icon licenses exist. No browser tests, mach, or git commands ran.

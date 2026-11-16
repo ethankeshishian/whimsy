@@ -100,3 +100,51 @@ add_task(async function test_shift_click_split_opt_in_wins() {
   }
 });
 
+// W29-tabclicks: Shift+click on a link inside a pinned tab still splits it
+// correctly, but when that tab was the only thing showing in a manually
+// collapsed folder, reselecting the split's result looked to ZenFolders
+// like every tab in the folder was now active, which expanded the folder.
+// The split is correct; the folder should stay as the user left it.
+add_task(async function test_shift_click_split_keeps_folder_collapsed() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.splitlink.shift-click", true]] });
+  const tab = await linkTab();
+  let folder;
+  try {
+    folder = await gZenFolders.createFolder([tab], { renameFolder: false, label: "Folder" });
+    gBrowser.selectedTab = tab;
+    folder.labelElement.click();
+    ok(folder.collapsed, "The folder starts out manually collapsed");
+
+    // createFolder() pins `tab` (Folders hold pinned tabs). Splitting a
+    // pinned tab with an unpinned one (the new tab the link opens) makes
+    // ZenViewSplitter#useTabsToSplit duplicate the pinned tab instead of
+    // reusing it, so the pane to watch for is the new tab that shows up
+    // alongside the link's tab, not `tab` itself - `tab` stays behind,
+    // still pinned and still the one `folder` tracks for cleanup below.
+    const beforeTabs = new Set(gBrowser.tabs);
+    await BrowserTestUtils.synthesizeMouseAtCenter("#l", { shiftKey: true }, tab.linkedBrowser);
+    const splitTabs = await TestUtils.waitForCondition(() => {
+      const added = gBrowser.tabs.filter(t => !beforeTabs.has(t));
+      return added.length == 2 && added.every(t => t.splitView) ? added : null;
+    }, "Shift+click split the pinned tab");
+    // ZenFolders re-expands the folder on the TabSelect the split causes
+    // before Whimsy's own restore (deferred so it doesn't race that
+    // handler - see restoreCollapsedFoldersAfterSettle) puts it back, so
+    // wait for the restore rather than asserting right after the split.
+    await TestUtils.waitForCondition(() => folder.collapsed, "The folder settles back to collapsed");
+    ok(folder.collapsed, "Splitting the pinned tab keeps the folder collapsed");
+    for (const splitTab of splitTabs) {
+      BrowserTestUtils.removeTab(splitTab);
+    }
+  } finally {
+    if (folder) {
+      const removed = BrowserTestUtils.waitForEvent(folder, "TabGroupRemoved");
+      folder.delete();
+      await removed;
+    } else {
+      BrowserTestUtils.removeTab(tab);
+    }
+    await SpecialPowers.popPrefEnv();
+  }
+});
+

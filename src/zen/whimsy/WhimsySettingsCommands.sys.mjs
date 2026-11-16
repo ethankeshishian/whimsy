@@ -55,6 +55,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyHome: "resource:///modules/whimsy/WhimsyHome.sys.mjs",
+  WhimsyIconPack: "resource:///modules/whimsy/WhimsyIconPack.sys.mjs",
 });
 ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["branding/brand.ftl", "browser/whimsy.ftl"], true));
 
@@ -105,6 +106,11 @@ export const SETTINGS = [
     // Any other font is picked from the list in Settings (every installed
     // font); the command goes back to the system font.
     choices: [{ value: "", l10nId: "whimsy-look-ui-font-system" }], partial: true },
+  // W29 icon-sets: Lucide and Phosphor-fill alternatives to Nucleo.
+  { name: "icon-pack", setting: "whimsyIconPackList", pref: "whimsy.look.icon-pack", feature: ["icon-pack"],
+    get choices() {
+      return lazy.WhimsyIconPack.PACKS.map(value => ({ value, l10nId: `whimsy-look-icon-pack-${value}` }));
+    } },
   { name: "density", setting: "whimsyDensity", pref: "browser.uidensity", feature: ["space-look"],
     choices: [
       { value: 1, l10nId: "whimsy-look-density-compact" },
@@ -195,6 +201,8 @@ export const SETTINGS = [
     } },
   // W24: keep adult sites out of history.
   { name: "adult-history", setting: "whimsyAdultHistory", pref: "whimsy.adult-history.enabled", feature: ["adult-history"] },
+  // W27: remove location and camera details from photos you upload.
+  { name: "photo-metadata", setting: "whimsyStripImageMetadata", pref: "whimsy.privacy.strip-image-metadata", feature: ["photo-metadata"] },
   { name: "private-in-window", setting: "whimsyPrivateInWindow", pref: "whimsy.private.in-window", feature: ["scratch"] },
   // W11-14: the private lock's switches have their own commands (Turn Lock
   // for … On/Off), which ask for Touch ID before turning one off while locked.
@@ -225,6 +233,7 @@ export const SETTINGS = [
     onCommand: "cmd_whimsyVPNToggle" },
   { name: "email-aliases", setting: "whimsyEmailAliasesButton", pref: "whimsy.email-aliases.button",
     feature: ["email-aliases"] },
+  { name: "field-editor-button", setting: "whimsyFieldEditorButton", pref: "whimsy.field-editor.button" },
   { name: "handoff", setting: "whimsyHandoffSend", pref: "whimsy.handoff.send", feature: ["handoff"], when: mac },
   // W23 agent-chat: Settings › AI › Agent, Outside agents, and Activity.
   { name: "agent-mode", setting: "whimsyAIAgentMode", pref: "whimsy.ai.agent.mode", when: aiAllowed,

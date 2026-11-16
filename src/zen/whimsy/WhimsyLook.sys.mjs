@@ -33,6 +33,14 @@
 // menus, Settings) apart from web fonts, to match their editor or system
 // taste. Empty is the system font (San Francisco on macOS). Pages keep
 // their own fonts.
+//
+// Icon pack (whimsy.look.icon-pack, Settings → Look and Feel, wave29/icon-
+// sets): Lucide (outline) and Phosphor (filled) as alternatives to Zen's own
+// Nucleo icons, everywhere Nucleo draws (toolbar, sidebar, panels, right-
+// click menus). Each pack is a Whimsy-owned stylesheet generated from Zen's
+// zen-icons/icons.css by whimsy/tools/iconpacks.py, loaded as a USER_SHEET on
+// top (the same mechanism WhimsySpaceLook uses for a space's mod). "nucleo"
+// needs no sheet at all: removing it just lets Zen's own rules apply again.
 
 const FONT_FEATURE_PREF = "whimsy.feature.ui-font";
 const FONT_PREF = "whimsy.look.ui-font";
@@ -42,6 +50,11 @@ export const MAX_TRANSPARENCY = 80;
 const GLASS_FEATURE_PREF = "whimsy.feature.liquid-glass";
 const GLASS_PREF = "whimsy.look.liquid-glass";
 export const GLASS_TRANSPARENCY = 35;
+const ICONPACK_FEATURE_PREF = "whimsy.feature.icon-pack";
+const ICONPACK_PREF = "whimsy.look.icon-pack";
+// Packs that need an override sheet. "nucleo" (the default) needs none.
+export const ICON_PACKS = ["lucide", "phosphor-fill"];
+const iconPackSheet = pack => `chrome://browser/content/whimsy/icon-packs/${pack}.css`;
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -52,6 +65,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // "" for the system font; no entry follows Settings.
 const spaceFonts = new WeakMap();
 const fontUpdaters = new WeakMap();
+// win -> the sheet URI currently loaded for it (or null for Nucleo).
+const iconPackSheets = new WeakMap();
 
 function featureOn(pref) {
   return Services.prefs.getBoolPref(pref, true);
@@ -69,6 +84,7 @@ export const WhimsyLook = {
     run("hex-colors", () => lazy.WhimsyHexPicker.initWindow(win));
     run("transparency", () => this.initTransparency(win));
     run("ui-font", () => this.initFont(win));
+    run("icon-pack", () => this.initIconPack(win));
   },
 
   // --- Transparency ---
@@ -172,6 +188,60 @@ export const WhimsyLook = {
       () => {
         Services.prefs.removeObserver(FONT_PREF, update);
         Services.prefs.removeObserver(FONT_FEATURE_PREF, update);
+      },
+      { once: true }
+    );
+    update();
+  },
+
+  // --- Icon pack ---
+
+  // The chosen pack's override sheet URI, or null for Nucleo (no sheet).
+  iconPackURL() {
+    if (!featureOn(ICONPACK_FEATURE_PREF)) {
+      return null;
+    }
+    const pack = Services.prefs.getStringPref(ICONPACK_PREF, "nucleo");
+    return ICON_PACKS.includes(pack) ? iconPackSheet(pack) : null;
+  },
+
+  initIconPack(win) {
+    const utils = win.windowUtils;
+    const swap = uri => {
+      const current = iconPackSheets.get(win) ?? null;
+      if (uri === current) {
+        return;
+      }
+      if (current) {
+        try {
+          utils.removeSheetUsingURIString(current, utils.USER_SHEET);
+        } catch (e) {
+          // Already gone (e.g. the window is closing).
+        }
+      }
+      if (uri) {
+        try {
+          utils.loadSheetUsingURIString(uri, utils.USER_SHEET);
+        } catch (e) {
+          console.error("Whimsy: icon pack sheet", e);
+          uri = null;
+        }
+      }
+      iconPackSheets.set(win, uri);
+    };
+    const update = () => swap(this.iconPackURL());
+    const prefs = [ICONPACK_PREF, ICONPACK_FEATURE_PREF];
+    for (const pref of prefs) {
+      Services.prefs.addObserver(pref, update);
+    }
+    win.addEventListener(
+      "unload",
+      () => {
+        for (const pref of prefs) {
+          Services.prefs.removeObserver(pref, update);
+        }
+        swap(null);
+        iconPackSheets.delete(win);
       },
       { once: true }
     );

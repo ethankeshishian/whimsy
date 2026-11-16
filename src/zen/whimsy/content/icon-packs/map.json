@@ -1,0 +1,634 @@
+{
+  "algorithm": {
+    "lucide": null,
+    "phosphor-fill": null
+  },
+  "arrow-corner-down-right": {
+    "lucide": "corner-down-right",
+    "phosphor-fill": "arrow-bend-down-right"
+  },
+  "arrow-down": {
+    "lucide": "arrow-down",
+    "phosphor-fill": "arrow-down"
+  },
+  "arrow-left": {
+    "lucide": "arrow-left",
+    "phosphor-fill": "arrow-left"
+  },
+  "arrow-right": {
+    "lucide": "arrow-right",
+    "phosphor-fill": "arrow-right"
+  },
+  "arrow-rotate-anticlockwise": {
+    "lucide": "rotate-ccw",
+    "phosphor-fill": "arrow-counter-clockwise"
+  },
+  "arrow-up": {
+    "lucide": "arrow-up",
+    "phosphor-fill": "arrow-up"
+  },
+  "arrows-collapse": {
+    "lucide": "minimize-2",
+    "phosphor-fill": "arrows-in"
+  },
+  "arrows-expand": {
+    "lucide": "maximize-2",
+    "phosphor-fill": "arrows-out"
+  },
+  "autoplay-media": {
+    "lucide": "play-circle",
+    "phosphor-fill": "play-circle"
+  },
+  "autoplay-media-blocked": {
+    "lucide": "circle-slash",
+    "phosphor-fill": "prohibit"
+  },
+  "autoplay-media-fill": {
+    "lucide": "play-circle",
+    "phosphor-fill": "play-circle"
+  },
+  "back": {
+    "lucide": "arrow-left",
+    "phosphor-fill": "arrow-left"
+  },
+  "block": {
+    "lucide": "ban",
+    "phosphor-fill": "prohibit"
+  },
+  "blocked-element": {
+    "lucide": "ban",
+    "phosphor-fill": "prohibit"
+  },
+  "bolt": {
+    "lucide": "zap",
+    "phosphor-fill": "lightning"
+  },
+  "bookmark": {
+    "lucide": "bookmark",
+    "phosphor-fill": "bookmark"
+  },
+  "bookmark-hollow": {
+    "lucide": "bookmark",
+    "phosphor-fill": "bookmark-simple"
+  },
+  "bookmark-star-on-tray": {
+    "lucide": "bookmark-plus",
+    "phosphor-fill": "bookmark-simple"
+  },
+  "boost": {
+    "lucide": "gauge",
+    "phosphor-fill": "rocket"
+  },
+  "brackets-curly": {
+    "lucide": "braces",
+    "phosphor-fill": "brackets-curly"
+  },
+  "camera": {
+    "lucide": "camera",
+    "phosphor-fill": "camera"
+  },
+  "camera-blocked": {
+    "lucide": "camera-off",
+    "phosphor-fill": "camera-slash"
+  },
+  "camera-fill": {
+    "lucide": "camera",
+    "phosphor-fill": "camera"
+  },
+  "canvas": {
+    "lucide": "square",
+    "phosphor-fill": "square"
+  },
+  "canvas-blocked": {
+    "lucide": "square-slash",
+    "phosphor-fill": "prohibit"
+  },
+  "check": {
+    "lucide": "check",
+    "phosphor-fill": "check"
+  },
+  "chevron": {
+    "lucide": "chevron-down",
+    "phosphor-fill": "caret-down"
+  },
+  "circle-bars-filter": {
+    "lucide": "sliders-horizontal",
+    "phosphor-fill": "faders"
+  },
+  "close": {
+    "lucide": "x",
+    "phosphor-fill": "x"
+  },
+  "close-filled-round": {
+    "lucide": "x-circle",
+    "phosphor-fill": "x-circle"
+  },
+  "container-tab": {
+    "lucide": "box",
+    "phosphor-fill": "package"
+  },
+  "cookies-fill": {
+    "lucide": "cookie",
+    "phosphor-fill": "cookie"
+  },
+  "customize": {
+    "lucide": "settings-2",
+    "phosphor-fill": "sliders"
+  },
+  "dart-down": {
+    "lucide": "arrow-down",
+    "phosphor-fill": "arrow-down"
+  },
+  "desktop-notification": {
+    "lucide": "bell",
+    "phosphor-fill": "bell"
+  },
+  "desktop-notification-blocked": {
+    "lucide": "bell-off",
+    "phosphor-fill": "bell-slash"
+  },
+  "desktop-notification-fill": {
+    "lucide": "bell",
+    "phosphor-fill": "bell"
+  },
+  "developer": {
+    "lucide": "code",
+    "phosphor-fill": "code"
+  },
+  "dice": {
+    "lucide": "dice-5",
+    "phosphor-fill": "dice-five"
+  },
+  "downloads": {
+    "lucide": "download",
+    "phosphor-fill": "download-simple"
+  },
+  "drag-indicator": {
+    "lucide": "grip-vertical",
+    "phosphor-fill": "dots-six-vertical"
+  },
+  "duplicate-tab": {
+    "lucide": "copy",
+    "phosphor-fill": "copy"
+  },
+  "edit-copy": {
+    "lucide": "copy",
+    "phosphor-fill": "copy"
+  },
+  "edit-cut": {
+    "lucide": "scissors",
+    "phosphor-fill": "scissors"
+  },
+  "edit-delete": {
+    "lucide": "trash-2",
+    "phosphor-fill": "trash"
+  },
+  "edit-paste": {
+    "lucide": "clipboard",
+    "phosphor-fill": "clipboard"
+  },
+  "edit-theme": {
+    "lucide": "palette",
+    "phosphor-fill": "palette"
+  },
+  "essential-add": {
+    "lucide": "plus",
+    "phosphor-fill": "plus"
+  },
+  "essential-remove": {
+    "lucide": "minus",
+    "phosphor-fill": "minus"
+  },
+  "expand-sidebar": {
+    "lucide": "panel-left",
+    "phosphor-fill": "sidebar-simple"
+  },
+  "extension": {
+    "lucide": "puzzle",
+    "phosphor-fill": "puzzle-piece"
+  },
+  "extension-blocked": {
+    "lucide": "puzzle",
+    "phosphor-fill": "puzzle-piece"
+  },
+  "extension-fill": {
+    "lucide": "puzzle",
+    "phosphor-fill": "puzzle-piece"
+  },
+  "eyedropper": {
+    "lucide": "pipette",
+    "phosphor-fill": "eyedropper"
+  },
+  "face-sun": {
+    "lucide": "smile",
+    "phosphor-fill": "smiley"
+  },
+  "folder": {
+    "lucide": "folder",
+    "phosphor-fill": "folder"
+  },
+  "forget": {
+    "lucide": "eraser",
+    "phosphor-fill": "eraser"
+  },
+  "forward": {
+    "lucide": "arrow-right",
+    "phosphor-fill": "arrow-right"
+  },
+  "fullscreen": {
+    "lucide": "maximize",
+    "phosphor-fill": "corners-out"
+  },
+  "fullscreen-exit": {
+    "lucide": "minimize",
+    "phosphor-fill": "corners-in"
+  },
+  "geo": {
+    "lucide": "map-pin",
+    "phosphor-fill": "map-pin"
+  },
+  "geo-blocked": {
+    "lucide": "map-pin-off",
+    "phosphor-fill": null
+  },
+  "geo-fill": {
+    "lucide": "map-pin",
+    "phosphor-fill": "map-pin"
+  },
+  "hammer": {
+    "lucide": "hammer",
+    "phosphor-fill": "hammer"
+  },
+  "heart-circle-fill": {
+    "lucide": "heart",
+    "phosphor-fill": "heart"
+  },
+  "help": {
+    "lucide": "help-circle",
+    "phosphor-fill": "question"
+  },
+  "history": {
+    "lucide": "history",
+    "phosphor-fill": "clock-counter-clockwise"
+  },
+  "home": {
+    "lucide": "home",
+    "phosphor-fill": "house"
+  },
+  "info": {
+    "lucide": "info",
+    "phosphor-fill": "info"
+  },
+  "library": {
+    "lucide": "library",
+    "phosphor-fill": "books"
+  },
+  "lightbulb": {
+    "lucide": "lightbulb",
+    "phosphor-fill": "lightbulb"
+  },
+  "link": {
+    "lucide": "link",
+    "phosphor-fill": "link"
+  },
+  "mail": {
+    "lucide": "mail",
+    "phosphor-fill": "envelope"
+  },
+  "manage": {
+    "lucide": "settings",
+    "phosphor-fill": "gear"
+  },
+  "media-mute": {
+    "lucide": "volume-x",
+    "phosphor-fill": "speaker-slash"
+  },
+  "media-next": {
+    "lucide": "skip-forward",
+    "phosphor-fill": "skip-forward"
+  },
+  "media-pause": {
+    "lucide": "pause",
+    "phosphor-fill": "pause"
+  },
+  "media-play": {
+    "lucide": "play",
+    "phosphor-fill": "play"
+  },
+  "media-previous": {
+    "lucide": "skip-back",
+    "phosphor-fill": "skip-back"
+  },
+  "media-unmute": {
+    "lucide": "volume-2",
+    "phosphor-fill": "speaker-high"
+  },
+  "menu": {
+    "lucide": "menu",
+    "phosphor-fill": "list"
+  },
+  "microphone": {
+    "lucide": "mic",
+    "phosphor-fill": "microphone"
+  },
+  "microphone-blocked": {
+    "lucide": "mic-off",
+    "phosphor-fill": "microphone-slash"
+  },
+  "microphone-blocked-fill": {
+    "lucide": "mic-off",
+    "phosphor-fill": "microphone-slash"
+  },
+  "microphone-fill": {
+    "lucide": "mic",
+    "phosphor-fill": "microphone"
+  },
+  "midi": {
+    "lucide": "music",
+    "phosphor-fill": "music-notes"
+  },
+  "moon-stars": {
+    "lucide": "moon-star",
+    "phosphor-fill": "moon-stars"
+  },
+  "move-cursor": {
+    "lucide": "move",
+    "phosphor-fill": "cursor"
+  },
+  "new-tab-image": {
+    "lucide": "image-plus",
+    "phosphor-fill": "image"
+  },
+  "open": {
+    "lucide": "external-link",
+    "phosphor-fill": "arrow-square-out"
+  },
+  "page-portrait": {
+    "lucide": "file",
+    "phosphor-fill": "file"
+  },
+  "paintbrush": {
+    "lucide": "paintbrush",
+    "phosphor-fill": "paint-brush"
+  },
+  "paintbrush-fill": {
+    "lucide": "paintbrush",
+    "phosphor-fill": "paint-brush"
+  },
+  "palette": {
+    "lucide": "palette",
+    "phosphor-fill": "palette"
+  },
+  "passwords": {
+    "lucide": "key-round",
+    "phosphor-fill": "key"
+  },
+  "permissions": {
+    "lucide": "shield-check",
+    "phosphor-fill": "shield-check"
+  },
+  "permissions-fill": {
+    "lucide": "shield-check",
+    "phosphor-fill": "shield-check"
+  },
+  "persistent-storage": {
+    "lucide": "database",
+    "phosphor-fill": "database"
+  },
+  "persistent-storage-blocked": {
+    "lucide": "database-zap",
+    "phosphor-fill": "database"
+  },
+  "persistent-storage-fill": {
+    "lucide": "database",
+    "phosphor-fill": "database"
+  },
+  "pin": {
+    "lucide": "pin",
+    "phosphor-fill": "push-pin"
+  },
+  "plus": {
+    "lucide": "plus",
+    "phosphor-fill": "plus"
+  },
+  "popup": {
+    "lucide": "app-window",
+    "phosphor-fill": "browser"
+  },
+  "popup-fill": {
+    "lucide": "app-window",
+    "phosphor-fill": "browser"
+  },
+  "print": {
+    "lucide": "printer",
+    "phosphor-fill": "printer"
+  },
+  "private-window": {
+    "lucide": "glasses",
+    "phosphor-fill": "sunglasses"
+  },
+  "private-window-small": {
+    "lucide": "glasses",
+    "phosphor-fill": "sunglasses"
+  },
+  "privateBrowsing": {
+    "lucide": "glasses",
+    "phosphor-fill": "sunglasses"
+  },
+  "reader-mode": {
+    "lucide": "book-open",
+    "phosphor-fill": "book-open"
+  },
+  "reload": {
+    "lucide": "refresh-cw",
+    "phosphor-fill": "arrow-clockwise"
+  },
+  "save": {
+    "lucide": "save",
+    "phosphor-fill": "floppy-disk"
+  },
+  "screen": {
+    "lucide": "monitor",
+    "phosphor-fill": "monitor"
+  },
+  "screen-blocked": {
+    "lucide": "monitor-off",
+    "phosphor-fill": "monitor"
+  },
+  "screenshot": {
+    "lucide": "camera",
+    "phosphor-fill": "camera"
+  },
+  "search-glass": {
+    "lucide": "search",
+    "phosphor-fill": "magnifying-glass"
+  },
+  "search-page": {
+    "lucide": "file-search",
+    "phosphor-fill": "file-magnifying-glass"
+  },
+  "security": {
+    "lucide": "shield",
+    "phosphor-fill": "shield"
+  },
+  "security-broken": {
+    "lucide": "shield-alert",
+    "phosphor-fill": "shield-warning"
+  },
+  "security-broken-fill": {
+    "lucide": "shield-alert",
+    "phosphor-fill": "shield-warning"
+  },
+  "security-fill": {
+    "lucide": "shield",
+    "phosphor-fill": "shield"
+  },
+  "security-warning": {
+    "lucide": "shield-alert",
+    "phosphor-fill": "shield-warning"
+  },
+  "send-to-device": {
+    "lucide": "send",
+    "phosphor-fill": "paper-plane-tilt"
+  },
+  "settings": {
+    "lucide": "settings",
+    "phosphor-fill": "gear"
+  },
+  "settings-fill": {
+    "lucide": "settings",
+    "phosphor-fill": "gear"
+  },
+  "share": {
+    "lucide": "share-2",
+    "phosphor-fill": "share-network"
+  },
+  "sidebar": {
+    "lucide": "panel-left",
+    "phosphor-fill": "sidebar-simple"
+  },
+  "sidebar-right": {
+    "lucide": "panel-right",
+    "phosphor-fill": "sidebar-simple"
+  },
+  "sidebars-right": {
+    "lucide": "panel-right",
+    "phosphor-fill": "sidebar-simple"
+  },
+  "signature": {
+    "lucide": "signature",
+    "phosphor-fill": "signature"
+  },
+  "sliders": {
+    "lucide": "sliders-horizontal",
+    "phosphor-fill": "sliders"
+  },
+  "sparkles": {
+    "lucide": "sparkles",
+    "phosphor-fill": "sparkle"
+  },
+  "spell-check": {
+    "lucide": "spell-check",
+    "phosphor-fill": "check-square"
+  },
+  "split": {
+    "lucide": "split",
+    "phosphor-fill": "arrows-split"
+  },
+  "square-wand-sparkle": {
+    "lucide": "wand-sparkles",
+    "phosphor-fill": "magic-wand"
+  },
+  "tab": {
+    "lucide": "app-window",
+    "phosphor-fill": "browser"
+  },
+  "tab-audio-blocked-small": {
+    "lucide": "volume-x",
+    "phosphor-fill": "speaker-slash"
+  },
+  "tab-audio-muted-small": {
+    "lucide": "volume-x",
+    "phosphor-fill": "speaker-slash"
+  },
+  "tab-audio-playing-small": {
+    "lucide": "volume-2",
+    "phosphor-fill": "speaker-high"
+  },
+  "text-lowercase": {
+    "lucide": "case-lower",
+    "phosphor-fill": null
+  },
+  "text-size": {
+    "lucide": "type",
+    "phosphor-fill": "text-aa"
+  },
+  "text-title-case": {
+    "lucide": "case-sensitive",
+    "phosphor-fill": null
+  },
+  "text-uppercase": {
+    "lucide": "case-upper",
+    "phosphor-fill": null
+  },
+  "tool-profiler": {
+    "lucide": "gauge",
+    "phosphor-fill": "gauge"
+  },
+  "tracking-protection": {
+    "lucide": "shield",
+    "phosphor-fill": "shield-check"
+  },
+  "tracking-protection-fill": {
+    "lucide": "shield",
+    "phosphor-fill": "shield-check"
+  },
+  "translations": {
+    "lucide": "languages",
+    "phosphor-fill": "translate"
+  },
+  "trash": {
+    "lucide": "trash-2",
+    "phosphor-fill": "trash"
+  },
+  "u-turn-to-left": {
+    "lucide": "corner-up-left",
+    "phosphor-fill": "arrow-u-up-left"
+  },
+  "unpin": {
+    "lucide": "pin-off",
+    "phosphor-fill": "push-pin-slash"
+  },
+  "video-blocked-fill": {
+    "lucide": "video-off",
+    "phosphor-fill": "video-camera-slash"
+  },
+  "video-fill": {
+    "lucide": "video",
+    "phosphor-fill": "video-camera"
+  },
+  "wand-sparkle": {
+    "lucide": "wand-sparkles",
+    "phosphor-fill": "magic-wand"
+  },
+  "window": {
+    "lucide": "app-window",
+    "phosphor-fill": "browser"
+  },
+  "xr": {
+    "lucide": "rectangle-goggles",
+    "phosphor-fill": "goggles"
+  },
+  "xr-blocked": {
+    "lucide": "rectangle-goggles",
+    "phosphor-fill": "goggles"
+  },
+  "xr-fill": {
+    "lucide": "rectangle-goggles",
+    "phosphor-fill": "goggles"
+  },
+  "zoom-out": {
+    "lucide": "zoom-out",
+    "phosphor-fill": "magnifying-glass-minus"
+  }
+}
