@@ -96,10 +96,14 @@ add_task(async function test_bar_navigation_and_switch() {
 add_task(async function test_cancel_preserves_nodes_scripts_and_exact_structure() {
   await BrowserTestUtils.withNewTab(PAGE, async browser => {
     await SpecialPowers.spawn(browser, [], () => {
-      const doc = content.document;
       const state = content.wrappedJSObject;
+      // Stored page references are returned with Xrays waived. Lookups must
+      // use the same wrappers for JavaScript identity comparisons.
+      const doc = state.document;
       state.original = doc.getElementById("p");
       state.text = state.original.firstChild;
+      ok(doc.getElementById("p") == state.original, "Original element identity matches before editing");
+      ok(doc.getElementById("p") != state.original.cloneNode(true), "An identical clone cannot satisfy the identity check");
       state.original.setAttribute("data-original", "before");
       state.clicks = 0;
       state.original.addEventListener("click", () => state.clicks++);
@@ -128,11 +132,12 @@ add_task(async function test_cancel_preserves_nodes_scripts_and_exact_structure(
     await ended(browser);
     await SpecialPowers.spawn(browser, [], () => {
       const state = content.wrappedJSObject;
-      const doc = content.document;
+      const doc = state.document;
       is(doc.documentElement.outerHTML, state.before, "Cancel restores the exact DOM");
       ok(doc.getElementById("p") == state.original, "Original element identity survives");
       ok(state.original.firstChild == state.text, "Original text node survives");
-      state.original.click();
+      ok(doc.getElementById("p").firstChild == state.text, "The live paragraph contains the original text node");
+      doc.getElementById("p").click();
       is(state.clicks, 1, "The original event listener still works without reload");
     });
   });
