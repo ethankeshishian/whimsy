@@ -58,7 +58,8 @@
       const box = S.el("div", "whimsy-ai-list", list);
       box.setAttribute("role", "list");
       for (const id of group.ids) {
-        box.append(row(view.byId.get(id)));
+        const c = view.byId.get(id);
+        box.append(id == "google" && c.accounts?.length ? googleCard(c) : row(c));
       }
     }
     S.el("div", "whimsy-ai-caption", list, "whimsy-connectors-group-mcp");
@@ -172,6 +173,84 @@
     return r;
   }
 
+  // Reuse the existing card, text fields, switches, and small actions.
+  function googleCard(c) {
+    const card = S.el("div", "whimsy-google-accounts");
+    card.dataset.connector = "google";
+    card.dataset.status = c.status;
+    const header = S.el("div", "whimsy-ai-item", card);
+    S.tile(header, logoOf(c), { logo: true });
+    nameInto(S.el("span", "whimsy-ai-item-name whimsy-ai-item-text", header), c);
+    S.el("span", "whimsy-ai-item-detail", header, "whimsy-google-accounts-count", { count: c.accounts.length });
+    for (const account of c.accounts) {
+      const section = S.el("div", "whimsy-google-account-settings", card);
+      section.dataset.account = account.id;
+      const r = S.el("div", "whimsy-ai-item", section);
+      const text = S.el("span", "whimsy-ai-item-text", r);
+      const label = S.el("input", "whimsy-ai-input whimsy-google-label", text);
+      label.type = "text";
+      label.value = account.label;
+      label.maxLength = 80;
+      label.size = Math.max(4, account.label.length + 1);
+      document.l10n.setAttributes(label, "whimsy-google-account-label", { account: account.account });
+      label.addEventListener("change", () => C().updateGoogleAccount(account.id, { label: label.value }));
+      S.el("span", "whimsy-ai-item-detail", text).textContent = account.account;
+      if (account.status == "expired") {
+        S.el("span", "whimsy-ai-item-detail", text, "whimsy-google-account-expired");
+      }
+      const end = S.el("span", "whimsy-ai-item-end", r);
+      if (account.status == "expired") {
+        S.button(end, "whimsy-connectors-sign-in-again", { small: true, onClick: () => reconnectGoogle(account) });
+      } else {
+        const disconnect = S.button(end, "whimsy-connectors-disconnect", { small: true, onClick: () => confirmDisconnect(account, r, end.querySelector("button")) });
+        disconnect.dataset.action = "disconnect";
+      }
+      const switches = S.el("div", "whimsy-google-switches", section);
+      for (const scope of [...account.scopes, { id: "search", on: account.useInSearch }]) {
+        const item = S.el("div", "whimsy-connectors-scope", switches);
+        const name = scope.id == "search" ? "Use in Search" : scopeName("google", scope.id);
+        const scopeLabel = S.el("span", "", item);
+        if (scope.id == "search") {
+          document.l10n.setAttributes(scopeLabel, "whimsy-google-use-search");
+        } else {
+          scopeLabel.textContent = name;
+        }
+        const toggle = S.el("moz-toggle", "", item, "whimsy-connectors-scope-switch", { scope: name });
+        toggle.setAttribute("data-l10n-attrs", "aria-label");
+        toggle.dataset.scope = scope.id;
+        toggle.pressed = scope.on;
+        toggle.addEventListener("toggle", async () => {
+          const wanted = toggle.pressed;
+          try {
+            if (scope.id == "search") {
+              await C().updateGoogleAccount(account.id, { useInSearch: wanted });
+            } else {
+              await C().setScope(browserWin(), account.id, scope.id, wanted);
+            }
+          } catch (e) {
+            toggle.pressed = !wanted;
+            if (e.code != "cancelled") {
+              console.error(e);
+            }
+          }
+        });
+      }
+    }
+    const add = S.el("div", "whimsy-ai-item", card);
+    S.button(add, "whimsy-google-add-account", { small: true, kind: "text", onClick: () => startConnect("google", add) });
+    return card;
+  }
+
+  async function reconnectGoogle(account) {
+    try {
+      await C().connect(browserWin(), "google", { accountId: account.id, scopes: account.scopes.filter(s => s.on).map(s => s.id) });
+    } catch (e) {
+      if (e.code != "cancelled") {
+        console.error(e);
+      }
+    }
+  }
+
   function toggleOpen(id) {
     const r = view.list.querySelector(`.whimsy-ai-item[data-connector="${CSS.escape(id)}"]`);
     const existing = r?.nextElementSibling?.classList.contains("whimsy-ai-body") ? r.nextElementSibling : null;
@@ -253,7 +332,7 @@
     const users = C().usersOf(c.id);
     const what = c.scopes.length ? c.scopes.filter(s => s.on).map(s => scopeName(c.id, s.id)) : [];
     const list = items => new Intl.ListFormat(undefined, { type: "conjunction" }).format(items);
-    const nameNode = r.querySelector(".whimsy-ai-item-name");
+    const nameNode = r.querySelector(".whimsy-ai-item-name") || { textContent: c.label || c.account };
     S.confirmStrip(r, {
       titleL10nId: "whimsy-connectors-disconnect-title",
       titleArgs: { name: nameNode.textContent },

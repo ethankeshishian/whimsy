@@ -150,7 +150,7 @@ async function openConnectors() {
   const win = tab.linkedBrowser.contentWindow;
   const doc = win.document;
   await TestUtils.waitForCondition(() => doc.getElementById("whimsyConnectorsList")?.dataset.ready == "true", "Connectors shows");
-  const row = id => doc.querySelector(`#whimsyConnectorsList .whimsy-ai-item[data-connector="${id}"]`);
+  const row = id => doc.querySelector(`#whimsyConnectorsList [data-connector="${id}"]`);
   return { tab, win, doc, S: win.WhimsyAISettings, row, $: id => doc.getElementById(id) };
 }
 
@@ -184,14 +184,13 @@ add_task(async function scopes_sheet_before_sign_in() {
   ok(scope.includes("gmail.readonly") && scope.includes("calendar.readonly") && !scope.includes("drive"), "Google is asked for exactly the scopes left on");
   is(signIns[0].get("code_challenge_method"), "S256", "PKCE S256");
   ok(signIns[0].get("redirect_uri").startsWith("http://127.0.0.1:"), "The callback is a loopback address");
-  await TestUtils.waitForCondition(() => page.row("google").querySelector(".whimsy-ai-item-detail").textContent.includes("ethan@example.com"), "The row shows the account");
+  await TestUtils.waitForCondition(() => page.row("google").textContent.includes("ethan@example.com"), "The row shows the account");
   BrowserTestUtils.removeTab(page.tab);
 });
 
 add_task(async function scope_switch_reopens_consent() {
   const page = await openConnectors();
-  click(page, page.row("google").querySelector(".whimsy-ai-chev"));
-  const toggle = await TestUtils.waitForCondition(() => page.doc.querySelector('.whimsy-ai-body moz-toggle[data-scope="drive"]'), "The scopes show");
+  const toggle = await TestUtils.waitForCondition(() => page.doc.querySelector('.whimsy-google-accounts moz-toggle[data-scope="drive"]'), "The scopes show");
   await settledPage(page);
   await toggle.updateComplete;
   ok(!toggle.pressed, "Drive is off");
@@ -205,19 +204,21 @@ add_task(async function scope_switch_reopens_consent() {
 add_task(async function disconnect_confirms_and_names_routines() {
   const stop = WhimsyConnectors.registerUser(id => (id == "google" ? ["Daily brief", "Meeting prep"] : []));
   const page = await openConnectors();
-  if (!page.doc.querySelector('.whimsy-ai-body[data-connector="google"]')) {
-    click(page, page.row("google").querySelector(".whimsy-ai-chev"));
+  try {
+    const button = await TestUtils.waitForCondition(() => page.doc.querySelector('.whimsy-google-accounts [data-action="disconnect"]'), "Disconnect shows");
+    await settledPage(page);
+    click(page, button);
+    const strip = await TestUtils.waitForCondition(() => page.doc.querySelector(".whimsy-ai-confirm"), "Disconnect asks in the page");
+    await TestUtils.waitForCondition(() => strip.textContent.includes("Daily brief and Meeting prep"), "The confirm names the routines that stop");
+    ok((await WhimsyConnectors.list()).find(c => c.id == "google").connected, "Nothing happens until it's confirmed");
+    // Fluent text can resolve before the unfolding strip is clickable.
+    await settledPage(page);
+    click(page, strip.querySelector('[data-action="confirm"]'));
+    await TestUtils.waitForCondition(async () => !(await WhimsyConnectors.list()).find(c => c.id == "google").connected, "Google disconnects");
+  } finally {
+    stop();
+    BrowserTestUtils.removeTab(page.tab);
   }
-  const button = await TestUtils.waitForCondition(() => page.doc.querySelector('.whimsy-ai-body [data-action="disconnect"]'), "Disconnect shows");
-  await settledPage(page);
-  click(page, button);
-  const strip = await TestUtils.waitForCondition(() => page.doc.querySelector(".whimsy-ai-confirm"), "Disconnect asks in the page");
-  await TestUtils.waitForCondition(() => strip.textContent.includes("Daily brief and Meeting prep"), "The confirm names the routines that stop");
-  ok((await WhimsyConnectors.list()).find(c => c.id == "google").connected, "Nothing happens until it's confirmed");
-  click(page, strip.querySelector('[data-action="confirm"]'));
-  await TestUtils.waitForCondition(async () => !(await WhimsyConnectors.list()).find(c => c.id == "google").connected, "Google disconnects");
-  stop();
-  BrowserTestUtils.removeTab(page.tab);
 });
 
 add_task(async function mcp_add_lists_tools() {
@@ -312,8 +313,7 @@ add_task(async function expired_token_one_button() {
   is(end.querySelectorAll("button").length, 1, "One button");
   is(end.querySelector("button").dataset.l10nId ?? end.querySelector("button").getAttribute("data-l10n-id"), "whimsy-connectors-sign-in-again", "It signs in again");
   click(page, end.querySelector("button"));
-  await TestUtils.waitForCondition(() => page.$("whimsyAISheet")?.dataset.sheet == "connector-scopes", "Signing in again starts with the scopes");
-  page.S.closeSheet({ restore: false });
+  await TestUtils.waitForCondition(async () => (await WhimsyConnectors.googleAccounts())[0]?.status == "ok", "Signing in again reconnects the existing account with its switches");
   BrowserTestUtils.removeTab(page.tab);
 });
 

@@ -20,6 +20,8 @@ import { WhimsyMCPClient, mcpUrl } from "resource:///modules/whimsy/WhimsyMCPCli
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   HttpServer: "chrome://remote/content/server/httpd.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
@@ -64,6 +66,9 @@ export const CATALOG = {
   linear: { kind: "session", logo: "linear", scopes: [] },
   jira: { kind: "session", logo: "jira", scopes: [] },
 };
+
+const isGoogle = id => id == "google" || id.startsWith("google:");
+const providerOf = id => isGoogle(id) ? "google" : id;
 
 const API = { google: "https://www.googleapis.com", microsoft: "https://graph.microsoft.com/v1.0" };
 // W29: the hover card's 3 newest inbox rows, kept in memory only (never on
@@ -152,6 +157,14 @@ export const WhimsyConnectors = {
         this._file = { connectors: {} };
       }
     }
+    // Keep the primary key for existing AI/calendar consumers. Additional
+    // accounts have independent encrypted secrets and independent switches.
+    for (const [id, entry] of Object.entries(this._file.connectors)) {
+      if (isGoogle(id)) {
+        entry.label ??= (entry.account || "Google").split("@")[0];
+        entry.useInSearch ??= true;
+      }
+    }
     return this._file;
   },
 
@@ -202,12 +215,12 @@ export const WhimsyConnectors = {
       return tokens.access;
     }
     const entry = (await this._read()).connectors[id];
-    const oauthId = CATALOG[id]?.kind == "oauth" ? id : null;
+    const oauthId = CATALOG[providerOf(id)]?.kind == "oauth" ? providerOf(id) : null;
     try {
       const fresh = await WhimsyConnectorOAuth.refresh({
-        tokenUrl: oauthId ? WhimsyConnectorOAuth.provider(id).token : tokens.tokenUrl,
+        tokenUrl: oauthId ? WhimsyConnectorOAuth.provider(oauthId).token : tokens.tokenUrl,
         clientId: tokens.clientId,
-        clientSecret: oauthId ? WhimsyConnectorOAuth.clientSecret(id) : "",
+        clientSecret: oauthId ? WhimsyConnectorOAuth.clientSecret(oauthId) : "",
         resource: tokens.resource ?? "",
         tokens,
       });
@@ -241,7 +254,12 @@ export const WhimsyConnectors = {
     const file = await this._read();
     const out = [];
     for (const [id, info] of Object.entries(CATALOG)) {
-      out.push(this._describe(id, info, file.connectors[id]));
+      const description = this._describe(id, info, file.connectors[id]);
+      if (id == "google") {
+        description.accounts = await this.googleAccounts();
+        description.connected = !!description.accounts.length;
+      }
+      out.push(description);
     }
     for (const [id, entry] of Object.entries(file.connectors)) {
       if (id.startsWith("mcp:")) {
@@ -267,7 +285,7 @@ export const WhimsyConnectors = {
       toolNames: entry?.tools ?? [],
       lastUsed: entry?.lastUsed ?? 0,
     };
-    if (info.kind == "oauth" && !WhimsyConnectorOAuth.clientId(id)) {
+    if (info.kind == "oauth" && !WhimsyConnectorOAuth.clientId(providerOf(id))) {
       c.problem = { l10nId: "whimsy-connectors-needs-client-id", action: "client-id", tone: "muted" };
       if (!entry) {
         c.status = "needs-client-id";
@@ -329,7 +347,7 @@ export const WhimsyConnectors = {
    * Signs in one connector (the scopes sheet comes first, in the UI).
    * Only one at a time. Resolves to its list entry.
    */
-  async connect(win, id, { scopes = null, site = "", url = "" } = {}) {
+  async connect(win, id, { scopes = null, site = "", url = "", accountId = null } = {}) {
     if (!this.enabled) {
       throw error("blocked");
     }
@@ -341,15 +359,26 @@ export const WhimsyConnectors = {
       if (id == "mcp") {
         return await this._connectServer(win, url, pending);
       }
-      const info = CATALOG[id];
+      const info = CATALOG[providerOf(id)];
       if (!info) {
         throw error("failed", `No connector ${id}`);
       }
       if (info.kind == "oauth") {
         const on = (scopes ?? info.scopes).filter(s => info.scopes.includes(s));
-        const { tokens, account } = await WhimsyConnectorOAuth.signInProvider(win, id, on, pending);
+        const { tokens, account } = await WhimsyConnectorOAuth.signInProvider(win, providerOf(id), on, pending);
+        if (isGoogle(id)) {
+          if (!account) {
+            throw error("failed", "Google did not identify the account");
+          }
+          const existing = (await this.googleAccounts()).find(a => a.account.toLowerCase() == account.toLowerCase());
+          if (accountId && (await this._read()).connectors[accountId]?.account.toLowerCase() != account.toLowerCase()) {
+            throw error("failed", "Sign in with the same Google account");
+          }
+          id = accountId || existing?.id || ((await this._read()).connectors.google ? `google:${encodeURIComponent(account.toLowerCase())}` : "google");
+        }
         await this._update(async file => {
-          file.connectors[id] = { account, scopes: Object.fromEntries(info.scopes.map(s => [s, on.includes(s)])), status: "ok", at: Date.now() };
+          const previous = file.connectors[id];
+          file.connectors[id] = { ...previous, account, ...(isGoogle(id) ? { label: previous?.label ?? account.split("@")[0], useInSearch: previous?.useInSearch ?? true } : {}), scopes: Object.fromEntries(info.scopes.map(s => [s, on.includes(s)])), status: "ok", at: Date.now() };
           await this._saveTokens(file, id, tokens);
         });
         this._refreshCalendars().catch(() => {});
@@ -360,7 +389,7 @@ export const WhimsyConnectors = {
       } else {
         await this._connectSession(win, id, site, pending);
       }
-      return (await this.list()).find(c => c.id == id);
+      return isGoogle(id) ? (await this.googleAccounts()).find(c => c.id == id) : (await this.list()).find(c => c.id == id);
     } finally {
       if (this._busy == pending) {
         this._busy = null;
@@ -502,7 +531,7 @@ export const WhimsyConnectors = {
    * that scope (set-5.2), and stays off if the person says no.
    */
   async setScope(win, id, scope, on) {
-    const info = CATALOG[id];
+    const info = CATALOG[providerOf(id)];
     const entry = (await this._read()).connectors[id];
     if (!info?.scopes.includes(scope) || !entry) {
       return false;
@@ -519,9 +548,12 @@ export const WhimsyConnectors = {
     const pending = (this._busy = { id });
     try {
       const want = info.scopes.filter(s => s == scope || entry.scopes?.[s] !== false);
-      const { tokens, account } = await WhimsyConnectorOAuth.signInProvider(win, id, want, pending);
+      const { tokens, account } = await WhimsyConnectorOAuth.signInProvider(win, providerOf(id), want, pending);
       await this._update(async file => {
         const current = file.connectors[id];
+        if (isGoogle(id) && account.toLowerCase() != current.account.toLowerCase()) {
+          throw error("failed", "Sign in with the same Google account");
+        }
         current.scopes[scope] = true;
         current.account = account || current.account;
         current.status = "ok";
@@ -536,8 +568,8 @@ export const WhimsyConnectors = {
 
   async disconnect(id) {
     const tokens = await this._tokens(id).catch(() => null);
-    if (CATALOG[id]?.kind == "oauth") {
-      WhimsyConnectorOAuth.revoke(id, tokens);
+    if (CATALOG[providerOf(id)]?.kind == "oauth") {
+      WhimsyConnectorOAuth.revoke(providerOf(id), tokens);
       lazy.WhimsyNextMeeting.setConnectorEvents(id, null);
     }
     if (id == "apple-calendar") {
@@ -560,6 +592,55 @@ export const WhimsyConnectors = {
         file.connectors[id].status = "expired";
       }
     });
+  },
+
+  async googleAccounts() {
+    const file = await this._read();
+    return Object.entries(file.connectors).filter(([id]) => isGoogle(id)).map(([id, entry]) => ({
+      ...this._describe(id, CATALOG.google, entry), label: entry.label,
+      useInSearch: entry.useInSearch !== false,
+    }));
+  },
+
+  async updateGoogleAccount(id, changes) {
+    await this._update(file => {
+      const entry = file.connectors[id];
+      if (!isGoogle(id) || !entry) {
+        throw error("not-connected");
+      }
+      if (typeof changes.label == "string") {
+        entry.label = changes.label.trim().slice(0, 80) || entry.account.split("@")[0];
+      }
+      if (typeof changes.useInSearch == "boolean") {
+        entry.useInSearch = changes.useInSearch;
+      }
+    });
+  },
+
+  /** Direct Google requests; no AI, disk cache, or third party. */
+  async searchGoogleAccount(id, mode, query, { signal, limit = 10, pageToken = null } = {}) {
+    const account = (await this.googleAccounts()).find(a => a.id == id);
+    const scope = mode == "mail" ? "gmail" : mode == "drive" ? "drive" : null;
+    if (!this.enabled || !scope || !account?.scopes.some(s => s.id == scope && s.on)) {
+      throw error("blocked");
+    }
+    const api = path => this._api(id, path, { signal });
+    if (mode == "mail") {
+      const list = await api(`/gmail/v1/users/me/messages?${new URLSearchParams({ q: query, maxResults: String(limit), ...(pageToken ? { pageToken } : {}) })}`);
+      const rows = await Promise.all((list.messages ?? []).map(async ({ id: messageId }) => {
+        const message = await api(`/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`);
+        const headers = Object.fromEntries((message.payload?.headers ?? []).map(h => [h.name.toLowerCase(), h.value]));
+        return { id: message.id, threadId: message.threadId, title: headers.subject || "", detail: headers.from || "", at: Number(message.internalDate) || Date.parse(headers.date) || 0 };
+      }));
+      rows.nextPageToken = list.nextPageToken;
+      return rows;
+    }
+    const escaped = query.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const params = new URLSearchParams({ q: `trashed = false and (fullText contains '${escaped}')`, orderBy: "modifiedTime desc", pageSize: String(limit), ...(pageToken ? { pageToken } : {}), fields: "nextPageToken,files(id,name,mimeType,modifiedTime,lastModifyingUser(displayName),webViewLink)" });
+    const data = await api(`/drive/v3/files?${params}`);
+    const rows = (data.files ?? []).map(f => ({ id: f.id, title: f.name || "", mimeType: f.mimeType || "", editor: f.lastModifyingUser?.displayName || "", detail: "", at: Date.parse(f.modifiedTime) || 0, url: f.webViewLink || `https://drive.google.com/file/d/${encodeURIComponent(f.id)}/view` }));
+    rows.nextPageToken = data.nextPageToken;
+    return rows;
   },
 
   async setClientId(id, value) {
@@ -692,6 +773,15 @@ export const WhimsyConnectors = {
     add("google", "calendar", "google_calendar_events", "Events on the person's Google Calendar from today", range, a => this._googleEvents(a.days));
     add("google", "gmail", "gmail_search", "Search the person's Gmail (read-only) with Gmail search syntax", query, a => this._gmail(a.query));
     add("google", "drive", "drive_search", "Find files in the person's Google Drive by text", query, a => this._drive(a.query));
+    for (const [id, entry] of Object.entries(file.connectors)) {
+      if (!id.startsWith("google:")) {
+        continue;
+      }
+      const suffix = tools.length;
+      add(id, "gmail", `gmail_search_${suffix}`, `Search Gmail for ${entry.label || entry.account} (read-only)`, query, async a => JSON.stringify(await this.searchGoogleAccount(id, "mail", a.query)));
+      add(id, "drive", `drive_search_${suffix}`, `Search Drive for ${entry.label || entry.account} (read-only)`, query, async a => JSON.stringify(await this.searchGoogleAccount(id, "drive", a.query)));
+      add(id, "calendar", `google_calendar_events_${suffix}`, `Calendar for ${entry.label || entry.account}`, range, a => this._googleEvents(a.days, id));
+    }
     add("microsoft", "calendar", "outlook_calendar_events", "Events on the person's Outlook calendar from today", range, a => this._graphEvents(a.days));
     add("microsoft", "outlook", "outlook_mail_search", "Search the person's Outlook mail (read-only)", query, a => this._graph(`/me/messages?$search="${encodeURIComponent(a.query)}"&$top=10&$select=subject,from,receivedDateTime,bodyPreview`));
     add("microsoft", "onedrive", "onedrive_search", "Find files in the person's OneDrive", query, a => this._graph(`/me/drive/root/search(q='${encodeURIComponent(a.query)}')?$top=10&$select=name,webUrl,lastModifiedDateTime`));
@@ -702,18 +792,40 @@ export const WhimsyConnectors = {
     return tools;
   },
 
-  async _api(id, path) {
-    const base = WhimsyConnectorOAuth._test?.[id]?.api ?? API[id];
-    const response = await fetch(`${base}${path}`, { credentials: "omit", headers: { Authorization: `Bearer ${await this.accessToken(id)}`, Accept: "application/json" } });
-    if (response.status == 401) {
-      throw error("expired");
+  async _api(id, path, { signal } = {}) {
+    const provider = providerOf(id);
+    const base = WhimsyConnectorOAuth._test?.[provider]?.api ?? API[provider];
+    // System modules have no window for AbortSignal.timeout's timer.
+    const controller = new AbortController();
+    const abort = () => controller.abort(signal.reason);
+    if (signal?.aborted) {
+      abort();
+    } else {
+      signal?.addEventListener("abort", abort, { once: true });
     }
-    return response.json();
+    const timer = lazy.setTimeout(() => controller.abort(), 20000);
+    try {
+      controller.signal.throwIfAborted();
+      const token = await this.accessToken(id);
+      controller.signal.throwIfAborted();
+      const response = await fetch(`${base}${path}`, { credentials: "omit", cache: "no-store", signal: controller.signal, headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      if (response.status == 401) {
+        await this.markExpired(id);
+        throw error("expired");
+      }
+      if (!response.ok) {
+        throw error("unreachable");
+      }
+      return await response.json();
+    } finally {
+      lazy.clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+    }
   },
 
-  async _googleEvents(days = 1) {
+  async _googleEvents(days = 1, id = "google") {
     const params = new URLSearchParams({ timeMin: day().toISOString(), timeMax: day(Math.max(1, Number(days) || 1)).toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: "50" });
-    const data = await this._api("google", `/calendar/v3/calendars/primary/events?${params}`);
+    const data = await this._api(id, `/calendar/v3/calendars/primary/events?${params}`);
     return (data.items ?? []).map(e => ({ title: e.summary ?? "", start: Date.parse(e.start?.dateTime ?? e.start?.date), end: Date.parse(e.end?.dateTime ?? e.end?.date), allDay: !e.start?.dateTime, location: e.location ?? "", url: e.hangoutLink ?? "" }));
   },
 
@@ -1037,7 +1149,10 @@ export const WhimsyConnectors = {
 
   async _refreshCalendars() {
     const file = await this._read();
-    for (const [id, scope, read] of [["google", "calendar", d => this._googleEvents(d)], ["microsoft", "calendar", d => this._graphEvents(d)]]) {
+    for (const [id, scope, read] of [
+      ...Object.keys(file.connectors).filter(isGoogle).map(id => [id, "calendar", d => this._googleEvents(d, id)]),
+      ["microsoft", "calendar", d => this._graphEvents(d)],
+    ]) {
       const entry = file.connectors[id];
       if (entry && entry.scopes?.[scope] !== false && entry.status != "expired") {
         lazy.WhimsyNextMeeting.setConnectorEvents(id, await read(2).catch(() => null) ?? []);

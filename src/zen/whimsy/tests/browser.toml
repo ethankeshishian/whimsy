@@ -1454,3 +1454,5 @@ support-files = ["whimsy_reader_rich.html"]
 ["browser_whimsy_ai_usage.js"]
 
 ["browser_whimsy_command_ranking.js"]
+
+["browser_whimsy_google_search.js"]

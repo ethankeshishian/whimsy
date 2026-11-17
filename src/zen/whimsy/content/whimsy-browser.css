@@ -8948,6 +8948,7 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     overflow: hidden;
     text-overflow: ellipsis;
   }
+}
 /* ext: "Run in profiles:" in Firefox's add-extension prompt
    (WhimsySpaceExtensions.installPromptItem). The checkboxes are Firefox's
    moz-checkbox, as for "Allow extension to run in private windows";
@@ -8978,4 +8979,67 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
       text-decoration: underline;
     }
   }
+}
+
+/* Google modes reuse the Ask chip's position, native result typography,
+   and the established accessible accent/on-accent pair. */
+.whimsy-ask-mode.whimsy-google-mode {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
+}
+.whimsy-google-mode img { width: 16px; height: 16px; }
+.whimsy-google-results { width: 100%; min-width: 0; max-height: 55vh; overflow-y: auto; box-sizing: border-box; white-space: normal; }
+.whimsy-google-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) fit-content(30%);
+  gap: 10px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.whimsy-google-row[selected] {
+  background: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
+}
+.whimsy-google-row[selected] * { color: inherit !important; }
+.whimsy-google-text { display: flex; flex-direction: column; min-width: 0; }
+.whimsy-google-text > span { white-space: normal; overflow-wrap: anywhere; }
+.whimsy-google-detail, .whimsy-google-hint, .whimsy-google-foot { font-size: 12px; color: var(--text-color-deemphasized); }
+.whimsy-google-row[data-failed]:not([selected]) { color: var(--text-color-deemphasized); }
+.whimsy-google-account { min-width: 0; white-space: normal; overflow-wrap: anywhere; font-size: 11px; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 10%, transparent); }
+.whimsy-google-hint { padding: 12px; }
+.whimsy-google-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 14px; padding: 7px 14px; }
+.whimsy-google-foot > span { display: inline-flex; gap: 5px; align-items: center; }
+/* The outer dynamic result contains independently selected options. */
+#urlbar .urlbarView-row[dynamicType="whimsy-google-search"] {
+  background: transparent !important;
+  color: var(--toolbar-field-color) !important;
+}
+#urlbar .urlbarView-row[dynamicType="whimsy-google-search"] > .urlbarView-row-inner {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+/* Override the shared command-bar title truncation inside this list. */
+#urlbar .urlbarView-row[dynamicType="whimsy-google-search"] .whimsy-google-text > span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+#urlbar .urlbarView-row[dynamicType="whimsy-google-search"][selected] * {
+  color: inherit !important;
+}
+#urlbar .urlbarView-row[dynamicType="whimsy-google-search"] .whimsy-google-row[selected] {
+  color: var(--whimsy-on-accent) !important;
 }

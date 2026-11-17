@@ -1608,6 +1608,8 @@ FALLBACK_FILE = "locales/en-US/browser/browser/preferences/whimsy-fallbacks.ftl"
 
 # Whimsy features, and signs that Zen now ships its own version.
 FEATURES = [
+    {"id": "google-search", "title": "Mail and Drive search modes across connected Google accounts",
+     "detect": [("src/zen", r"(?i)gmailSearchMode|driveSearchMode")]},
     {"id": "image-drop", "title": "Dropped images open next to the page in a foreground tab",
      "detect": [("src/zen", r"(?i)zen[-_.]?image[-_.]?drop|openDroppedImageInTab"),
                 ("src/browser/components/tabbrowser", r"imageDrop|openDroppedImageInTab")]},

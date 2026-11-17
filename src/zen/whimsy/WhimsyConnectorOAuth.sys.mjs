@@ -37,7 +37,7 @@ export const OAUTH_PROVIDERS = {
       calendar: "https://www.googleapis.com/auth/calendar.readonly",
       drive: "https://www.googleapis.com/auth/drive.readonly",
     },
-    extra: { access_type: "offline", prompt: "consent", include_granted_scopes: "true" },
+    extra: { access_type: "offline", prompt: "consent select_account", include_granted_scopes: "true" },
   },
   microsoft: {
     authorize: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",

@@ -303,6 +303,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyAIOnboarding.sys.mjs",
     "WhimsyConnectorOAuth.sys.mjs",
     "WhimsyConnectors.sys.mjs",
+    "WhimsyGoogleSearch.sys.mjs",
     "WhimsyMCPClient.sys.mjs",
 ]
 

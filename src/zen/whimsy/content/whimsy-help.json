@@ -11,6 +11,16 @@
   ],
   "features": [
     {
+      "id": "google-search",
+      "name": "Google Search",
+      "text": "Mail and Drive search modes across connected Google accounts",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.google-search",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "image-drop",
       "name": "Image Drop",
       "text": "Dropped images open next to the page in a foreground tab",

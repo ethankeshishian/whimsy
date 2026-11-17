@@ -28,6 +28,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIIndex: "resource:///modules/whimsy/WhimsyAIIndex.sys.mjs",
   WhimsyAdultHistory: "resource:///modules/whimsy/WhimsyAdultHistory.sys.mjs",
   WhimsyAISelectionCard: "resource:///modules/whimsy/WhimsyAISelectionCard.sys.mjs",
+  WhimsyGoogleSearch: "resource:///modules/whimsy/WhimsyGoogleSearch.sys.mjs",
   WhimsyCommandBarUpdates: "resource:///modules/whimsy/WhimsyCommandBarUpdates.sys.mjs",
   WhimsyAppIcon: "resource:///modules/whimsy/WhimsyAppIcon.sys.mjs",
   WhimsyCommandBar: "resource:///modules/whimsy/WhimsyCommandBar.sys.mjs",
@@ -886,6 +887,7 @@ export const Whimsy = {
     // W23 cmdbar-ai: Ask AI, the answer card, ⌘1–⌘9, and Updates on top.
     // Providers check their switches and AI on every query.
     run("ai-ask", () => lazy.WhimsyCommandBarAI.initWindow(win));
+    run("google-search", () => lazy.WhimsyGoogleSearch.initWindow(win));
     run("ai-updates", () => lazy.WhimsyCommandBarUpdates.initWindow(win));
     // W23 commands: the store loads (and old skills move over) on the first window.
     run("ai-commands", () => lazy.WhimsyAICommands.initWindow(win));
