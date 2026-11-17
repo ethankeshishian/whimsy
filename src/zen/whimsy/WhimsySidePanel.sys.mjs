@@ -12,13 +12,9 @@
 // spot (whimsy.chat.popover, WhimsyChatPanel.sys.mjs); the popover holds one
 // thing at a time.
 //
-// It hides on a click in the page (the click still reaches the page), a
-// click on its tile, the header's hide button, a tab switch, or a Glance
-// opening. Esc never hides it: Esc belongs to the site.
-//
-// Resizable (owner, W29: "It's resizable too"): a grip on the page-side
-// edge, 320px to half the window like chat (WhimsyChatPanel.sys.mjs:436-442),
-// remembered per site (by host) in whimsy.side-panel.widths.
+// Floats across page clicks and tab switches. Minimize keeps the live page;
+// Expand selects it once without changing its Essential routing preference.
+// Width, height, and position are remembered per host.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -167,13 +163,23 @@ class SidePanel {
     return this.doc.documentElement.getAttribute("zen-right-side") == "true" ? "right" : "left";
   }
 
+  geometry(tab) {
+    const entry = readWidths()[hostOf(tab)];
+    const saved = typeof entry == "number" ? { width: entry } : entry ?? {};
+    const panels = this.doc.getElementById("tabbrowser-tabpanels");
+    const available = panels.clientHeight;
+    const maxHeight = Math.max(0, available - 40);
+    const height = Math.max(Math.min(320, maxHeight), Math.min(this.dragSize?.height ?? saved.height ?? 680, maxHeight));
+    const width = Math.min(Math.max(0, panels.clientWidth - 40), this.win.innerWidth < NARROW_WINDOW ? MIN_WIDTH :
+      Math.max(MIN_WIDTH, Math.min(this.dragSize?.width ?? saved.width ?? DEFAULT_WIDTH, Math.floor(this.win.innerWidth / 2))));
+    const top = Math.max(20, Math.min(this.dragSize?.top ?? saved.top ?? (available - height) / 2, available - height - 20));
+    const docked = this.side == "right" ? panels.clientWidth - width - 20 : 20;
+    const left = Math.max(20, Math.min(this.dragSize?.left ?? saved.left ?? docked, panels.clientWidth - width - 20));
+    return { width, height, top, left };
+  }
+
   width(tab) {
-    const max = Math.floor(this.win.innerWidth / 2);
-    if (this.win.innerWidth < NARROW_WINDOW) {
-      return MIN_WIDTH;
-    }
-    const saved = this.dragWidth ?? readWidths()[hostOf(tab)] ?? DEFAULT_WIDTH;
-    return Math.max(MIN_WIDTH, Math.min(saved, max));
+    return this.geometry(tab).width;
   }
 
   layout() {
@@ -182,7 +188,56 @@ class SidePanel {
       return;
     }
     box.setAttribute("side", this.side);
-    box.style.setProperty("--whimsy-side-panel-width", `${this.width(this.tab)}px`);
+    const size = this.geometry(this.tab);
+    for (const key of ["width", "height", "top", "left"]) {
+      box.style.setProperty(`--whimsy-side-panel-${key}`, `${size[key]}px`);
+    }
+    box.querySelector(".whimsy-side-panel-size").textContent = `${Math.round(size.width)} × ${Math.round(size.height)}`;
+  }
+
+  async expand() {
+    const tab = this.tab;
+    if (!tab || this.expanding) {
+      return;
+    }
+    this.cancelDrag?.();
+    const box = this.container(tab);
+    const from = box.getBoundingClientRect();
+    const to = this.doc.getElementById("tabbrowser-tabpanels").getBoundingClientRect();
+    for (const a of box.getAnimations()) {
+      a.cancel();
+    }
+    const expansion = {};
+    this.expanding = expansion;
+    box.setAttribute("expanding", "true");
+    const reduce = reducedMotion(this.win);
+    const frames = reduce ? { opacity: [1, 0] } : [
+      { width: `${from.width}px`, height: `${from.height}px`, top: `${from.top - to.top}px`,
+        left: `${from.left - to.left}px` },
+      { width: `${to.width}px`, height: `${to.height}px`, top: "0px",
+        left: "0px", borderRadius: "0px" },
+    ];
+    const animation = box.animate(frames, { duration: reduce ? 60 : 280,
+      easing: "cubic-bezier(.32,.72,0,1)", fill: "forwards" });
+    await animation.finished.catch(() => {});
+    if (this.tab == tab && this.expanding == expansion) {
+      this.hide({ animate: false });
+      this.win.gBrowser.selectedTab = tab;
+      this.clearPhone(tab);
+      tab.linkedBrowser.focus();
+      if (reduce) {
+        box.animate({ opacity: [0, 1] }, { duration: 60 });
+      }
+    }
+    animation.cancel();
+    box.removeAttribute("expanding");
+    if (this.expanding == expansion) {
+      this.expanding = null;
+    }
+  }
+
+  hasFocus() {
+    return !!this.tab && !!this.container(this.tab)?.contains(this.doc.activeElement);
   }
 
   // The site's page lives in another window (Zen's window sync): that
@@ -203,6 +258,8 @@ class SidePanel {
   show(tab) {
     const { win } = this;
     const previous = this.tab;
+    this.cancelDrag?.();
+    this.expanding = null;
     if (previous == tab) {
       return;
     }
@@ -258,6 +315,8 @@ class SidePanel {
     if (!tab) {
       return;
     }
+    this.cancelDrag?.();
+    this.expanding = null;
     this.tab = null;
     const box = this.container(tab);
     const hadFocus = !!box?.contains(this.doc.activeElement);
@@ -289,9 +348,13 @@ class SidePanel {
       box.removeAttribute("role");
       box.removeAttribute("aria-label");
       box.removeAttribute("side");
-      box.style.removeProperty("--whimsy-side-panel-width");
+      for (const key of ["width", "height", "top", "left"]) {
+        box.style.removeProperty(`--whimsy-side-panel-${key}`);
+      }
       box.querySelector(`:scope > .${HEAD_CLASS}`)?.setAttribute("hidden", "true");
-      box.querySelector(`:scope > .${GRIP_CLASS}`)?.setAttribute("hidden", "true");
+      for (const grip of box.querySelectorAll(`:scope > .${GRIP_CLASS}, :scope > .whimsy-side-panel-size`)) {
+        grip.setAttribute("hidden", "true");
+      }
       for (const a of box.getAnimations()) {
         a.cancel();
       }
@@ -343,7 +406,7 @@ class SidePanel {
     return anim.finished.then(() => {}, () => {});
   }
 
-  // The header (favicon, host, hide button last) and the grip, built once
+  // The header (favicon, host, Expand, Minimize) and grips, built once
   // per tab panel from chat's parts.
   buildChrome(tab, box) {
     const { doc } = this;
@@ -363,25 +426,50 @@ class SidePanel {
       const hide = h("button", "whimsy-chat-btn whimsy-side-panel-hide");
       doc.l10n.setAttributes(hide, "whimsy-side-panel-hide-button");
       const glyph = h("span", "whimsy-chat-icon");
-      glyph.dataset.icon = "chat-hide";
+      glyph.dataset.icon = "minimize";
       glyph.setAttribute("aria-hidden", "true");
       hide.append(glyph);
       hide.addEventListener("click", () => this.hide());
-      head.append(favicon, title, hide);
+      const expand = h("button", "whimsy-chat-btn whimsy-side-panel-expand");
+      doc.l10n.setAttributes(expand, "whimsy-side-panel-expand-button");
+      const expandGlyph = h("span", "whimsy-chat-icon");
+      expandGlyph.dataset.icon = "expand";
+      expandGlyph.setAttribute("aria-hidden", "true");
+      expand.append(expandGlyph);
+      expand.addEventListener("click", () => this.expand());
+      head.addEventListener("mousedown", e => {
+        if (!e.target.closest("button")) {
+          this.startDrag(e, true);
+        }
+      });
+      head.addEventListener("dblclick", e => {
+        if (!e.target.closest("button")) {
+          this.expand();
+        }
+      });
+      head.append(favicon, title, expand, hide);
       // Above the page: the panel stacks its parts top to bottom while it
       // floats (whimsy-side-panel.css).
       box.prepend(head);
 
-      const grip = h("div", GRIP_CLASS);
-      grip.setAttribute("role", "separator");
-      grip.setAttribute("aria-orientation", "vertical");
-      doc.l10n.setAttributes(grip, "whimsy-side-panel-splitter");
-      grip.addEventListener("mousedown", e => this.startDrag(e));
-      grip.addEventListener("dblclick", () => this.resetWidth());
-      box.append(grip);
+      for (const edge of ["e", "w", "n", "s", "ne", "nw", "se", "sw"]) {
+        const grip = h("div", GRIP_CLASS);
+        grip.dataset.edge = edge;
+        grip.setAttribute("role", "separator");
+        grip.setAttribute("aria-orientation", edge == "e" ? "vertical" : "horizontal");
+        doc.l10n.setAttributes(grip, "whimsy-side-panel-splitter");
+        grip.addEventListener("mousedown", e => this.startDrag(e));
+        grip.addEventListener("dblclick", () => this.resetWidth());
+        box.append(grip);
+      }
+      const size = h("div", "whimsy-side-panel-size");
+      size.setAttribute("aria-hidden", "true");
+      box.append(size);
     }
     head.removeAttribute("hidden");
-    box.querySelector(`:scope > .${GRIP_CLASS}`)?.removeAttribute("hidden");
+    for (const grip of box.querySelectorAll(`:scope > .${GRIP_CLASS}, :scope > .whimsy-side-panel-size`)) {
+      grip.removeAttribute("hidden");
+    }
     this.updateHeader(tab);
   }
 
@@ -406,77 +494,116 @@ class SidePanel {
 
   // ---- Resize: chat's drag (WhimsyChatPanel.sys.mjs:468-550) ----
 
-  startDrag(event) {
-    if (event.button != 0 || !this.tab) {
+  startDrag(event, moving = false) {
+    if (event.button != 0 || !this.tab || this.expanding) {
       return;
     }
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.detail >= 2) {
-      this.resetWidth();
-      return;
+    // Header clicks and double-clicks retain their normal behavior below 4px.
+    if (!moving) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.detail >= 2) {
+        this.resetWidth();
+        return;
+      }
     }
+    this.cancelDrag?.();
     const { win } = this;
     const tab = this.tab;
+    const box = this.container(tab);
     const grip = event.currentTarget;
-    const startX = event.screenX;
-    const startWidth = this.width(tab);
-    const dir = this.side == "left" ? 1 : -1;
-    let moved = false;
-    let frame = 0;
-    let lastX = startX;
-    let ended = false;
-    grip.setAttribute("resizing", "true");
-    const apply = () => {
-      frame = 0;
-      if (ended) {
-        return;
+    const edge = moving ? "" : grip.dataset.edge;
+    const start = this.geometry(tab);
+    const panels = this.doc.getElementById("tabbrowser-tabpanels");
+    const clamp = (n, min, max) => Math.max(min, Math.min(n, max));
+    let active = !moving;
+    let shield;
+    const activate = () => {
+      for (const animation of box.getAnimations()) {
+        animation.cancel();
       }
-      this.dragWidth = startWidth + (lastX - startX) * dir;
+      // A chrome shield prevents remote content from receiving move/up events
+      // even when the pointer leaves the header or crosses another browser.
+      shield = this.doc.createElementNS(HTML_NS, "div");
+      shield.className = "whimsy-side-panel-drag-shield";
+      shield.style.cursor = moving ? "default" : win.getComputedStyle(grip).cursor;
+      panels.append(shield);
+      box.setAttribute(moving ? "moving" : "resizing", "true");
+      grip.setAttribute("resizing", "true");
+    };
+    const apply = e => {
+      const dx = e.screenX - event.screenX;
+      const dy = e.screenY - event.screenY;
+      if (!active) {
+        if (Math.hypot(dx, dy) < 4) {
+          return;
+        }
+        active = true;
+        activate();
+      }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const next = { ...start };
+      if (moving) {
+        next.left += dx;
+        next.top += dy;
+      } else {
+        const minWidth = Math.min(MIN_WIDTH, panels.clientWidth - 40);
+        const maxWidth = win.innerWidth < NARROW_WINDOW ? minWidth : Math.min(Math.floor(win.innerWidth / 2), panels.clientWidth - 40);
+        if (edge.includes("w")) {
+          next.width = clamp(start.width - dx, minWidth, Math.min(maxWidth, start.left + start.width - 20));
+          next.left = start.left + start.width - next.width;
+        } else if (edge.includes("e")) {
+          next.width = clamp(start.width + dx, minWidth, Math.min(maxWidth, panels.clientWidth - start.left - 20));
+        }
+        const minHeight = Math.min(320, panels.clientHeight - 40);
+        if (edge.includes("n")) {
+          next.top = clamp(start.top + dy, 20, start.top + start.height - minHeight);
+          next.height = start.height + start.top - next.top;
+        } else if (edge.includes("s")) {
+          next.height = clamp(start.height + dy, minHeight, panels.clientHeight - start.top - 20);
+        }
+      }
+      this.dragSize = next;
       this.layout();
     };
-    const move = e => {
-      if (ended) {
-        return;
+    const finish = () => {
+      win.removeEventListener("mousemove", apply, true);
+      win.removeEventListener("mouseup", up, true);
+      win.removeEventListener("blur", finish);
+      shield?.remove();
+      grip.removeAttribute("resizing");
+      box.removeAttribute("resizing");
+      box.removeAttribute("moving");
+      this.dragSize = null;
+      this.cancelDrag = null;
+      if (this.tab == tab) {
+        this.layout();
       }
-      if (e.screenX != startX) {
-        moved = true;
-      }
-      lastX = e.screenX;
-      frame ||= win.requestAnimationFrame(apply);
     };
     const up = e => {
-      if (ended) {
-        return;
+      if (active) {
+        apply(e);
+        this.saveGeometry(tab);
       }
-      ended = true;
-      lastX = e.screenX;
-      win.removeEventListener("mousemove", move, true);
-      win.removeEventListener("mouseup", up, true);
-      grip.removeAttribute("resizing");
-      if (frame) {
-        win.cancelAnimationFrame(frame);
-        frame = 0;
-      }
-      if (moved) {
-        this.dragWidth = startWidth + (lastX - startX) * dir;
-        this.saveWidth(tab, this.width(tab));
-      }
-      this.dragWidth = null;
-      this.layout();
+      finish();
     };
-    win.addEventListener("mousemove", move, true);
+    this.cancelDrag = finish;
+    if (active) {
+      activate();
+    }
+    win.addEventListener("mousemove", apply, true);
     win.addEventListener("mouseup", up, true);
+    win.addEventListener("blur", finish);
   }
 
-  saveWidth(tab, width) {
+  saveGeometry(tab) {
     const host = hostOf(tab);
-    if (!host) {
-      return;
+    if (host) {
+      const widths = readWidths();
+      widths[host] = Object.fromEntries(Object.entries(this.geometry(tab)).map(([key, value]) => [key, Math.round(value)]));
+      Services.prefs.setStringPref(WIDTHS_PREF, JSON.stringify(widths));
     }
-    const widths = readWidths();
-    widths[host] = Math.round(width);
-    Services.prefs.setStringPref(WIDTHS_PREF, JSON.stringify(widths));
   }
 
   resetWidth() {
@@ -575,15 +702,11 @@ class SidePanel {
       this.pressed = tile;
       return;
     }
-    // Light dismiss: a click in the page hides the popover, and still
-    // reaches the page.
+    // Chat retains its existing light dismiss; Essentials float across clicks.
     const panels = this.doc.getElementById("tabbrowser-tabpanels");
     const target = event.target;
     if (!panels?.contains(target)) {
       return;
-    }
-    if (this.tab && !this.container(this.tab)?.contains(target)) {
-      this.hide();
     }
     if (this.chat) {
       this.chat.close({ reason: "page" });
@@ -652,11 +775,93 @@ class SidePanel {
     }
   }
 
+  // Zen assumes a Glance parent is the selected page. A floating Essential
+  // is a background tab: #createBrowserElement writes parent._selected=true,
+  // but selecting the child only deselects gBrowser's actual selected page.
+  // Keep that temporary selection out of tileFor(), and restore the actual
+  // page after Zen's close cleanup (which may select the Essential parent).
+  hookGlance() {
+    const manager = this.win.gZenGlanceManager;
+    if (!manager) {
+      return;
+    }
+    const panel = this;
+    const open = manager.openGlance;
+    manager.openGlance = function (data, existingTab, ownerTab) {
+      const tab = panel.tab;
+      if (!tab || panel.glanceSession || (ownerTab && ownerTab != tab) ||
+          (!ownerTab && !panel.hasFocus() && panel.win.gContextMenu?.browser != tab.linkedBrowser)) {
+        return open.call(this, data, existingTab, ownerTab);
+      }
+      const session = { tab, page: panel.win.gBrowser.selectedTab };
+      panel.glanceSession = session;
+      panel.pressed = null;
+      let result;
+      try {
+        result = open.call(this, data, existingTab, tab);
+      } catch (error) {
+        panel.finishGlance(session);
+        throw error;
+      } finally {
+        if (panel.win.gBrowser.selectedTab != tab) {
+          tab._selected = false;
+        }
+      }
+      return Promise.resolve(result).then(glance => {
+        if (glance) {
+          session.glance = glance;
+        } else {
+          panel.finishGlance(session);
+        }
+        return glance;
+      }, error => {
+        panel.finishGlance(session);
+        throw error;
+      });
+    };
+    const fullyOpen = manager.fullyOpenGlance;
+    manager.fullyOpenGlance = async function (...args) {
+      const session = panel.glanceSession;
+      const result = await fullyOpen.apply(this, args);
+      if (session && !session.tab.hasAttribute("glance-id")) {
+        panel.finishGlance(session);
+      }
+      return result;
+    };
+    this.win.addEventListener("GlanceClose", event => {
+      const session = this.glanceSession;
+      if (session && (!session.glance || session.glance == event.target)) {
+        // GlanceClose fires before #resetGlanceState removes the parent's ID.
+        this.win.queueMicrotask(() => this.finishGlance(session));
+      }
+    });
+  }
+
+  finishGlance(session) {
+    if (this.glanceSession != session) {
+      return;
+    }
+    this.glanceSession = null;
+    const { tab, page } = session;
+    const browser = this.win.gBrowser;
+    if (browser.selectedTab == tab && page?.isConnected && !page.closing) {
+      browser.selectedTab = page;
+    }
+    if (browser.selectedTab != tab) {
+      tab._selected = false;
+    }
+    this.pressed = null;
+    if (tab.isConnected && !tab.closing && this.routes(tab) && !tab.selected) {
+      this.show(tab);
+    }
+  }
+
   // ---- Wiring ----
 
   init() {
     const { win, doc } = this;
     const gBrowser = win.gBrowser;
+    this.hookGlance();
     loadSheet(win, CHAT_SHEET);
     loadSheet(win, SHEET);
 
@@ -683,16 +888,22 @@ class SidePanel {
       if (!tab.hasAttribute("zen-essential") && !tab.hasAttribute("zen-glance-tab")) {
         this.lastPage = tab;
       }
-      if (this.tab) {
-        // Selected itself (Open in Tab): it's the page now, at once.
-        this.hide({ animate: this.tab != tab });
+      if (!this.glanceSession && (this.tab == tab || tab.hasAttribute("zen-glance-tab"))) {
+        this.hide({ animate: false });
+      } else if (this.tab) {
+        // Tab selection deactivates background docshells; keep PiP painting.
+        this.tab.linkedBrowser.zenModeActive = true;
+        this.tab.linkedBrowser.docShellIsActive = true;
       }
       this.chat?.close({ reason: "tab" });
-      if (tab.hasAttribute("zen-essential")) {
+      if (tab.hasAttribute("zen-essential") && this.glanceSession?.tab != tab) {
         this.clearPhone(tab);
       }
     };
     const onClose = event => {
+      if (event.target == this.glanceSession?.tab) {
+        this.glanceSession = null;
+      }
       if (event.target == this.tab) {
         this.hide({ animate: false });
       }
@@ -706,7 +917,12 @@ class SidePanel {
       }
     };
     const onGlance = () => {
-      this.hide();
+      this.hide({ animate: !this.glanceSession });
+      if (this.glanceSession) {
+        const browser = this.glanceSession.tab.linkedBrowser;
+        browser.zenModeActive = true;
+        browser.docShellIsActive = true;
+      }
       this.chat?.close({ reason: "glance" });
     };
     const onResize = () => this.tab && this.layout();
@@ -716,6 +932,26 @@ class SidePanel {
     gBrowser.tabContainer.addEventListener("TabClose", onClose);
     gBrowser.tabContainer.addEventListener("TabAttrModified", onAttr);
     win.addEventListener("GlanceOpen", onGlance);
+    win.addEventListener("ZenWorkspaceChanged", () => {
+      this.glanceSession = null;
+      onGlance();
+    });
+    // Capture before Firefox's close-tab key/command. Remote browser focus is
+    // represented by the browser element in the chrome document.
+    win.addEventListener("keydown", e => {
+      if (e.key.toLowerCase() == "w" && e.getModifierState("Accel") && !e.shiftKey && !e.altKey && this.hasFocus()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this.hide();
+      }
+    }, true);
+    win.addEventListener("command", e => {
+      if (e.target.id == "cmd_close" && this.hasFocus()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        this.hide();
+      }
+    }, true);
     win.addEventListener("resize", onResize);
     win.addEventListener("mousedown", onMouseDown, true);
     win.addEventListener("click", onClick, true);
@@ -730,6 +966,7 @@ class SidePanel {
     win.addEventListener(
       "unload",
       () => {
+        this.cancelDrag?.();
         Services.prefs.removeObserver(FEATURE_PREF, onPref);
         Services.prefs.removeObserver(WIDTHS_PREF, onWidths);
       },
