@@ -204,16 +204,21 @@ add_task(async function scope_switch_reopens_consent() {
 add_task(async function disconnect_confirms_and_names_routines() {
   const stop = WhimsyConnectors.registerUser(id => (id == "google" ? ["Daily brief", "Meeting prep"] : []));
   const page = await openConnectors();
-  const button = await TestUtils.waitForCondition(() => page.doc.querySelector('.whimsy-google-accounts [data-action="disconnect"]'), "Disconnect shows");
-  await settledPage(page);
-  click(page, button);
-  const strip = await TestUtils.waitForCondition(() => page.doc.querySelector(".whimsy-ai-confirm"), "Disconnect asks in the page");
-  await TestUtils.waitForCondition(() => strip.textContent.includes("Daily brief and Meeting prep"), "The confirm names the routines that stop");
-  ok((await WhimsyConnectors.list()).find(c => c.id == "google").connected, "Nothing happens until it's confirmed");
-  click(page, strip.querySelector('[data-action="confirm"]'));
-  await TestUtils.waitForCondition(async () => !(await WhimsyConnectors.list()).find(c => c.id == "google").connected, "Google disconnects");
-  stop();
-  BrowserTestUtils.removeTab(page.tab);
+  try {
+    const button = await TestUtils.waitForCondition(() => page.doc.querySelector('.whimsy-google-accounts [data-action="disconnect"]'), "Disconnect shows");
+    await settledPage(page);
+    click(page, button);
+    const strip = await TestUtils.waitForCondition(() => page.doc.querySelector(".whimsy-ai-confirm"), "Disconnect asks in the page");
+    await TestUtils.waitForCondition(() => strip.textContent.includes("Daily brief and Meeting prep"), "The confirm names the routines that stop");
+    ok((await WhimsyConnectors.list()).find(c => c.id == "google").connected, "Nothing happens until it's confirmed");
+    // Fluent text can resolve before the unfolding strip is clickable.
+    await settledPage(page);
+    click(page, strip.querySelector('[data-action="confirm"]'));
+    await TestUtils.waitForCondition(async () => !(await WhimsyConnectors.list()).find(c => c.id == "google").connected, "Google disconnects");
+  } finally {
+    stop();
+    BrowserTestUtils.removeTab(page.tab);
+  }
 });
 
 add_task(async function mcp_add_lists_tools() {

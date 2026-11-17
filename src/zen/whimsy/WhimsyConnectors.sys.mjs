@@ -20,6 +20,8 @@ import { WhimsyMCPClient, mcpUrl } from "resource:///modules/whimsy/WhimsyMCPCli
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   HttpServer: "chrome://remote/content/server/httpd.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
@@ -793,15 +795,32 @@ export const WhimsyConnectors = {
   async _api(id, path, { signal } = {}) {
     const provider = providerOf(id);
     const base = WhimsyConnectorOAuth._test?.[provider]?.api ?? API[provider];
-    const response = await fetch(`${base}${path}`, { credentials: "omit", cache: "no-store", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000), headers: { Authorization: `Bearer ${await this.accessToken(id)}`, Accept: "application/json" } });
-    if (response.status == 401) {
-      await this.markExpired(id);
-      throw error("expired");
+    // System modules have no window for AbortSignal.timeout's timer.
+    const controller = new AbortController();
+    const abort = () => controller.abort(signal.reason);
+    if (signal?.aborted) {
+      abort();
+    } else {
+      signal?.addEventListener("abort", abort, { once: true });
     }
-    if (!response.ok) {
-      throw error("unreachable");
+    const timer = lazy.setTimeout(() => controller.abort(), 20000);
+    try {
+      controller.signal.throwIfAborted();
+      const token = await this.accessToken(id);
+      controller.signal.throwIfAborted();
+      const response = await fetch(`${base}${path}`, { credentials: "omit", cache: "no-store", signal: controller.signal, headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      if (response.status == 401) {
+        await this.markExpired(id);
+        throw error("expired");
+      }
+      if (!response.ok) {
+        throw error("unreachable");
+      }
+      return await response.json();
+    } finally {
+      lazy.clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
     }
-    return response.json();
   },
 
   async _googleEvents(days = 1, id = "google") {

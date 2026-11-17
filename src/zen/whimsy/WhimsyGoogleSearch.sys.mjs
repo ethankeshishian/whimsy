@@ -20,6 +20,7 @@ const states = new WeakMap();
 const topWindow = () => lazy.BrowserWindowTracker.getTopWindow();
 const on = () => WhimsyConnectors.enabled && Services.prefs.getBoolPref("whimsy.feature.google-search", true);
 const allowed = win => !!win && on() && !lazy.PrivateBrowsingUtils.isWindowPrivate(win) && !lazy.WhimsyAIContext.isPrivate(win.gBrowser.selectedTab);
+const active = (context, win) => !context.isPrivate && allowed(win) && (states.has(win) || (!context.searchMode && /^@(mail|drive)?$/i.test(context.searchString)));
 const icon = mode => `chrome://browser/content/whimsy/icons/${mode == "mail" ? "gmail" : "google-drive"}.svg`;
 const configuration = accounts => JSON.stringify(accounts.map(a => [a.id, a.label, a.useInSearch, a.scopes]));
 const identity = row => `${row.accountId}:${row.id}`;
@@ -35,31 +36,39 @@ const html = (doc, tag, cls, text) => {
 };
 
 export class WhimsyGoogleSearchProvider extends UrlbarProvider {
+  _queries = new WeakMap();
   get name() { return "WhimsyGoogleSearch"; }
   get type() { return lazy.UrlbarShared.PROVIDER_TYPE.PROFILE; }
   getPriority() { return states.has(topWindow()) ? 100 : 0; }
-  isActive(context) {
-    return !context.isPrivate && allowed(topWindow()) && (states.has(topWindow()) || (!context.searchMode && /^@(mail|drive)?$/i.test(context.searchString)));
+  async isActive(context) {
+    return active(context, topWindow());
   }
   async startQuery(context, add) {
     const win = topWindow();
-    if (!this.isActive(context)) {
+    if (!active(context, win)) {
       return;
     }
     const state = states.get(win);
     if (!state) {
       for (const mode of ["mail", "drive"]) {
         if (`@${mode}`.startsWith(context.searchString.toLowerCase())) {
-          add(this, new lazy.UrlbarResult({ type: lazy.UrlbarShared.RESULT_TYPE.DYNAMIC, source: lazy.UrlbarShared.RESULT_SOURCE.OTHER_LOCAL, payload: { dynamicType: ENTRY, mode } }));
+          add(this, new lazy.UrlbarResult({ type: lazy.UrlbarShared.RESULT_TYPE.DYNAMIC, source: lazy.UrlbarShared.RESULT_SOURCE.OTHER_LOCAL, suggestedIndex: mode == "mail" ? 0 : 1, payload: { dynamicType: ENTRY, mode } }));
         }
       }
       return;
     }
-    add(this, new lazy.UrlbarResult({ type: lazy.UrlbarShared.RESULT_TYPE.DYNAMIC, source: lazy.UrlbarShared.RESULT_SOURCE.OTHER_LOCAL, payload: { dynamicType: TYPE } }));
-    await WhimsyGoogleSearch.search(win, context.searchString);
+    add(this, new lazy.UrlbarResult({ type: lazy.UrlbarShared.RESULT_TYPE.DYNAMIC, source: lazy.UrlbarShared.RESULT_SOURCE.OTHER_LOCAL, suggestedIndex: 0, payload: { dynamicType: TYPE } }));
+    const pending = WhimsyGoogleSearch.search(win, context.searchString);
+    this._queries.set(context, state.controller);
+    try {
+      await pending;
+    } finally {
+      this._queries.delete(context);
+    }
   }
-  cancelQuery() {
-    states.get(topWindow())?.controller?.abort();
+  cancelQuery(context) {
+    this._queries.get(context)?.abort();
+    this._queries.delete(context);
   }
   getViewTemplate(result) {
     return result.payload.dynamicType == ENTRY
@@ -166,6 +175,7 @@ export const WhimsyGoogleSearch = {
       return;
     }
     state.controller?.abort();
+    state.node?.replaceChildren();
     state.chip.remove();
     states.delete(win);
     win.gURLBar.removeAttribute("whimsy-google-mode");
@@ -187,15 +197,19 @@ export const WhimsyGoogleSearch = {
     if (!more) {
       state.query = query;
       state.rows = [];
+      state.visible = [];
       state.pages.clear();
       state.selected = null;
     }
+    // The view may reuse its dynamic row without a child-list mutation.
+    state.node = win.gURLBar.view.panel.querySelector(".whimsy-google-results");
+    this.render(win);
     const accounts = await WhimsyConnectors.googleAccounts();
-    state.configuration = configuration(accounts);
-    state.accounts = accounts.filter(a => a.useInSearch && a.scopes.some(s => s.id == (state.mode == "mail" ? "gmail" : "drive") && s.on));
     if (!current()) {
       return;
     }
+    state.configuration = configuration(accounts);
+    state.accounts = accounts.filter(a => a.useInSearch && a.scopes.some(s => s.id == (state.mode == "mail" ? "gmail" : "drive") && s.on));
     this.render(win);
     if (!query.trim()) {
       return;
@@ -240,6 +254,7 @@ export const WhimsyGoogleSearch = {
     list.replaceChildren();
     list.setAttribute("role", "listbox");
     list.id = "whimsy-google-list";
+    win.gURLBar.inputField.removeAttribute("aria-activedescendant");
     win.gURLBar.inputField.setAttribute("aria-controls", list.id);
     const rows = [...state.rows];
     if ([...state.pages.values()].some(Boolean)) {

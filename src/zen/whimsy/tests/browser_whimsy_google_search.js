@@ -6,6 +6,7 @@ const { WhimsyGoogleSearch, WhimsyGoogleSearchProvider } = ChromeUtils.importESM
 const { WhimsyConnectors } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectors.sys.mjs");
 const { WhimsyConnectorOAuth } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectorOAuth.sys.mjs");
 const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
+const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
 const original = {};
 const entry = (account, scopes = {}) => ({ account, scopes: { gmail: true, drive: true, calendar: true, ...scopes }, status: "ok" });
 
@@ -70,6 +71,15 @@ add_task(async function fake_google_api_metadata_and_pagination() {
     is(drive.searchParams.get("orderBy"), "modifiedTime desc", "Drive asks for newest files");
     is(drive.searchParams.get("pageToken"), "page-1", "The account's cursor is passed through");
     ok(drive.searchParams.get("q").includes("budget\\'s \\\\ notes"), "Drive query literals escape quotes and backslashes");
+    const count = requests.length;
+    const controller = new AbortController();
+    let releaseToken;
+    WhimsyConnectors.accessToken = () => new Promise(resolve => (releaseToken = resolve));
+    const cancelled = WhimsyConnectors._api("google:personal", "/drive/v3/files", { signal: controller.signal });
+    controller.abort();
+    releaseToken("fake-profile-token");
+    await Assert.rejects(cancelled, e => e.name == "AbortError", "Cancellation during token lookup aborts the API request");
+    is(requests.length, count, "An aborted token lookup sends no API request");
   } finally {
     WhimsyConnectorOAuth.setTestEndpoints(endpoints);
     WhimsyConnectors.accessToken = token;
@@ -87,6 +97,10 @@ add_task(async function chip_entry_exit_and_at_list() {
   EventUtils.synthesizeKey("KEY_Backspace");
   ok(!WhimsyGoogleSearch.state(window), "Backspace on an empty field removes the chip");
   const provider = new WhimsyGoogleSearchProvider();
+  const active = provider.isActive({ searchString: "@", isPrivate: false });
+  ok(typeof active.then == "function", "Provider activation follows Gecko's Promise contract");
+  ok(await active, "The @ query activates the provider");
+  is(provider.getPriority(), 0, "Mode entries coexist with the ordinary providers");
   const rows = [];
   await provider.startQuery({ searchString: "@", isPrivate: false }, (_p, result) => rows.push(result));
   Assert.deepEqual(rows.map(r => r.payload.mode), ["mail", "drive"], "Both modes appear in the @ list");
@@ -115,14 +129,17 @@ add_task(async function late_accounts_merge_by_date_failure_and_search_opt_out()
     return rows;
   };
   try {
+    gURLBar.focus();
     WhimsyGoogleSearch.enter(window, "mail", "invoice");
-    await TestUtils.waitForCondition(() => WhimsyGoogleSearch.state(window)?.rows.some(r => r.id == "middle"), "The fast account appears before the slow account finishes");
+    await TestUtils.waitForCondition(() => document.querySelector(".whimsy-google-row .urlbarView-title")?.textContent == "Personal", "The fast account is drawn before the slow account finishes");
     const state = WhimsyGoogleSearch.state(window);
+    is(WhimsyGoogleSearch.provider.getPriority(), 100, "An explicit mode suppresses unrelated providers");
     state.selected = "google:personal:middle";
     finishWork([{ id: "old", at: 10 }, { id: "new", at: 30 }]);
     await TestUtils.waitForCondition(() => state.rows.some(r => r.id == "new"), "The slow account finishes");
     Assert.deepEqual(state.rows.map(r => r.id), ["new", "middle", "old", "error"], "Late results slot in by date and one failed account comes last");
     is(state.selected, "google:personal:middle", "Late results preserve the selected identity");
+    is(state.node.querySelector("[selected] .urlbarView-title")?.textContent, "Personal", "The same visible row stays selected after the late merge");
     is(state.rows.filter(r => r.failed).length, 1, "Exactly one muted failure row per account");
     ok(!called.some(([id]) => id == "google:excluded"), "Use in Search off excludes the account");
     let signin;
@@ -143,7 +160,7 @@ add_task(async function late_accounts_merge_by_date_failure_and_search_opt_out()
 
 add_task(async function normal_and_private_windows_do_not_search() {
   const provider = new WhimsyGoogleSearchProvider();
-  ok(!provider.isActive({ searchString: "invoice", isPrivate: false }), "The normal command bar cannot activate Google search");
+  ok(!(await provider.isActive({ searchString: "invoice", isPrivate: false })), "The normal command bar cannot activate Google search");
   const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
   const real = WhimsyConnectors.searchGoogleAccount;
   let requests = 0;
@@ -154,11 +171,53 @@ add_task(async function normal_and_private_windows_do_not_search() {
     win.gURLBar.inputField.dispatchEvent(new win.Event("input", { bubbles: true }));
     WhimsyGoogleSearch.enter(win, "drive", "budget");
     ok(!WhimsyGoogleSearch.state(win), "Private windows never enter either chip mode");
-    ok(!provider.isActive({ searchString: "@mail", isPrivate: true }), "Private @ suggestions are disabled");
+    ok(!(await provider.isActive({ searchString: "@mail", isPrivate: true })), "Private @ suggestions are disabled");
     is(requests, 0, "No Google requests in private windows");
   } finally {
     WhimsyConnectors.searchGoogleAccount = real;
     await BrowserTestUtils.closeWindow(win);
+  }
+});
+
+add_task(async function superseded_lookup_cannot_replace_accounts_or_cancel_the_new_query() {
+  WhimsyConnectors._file = { connectors: { google: entry("work@example.com") } };
+  const accounts = WhimsyConnectors.googleAccounts;
+  const search = WhimsyConnectors.searchGoogleAccount;
+  const provider = new WhimsyGoogleSearchProvider();
+  let releaseAccounts;
+  let oldQuery;
+  try {
+    gURLBar.focus();
+    WhimsyGoogleSearch.enter(window, "mail");
+    await UrlbarTestUtils.promiseSearchComplete(window);
+    await TestUtils.waitForCondition(() => WhimsyGoogleSearch.state(window)?.node?.isConnected, "The empty mode list is mounted");
+    const state = WhimsyGoogleSearch.state(window);
+    const node = state.node;
+    const currentAccounts = await accounts.call(WhimsyConnectors);
+    let lookups = 0;
+    WhimsyConnectors.googleAccounts = async () => ++lookups == 1
+      ? new Promise(resolve => (releaseAccounts = resolve))
+      : currentAccounts;
+    WhimsyConnectors.searchGoogleAccount = async (_id, _mode, query) => [{ id: query, title: query, at: 100 }];
+    const oldContext = { searchString: "old", isPrivate: false };
+    oldQuery = provider.startQuery(oldContext, () => {});
+    await TestUtils.waitForCondition(() => !!releaseAccounts, "The old account lookup is pending");
+    await provider.startQuery({ searchString: "latest", isPrivate: false }, () => {});
+    provider.cancelQuery(oldContext);
+    ok(!state.controller.signal.aborted, "Cancelling an old context leaves the latest request alive");
+    releaseAccounts([]);
+    await oldQuery;
+    Assert.deepEqual(state.accounts.map(a => a.id), ["google"], "A superseded lookup cannot overwrite the current accounts");
+    Assert.deepEqual(state.rows.map(r => r.id), ["latest"], "Only the latest query supplies rows");
+    is(state.node, node, "A reused dynamic node stays mounted");
+    is(node.querySelector(".urlbarView-title")?.textContent, "latest", "The reused list draws the new result");
+  } finally {
+    releaseAccounts?.([]);
+    await oldQuery;
+    WhimsyConnectors.googleAccounts = accounts;
+    WhimsyConnectors.searchGoogleAccount = search;
+    WhimsyGoogleSearch.exit(window, false);
+    gURLBar.view.close();
   }
 });
 
@@ -200,7 +259,7 @@ add_task(async function account_routing_and_option_enter() {
 add_task(async function chip_rows_and_settings_light_dark() {
   const search = WhimsyConnectors.searchGoogleAccount;
   WhimsyConnectors._file = { connectors: { google: { ...entry("work@example.com"), label: "Work" }, "google:personal": { ...entry("personal@example.com"), label: "Personal" } } };
-  WhimsyConnectors.searchGoogleAccount = async id => [{ id: id + "-result", title: "Invoice for October", detail: "Figma Billing", at: 1794000000000 }];
+  WhimsyConnectors.searchGoogleAccount = async id => [{ id: id + "-result", title: "Invoice for October — design subscriptions and the shared workspace renewal", detail: "Figma Billing", at: 1794000000000 }];
   function rgb(value) {
     const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
     canvas.width = canvas.height = 1;
@@ -225,6 +284,15 @@ add_task(async function chip_rows_and_settings_light_dark() {
       Assert.greaterOrEqual(contrast(document.querySelector(".whimsy-google-row[selected]")), 4.5, "Selected row text meets AA");
       const rows = [...document.querySelectorAll(".whimsy-google-row")];
       ok(rows.every(row => row.lastElementChild.classList.contains("whimsy-google-account")), "Account tags are last on each row");
+      const list = document.querySelector(".whimsy-google-results");
+      ok(list.getBoundingClientRect().width > 0 && list.scrollWidth <= list.clientWidth, "The list fits the default command-bar width");
+      for (const row of rows) {
+        ok(BrowserTestUtils.isVisible(row), "Each account row is visible");
+        for (const el of row.querySelectorAll(".urlbarView-title, .whimsy-google-detail, .whimsy-google-account")) {
+          ok(el.scrollWidth <= el.clientWidth, "Row text and account labels are not clipped");
+          ok(el.getBoundingClientRect().right <= list.getBoundingClientRect().right + 1, "Row content stays inside the list");
+        }
+      }
       return () => { WhimsyGoogleSearch.exit(window, false); gURLBar.view.close(); };
     });
     await whimsyBothSchemes("gsearch-settings", async () => {
