@@ -358,7 +358,6 @@ export class WhimsyFieldEditorChild extends JSWindowActorChild {
       alignItems: "center",
       justifyContent: "center",
       cursor: "pointer",
-      transition: "background-color 120ms ease-out",
     });
     button.className = "whimsy-keycap";
     button.append(this.#icon(doc));
