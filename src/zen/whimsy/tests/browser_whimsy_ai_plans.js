@@ -38,6 +38,7 @@ registerCleanupFunction(async () => {
   await IOUtils.remove(PLAN_FILE, { ignoreAbsent: true });
   for (const pref of [
     "whimsy.ai.provider",
+    "whimsy.ai.account-labels",
     "whimsy.ai.openai.auth",
     "whimsy.ai.claude.auth",
     "whimsy.ai.openai.model",
@@ -240,203 +241,212 @@ add_task(async function test_sse_across_chunks() {
 });
 
 add_task(async function test_sign_in_with_chatgpt() {
+  const originalTabs = new Set(gBrowser.tabs);
   const mock = await mockOpenAI();
-  const tabsBefore = gBrowser.tabs.length;
-  await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
-  const settingsTab = gBrowser.selectedTab;
-  const doc = gBrowser.selectedBrowser.contentDocument;
-  const win = gBrowser.selectedBrowser.contentWindow;
-  const $ = id => doc.getElementById(id);
-  await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root, "Settings → AI shows");
-  const S = win.WhimsyAISettings;
-  const click = node => EventUtils.synthesizeMouseAtCenter(node, {}, win);
-  const sheetFor = id => TestUtils.waitForCondition(() => {
-    const node = $("whimsyAISheet");
-    return node?.dataset.sheet == id && node.checkVisibility() && node;
-  }, `The ${id} sheet opens`);
-  const settled = async () => {
-    const running = doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
-    await Promise.all(running.map(a => a.finished.catch(() => {})));
-  };
-  const row = () => doc.querySelector('#whimsyAIProviderList .whimsy-ai-item[data-provider="openai"]');
+  try {
+    const tabsBefore = gBrowser.tabs.length;
+    await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
+    const settingsTab = gBrowser.selectedTab;
+    const doc = gBrowser.selectedBrowser.contentDocument;
+    const win = gBrowser.selectedBrowser.contentWindow;
+    const $ = id => doc.getElementById(id);
+    await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root, "Settings → AI shows");
+    const S = win.WhimsyAISettings;
+    const click = node => EventUtils.synthesizeMouseAtCenter(node, {}, win);
+    const sheetFor = id => TestUtils.waitForCondition(() => {
+      const node = $("whimsyAISheet");
+      return node?.dataset.sheet == id && node.checkVisibility() && node;
+    }, `The ${id} sheet opens`);
+    const settled = async () => {
+      const running = doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
+      await Promise.all(running.map(a => a.finished.catch(() => {})));
+    };
+    const row = () => doc.querySelector('#whimsyAIProviderList .whimsy-ai-item[data-provider="openai"]');
 
-  const addButton = await TestUtils.waitForCondition(() => $("whimsyAISetUp") ?? $("whimsyAIAddProvider"), "Add a provider is offered");
-  click(addButton);
-  const add = await sheetFor("add-provider");
-  await TestUtils.waitForCondition(() => add.querySelector(".whimsy-ai-choice"), "the choices are populated");
-  await settled();
-  click(add.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
-  const openai = await sheetFor("openai");
-  is(openai.querySelector('.whimsy-ai-seg [aria-checked="true"]')?.dataset.method, "plan", "The ChatGPT plan comes first");
-  const continueButton = await TestUtils.waitForCondition(() => $("whimsyAIOpenAIContinue")?.checkVisibility() && !$("whimsyAIOpenAIContinue").disabled && $("whimsyAIOpenAIContinue"), "Continue with ChatGPT can be pressed");
-  click(continueButton);
+    const addButton = await TestUtils.waitForCondition(() => $("whimsyAISetUp") ?? $("whimsyAIAddProvider"), "Add a provider is offered");
+    click(addButton);
+    const add = await sheetFor("add-provider");
+    await TestUtils.waitForCondition(() => add.querySelector(".whimsy-ai-choice"), "the choices are populated");
+    await settled();
+    click(add.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
+    const openai = await sheetFor("openai");
+    is(openai.querySelector('.whimsy-ai-seg [aria-checked="true"]')?.dataset.method, "plan", "The ChatGPT plan comes first");
+    const continueButton = await TestUtils.waitForCondition(() => $("whimsyAIOpenAIContinue")?.checkVisibility() && !$("whimsyAIOpenAIContinue").disabled && $("whimsyAIOpenAIContinue"), "Continue with ChatGPT can be pressed");
+    click(continueButton);
 
-  await TestUtils.waitForCondition(() => mock.authorize.length == 1, "OpenAI's sign-in page opens");
-  const params = mock.authorize[0];
-  is(params.get("client_id"), "dynamic_agent_client", "First sign-in registers a client");
-  is(params.get("agent_name_hint"), "Whimsy", "named Whimsy");
-  ok(/^urn:uuid:[0-9a-f-]{36}$/.test(params.get("ext_agent_host_id")), "with this install's host ID");
-  is(params.get("code_challenge_method"), "S256", "PKCE S256");
-  ok(params.get("code_challenge").length >= 43 && params.get("state").length >= 43 && params.get("nonce").length >= 43, "fresh challenge, state and nonce");
-  ok(params.get("scope").split(" ").includes("chatgpt.tokens.use.direct"), "asking to use the plan");
-  is(params.get("resource"), "https://api.openai.com/v1", "for the API");
-  const redirect = new URL(params.get("redirect_uri"));
-  is(redirect.hostname, "127.0.0.1", "The callback is on loopback");
-  is(redirect.pathname, "/auth/callback", "at one path");
+    await TestUtils.waitForCondition(() => mock.authorize.length == 1, "OpenAI's sign-in page opens");
+    const params = mock.authorize[0];
+    is(params.get("client_id"), "dynamic_agent_client", "First sign-in registers a client");
+    is(params.get("agent_name_hint"), "Whimsy", "named Whimsy");
+    ok(/^urn:uuid:[0-9a-f-]{36}$/.test(params.get("ext_agent_host_id")), "with this install's host ID");
+    is(params.get("code_challenge_method"), "S256", "PKCE S256");
+    ok(params.get("code_challenge").length >= 43 && params.get("state").length >= 43 && params.get("nonce").length >= 43, "fresh challenge, state and nonce");
+    ok(params.get("scope").split(" ").includes("chatgpt.tokens.use.direct"), "asking to use the plan");
+    is(params.get("resource"), "https://api.openai.com/v1", "for the API");
+    const redirect = new URL(params.get("redirect_uri"));
+    is(redirect.hostname, "127.0.0.1", "The callback is on loopback");
+    is(redirect.pathname, "/auth/callback", "at one path");
 
-  await TestUtils.waitForCondition(() => $("whimsyAIOpenAIDone")?.checkVisibility(), "First sign-in: OpenAI's one-time welcome");
-  is(gBrowser.selectedTab, settingsTab, "The sign-in tab closed, back on Settings");
-  is(gBrowser.tabs.length, tabsBefore + 1, "and nothing else stayed open");
-  ok(!PrivateBrowsingUtils.isWindowPrivate(window), "It signed in in a normal window");
-  click($("whimsyAIOpenAIDone"));
-  await TestUtils.waitForCondition(() => !S.sheet, "Done closes the sheet");
-  await TestUtils.waitForCondition(() => row()?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-row-plan-openai", "Settings says 'ChatGPT plan', in the row");
+    await TestUtils.waitForCondition(() => $("whimsyAIOpenAIDone")?.checkVisibility(), "First sign-in: OpenAI's one-time welcome");
+    is(gBrowser.selectedTab, settingsTab, "The sign-in tab closed, back on Settings");
+    is(gBrowser.tabs.length, tabsBefore + 1, "and nothing else stayed open");
+    ok(!PrivateBrowsingUtils.isWindowPrivate(window), "It signed in in a normal window");
+    click($("whimsyAIOpenAIDone"));
+    await TestUtils.waitForCondition(() => !S.sheet, "Done closes the sheet");
+    await TestUtils.waitForCondition(() => row()?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-account-email-openai", "Settings says 'ChatGPT plan', in the row");
 
-  // The listener is gone after its one callback.
-  await rejectsWith(fetch(params.get("redirect_uri")).then(() => ({ code: "answered" })), undefined, "The loopback listener closed");
+    // The listener is gone after its one callback.
+    await rejectsWith(fetch(params.get("redirect_uri")).then(() => ({ code: "answered" })), undefined, "The loopback listener closed");
 
-  // Only ciphertext on disk, nothing in prefs.
-  const file = await IOUtils.readUTF8(PLAN_FILE);
-  for (const secret of [REFRESH_1, ACCESS(1), ISSUED, "me@example.com"]) {
-    ok(!file.includes(secret), "The plan file holds no plain token, client or email");
-    for (const name of Services.prefs.getChildList("whimsy.")) {
-      if (Services.prefs.getPrefType(name) == Services.prefs.PREF_STRING && Services.prefs.getStringPref(name).includes(secret)) {
-        ok(false, `${name} holds a secret`);
+    // Only ciphertext on disk, nothing in prefs.
+    const file = await IOUtils.readUTF8(PLAN_FILE);
+    for (const secret of [REFRESH_1, ACCESS(1), ISSUED, "me@example.com"]) {
+      ok(!file.includes(secret), "The plan file holds no plain token, client or email");
+      for (const name of Services.prefs.getChildList("whimsy.")) {
+        if (Services.prefs.getPrefType(name) == Services.prefs.PREF_STRING && Services.prefs.getStringPref(name).includes(secret)) {
+          ok(false, `${name} holds a secret`);
+        }
       }
     }
+    is((await IOUtils.stat(PLAN_FILE)).permissions, 0o600, "and only its owner can read it");
+    is(mock.tokens[0].get("client_id"), ISSUED, "The code was exchanged with the issued client");
+    is(mock.tokens[0].get("redirect_uri"), params.get("redirect_uri"), "and the same redirect");
+    const status = await WhimsyAIProviders.connection("openai");
+    is(status.method + status.label, "planme@example.com", "Connected through the plan, with the checked email");
+    is(Services.prefs.getStringPref("whimsy.ai.openai.model"), "gpt-plan-1", "The plan's first listed model is picked");
+
+    // A request: the Responses API, streamed, nothing stored.
+    is(await WhimsyAIProviders.complete({ prompt: "Hi", system: "Be brief" }), "Hello", "The streamed answer comes back whole");
+    const sent = mock.responses.at(-1);
+    is(sent.auth, `Bearer ${ACCESS(1)}`, "with the access token");
+    is(sent.body.store, false, "store off");
+    is(sent.body.stream, true, "stream on");
+    is(sent.body.instructions, "Be brief", "the system text as instructions");
+    ok(!("max_output_tokens" in sent.body), "no parameter the plan doesn't take");
+
+    // A stream that ends early, a spent plan, an ineligible plan.
+    mock.stream = 'data: {"type":"response.output_text.delta","delta":"Hal"}\n\n';
+    await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "bad-response", "No response.completed: no answer");
+    mock.stream = 'data: {"type":"response.failed","response":{"error":{"code":"subscription_sharing_usage_limit_exceeded"}}}\n\n';
+    await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-limit", "A spent plan says so");
+    ok(WhimsyAIProviders.resting("openai"), "and rests");
+    await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-limit", "Resting, it isn't asked again");
+    WhimsyAIProviders.clearResting("openai");
+    mock.stream = 'data: {"type":"error","code":"subscription_sharing_user_not_eligible"}\n\n';
+    await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-ineligible", "An ineligible plan says so");
+    mock.stream = null;
+
+    // One refresh at a time, with the new refresh token kept.
+    WhimsyAIOpenAIAuth._access.expiresAt = Date.now();
+    mock.refreshDelay = 300;
+    const answers = await Promise.all([WhimsyAIProviders.complete({ prompt: "a" }), WhimsyAIProviders.complete({ prompt: "b" })]);
+    Assert.deepEqual(answers, ["Hello", "Hello"], "Both requests answer");
+    const refreshes = mock.tokens.filter(form => form.get("grant_type") == "refresh_token");
+    is(refreshes.length, 1, "after a single refresh");
+    is(refreshes[0].get("refresh_token"), REFRESH_1, "with the saved refresh token");
+    is(refreshes[0].get("client_id"), ISSUED, "and the issued client");
+    WhimsyAIOpenAIAuth._secret = undefined;
+    is((await WhimsyAIOpenAIAuth._loadSecret()).refreshToken, REFRESH_2, "The replacement refresh token is saved");
+
+    // A refresh OpenAI turns down: signed out, sign in again.
+    WhimsyAIOpenAIAuth._access.expiresAt = Date.now();
+    mock.refreshError = "invalid_grant";
+    await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "signed-out", "An ended sign-in says so");
+    ok((await WhimsyAIProviders.connection("openai")).signedOut, "and Settings shows it signed out");
+    ok(!(await WhimsyAIProviders.isReady()), "Nothing automatic runs on it");
+    mock.refreshError = null;
+
+    // Disconnect: the refresh token is revoked first.
+    await WhimsyAIProviders.disconnect("openai");
+    ok(!(await WhimsyAIProviders.connection("openai")), "Disconnected");
+    const saved = await IOUtils.readJSON(PLAN_FILE);
+    ok(!saved.secret && saved.hostId, "Only the host ID stays");
+
+    // Signing in again from the command: no welcome the second time.
+    mock.refreshError = null;
+    WhimsyAIOpenAIAuth._secret = undefined;
+    await WhimsyAIProviders.connectPlan(window, "openai");
+    await WhimsyAIProviders.disconnect("openai");
+    is(mock.revoked.at(-1).get("token"), REFRESH_1, "Disconnect revokes the refresh token");
+    is(mock.revoked.at(-1).get("token_type_hint"), "refresh_token", "as a refresh token");
+    is(mock.revoked.at(-1).get("client_id"), ISSUED, "for the issued client");
+
+    gBrowser.selectedTab = settingsTab;
+    await TestUtils.waitForCondition(() => !row(), "The row goes with the plan");
+    WhimsyAIProviders.openSettings(window, "plan-openai");
+    await sheetFor("openai");
+    await TestUtils.waitForCondition(() => $("whimsyAIOpenAIContinue")?.checkVisibility() && !$("whimsyAIOpenAIContinue").disabled, "Sign in with ChatGPT (the command) opens the sheet, ready to continue");
+    click($("whimsyAIOpenAIContinue"));
+    await TestUtils.waitForCondition(() => mock.authorize.length == 3, "and starts the sign-in");
+    await TestUtils.waitForCondition(() => WhimsyAIProviders.planInUse == "openai" && !S.sheet, "and finishes, no welcome again");
+    await WhimsyAIProviders.disconnect("openai");
+
+    BrowserTestUtils.removeTab(settingsTab);
+    Services.prefs.clearUserPref("whimsy.ai.openai.model");
+    Services.prefs.clearUserPref("whimsy.ai.openai.plan-welcomed");
+  } finally {
+    await mock.stop();
+    for (const tab of [...gBrowser.tabs]) {
+      if (!originalTabs.has(tab)) { BrowserTestUtils.removeTab(tab); }
+    }
   }
-  is((await IOUtils.stat(PLAN_FILE)).permissions, 0o600, "and only its owner can read it");
-  is(mock.tokens[0].get("client_id"), ISSUED, "The code was exchanged with the issued client");
-  is(mock.tokens[0].get("redirect_uri"), params.get("redirect_uri"), "and the same redirect");
-  const status = await WhimsyAIProviders.connection("openai");
-  is(status.method + status.label, "planme@example.com", "Connected through the plan, with the checked email");
-  is(Services.prefs.getStringPref("whimsy.ai.openai.model"), "gpt-plan-1", "The plan's first listed model is picked");
-
-  // A request: the Responses API, streamed, nothing stored.
-  is(await WhimsyAIProviders.complete({ prompt: "Hi", system: "Be brief" }), "Hello", "The streamed answer comes back whole");
-  const sent = mock.responses.at(-1);
-  is(sent.auth, `Bearer ${ACCESS(1)}`, "with the access token");
-  is(sent.body.store, false, "store off");
-  is(sent.body.stream, true, "stream on");
-  is(sent.body.instructions, "Be brief", "the system text as instructions");
-  ok(!("max_output_tokens" in sent.body), "no parameter the plan doesn't take");
-
-  // A stream that ends early, a spent plan, an ineligible plan.
-  mock.stream = 'data: {"type":"response.output_text.delta","delta":"Hal"}\n\n';
-  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "bad-response", "No response.completed: no answer");
-  mock.stream = 'data: {"type":"response.failed","response":{"error":{"code":"subscription_sharing_usage_limit_exceeded"}}}\n\n';
-  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-limit", "A spent plan says so");
-  ok(WhimsyAIProviders.resting("openai"), "and rests");
-  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-limit", "Resting, it isn't asked again");
-  WhimsyAIProviders.clearResting("openai");
-  mock.stream = 'data: {"type":"error","code":"subscription_sharing_user_not_eligible"}\n\n';
-  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "plan-ineligible", "An ineligible plan says so");
-  mock.stream = null;
-
-  // One refresh at a time, with the new refresh token kept.
-  WhimsyAIOpenAIAuth._access.expiresAt = Date.now();
-  mock.refreshDelay = 300;
-  const answers = await Promise.all([WhimsyAIProviders.complete({ prompt: "a" }), WhimsyAIProviders.complete({ prompt: "b" })]);
-  Assert.deepEqual(answers, ["Hello", "Hello"], "Both requests answer");
-  const refreshes = mock.tokens.filter(form => form.get("grant_type") == "refresh_token");
-  is(refreshes.length, 1, "after a single refresh");
-  is(refreshes[0].get("refresh_token"), REFRESH_1, "with the saved refresh token");
-  is(refreshes[0].get("client_id"), ISSUED, "and the issued client");
-  WhimsyAIOpenAIAuth._secret = undefined;
-  is((await WhimsyAIOpenAIAuth._loadSecret()).refreshToken, REFRESH_2, "The replacement refresh token is saved");
-
-  // A refresh OpenAI turns down: signed out, sign in again.
-  WhimsyAIOpenAIAuth._access.expiresAt = Date.now();
-  mock.refreshError = "invalid_grant";
-  await rejectsWith(WhimsyAIProviders.complete({ prompt: "x" }), "signed-out", "An ended sign-in says so");
-  ok((await WhimsyAIProviders.connection("openai")).signedOut, "and Settings shows it signed out");
-  ok(!(await WhimsyAIProviders.isReady()), "Nothing automatic runs on it");
-  mock.refreshError = null;
-
-  // Disconnect: the refresh token is revoked first.
-  await WhimsyAIProviders.disconnect("openai");
-  ok(!(await WhimsyAIProviders.connection("openai")), "Disconnected");
-  const saved = await IOUtils.readJSON(PLAN_FILE);
-  ok(!saved.secret && saved.hostId, "Only the host ID stays");
-
-  // Signing in again from the command: no welcome the second time.
-  mock.refreshError = null;
-  WhimsyAIOpenAIAuth._secret = undefined;
-  await WhimsyAIProviders.connectPlan(window, "openai");
-  await WhimsyAIProviders.disconnect("openai");
-  is(mock.revoked.at(-1).get("token"), REFRESH_1, "Disconnect revokes the refresh token");
-  is(mock.revoked.at(-1).get("token_type_hint"), "refresh_token", "as a refresh token");
-  is(mock.revoked.at(-1).get("client_id"), ISSUED, "for the issued client");
-
-  gBrowser.selectedTab = settingsTab;
-  await TestUtils.waitForCondition(() => !row(), "The row goes with the plan");
-  WhimsyAIProviders.openSettings(window, "plan-openai");
-  await sheetFor("openai");
-  await TestUtils.waitForCondition(() => $("whimsyAIOpenAIContinue")?.checkVisibility() && !$("whimsyAIOpenAIContinue").disabled, "Sign in with ChatGPT (the command) opens the sheet, ready to continue");
-  click($("whimsyAIOpenAIContinue"));
-  await TestUtils.waitForCondition(() => mock.authorize.length == 3, "and starts the sign-in");
-  await TestUtils.waitForCondition(() => WhimsyAIProviders.planInUse == "openai" && !S.sheet, "and finishes, no welcome again");
-  await WhimsyAIProviders.disconnect("openai");
-
-  BrowserTestUtils.removeTab(settingsTab);
-  Services.prefs.clearUserPref("whimsy.ai.openai.model");
-  Services.prefs.clearUserPref("whimsy.ai.openai.plan-welcomed");
-  await mock.stop();
 });
 
 add_task(async function test_sign_in_refusals() {
+  const originalTabs = new Set(gBrowser.tabs);
   const mock = await mockOpenAI();
-  const before = gBrowser.selectedTab;
-  const tryOnce = async (message, code) => {
-    await rejectsWith(WhimsyAIOpenAIAuth.connect(window), code, message);
-    ok(!(await IOUtils.readJSON(PLAN_FILE).catch(() => ({}))).secret, "and nothing was saved");
-  };
-  mock.callback = params => ({ code: "code-1", state: params.get("state") + "x", client_id: ISSUED });
-  await tryOnce("A wrong state ends the attempt", "failed");
-  mock.callback = params => ({ code: "code-1", state: params.get("state"), client_id: ISSUED });
-  mock.idClaims = () => ({ nonce: "another" });
-  await tryOnce("An ID token with another nonce is refused", "failed");
-  mock.idClaims = params => ({ nonce: params.get("nonce"), aud: "someone-else" });
-  await tryOnce("An ID token for another client is refused", "failed");
-  mock.idClaims = params => ({ nonce: params.get("nonce"), exp: 1 });
-  await tryOnce("An expired ID token is refused", "failed");
-  mock.idClaims = params => ({ nonce: params.get("nonce") });
-  mock.scope = "openid profile email offline_access";
-  await tryOnce("A plan that can't be used here is turned away", "plan-ineligible");
-  is(mock.revoked.at(-1)?.get("token"), REFRESH_1, "and its token revoked");
-  mock.scope = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct";
+  try {
+    const before = gBrowser.selectedTab;
+    const tryOnce = async (message, code) => {
+      await rejectsWith(WhimsyAIOpenAIAuth.connect(window), code, message);
+      ok(!(await IOUtils.readJSON(PLAN_FILE).catch(() => ({}))).secret, "and nothing was saved");
+    };
+    mock.callback = params => ({ code: "code-1", state: params.get("state") + "x", client_id: ISSUED });
+    await tryOnce("A wrong state ends the attempt", "failed");
+    mock.callback = params => ({ code: "code-1", state: params.get("state"), client_id: ISSUED });
+    mock.idClaims = () => ({ nonce: "another" });
+    await tryOnce("An ID token with another nonce is refused", "failed");
+    mock.idClaims = params => ({ nonce: params.get("nonce"), aud: "someone-else" });
+    await tryOnce("An ID token for another client is refused", "failed");
+    mock.idClaims = params => ({ nonce: params.get("nonce"), exp: 1 });
+    await tryOnce("An expired ID token is refused", "failed");
+    mock.idClaims = params => ({ nonce: params.get("nonce") });
+    mock.scope = "openid profile email offline_access";
+    await tryOnce("A plan that can't be used here is turned away", "plan-ineligible");
+    is(mock.revoked.at(-1)?.get("token"), REFRESH_1, "and its token revoked");
+    mock.scope = "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct";
 
-  // A request from a web page (Origin) can't complete it; Cancel ends it.
-  mock.callback = params => ({ error: "access_denied", state: params.get("state") });
-  let pending = WhimsyAIOpenAIAuth.connect(window);
-  await TestUtils.waitForCondition(() => mock.authorize.length == 6, "Signing in");
-  await rejectsWith(pending, "sign-in-cancelled", "Declining on OpenAI's page cancels");
-  mock.callback = () => null;
-  mock.authorize.length = 0;
-  pending = WhimsyAIOpenAIAuth.connect(window);
-  await TestUtils.waitForCondition(() => mock.authorize.length == 1, "Signing in");
-  const callback = mock.authorize[0].get("redirect_uri") + `?code=x&state=${mock.authorize[0].get("state")}`;
-  // A web page that learnt the address and state still can't finish it.
-  const page = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${mock.base}/jwks`);
-  const fromPage = await SpecialPowers.spawn(page.linkedBrowser, [callback], url =>
-    content.fetch(url).then(
-      () => "answered",
-      () => "blocked"
-    )
-  );
-  is(fromPage, "blocked", "A request from a web page (with an Origin) is refused");
-  ok(WhimsyAIOpenAIAuth.signingIn, "and the sign-in still waits");
-  BrowserTestUtils.removeTab(page);
-  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
-  await rejectsWith(pending, "sign-in-cancelled", "Enable AI off cancels a waiting sign-in");
-  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
-  for (const tab of [...gBrowser.tabs]) {
-    if (tab != before && tab.linkedBrowser.currentURI.spec.startsWith("http://127.0.0.1")) {
-      BrowserTestUtils.removeTab(tab);
+    // A request from a web page (Origin) can't complete it; Cancel ends it.
+    mock.callback = params => ({ error: "access_denied", state: params.get("state") });
+    let pending = WhimsyAIOpenAIAuth.connect(window);
+    await TestUtils.waitForCondition(() => mock.authorize.length == 6, "Signing in");
+    await rejectsWith(pending, "sign-in-cancelled", "Declining on OpenAI's page cancels");
+    mock.callback = () => null;
+    mock.authorize.length = 0;
+    pending = WhimsyAIOpenAIAuth.connect(window);
+    await TestUtils.waitForCondition(() => mock.authorize.length == 1, "Signing in");
+    const callback = mock.authorize[0].get("redirect_uri") + `?code=x&state=${mock.authorize[0].get("state")}`;
+    // A web page that learnt the address and state still can't finish it.
+    const page = await BrowserTestUtils.openNewForegroundTab(gBrowser, `${mock.base}/jwks`);
+    const fromPage = await SpecialPowers.spawn(page.linkedBrowser, [callback], url =>
+      content.fetch(url).then(
+        () => "answered",
+        () => "blocked"
+      )
+    );
+    is(fromPage, "blocked", "A request from a web page (with an Origin) is refused");
+    ok(WhimsyAIOpenAIAuth.signingIn, "and the sign-in still waits");
+    BrowserTestUtils.removeTab(page);
+    Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+    await rejectsWith(pending, "sign-in-cancelled", "Enable AI off cancels a waiting sign-in");
+    Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+    gBrowser.selectedTab = before;
+  } finally {
+    await mock.stop();
+    for (const tab of [...gBrowser.tabs]) {
+      if (!originalTabs.has(tab)) { BrowserTestUtils.removeTab(tab); }
     }
   }
-  gBrowser.selectedTab = before;
-  await mock.stop();
 });
 
 // A stand-in `claude`: answers `auth status` from status.json and a prompt
@@ -651,4 +661,163 @@ add_task(async function ai_off_until_first_connection() {
   }
   Services.prefs.setBoolPref("whimsy.ai.enabled", true);
   await WhimsyAI.pending;
+});
+
+add_task(async function additional_claude_accounts_use_isolated_cli_config() {
+  const P = WhimsyAIProviders;
+  const C = WhimsyAIClaudeCode;
+  const dir = PathUtils.join(PathUtils.profileDir, "plans-fake-cli");
+  const original = { plan: P._plans.claude, find: C._find, workdir: C._workdir, probe: C.supportsStreamJson, status: C._status, streams: P._claudePlanStreams };
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.ai-claude-plan", true], ["whimsy.feature.ai-plan-accounts", true],
+    ["whimsy.ai.accounts", "{}"], ["whimsy.ai.account-labels", "{}"], ["whimsy.ai.order", ""],
+    ["whimsy.ai.claude.auth", ""], ["whimsy.ai.usage", "{}"], ["whimsy.ai.resting", "{}"],
+    ["whimsy.ai.off", ""], ["whimsy.ai.enabled", true], ["whimsy.ai.auto-enabled", true],
+  ] });
+  const script = PathUtils.join(dir, "claude");
+  await IOUtils.makeDirectory(dir);
+  await IOUtils.writeUTF8(script, [
+    "#!/bin/sh",
+    'if [ "$1" = auth ] && [ "$2" = status ]; then',
+    '  case "$CLAUDE_CONFIG_DIR" in *whimsy-claude-accounts/claude-*) echo \'{"loggedIn":true,"email":"personal@example.com","subscriptionType":"pro"}\';;',
+    '  *) echo \'{"loggedIn":true,"email":"work@example.com","subscriptionType":"max"}\';; esac',
+    '  exit 0',
+    'fi',
+    'cat >/dev/null',
+    'printf \'{"type":"result","subtype":"success","result":"%s"}\\n\' "$CLAUDE_CONFIG_DIR"',
+  ].join("\n") + "\n");
+  await IOUtils.setPermissions(script, 0o700);
+  const added = [];
+  try {
+    C._find = async () => script;
+    C._workdir = async () => dir;
+    C.supportsStreamJson = async () => false;
+    C._status = null;
+    P._plans.claude = C;
+    const existingEnvironment = Services.env.get("CLAUDE_CONFIG_DIR");
+    const first = await P.connectPlan(window, "claude");
+    const second = await P.connectPlan(window, "claude", { additional: true });
+    added.push(second.id);
+    is(first.id, "claude", "Existing account retains its id");
+    is(C.configDir, null, "Existing account never selects a different folder");
+    const plan = P.planFor(second.id);
+    ok(plan.configDir.startsWith(PathUtils.join(PathUtils.profileDir, "whimsy-claude-accounts")), "Additional account config belongs to this profile");
+    is((await P.connection("claude")).planName, "max", "subscriptionType is reported as the first plan name");
+    is((await P.connection(second.id)).planName, "pro", "Second account has its own subscription type");
+    is(await plan.complete({ prompt: "fixture" }), plan.configDir, "Requests receive the isolated CLAUDE_CONFIG_DIR");
+    is(await C.complete({ prompt: "fixture" }), existingEnvironment, "Original account still inherits exactly the original environment");
+    const before = [...P.order];
+    await rejectsWith(P.connectPlan(window, "claude", { additional: true }), "duplicate-account", "Connecting the same email adds nothing");
+    Assert.deepEqual(P.order, before, "A duplicate cannot add a row");
+    is(Object.keys(P.accounts).length, 1, "No duplicate metadata persists");
+    is((await P.connection("claude")).label, "work@example.com", "Another sign-in never changes the first account");
+    P.cacheUsage(second.id, [{ id: "weekly", label: "Weekly", usedPercent: 31 }], "plan", 1234);
+    is(P.usage(second.id).checkedAt, 1234, "Usage is keyed by account id");
+    is(P.usage("claude"), null, "Second account usage does not bleed into the first");
+    const folder = plan.configDir;
+    P.setOn(second.id, false);
+    await P.disconnect(second.id);
+    ok(!Services.prefs.getStringPref("whimsy.ai.order").includes(second.id), "Disconnect removes the raw order reference");
+    ok(!Services.prefs.getStringPref("whimsy.ai.off", "").includes(second.id), "Disconnect removes the raw off-switch reference");
+    ok(!await IOUtils.exists(folder), "Disconnect removes only the owned config folder");
+    ok(await P.connection("claude"), "First account remains connected");
+  } finally {
+    for (const id of added) {
+      await P.planFor(id)?.discard?.();
+      delete P._plans[id];
+    }
+    P._plans.claude = original.plan;
+    C._find = original.find;
+    C._workdir = original.workdir;
+    C.supportsStreamJson = original.probe;
+    C._status = original.status;
+    P._claudePlanStreams = original.streams;
+    await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function chatgpt_account_credentials_are_separate_ciphertexts() {
+  const A = WhimsyAIOpenAIAuth;
+  const one = A.forAccount("openai-00000000-0000-4000-8000-000000000001");
+  const two = A.forAccount("openai-00000000-0000-4000-8000-000000000002");
+  try {
+    await one._saveSecret({ email: "one@example.com", refreshToken: REFRESH_1, planName: "plus" });
+    await two._saveSecret({ email: "two@example.com", refreshToken: REFRESH_2 });
+    is((await one.status()).label, "one@example.com", "First credential is independent");
+    is((await two.status()).label, "two@example.com", "Second credential is independent");
+    is((await one.status()).planName, "plus", "Only a reported plan name is returned");
+    is((await two.status()).planName, "", "Unknown ChatGPT tier stays unknown");
+    const saved = await IOUtils.readUTF8(one._path);
+    ok(!saved.includes(REFRESH_1) && !saved.includes("one@example.com"), "Credentials and email are encrypted on disk");
+    const reloaded = A.forAccount(one.accountId);
+    is((await reloaded.status()).label, "one@example.com", "Ciphertext survives a fresh account instance");
+    await one.discard();
+    is((await two.status()).label, "two@example.com", "Removing one account leaves the other untouched");
+  } finally {
+    await one.discard();
+    await two.discard();
+  }
+});
+
+add_task(async function chatgpt_duplicate_sign_in_keeps_existing_credentials() {
+  const originalTabs = new Set(gBrowser.tabs);
+  try {
+    const P = WhimsyAIProviders;
+    const A = WhimsyAIOpenAIAuth;
+    const original = P._plans.openai;
+    const mock = await mockOpenAI();
+    const added = [];
+    await SpecialPowers.pushPrefEnv({ set: [
+      ["whimsy.feature.ai-openai-plan", true], ["whimsy.feature.ai-plan-accounts", true],
+      ["whimsy.ai.enabled", true], ["whimsy.ai.accounts", "{}"],
+      ["whimsy.ai.account-labels", "{}"], ["whimsy.ai.order", ""], ["whimsy.ai.openai.auth", ""],
+    ] });
+    try {
+      await IOUtils.remove(PLAN_FILE, { ignoreAbsent: true });
+      A._secret = undefined;
+      A._access = null;
+      P._plans.openai = A;
+      await P.connectPlan(window, "openai");
+      const before = await IOUtils.readUTF8(PLAN_FILE);
+      Services.prefs.setBoolPref("whimsy.feature.ai-plan-accounts", false);
+      await rejectsWith(P.connectPlan(window, "openai", { additional: true }), "unavailable", "The account feature gate prevents additions");
+      Services.prefs.setBoolPref("whimsy.feature.ai-plan-accounts", true);
+      const cancelled = P.connectPlan(window, "openai", { additional: true });
+      P.cancelPlan("openai");
+      await rejectsWith(cancelled, "sign-in-cancelled", "Cancellation before sign-in starts leaves no account");
+      await rejectsWith(P.connectPlan(window, "openai", { additional: true }), "duplicate-account", "A duplicate email is rejected after verified sign-in");
+      Assert.deepEqual(P.order, ["openai"], "Duplicate adds no entry");
+      is(await IOUtils.readUTF8(PLAN_FILE), before, "First encrypted credential is untouched");
+      is(Object.keys(P.accounts).length, 0, "Duplicate leaves no account metadata");
+      mock.idClaims = params => ({ nonce: params.get("nonce"), email: "other@example.com", "https://api.openai.com/auth": { chatgpt_plan_type: "plus" } });
+      const second = await P.connectPlan(window, "openai", { additional: true });
+      added.push(second.id);
+      is((await P.connection(second.id)).planName, "plus", "A signed, reported tier is shown");
+      is((await P.connection("openai")).planName, "", "The original account's unknown tier stays unknown");
+      const path = P.planFor(second.id)._path;
+      const secondBefore = await IOUtils.readUTF8(path);
+      mock.idClaims = params => ({ nonce: params.get("nonce"), email: "ME@EXAMPLE.COM" });
+      await rejectsWith(P.connectPlan(window, second.id), "duplicate-account", "Duplicate checks ignore email case during reauthentication too");
+      is(await IOUtils.readUTF8(path), secondBefore, "A duplicate cannot replace an existing account's encrypted credentials");
+      is((await P.connection(second.id)).label, "other@example.com", "Both original identities remain connected");
+      const files = (await IOUtils.getChildren(PathUtils.profileDir)).filter(file => /whimsy-ai-openai-[a-f0-9-]+-plan\.json$/.test(file));
+      Assert.deepEqual(files, [path], "No credential file survives either failed addition");
+    } finally {
+      for (const id of added) {
+        await P.planFor(id)?.discard?.();
+        delete P._plans[id];
+      }
+      await IOUtils.remove(PLAN_FILE, { ignoreAbsent: true });
+      A._secret = undefined;
+      A._access = null;
+      P._plans.openai = original;
+      await SpecialPowers.popPrefEnv();
+      await mock.stop();
+    }
+  } finally {
+    for (const tab of [...gBrowser.tabs]) {
+      if (!originalTabs.has(tab)) { BrowserTestUtils.removeTab(tab); }
+    }
+  }
 });

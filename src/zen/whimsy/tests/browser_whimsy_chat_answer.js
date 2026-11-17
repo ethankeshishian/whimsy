@@ -314,33 +314,49 @@ add_task(async function code_block_copy() {
 });
 
 add_task(async function research_report_saved_and_opens_as_tab_and_posts_update() {
-  await fresh();
-  WhimsyAIUpdates._resetForTesting();
-  const tab = await openOn();
-  script = async function* () {
-    yield { type: "artifact", artifact: { kind: "progress", title: "Deep research", lines: ["Found city studies"] } };
-    yield { type: "text", delta: "In short: rents ran lower." };
-    yield { type: "artifact", artifact: { kind: "report", title: "Parking reform and rents", markdown: "Rents ran 8 to 15% lower.", sources: 3 } };
-  };
-  const tabs = gBrowser.tabs.length;
-  type("Do deep research on parking reform");
-  await answered();
-  await TestUtils.waitForCondition(() => gBrowser.tabs.length == tabs + 1, "The report opens as a tab");
-  is(gBrowser.selectedTab, tab, "beside the chat's tab, which stays in front");
-  const card = await TestUtils.waitForCondition(() => part(".whimsy-chat-report"), "The chat keeps a card for it");
-  const report = await WhimsyAIReports.get(card.dataset.report);
-  const reportTab = await TestUtils.waitForCondition(() => gBrowser.tabs.find(t => t.linkedBrowser.currentURI.spec == PathUtils.toFileURI(report.path)), "The new tab is that file");
-  ok(await IOUtils.exists(report.path), "saved as a local file");
-  is((await IOUtils.stat(report.path)).permissions & 0o777, 0o600, "readable only by you");
-  const updates = await WhimsyAIUpdates.list();
-  ok(updates.updates.concat(updates.recent ? [updates.recent] : []).some(u => u.source == "research"), "Research posts to Updates");
-  BrowserTestUtils.removeTab(reportTab);
-  EventUtils.synthesizeMouseAtCenter(card.querySelector(".whimsy-chat-pill-btn"), {});
-  await TestUtils.waitForCondition(() => gBrowser.selectedTab.linkedBrowser.currentURI.spec == PathUtils.toFileURI(report.path), "Open tab reopens the file after its tab closed");
-  BrowserTestUtils.removeTab(gBrowser.selectedTab);
-  await WhimsyAIStore.clear({ kinds: ["reports"] });
-  ok(!(await IOUtils.exists(report.path)), "The Fire button clears reports");
-  await closeAll(tab);
+  const originalTabs = new Set(gBrowser.tabs);
+  try {
+    await fresh();
+    WhimsyAIUpdates._resetForTesting();
+    const tab = await openOn();
+    script = async function* () {
+      yield { type: "artifact", artifact: { kind: "progress", title: "Deep research", lines: ["Found city studies"] } };
+      yield { type: "text", delta: "In short: rents ran lower." };
+      yield { type: "artifact", artifact: { kind: "report", title: "Parking reform and rents", markdown: "Rents ran 8 to 15% lower.", sources: 3 } };
+    };
+    // Arm the real load event when the background tab is created. Starting a
+    // file content process can outlast waitForCondition's polling window.
+    const opened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen").then(event => {
+      const tab = event.target;
+      return { tab, loaded: BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url => url.startsWith("file:")) };
+    });
+    type("Do deep research on parking reform");
+    await answered();
+    const { tab: reportTab, loaded } = await opened;
+    is(gBrowser.selectedTab, tab, "The report opens beside the chat's tab, which stays in front");
+    const card = await TestUtils.waitForCondition(() => part(".whimsy-chat-report"), "The chat keeps a card for it");
+    const report = await WhimsyAIReports.get(card.dataset.report);
+    await loaded;
+    is(reportTab.linkedBrowser.currentURI.spec, PathUtils.toFileURI(report.path), "The new tab is that file");
+    ok(await IOUtils.exists(report.path), "saved as a local file");
+    is((await IOUtils.stat(report.path)).permissions & 0o777, 0o600, "readable only by you");
+    const updates = await WhimsyAIUpdates.list();
+    ok(updates.updates.concat(updates.recent ? [updates.recent] : []).some(u => u.source == "research"), "Research posts to Updates");
+    BrowserTestUtils.removeTab(reportTab);
+    const reopened = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabOpen").then(event => {
+      const browser = event.target.linkedBrowser;
+      return BrowserTestUtils.browserLoaded(browser, false, PathUtils.toFileURI(report.path));
+    });
+    EventUtils.synthesizeMouseAtCenter(card.querySelector(".whimsy-chat-pill-btn"), {});
+    await reopened;
+    is(gBrowser.selectedTab.linkedBrowser.currentURI.spec, PathUtils.toFileURI(report.path), "Open tab reopens the file after its tab closed");
+    BrowserTestUtils.removeTab(gBrowser.selectedTab);
+    await WhimsyAIStore.clear({ kinds: ["reports"] });
+    ok(!(await IOUtils.exists(report.path)), "The Fire button clears reports");
+    await closeAll(tab);
+  } finally {
+    await closeAll(...[...gBrowser.tabs].filter(tab => !originalTabs.has(tab)));
+  }
 });
 
 add_task(async function research_keeps_going_with_panel_closed() {
@@ -420,4 +436,36 @@ add_task(async function tables_and_video_times() {
   is(times.length, 2, "Each time in a summary is a pill");
   is(times[1].dataset.seconds, String(3600 + 3 * 60 + 15), "that knows where it points");
   await closeAll(tab);
+});
+
+add_task(async function handoff_between_accounts_names_both_labels() {
+  const id = "claude-00000000-0000-4000-8000-000000000001";
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.ai.accounts", JSON.stringify({ [id]: { provider: "claude", label: "Personal" } })],
+    ["whimsy.ai.account-labels", JSON.stringify({ claude: "Work" })],
+    ["whimsy.ai.order", `claude,${id}`], ["whimsy.ai.resting", "{}"],
+  ] });
+  let tab;
+  try {
+    await fresh();
+    await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.profileDir, "plans-chat-answer"));
+    tab = await openOn();
+    script = async function* (provider) {
+      if (provider == "claude") {
+        throw Object.assign(new WhimsyAIError("plan-limit"), { until: Date.now() + 7200000 });
+      }
+      yield { type: "text", delta: "Personal answered." };
+    };
+    type("Sum up");
+    await answered();
+    const note = await TestUtils.waitForCondition(() => part(".whimsy-chat-note[data-kind='handoff'] [data-l10n-id='whimsy-cmdbar-handoff-until']"), "The account handoff is shown");
+    const args = JSON.parse(note.getAttribute("data-l10n-args"));
+    is(args.to, "Claude (Personal)", "Chat names the answering account");
+    is(args.from, "Claude (Work)", "Chat names the resting account");
+  } finally {
+    if (tab) { await closeAll(tab); }
+    await WhimsyAIStore._resetForTesting(null);
+    await IOUtils.remove(PathUtils.join(PathUtils.profileDir, "plans-chat-answer"), { recursive: true, ignoreAbsent: true });
+    await SpecialPowers.popPrefEnv();
+  }
 });

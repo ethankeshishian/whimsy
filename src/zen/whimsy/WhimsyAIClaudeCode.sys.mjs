@@ -43,6 +43,22 @@ const error = (code, message) => new lazy.WhimsyAIError(code, message);
 
 export const WhimsyAIClaudeCode = {
   usageUrl: USAGE_URL,
+  accountId: "claude",
+
+  forAccount(id) {
+    if (!/^claude-[a-f0-9-]{36}$/.test(id)) { throw new Error("Invalid Claude account id"); }
+    return Object.assign(Object.create(this), { accountId: id, _status: null, _pending: null });
+  },
+
+  get configDir() {
+    return this.accountId == "claude" ? null : PathUtils.join(PathUtils.profileDir, "whimsy-claude-accounts", this.accountId);
+  },
+
+  async discard() {
+    this.cancel();
+    if (this.configDir) { await IOUtils.remove(this.configDir, { recursive: true, ignoreAbsent: true }); }
+    this._status = null;
+  },
   _testDirs: null,
   _status: null,
   _pending: null,
@@ -116,6 +132,16 @@ export const WhimsyAIClaudeCode = {
     const environment = Object.assign(lazy.Subprocess.getEnvironment(), {
       PATH: [...new Set([PathUtils.parent(command), ...this._searchDirs, "/usr/bin", "/bin", "/usr/sbin", "/sbin"])].join(":"),
     });
+    // The original account inherits the user's environment, unchanged.
+    // Extra accounts can only read and write their own profile-owned folder.
+    if (this.configDir) {
+      const parent = PathUtils.parent(this.configDir);
+      await IOUtils.makeDirectory(parent, { permissions: 0o700, ignoreExisting: true, createAncestors: true });
+      await IOUtils.setPermissions(parent, 0o700);
+      await IOUtils.makeDirectory(this.configDir, { permissions: 0o700, ignoreExisting: true });
+      await IOUtils.setPermissions(this.configDir, 0o700);
+      environment.CLAUDE_CONFIG_DIR = this.configDir;
+    }
     const workdir = await this._workdir();
     const proc = await lazy.Subprocess.call({ command, arguments: args, environment, workdir, stderr: "pipe" });
     let killed = null;
@@ -186,6 +212,7 @@ export const WhimsyAIClaudeCode = {
         const status = JSON.parse(stdout.slice(stdout.indexOf("{")));
         value.loggedIn = status?.loggedIn === true;
         value.email = typeof status?.email == "string" ? status.email : "";
+        value.planName = typeof status?.subscriptionType == "string" ? status.subscriptionType : "";
       } catch {}
     }
     this._status = { at: Date.now(), value };
@@ -196,7 +223,7 @@ export const WhimsyAIClaudeCode = {
 
   async status() {
     const status = await this._authStatus();
-    return { connected: true, label: status.email ?? "", signedOut: !status.loggedIn };
+    return { connected: true, label: status.email ?? "", planName: status.planName ?? "", signedOut: !status.loggedIn };
   },
 
   async isReady() {
@@ -244,7 +271,7 @@ export const WhimsyAIClaudeCode = {
       throw error("claude-code-missing");
     }
     if (status.loggedIn) {
-      return { label: status.email };
+      return { label: status.email, planName: status.planName };
     }
     const command = await this._find();
     const controller = new AbortController();
@@ -277,7 +304,7 @@ export const WhimsyAIClaudeCode = {
         const now = await this._authStatus({ fresh: true });
         if (now.loggedIn) {
           controller.abort(error("aborted"));
-          return { label: now.email };
+          return { label: now.email, planName: now.planName };
         }
         if (step == "outdated") {
           throw error("claude-code-outdated");
@@ -420,7 +447,7 @@ export const WhimsyAIClaudeCode = {
       id, label: labels[id], usedPercent: value.utilization * 100,
       resetAt: Number.isFinite(value.resetsAt) && value.resetsAt > 0 ? value.resetsAt * 1000 : null,
     }));
-    lazy.WhimsyAIProviders.cacheUsage("claude", limits, "plan");
+    lazy.WhimsyAIProviders.cacheUsage(this.accountId, limits, "plan");
     return info.status == "rejected" && Number.isFinite(info.resetsAt) && info.resetsAt > 0 ? info.resetsAt * 1000 : null;
   },
 
@@ -428,7 +455,7 @@ export const WhimsyAIClaudeCode = {
   _failure(said, exitCode) {
     if (SIGNED_OUT.test(said)) {
       this._status = null;
-      Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", "claude");
+      Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", this.accountId);
       return error("claude-code-signed-out");
     }
     if (/overloaded|\b(?:HTTP|status(?: code)?|API Error)\s*[:=]?\s*5\d\d\b|server_error|api_error/i.test(said)) {

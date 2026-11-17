@@ -402,6 +402,9 @@
 - name: whimsy.feature.ai-providers
   value: true
 
+- name: whimsy.feature.ai-plan-accounts
+  value: true
+
 - name: whimsy.feature.ai-openai-plan
   value: true
 

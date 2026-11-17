@@ -1214,7 +1214,9 @@ export const WhimsyCommandBarAI = {
   },
 
   handoffLine(doc, handoff) {
-    const from = nameOf(handoff.from);
+    const P = lazy.WhimsyAIProviders;
+    const from = P.providerId(handoff.from) == P.providerId(handoff.to) && P.accountIds(P.providerId(handoff.from)).length > 1
+      ? P.accountLabel(handoff.from) || nameOf(handoff.from) : nameOf(handoff.from);
     const to = nameOf(handoff.to);
     const until = handoff.until ? new Date(handoff.until).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "";
     const id = handoff.reason == "capability" ? "whimsy-cmdbar-handoff-capability" : until ? "whimsy-cmdbar-handoff-until" : "whimsy-cmdbar-handoff";
@@ -1256,7 +1258,7 @@ export const WhimsyCommandBarAI = {
       }
       buttons.push(this.button(doc, ["whimsy-cmdbar-search-instead", { engine: engineName(win) }], () => this.searchInstead(win, card), { action: "search" }));
     } else if (others.length) {
-      buttons.push(this.button(doc, ["whimsy-cmdbar-ask-other", { provider: nameOf(others[0]) }], () => this.retry(win, { provider: others[0] }), { action: "other", icon: BRAND_ICONS[others[0]] }));
+      buttons.push(this.button(doc, ["whimsy-cmdbar-ask-other", { provider: nameOf(others[0]) }], () => this.retry(win, { provider: others[0] }), { action: "other", icon: BRAND_ICONS[P.providerId(others[0])] }));
     }
     if (["plan-limit", "rate-limited", "daily-quota", "credit-used-up"].includes(code)) {
       const copy = P.errorL10n(code, provider, card.error);
@@ -1278,7 +1280,7 @@ export const WhimsyCommandBarAI = {
       img(doc, "chrome://browser/skin/zen-icons/security-warning.svg", "whimsy-ask-line-icon"),
       h(doc, "span", { class: "whimsy-ask-line-text", l10n: [time ? "whimsy-cmdbar-partial-until" : "whimsy-cmdbar-partial", { provider: nameOf(provider), time }] }),
       h(doc, "span", { class: "whimsy-ask-spacer" }),
-      next ? this.button(doc, ["whimsy-cmdbar-finish-with", { provider: nameOf(next) }], () => this.finishWith(win, next), { action: "finish", icon: BRAND_ICONS[next] }) : null
+      next ? this.button(doc, ["whimsy-cmdbar-finish-with", { provider: nameOf(next) }], () => this.finishWith(win, next), { action: "finish", icon: BRAND_ICONS[lazy.WhimsyAIProviders.providerId(next)] }) : null
     );
   },
 
@@ -1353,7 +1355,7 @@ const BRAND_ICONS = {
 };
 
 function brand(doc, provider) {
-  return img(doc, BRAND_ICONS[provider] ?? SPARKLE, "whimsy-ask-brand");
+  return img(doc, BRAND_ICONS[lazy.WhimsyAIProviders.providerId(provider)] ?? SPARKLE, "whimsy-ask-brand");
 }
 
 function nameOf(id) {

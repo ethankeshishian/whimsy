@@ -132,3 +132,30 @@ add_task(function provider_message_resets_are_explicit() {
   is(parseResetTime("Resets 25:10", at), null, "Invalid clock isn't wrapped to a guessed hour");
   is(parseResetTime("Limit reached", at), null, "No message reset means no displayed time");
 });
+
+add_task(async function chatgpt_tier_changes_only_when_reported() {
+  const send = ChatGPT._authorized;
+  const load = ChatGPT._loadSecret;
+  const save = ChatGPT._saveSecret;
+  let secret = { email: "fixture@example.com", planName: "" };
+  try {
+    ChatGPT._loadSecret = async () => secret;
+    ChatGPT._saveSecret = async value => { secret = value; };
+    const reply = plan => new Response('data: {"type":"response.completed","response":{"output":[]}}\n\n', {
+      headers: { "content-type": "text/event-stream", ...(plan ? { "x-chatgpt-plan-type": plan } : {}) },
+    });
+    ChatGPT._authorized = async () => reply(null);
+    await ChatGPT.complete({ prompt: "fixture", model: "fixture-model" });
+    is(secret.planName, "", "An ordinary response does not imply a tier");
+    ChatGPT._authorized = async () => reply("plus");
+    await ChatGPT.complete({ prompt: "fixture", model: "fixture-model" });
+    is(secret.planName, "plus", "An explicitly reported tier can be retained");
+    ChatGPT._authorized = async () => reply(null);
+    await ChatGPT.complete({ prompt: "fixture", model: "fixture-model" });
+    is(secret.planName, "plus", "Missing metadata does not invent a different tier");
+  } finally {
+    ChatGPT._authorized = send;
+    ChatGPT._loadSecret = load;
+    ChatGPT._saveSecret = save;
+  }
+});

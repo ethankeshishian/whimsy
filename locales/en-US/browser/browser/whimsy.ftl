@@ -6220,7 +6220,7 @@ whimsy-ai-how-example-answer = Here are the three lightest laptops on the page: 
 whimsy-ai-quick-text =
     .label = Quick text on this Mac first
     .description = Rewrite, translate, and summarize run on Apple Intelligence, even if it’s lower in the list.
-whimsy-ai-add-provider = Add a provider…
+whimsy-ai-add-provider = Add a Provider or Account…
 # $provider (String), $rank (Number), $count (Number)
 whimsy-ai-row-grip =
     .aria-label = Reorder { $provider }, { $rank } of { $count }. Option and the arrow keys move it.
@@ -6295,7 +6295,7 @@ whimsy-ai-sheet-close-button =
 whimsy-ai-sheet-cancel = Cancel
 # $provider (String)
 whimsy-ai-sheet-connect-title = Connect { $provider }
-whimsy-ai-add-title = Add a provider
+whimsy-ai-add-title = Add a Provider or Account
 whimsy-ai-add-text = It goes to the end of your list. Drag it higher to use it first.
 whimsy-ai-add-connected = Connected
 whimsy-ai-add-apple = On this Mac. Nothing leaves it.
@@ -8984,3 +8984,33 @@ whimsy-google-account-expired = Needs signing in
 whimsy-google-add-account = Add another account
 whimsy-google-use-search = Use in Search
 whimsy-google-file-detail = { $type } · edited { $date } · { $owner }
+
+# Plans and accounts. Plan names come only from the signed-in provider.
+# $identity (String) - email and separator, when known; $plan (String)
+whimsy-ai-account-plan-claude = { $identity }{ $plan } plan through Claude Code
+whimsy-ai-account-plan-openai = { $identity }{ $plan } plan
+# $label (String) - the signed-in email; no plan is inferred
+whimsy-ai-account-email-claude = { $label } through Claude Code
+whimsy-ai-account-email-openai = { $label }
+# $time (String)
+whimsy-ai-account-resting-until = Resting until { $time }
+# $label (String) - the editable account label
+whimsy-ai-account-label =
+    .aria-label = Edit account label: { $label }
+whimsy-ai-account-label-edit =
+    .aria-label = Account label
+# $provider (String), $percent (Number)
+whimsy-ai-usage-ring =
+    .aria-label = { $provider } usage: { $percent }% used. Show usage details.
+whimsy-ai-add-another-claude = Add another account · signs in through Claude Code
+whimsy-ai-add-another-openai = Add another account · signs in with ChatGPT
+whimsy-ai-duplicate-account = This account is already connected. No account was added.
+
+whimsy-ai-add-api-key = API key
+whimsy-ai-add-api-key-detail = Anthropic, OpenAI, or Google
+# $provider (String)
+whimsy-ai-add-key-billing = Billed by { $provider }
+# $provider (String), $plan (String), $label (String)
+whimsy-ai-account-usage-title = { $provider }{ $plan }{ $label }
+
+whimsy-ai-account-manage-usage = Manage Usage

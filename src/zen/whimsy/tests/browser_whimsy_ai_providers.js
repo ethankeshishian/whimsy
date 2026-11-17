@@ -45,6 +45,7 @@ registerCleanupFunction(async () => {
     "whimsy.feature.ai-openai-plan",
     "whimsy.feature.ai-claude-plan",
     "whimsy.ai.provider",
+    "whimsy.ai.account-labels",
     "whimsy.ai.order",
     "whimsy.ai.off",
     "whimsy.ai.resting",
@@ -476,221 +477,251 @@ add_task(async function test_error_toasts() {
   is(toasts().length, before, "A cancelled request shows nothing");
 });
 
-// W23: Settings → AI is one page. Providers only show once connected, so
-// the five choices live in the "add a provider" sheet; each connected row
+// Settings → AI lists connected entries. The add sheet offers available
+// plans, a shared API-key chooser, and local providers; each connected row
 // has its own switch, a details chevron and, there, Disconnect.
 add_task(async function test_settings_card() {
-  OSKeyStoreTestUtils.setup();
-  registerCleanupFunction(() => OSKeyStoreTestUtils.cleanup());
-  const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
-  const server = new HttpServer();
-  server.start(-1);
-  const saved = { ...ENDPOINTS };
-  ENDPOINTS.gemini = `http://localhost:${server.identity.primaryPort}/gemini`;
-  let reject = true;
-  server.registerPrefixHandler("/gemini/", (request, response) => {
-    response.setStatusLine(request.httpVersion, reject ? 400 : 200, "x");
-    response.setHeader("content-type", "application/json");
-    response.write(JSON.stringify({ models: [{ name: "models/gemini-first", supportedGenerationMethods: ["generateContent"] }, { name: "models/gemini-second", supportedGenerationMethods: ["generateContent"] }] }));
-  });
-  registerCleanupFunction(async () => {
-    Object.assign(ENDPOINTS, saved);
-    await new Promise(r => server.stop(r));
-  });
-  Services.prefs.setStringPref("whimsy.ai.order", "");
+  const originalTabs = new Set(gBrowser.tabs);
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.ai.test.macos-version", 26],
+    ["whimsy.feature.ai-openai-plan", false],
+    ["whimsy.feature.ai-claude-plan", false],
+  ] });
+  try {
+    OSKeyStoreTestUtils.setup();
+    registerCleanupFunction(() => OSKeyStoreTestUtils.cleanup());
+    const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
+    const server = new HttpServer();
+    server.start(-1);
+    const saved = { ...ENDPOINTS };
+    ENDPOINTS.gemini = `http://localhost:${server.identity.primaryPort}/gemini`;
+    let reject = true;
+    server.registerPrefixHandler("/gemini/", (request, response) => {
+      response.setStatusLine(request.httpVersion, reject ? 400 : 200, "x");
+      response.setHeader("content-type", "application/json");
+      response.write(JSON.stringify({ models: [{ name: "models/gemini-first", supportedGenerationMethods: ["generateContent"] }, { name: "models/gemini-second", supportedGenerationMethods: ["generateContent"] }] }));
+    });
+    registerCleanupFunction(async () => {
+      Object.assign(ENDPOINTS, saved);
+      await new Promise(r => server.stop(r));
+    });
+    Services.prefs.setStringPref("whimsy.ai.order", "");
 
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
-  const doc = gBrowser.selectedBrowser.contentDocument;
-  const win = gBrowser.selectedBrowser.contentWindow;
-  const $ = id => doc.getElementById(id);
-  await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root, "Settings › AI is built");
-  const S = win.WhimsyAISettings;
-  const click = node => EventUtils.synthesizeMouseAtCenter(node, {}, win);
-  const settled = async () => {
-    const running = doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
-    await Promise.all(running.map(a => a.finished.catch(() => {})));
-  };
-  const sheetFor = id => TestUtils.waitForCondition(() => {
-    const node = $("whimsyAISheet");
-    return node?.dataset.sheet == id && node.checkVisibility() && node;
-  }, `The ${id} sheet opens`);
-  const row = provider => doc.querySelector(`#whimsyAIProviderList .whimsy-ai-item[data-provider="${provider}"]`);
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
+    const doc = gBrowser.selectedBrowser.contentDocument;
+    const win = gBrowser.selectedBrowser.contentWindow;
+    const $ = id => doc.getElementById(id);
+    await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root, "Settings › AI is built");
+    const S = win.WhimsyAISettings;
+    const click = node => EventUtils.synthesizeMouseAtCenter(node, {}, win);
+    const settled = async () => {
+      const running = doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
+      await Promise.all(running.map(a => a.finished.catch(() => {})));
+    };
+    const sheetFor = id => TestUtils.waitForCondition(() => {
+      const node = $("whimsyAISheet");
+      return node?.dataset.sheet == id && node.checkVisibility() && node;
+    }, `The ${id} sheet opens`);
+    const row = provider => doc.querySelector(`#whimsyAIProviderList .whimsy-ai-item[data-provider="${provider}"]`);
 
-  const addButton = await TestUtils.waitForCondition(() => $("whimsyAISetUp") ?? $("whimsyAIAddProvider"), "Add a provider is offered");
-  click(addButton);
-  const add = await sheetFor("add-provider");
-  // The four non-Apple choices paint right away; Apple's needs an async
-  // eligibility check (W24 uipolish #1), so wait for all five rather than
-  // just the first choice to exist.
-  await TestUtils.waitForCondition(() => add.querySelectorAll(".whimsy-ai-choice").length == 5, "the choices are populated, Apple included once its check resolves");
-  await settled();
-  // Five providers, in order, each a packaged SVG.
-  const choices = [...add.querySelectorAll(".whimsy-ai-choice")];
-  Assert.deepEqual(choices.map(c => c.dataset.provider), ["apple", "claude", "openai", "gemini", "ollama"], "Five providers, in order");
-  for (const [provider, file] of [
-    ["apple", "whimsy/ai/apple-intelligence.svg"],
-    ["claude", "whimsy/icons/claude.svg"],
-    ["openai", "whimsy/icons/openai.svg"],
-    ["gemini", "whimsy/icons/gemini.svg"],
-    ["ollama", "whimsy/ai/ollama.svg"],
-  ]) {
-    const img = add.querySelector(`.whimsy-ai-choice[data-provider="${provider}"] .whimsy-ai-tile img`);
-    is(img?.getAttribute("src"), `chrome://browser/content/${file}`, `${provider}: its logo`);
-    is(img?.getAttribute("alt"), "", "…decorative");
-    await TestUtils.waitForCondition(() => img.complete && img.naturalWidth > 0, `${provider}: the logo loads`);
-    ok(img.closest(".whimsy-ai-tile").getAttribute("aria-hidden") == "true", "…in a hidden tile");
+    const addButton = await TestUtils.waitForCondition(() => $("whimsyAISetUp") ?? $("whimsyAIAddProvider"), "Add a provider is offered");
+    click(addButton);
+    const add = await sheetFor("add-provider");
+    await TestUtils.waitForCondition(() => add.querySelector('[data-provider="apple"]'), "Apple's eligibility check resolves");
+    await settled();
+    const choices = [...add.querySelectorAll(".whimsy-ai-choice")];
+    Assert.deepEqual(choices.map(c => c.dataset.provider ?? c.dataset.action), ["api-key", "ollama", "apple"], "With plan gates off, keys share one choice");
+    for (const [provider, file] of [
+      ["apple", "whimsy/ai/apple-intelligence.svg"],
+      ["ollama", "whimsy/ai/ollama.svg"],
+    ]) {
+      const img = add.querySelector(`.whimsy-ai-choice[data-provider="${provider}"] .whimsy-ai-tile img`);
+      is(img?.getAttribute("src"), `chrome://browser/content/${file}`, `${provider}: its logo`);
+      is(img?.getAttribute("alt"), "", "…decorative");
+      await TestUtils.waitForCondition(() => img.complete && img.naturalWidth > 0, `${provider}: the logo loads`);
+      ok(img.closest(".whimsy-ai-tile").getAttribute("aria-hidden") == "true", "…in a hidden tile");
+    }
+    ok(!doc.querySelector("#whimsyAIProviderList select, #whimsyAIProviderList menulist, #whimsyAIProviderList input[type=radio]"), "No native lists or radios");
+
+    // API keys have their own provider chooser, including Gemini.
+    click(add.querySelector('[data-action="api-key"]'));
+    const keys = await sheetFor("api-key");
+    await settled();
+    Assert.deepEqual([...keys.querySelectorAll(".whimsy-ai-choice")].map(c => c.dataset.provider), ["claude", "openai", "gemini"], "All three API key providers are offered");
+    for (const provider of ["claude", "openai", "gemini"]) {
+      const img = keys.querySelector(`[data-provider="${provider}"] img`);
+      is(img.getAttribute("src"), `chrome://browser/content/whimsy/icons/${provider}.svg`, `${provider}: its logo`);
+      await TestUtils.waitForCondition(() => img.complete && img.naturalWidth > 0, `${provider}: the logo loads`);
+    }
+    click(keys.querySelector('.whimsy-ai-choice[data-provider="gemini"]'));
+    const gemini = await sheetFor("gemini");
+    await TestUtils.waitForCondition(() => $("whimsyAIKeyField")?.checkVisibility(), "The connect sheet opens");
+    is(gemini.querySelector(".whimsy-ai-sheet-head .whimsy-ai-tile img")?.getAttribute("src"), "chrome://browser/content/whimsy/icons/gemini.svg", "the sheet shows Gemini's logo");
+    const warn = gemini.querySelector('[data-l10n-id="whimsy-ai-key-gemini-free"]');
+    ok(warn?.checkVisibility(), "Gemini's free-tier note shows before any key is saved");
+    const sheetRect = gemini.getBoundingClientRect();
+    ok(sheetRect.width > 300 && sheetRect.left >= 0 && sheetRect.right <= win.innerWidth, "and isn't clipped");
+    is(doc.activeElement, $("whimsyAIKeyField"), "The key field has focus");
+    EventUtils.synthesizeKey("KEY_Tab", { shiftKey: true }, win);
+    EventUtils.synthesizeKey("KEY_Tab", {}, win);
+    is(doc.activeElement, $("whimsyAIKeyField"), "Tab stays inside the sheet");
+    EventUtils.sendString("wrong-key-0000", win);
+    EventUtils.synthesizeKey("KEY_Enter", {}, win);
+    await TestUtils.waitForCondition(() => $("whimsyAIKeyError")?.checkVisibility() && $("whimsyAIKeyError").getAttribute("data-l10n-id") == "whimsy-ai-key-rejected-gemini", "A key Google turns down says so");
+    ok($("whimsyAISheet"), "and the sheet stays open");
+    ok(!(await WhimsyAIProviders.hasKey("gemini")), "nothing saved");
+    reject = false;
+    click($("whimsyAIKeyConnect"));
+    await TestUtils.waitForCondition(() => !S.sheet, "A good key closes the sheet");
+    await TestUtils.waitForCondition(() => row("gemini"), "Gemini is listed, connected");
+    is(WhimsyAIProviders.modelOf("gemini"), "gemini-first", "The default model is the first one listed");
+
+    // The model picker, in the row's details.
+    click(row("gemini").querySelector('[data-action="details"]'));
+    let body = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-body") && row("gemini").nextElementSibling, "Details open");
+    await settled();
+    click(body.querySelector('[data-action="model"]'));
+    await TestUtils.waitForCondition(() => doc.querySelectorAll("#whimsyAIModelMenu [role=option]").length == 3, "The models are listed");
+    click([...doc.querySelectorAll("#whimsyAIModelMenu [role=option]")].find(o => o.dataset.value == "gemini-second"));
+    await TestUtils.waitForCondition(() => WhimsyAIProviders.modelOf("gemini") == "gemini-second", "Clicking a model saves it");
+
+    // Disconnect asks first: Cancel has focus, Escape cancels.
+    click(body.querySelector('[data-action="disconnect"]'));
+    let confirm = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-confirm") && row("gemini").nextElementSibling, "Disconnect asks first");
+    is(confirm.querySelector("b").getAttribute("data-l10n-args"), JSON.stringify({ provider: "Gemini" }), "naming the provider");
+    await settled();
+    is(doc.activeElement, confirm.querySelector("[data-action=cancel]"), "Cancel has focus");
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    ok(!confirm.isConnected, "Escape cancels");
+    ok(await WhimsyAIProviders.hasKey("gemini"), "and nothing was removed");
+    click(row("gemini").querySelector('[data-action="details"]'));
+    body = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-body") && row("gemini").nextElementSibling, "asks again, once reopened");
+    await settled();
+    click(body.querySelector('[data-action="disconnect"]'));
+    confirm = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-confirm") && row("gemini").nextElementSibling, "and again");
+    await settled();
+    click(confirm.querySelector("[data-action=confirm]"));
+    await TestUtils.waitForCondition(() => !row("gemini"), "Disconnect removes it");
+    ok(!(await WhimsyAIProviders.hasKey("gemini")), "the key is gone");
+
+    // A plan isn't faked: with no sign-in registered and its gate off, the
+    // segmented choice doesn't even show, only the API key.
+    click($("whimsyAISetUp") ?? $("whimsyAIAddProvider"));
+    const add2 = await sheetFor("add-provider");
+    await TestUtils.waitForCondition(() => add2.querySelector(".whimsy-ai-choice"), "the choices are populated");
+    await settled();
+    click(add2.querySelector('[data-action="api-key"]'));
+    const keys2 = await sheetFor("api-key");
+    await settled();
+    click(keys2.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
+    const openai = await sheetFor("openai");
+    ok(!openai.querySelector(".whimsy-ai-seg"), "No plan sign-in offered");
+    ok($("whimsyAIKeyField")?.checkVisibility(), "the API key field shows directly");
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    await TestUtils.waitForCondition(() => !S.sheet, "Escape closes it");
+
+    // Ollama no longer uses a native list: the server field sits in the sheet.
+    click($("whimsyAISetUp") ?? $("whimsyAIAddProvider"));
+    const add3 = await sheetFor("add-provider");
+    await TestUtils.waitForCondition(() => add3.querySelector(".whimsy-ai-choice"), "the choices are populated");
+    await settled();
+    click(add3.querySelector('.whimsy-ai-choice[data-provider="ollama"]'));
+    await sheetFor("ollama");
+    await TestUtils.waitForCondition(() => $("whimsyAIOllamaAddress")?.checkVisibility(), "Ollama's server field shows in the sheet");
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    await TestUtils.waitForCondition(() => !S.sheet, "Escape closes the sheet");
+
+    // AI off folds the whole page to the one card.
+    Services.prefs.setBoolPref("whimsy.ai.enabled", false);
+    await TestUtils.waitForCondition(() => $("whimsyAIOffCard")?.checkVisibility() && !$("whimsyAIOn")?.checkVisibility(), "Turning AI off folds the page to the card");
+    Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+    await TestUtils.waitForCondition(() => $("whimsyAIOn")?.checkVisibility(), "and back");
+
+    Services.prefs.clearUserPref("whimsy.ai.gemini.model");
+    Services.prefs.clearUserPref("whimsy.ai.order");
+    BrowserTestUtils.removeTab(tab);
+  } finally {
+    for (const tab of [...gBrowser.tabs]) {
+      if (!originalTabs.has(tab)) { BrowserTestUtils.removeTab(tab); }
+    }
+    await SpecialPowers.popPrefEnv();
   }
-  ok(!doc.querySelector("#whimsyAIProviderList select, #whimsyAIProviderList menulist, #whimsyAIProviderList input[type=radio]"), "No native lists or radios");
-
-  // Connect Gemini: the free-tier note shows before the key is saved.
-  click(add.querySelector('.whimsy-ai-choice[data-provider="gemini"]'));
-  const gemini = await sheetFor("gemini");
-  await TestUtils.waitForCondition(() => $("whimsyAIKeyField")?.checkVisibility(), "The connect sheet opens");
-  is(gemini.querySelector(".whimsy-ai-sheet-head .whimsy-ai-tile img")?.getAttribute("src"), "chrome://browser/content/whimsy/icons/gemini.svg", "the sheet shows Gemini's logo");
-  const warn = gemini.querySelector('[data-l10n-id="whimsy-ai-key-gemini-free"]');
-  ok(warn?.checkVisibility(), "Gemini's free-tier note shows before any key is saved");
-  const sheetRect = gemini.getBoundingClientRect();
-  ok(sheetRect.width > 300 && sheetRect.left >= 0 && sheetRect.right <= win.innerWidth, "and isn't clipped");
-  is(doc.activeElement, $("whimsyAIKeyField"), "The key field has focus");
-  EventUtils.synthesizeKey("KEY_Tab", { shiftKey: true }, win);
-  EventUtils.synthesizeKey("KEY_Tab", {}, win);
-  is(doc.activeElement, $("whimsyAIKeyField"), "Tab stays inside the sheet");
-  EventUtils.sendString("wrong-key-0000", win);
-  EventUtils.synthesizeKey("KEY_Enter", {}, win);
-  await TestUtils.waitForCondition(() => $("whimsyAIKeyError")?.checkVisibility() && $("whimsyAIKeyError").getAttribute("data-l10n-id") == "whimsy-ai-key-rejected-gemini", "A key Google turns down says so");
-  ok($("whimsyAISheet"), "and the sheet stays open");
-  ok(!(await WhimsyAIProviders.hasKey("gemini")), "nothing saved");
-  reject = false;
-  click($("whimsyAIKeyConnect"));
-  await TestUtils.waitForCondition(() => !S.sheet, "A good key closes the sheet");
-  await TestUtils.waitForCondition(() => row("gemini"), "Gemini is listed, connected");
-  is(WhimsyAIProviders.modelOf("gemini"), "gemini-first", "The default model is the first one listed");
-
-  // The model picker, in the row's details.
-  click(row("gemini").querySelector('[data-action="details"]'));
-  let body = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-body") && row("gemini").nextElementSibling, "Details open");
-  await settled();
-  click(body.querySelector('[data-action="model"]'));
-  await TestUtils.waitForCondition(() => doc.querySelectorAll("#whimsyAIModelMenu [role=option]").length == 3, "The models are listed");
-  click([...doc.querySelectorAll("#whimsyAIModelMenu [role=option]")].find(o => o.dataset.value == "gemini-second"));
-  await TestUtils.waitForCondition(() => WhimsyAIProviders.modelOf("gemini") == "gemini-second", "Clicking a model saves it");
-
-  // Disconnect asks first: Cancel has focus, Escape cancels.
-  click(body.querySelector('[data-action="disconnect"]'));
-  let confirm = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-confirm") && row("gemini").nextElementSibling, "Disconnect asks first");
-  is(confirm.querySelector("b").getAttribute("data-l10n-args"), JSON.stringify({ provider: "Gemini" }), "naming the provider");
-  await settled();
-  is(doc.activeElement, confirm.querySelector("[data-action=cancel]"), "Cancel has focus");
-  EventUtils.synthesizeKey("KEY_Escape", {}, win);
-  ok(!confirm.isConnected, "Escape cancels");
-  ok(await WhimsyAIProviders.hasKey("gemini"), "and nothing was removed");
-  click(row("gemini").querySelector('[data-action="details"]'));
-  body = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-body") && row("gemini").nextElementSibling, "asks again, once reopened");
-  await settled();
-  click(body.querySelector('[data-action="disconnect"]'));
-  confirm = await TestUtils.waitForCondition(() => row("gemini").nextElementSibling?.classList.contains("whimsy-ai-confirm") && row("gemini").nextElementSibling, "and again");
-  await settled();
-  click(confirm.querySelector("[data-action=confirm]"));
-  await TestUtils.waitForCondition(() => !row("gemini"), "Disconnect removes it");
-  ok(!(await WhimsyAIProviders.hasKey("gemini")), "the key is gone");
-
-  // A plan isn't faked: with no sign-in registered and its gate off, the
-  // segmented choice doesn't even show, only the API key.
-  click($("whimsyAISetUp") ?? $("whimsyAIAddProvider"));
-  const add2 = await sheetFor("add-provider");
-  await TestUtils.waitForCondition(() => add2.querySelector(".whimsy-ai-choice"), "the choices are populated");
-  await settled();
-  click(add2.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
-  const openai = await sheetFor("openai");
-  ok(!openai.querySelector(".whimsy-ai-seg"), "No plan sign-in offered");
-  ok($("whimsyAIKeyField")?.checkVisibility(), "the API key field shows directly");
-  EventUtils.synthesizeKey("KEY_Escape", {}, win);
-  await TestUtils.waitForCondition(() => !S.sheet, "Escape closes it");
-
-  // Ollama no longer uses a native list: the server field sits in the sheet.
-  click($("whimsyAISetUp") ?? $("whimsyAIAddProvider"));
-  const add3 = await sheetFor("add-provider");
-  await TestUtils.waitForCondition(() => add3.querySelector(".whimsy-ai-choice"), "the choices are populated");
-  await settled();
-  click(add3.querySelector('.whimsy-ai-choice[data-provider="ollama"]'));
-  await sheetFor("ollama");
-  await TestUtils.waitForCondition(() => $("whimsyAIOllamaAddress")?.checkVisibility(), "Ollama's server field shows in the sheet");
-  EventUtils.synthesizeKey("KEY_Escape", {}, win);
-  await TestUtils.waitForCondition(() => !S.sheet, "Escape closes the sheet");
-
-  // AI off folds the whole page to the one card.
-  Services.prefs.setBoolPref("whimsy.ai.enabled", false);
-  await TestUtils.waitForCondition(() => $("whimsyAIOffCard")?.checkVisibility() && !$("whimsyAIOn")?.checkVisibility(), "Turning AI off folds the page to the card");
-  Services.prefs.setBoolPref("whimsy.ai.enabled", true);
-  await TestUtils.waitForCondition(() => $("whimsyAIOn")?.checkVisibility(), "and back");
-
-  Services.prefs.clearUserPref("whimsy.ai.gemini.model");
-  Services.prefs.clearUserPref("whimsy.ai.order");
-  BrowserTestUtils.removeTab(tab);
 });
 
 add_task(async function test_settings_actions_and_plan_rows() {
-  Services.prefs.setStringPref("whimsy.ai.order", "");
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
-  const doc = gBrowser.selectedBrowser.contentDocument;
-  const win = gBrowser.selectedBrowser.contentWindow;
-  const $ = id => doc.getElementById(id);
-  await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root, "Settings → AI shows");
-  const S = win.WhimsyAISettings;
-  const click = node => EventUtils.synthesizeMouseAtCenter(node, {}, win);
-  const settled = async () => {
-    const running = doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
-    await Promise.all(running.map(a => a.finished.catch(() => {})));
-  };
-  const sheetFor = id => TestUtils.waitForCondition(() => {
-    const node = $("whimsyAISheet");
-    return node?.dataset.sheet == id && node.checkVisibility() && node;
-  }, `The ${id} sheet opens`);
-  const rowOf = provider => doc.querySelector(`#whimsyAIProviderList .whimsy-ai-item[data-provider="${provider}"]`);
-  ok(!$("whimsyAIPlanFallback"), "No 'use the next one' setting: the order decides");
+  const originalTabs = new Set(gBrowser.tabs);
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.ai.test.macos-version", 26],
+    ["whimsy.feature.ai-openai-plan", true],
+    ["whimsy.feature.ai-claude-plan", false],
+  ] });
+  try {
+    Services.prefs.setStringPref("whimsy.ai.order", "");
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
+    const doc = gBrowser.selectedBrowser.contentDocument;
+    const win = gBrowser.selectedBrowser.contentWindow;
+    const $ = id => doc.getElementById(id);
+    await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root, "Settings → AI shows");
+    const S = win.WhimsyAISettings;
+    const click = node => EventUtils.synthesizeMouseAtCenter(node, {}, win);
+    const settled = async () => {
+      const running = doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
+      await Promise.all(running.map(a => a.finished.catch(() => {})));
+    };
+    const sheetFor = id => TestUtils.waitForCondition(() => {
+      const node = $("whimsyAISheet");
+      return node?.dataset.sheet == id && node.checkVisibility() && node;
+    }, `The ${id} sheet opens`);
+    const rowOf = provider => doc.querySelector(`#whimsyAIProviderList .whimsy-ai-item[data-provider="${provider}"]`);
+    ok(!$("whimsyAIPlanFallback"), "No 'use the next one' setting: the order decides");
 
-  // Connect a provider: the sheet lists every provider not yet connected.
-  WhimsyAIProviders.openSettings(null, "add-provider");
-  const add = await sheetFor("add-provider");
-  // Same wait as above: Apple's choice lands after an async check.
-  await TestUtils.waitForCondition(() => add.querySelectorAll(".whimsy-ai-choice").length == 5, "the choices are populated, Apple included once its check resolves");
-  await settled();
-  Assert.deepEqual([...add.querySelectorAll(".whimsy-ai-choice:not([aria-disabled])")].map(c => c.dataset.provider), ["apple", "claude", "openai", "gemini", "ollama"], "all of them, nothing connected yet");
-  click(add.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
-  await sheetFor("openai");
-  is($("whimsyAISheetTitle").getAttribute("data-l10n-args"), JSON.stringify({ provider: "ChatGPT" }), "ChatGPT");
-  EventUtils.synthesizeKey("KEY_Escape", {}, win);
-  await TestUtils.waitForCondition(() => !S.sheet, "Escape closes it");
+    // Connect a provider: the sheet lists every provider not yet connected.
+    WhimsyAIProviders.openSettings(null, "add-provider");
+    const add = await sheetFor("add-provider");
+    await TestUtils.waitForCondition(() => add.querySelector('[data-provider="apple"]'), "Apple's eligibility check resolves");
+    await settled();
+    Assert.deepEqual([...add.querySelectorAll(".whimsy-ai-choice:not([aria-disabled])")].map(c => c.dataset.provider ?? c.dataset.action), ["openai", "api-key", "ollama", "apple"], "The ChatGPT plan, API keys, and local providers are offered");
+    click(add.querySelector('.whimsy-ai-choice[data-provider="openai"]'));
+    await sheetFor("openai");
+    is($("whimsyAISheetTitle").getAttribute("data-l10n-args"), JSON.stringify({ provider: "ChatGPT" }), "ChatGPT");
+    EventUtils.synthesizeKey("KEY_Escape", {}, win);
+    await TestUtils.waitForCondition(() => !S.sheet, "Escape closes it");
 
-  // A registered plan with its gate on: the row shows the plan, and its
-  // details' Disconnect revokes it.
-  WhimsyAIProviders.registerPlan("openai", {
-    connect: async () => ({}),
-    disconnect: async () => {},
-    status: async () => ({ connected: true, label: "me@example.com" }),
-    isReady: async () => true,
-    models: async () => ["m"],
-    complete: async () => "x",
-    manageUsage: () => {},
-  });
-  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", true);
-  await WhimsyAIProviders.connectPlan(window, "openai");
-  await TestUtils.waitForCondition(() => rowOf("openai")?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-row-plan-openai", "Settings says the ChatGPT plan, in the row");
-  click(rowOf("openai").querySelector('[data-action="details"]'));
-  const body = await TestUtils.waitForCondition(() => rowOf("openai").nextElementSibling?.classList.contains("whimsy-ai-body") && rowOf("openai").nextElementSibling, "and the account, in the details");
-  ok(body.textContent.includes("me@example.com"), "with the signed-in account");
-  await settled();
-  click(body.querySelector('[data-action="disconnect"]'));
-  const confirm = await TestUtils.waitForCondition(() => rowOf("openai").nextElementSibling?.classList.contains("whimsy-ai-confirm") && rowOf("openai").nextElementSibling, "Disconnecting a plan asks first");
-  ok(confirm.textContent.includes("revokes"), "and says the token is revoked");
-  await settled();
-  click(confirm.querySelector("[data-action=confirm]"));
-  await TestUtils.waitForCondition(() => !rowOf("openai"), "The row goes with the plan");
+    // A registered plan with its gate on: the row shows the plan, and its
+    // details' Disconnect revokes it.
+    WhimsyAIProviders.registerPlan("openai", {
+      connect: async () => ({}),
+      disconnect: async () => {},
+      status: async () => ({ connected: true, label: "me@example.com" }),
+      isReady: async () => true,
+      models: async () => ["m"],
+      complete: async () => "x",
+      manageUsage: () => {},
+    });
+    Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", true);
+    await WhimsyAIProviders.connectPlan(window, "openai");
+    await TestUtils.waitForCondition(() => rowOf("openai")?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-account-email-openai", "Settings says the ChatGPT plan, in the row");
+    click(rowOf("openai").querySelector('[data-action="details"]'));
+    const body = await TestUtils.waitForCondition(() => rowOf("openai").nextElementSibling?.classList.contains("whimsy-ai-body") && rowOf("openai").nextElementSibling, "and the account, in the details");
+    ok(body.textContent.includes("me@example.com"), "with the signed-in account");
+    await settled();
+    click(body.querySelector('[data-action="disconnect"]'));
+    const confirm = await TestUtils.waitForCondition(() => rowOf("openai").nextElementSibling?.classList.contains("whimsy-ai-confirm") && rowOf("openai").nextElementSibling, "Disconnecting a plan asks first");
+    ok(confirm.textContent.includes("revokes"), "and says the token is revoked");
+    await settled();
+    click(confirm.querySelector("[data-action=confirm]"));
+    await TestUtils.waitForCondition(() => !rowOf("openai"), "The row goes with the plan");
 
-  WhimsyAIProviders.registerPlan("openai", BUILT_IN_PLANS.openai);
-  Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", false);
-  Services.prefs.clearUserPref("whimsy.ai.order");
-  BrowserTestUtils.removeTab(tab);
+    WhimsyAIProviders.registerPlan("openai", BUILT_IN_PLANS.openai);
+    Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", false);
+    Services.prefs.clearUserPref("whimsy.ai.order");
+    BrowserTestUtils.removeTab(tab);
+  } finally {
+    for (const tab of [...gBrowser.tabs]) {
+      if (!originalTabs.has(tab)) { BrowserTestUtils.removeTab(tab); }
+    }
+    await SpecialPowers.popPrefEnv();
+  }
 });
 
 add_task(async function test_plan_label_in_composer() {
@@ -1167,5 +1198,34 @@ add_task(async function test_apple_unavailable_os() {
     WhimsyAIProviders.appleDetail = "";
     Services.prefs.clearUserPref("whimsy.ai.test.macos-version");
     await IOUtils.remove(root, { recursive: true });
+  }
+});
+
+add_task(async function legacy_single_account_prefs_keep_their_identity() {
+  const P = WhimsyAIProviders;
+  const prefs = ["whimsy.ai.accounts", "whimsy.ai.account-labels", "whimsy.ai.order", "whimsy.ai.off", "whimsy.ai.usage", "whimsy.ai.resting", "whimsy.ai.provider"];
+  await SpecialPowers.pushPrefEnv({ set: [...prefs.map(pref => [pref, ""]), ["whimsy.ai.claude.auth", "key"]] });
+  const original = P.connection;
+  try {
+    Services.prefs.clearUserPref("whimsy.ai.order");
+    Services.prefs.setStringPref("whimsy.ai.provider", "openai");
+    P.connection = async id => ["claude", "openai"].includes(id) ? { method: "key" } : null;
+    await P.seedOrder();
+    Assert.deepEqual(P.order, ["openai", "claude"], "Migration preserves the previously selected provider first");
+    P.setOn("openai", false);
+    const until = Date.now() + 3600000;
+    P.setResting("claude", { until, message: "fixture" });
+    P.cacheUsage("claude", [{ id: "tokens", label: "Tokens", usedPercent: 80 }], "key", 1234);
+    const before = prefs.slice(2).map(pref => Services.prefs.getStringPref(pref, ""));
+    await P.seedOrder();
+    Assert.deepEqual(prefs.slice(2).map(pref => Services.prefs.getStringPref(pref, "")), before, "Seeding again leaves every legacy pref byte-for-byte unchanged");
+    is(P.providerId("claude"), "claude", "First account keeps its provider id");
+    is(P.provider, "claude", "The off switch still routes past OpenAI");
+    is(P.resting("claude").until, until, "The original resting entry is still used");
+    is(P.usage("claude").checkedAt, 1234, "The original cached usage is still used");
+    is(P.providerName("claude"), "Claude", "A single account has no label in handoff wording");
+  } finally {
+    P.connection = original;
+    await SpecialPowers.popPrefEnv();
   }
 });

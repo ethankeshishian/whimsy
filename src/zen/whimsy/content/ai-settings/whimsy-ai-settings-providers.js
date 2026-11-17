@@ -28,6 +28,7 @@
   const BILLED_BY = { claude: "Anthropic", openai: "OpenAI", gemini: "Google" };
   const CLAUDE_CODE_URL = "https://code.claude.com/docs/en/setup";
   const OLLAMA_URL = "https://ollama.com/download";
+  const providerOf = id => P().providerId(id);
   const nameOf = id => P().providerName(id);
   const openTab = url => {
     const win = S.browserWindow();
@@ -48,8 +49,8 @@
       console.error(e);
     }
     const c = result.connection;
-    if (id == "claude" && c?.method == "plan") {
-      const status = await lazy.WhimsyAIClaudeCode._authStatus().catch(() => ({ installed: true, loggedIn: true }));
+    if (providerOf(id) == "claude" && c?.method == "plan") {
+      const status = await (typeof providers.planFor(id)?._authStatus == "function" ? providers.planFor(id) : lazy.WhimsyAIClaudeCode)._authStatus().catch(() => ({ installed: true, loggedIn: true }));
       result.claudeCode = status;
       result.byWhimsy = await lazy.WhimsyClaudeCodeInstall.installedByWhimsy().catch(() => false);
       if (!status.installed) {
@@ -88,9 +89,7 @@
 
   function detail(row, data) {
     const shown = baseDetail(row, data);
-    row.querySelector(".whimsy-ai-meters")?.remove();
-    const usage = P().usage(data.id);
-    if (usage) { meters(row.querySelector(".whimsy-ai-item-text"), usage.limits.slice(0, 2)); }
+    usageRing(row, data.id);
     const cover = !data.problem && coveringFor(data.id);
     if (!shown || !cover) {
       return;
@@ -125,19 +124,23 @@
     };
     const c = data.connection;
     const name = row.querySelector(".whimsy-ai-item-name");
-    name.querySelector(".whimsy-ai-pill")?.remove();
+    name.querySelector(".whimsy-ai-resting")?.remove();
     if (data.problem == "claude-missing") {
       return set("whimsy-ai-row-claude-missing", null, "fail");
     }
     if (data.problem == "signed-out") {
-      return set(`whimsy-ai-row-signed-out-${id}`, null, "warn");
+      return set(`whimsy-ai-row-signed-out-${providerOf(id)}`, null, "warn");
     }
     if (resting) {
-      const pill = S.el("span", "whimsy-ai-pill", name, "whimsy-ai-row-resting-pill");
+      const pill = S.el("span", "whimsy-ai-pill whimsy-ai-resting", name,
+        resting.until ? "whimsy-ai-account-resting-until" : "whimsy-ai-row-resting-pill",
+        resting.until ? { time: timeOf(resting.until) } : null);
       pill.dataset.tone = "warn";
-      return resting.until
-        ? set("whimsy-ai-row-resting-until", { time: timeOf(resting.until), message: resting.message || "" }, "warn")
-        : set("whimsy-ai-row-resting", { message: resting.message || "" }, "warn");
+      if (c?.method != "plan") {
+        return resting.until
+          ? set("whimsy-ai-row-resting-until", { time: timeOf(resting.until), message: resting.message || "" }, "warn")
+          : set("whimsy-ai-row-resting", { message: resting.message || "" }, "warn");
+      }
     }
     if (!providers.isOn(id)) {
       return set("whimsy-ai-row-off");
@@ -149,7 +152,12 @@
       return set("whimsy-ai-row-ollama", { model: providers.modelOf("ollama") || "" });
     }
     if (c?.method == "plan") {
-      return set(`whimsy-ai-row-plan-${id}`, { label: c.label || "" });
+      const base = providerOf(id);
+      const plan = String(c.planName ?? "").trim().slice(0, 80).replace(/\b[a-z]/g, ch => ch.toUpperCase());
+      if (plan) {
+        return set(`whimsy-ai-account-plan-${base}`, { identity: c.label ? `${c.label} · ` : "", plan });
+      }
+      return set(c.label ? `whimsy-ai-account-email-${base}` : `whimsy-ai-row-plan-${base}`, { label: c.label || "" });
     }
     if (c?.method == "key") {
       return set(data.hint ? "whimsy-ai-row-key" : "whimsy-ai-row-key-nohint", { hint: data.hint || "", provider: BILLED_BY[id] ?? nameOf(id) });
@@ -165,7 +173,7 @@
     if (data.problem == "claude-missing" || data.problem == "signed-out") {
       S.button(end, data.problem == "claude-missing" ? "whimsy-ai-row-install" : "whimsy-ai-row-sign-in-again", {
         small: true,
-        onClick: () => S.openSheet(id, { restoreFocus: row.querySelector(".whimsy-ai-grip") }),
+        onClick: () => S.openSheet(providerOf(id), { entryId: id, restoreFocus: row.querySelector(".whimsy-ai-grip") }),
       }).dataset.action = "fix";
       S.button(end, "whimsy-ai-row-check-again", { small: true, onClick: () => render(true) }).dataset.action = "check";
     }
@@ -217,7 +225,114 @@
     return box;
   }
 
-  function usageDetail(dd, id) {
+  let usagePopover = null;
+  function closeUsage({ restore = true } = {}) {
+    if (!usagePopover) { return; }
+    const { el, anchor, cleanup } = usagePopover;
+    usagePopover = null;
+    cleanup();
+    el.remove();
+    anchor.setAttribute("aria-expanded", "false");
+    anchor.removeAttribute("aria-controls");
+    if (restore && anchor.isConnected) { anchor.focus({ preventScroll: true }); }
+  }
+
+  function usageRing(row, id) {
+    const slot = row.querySelector(".whimsy-ai-usage-slot");
+    if (usagePopover?.anchor.closest(".whimsy-ai-item") == row) { closeUsage({ restore: false }); }
+    slot.replaceChildren();
+    const usage = P().usage(id);
+    if (!usage) { return; }
+    const percent = Math.max(0, Math.min(100, usage.limits[0].usedPercent));
+    const ring = S.el("button", "whimsy-ai-usage-ring", slot, "whimsy-ai-usage-ring", { provider: nameOf(id), percent: Math.round(percent) });
+    ring.type = "button";
+    ring.dataset.action = "usage-ring";
+    ring.setAttribute("aria-haspopup", "dialog");
+    ring.setAttribute("aria-expanded", "false");
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 22 22");
+    svg.setAttribute("aria-hidden", "true");
+    for (const kind of ["track", "value"]) {
+      const circle = document.createElementNS(svg.namespaceURI, "circle");
+      for (const [attr, value] of Object.entries({ cx: 11, cy: 11, r: 8.4, pathLength: 100, class: kind })) {
+        circle.setAttribute(attr, value);
+      }
+      if (kind == "value") {
+        circle.setAttribute("stroke-dasharray", `${percent} 100`);
+        circle.classList.toggle("is-high", percent >= 80);
+      }
+      svg.append(circle);
+    }
+    ring.append(svg);
+    // Keep keyboard activation on the same path as clicking the ring;
+    // cancel the native default so a key press cannot toggle it twice.
+    ring.addEventListener("keydown", event => {
+      if (event.key == "Enter" || event.key == " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) { ring.click(); }
+      }
+    });
+    ring.addEventListener("click", () => {
+      if (usagePopover?.anchor == ring) { closeUsage(); return; }
+      closeUsage({ restore: false });
+      closeMenu({ restore: false });
+      const el = S.el("div", "whimsy-ai-popup whimsy-ai-usage-popover", document.body ?? document.documentElement);
+      el.id = "whimsyAIUsagePopover";
+      el.setAttribute("role", "dialog");
+      el.setAttribute("aria-labelledby", "whimsyAIUsageTitle");
+      el.tabIndex = -1;
+      const title = S.el("h3", "", el);
+      title.id = "whimsyAIUsageTitle";
+      const plan = String(view.info.get(id)?.connection?.planName ?? "").trim().replace(/\b[a-z]/g, ch => ch.toUpperCase());
+      const label = P().accountIds(providerOf(id)).length > 1 ? P().accountLabel(id) : "";
+      document.l10n.setAttributes(title, "whimsy-ai-account-usage-title", {
+        provider: P().providerName(providerOf(id), { account: false }),
+        plan: plan ? ` ${plan}` : "", label: label ? ` · ${label}` : "",
+      });
+      usageDetail(S.el("div", "whimsy-ai-usage-detail", el), id, true);
+      ring.setAttribute("aria-expanded", "true");
+      ring.setAttribute("aria-controls", el.id);
+      const position = () => {
+        const rect = ring.getBoundingClientRect();
+        const bounds = el.getBoundingClientRect();
+        el.style.left = `${Math.max(8, Math.min(rect.right - bounds.width, innerWidth - bounds.width - 8))}px`;
+        el.style.top = `${Math.max(8, Math.min(rect.bottom + 6, innerHeight - bounds.height - 8))}px`;
+      };
+      position();
+      document.l10n.translateFragment(el).then(() => { if (el.isConnected) { position(); } });
+      const outside = event => {
+        if (!el.contains(event.target) && !ring.contains(event.target)) { closeUsage({ restore: false }); }
+      };
+      const escape = event => {
+        if (event.key == "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          closeUsage();
+        }
+      };
+      const blur = event => {
+        if (!el.contains(event.relatedTarget) && event.relatedTarget != ring) { closeUsage({ restore: false }); }
+      };
+      const reposition = event => {
+        if (!el.contains(event.target)) { closeUsage({ restore: false }); }
+      };
+      document.addEventListener("mousedown", outside, true);
+      document.addEventListener("keydown", escape, true);
+      el.addEventListener("focusout", blur);
+      window.addEventListener("resize", reposition);
+      document.addEventListener("scroll", reposition, true);
+      usagePopover = { el, anchor: ring, cleanup() {
+        document.removeEventListener("mousedown", outside, true);
+        document.removeEventListener("keydown", escape, true);
+        window.removeEventListener("resize", reposition);
+        document.removeEventListener("scroll", reposition, true);
+      } };
+      el.focus({ preventScroll: true });
+    });
+  }
+
+  function usageDetail(dd, id, popover = false) {
     dd.classList.add("whimsy-ai-usage-detail");
     const usage = P().usage(id);
     if (usage) { meters(dd, usage.limits); }
@@ -232,7 +347,7 @@
     const url = P().usageUrl(id);
     if (url) {
       if (usage) { note.append(document.createTextNode(" · ")); }
-      const link = S.el("button", "whimsy-ai-link is-external", note, "whimsy-ai-manage-usage");
+      const link = S.el("button", "whimsy-ai-link is-external", note, popover ? "whimsy-ai-account-manage-usage" : "whimsy-ai-manage-usage");
       link.type = "button";
       link.dataset.action = "usage";
       link.addEventListener("click", () => openTab(url));
@@ -266,14 +381,14 @@
     } else {
       pair("whimsy-ai-detail-runs", dd => document.l10n.setAttributes(dd, "whimsy-ai-detail-on-this-mac"));
     }
-    if (id == "claude" && c?.method == "plan") {
+    if (providerOf(id) == "claude" && c?.method == "plan") {
       pair("whimsy-ai-detail-claude-code", dd => document.l10n.setAttributes(dd, data.byWhimsy ? "whimsy-ai-detail-claude-code-whimsy" : "whimsy-ai-detail-claude-code-yours"));
     }
     if (id != "apple") {
       pair("whimsy-ai-detail-model", dd => modelPicker(dd, id, c));
     }
     pair("whimsy-ai-detail-can-do", dd => caps(dd, id));
-    if (CLOUD.includes(id)) {
+    if (CLOUD.includes(providerOf(id))) {
       pair("whimsy-ai-detail-usage", dd => usageDetail(dd, id));
     }
     const resting = providers.resting(id);
@@ -287,7 +402,7 @@
     } else {
       S.el("span", "whimsy-ai-spacer", actions);
     }
-    if (data.byWhimsy) {
+    if (data.byWhimsy && id == "claude") {
       const remove = S.button(actions, "whimsy-ai-detail-remove-claude-code", { kind: "text danger" });
       remove.dataset.action = "remove-claude-code";
       remove.addEventListener("click", () =>
@@ -311,7 +426,7 @@
 
   async function confirmDisconnect(row, id, connection, button) {
     const providers = P();
-    const kind = connection?.method == "plan" ? `plan-${id}` : connection?.method == "key" ? "key" : id;
+    const kind = connection?.method == "plan" ? `plan-${providerOf(id)}` : connection?.method == "key" ? "key" : id;
     const parts = [await document.l10n.formatValue(`whimsy-ai-confirm-${kind}`)];
     const order = providers.order.filter(other => other != id && providers.isOn(other));
     const at = providers.order.indexOf(id);
@@ -347,7 +462,7 @@
         button.removeAttribute("data-l10n-id");
         button.textContent = value;
       } else {
-        document.l10n.setAttributes(button, id == "claude" && connection?.method == "plan" ? "whimsy-ai-model-claude-code" : "whimsy-ai-model-default-choice");
+        document.l10n.setAttributes(button, providerOf(id) == "claude" && connection?.method == "plan" ? "whimsy-ai-model-claude-code" : "whimsy-ai-model-default-choice");
       }
     };
     label(current);
@@ -360,7 +475,7 @@
       try {
         models = await providers.models(id);
       } catch {}
-      openMenu(button, [{ value: "", l10nId: id == "claude" && connection?.method == "plan" ? "whimsy-ai-model-claude-code" : "whimsy-ai-model-default-choice" }, ...models.map(m => ({ value: m, text: m }))], current, value => {
+      openMenu(button, [{ value: "", l10nId: providerOf(id) == "claude" && connection?.method == "plan" ? "whimsy-ai-model-claude-code" : "whimsy-ai-model-default-choice" }, ...models.map(m => ({ value: m, text: m }))], current, value => {
         providers.setModel(id, value);
         label(value);
       });
@@ -489,18 +604,53 @@
     const rankNode = S.el("span", "whimsy-ai-rank", row);
     rankNode.textContent = String(rank);
     rankNode.setAttribute("aria-hidden", "true");
-    S.tile(row, S.logo(id), { logo: true });
+    S.tile(row, S.logo(providerOf(id)), { logo: true });
     const text = S.el("span", "whimsy-ai-item-text", row);
     const name = S.el("span", "whimsy-ai-item-name", text);
-    name.append(S.el("span", "", null, `whimsy-ai-name-${id}`));
+    name.append(S.el("span", "", null, `whimsy-ai-name-${providerOf(id)}`));
+    if (P().accountIds(providerOf(id)).length > 1) {
+      const label = S.el("button", "whimsy-ai-pill whimsy-ai-account-label", name, "whimsy-ai-account-label", { label: P().accountLabel(id) });
+      label.type = "button";
+      label.dataset.action = "label";
+      const shown = S.el("span", "", label);
+      shown.textContent = P().accountLabel(id);
+      label.addEventListener("click", () => {
+        const input = S.el("input", "whimsy-ai-input whimsy-ai-account-input", name, "whimsy-ai-account-label-edit");
+        input.type = "text";
+        input.dataset.action = "label";
+        input.maxLength = 80;
+        input.value = P().accountLabel(id);
+        label.hidden = true;
+        let finished = false;
+        const finish = save => {
+          if (finished) { return; }
+          finished = true;
+          if (save && input.value.trim()) { P().setAccountLabel(id, input.value); }
+          input.remove();
+          label.hidden = false;
+          label.focus();
+        };
+        input.addEventListener("blur", () => finish(true));
+        input.addEventListener("keydown", event => {
+          if (event.key == "Enter" || event.key == "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            finish(event.key == "Enter");
+          }
+        });
+        input.focus();
+        input.select();
+      });
+    }
     const d = S.el("span", "whimsy-ai-item-detail", text);
     d.append(S.el("span", "whimsy-ai-skeleton"));
     d.firstChild.style.cssText = "width:180px;margin-top:4px";
+    S.el("span", "whimsy-ai-usage-slot", row);
     const end = S.el("span", "whimsy-ai-item-end", row);
     const skeleton = S.el("span", "whimsy-ai-skeleton", end);
     skeleton.style.cssText = "width:30px;height:18px;border-radius:9px";
     row.addEventListener("click", event => {
-      if (!event.target.closest("button, moz-toggle, a")) {
+      if (!event.target.closest("button, moz-toggle, a, input")) {
         toggleOpen(id);
       }
     });
@@ -599,6 +749,7 @@
       return;
     }
     const providers = P();
+    closeUsage({ restore: false });
     const serial = ++renderSerial;
     const order = providers.order;
     const list = view.list;
@@ -613,10 +764,8 @@
       }
       return row;
     });
-    // Nothing left to offer once every provider is connected (W24
-    // uipolish #1): the row isn't shown, rather than opening a sheet
-    // with no choice in it.
-    const hasMore = order.length < ALL.length;
+    // Plans stay available after connecting, so another account can be added.
+    const hasMore = (P().multiAccountPlans && P().anyPlanAvailable()) || ALL.some(id => !order.includes(id));
     const add = hasMore ? S.el("button", "whimsy-ai-item is-compact is-button whimsy-ai-add") : null;
     if (add) {
       add.type = "button";
@@ -748,6 +897,7 @@
         Services.obs.removeObserver(changed, "whimsy-ai-providers-changed");
         Services.obs.removeObserver(accounts, "whimsy-ai-accounts-changed");
         closeMenu({ restore: false });
+        closeUsage({ restore: false });
       };
     },
   });
@@ -755,7 +905,7 @@
   // ---- sheets ----
 
   function sheetHead(state, id, titleL10nId = "whimsy-ai-sheet-connect-title") {
-    document.l10n.setAttributes(state.title, titleL10nId, { provider: nameOf(id) });
+    document.l10n.setAttributes(state.title, titleL10nId, { provider: P().providerName(id, { account: false }) });
     const tile = S.tile(null, S.logo(id), { logo: true });
     state.head.prepend(tile);
   }
@@ -816,11 +966,16 @@
     const choice = S.el("button", "whimsy-ai-choice", choices);
     choice.type = "button";
     choice.dataset.provider = id;
-    S.tile(choice, S.logo(id), { logo: true });
+    S.tile(choice, S.logo(providerOf(id)), { logo: true });
     const text = S.el("span", "", choice);
-    S.el("span", "whimsy-ai-choice-name", text, `whimsy-ai-name-${id}`);
+    S.el("span", "whimsy-ai-choice-name", text, P().planAvailable(id) ? `whimsy-ai-seg-plan-${id}` : `whimsy-ai-name-${id}`);
     S.el("span", "whimsy-ai-choice-detail", text, `whimsy-ai-add-${id}`);
-    if (order.includes(id)) {
+    const another = order.some(entry => providerOf(entry) == id) && P().planAvailable(id) && P().multiAccountPlans;
+    if (another) {
+      document.l10n.setAttributes(text.querySelector(".whimsy-ai-choice-detail"), `whimsy-ai-add-another-${id}`);
+      S.el("span", "whimsy-ai-chev", choice).setAttribute("aria-hidden", "true");
+      choice.addEventListener("click", () => S.openSheet(id, { additional: true, method: "plan", restoreFocus: opts.restoreFocus }));
+    } else if (order.includes(id)) {
       choice.setAttribute("aria-disabled", "true");
       S.el("span", "whimsy-ai-pill", choice, "whimsy-ai-add-connected").dataset.tone = "pass";
     } else {
@@ -830,19 +985,43 @@
     return choice;
   }
 
+  function keyChoices(state, opts) {
+    document.l10n.setAttributes(state.title, "whimsy-ai-add-api-key");
+    const choices = S.el("div", "whimsy-ai-choices", state.body);
+    for (const id of CLOUD) {
+      const choice = S.el("button", "whimsy-ai-choice", choices);
+      choice.type = "button";
+      choice.dataset.provider = id;
+      S.tile(choice, S.logo(id), { logo: true });
+      const text = S.el("span", "", choice);
+      S.el("span", "whimsy-ai-choice-name", text, `whimsy-ai-name-${id}`);
+      S.el("span", "whimsy-ai-choice-detail", text, "whimsy-ai-add-key-billing", { provider: BILLED_BY[id] });
+      S.el("span", "whimsy-ai-chev", choice).setAttribute("aria-hidden", "true");
+      choice.addEventListener("click", () => S.openSheet(id, { method: "key", restoreFocus: opts.restoreFocus }));
+    }
+    cancel(state);
+  }
+  S.registerSheet("api-key", keyChoices);
+
   S.registerSheet("add-provider", (state, opts) => {
     document.l10n.setAttributes(state.title, "whimsy-ai-add-title");
     const choices = S.el("div", "whimsy-ai-choices", state.body);
     choices.setAttribute("role", "list");
     cancel(state);
     const order = P().order;
-    // Apple's eligibility needs a subprocess call; every other choice
-    // renders right away so the sheet never opens looking empty.
-    for (const id of ALL) {
-      if (id != "apple") {
-        addProviderChoice(choices, id, order, opts);
-      }
+    for (const id of ["claude", "openai"]) {
+      if (P().planAvailable(id)) { addProviderChoice(choices, id, order, opts); }
     }
+    const key = S.el("button", "whimsy-ai-choice", choices);
+    key.type = "button";
+    key.dataset.action = "api-key";
+    S.tile(key, "chrome://browser/skin/zen-icons/selectable/key.svg");
+    const text = S.el("span", "", key);
+    S.el("span", "whimsy-ai-choice-name", text, "whimsy-ai-add-api-key");
+    S.el("span", "whimsy-ai-choice-detail", text, "whimsy-ai-add-api-key-detail");
+    S.el("span", "whimsy-ai-chev", key).setAttribute("aria-hidden", "true");
+    key.addEventListener("click", () => S.openSheet("api-key", { restoreFocus: opts.restoreFocus }));
+    addProviderChoice(choices, "ollama", order, opts);
     choices.querySelector(".whimsy-ai-choice:not([aria-disabled])")?.focus();
     (async () => {
       let appleOk = true;
@@ -850,11 +1029,8 @@
         const version = await P()._macOSVersion();
         appleOk = Services.appinfo.OS == "Darwin" && (version == null || version >= 26);
       } catch {}
-      // The sheet may have closed, or moved on, while that awaited.
-      if (S.sheet != state || !appleOk) {
-        return;
-      }
-      choices.prepend(addProviderChoice(choices, "apple", order, opts));
+      if (S.sheet != state || !appleOk) { return; }
+      choices.append(addProviderChoice(choices, "apple", order, opts));
       if (!choices.contains(document.activeElement)) {
         choices.querySelector(".whimsy-ai-choice:not([aria-disabled])")?.focus();
       }
@@ -985,7 +1161,7 @@
     ["sign-in", ["sign-in"]],
   ];
 
-  function startInstall() {
+  function startInstall({ target = "claude", additional = false } = {}) {
     if (install.promise) {
       return install.promise;
     }
@@ -1008,13 +1184,13 @@
         if (!S.sheet) {
           S.toast("whimsy-ai-toast-claude-code-ready", { descriptionId: "whimsy-ai-toast-claude-code-sign-in" });
         }
-        await P().connectPlan(S.browserWindow(), "claude");
+        const account = await P().connectPlan(S.browserWindow(), target, { additional });
         install.steps.push("done");
         notify();
         if (S.sheet?.id == "claude") {
           S.closeSheet();
         }
-        connected("claude", { first: !wasOn && S.ai.enabled });
+        connected(account?.id ?? target, { first: !wasOn && S.ai.enabled });
       } catch (e) {
         install.error = e;
         notify();
@@ -1047,11 +1223,14 @@
 
   async function claudeSheet(state, opts) {
     sheetHead(state, "claude");
-    let method = opts.method ?? (P().planAvailable("claude") ? "plan" : "key");
+    const target = opts.entryId ?? "claude";
+    const additional = !!opts.additional;
+    const planOnly = additional || target != "claude";
+    let method = planOnly ? "plan" : opts.method ?? (P().planAvailable("claude") ? "plan" : "key");
     const watch = () => build();
     Services.obs.addObserver(watch, "whimsy-ai-settings-claude-install");
     state.cleanups.push(() => Services.obs.removeObserver(watch, "whimsy-ai-settings-claude-install"));
-    state.cleanups.push(() => P().cancelPlan?.("claude"));
+    state.cleanups.push(() => P().cancelPlan?.(target));
     let waiting = false;
     async function build() {
       if (S.sheet != state) {
@@ -1059,10 +1238,12 @@
       }
       const focusMethod = document.activeElement?.dataset?.method;
       clear(state);
-      segment(state, "claude", method, m => {
-        method = m;
-        build();
-      });
+      if (!planOnly) {
+        segment(state, "claude", method, m => {
+          method = m;
+          build();
+        });
+      }
       if (focusMethod) {
         state.body.querySelector(`[data-method="${focusMethod}"]`)?.focus();
       }
@@ -1085,11 +1266,11 @@
             small: true,
             onClick: () => {
               install.error = null;
-              startInstall();
+              startInstall({ target, additional });
               build();
             },
           });
-          S.button(state.footer, "whimsy-ai-use-key", { kind: "text", onClick: useKey }).classList.add("whimsy-ai-spacer");
+          if (!planOnly) { S.button(state.footer, "whimsy-ai-use-key", { kind: "text", onClick: useKey }).classList.add("whimsy-ai-spacer"); }
           cancel(state);
           return;
         }
@@ -1098,7 +1279,8 @@
         return;
       }
       const loading = status(state.body, "whimsy-ai-claude-checking", { busy: true });
-      const cc = await lazy.WhimsyAIClaudeCode._authStatus({ fresh: true }).catch(() => ({ installed: false }));
+      const cc = { ...await (typeof P().planFor(target)?._authStatus == "function" ? P().planFor(target) : lazy.WhimsyAIClaudeCode)._authStatus({ fresh: true }).catch(() => ({ installed: false })) };
+      if (additional) { cc.loggedIn = false; }
       if (S.sheet != state || method != "plan") {
         return;
       }
@@ -1109,13 +1291,13 @@
         for (const n of [1, 2, 3]) {
           S.el("div", "", facts, `whimsy-ai-claude-install-fact-${n}`);
         }
-        S.button(state.footer, "whimsy-ai-use-key", { kind: "text", onClick: useKey }).classList.add("whimsy-ai-spacer");
+        if (!planOnly) { S.button(state.footer, "whimsy-ai-use-key", { kind: "text", onClick: useKey }).classList.add("whimsy-ai-spacer"); }
         cancel(state);
         S.button(state.footer, "whimsy-ai-claude-install", {
           kind: "primary",
           id: "whimsyAIClaudeInstall",
           onClick: () => {
-            startInstall();
+            startInstall({ target, additional });
             build();
           },
         });
@@ -1124,10 +1306,10 @@
       if (waiting) {
         S.el("p", "", state.body, "whimsy-ai-claude-signed-out-text");
         status(state.body, "whimsy-ai-claude-waiting", { busy: true });
-        S.button(state.footer, "whimsy-ai-use-key", { kind: "text", onClick: useKey }).classList.add("whimsy-ai-spacer");
+        if (!planOnly) { S.button(state.footer, "whimsy-ai-use-key", { kind: "text", onClick: useKey }).classList.add("whimsy-ai-spacer"); }
         S.button(state.footer, "whimsy-ai-sheet-cancel", {
           onClick: () => {
-            P().cancelPlan("claude");
+            P().cancelPlan(target);
             S.closeSheet();
           },
         });
@@ -1145,7 +1327,7 @@
       if (state.error) {
         note(state.body, state.error, "fail");
       }
-      S.button(state.footer, "whimsy-ai-use-key", { kind: "text", onClick: useKey }).classList.add("whimsy-ai-spacer");
+      if (!planOnly) { S.button(state.footer, "whimsy-ai-use-key", { kind: "text", onClick: useKey }).classList.add("whimsy-ai-spacer"); }
       cancel(state);
       S.button(state.footer, cc.loggedIn ? "whimsy-ai-claude-connect" : "whimsy-ai-claude-sign-in", {
         kind: "primary",
@@ -1156,17 +1338,17 @@
           build();
           const wasOn = S.ai.enabled;
           try {
-            await P().connectPlan(S.browserWindow(), "claude");
+            const account = await P().connectPlan(S.browserWindow(), target, { additional });
             waiting = false;
             if (S.sheet == state) {
-              afterConnect("claude", wasOn);
+              afterConnect(account?.id ?? target, wasOn);
             }
           } catch (e) {
             waiting = false;
             if (e?.code == "claude-code-outdated") {
-              startInstall();
+              startInstall({ target, additional });
             } else if (e?.code != "sign-in-cancelled") {
-              state.error = "whimsy-ai-claude-sign-in-failed";
+              state.error = e?.code == "duplicate-account" ? "whimsy-ai-duplicate-account" : "whimsy-ai-claude-sign-in-failed";
             }
             build();
           }
@@ -1181,7 +1363,10 @@
 
   S.registerSheet("openai", (state, opts) => {
     sheetHead(state, "openai");
-    let method = opts.method ?? (P().planAvailable("openai") ? "plan" : "key");
+    const target = opts.entryId ?? "openai";
+    const planOnly = !!opts.additional || target != "openai";
+    state.cleanups.push(() => P().cancelPlan(target));
+    let method = planOnly ? "plan" : opts.method ?? (P().planAvailable("openai") ? "plan" : "key");
     let phase = "start";
     let errorCode = null;
     const build = () => {
@@ -1200,11 +1385,13 @@
         state.footer.querySelector("#whimsyAIOpenAIDone").focus();
         return;
       }
-      segment(state, "openai", method, m => {
-        method = m;
-        errorCode = null;
-        build();
-      });
+      if (!planOnly) {
+        segment(state, "openai", method, m => {
+          method = m;
+          errorCode = null;
+          build();
+        });
+      }
       if (method == "key") {
         keyPanel(state, "openai", build).focus();
         return;
@@ -1212,23 +1399,23 @@
       if (errorCode == "plan-ineligible") {
         const inner = note(state.body, "whimsy-ai-openai-ineligible", "fail");
         const actions = S.el("span", "whimsy-ai-actions", inner);
-        S.button(actions, "whimsy-ai-use-key-button", {
+        if (!planOnly) { S.button(actions, "whimsy-ai-use-key-button", {
           small: true,
           onClick: () => {
             method = "key";
             errorCode = null;
             build();
           },
-        });
+        }); }
       } else if (errorCode) {
-        note(state.body, `whimsy-ai-connect-error-${errorCode}`, "fail", { provider: nameOf("openai") });
+        note(state.body, errorCode == "duplicate-account" ? "whimsy-ai-duplicate-account" : `whimsy-ai-connect-error-${errorCode}`, "fail", { provider: nameOf("openai") });
       }
       S.el("p", "", state.body, "whimsy-ai-openai-plan-text");
       if (phase == "waiting") {
         status(state.body, "whimsy-ai-openai-waiting", { busy: true });
         S.button(state.footer, "whimsy-ai-sheet-cancel", {
           onClick: () => {
-            P().cancelPlan("openai");
+            P().cancelPlan(target);
             S.closeSheet();
           },
         });
@@ -1247,26 +1434,25 @@
           build();
           const wasOn = S.ai.enabled;
           try {
-            const result = await P().connectPlan(S.browserWindow(), "openai");
+            const result = await P().connectPlan(S.browserWindow(), target, { additional: !!opts.additional });
             if (S.sheet != state) {
               return;
             }
             if (result?.welcome) {
               phase = "welcome";
-              connected("openai", { first: !wasOn && S.ai.enabled });
+              connected(result?.id ?? target, { first: !wasOn && S.ai.enabled });
               build();
             } else {
-              afterConnect("openai", wasOn);
+              afterConnect(result?.id ?? target, wasOn);
             }
           } catch (e) {
             phase = "start";
-            errorCode = e?.code == "sign-in-cancelled" ? null : ["plan-ineligible", "network", "unavailable"].includes(e?.code) ? e.code : "failed";
+            errorCode = e?.code == "sign-in-cancelled" ? null : ["duplicate-account", "plan-ineligible", "network", "unavailable"].includes(e?.code) ? e.code : "failed";
             build();
           }
         },
       });
     };
-    state.cleanups.push(() => phase == "waiting" && P().cancelPlan("openai"));
     build();
   });
 

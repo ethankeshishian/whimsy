@@ -20,6 +20,9 @@ const TOUCHED = [
   "whimsy.ai.off",
   "whimsy.ai.resting",
   "whimsy.ai.usage",
+  "whimsy.ai.accounts",
+  "whimsy.ai.account-labels",
+  "whimsy.feature.ai-plan-accounts",
   "whimsy.ai.auto-enabled",
   "whimsy.ai.quick-text-apple",
   "whimsy.ai.provider",
@@ -182,7 +185,10 @@ add_task(async function first_connection_turns_ai_on_and_page_opens_up() {
   click(page, $("whimsyAISetUp"));
   const add = await sheet(page, "add-provider");
   await settled(page);
-  click(page, add.querySelector('.whimsy-ai-choice[data-provider="gemini"]'));
+  click(page, add.querySelector('[data-action="api-key"]'));
+  const keyChoices = await sheet(page, "api-key");
+  await settled(page);
+  click(page, keyChoices.querySelector('.whimsy-ai-choice[data-provider="gemini"]'));
   await sheet(page, "gemini");
   await typeKey(page, "gemini");
   click(page, $("whimsyAIKeyConnect"));
@@ -373,7 +379,7 @@ add_task(async function resting_pill_and_reset_time() {
   await listReady(page);
   const r = row(page, "openai");
   const pill = await TestUtils.waitForCondition(() => r.querySelector(".whimsy-ai-item-name .whimsy-ai-pill"), "A Resting pill");
-  is(pill.getAttribute("data-l10n-id"), "whimsy-ai-row-resting-pill", "Resting");
+  is(pill.getAttribute("data-l10n-id"), "whimsy-ai-account-resting-until", "Resting pill includes its reset time");
   const d = r.querySelector(".whimsy-ai-item-detail");
   is(d.getAttribute("data-l10n-id"), "whimsy-ai-row-resting-until", "Until its reset time");
   const args = JSON.parse(d.getAttribute("data-l10n-args"));
@@ -405,9 +411,12 @@ add_task(async function add_provider_appends_and_toasts() {
   click(page, page.$("whimsyAIAddProvider"));
   const add = await sheet(page, "add-provider");
   const openai = add.querySelector('.whimsy-ai-choice[data-provider="openai"]');
-  is(openai.getAttribute("aria-disabled"), "true", "ChatGPT is already connected");
+  ok(!openai.hasAttribute("aria-disabled"), "ChatGPT can add another plan account");
   await settled(page);
-  click(page, add.querySelector('.whimsy-ai-choice[data-provider="gemini"]'));
+  click(page, add.querySelector('[data-action="api-key"]'));
+  const keyChoices = await sheet(page, "api-key");
+  await settled(page);
+  click(page, keyChoices.querySelector('.whimsy-ai-choice[data-provider="gemini"]'));
   await sheet(page, "gemini");
   await typeKey(page, "gemini");
   EventUtils.synthesizeKey("KEY_Enter", {}, page.win);
@@ -761,18 +770,18 @@ add_task(async function add_provider_sheet_shows_choices_without_waiting() {
   const addButton = await TestUtils.waitForCondition(() => page.$("whimsyAIAddProvider"), "Add a provider… shows");
   click(page, addButton);
   const add = await sheet(page, "add-provider");
-  Assert.greaterOrEqual(add.querySelectorAll(".whimsy-ai-choice").length, 4, "Choices are there the instant the sheet opens, not just a sentence and Cancel");
+  Assert.greaterOrEqual(add.querySelectorAll(".whimsy-ai-choice").length, 3, "Choices are there the instant the sheet opens, not just a sentence and Cancel");
   await whimsyShot("w24-uipolish-1-add-provider-sheet");
   await done(page);
 });
 
 // #1: nothing left to add once every provider is connected, so the row
 // isn't shown (it used to open a sheet with no choice in it).
-add_task(async function add_provider_row_hidden_when_all_connected() {
+add_task(async function add_account_row_remains_when_all_providers_connected() {
   WhimsyAIProviders.setOrder(["claude", "openai", "gemini", "ollama", "apple"]);
   const page = await openAI();
   await listReady(page);
-  ok(!page.$("whimsyAIAddProvider"), "No Add a provider… row left to show");
+  ok(page.$("whimsyAIAddProvider"), "Connected plans can add another account");
   WhimsyAIProviders.setOrder([]);
   await done(page);
 });
@@ -887,14 +896,25 @@ add_task(async function cached_usage_renders_without_a_request() {
   try {
     await listReady(page);
     const r = row(page, "openai");
-    await TestUtils.waitForCondition(() => r.querySelectorAll(".whimsy-ai-meter").length == 2, "Two important cached limits render");
-    const meters = r.querySelectorAll(".whimsy-ai-meter");
-    is(meters[0].querySelector('[role="meter"]').getAttribute("aria-valuenow"), "85", "Fullest limit first");
-    is(meters[1].querySelector('[role="meter"]').getAttribute("aria-valuenow"), "81", "Second fullest limit");
-    ok(meters[0].querySelector(".is-high"), "80 percent and above are amber");
-    is(page.win.getComputedStyle(meters[0].querySelector(".whimsy-ai-meter-bar")).height, "4px", "Approved bar height");
-    is(r.querySelectorAll(".whimsy-ai-meter-reset").length, 1, "Unknown reset omitted");
-    ok(!r.querySelector('[data-action="usage"]'), "Manage usage lives in the details only");
+    const ring = await TestUtils.waitForCondition(() => r.querySelector(".whimsy-ai-usage-ring"), "Cached usage has one ring");
+    is(r.querySelectorAll(".whimsy-ai-meter").length, 0, "Collapsed row has no horizontal bars");
+    is(ring.querySelector(".value").getAttribute("stroke-dasharray"), "85 100", "The ring shows the fullest window");
+    ok(ring.querySelector(".value.is-high"), "80 percent and above are orange");
+    click(page, ring);
+    const popover = await TestUtils.waitForCondition(() => page.$("whimsyAIUsagePopover"), "Click opens the styled usage popover");
+    is(popover.getAttribute("role"), "dialog", "Usage has dialog semantics");
+    is(popover.querySelectorAll(".whimsy-ai-meter").length, 3, "Popover shows all windows");
+    is(popover.querySelectorAll(".whimsy-ai-meter-reset").length, 1, "Unknown resets omitted");
+    await page.doc.l10n.translateFragment(popover);
+    ok(popover.querySelector('[data-l10n-id="whimsy-ai-usage-checked"]').textContent.startsWith("Checked "), "Popover shows cache age");
+    is(popover.querySelectorAll('[data-action="usage"]').length, 1, "Popover has one Manage usage control");
+    EventUtils.synthesizeKey("KEY_Escape", {}, page.win);
+    ok(!page.$("whimsyAIUsagePopover"), "Escape closes usage");
+    is(page.doc.activeElement, ring, "Escape returns focus to the ring");
+    click(page, ring);
+    ok(page.$("whimsyAIUsagePopover"), "Click opens again");
+    click(page, ring);
+    ok(!page.$("whimsyAIUsagePopover"), "Clicking the ring again closes it");
     await settled(page);
     click(page, r.querySelector('[data-action="details"]'));
     const body = await TestUtils.waitForCondition(() => r.nextElementSibling?.classList.contains("whimsy-ai-body") && r.nextElementSibling, "Details open");
@@ -913,5 +933,114 @@ add_task(async function cached_usage_renders_without_a_request() {
     }
   } finally {
     await done(page);
+  }
+});
+
+add_task(async function account_labels_rings_and_card_in_both_schemes() {
+  const P = WhimsyAIProviders;
+  const id = "claude-00000000-0000-4000-8000-000000000001";
+  const original = { connection: P.connection, status: WhimsyAIClaudeCode._authStatus, byWhimsy: WhimsyClaudeCodeInstall.installedByWhimsy, stream: P.stream };
+  let requests = 0;
+  let page;
+  try {
+    Services.prefs.setBoolPref("whimsy.feature.ai-claude-plan", true);
+    Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", true);
+    Services.prefs.setBoolPref("whimsy.feature.ai-plan-accounts", true);
+    Services.prefs.setBoolPref("whimsy.ai.enabled", true);
+    Services.prefs.setStringPref("whimsy.ai.accounts", "{}");
+    Services.prefs.setStringPref("whimsy.ai.account-labels", JSON.stringify({ claude: "Work" }));
+    Services.prefs.setStringPref("whimsy.ai.claude.auth", "plan");
+    Services.prefs.setStringPref("whimsy.ai.openai.auth", "plan");
+    Services.prefs.setStringPref("whimsy.ai.off", "");
+    Services.prefs.setStringPref("whimsy.ai.resting", "{}");
+    Services.prefs.setStringPref("whimsy.ai.usage", "{}");
+    const identities = {
+      claude: { method: "plan", label: "you@company.com", planName: "max" },
+      [id]: { method: "plan", label: "you@example.com", planName: "pro" },
+      openai: { method: "plan", label: "you@example.com" },
+      apple: { method: "local" },
+    };
+    P.connection = async entry => identities[entry] ?? null;
+    WhimsyAIClaudeCode._authStatus = async () => ({ installed: true, loggedIn: true });
+    WhimsyClaudeCodeInstall.installedByWhimsy = async () => false;
+    P.stream = async function* () { requests++; yield { type: "text", delta: "fixture" }; };
+    P.setOrder(["claude"]);
+    page = await openAI();
+    await listReady(page);
+    ok(!row(page, "claude").querySelector(".whimsy-ai-account-label"), "A single account has no label pill");
+    Services.prefs.setStringPref("whimsy.ai.accounts", JSON.stringify({ [id]: { provider: "claude", label: "Personal" } }));
+    const checked = Date.now() - 120000;
+    const reset = Date.now() + 7200000;
+    P.cacheUsage("claude", [{ id: "five_hour", label: "5-hour", usedPercent: 52, resetAt: reset }, { id: "weekly", label: "Weekly", usedPercent: 80, resetAt: reset + 86400000 }], "plan", checked);
+    P.cacheUsage(id, [{ id: "five_hour", label: "5-hour", usedPercent: 79.9 }], "plan", checked);
+    P.cacheUsage("openai", [{ id: "five_hour", label: "5-hour", usedPercent: 100, resetAt: reset }], "plan", checked);
+    P.setResting("openai", { until: reset, message: "fixture limit" });
+    P.setOrder(["claude", id, "openai", "apple"]);
+    await TestUtils.waitForCondition(() => row(page, id)?.querySelector(".whimsy-ai-usage-ring"), "The second account row is ready");
+    await page.doc.l10n.translateFragment(page.$("whimsyAIProviderList"));
+    is(row(page, "claude").querySelector(".whimsy-ai-account-label").textContent, "Work", "First account label appears with two accounts");
+    is(row(page, id).querySelector(".whimsy-ai-account-label").textContent, "Personal", "Second account gets its own label");
+    ok(!row(page, "openai").querySelector(".whimsy-ai-account-label"), "The single ChatGPT account has no pill");
+    ok(row(page, "claude").textContent.replace(/[\u2066-\u2069]/g, "").includes("you@company.com · Max plan through Claude Code"), "Claude subtitle uses subscriptionType");
+    const openaiDetail = row(page, "openai").querySelector(".whimsy-ai-item-detail");
+    is(openaiDetail.textContent.replace(/[\u2066-\u2069]/g, ""), "you@example.com", "ChatGPT never invents a plan tier");
+    ok(row(page, "claude").querySelector(".value.is-high"), "Exactly 80 percent is orange");
+    ok(!row(page, id).querySelector(".value.is-high"), "79.9 percent keeps the accent");
+    ok(!row(page, "apple").querySelector(".whimsy-ai-usage-ring"), "Local slot stays empty");
+    is(row(page, "apple").querySelector(".whimsy-ai-usage-slot").getBoundingClientRect().width,
+      row(page, "claude").querySelector(".whimsy-ai-usage-slot").getBoundingClientRect().width, "Ring slots have a fixed width");
+    for (const dark of [false, true]) {
+      await inScheme(page, dark, async () => {
+        page.$("whimsyAIProviderList").scrollIntoView({ block: "center" });
+        await settled(page);
+        // Let the requested scroll reach the page before opening a popover
+        // whose outside-scroll handler intentionally dismisses it.
+        await new Promise(resolve => page.win.requestAnimationFrame(() => page.win.requestAnimationFrame(resolve)));
+        const label = row(page, id).querySelector(".whimsy-ai-account-label");
+        for (const pill of [label, row(page, "openai").querySelector(".whimsy-ai-resting")]) {
+          const style = page.win.getComputedStyle(pill);
+          Assert.greaterOrEqual(contrastRatio(resolvedRGB(page.win, style.backgroundColor), resolvedRGB(page.win, style.color)), 4.5, "Account and resting pills meet AA");
+        }
+        for (const r of page.doc.querySelectorAll("#whimsyAIProviderList .whimsy-ai-item-text")) {
+          ok(r.scrollWidth <= r.clientWidth, "Account names and subtitles fit the default card width");
+        }
+        const ring = row(page, "claude").querySelector(".whimsy-ai-usage-ring");
+        ring.focus({ preventScroll: true });
+        is(page.doc.activeElement, ring, "The usage ring is keyboard reachable");
+        ok(ring.getAttribute("aria-label"), "The usage ring has an accessible label");
+        EventUtils.synthesizeKey(dark ? " " : "KEY_Enter", {}, page.win);
+        await TestUtils.waitForCondition(() => page.$("whimsyAIUsagePopover"), "Enter and Space open usage");
+        is(ring.getAttribute("aria-expanded"), "true", "The ring announces the open popover");
+        await page.doc.l10n.translateFragment(page.$("whimsyAIUsagePopover"));
+        await whimsyShot(`plans-accounts-card-${dark ? "dark" : "light"}`);
+        EventUtils.synthesizeKey("KEY_Escape", {}, page.win);
+        ok(!page.$("whimsyAIUsagePopover"), "Escape closes in both schemes");
+        is(page.doc.activeElement, ring, "Escape returns keyboard focus to the ring");
+      });
+    }
+    const label = row(page, id).querySelector(".whimsy-ai-account-label");
+    click(page, label);
+    const input = row(page, id).querySelector(".whimsy-ai-account-input");
+    input.value = "Home";
+    EventUtils.synthesizeKey("KEY_Enter", {}, page.win);
+    await TestUtils.waitForCondition(() => P.accountLabel(id) == "Home", "Editing the label saves it");
+    click(page, page.$("whimsyAIAddProvider"));
+    const add = await sheet(page, "add-provider");
+    for (const base of ["claude", "openai"]) {
+      const choice = add.querySelector(`[data-provider="${base}"]`);
+      ok(!choice.hasAttribute("aria-disabled"), "Connected plan stays available");
+      is(choice.querySelector(".whimsy-ai-choice-detail").getAttribute("data-l10n-id"), `whimsy-ai-add-another-${base}`, "The choice offers another account");
+    }
+    is(requests, 0, "Opening Settings and usage popovers never refreshes usage");
+    is(P.usage("claude").checkedAt, checked, "The observation timestamp stays unchanged");
+    P.setOrder(["claude"]);
+    await TestUtils.waitForCondition(() => !row(page, "claude").querySelector(".whimsy-ai-account-label"), "Label disappears again at one account");
+  } finally {
+    P.connection = original.connection;
+    P.stream = original.stream;
+    WhimsyAIClaudeCode._authStatus = original.status;
+    WhimsyClaudeCodeInstall.installedByWhimsy = original.byWhimsy;
+    delete P._plans[id];
+    if (page) { await done(page); } else { restorePrefs(); }
   }
 });

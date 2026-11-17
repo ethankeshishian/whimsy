@@ -49,6 +49,7 @@ const AI_ENABLED_PREF = "whimsy.ai.enabled";
 // connection never turns it back on after the person turned it off.
 const AUTO_ENABLED_PREF = "whimsy.ai.auto-enabled";
 export const ORDER_PREF = "whimsy.ai.order";
+export const ACCOUNTS_PREF = "whimsy.ai.accounts";
 export const OFF_PREF = "whimsy.ai.off";
 export const QUICK_TEXT_APPLE_PREF = "whimsy.ai.quick-text-apple";
 export const USAGE_PREF = "whimsy.ai.usage";
@@ -262,14 +263,71 @@ export const WhimsyAIProviders = {
 
   // ---- Order, switches, capabilities, resting (W23) ----
 
+  // Extra plan accounts only. Legacy provider ids remain the first entries,
+  // so order, off, resting, and usage prefs need no destructive migration.
+  get accounts() {
+    try {
+      const value = JSON.parse(Services.prefs.getStringPref(ACCOUNTS_PREF, "{}"));
+      return Object.fromEntries(Object.entries(value ?? {}).filter(([id, entry]) =>
+        /^(claude|openai)-[a-f0-9-]{36}$/.test(id) && PLAN_PROVIDERS.includes(entry?.provider) && id.startsWith(`${entry.provider}-`)));
+    } catch { return {}; }
+  },
+
+  providerId(id) {
+    return PROVIDERS.includes(id) || id == "test" ? id : this.accounts[id]?.provider ?? this._pendingEntries[id] ?? null;
+  },
+
+  _pendingEntries: {},
+  _connecting: {},
+
+  get multiAccountPlans() {
+    return Services.prefs.getBoolPref("whimsy.feature.ai-plan-accounts", true);
+  },
+
+  accountIds(provider) {
+    return this.order.filter(id => this.providerId(id) == provider);
+  },
+
+  accountLabel(id) {
+    return String(this.accounts[id]?.label ?? this._accountLabels()[id] ?? "");
+  },
+
+  _accountLabels() {
+    try {
+      const value = JSON.parse(Services.prefs.getStringPref("whimsy.ai.account-labels", "{}"));
+      return value && typeof value == "object" && !Array.isArray(value) ? value : {};
+    } catch { return {}; }
+  },
+
+  setAccountLabel(id, label) {
+    const labels = this._accountLabels();
+    labels[id] = String(label ?? "").trim().slice(0, 80);
+    Services.prefs.setStringPref("whimsy.ai.account-labels", JSON.stringify(labels));
+    const accounts = this.accounts;
+    if (accounts[id]) {
+      accounts[id].label = labels[id];
+      Services.prefs.setStringPref(ACCOUNTS_PREF, JSON.stringify(accounts));
+    }
+    this._changed("label");
+  },
+
+  // Factories isolate mutable sign-in state as well as on-disk credentials.
+  planFor(id) {
+    if (!this._plans[id] && this.accounts[id]) {
+      const provider = this.providerId(id);
+      this._plans[id] = this._plans[provider]?.forAccount(id);
+    }
+    return this._plans[id];
+  },
+
   // Connected providers in the order Whimsy tries them.
   get order() {
     const ids = Services.prefs.getStringPref(ORDER_PREF, "").split(",").map(id => id.trim());
-    return [...new Set(ids.filter(id => PROVIDERS.includes(id)))];
+    return [...new Set(ids.filter(id => id != "test" && this.providerId(id)))];
   },
 
   setOrder(ids) {
-    const next = [...new Set((ids ?? []).filter(id => PROVIDERS.includes(id)))];
+    const next = [...new Set((ids ?? []).filter(id => id != "test" && this.providerId(id)))];
     if (next.join(",") == this.order.join(",") && Services.prefs.prefHasUserValue(ORDER_PREF)) {
       return;
     }
@@ -315,7 +373,7 @@ export const WhimsyAIProviders = {
   },
 
   _offList() {
-    return Services.prefs.getStringPref(OFF_PREF, "").split(",").filter(id => PROVIDERS.includes(id));
+    return Services.prefs.getStringPref(OFF_PREF, "").split(",").filter(id => id != "test" && this.providerId(id));
   },
 
   // Off means connected but never tried, handoff included.
@@ -366,6 +424,8 @@ export const WhimsyAIProviders = {
   // model details (refreshCapabilities); the Claude plan streams only once
   // Claude Code's stream-json probe said so.
   capabilities(id, model = this.modelOf(id)) {
+    const usesPlan = this._usesPlan(id);
+    id = this.providerId(id);
     const base = {
       text: true,
       images: false,
@@ -398,20 +458,20 @@ export const WhimsyAIProviders = {
         };
       }
       case "claude":
-        if (this._usesPlan("claude")) {
+        if (usesPlan) {
           return { ...base, tools: true, streaming: this._claudePlanStreams === true };
         }
         return { ...base, images: true, thinking: /haiku/.test(name) ? null : [...THINKING_LEVELS], code: true, tools: true, streaming: true };
       case "openai": {
-        const reasoning = /^(o\d|gpt-5)/.test(name) || (this._usesPlan("openai") && !name);
+        const reasoning = /^(o\d|gpt-5)/.test(name) || (usesPlan && !name);
         return {
           ...base,
           images: true,
           thinking: reasoning ? [...THINKING_LEVELS] : null,
           research: /deep-research/.test(name),
-          imageGen: !this._usesPlan("openai"),
+          imageGen: !usesPlan,
           code: true,
-          tools: !this._usesPlan("openai"),
+          tools: !usesPlan,
           streaming: true,
         };
       }
@@ -460,9 +520,9 @@ export const WhimsyAIProviders = {
       } catch {
         this._ollamaDetails.delete(model.toLowerCase());
       }
-    } else if (id == "claude" && this._usesPlan("claude")) {
+    } else if (this.providerId(id) == "claude" && this._usesPlan(id)) {
       try {
-        this._claudePlanStreams = !!(await this._plans.claude.supportsStreamJson?.());
+        this._claudePlanStreams = !!(await this.planFor(id).supportsStreamJson?.());
       } catch {
         this._claudePlanStreams = false;
       }
@@ -526,7 +586,7 @@ export const WhimsyAIProviders = {
   // Only observations from ordinary requests are stored. Separate auth paths
   // keep a plan's cached limits from appearing on an API key (and vice versa).
   cacheUsage(id, limits, method = "key", at = Date.now()) {
-    if (!CLOUD_PROVIDERS.includes(id) || !limits.length) {
+    if (!CLOUD_PROVIDERS.includes(this.providerId(id)) || !limits.length) {
       return;
     }
     let all;
@@ -550,7 +610,7 @@ export const WhimsyAIProviders = {
   },
 
   usage(id) {
-    if (!CLOUD_PROVIDERS.includes(id)) { return null; }
+    if (!CLOUD_PROVIDERS.includes(this.providerId(id))) { return null; }
     const method = this._usesPlan(id) ? "plan" : "key";
     try {
       const entry = JSON.parse(Services.prefs.getStringPref(USAGE_PREF, "{}"))[`${id}:${method}`];
@@ -562,7 +622,7 @@ export const WhimsyAIProviders = {
   },
 
   observeUsage(id, headers, method = "key") {
-    const limits = parseUsageHeaders(id, headers, method);
+    const limits = parseUsageHeaders(this.providerId(id), headers, method);
     this.cacheUsage(id, limits, method);
     return limits;
   },
@@ -570,24 +630,27 @@ export const WhimsyAIProviders = {
   // The provider's own usage page (a plan's when connected that way).
   usageUrl(id) {
     if (this._usesPlan(id)) {
-      return this._plans[id]?.usageUrl ?? null;
+      return this.planFor(id)?.usageUrl ?? null;
     }
-    return USAGE_URLS[id] ?? null;
+    return USAGE_URLS[this.providerId(id)] ?? null;
   },
 
   // Whether text leaves the computer with the current provider. Automatic
   // features (tab titles, search-page previews) skip private tabs then.
   get isCloud() {
-    return CLOUD_PROVIDERS.includes(this.provider);
+    return CLOUD_PROVIDERS.includes(this.providerId(this.provider));
   },
 
   get maxInputChars() {
-    return MAX_INPUT_CHARS[this.provider] ?? 20000;
+    return MAX_INPUT_CHARS[this.providerId(this.provider)] ?? 20000;
   },
 
   // A provider's name as Settings and the errors say it.
-  providerName(provider = this.provider) {
-    return lazy.l10n.formatValueSync(`whimsy-ai-name-${PROVIDERS.includes(provider) ? provider : "other"}`);
+  providerName(provider = this.provider, { account = true } = {}) {
+    const id = this.providerId(provider);
+    const name = lazy.l10n.formatValueSync(`whimsy-ai-name-${PROVIDERS.includes(id) ? id : "other"}`);
+    const label = account && this.accountIds(id).length > 1 ? this.accountLabel(provider) : "";
+    return label ? `${name} (${label})` : name;
   },
 
   // The string for an error code, with the provider it came from.
@@ -657,7 +720,7 @@ export const WhimsyAIProviders = {
   // Whether Settings can offer a provider's plan (its feature gate is on and
   // its sign-in is built in).
   planAvailable(provider) {
-    return !!(PLAN_GATES[provider] && Services.prefs.getBoolPref(PLAN_GATES[provider], false) && this._plans[provider]);
+    return !!(PLAN_GATES[this.providerId(provider)] && Services.prefs.getBoolPref(PLAN_GATES[this.providerId(provider)], false) && this.planFor(provider));
   },
 
   anyPlanAvailable() {
@@ -665,7 +728,7 @@ export const WhimsyAIProviders = {
   },
 
   _usesPlan(provider) {
-    return this.planAvailable(provider) && Services.prefs.getStringPref(authPref(provider), "") == "plan";
+    return this.planAvailable(provider) && (!!this.accounts[provider] || Services.prefs.getStringPref(authPref(provider), "") == "plan");
   },
 
   // The provider in use when it's connected through a plan, else null
@@ -677,12 +740,12 @@ export const WhimsyAIProviders = {
 
   // Whether a plan has a usage page of its own to open.
   canManageUsage(provider) {
-    return !!this._plans[provider]?.manageUsage;
+    return !!this.planFor(provider)?.manageUsage;
   },
 
   // Opens Settings → AI; a plan's own usage page when it has one.
   manageUsage(win, provider = this.planInUse) {
-    const plan = provider && this._plans[provider];
+    const plan = provider && this.planFor(provider);
     if (plan?.manageUsage) {
       plan.manageUsage(win);
       return;
@@ -743,9 +806,9 @@ export const WhimsyAIProviders = {
   async connection(provider) {
     if (this._usesPlan(provider)) {
       try {
-        const status = await this._plans[provider].status();
+        const status = await this.planFor(provider).status();
         if (status?.connected) {
-          return { method: "plan", label: status.label ?? "", signedOut: !!status.signedOut };
+          return { method: "plan", label: status.label ?? "", planName: status.planName ?? "", signedOut: !!status.signedOut };
         }
       } catch (error) {
         console.error(`Whimsy AI: the ${provider} plan's status`, error);
@@ -764,7 +827,7 @@ export const WhimsyAIProviders = {
 
   async connectedProviders() {
     const connected = [];
-    for (const provider of ACCOUNT_ORDER) {
+    for (const provider of [...ACCOUNT_ORDER, ...Object.keys(this.accounts)]) {
       if (await this.connection(provider)) {
         connected.push(provider);
       }
@@ -809,18 +872,68 @@ export const WhimsyAIProviders = {
   },
 
   // Signs a provider's plan in (L7b's sign-in does the work).
-  async connectPlan(win, provider) {
+  async connectPlan(win, provider, { additional = false } = {}) {
     if (!this.planAvailable(provider)) {
       throw new WhimsyAIError("unavailable");
     }
-    const result = await this._plans[provider].connect(win);
-    Services.prefs.setStringPref(authPref(provider), "plan");
-    this._connected(provider);
-    if (provider == "claude") {
-      this.refreshCapabilities("claude").catch(() => {});
+    // Serialize sign-ins for each provider, including the duplicate check.
+    const base = this.providerId(provider);
+    if (additional && !this.multiAccountPlans) { throw new WhimsyAIError("unavailable"); }
+    if (this._connecting[base]) { return this._connecting[base].promise; }
+    const id = additional ? `${base}-${Services.uuid.generateUUID().toString().slice(1, -1)}` : provider;
+    if (additional && !this._plans[base]?.forAccount) { throw new WhimsyAIError("unavailable"); }
+    if (additional) {
+      this._pendingEntries[id] = base;
+      this._plans[id] = this._plans[base].forAccount(id);
     }
-    Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
-    return result;
+    const plan = this.planFor(id);
+    const pending = { id, cancelled: false };
+    this._connecting[base] = pending;
+    pending.promise = (async () => {
+      let kept = false;
+      try {
+        // Snapshot identities before sign-in can change any stored credential.
+        const others = await Promise.all(this.accountIds(base).filter(other => other != id).map(async other => ({ id: other, connection: await this.connection(other) })));
+        const validateAccount = label => {
+          const email = String(label ?? "").trim().toLowerCase();
+          if (email && others.some(({ connection: c }) => c?.method == "plan" && c.label.trim().toLowerCase() == email)) {
+            throw new WhimsyAIError("duplicate-account");
+          }
+        };
+        if (pending.cancelled) { throw new WhimsyAIError("sign-in-cancelled"); }
+        const result = await plan.connect(win, { validateAccount });
+        if (pending.cancelled) { throw new WhimsyAIError("sign-in-cancelled"); }
+        const email = String(result?.label ?? "").trim().toLowerCase();
+        if (email && others.some(({ connection: c }) => c?.method == "plan" && c.label.trim().toLowerCase() == email)) {
+          throw new WhimsyAIError("duplicate-account");
+        }
+        if (additional) {
+          const accounts = this.accounts;
+          accounts[id] = { provider: base, label: String(result?.label ?? "").trim().split("@")[0] || this.providerName(base, { account: false }) };
+          Services.prefs.setStringPref(ACCOUNTS_PREF, JSON.stringify(accounts));
+        } else if (!this.accounts[id]) {
+          Services.prefs.setStringPref(authPref(id), "plan");
+        }
+        for (const { id: other, connection: c } of others) {
+          if (!this.accountLabel(other) && c?.label) { this.setAccountLabel(other, c.label.split("@")[0]); }
+        }
+        if (!this.accountLabel(id)) { this.setAccountLabel(id, String(result?.label ?? "").trim().split("@")[0] || this.providerName(base, { account: false })); }
+        kept = true;
+        this._connected(id);
+        if (base == "claude") { this.refreshCapabilities(id).catch(() => {}); }
+        Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", id);
+        return { ...result, id };
+      } finally {
+        try {
+          if (additional && !kept) { await plan.discard?.(); }
+        } finally {
+          if (additional && !kept) { delete this._plans[id]; }
+          delete this._pendingEntries[id];
+          delete this._connecting[base];
+        }
+      }
+    })();
+    return pending.promise;
   },
 
   // Connects Ollama at an address: it has to answer with at least one model.
@@ -866,11 +979,29 @@ export const WhimsyAIProviders = {
 
   // Ends a plan sign-in that's waiting.
   cancelPlan(provider) {
-    this._plans[provider]?.cancel?.();
+    const pending = this._connecting[this.providerId(provider)];
+    if (pending) { pending.cancelled = true; }
+    this.planFor(pending?.id ?? provider)?.cancel?.();
   },
 
   async disconnect(provider) {
     this.clearUsage(provider);
+    if (this.accounts[provider]) {
+      await this.planFor(provider)?.disconnect();
+      await this.planFor(provider)?.discard?.();
+      // Remove pref references while the id still resolves, including an off
+      // switch. Removing metadata first would hide it from the pref readers.
+      this._removeFromOrder(provider);
+      const accounts = this.accounts;
+      delete accounts[provider];
+      Services.prefs.setStringPref(ACCOUNTS_PREF, JSON.stringify(accounts));
+      delete this._plans[provider];
+      const labels = this._accountLabels();
+      delete labels[provider];
+      Services.prefs.setStringPref("whimsy.ai.account-labels", JSON.stringify(labels));
+      Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
+      return;
+    }
     // Revoked even while the plan's feature gate is off.
     if (this._plans[provider] && Services.prefs.getStringPref(authPref(provider), "") == "plan") {
       await this._plans[provider].disconnect();
@@ -889,6 +1020,11 @@ export const WhimsyAIProviders = {
       Services.prefs.clearUserPref(OLLAMA_ENDPOINT_PREF);
     }
     this._removeFromOrder(provider);
+    const labels = this._accountLabels();
+    if (Object.hasOwn(labels, provider)) {
+      delete labels[provider];
+      Services.prefs.setStringPref("whimsy.ai.account-labels", JSON.stringify(labels));
+    }
     Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", provider);
   },
 
@@ -898,12 +1034,13 @@ export const WhimsyAIProviders = {
       return this.ollamaModels();
     }
     if (this._usesPlan(provider)) {
-      return (await this._plans[provider].models?.()) ?? [];
+      return (await this.planFor(provider).models?.()) ?? [];
     }
     return this.listModels(provider);
   },
 
   modelOf(provider) {
+    provider = this.providerId(provider);
     if (provider == "claude") {
       return this.claudeModel;
     }
@@ -911,6 +1048,7 @@ export const WhimsyAIProviders = {
   },
 
   setModel(provider, model) {
+    provider = this.providerId(provider);
     if (MODEL_PREFS[provider]) {
       Services.prefs.setStringPref(MODEL_PREFS[provider], String(model ?? ""));
       if (provider == "ollama") {
@@ -995,9 +1133,12 @@ export const WhimsyAIProviders = {
       yield { type: "text", delta: String(text ?? "") };
       return;
     }
+    if (provider != this.providerId(provider) && !this._usesPlan(provider)) {
+      throw new WhimsyAIError("unavailable");
+    }
     if (this._usesPlan(provider)) {
-      const plan = this._plans[provider];
-      if (plan.stream && (provider != "claude" || this._claudePlanStreams === true)) {
+      const plan = this.planFor(provider);
+      if (plan.stream && (this.providerId(provider) != "claude" || this._claudePlanStreams === true)) {
         yield* plan.stream(request);
       } else {
         yield { type: "text", delta: String((await plan.complete(request)) ?? "") };
@@ -1049,9 +1190,10 @@ export const WhimsyAIProviders = {
     if (this._testProvider) {
       return true;
     }
+    if (provider != this.providerId(provider) && !this._usesPlan(provider)) { return false; }
     if (this._usesPlan(provider)) {
       try {
-        return !!(await this._plans[provider].isReady());
+        return !!(await this.planFor(provider).isReady());
       } catch {
         return false;
       }

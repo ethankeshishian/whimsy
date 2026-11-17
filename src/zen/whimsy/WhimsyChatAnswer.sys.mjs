@@ -82,7 +82,7 @@ function icon(doc, url, cls = "") {
 }
 
 function brand(doc, provider) {
-  return h(doc, "img", { class: "whimsy-chat-brand", src: BRANDS[provider] ?? BRANDS.test, alt: "", "aria-hidden": "true" });
+  return h(doc, "img", { class: "whimsy-chat-brand", src: BRANDS[lazy.WhimsyAIProviders.providerId(provider)] ?? BRANDS.test, alt: "", "aria-hidden": "true" });
 }
 
 function reducedMotion(win) {

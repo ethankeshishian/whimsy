@@ -94,6 +94,25 @@ export const WhimsyAIOpenAIAuth = {
   // A spent plan's toast offers Manage usage; the plan may serve automatic
   // features too (the person sets this app's share in ChatGPT's settings).
   usageUrl: USAGE_URL,
+  accountId: "openai",
+
+  forAccount(id) {
+    if (!/^openai-[a-f0-9-]{36}$/.test(id)) { throw new Error("Invalid ChatGPT account id"); }
+    return Object.assign(Object.create(this), {
+      accountId: id, _secret: undefined, _access: null, _refreshing: null,
+      _pending: null, _queue: Promise.resolve(),
+    });
+  },
+
+  // Failed/duplicate additions never revoke another connected account.
+  async discard() {
+    this.cancel();
+    if (this.accountId != "openai") {
+      await IOUtils.remove(this._path, { ignoreAbsent: true });
+    }
+    this._secret = undefined;
+    this._access = null;
+  },
   _test: null,
   _discovery: null,
   _secret: undefined,
@@ -138,7 +157,7 @@ export const WhimsyAIOpenAIAuth = {
       return { connected: false };
     }
     const secret = await this._loadSecret();
-    return { connected: !!secret, label: secret?.email ?? "", signedOut: !!file.signedOut || !secret?.refreshToken };
+    return { connected: !!secret, label: secret?.email ?? "", planName: secret?.planName ?? "", signedOut: !!file.signedOut || !secret?.refreshToken };
   },
 
   async isReady() {
@@ -155,7 +174,7 @@ export const WhimsyAIOpenAIAuth = {
    * plan can be used: { label, welcome } (welcome: the first sign-in on
    * this profile, which shows OpenAI's one-time note).
    */
-  connect(win) {
+  connect(win, { validateAccount = null } = {}) {
     if (this._pending) {
       const { tab, win: tabWin } = this._pending.opened ?? {};
       if (tab?.isConnected && !tabWin.closed) {
@@ -163,7 +182,7 @@ export const WhimsyAIOpenAIAuth = {
       }
       return this._pending.promise;
     }
-    const pending = { cancelled: false };
+    const pending = { cancelled: false, validateAccount };
     pending.cancel = () => {
       pending.cancelled = true;
     };
@@ -266,7 +285,15 @@ export const WhimsyAIOpenAIAuth = {
         signal,
       })
     );
-    const limits = lazy.WhimsyAIProviders.observeUsage("openai", response.headers, "plan");
+    const reportedPlan = response.headers.get("x-chatgpt-plan-type");
+    if (reportedPlan && response.ok) {
+      const secret = await this._loadSecret();
+      if (secret && secret.planName != reportedPlan) {
+        await this._saveSecret({ ...secret, planName: reportedPlan });
+        Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", this.accountId);
+      }
+    }
+    const limits = lazy.WhimsyAIProviders.observeUsage(this.accountId, response.headers, "plan");
     const exhausted = limits.filter(limit => limit.usedPercent >= 100 && limit.resetAt).map(limit => limit.resetAt);
     const until = exhausted.length ? Math.max(...exhausted) : null;
     const decorate = failure => {
@@ -408,7 +435,7 @@ export const WhimsyAIOpenAIAuth = {
     await this._update(file => {
       file.signedOut = true;
     });
-    Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", "openai");
+    Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", this.accountId);
   },
 
   async _revoke(secret) {
@@ -588,6 +615,7 @@ export const WhimsyAIOpenAIAuth = {
       } else if (saved.email) {
         params.set("login_hint", saved.email);
       }
+      if (this.accountId != "openai" && !saved?.email) { params.set("prompt", "select_account"); }
       const authorizeUrl = `${discovery.authorization_endpoint}?${params}`;
       const opened = await this._openTab(win, authorizeUrl);
       pending.opened = opened;
@@ -617,17 +645,20 @@ export const WhimsyAIOpenAIAuth = {
         await this._revoke({ refreshToken: tokens.refresh_token, clientId }).catch(() => {});
         throw error("plan-ineligible");
       }
+      pending.validateAccount?.(claims.email);
+      const planName = claims.subscriptionType ?? claims["https://api.openai.com/auth"]?.chatgpt_plan_type;
       await this._saveSecret({
         clientId,
         refreshToken: tokens.refresh_token,
         email: typeof claims.email == "string" ? claims.email : "",
         sub: claims.sub,
+        planName: typeof planName == "string" ? planName : "",
       });
       this._access = { token: tokens.access_token, expiresAt: Date.now() + (Number(tokens.expires_in) || 3600) * 1000 };
       const welcome = !Services.prefs.getBoolPref(WELCOMED_PREF, false);
       Services.prefs.setBoolPref(WELCOMED_PREF, true);
       await this._pickModel();
-      return { label: claims.email ?? "", welcome };
+      return { label: claims.email ?? "", planName: typeof planName == "string" ? planName : "", welcome };
     } finally {
       listener?.close();
       for (const pref of WATCHED_PREFS) {
@@ -766,7 +797,7 @@ export const WhimsyAIOpenAIAuth = {
   // ---- Storage: ciphertext only, owner-only file ----
 
   get _path() {
-    return PathUtils.join(PathUtils.profileDir, FILE);
+    return PathUtils.join(PathUtils.profileDir, this.accountId == "openai" ? FILE : `whimsy-ai-${this.accountId}-plan.json`);
   },
 
   async _readFile() {
