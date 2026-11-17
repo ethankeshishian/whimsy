@@ -1410,3 +1410,47 @@
     margin-top: 6px;
   }
 }
+
+/* Provider observations use the existing Settings accent, warning, and track. */
+.whimsy-ai-meters {
+  display: grid;
+  gap: 5px;
+  margin-block-start: 7px;
+  min-width: 0;
+}
+.whimsy-ai-meter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.whimsy-ai-meter-label { overflow-wrap: anywhere; }
+.whimsy-ai-meter-reset { color: var(--ai-muted); }
+.whimsy-ai-meter-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--ai-track);
+  overflow: hidden;
+  & > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--ai-accent);
+    &.is-high { background: var(--ai-warning); }
+  }
+}
+.whimsy-ai-usage-note {
+  display: block;
+  margin-block-start: 6px;
+  color: var(--ai-muted);
+  font-size: 12px;
+  & .whimsy-ai-link { display: inline-flex; }
+}
+
+.whimsy-ai-kv > dd.whimsy-ai-usage-detail {
+  display: block;
+  & .whimsy-ai-meters { margin-block-start: 0; }
+}
+.whimsy-ai-item:has(.whimsy-ai-meters) { align-items: flex-start; }

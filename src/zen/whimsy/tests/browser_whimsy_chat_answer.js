@@ -205,9 +205,10 @@ add_task(async function citation_click_scrolls_and_tints() {
 add_task(async function handoff_note_line_once() {
   await fresh();
   const tab = await openOn();
+  const until = Date.now() + 7200000;
   script = async function* (provider) {
     if (provider == "claude") {
-      throw Object.assign(new WhimsyAIError("rate-limited"), { provider });
+      throw Object.assign(new WhimsyAIError("rate-limited"), { provider, until });
     }
     yield { type: "text", delta: "ChatGPT here." };
   };
@@ -215,6 +216,10 @@ add_task(async function handoff_note_line_once() {
   await answered();
   await TestUtils.waitForCondition(() => parts(".whimsy-chat-note[data-kind='handoff']").length == 1, "One note line names the handoff");
   ok(part(".whimsy-chat-note[data-kind='handoff']").textContent.includes("ChatGPT"), "naming who answered");
+  await TestUtils.waitForCondition(() => part(".whimsy-chat-note[data-kind='handoff'] [data-l10n-id='whimsy-cmdbar-handoff-until']"), "Handoff keeps the reported reset time");
+  const note = part(".whimsy-chat-note[data-kind='handoff'] [data-l10n-id='whimsy-cmdbar-handoff-until']");
+  const { formatUsageReset } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  is(JSON.parse(note.getAttribute("data-l10n-args")).time, formatUsageReset(until), "Handoff displays the real reset");
   WhimsyAIProviders.clearResting("claude");
   await closeAll(tab);
 });
@@ -247,7 +252,11 @@ add_task(async function error_block_tones_and_next_steps() {
   await fresh();
   const cases = [
     [{ code: "failed", provider: "claude" }, "red", "whimsy-chat-error-down"],
-    [{ code: "plan-limit", provider: "claude" }, "amber", "whimsy-chat-error-plan-out"],
+    [{ code: "plan-limit", provider: "claude" }, "amber", "whimsy-ai-error-plan-limit"],
+    [{ code: "plan-limit", provider: "claude", until: Date.now() + 7200000 }, "amber", "whimsy-ai-error-plan-limit-until"],
+    [{ code: "rate-limited", provider: "claude", until: Date.now() + 40000 }, "amber", "whimsy-ai-error-rate-limited-retry"],
+    [{ code: "credit-used-up", provider: "claude" }, "amber", "whimsy-ai-error-credit-used-up"],
+    [{ code: "daily-quota", provider: "gemini" }, "amber", "whimsy-ai-error-daily-quota"],
     [{ code: "offline", provider: "claude" }, "amber", "whimsy-chat-error-offline"],
     [{ code: "none-capable", provider: "claude", needs: { research: true } }, "grey", "whimsy-chat-error-cannot-research"],
     [{ code: "signed-out", provider: "claude" }, "amber", "whimsy-chat-error-signed-out"],

@@ -19,6 +19,7 @@ const TOUCHED = [
   "whimsy.ai.order",
   "whimsy.ai.off",
   "whimsy.ai.resting",
+  "whimsy.ai.usage",
   "whimsy.ai.auto-enabled",
   "whimsy.ai.quick-text-apple",
   "whimsy.ai.provider",
@@ -869,4 +870,48 @@ add_task(async function settings_primary_button_is_readable_light_and_dark() {
     });
   }
   await done(page);
+});
+
+
+add_task(async function cached_usage_renders_without_a_request() {
+  Services.prefs.setStringPref("whimsy.ai.order", "openai");
+  Services.prefs.setStringPref("whimsy.ai.openai.auth", "key");
+  const reset = Date.now() + 7200000;
+  const checked = Date.now() - 120000;
+  WhimsyAIProviders.cacheUsage("openai", [
+    { id: "requests", label: "Requests limit", usedPercent: 85, resetAt: reset },
+    { id: "tokens", label: "Tokens limit", usedPercent: 80, resetAt: null },
+    { id: "input", label: "Input tokens limit", usedPercent: 81, resetAt: null },
+  ], "key", checked);
+  const page = await openAI();
+  try {
+    await listReady(page);
+    const r = row(page, "openai");
+    await TestUtils.waitForCondition(() => r.querySelectorAll(".whimsy-ai-meter").length == 2, "Two important cached limits render");
+    const meters = r.querySelectorAll(".whimsy-ai-meter");
+    is(meters[0].querySelector('[role="meter"]').getAttribute("aria-valuenow"), "85", "Fullest limit first");
+    is(meters[1].querySelector('[role="meter"]').getAttribute("aria-valuenow"), "81", "Second fullest limit");
+    ok(meters[0].querySelector(".is-high"), "80 percent and above are amber");
+    is(page.win.getComputedStyle(meters[0].querySelector(".whimsy-ai-meter-bar")).height, "4px", "Approved bar height");
+    is(r.querySelectorAll(".whimsy-ai-meter-reset").length, 1, "Unknown reset omitted");
+    ok(!r.querySelector('[data-action="usage"]'), "Manage usage lives in the details only");
+    await settled(page);
+    click(page, r.querySelector('[data-action="details"]'));
+    const body = await TestUtils.waitForCondition(() => r.nextElementSibling?.classList.contains("whimsy-ai-body") && r.nextElementSibling, "Details open");
+    await TestUtils.waitForCondition(() => body.querySelectorAll(".whimsy-ai-meter").length == 3, "Details show every reported limit");
+    await page.doc.l10n.translateFragment(body);
+    ok(body.querySelector('[data-l10n-id="whimsy-ai-usage-checked"]').textContent.startsWith("Checked "), "Observation age shown");
+    is(body.querySelectorAll('[data-action="usage"]').length, 1, "One Manage usage control");
+    is(JSON.parse(Services.prefs.getStringPref("whimsy.ai.usage"))["openai:key"].checkedAt, checked, "Opening Settings doesn't update usage");
+    for (const theme of [1, 0]) {
+      await SpecialPowers.pushPrefEnv({ set: [["ui.systemUsesDarkTheme", theme]] });
+      await settled(page);
+      for (const label of body.querySelectorAll(".whimsy-ai-meter-label")) {
+        ok(label.scrollWidth <= label.clientWidth, "Usage labels fit in both themes");
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    await done(page);
+  }
 });

@@ -8943,3 +8943,14 @@ whimsy-theme-picker-match-page-switch =
 whimsy-theme-picker-match-page-style-blend = Blend
 whimsy-theme-picker-match-page-style-gradient = Gradient
 whimsy-theme-picker-match-page-style-replace = Replace
+
+# Provider-reported usage from ordinary requests; unknown reset times are omitted.
+whimsy-ai-usage-label = { $limit } · { $percent }% used
+whimsy-ai-usage-resets = resets { $time }
+whimsy-ai-usage-checked = Checked { $relative }
+whimsy-ai-detail-usage = Usage
+whimsy-ai-error-credit-used-up = Your Anthropic credit is used up. Add credit to keep using this key.
+whimsy-ai-error-daily-quota = Gemini's free tier is used up for today.
+whimsy-ai-error-daily-quota-until = Gemini's free tier is used up for today. It resets at { $time }.
+whimsy-ai-error-plan-limit-until = Your { $provider } plan has no room left until { $time }.
+whimsy-ai-error-rate-limited-retry = { $provider } is busy. Try again in { $seconds } seconds.

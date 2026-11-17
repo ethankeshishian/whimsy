@@ -1370,7 +1370,7 @@ class ChatPanel {
       if (custom) {
         return custom(doc, msg, ctx);
       }
-      const { id, args } = lazy.WhimsyAIProviders.errorL10n(msg.code, msg.provider);
+      const { id, args } = lazy.WhimsyAIProviders.errorL10n(msg.code, msg.provider, msg);
       return h(
         doc,
         "div",
@@ -1712,7 +1712,7 @@ class ChatPanel {
             stream.text += event.delta;
           } else if (event.type == "handoff") {
             const need = event.reason == "capability" ? ["images", "video", "research", "imageGen", "code"].find(n => needs[n]) ?? "chars" : undefined;
-            notes.push({ role: "note", kind: "handoff", from: event.from, to: event.to, reason: event.reason, need, fromModel: lazy.WhimsyAIProviders.modelOf(event.from) });
+            notes.push({ role: "note", kind: "handoff", from: event.from, to: event.to, reason: event.reason, until: event.until ?? null, need, fromModel: lazy.WhimsyAIProviders.modelOf(event.from) });
           }
         },
       });
