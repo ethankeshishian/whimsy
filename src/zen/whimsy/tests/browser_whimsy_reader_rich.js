@@ -52,12 +52,24 @@ add_task(async function rich_article_content_and_layout() {
         const wideImage = root.querySelector("img[alt='Wide orbit diagram']");
         Assert.ok(wideImage, "Oversized media survives extraction");
         Assert.ok(wideImage.getBoundingClientRect().width <= width, "Oversized media scales to the article");
-        // Upstream highlight/narration boxes bleed 10px into the page padding;
-        // allow another pixel for layout rounding, as with the page check.
+        // Upstream highlight/narration boxes (p, lists, list items, figures…)
+        // each bleed 10px past their parent, so a list item inside a list may
+        // reach 20px; allow another pixel for layout rounding.
+        const BLEEDS = "p, code, pre, blockquote, ul, ol, li, figure, .wp-caption";
+        const bleedFor = element => {
+          let count = 0;
+          for (let node = element; node && node != article; node = node.parentElement) {
+            if (node.matches(BLEEDS)) {
+              count++;
+            }
+          }
+          return 10 * count + 1;
+        };
         for (const element of root.querySelectorAll("p, pre, figure, blockquote, ul, ol, li, math")) {
           const rect = element.getBoundingClientRect();
-          Assert.ok(rect.left >= articleRect.left - 11 && rect.right <= articleRect.right + 11,
-            `${element.localName} stays within the article’s 10px highlight bleed at ${width}px: left=${rect.left}, right=${rect.right}, article left=${articleRect.left}, right=${articleRect.right}`);
+          const bleed = bleedFor(element);
+          Assert.ok(rect.left >= articleRect.left - bleed && rect.right <= articleRect.right + bleed,
+            `${element.localName} stays within the article’s ${bleed - 1}px highlight bleed at ${width}px: left=${rect.left}, right=${rect.right}, article left=${articleRect.left}, right=${articleRect.right}`);
         }
         for (const table of root.querySelectorAll("table")) {
           const box = table.parentElement;
@@ -99,8 +111,8 @@ add_task(async function rich_article_content_and_layout() {
         const offender = widest
           ? `${widest.element.localName} class="${widest.element.getAttribute("class") || ""}" right=${widest.right.toFixed(2)} (after scroll clipping=${widest.visibleRight.toFixed(2)})`
           : "no descendants";
-        Assert.ok(!widest || widest.visibleRight <= articleRect.right + 11,
-          `No descendant exceeds the article’s 10px highlight bleed at ${width}px: article right=${articleRect.right.toFixed(2)}; widest descendant: ${offender}`);
+        Assert.ok(!widest || widest.visibleRight <= articleRect.right + bleedFor(widest.element),
+          `No descendant exceeds the article’s upstream highlight bleed at ${width}px: article right=${articleRect.right.toFixed(2)}; widest descendant: ${offender}`);
         const page = doc.scrollingElement;
         Assert.ok(page.scrollWidth <= page.clientWidth + 1,
           `Reader document never scrolls horizontally at ${width}px: scrollWidth=${page.scrollWidth}, clientWidth=${page.clientWidth}; widest descendant: ${offender}`);
