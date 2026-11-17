@@ -48,6 +48,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyClaudeShield.sys.mjs",
     "WhimsyCmdTabNumbers.sys.mjs",
     "WhimsyCommandBar.sys.mjs",
+    "WhimsyCommandRanking.sys.mjs",
     "WhimsyCommands.sys.mjs",
     "WhimsyCookieBanners.sys.mjs",
     "WhimsyCookieEditor.sys.mjs",

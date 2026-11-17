@@ -335,6 +335,8 @@ whimsy-help-split-arc-keys-name = Split Arc Keys
 whimsy-help-split-arc-keys-text = Arc's Split View commands: Add Split View (Ctrl+Shift+=), Close this Split Pane (Ctrl+Shift+-), Separate Page, Expand Current Split, Ctrl+Shift+1-4 and [ ] to move between panes
 whimsy-help-command-bar-motion-name = Command Bar Motion
 whimsy-help-command-bar-motion-text = Command bar: a quick, subtle open and close (160ms in, 110ms out; a plain fade with Reduce Motion)
+whimsy-help-command-bar-ranking-name = Command Bar Ranking
+whimsy-help-command-bar-ranking-text = One stable command ranking: exact, prefix, word-prefix, and other matches
 whimsy-help-command-bar-dedup-name = Command Bar Dedup
 whimsy-help-command-bar-dedup-text = Command bar: one row per page title on Figma, Notion, GitHub and Arc's other 7 hosts (Arc's dedupByTitleAndHost)
 whimsy-help-arc-menus-name = Arc Menus

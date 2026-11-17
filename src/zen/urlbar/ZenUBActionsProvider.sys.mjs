@@ -287,7 +287,9 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
     if (isPrefixed) {
       return results.map(r => r.action);
     }
-    return results.slice(0, MAX_RECENT_ACTIONS).map(r => r.action);
+    return Services.prefs.getBoolPref("whimsy.feature.command-bar-ranking", true)
+      ? results.map(r => r.action)
+      : results.slice(0, MAX_RECENT_ACTIONS).map(r => r.action);
   }
 
   /**
@@ -303,10 +305,13 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
     if (!target || !query) {
       return 0;
     }
-    const targetLower = target.toLowerCase();
-    const queryLower = query.toLowerCase();
-    const targetLen = target.length;
-    const queryLen = query.length;
+    const fold = value => Services.prefs.getBoolPref("whimsy.feature.command-bar-ranking", true)
+      ? value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
+      : value.toLowerCase();
+    const targetLower = fold(target);
+    const queryLower = fold(query);
+    const targetLen = targetLower.length;
+    const queryLen = queryLower.length;
     if (queryLen > targetLen) {
       return 0;
     }
@@ -471,7 +476,7 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
     return {
       icon: {
         attributes: {
-          src: result.payload.icon || "chrome://browser/skin/trending.svg",
+          src: result.payload.icon || UrlbarShared.ICON.TRENDING,
         },
       },
       titleStrong: {

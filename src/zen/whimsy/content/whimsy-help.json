@@ -1681,6 +1681,16 @@
       "command": null
     },
     {
+      "id": "command-bar-ranking",
+      "name": "Command Bar Ranking",
+      "text": "One stable command ranking: exact, prefix, word-prefix, and other matches",
+      "section": "Command bar",
+      "pref": "whimsy.feature.command-bar-ranking",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "command-bar-dedup",
       "name": "Command Bar Dedup",
       "text": "Command bar: one row per page title on Figma, Notion, GitHub and Arc's other 7 hosts (Arc's dedupByTitleAndHost)",

@@ -1,0 +1,17 @@
+diff --git a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs b/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs
+--- a/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs
++++ b/browser/components/urlbar/UrlbarMuxerStandard.sys.mjs
+@@ -89,4 +89,7 @@
+   sort(context, unsortedResults) {
++    unsortedResults = ChromeUtils.importESModule(
++      "resource:///modules/whimsy/WhimsyCommandRanking.sys.mjs"
++    ).rankCommandResults(context, unsortedResults);
+     // This method is called multiple times per keystroke, so it should be as
+     // fast and efficient as possible.  We do two passes through the results:
+     // one to collect state for the second pass, and then a second to build the
+@@ -261,2 +264,4 @@
+-    context.results = sortedResults;
++    context.results = ChromeUtils.importESModule(
++      "resource:///modules/whimsy/WhimsyCommandRanking.sys.mjs"
++    ).placeCommandResults(context, sortedResults);
+   }
