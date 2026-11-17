@@ -10,6 +10,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
+  WhimsyLocalPlugins: "resource:///modules/whimsy/WhimsyLocalPlugins.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
 });
@@ -765,6 +766,13 @@ export const WhimsyCommandBar = {
     this.initDedup(win);
     this.linkAppearanceActions();
     this.gateZenActions();
+    lazy.WhimsyCommands.register(win, {
+      id: "cmd_whimsyOpenPluginsFolder",
+      l10nId: "whimsy-local-plugins-open-folder",
+      isAvailable: () => lazy.WhimsyLocalPlugins.enabled,
+      run: () => lazy.WhimsyLocalPlugins.openFolder(),
+      icon: "chrome://global/skin/icons/folder.svg",
+    });
     const documentKeywords = [this.l10n.formatValueSync("whimsy-action-new-document-keyword")];
     for (const thing of NEW_THINGS) {
       lazy.WhimsyCommands.register(win, {

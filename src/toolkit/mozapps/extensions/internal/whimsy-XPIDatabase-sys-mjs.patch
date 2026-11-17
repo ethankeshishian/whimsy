@@ -1,20 +1,27 @@
 diff --git a/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs b/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs
-index e9bab9d..8c99696 100644
 --- a/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs
 +++ b/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs
-@@ -84,6 +84,8 @@ const KEY_APP_SYSTEM_SHARE = "app-system-share";
+@@ -84,6 +84,8 @@
  const KEY_APP_GLOBAL = "app-global";
  const KEY_APP_PROFILE = "app-profile";
  const KEY_APP_TEMPORARY = "app-temporary";
 +// Whimsy: the owner's local plugins (XPIProvider's WhimsyPluginsLocation).
 +const KEY_APP_WHIMSY_PLUGINS = "whimsy-local-plugins";
- 
+
  const DEFAULT_THEME_ID = "default-theme@mozilla.org";
- 
-@@ -458,6 +460,16 @@ export class AddonInternal {
+
+@@ -112,6 +114,7 @@
+   "updateURL",
+   "installOrigins",
+   "manifestVersion",
++  "whimsyPluginManifest",
+   "optionsURL",
+   "optionsType",
+   "optionsBrowserStyle",
+@@ -458,6 +461,16 @@
          // Temporary and built-in add-ons do not require signing.
          return true;
- 
+
 +      case KEY_APP_WHIMSY_PLUGINS:
 +        // Whimsy: the owner's local plugins don't require signing, but only
 +        // for extensions (not language packs, dictionaries, or themes) that
@@ -28,49 +35,31 @@ index e9bab9d..8c99696 100644
        case KEY_APP_SYSTEM_SHARE:
        case KEY_APP_SYSTEM_LOCAL:
          // On UNIX platforms except OSX, an additional location for system
-@@ -876,6 +888,34 @@ export class AddonInternal {
+@@ -874,6 +887,15 @@
+       this.blocklistState = oldAddon.blocklistState;
+     }
    }
- }
- 
-+/**
-+ * Whimsy: whether a local plugin's changed manifest needs the owner's
-+ * approval again: a new version, or any permission, site, or data
-+ * collection it didn't ask for before.
-+ *
-+ * @param {AddonInternal} oldAddon
-+ * @param {AddonInternal} newAddon
-+ * @returns {boolean}
-+ */
-+function whimsyPluginNeedsApproval(oldAddon, newAddon) {
-+  if (oldAddon.version != newAddon.version) {
-+    return true;
-+  }
-+  let asked = addon => {
-+    let set = new Set();
-+    for (let perms of [addon.userPermissions, addon.requestedPermissions]) {
-+      for (let key of ["permissions", "origins", "data_collection"]) {
-+        for (let value of perms?.[key] ?? []) {
-+          set.add(`${key}:${value}`);
-+        }
-+      }
-+    }
-+    return set;
-+  };
-+  let before = asked(oldAddon);
-+  return [...asked(newAddon)].some(perm => !before.has(perm));
 +}
 +
++// Persist the exact manifest with the add-on metadata. A version and permission
++// comparison misses edits to scripts, names, and other manifest fields. Keeping
++// the previous contents also remembers a refusal across process restarts.
++function whimsyPluginManifest(addon) {
++  let manifest = addon._sourceBundle.clone();
++  manifest.append("manifest.json");
++  return Cu.readUTF8File(manifest);
+ }
+
  /**
-  * The AddonWrapper wraps an Addon to provide the data visible to consumers of
-  * the public API.
-@@ -3390,6 +3430,16 @@ export const XPIDatabaseReconcile = {
+@@ -3390,6 +3412,17 @@
        }
      }
- 
+
 +    // Whimsy: a local plugin always starts turned off until the owner
 +    // approves it, whatever extensions.autoDisableScopes says, and also when
 +    // the database is rebuilt.
 +    if (aLocation.name == KEY_APP_WHIMSY_PLUGINS) {
++      aNewAddon.whimsyPluginManifest = whimsyPluginManifest(aNewAddon);
 +      aNewAddon.foreignInstall = true;
 +      aNewAddon.userDisabled = true;
 +      aNewAddon.seen = false;
@@ -79,17 +68,20 @@ index e9bab9d..8c99696 100644
 +
      return XPIDatabase.addToDatabase(aNewAddon, aAddonState.path);
    },
- 
-@@ -3463,17 +3513,36 @@ export const XPIDatabaseReconcile = {
+
+@@ -3463,17 +3496,39 @@
        return null;
      }
- 
-+    // Whimsy: a local plugin with a new version, or a permission or site it
-+    // didn't have, is turned off until the owner approves it again (also
-+    // when it was off, so turning it on shows the permission prompt).
-+    let whimsyReapprove =
-+      aLocation.name == KEY_APP_WHIMSY_PLUGINS &&
-+      whimsyPluginNeedsApproval(aOldAddon, aNewAddon);
+
++    // Every manifest change requires approval, even at the same version.
++    let whimsyReapprove = false;
++    if (aLocation.name == KEY_APP_WHIMSY_PLUGINS) {
++      aNewAddon.whimsyPluginManifest = whimsyPluginManifest(aNewAddon);
++      whimsyReapprove =
++        aOldAddon.whimsyPluginManifest !== aNewAddon.whimsyPluginManifest;
++      // Preserve a user's disabled state on an unchanged manifest reload.
++      aNewAddon.userDisabled = aOldAddon.userDisabled;
++    }
 +    if (whimsyReapprove) {
 +      logger.warn(`Local plugin ${aNewAddon.id} changed; it needs approval`);
 +      aNewAddon.userDisabled = true;
@@ -97,9 +89,9 @@ index e9bab9d..8c99696 100644
 +
      // Set the additional properties on the new AddonInternal
      aNewAddon.updateDate = aAddonState.mtime;
- 
+
      XPIExports.XPIProvider.persistStartupData(aNewAddon, aAddonState);
- 
+
      // Update the database
 -    return XPIDatabase.updateAddonMetadata(
 +    let updated = XPIDatabase.updateAddonMetadata(
@@ -116,5 +108,85 @@ index e9bab9d..8c99696 100644
 +    }
 +    return updated;
    },
- 
+
    /**
+@@ -3861,55 +3916,78 @@
+     }
+
+     let promises = [];
++    let whimsyInstalled = [];
++    let whimsyUninstalled = [];
+     for (let [id, addon] of currentVisible) {
+       // If we have a stored manifest for the add-on, it came from the
+       // startup data cache, and supersedes any previous XPIStates entry.
+       let xpiState =
+         !findManifest(addon.location, id) && addonStates.get(addon);
++      let previousAddon = previousVisible.get(id);
++      if (
++        addon.location.name == KEY_APP_WHIMSY_PLUGINS &&
++        previousAddon !== addon
++      ) {
++        whimsyInstalled.push(addon);
++      }
+
+       promises.push(
+-        this.applyStartupChange(addon, previousVisible.get(id), xpiState)
++        this.applyStartupChange(addon, previousAddon, xpiState)
+       );
+       previousVisible.delete(id);
+     }
+
+     if (promises.some(p => p)) {
+       XPIExports.XPIInternal.awaitPromise(Promise.all(promises));
+     }
+
+     for (let [id, addon] of previousVisible) {
+       if (addon.location) {
+         if (
+           addon.location.name === KEY_APP_BUILTINS ||
+           addon.location.name === KEY_APP_SYSTEM_BUILTINS
+         ) {
+           continue;
+         }
+         XPIExports.XPIInternal.BootstrapScope.get(addon).uninstall();
+         addon.location.removeAddon(id);
+         addon.visible = false;
+         addon.active = false;
++        if (addon.location.name == KEY_APP_WHIMSY_PLUGINS) {
++          whimsyUninstalled.push(addon);
++        }
+       }
+
+       lazy.AddonManagerPrivate.addStartupChange(
+         lazy.AddonManager.STARTUP_CHANGE_UNINSTALLED,
+         id
+       );
+     }
+
+     // Finally update XPIStates to match everything
+     for (let [locationName, locationAddons] of currentAddons) {
+       for (let [id, addon] of locationAddons) {
+         let xpiState = XPIExports.XPIInternal.XPIStates.getAddon(
+           locationName,
+           id
+         );
+         xpiState.syncWithDB(addon);
+       }
+     }
+     XPIExports.XPIInternal.XPIStates.save();
+     XPIDatabase.saveChanges();
+     XPIDatabase.rebuildingDatabase = false;
++    // Notify open about:addons views when a local-plugins rescan adds,
++    // updates, or removes a plugin.
++    for (let addon of whimsyInstalled) {
++      lazy.AddonManagerPrivate.callAddonListeners("onInstalled", addon.wrapper);
++    }
++    for (let addon of whimsyUninstalled) {
++      lazy.AddonManagerPrivate.callAddonListeners(
++        "onUninstalled",
++        addon.wrapper
++      );
++    }
+
+     if (aUpdateCompatibility || aSchemaChange) {
+       // Do some blocklist checks. These will happen after we've just saved everything,
