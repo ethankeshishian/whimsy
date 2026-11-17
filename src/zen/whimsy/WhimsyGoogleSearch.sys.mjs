@@ -6,8 +6,8 @@ import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils
 import { WhimsyConnectors } from "resource:///modules/whimsy/WhimsyConnectors.sys.mjs";
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  UrlbarShared: "moz-src:///browser/components/urlbar/UrlbarShared.sys.mjs",
-  UrlbarResult: "moz-src:///browser/components/urlbar/UrlbarResult.sys.mjs",
+  UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
+  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
