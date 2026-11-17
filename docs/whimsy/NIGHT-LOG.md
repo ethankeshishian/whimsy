@@ -543,3 +543,7 @@ authorized targeted run; isolated old passes are not validation of these edits.
   and pgrep cannot access the process list in this sandbox. No mach, import,
   build, verify, commit, or background wait loop. Runtime durations and browser
   assertions still need the owner's harness. Changes remain on lane/w29-darksite.
+
+## 2026-11-16 — W29 fixes worktree
+
+Implemented the three owner-approved fixes on lane/w29-fixes, without commits: shared toolbar/command-bar extension visibility (overlay hotfix), four rounded timer corners plus mirrored entrance motion, and folder accel-click opening an unpinned tab outside folders according to loadInBackground. Added and registered browser_whimsy_w29_fixes.js before production edits. Static syntax/TOML/whitespace checks and overlay apply passed. Precheck is blocked by missing engine strings; browser tests and light/dark visual QA are blocked because the mandated /tmp/w13/w24run.sh is absent. No mach/build/verify was run. See RESULT.md for causes, fixes, coverage, consumer list, and required follow-up. Not verified green.

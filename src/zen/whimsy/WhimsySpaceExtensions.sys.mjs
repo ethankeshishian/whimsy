@@ -168,6 +168,12 @@ export const WhimsySpaceExtensions = {
     return lazy.WhimsyProfiles.keyFor(lazy.WhimsyProfiles.activeProfileId(win));
   },
 
+  // Shared by the toolbar, unified panel, and command bar. Feature-off
+  // behavior belongs here so every consumer uses the same visibility rule.
+  isVisibleInWindow(extensionId, win) {
+    return !featureOn() || this.isAllowedIn(extensionId, this.activeKey(win));
+  },
+
   // Hides/shows the CUI node for every extension with a browser action
   // (toolbar-pinned or overflowed into the unified-extensions panel) to
   // match the active space's profile. Extensions without a browser action
@@ -176,12 +182,11 @@ export const WhimsySpaceExtensions = {
     if (!win || win.closed || !win.gZenWorkspaces) {
       return;
     }
-    const key = this.activeKey(win);
     for (const policy of WebExtensionPolicy.getActiveExtensions()) {
       if (policy.extension?.type !== "extension") {
         continue;
       }
-      const visible = !featureOn() || this.isAllowedIn(policy.id, key);
+      const visible = this.isVisibleInWindow(policy.id, win);
       const widget = win.CustomizableUI?.getWidget(this.widgetIdFor(policy.id));
       const node = widget?.forWindow(win)?.node;
       if (node) {
@@ -219,8 +224,7 @@ export const WhimsySpaceExtensions = {
       if (!featureOn()) {
         return policies;
       }
-      const key = self.activeKey(win);
-      return policies.filter(policy => self.isAllowedIn(policy.id, key));
+      return policies.filter(policy => self.isVisibleInWindow(policy.id, win));
     };
     wrapped._whimsySpaceExt = true;
     gUE.getActivePolicies = wrapped;

@@ -218,6 +218,8 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
         addon =>
           addon.isActive &&
           !addon.isSystem &&
+          ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySpaceExtensions.sys.mjs")
+            .WhimsySpaceExtensions.isVisibleInWindow(addon.id, window) &&
           window.gUnifiedExtensions.browserActionFor(
             window.WebExtensionPolicy.getByID(addon.id)
           )
