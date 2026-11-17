@@ -51,6 +51,11 @@ export const WhimsyCmdTabNumbers = {
     return Services.focus.activeWindow == win;
   },
 
+  commandBarOwnsDigits(win) {
+    return !!win.gURLBar?.view.isOpen &&
+      Services.prefs.getBoolPref("whimsy.feature.command-bar-numbers", true);
+  },
+
   initWindow(win) {
     if (AppConstants.platform != "macosx" || states.has(win)) {
       return;
@@ -91,12 +96,12 @@ export const WhimsyCmdTabNumbers = {
       }
       state.meta = true;
       if (!on() || event.repeat || event.ctrlKey || event.altKey || event.shiftKey || state.buttons ||
-          state.keys.size != 1 || win.gURLBar?.view.isOpen) {
+          state.keys.size != 1 || this.commandBarOwnsDigits(win)) {
         return;
       }
       state.timer = win.setTimeout(() => {
         state.timer = 0;
-        if (state.meta && on() && !win.gURLBar?.view.isOpen) {
+        if (state.meta && on() && !this.commandBarOwnsDigits(win)) {
           this.show(win);
         }
       }, MODIFIER_HOLD_MS);
@@ -189,6 +194,13 @@ export const WhimsyCmdTabNumbers = {
     const link = doc.createElementNS(HTML_NS, "link");
     link.rel = "stylesheet";
     link.href = lazy.STYLESHEET;
+    // The first hold can precede stylesheet loading. Re-measure with the
+    // actual fixed-position keycap geometry, rather than unstyled spans.
+    link.addEventListener("load", () => {
+      if (doc.documentElement.hasAttribute("whimsy-tab-numbers")) {
+        this.place(win, state);
+      }
+    }, { once: true });
     const layer = doc.createElementNS(HTML_NS, "div");
     layer.id = "whimsy-hints";
     layer.className = "tab-shortcuts leaving";
@@ -234,12 +246,18 @@ export const WhimsyCmdTabNumbers = {
 
   show(win) {
     const state = states.get(win);
-    if (!state || !Services.prefs.getBoolPref(PREF, true)) {
+    if (!state || !Services.prefs.getBoolPref(PREF, true) || this.commandBarOwnsDigits(win)) {
       return;
     }
     const layer = this.ensureLayer(win, state);
-    // The same space-accent keycap as page hints and Edit Field.
-    const { accent, ink } = lazy.WhimsyLinkHints.colors(win);
+    // Tab shortcuts use the sidebar's text colour (f7f56afd), not link
+    // hints' space accent. The shared helper assumes white on an AA accent;
+    // a sidebar token can be light, so choose contrasting ink here.
+    const { accent } = lazy.WhimsyLinkHints.colors(win, "--toolbox-textcolor");
+    const rgba = win.InspectorUtils.colorToRGBA(accent);
+    const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    const luminance = 0.2126 * linear(rgba.r) + 0.7152 * linear(rgba.g) + 0.0722 * linear(rgba.b);
+    const ink = luminance > 0.179 ? "#000000" : "#ffffff";
     layer.style.setProperty("--hint-bg", accent);
     layer.style.setProperty("--hint-ink", ink);
     const root = win.document.documentElement;

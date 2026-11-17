@@ -251,16 +251,165 @@ add_task(async function cmd_digit_picks_row_while_open() {
   ok(!gURLBar.view.isOpen, "⌘1 picked the first row and closed the bar");
 });
 
-add_task(async function hold_cmd_shows_numbers() {
-  await fresh();
-  await post(1);
-  await openEmptyBar();
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
-  await TestUtils.waitForCondition(() => gURLBar.hasAttribute("whimsy-numbers"), "Holding ⌘ shows numbers");
-  is(updateRows()[0].getAttribute("whimsy-num"), "⌘1", "counting rows");
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keyup" });
-  ok(!gURLBar.hasAttribute("whimsy-numbers"), "Letting go hides them");
-  await closeBar();
+// Resolve translucent text and surfaces before measuring contrast.
+function over(foreground, background) {
+  const f = InspectorUtils.colorToRGBA(foreground);
+  const b = InspectorUtils.colorToRGBA(background);
+  const a = f.a + b.a * (1 - f.a);
+  const channel = c => a ? (f[c] * f.a + b[c] * b.a * (1 - f.a)) / a : 0;
+  return `rgba(${channel("r")}, ${channel("g")}, ${channel("b")}, ${a})`;
+}
+
+function rowSurface(node, pageBackground) {
+  const color = getComputedStyle(node).backgroundColor;
+  if (InspectorUtils.colorToRGBA(color).a == 1) {
+    return color;
+  }
+  // The floating bar paints its backing in a sibling, not an ancestor of
+  // the rows. Zen's acrylic variant intentionally has alpha. Walking only
+  // ancestors skipped that layer and incorrectly put dark rows over white.
+  if (node == gURLBar) {
+    const backing = node.querySelector(":scope > .urlbar-background");
+    ok(backing, "The command bar has its painted backing layer");
+    return over(color, over(getComputedStyle(backing).backgroundColor, pageBackground));
+  }
+  return over(color, rowSurface(node.parentElement, pageBackground));
+}
+
+async function commandBarPageBackground() {
+  // Measure the actual content canvas behind the floating bar. Include the
+  // root/body fills, which need not match the chrome's preferred scheme.
+  const colors = await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
+    const doc = content.document;
+    const probe = doc.createElement("span");
+    probe.style.color = "Canvas";
+    doc.documentElement.append(probe);
+    const canvas = content.getComputedStyle(probe).color;
+    probe.remove();
+    return [canvas, content.getComputedStyle(doc.documentElement).backgroundColor,
+      content.getComputedStyle(doc.body).backgroundColor];
+  });
+  return colors.reduce((background, foreground) => over(foreground, background));
+}
+
+function resolvedColor(node, token) {
+  const probe = document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+  probe.style.color = `var(${token})`;
+  probe.hidden = true;
+  node.append(probe);
+  const color = getComputedStyle(probe).color;
+  probe.remove();
+  return color;
+}
+
+function numberContrast(foreground, background) {
+  const luminance = color => {
+    const { r, g, b } = InspectorUtils.colorToRGBA(color);
+    const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+  };
+  const f = luminance(over(foreground, background)), b = luminance(background);
+  return (Math.max(f, b) + 0.05) / (Math.min(f, b) + 0.05);
+}
+
+add_task(async function hold_cmd_shows_readable_numbers_in_both_schemes() {
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    try {
+      await fresh();
+      await post(1);
+      await post(2);
+      await openEmptyBar();
+      // Earlier click tests can leave the pointer on Remind me. Establish
+      // a resting state before comparing buttons, then exercise each state.
+      EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, { type: "mousemove" });
+      const pageBackground = await commandBarPageBackground();
+      EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+      await TestUtils.waitForCondition(() => gURLBar.hasAttribute("whimsy-numbers"), "Holding ⌘ shows numbers");
+      const numbered = WhimsyCommandBarAI.numberedRows(window);
+      ok(numbered.length >= 2, "Multiple rows are numbered");
+      for (const [i, row] of numbered.entries()) {
+        const inner = row.querySelector(".urlbarView-row-inner");
+        is(row.getAttribute("whimsy-num"), `⌘${i + 1}`, "Rows count from one");
+        let normalSize;
+        for (const selected of [false, true]) {
+          row.toggleAttribute("selected", selected);
+          const style = getComputedStyle(inner, "::after");
+          is(style.content, `"⌘${i + 1}"`, "The painted pseudo-element contains its number");
+          ok(parseFloat(style.height) >= 14, "The number box is at least 14px tall");
+          ok(parseFloat(style.fontSize) >= 11, "The digit has readable type");
+          is(InspectorUtils.colorToRGBA(style.backgroundColor).a, 0, "The key hint has no solid fill");
+          is(style.color, resolvedColor(inner, selected ? "--whimsy-on-accent" : "--whimsy-ask-text-2"),
+            "The key hint uses on-accent or secondary-text ink");
+          is(style.borderTopWidth, "1px", "The key hint has a hairline outline");
+          is(style.borderTopStyle, "solid", "The outline is solid");
+          is(style.borderTopColor, style.color, "The outline follows the key hint ink");
+          is(style.alignSelf, "center", "The key hint is vertically centred");
+          is(style.marginInlineEnd, "6px", "The row end padding is kept");
+          const size = [style.height, style.minWidth, style.padding, style.fontSize].join("/");
+          if (selected) {
+            is(size, normalSize, "Selection keeps the same badge size");
+          } else {
+            normalSize = size;
+          }
+          const surface = rowSurface(inner, pageBackground);
+          const contrast = numberContrast(style.color, surface);
+          info(`${dark ? "Dark" : "Light"} ${selected ? "selected" : "normal"} number: ink=${style.color}, surface=${surface}, contrast=${contrast}`);
+          ok(contrast >= 4.5,
+            `${dark ? "Dark" : "Light"} ${selected ? "selected" : "normal"} number meets AA`);
+          if (selected) {
+            const buttons = [...row.querySelectorAll(".whimsy-update-btn:not([hidden])")];
+            is(buttons.length, 3, "Open, Remind me, and Dismiss are covered");
+            const sharedSurface = getComputedStyle(buttons[0]).backgroundColor;
+            const icon = row.querySelector(".whimsy-update-icon");
+            const tile = getComputedStyle(icon).backgroundColor;
+            const alpha = InspectorUtils.colorToRGBA(tile).a;
+            ok(alpha > 0 && alpha <= 0.2, "The selected icon has a subtle on-accent tile");
+            is(getComputedStyle(icon.querySelector("img")).fill,
+              resolvedColor(inner, "--whimsy-on-accent"), "The selected icon uses on-accent ink");
+            ok(numberContrast(getComputedStyle(icon.querySelector("img")).fill,
+              rowSurface(icon, pageBackground)) >= 4.5, "The selected icon is readable");
+            for (const state of ["normal", ":hover", ":active", ":focus", ":focus-visible", "selected", "open"]) {
+              for (const button of buttons) {
+                try {
+                  if (state.startsWith(":")) {
+                    InspectorUtils.addPseudoClassLock(button, state);
+                  } else if (state != "normal") {
+                    button.setAttribute(state, "");
+                  }
+                  const action = getComputedStyle(button);
+                  is(action.color, resolvedColor(inner, "--whimsy-on-accent"), "Each selected-row action uses on-accent ink");
+                  ok(numberContrast(action.color, rowSurface(button, pageBackground)) >= 4.5,
+                    `${dark ? "Dark" : "Light"} ${button.className} ${state} meets AA`);
+                  is(action.backgroundColor, sharedSurface,
+                    `Open, Remind me, and Dismiss share a surface in ${state}`);
+                } finally {
+                  if (state.startsWith(":")) {
+                    InspectorUtils.removePseudoClassLock(button, state);
+                  } else if (state != "normal") {
+                    button.removeAttribute(state);
+                  }
+                }
+              }
+            }
+          }
+        }
+        row.removeAttribute("selected");
+        for (const tag of row.querySelectorAll(".urlbarView-action, .urlbarView-tag, .whimsy-update-time, .whimsy-update-needs")) {
+          is(getComputedStyle(tag).display, "none", "The number replaces time, tag, and action");
+        }
+      }
+      numbered[0].setAttribute("selected", "");
+      await whimsySettled(document);
+      await whimsyShot(`w29-cmdnums-held-${dark ? "dark" : "light"}`);
+    } finally {
+      EventUtils.synthesizeKey("KEY_Meta", { type: "keyup" });
+      ok(!gURLBar.hasAttribute("whimsy-numbers"), "Letting go hides numbers");
+      ok(!gURLBar.view.panel.querySelector("[whimsy-num]"), "Release clears both row and inner attributes");
+      await closeBar();
+      await SpecialPowers.popPrefEnv();
+    }
+  }
 });
 
 add_task(async function closed_cmd_digit_switches_tabs() {

@@ -1075,6 +1075,8 @@ export const WhimsyCommandBarAI = {
     }
     for (const [i, row] of this.numberedRows(win).entries()) {
       row.setAttribute("whimsy-num", `⌘${i + 1}`);
+      // attr() reads the originating element of ::after, not its parent.
+      row.querySelector(".urlbarView-row-inner")?.setAttribute("whimsy-num", `⌘${i + 1}`);
     }
     win.gURLBar.setAttribute("whimsy-numbers", "");
   },
