@@ -1,7 +1,7 @@
 {
   "groups": [
     {
-      "version": "1.24b-w3-dev.1159",
+      "version": "1.24b-w3-dev.1164",
       "date": "2026-11-17",
       "title": "Several AI accounts and usage rings",
       "new": [
@@ -12,6 +12,12 @@
         "A ring beside each plan account shows how much of its limit is used; click it to see 5-hour and weekly usage and when they reset.",
         "Claude accounts show your plan name, such as Max or Pro.",
         "The changelog lists every Dev build."
+      ],
+      "fixed": [
+        "Holding Command in the command bar shows each row's number, like \u23181 and \u23182, instead of an empty badge.",
+        "Holding Command shows tab numbers in the sidebar's text colour again.",
+        "The Edit Field button fades on hover instead of flashing white.",
+        "Open, Remind me, and Dismiss are readable on a selected Updates row, in light and dark."
       ]
     },
     {
@@ -30,7 +36,7 @@
       "title": "Local plugins and command ranking",
       "new": [],
       "improved": [
-        "Local plugins show their permissions before you choose Run or Don’t Run, with Open Plugins Folder in Settings > Privacy & Security.",
+        "Local plugins show their permissions before you choose Run or Don\u2019t Run, with Open Plugins Folder in Settings > Privacy & Security.",
         "Local plugins support older and newer extension formats and appear in open Add-ons lists after a rescan.",
         "The command bar keeps commands in a consistent order and shows extensions available in the current space.",
         "Cookie banner blocking dismisses more unrecognized banners without giving consent.",
@@ -47,7 +53,7 @@
         "Reader View includes tables, infoboxes, math, figures, and references while keeping wide content inside the article.",
         "Edit Text on Page offers a floating bar with Save and Cancel to keep or undo all your edits.",
         "AI providers show reported usage and reset times in Settings > AI, with clearer messages when a limit is reached.",
-        "Adaptive Dark Mode in the site panel shows the current result and lets you restore the profile’s choice.",
+        "Adaptive Dark Mode in the site panel shows the current result and lets you restore the profile\u2019s choice.",
         "The Focus session timer has a rounded appearance and smoother animation."
       ],
       "fixed": [
@@ -63,7 +69,7 @@
       "improved": [],
       "fixed": [
         "Site dark mode changes apply immediately, with controls that stay steady while toggling.",
-        "A Glance expanded into its own tab appears in Ctrl+Tab’s recent tabs."
+        "A Glance expanded into its own tab appears in Ctrl+Tab\u2019s recent tabs."
       ]
     },
     {
@@ -73,16 +79,16 @@
       "new": [
         "Focus sessions: start a timer from the command bar, pause distracting sites, and stay on one tab, with site choices in Settings > General.",
         "Save Touch ID passkeys and verification codes, with controls in Settings > Privacy & Security.",
-        "Automatic dark mode uses a site’s own theme when available, with a switch in the site panel.",
+        "Automatic dark mode uses a site\u2019s own theme when available, with a switch in the site panel.",
         "Highlight passages in four colors and add a page note from the right-click menu or command bar.",
         "Keep adult sites out of history with a switch in Settings > Privacy & Security.",
         "Choose which photo details to remove before uploads, drops, and pastes in Settings > Privacy & Security.",
         "Safety Check in Settings > Privacy & Security reviews updates, breached passwords, risky extensions, and unused site permissions.",
-        "Local plugins: load extensions from your profile’s plugin folder after reviewing and approving them in Settings > Privacy & Security.",
+        "Local plugins: load extensions from your profile\u2019s plugin folder after reviewing and approving them in Settings > Privacy & Security.",
         "Play rain, cafe, woods, fireplace, ocean, or brown noise from the command bar.",
         "Show Page Minimap in the command bar adds a live page overview you can click or drag to scroll.",
         "Pass Keys to Page in the command bar gives a site your browser shortcuts until you hold Esc or leave the tab.",
-        "Edit Field in Text Editor opens the focused field in your Mac’s editor and brings your changes back."
+        "Edit Field in Text Editor opens the focused field in your Mac\u2019s editor and brings your changes back."
       ],
       "improved": [
         "The tab volume panel offers an eight-band equalizer with presets saved per site.",
@@ -95,7 +101,7 @@
         "Call Options can share the current tab, call Picture-in-Picture follows other speakers, and Granola notes follow calls outside your calendar.",
         "Essentials open in resizable popovers, and Show Chat as Popover is available from the command bar.",
         "The empty command bar includes Recently Closed and Synced Tabs, and holding Command reveals tab numbers.",
-        "Tab and page menus put common actions first, with Search With for selected text and New Private Tab in the sidebar’s plus menu.",
+        "Tab and page menus put common actions first, with Search With for selected text and New Private Tab in the sidebar\u2019s plus menu.",
         "Settings offers space names in window titles, pop-ups as tabs, dimming inactive windows, and a second Esc press to leave full screen."
       ],
       "fixed": [
@@ -148,7 +154,7 @@
         "Expand memory chips to see facts used or saved, and remove saved facts in place.",
         "The command bar finds open tabs across spaces and profiles, labeled with their space.",
         "Fire lets you choose spaces, data types, and time ranges, including chats and agent activity.",
-        "Video speed ranges from 1/16× to 16×, with a button to return to your default.",
+        "Video speed ranges from 1/16\u00d7 to 16\u00d7, with a button to return to your default.",
         "Find can open as a floating card with an option to ask AI about the page.",
         "Agents ask before visiting new sites, sending forms, or using connector tools that make changes.",
         "Agents reuse open tabs and check whether a task succeeded before reporting completion.",
@@ -193,7 +199,7 @@
         "Screenshots offer portrait capture, blur, and redaction after capture.",
         "The shortcut cheat sheet is searchable, and floating panels have draggable headers.",
         "Settings search highlights matching rows and lets Return step through results.",
-        "Menu settings show submenus in place and use the menus’ own names.",
+        "Menu settings show submenus in place and use the menus\u2019 own names.",
         "Toasts stack without covering one another and offer clearer actions and Undo.",
         "Option+drag a link lasso to open its links as tabs or make a folder.",
         "Live folders offer Resync to restore tabs you closed by hand.",
@@ -214,7 +220,7 @@
         "Tabs moved between profiles keep their isolation and select the reopened page.",
         "Sign-in and extension popups work in Mini Whimsy.",
         "Mini Whimsy stays at the normal window level.",
-        "Pasted screenshots upload once through the page’s own upload controls.",
+        "Pasted screenshots upload once through the page\u2019s own upload controls.",
         "Call controls follow your microphone and camera without affecting other participants.",
         "Cmd+T starts with an empty command bar, even after a quick close and reopen.",
         "Screenshots open centered, save once, and accept Enter to capture or Esc to cancel.",
