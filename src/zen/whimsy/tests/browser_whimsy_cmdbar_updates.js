@@ -260,13 +260,36 @@ function over(foreground, background) {
   return `rgba(${channel("r")}, ${channel("g")}, ${channel("b")}, ${a})`;
 }
 
-function rowSurface(node) {
+function rowSurface(node, pageBackground) {
   const color = getComputedStyle(node).backgroundColor;
   if (InspectorUtils.colorToRGBA(color).a == 1) {
     return color;
   }
-  ok(node.parentElement, "The command bar has an opaque backing surface");
-  return over(color, node.parentElement ? rowSurface(node.parentElement) : "white");
+  // The floating bar paints its backing in a sibling, not an ancestor of
+  // the rows. Zen's acrylic variant intentionally has alpha. Walking only
+  // ancestors skipped that layer and incorrectly put dark rows over white.
+  if (node == gURLBar) {
+    const backing = node.querySelector(":scope > .urlbar-background");
+    ok(backing, "The command bar has its painted backing layer");
+    return over(color, over(getComputedStyle(backing).backgroundColor, pageBackground));
+  }
+  return over(color, rowSurface(node.parentElement, pageBackground));
+}
+
+async function commandBarPageBackground() {
+  // Measure the actual content canvas behind the floating bar. Include the
+  // root/body fills, which need not match the chrome's preferred scheme.
+  const colors = await SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
+    const doc = content.document;
+    const probe = doc.createElement("span");
+    probe.style.color = "Canvas";
+    doc.documentElement.append(probe);
+    const canvas = content.getComputedStyle(probe).color;
+    probe.remove();
+    return [canvas, content.getComputedStyle(doc.documentElement).backgroundColor,
+      content.getComputedStyle(doc.body).backgroundColor];
+  });
+  return colors.reduce((background, foreground) => over(foreground, background));
 }
 
 function resolvedColor(node, token) {
@@ -297,6 +320,10 @@ add_task(async function hold_cmd_shows_readable_numbers_in_both_schemes() {
       await post(1);
       await post(2);
       await openEmptyBar();
+      // Earlier click tests can leave the pointer on Remind me. Establish
+      // a resting state before comparing buttons, then exercise each state.
+      EventUtils.synthesizeMouseAtCenter(gURLBar.inputField, { type: "mousemove" });
+      const pageBackground = await commandBarPageBackground();
       EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
       await TestUtils.waitForCondition(() => gURLBar.hasAttribute("whimsy-numbers"), "Holding ⌘ shows numbers");
       const numbered = WhimsyCommandBarAI.numberedRows(window);
@@ -325,32 +352,42 @@ add_task(async function hold_cmd_shows_readable_numbers_in_both_schemes() {
           } else {
             normalSize = size;
           }
-          ok(numberContrast(style.color, rowSurface(inner)) >= 4.5,
+          const surface = rowSurface(inner, pageBackground);
+          const contrast = numberContrast(style.color, surface);
+          info(`${dark ? "Dark" : "Light"} ${selected ? "selected" : "normal"} number: ink=${style.color}, surface=${surface}, contrast=${contrast}`);
+          ok(contrast >= 4.5,
             `${dark ? "Dark" : "Light"} ${selected ? "selected" : "normal"} number meets AA`);
           if (selected) {
             const buttons = [...row.querySelectorAll(".whimsy-update-btn:not([hidden])")];
             is(buttons.length, 3, "Open, Remind me, and Dismiss are covered");
-            for (const state of ["normal", ":hover", ":active", "selected"]) {
+            const sharedSurface = getComputedStyle(buttons[0]).backgroundColor;
+            const icon = row.querySelector(".whimsy-update-icon");
+            const tile = getComputedStyle(icon).backgroundColor;
+            const alpha = InspectorUtils.colorToRGBA(tile).a;
+            ok(alpha > 0 && alpha <= 0.2, "The selected icon has a subtle on-accent tile");
+            is(getComputedStyle(icon.querySelector("img")).fill,
+              resolvedColor(inner, "--whimsy-on-accent"), "The selected icon uses on-accent ink");
+            ok(numberContrast(getComputedStyle(icon.querySelector("img")).fill,
+              rowSurface(icon, pageBackground)) >= 4.5, "The selected icon is readable");
+            for (const state of ["normal", ":hover", ":active", ":focus", ":focus-visible", "selected", "open"]) {
               for (const button of buttons) {
                 try {
                   if (state.startsWith(":")) {
                     InspectorUtils.addPseudoClassLock(button, state);
-                  } else if (state == "selected") {
-                    button.setAttribute("selected", "");
+                  } else if (state != "normal") {
+                    button.setAttribute(state, "");
                   }
                   const action = getComputedStyle(button);
                   is(action.color, resolvedColor(inner, "--whimsy-on-accent"), "Each selected-row action uses on-accent ink");
-                  ok(numberContrast(action.color, rowSurface(button)) >= 4.5,
+                  ok(numberContrast(action.color, rowSurface(button, pageBackground)) >= 4.5,
                     `${dark ? "Dark" : "Light"} ${button.className} ${state} meets AA`);
-                  if (state == "normal") {
-                    is(action.backgroundColor, getComputedStyle(buttons[0]).backgroundColor,
-                      "Open, Remind me, and Dismiss share a surface");
-                  }
+                  is(action.backgroundColor, sharedSurface,
+                    `Open, Remind me, and Dismiss share a surface in ${state}`);
                 } finally {
                   if (state.startsWith(":")) {
                     InspectorUtils.removePseudoClassLock(button, state);
-                  } else if (state == "selected") {
-                    button.removeAttribute("selected");
+                  } else if (state != "normal") {
+                    button.removeAttribute(state);
                   }
                 }
               }
