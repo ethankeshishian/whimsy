@@ -8,6 +8,12 @@ Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_whimsy_d
 add_setup(async function () {
   // Exercise the fade in both normal and private windows on every host.
   await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", 0]] });
+  const { WhimsySettingsCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySettingsCommands.sys.mjs");
+  const entry = WhimsySettingsCommands.forSetting("whimsyDarkPagesMode");
+  is(WhimsySettingsCommands.nameOf(entry), "Adaptive Dark Mode", "The command-bar feature name is unified");
+  for (const spec of WhimsySettingsCommands.specsFor(entry)) {
+    is(spec.l10nArgs().name, "Adaptive Dark Mode", "Every command choice uses the same feature name");
+  }
 });
 
 const WORK = 2;
@@ -22,6 +28,7 @@ async function openPanel() {
   WhimsySiteSettings.open(window);
   await shown;
   await document.l10n.translateFragment(panel());
+  await Promise.all(panel().getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
 }
 
 async function closePanel() {
@@ -32,6 +39,32 @@ async function closePanel() {
 function clearSite() {
   Services.prefs.clearUserPref("whimsy.dark-pages.profiles");
   Services.prefs.setStringPref(SITES, "{}");
+}
+
+async function assertSiteDetail(win, browser, row, profileDark) {
+  const doc = win.document;
+  const { WhimsyProfiles } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProfiles.sys.mjs");
+  const profile = WhimsyProfiles.nameOf(WhimsyDarkPages.userContextIdOf(browser));
+  const stored = WhimsyDarkPages.storedChoice(browser);
+  const dark = WhimsyDarkPages.isDark(browser);
+  await doc.l10n.translateFragment(row);
+  const status = row.querySelector("#whimsy-dark-page-site-status");
+  const reset = row.querySelector("#whimsy-dark-page-site-reset");
+  const text = status.textContent.replace(/[\u2066-\u2069]/g, "").replace(/\s+/g, " ").trim();
+  is(text, stored ? `${dark ? "On" : "Off"} here, ${profileDark ? "on" : "off"} in ${profile} ·` : `Same as ${profile}`,
+    "The sub-line explains the site's relationship to its named profile");
+  is(reset.hidden, !stored, "Reset appears only for a remembered exception");
+  is(row.querySelector("input").getAttribute("aria-describedby"), status.id,
+    "The switch exposes the relationship to assistive technology");
+  is(doc.getElementById("whimsy-dark-page-site-label").textContent, "Adaptive Dark Mode", "Unified site label");
+  return reset;
+}
+
+async function clickSettled(win, node) {
+  await Promise.all(node.closest("[whimsy-site-setting]").getAnimations({ subtree: true })
+    .map(animation => animation.finished.catch(() => {})));
+  ok(node.checkVisibility(), "The control is visible before the click");
+  EventUtils.synthesizeMouseAtCenter(node, {}, win);
 }
 
 const HOME_SPACE = gZenWorkspaces.activeWorkspace;
@@ -99,6 +132,9 @@ add_task(async function test_site_dark_switch_updates_live_without_replacing_row
         const row = siteSection().querySelector('[whimsy-site-setting="dark-pages"]');
         const toggle = row.querySelector("input");
         const profileRow = profileSection().querySelector('[whimsy-site-setting="profile-dark-pages"]');
+        await assertSiteDetail(window, browser, row, profileOn);
+        is(document.getElementById("whimsy-site-settings-profile-dark-label").textContent,
+          "Adaptive Dark Mode", "Unified profile label");
         // Always exercise on then off, even when the profile starts dark.
         if (toggle.checked) {
           await switchReachesPage(browser, false, () => EventUtils.synthesizeMouseAtCenter(toggle, {}));
@@ -117,8 +153,41 @@ add_task(async function test_site_dark_switch_updates_live_without_replacing_row
           is(profileSection().querySelector('[whimsy-site-setting="profile-dark-pages"]'), profileRow,
             "Profile controls are not rebuilt");
           is(toggle.checked, dark, "The switch agrees with the page");
+          is(WhimsyDarkPages.storedChoice(browser), dark == profileOn ? null : dark ? "on" : "off",
+            "Matching the profile clears the exception; differing remembers it");
+          await assertSiteDetail(window, browser, row, profileOn);
           is(row.getAttribute("state"), WhimsyDarkPages.storedChoice(browser) ? "allow" : "block",
             "The row's remembered marker follows the stored choice");
+        }
+        // Reset clears the exception without rebuilding the row, by mouse
+        // and keyboard. Await the real fade before interacting again.
+        for (const keyboard of [false, true]) {
+          WhimsyDarkPages.setDark(browser, !profileOn);
+          await darkState(browser, profileOn ? "original" : "generated");
+          const reset = await assertSiteDetail(window, browser, row, profileOn);
+          if (keyboard) {
+            reset.focus();
+            EventUtils.synthesizeKey("KEY_Enter", {}, window);
+          } else {
+            await clickSettled(window, reset);
+          }
+          await darkState(browser, profileOn ? "generated" : "original");
+          is(WhimsyDarkPages.storedChoice(browser), null, "Reset removes the stored choice");
+          await assertSiteDetail(window, browser, row, profileOn);
+          is(document.getElementById(toggle.id), toggle, "Reset keeps the original switch");
+        }
+        // Unoverridden sites follow profile flips immediately in this popup.
+        for (const on of [!profileOn, profileOn]) {
+          WhimsyDarkPages.setProfileOn(WORK, on);
+          await darkState(browser, on ? "generated" : "original");
+          is(toggle.checked, on, "The site switch follows the profile change");
+          is(WhimsyDarkPages.storedChoice(browser), null, "Following the profile stores no exception");
+          await assertSiteDetail(window, browser, row, on);
+          is(document.getElementById(toggle.id), toggle, "Profile changes preserve the site control");
+          is(profileSection().querySelector('[whimsy-site-setting="profile-dark-pages"]'), profileRow,
+            "Profile changes preserve the profile row");
+          is(browser.innerWindowID, windowId, "Profile changes do not reload the page");
+          is(panel().state, "open", "The popup remains open during profile changes");
         }
         // A change from another control/window must also preserve this row.
         for (const dark of [true, false]) {
@@ -155,6 +224,7 @@ add_task(async function test_private_site_dark_switch_updates_live_without_rebui
       WhimsySiteSettings.open(win);
       await shown;
       await win.document.l10n.translateFragment(popup);
+      await Promise.all(popup.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
       const toggle = win.document.getElementById("whimsy-site-settings-dark-pages-switch");
       const row = toggle.closest("[whimsy-site-setting]");
       for (const dark of [true, false, true, false]) {
@@ -170,6 +240,15 @@ add_task(async function test_private_site_dark_switch_updates_live_without_rebui
         is(browser.innerWindowID, windowId, "The private page is not reloaded");
         is(Services.prefs.getStringPref(SITES), saved, "Private choices never write public preferences");
       }
+      WhimsyDarkPages.setDark(browser, true);
+      await darkState(browser, "generated");
+      const reset = await assertSiteDetail(win, browser, row, false);
+      await clickSettled(win, reset);
+      await darkState(browser, "original");
+      is(WhimsyDarkPages.storedChoice(browser), null, "Private Reset forgets the in-memory exception");
+      await assertSiteDetail(win, browser, row, false);
+      is(win.document.getElementById(toggle.id), toggle, "Private Reset keeps the switch");
+      is(Services.prefs.getStringPref(SITES), saved, "Private Reset never writes public preferences");
       await WhimsySiteSettings.hidePanel(win);
     });
   } finally {

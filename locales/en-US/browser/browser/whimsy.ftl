@@ -4681,8 +4681,8 @@ whimsy-action-site-settings = Site Settings…
 # name or the site's host.
 whimsy-site-settings-profile-heading = Profile Settings
 whimsy-site-settings-site-heading = Site Settings
-whimsy-site-settings-profile-dark-mode = Automatic Dark Mode
-whimsy-site-settings-dark-mode = Dark Mode
+whimsy-site-settings-profile-dark-mode = Adaptive Dark Mode
+whimsy-site-settings-dark-mode = Adaptive Dark Mode
 whimsy-site-settings-tracking = Tracking Protection
 whimsy-site-settings-forget-all = Forget All
 whimsy-site-settings-zoom = Zoom
@@ -4719,7 +4719,7 @@ whimsy-site-settings-forgot-toast = Forgot settings for { $site }
 # W28: hover tooltips for each row of Profile Settings and Site Settings,
 # one short sentence on what the setting does.
 whimsy-site-settings-profile-dark-pages-tooltip =
-    .tooltiptext = Gives every site in this profile a dark look, unless a site has its own Dark Mode setting.
+    .tooltiptext = Gives every site in this profile a dark look, unless a site has its own Adaptive Dark Mode setting.
 whimsy-site-settings-dark-pages-tooltip =
     .tooltiptext = Gives this site a dark look, using its own dark theme when it has one.
 whimsy-site-settings-tracking-tooltip =
@@ -8481,7 +8481,7 @@ whimsy-ai-chat-edge-hover =
 
 # W24 dark pages
 whimsy-dark-pages-heading = Web pages
-whimsy-dark-pages-title = Dark pages
+whimsy-dark-pages-title = Adaptive Dark Mode
 whimsy-dark-pages-description = Uses a site’s own dark theme when it has one, otherwise makes one. PDFs too.
 whimsy-dark-pages-off = Off
 whimsy-dark-pages-match = Match Whimsy
@@ -8490,6 +8490,17 @@ whimsy-dark-pages-dim = Dim images
 whimsy-dark-pages-dim-description = Photos a little darker on dark pages
 whimsy-dark-pages-sites = Sites you changed
 whimsy-dark-pages-reset = Reset
+# $profile (string) - the name of this site's profile
+whimsy-dark-pages-site-same = Same as { $profile }
+# $siteState and $profileState (string) - on or off; $profile is its name
+whimsy-dark-pages-site-override =
+    { $siteState ->
+        [on] On here,
+       *[off] Off here,
+    } { $profileState ->
+        [on] on in
+       *[off] off in
+    } { $profile } ·
 whimsy-dark-pages-dark = Dark
 whimsy-dark-pages-original = Original
 whimsy-dark-pages-button-dark =
@@ -8501,7 +8512,7 @@ whimsy-dark-pages-button-original =
 whimsy-dark-pages-toast = Whimsy made this page dark.
 whimsy-dark-pages-turn-off = Turn off
 whimsy-dark-pages-site-settings = Site settings
-whimsy-setting-dark-pages = Dark Pages
+whimsy-setting-dark-pages = Adaptive Dark Mode
     .keywords = dark theme, night, appearance, PDFs
 whimsy-setting-dim-images = Dim Images
     .keywords = photos, brightness, dark pages

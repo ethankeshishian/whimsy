@@ -45,9 +45,9 @@
 //
 // W26 (site panel, the owner's "profile first" mockup): the panel has two
 // headings in place of Zen's "Settings" and the old "This Site":
-//   Profile Settings  <profile>   Automatic Dark Mode (WhimsyDarkPages), the
+//   Profile Settings  <profile>   Adaptive Dark Mode (WhimsyDarkPages), the
 //                                 profile's default for every site.
-//   Site Settings     <host>      Dark Mode, Tracking Protection, Zoom,
+//   Site Settings     <host>      Adaptive Dark Mode, Tracking Protection, Zoom,
 //                                 Autoplay, every stored permission (Zen's
 //                                 list, as Allow / Block dropdowns), Always
 //                                 Open in Reader, Open in Full Screen, and
@@ -636,8 +636,7 @@ export const WhimsySiteSettings = {
     }
     section.querySelector(".whimsy-site-settings-caption-who").textContent = site.host;
 
-    // Dark Mode (WhimsyDarkPages): starts at the profile's Automatic Dark
-    // Mode; switching it remembers the site.
+    // Adaptive Dark Mode follows the profile until this site overrides it.
     const darkRow = lazy.WhimsyDarkPages.siteRow(win, browser);
     if (darkRow) {
       list.append(darkRow);

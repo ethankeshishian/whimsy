@@ -29,18 +29,21 @@ add_task(async function screenshots_site_panel() {
       autoplay.className.replace("whimsy-site-settings-autoplay", ""), "The row uses Autoplay's row classes");
     const style = el => {
       const cs = getComputedStyle(el);
-      return [cs.paddingTop, cs.paddingBottom, cs.paddingInlineStart, cs.paddingInlineEnd, cs.font,
-        Math.round(el.getBoundingClientRect().height)];
+      return [cs.paddingTop, cs.paddingBottom, cs.paddingInlineStart, cs.paddingInlineEnd, cs.font];
     };
-    Assert.deepEqual(style(row), style(autoplay), "Same padding, font, and height as Autoplay");
+    Assert.deepEqual(style(row), style(autoplay), "Same padding and font as Autoplay");
     const reader = document.querySelector('[whimsy-site-setting="reader"]');
     const control = row.querySelector("input.whimsy-surface-switch");
     ok(control, "An on/off switch");
     is(control.className, reader.querySelector("input").className, "The same switch as Always Open in Reader View");
-    ok(!row.querySelector("button, .whimsy-surface-seg"), "No dropdown or segmented control");
+    ok(!row.querySelector(".whimsy-surface-seg"), "No segmented control");
+    ok(row.querySelector("#whimsy-dark-page-site-reset").hidden, "Reset is hidden while following the profile");
     is(row.parentNode, autoplay.parentNode, "A row of the site list, not a separate tinted box");
-    ok(!row.querySelector(".whimsy-surface-group, .whimsy-surface-caption"), "No box, heading, or subtitle");
-    is(document.getElementById("whimsy-dark-page-site-label").textContent, "Dark Mode", "The row's label");
+    ok(!row.querySelector(".whimsy-surface-group, .whimsy-surface-caption"), "No nested box or heading");
+    await document.l10n.translateFragment(row);
+    const label = document.getElementById("whimsy-dark-page-site-label");
+    ok(label.scrollWidth <= label.clientWidth, "The complete feature label fits the default panel width");
+    is(document.getElementById("whimsy-dark-page-site-label").textContent, "Adaptive Dark Mode", "The row's label");
     const switchOn = () => document.getElementById("whimsy-site-settings-dark-pages-switch")?.checked;
     ok(switchOn(), "On while the page is dark");
     // The moon and the switch flip the same state, live.
@@ -57,6 +60,36 @@ add_task(async function screenshots_site_panel() {
       undo();
       await WhimsySiteSettings.hidePanel(window);
       gNavToolbox.removeAttribute("zen-has-implicit-hover");
+      BrowserTestUtils.removeTab(tab);
+    };
+  });
+});
+
+add_task(async function screenshots_site_override() {
+  await whimsyBothSchemes("w29-adaptive-dark-mode-site-override", async () => {
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+    const browser = tab.linkedBrowser;
+    await darkState(browser, "generated");
+    WhimsyDarkPages.setDark(browser, false);
+    await darkState(browser, "original");
+    gNavToolbox.setAttribute("zen-has-implicit-hover", "true");
+    const popup = document.getElementById("zen-unified-site-data-panel");
+    const shown = BrowserTestUtils.waitForPopupEvent(popup, "shown");
+    WhimsySiteSettings.open(window);
+    await shown;
+    await document.l10n.translateFragment(popup);
+    await Promise.all(popup.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
+    const row = document.querySelector('[whimsy-site-setting="dark-pages"]');
+    const detail = row.querySelector(".whimsy-dark-page-detail");
+    const reset = row.querySelector("#whimsy-dark-page-site-reset");
+    ok(reset.checkVisibility(), "The link-styled Reset is visible on an overridden site");
+    ok(detail.scrollWidth <= detail.clientWidth, "The sub-line and Reset fit without horizontal clipping");
+    const undo = whimsyStandInPopups();
+    return async () => {
+      undo();
+      await WhimsySiteSettings.hidePanel(window);
+      gNavToolbox.removeAttribute("zen-has-implicit-hover");
+      WhimsyDarkPages.forget(browser);
       BrowserTestUtils.removeTab(tab);
     };
   });

@@ -18,6 +18,9 @@ add_task(async function screenshots_settings() {
     const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#zenLooks");
     await TestUtils.waitForCondition(() => tab.linkedBrowser.contentDocument?.getElementById("whimsyDarkPagesMode"), "Appearance control is initialized");
     const doc = tab.linkedBrowser.contentDocument;
+    await doc.l10n.translateFragment(doc.getElementById("whimsyDarkPagesGroup"));
+    is(doc.getElementById("whimsy-dark-pages-mode-label").textContent, "Adaptive Dark Mode",
+      "Settings uses the same feature name as the profile, site, and command bar");
     ok(!doc.getElementById("whimsyDarkPdf"), "PDF appearance is folded into the one global control");
     doc.getElementById("whimsyDarkPagesGroup").scrollIntoView({ block: "center" });
     ok(!doc.getElementById("whimsyDarkPagesSites").hidden, "Appearance lists the site's remembered exception and Reset");

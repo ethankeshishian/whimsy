@@ -153,13 +153,13 @@ add_task(async function test_headings_and_rows() {
     ok(siteSection().querySelector(".whimsy-site-settings-caption #whimsy-site-settings-forget-all"),
       "Forget All stays in the site heading");
 
-    Assert.deepEqual(kindsOf(profileSection()), ["profile-dark-pages"], "Profile Settings: Automatic Dark Mode only");
-    is(document.getElementById("whimsy-site-settings-profile-dark-label").textContent, "Automatic Dark Mode",
-      "named Automatic Dark Mode");
+    Assert.deepEqual(kindsOf(profileSection()), ["profile-dark-pages"], "Profile Settings: Adaptive Dark Mode only");
+    is(document.getElementById("whimsy-site-settings-profile-dark-label").textContent, "Adaptive Dark Mode",
+      "named Adaptive Dark Mode");
     Assert.deepEqual(kindsOf(siteSection()),
       ["dark-pages", "tracking", "zoom", "autoplay", "permission-camera", "reader", "fullscreen", "useragent"],
-      "Site Settings: Dark Mode, Tracking Protection, Zoom, Autoplay, each permission, Reader, Full Screen, Pretend to Be");
-    is(document.getElementById("whimsy-dark-page-site-label").textContent, "Dark Mode", "Dark Mode");
+      "Site Settings: Adaptive Dark Mode, Tracking Protection, Zoom, Autoplay, each permission, Reader, Full Screen, Pretend to Be");
+    is(document.getElementById("whimsy-dark-page-site-label").textContent, "Adaptive Dark Mode", "Site row is named Adaptive Dark Mode");
     is(document.getElementById("whimsy-site-settings-tracking-label").textContent, "Tracking Protection",
       "Tracking Protection");
     ok(document.getElementById("whimsy-site-settings-tracking-switch").checked, "which is on");
