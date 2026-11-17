@@ -1456,6 +1456,22 @@
 .whimsy-ai-item:has(.whimsy-ai-meters) { align-items: flex-start; }
 
 /* Plans and accounts: the fixed slot keeps local-provider switches aligned. */
+#whimsyAIProviderList .whimsy-ai-item {
+  height: auto;
+  flex-shrink: 0;
+}
+#whimsyAIProviderList .whimsy-ai-item-text > * {
+  /* A wrapped title must grow the row rather than squeeze its subtitle. */
+  flex-shrink: 0;
+}
+#whimsyAIProviderList .whimsy-ai-item-name {
+  line-height: 20px;
+}
+#whimsyAIProviderList .whimsy-ai-item-detail {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .whimsy-ai-usage-slot {
   display: grid;
   place-items: center;
@@ -1505,13 +1521,22 @@
   overflow: visible;
 }
 .whimsy-ai-account-label {
+  /* Reset in-content button sizing to match the 18px resting pill. */
+  appearance: none;
+  min-height: 0;
+  height: auto;
+  box-sizing: border-box;
   min-inline-size: 0;
   max-inline-size: 100%;
+  padding: 1px 7px;
   border: 0;
   font-family: inherit;
   cursor: text;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  & > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   /* Neutral tag, using Settings' panel and text colours. */
   background: color-mix(in srgb, var(--ai-panel-bg) 92%, currentColor);
   color: inherit;

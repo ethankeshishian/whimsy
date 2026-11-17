@@ -1003,7 +1003,17 @@ add_task(async function account_labels_rings_and_card_in_both_schemes() {
         }
         for (const r of page.doc.querySelectorAll("#whimsyAIProviderList .whimsy-ai-item-text")) {
           ok(r.scrollWidth <= r.clientWidth, "Account names and subtitles fit the default card width");
+          ok(r.scrollHeight <= r.clientHeight, "Account text never overflows its text block vertically");
+          const bounds = r.getBoundingClientRect();
+          const rowBounds = r.closest(".whimsy-ai-item").getBoundingClientRect();
+          ok(bounds.top >= rowBounds.top && bounds.bottom <= rowBounds.bottom, "Account text stays within its row");
         }
+        const resting = row(page, "openai").querySelector(".whimsy-ai-resting");
+        ok(resting.scrollWidth <= resting.clientWidth, "The resting pill is not truncated with the popover closed");
+        const restingBounds = resting.getBoundingClientRect();
+        const titleBounds = resting.parentElement.getBoundingClientRect();
+        ok(restingBounds.left >= titleBounds.left && restingBounds.right <= titleBounds.right, "The complete resting pill fits within the title");
+        is(label.getBoundingClientRect().height, resting.getBoundingClientRect().height, "Account and resting pills have the same compact height");
         const ring = row(page, "claude").querySelector(".whimsy-ai-usage-ring");
         ring.focus({ preventScroll: true });
         is(page.doc.activeElement, ring, "The usage ring is keyboard reachable");
@@ -1012,6 +1022,9 @@ add_task(async function account_labels_rings_and_card_in_both_schemes() {
         await TestUtils.waitForCondition(() => page.$("whimsyAIUsagePopover"), "Enter and Space open usage");
         is(ring.getAttribute("aria-expanded"), "true", "The ring announces the open popover");
         await page.doc.l10n.translateFragment(page.$("whimsyAIUsagePopover"));
+        const popover = page.$("whimsyAIUsagePopover");
+        ok(!popover.matches(":focus-visible"), "Keyboard opening does not outline the popover container");
+        is(page.doc.activeElement, popover.querySelector('[data-action="usage"]'), "Keyboard opening focuses Manage Usage");
         await whimsyShot(`plans-accounts-card-${dark ? "dark" : "light"}`);
         EventUtils.synthesizeKey("KEY_Escape", {}, page.win);
         ok(!page.$("whimsyAIUsagePopover"), "Escape closes in both schemes");
