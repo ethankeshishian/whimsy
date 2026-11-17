@@ -76,3 +76,35 @@ add_task(async function test_pending_tab_stays_in_history() {
   }
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function test_expanded_glance_is_in_history() {
+  await SpecialPowers.pushPrefEnv({ set: [["browser.ctrlTab.sortByRecentlyUsed", true]] });
+  const { openGlanceOnTab } = ChromeUtils.importESModule("resource://testing-common/GlanceTestUtils.sys.mjs");
+
+  const tabs = [];
+  for (let i = 1; i <= 3; i++) {
+    tabs.push(await BrowserTestUtils.openNewForegroundTab(gBrowser, `data:text/plain,g${i}`));
+  }
+  const parent = tabs[2];
+  let expanded;
+  await openGlanceOnTab(
+    window,
+    async glanceTab => {
+      expanded = glanceTab;
+      await gZenGlanceManager.fullyOpenGlance();
+    },
+    false
+  );
+  await TestUtils.waitForCondition(() => !expanded.hasAttribute("zen-glance-tab"), "The Glance is its own tab");
+  is(gBrowser.selectedTab, expanded, "The expanded tab is selected");
+
+  await quickCtrlTab();
+  is(gBrowser.selectedTab, parent, "First tap goes to the tab the Glance opened from");
+  await quickCtrlTab();
+  is(gBrowser.selectedTab, expanded, "Second tap comes back to the expanded tab");
+
+  for (const tab of [...tabs, expanded]) {
+    BrowserTestUtils.removeTab(tab);
+  }
+  await SpecialPowers.popPrefEnv();
+});
