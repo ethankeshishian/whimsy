@@ -1,6 +1,23 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1169",
+      "date": "2026-11-17",
+      "title": "Essentials float like picture-in-picture",
+      "new": [
+        "An Essential’s popover has Expand, which fills the window with the site, and Minimize, which tucks it back into its tile while it keeps running.",
+        "Drag a popover by its top bar to move it anywhere over the page; each site remembers where you left it.",
+        "Resize a popover from any edge or corner; double-click an edge to put it back beside the sidebar at its usual size."
+      ],
+      "improved": [
+        "A popover stays open while you use the page behind it and when you switch tabs.",
+        "⌘W closes whichever has focus: the popover if you’re in it, otherwise the tab behind it."
+      ],
+      "fixed": [
+        "Opening a Glance from an Essential’s popover no longer makes every Essential open as a normal tab afterwards."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1165",
       "date": "2026-11-17",
       "title": "Several AI accounts and usage rings",
