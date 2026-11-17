@@ -239,6 +239,15 @@ async function startFromSheet(parts) {
   ok(WhimsyFocusSession.isActive, "Start starts the session");
 }
 
+async function clickNotch(notch) {
+  // Closing the sheet doesn't finish the notch's @starting-style entrance.
+  // While it is still sliding into the page, a mouse click can miss it.
+  // getAnimations() flushes styles and includes the entrance transitions.
+  await within(Promise.all(notch.getAnimations().map(animation => animation.finished)),
+    "Waiting for the notch's entrance");
+  EventUtils.synthesizeMouseAtCenter(notch, {});
+}
+
 // A step that should finish soon; a hang fails with its name instead of
 // timing out the whole file.
 async function within(promise, what, ms = 15000) {
@@ -396,7 +405,7 @@ addFocusTask(async function all_off_is_just_a_timer() {
   ok(document.getElementById(NOTCH_ID), "The countdown still shows");
 
   // The panel has no list, just the end time.
-  EventUtils.synthesizeMouseAtCenter(document.getElementById(NOTCH_ID), {});
+  await clickNotch(document.getElementById(NOTCH_ID));
   const panel = await TestUtils.waitForCondition(() => {
     const p = document.getElementById(PANEL_ID);
     return p?.state == "open" && p;
@@ -451,7 +460,7 @@ addFocusTask(async function start_and_end_early_restore_everything() {
   }
 
   // The panel names only what's ticked.
-  EventUtils.synthesizeMouseAtCenter(notch, {});
+  await clickNotch(notch);
   const panel = await TestUtils.waitForCondition(() => {
     const p = document.getElementById(PANEL_ID);
     return p?.state == "open" && p;
