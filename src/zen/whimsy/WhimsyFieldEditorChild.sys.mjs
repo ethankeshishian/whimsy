@@ -132,13 +132,6 @@ const RESIZE_GRIP_INSET = 14; // clear of a textarea's own resize grip
 const ICON_VIEW_BOX = "0 0 16 16";
 const ICON_PATH_D =
   "M7 3H4.6A2 2 0 0 0 2.6 5v6.4a2 2 0 0 0 2 2H11a2 2 0 0 0 2-2V9 M9.6 2.6h3.8v3.8M13.4 2.6 7.8 8.2";
-// The alias button's own colours: white on #0064d2 is 5.4:1, and the white
-// ring keeps it apart from any field colour. The same darker shade is the
-// hover colour and the pressed (editing) colour.
-const COLOR = "#0064d2";
-const DARK_COLOR = "#0050a8";
-const RING = "0 0 0 1px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.3)";
-const PRESSED_RING = "0 0 0 1px rgba(255, 255, 255, 0.9), inset 0 1px 3px rgba(0, 0, 0, 0.45)";
 // Inline buttons other password managers (and sites) put at a field's end.
 // Anything else small sitting there is found by hit-testing (#overlayAt).
 // Ported from WhimsyEmailAliasesChild.sys.mjs:24-68.
@@ -227,6 +220,9 @@ export class WhimsyFieldEditorChild extends JSWindowActorChild {
   }
 
   receiveMessage(message) {
+    if (message.name == "WhimsyFieldEditor:Colors") {
+      this.#setColors(message.data);
+    }
     if (message.name == "WhimsyFieldEditor:Read") {
       return this.#read();
     }
@@ -288,8 +284,11 @@ export class WhimsyFieldEditorChild extends JSWindowActorChild {
       return;
     }
     this.#button.setAttribute("aria-pressed", String(pressed));
-    this.#button.style.backgroundColor = pressed ? DARK_COLOR : COLOR;
-    this.#button.style.boxShadow = pressed ? PRESSED_RING : RING;
+  }
+
+  #setColors({ accent, ink }) {
+    this.#button?.style.setProperty("--hint-bg", accent);
+    this.#button?.style.setProperty("--hint-ink", ink);
   }
 
   #reportQualified(on) {
@@ -352,22 +351,16 @@ export class WhimsyFieldEditorChild extends JSWindowActorChild {
     button.setAttribute("aria-label", label);
     button.title = label; // Q3: a tooltip on hover, after the system delay.
     Object.assign(button.style, {
-      all: "initial",
       boxSizing: "border-box",
       width: `${BUTTON_SIZE}px`,
       height: `${BUTTON_SIZE}px`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: "7px",
       cursor: "pointer",
-      color: "#ffffff",
-      backgroundColor: COLOR,
-      boxShadow: RING,
       transition: "background-color 120ms ease-out",
     });
-    button.addEventListener("mouseenter", () => (button.style.backgroundColor = DARK_COLOR));
-    button.addEventListener("mouseleave", () => (button.style.backgroundColor = this.#editingField?.deref() == el ? DARK_COLOR : COLOR));
+    button.className = "whimsy-keycap";
     button.append(this.#icon(doc));
     shadow.append(button);
 
@@ -385,6 +378,16 @@ export class WhimsyFieldEditorChild extends JSWindowActorChild {
     doc.documentElement.append(host);
     this.#host = host;
     this.#button = button;
+    // Load through chrome and adopt into this shadow root: the page cannot
+    // fetch chrome URLs, and its CSP must not decide whether our keycap draws.
+    this.sendQuery("WhimsyFieldEditor:Style").then(({ css, ...colors }) => {
+      if (this.#button == button) {
+        const sheet = new win.CSSStyleSheet();
+        sheet.replaceSync(css);
+        shadow.adoptedStyleSheets = [sheet];
+        this.#setColors(colors);
+      }
+    }).catch(() => {});
     this.#applyPressed();
     this.#position(el);
 

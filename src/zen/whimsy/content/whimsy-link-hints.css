@@ -6,8 +6,8 @@
    (WhimsyLinkHintsChild.sys.mjs). */
 
 #whimsy-hints {
-  --hint-bg: rgb(91, 91, 214);
-  --hint-ink: #ffffff;
+  --hint-bg: var(--whimsy-accent-fill, rgb(91, 91, 214));
+  --hint-ink: var(--whimsy-on-accent, #ffffff);
   position: fixed;
   inset: 0;
   z-index: 2147483647;
@@ -16,16 +16,38 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.whimsy-keycap {
+  all: initial;
+  --hint-bg: rgb(91, 91, 214);
+  --hint-ink: #ffffff;
+}
+
+/* Shared keycap surface. Geometry stays with each consumer. The top uses
+   Whimsy's AA accent/on-accent pair; shading only darkens that fill. Reuse
+   the 5px keyboard-key shape from whimsy-browser.css's edit-page kbd. */
+.hint,
+.whimsy-keycap {
+  --whimsy-keycap-style: keycap;
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--hint-bg), color-mix(in srgb, var(--hint-bg) 82%, black));
+  color: var(--hint-ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 1.5px 0 color-mix(in srgb, var(--hint-bg) 60%, black),
+    0 2px 4px rgb(0 0 0 / 0.22),
+    0 0 0 1px rgb(255 255 255 / 0.9);
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.whimsy-keycap:is(:hover, [aria-pressed="true"]) {
+  background: color-mix(in srgb, var(--hint-bg) 82%, black);
+}
+
 .hint {
   position: fixed;
   padding: 2px 4px 3px;
-  border-radius: 4px;
-  background: var(--hint-bg);
-  color: var(--hint-ink);
-  /* A light ring and a soft shadow keep the badge legible on any page. */
-  box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.55),
-    0 1px 3px rgb(0 0 0 / 0.35);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -58,8 +80,8 @@
 }
 
 /* W25: hold-⌘ tab hints (WhimsyCmdTabNumbers) are these hints in the
-   browser chrome, coloured from the sidebar's text token instead of the
-   accent. Kept between holds: .leaving fades them out, and removing it
+   browser chrome, using the same space accent as page hints. Kept between
+   holds: .leaving fades them out, and removing it
    fades back in from the current opacity. */
 #whimsy-hints.tab-shortcuts.leaving {
   opacity: 0;

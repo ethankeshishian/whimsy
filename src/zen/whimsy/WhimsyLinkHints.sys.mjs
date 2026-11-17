@@ -52,10 +52,8 @@ export const WhimsyLinkHints = {
     }
   },
 
-  // The badge colors: the space's accent, with black or white ink, whichever
-  // reads better on it.
-  // Hold-⌘ tab hints pass another token (WhimsyCmdTabNumbers).
-  colors(win, token = "--zen-primary-color") {
+  // Use the system's AA accent/on-accent pair for every keycap consumer.
+  colors(win, token = "--whimsy-accent-fill") {
     // Resolved through a probe, since the variable may be a color-mix().
     const { document } = win;
     const probe = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
@@ -73,15 +71,7 @@ export const WhimsyLinkHints = {
       rgba = FALLBACK_RGB;
     }
     const accent = `rgb(${rgba.r}, ${rgba.g}, ${rgba.b})`;
-    const lin = v => {
-      v /= 255;
-      return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-    };
-    const luminance = 0.2126 * lin(rgba.r) + 0.7152 * lin(rgba.g) + 0.0722 * lin(rgba.b);
-    // Contrast against white vs. against near-black: pick the larger.
-    const onWhite = 1.05 / (luminance + 0.05);
-    const onBlack = (luminance + 0.05) / 0.06;
-    return { accent, ink: onWhite >= onBlack ? "#ffffff" : "#16161a" };
+    return { accent, ink: "#ffffff" };
   },
 
   toggle(win) {

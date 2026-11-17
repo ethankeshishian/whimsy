@@ -117,6 +117,12 @@ export class WhimsyLinkHintsChild extends JSWindowActorChild {
       // For tests: what's showing.
       case "Whimsy:Hints:Peek":
         return {
+          surface: this.hints?.length ? (() => {
+            const style = this.contentWindow.getComputedStyle(this.hints[0].node);
+            return { shared: style.getPropertyValue("--whimsy-keycap-style").trim(),
+              accent: style.getPropertyValue("--hint-bg").trim(),
+              background: style.backgroundImage, ink: style.color, radius: style.borderRadius };
+          })() : null,
           active: this.active,
           typed: this.typed,
           labels: (this.hints ?? []).filter(h => !h.node.hidden).map(h => h.label),
