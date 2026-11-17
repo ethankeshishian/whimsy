@@ -1,7 +1,7 @@
 {
   "groups": [
     {
-      "version": "1.24b-w3-dev.1159",
+      "version": "1.24b-w3-dev.1165",
       "date": "2026-11-17",
       "title": "Several AI accounts and usage rings",
       "new": [
@@ -12,6 +12,12 @@
         "A ring beside each plan account shows how much of its limit is used; click it to see 5-hour and weekly usage and when they reset.",
         "Claude accounts show your plan name, such as Max or Pro.",
         "The changelog lists every Dev build."
+      ],
+      "fixed": [
+        "Holding Command in the command bar shows each row’s number, like ⌘1 and ⌘2, instead of an empty badge.",
+        "Holding Command shows tab numbers in the sidebar’s text colour again.",
+        "The Edit Field button fades on hover instead of flashing white.",
+        "Open, Remind me, and Dismiss are readable on a selected Updates row, in light and dark."
       ]
     },
     {
