@@ -2624,8 +2624,11 @@ whimsy-action-open-in-side-panel = Open in Side Panel
 whimsy-action-open-in-tab = Open in Tab
 # The popover's header button, and its resize grip.
 whimsy-side-panel-hide-button =
-    .title = Hide side panel
-    .aria-label = Hide side panel
+    .title = Minimize
+    .aria-label = Minimize
+whimsy-side-panel-expand-button =
+    .title = Expand
+    .aria-label = Expand
 whimsy-side-panel-splitter =
     .aria-label = Resize side panel
 

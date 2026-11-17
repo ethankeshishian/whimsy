@@ -5,10 +5,9 @@
 
 // W29 side panels: an Essential opens in a popover next to the sidebar by
 // default, without becoming the selected tab and without moving the page.
-// It closes on a page click, its tile again, the hide button, a tab switch,
-// or a Glance; Esc goes to the site. "Open in Side Panel" (unchecked) and
-// "Open in Tab" open it as a normal tab. The free edge resizes it, clamped,
-// per site. "Show Chat as Popover" puts chat on the same surface.
+// It floats across page clicks and tab switches; Minimize keeps state,
+// Expand selects it once, and close-tab follows focus. Eight grips resize
+// all edges and remember geometry per host.
 
 const { WhimsySidePanel } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsySidePanel.sys.mjs");
 const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
@@ -29,6 +28,61 @@ const widthOf = tab => Math.round(box(tab).getBoundingClientRect().width);
 const startTabs = new Set(gBrowser.tabs);
 let home;
 
+// File-level cleanup runs too late: leaving each task's Essentials alive hits
+// Zen's 12-Essential cap before the Glance repro can even start. Always unwind
+// the task, including a failed assertion/await or an interrupted drag.
+function addPanelTask(task) {
+  const wrapped = async function () {
+    const tabs = new Set([...gBrowser.tabs, ...(gZenWorkspaces.allStoredTabs ?? [])]);
+    const prefs = PREFS.map(name => {
+      const type = Services.prefs.getPrefType(name);
+      return { name, type, value: Services.prefs.prefHasUserValue(name) ? whimsyReadPref(name, type) : undefined };
+    });
+    const { outerWidth, outerHeight } = window;
+    try {
+      await task();
+    } finally {
+      sp().hide({ animate: false });
+      ok(!sp().cancelDrag && !sp().dragSize, "Task leaves no drag listeners or transient geometry");
+      ok(!document.querySelector(".whimsy-side-panel-drag-shield"), "Task leaves no input shield");
+      // Also cancel if a future bug makes hide return before cancelling.
+      sp().cancelDrag?.();
+      sp().pressed = null;
+      sp().glanceSession = null;
+      await gZenGlanceManager.closeGlance({ onTabClose: true, skipPermitUnload: true });
+      for (const menu of [document.getElementById("tabContextMenu"), chat().headMenu]) {
+        if (menu?.state == "open" || menu?.state == "showing") {
+          menu.hidePopup();
+        }
+      }
+      chat().close({ reason: "test" });
+      gBrowser.selectedTab = home;
+      for (const tab of new Set([...gBrowser.tabs, ...(gZenWorkspaces.allStoredTabs ?? [])])) {
+        if (tabs.has(tab)) {
+          continue;
+        }
+        if (tab.hasAttribute("zen-essential")) {
+          gZenPinnedTabManager.removeEssentials(tab);
+        }
+        if (!tab.closing && tab.isConnected) {
+          await BrowserTestUtils.removeTab(tab);
+        }
+      }
+      for (const { name, type, value } of prefs) {
+        if (value === undefined) {
+          Services.prefs.clearUserPref(name);
+        } else {
+          whimsyWritePref(name, type, value);
+        }
+      }
+      WhimsyAIProviders.setTestProvider(null);
+      window.resizeTo(outerWidth, outerHeight);
+    }
+  };
+  Object.defineProperty(wrapped, "name", { value: task.name });
+  add_task(wrapped);
+}
+
 async function settle(tab) {
   await TestUtils.waitForCondition(
     () => !box(tab) || box(tab).getAnimations().every(a => a.playState != "running"),
@@ -38,6 +92,8 @@ async function settle(tab) {
 
 async function makeEssential(url) {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  info(`makeEssential: count=${gBrowser._numZenEssentials} limit=${gZenPinnedTabManager.maxEssentialTabs}`);
+  ok(gZenPinnedTabManager.canEssentialBeAdded(tab), "Essential setup has capacity and the correct container");
   gZenPinnedTabManager.addToEssentials(tab);
   await TestUtils.waitForCondition(() => tab.hasAttribute("zen-essential"), "An Essential");
   gBrowser.selectedTab = home;
@@ -94,7 +150,7 @@ add_setup(async function () {
   });
 });
 
-add_task(async function click_shows_beside_sidebar_without_selecting() {
+addPanelTask(async function click_shows_beside_sidebar_without_selecting() {
   const ess = await makeEssential("https://example.org/?mail");
   const pageWidth = home.linkedBrowser.getBoundingClientRect().width;
   await clickTile(ess, true);
@@ -116,24 +172,31 @@ add_task(async function click_shows_beside_sidebar_without_selecting() {
   is(gBrowser.selectedTab, home, "and nothing was selected");
 });
 
-add_task(async function page_click_tab_switch_and_glance_hide_it() {
+addPanelTask(async function page_click_and_tab_switch_keep_floating() {
   const ess = await makeEssential("https://example.org/?chat");
   await clickTile(ess, true);
-  EventUtils.synthesizeMouse(home.linkedBrowser, home.linkedBrowser.getBoundingClientRect().width - 40, 200, {});
-  await hidden(ess, "A click in the page hides it");
-
-  await clickTile(ess, true);
+  await SpecialPowers.spawn(home.linkedBrowser, [], () => {
+    content.document.addEventListener("click", () => content.document.body.dataset.clicked = "yes", { once: true });
+  });
+  await BrowserTestUtils.synthesizeMouseAtPoint(home.linkedBrowser.clientWidth - 40, 200, {}, home.linkedBrowser);
+  await TestUtils.waitForCondition(() => SpecialPowers.spawn(home.linkedBrowser, [], () => content.document.body.dataset.clicked == "yes"), "The page receives the click");
+  ok(shown(ess), "Page clicks keep the popover open");
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
-  await hidden(ess, "A tab switch hides it");
+  ok(shown(ess), "A tab switch keeps it floating");
   gBrowser.selectedTab = home;
   BrowserTestUtils.removeTab(other);
-
-  await clickTile(ess, true);
   window.dispatchEvent(new CustomEvent("GlanceOpen", { bubbles: true }));
   await hidden(ess, "A Glance opening hides it");
+  await clickTile(ess, true);
+  window.dispatchEvent(new CustomEvent("ZenWorkspaceChanged"));
+  await hidden(ess, "A space switch hides it");
+  await clickTile(ess, true);
+  gZenPinnedTabManager.removeEssentials(ess);
+  BrowserTestUtils.removeTab(ess);
+  await TestUtils.waitForCondition(() => !sp().tab, "Closing the Essential hides it");
 });
 
-add_task(async function esc_goes_to_the_site_and_hide_button_hides() {
+addPanelTask(async function esc_goes_to_the_site_and_hide_button_hides() {
   const ess = await makeEssential("https://example.org/?esc");
   // The first show reloads it once with the phone user agent.
   const loaded = BrowserTestUtils.browserLoaded(ess.linkedBrowser);
@@ -155,14 +218,14 @@ add_task(async function esc_goes_to_the_site_and_hide_button_hides() {
   ok(shown(ess), "and never hides the popover");
 
   const button = box(ess).querySelector(".whimsy-side-panel-hide");
-  await TestUtils.waitForCondition(() => button.getAttribute("aria-label") == "Hide side panel", "The hide button is named");
-  is(button.title, "Hide side panel", "with a tooltip");
+  await TestUtils.waitForCondition(() => button.getAttribute("aria-label") == "Minimize", "The hide button is named");
+  is(button.title, "Minimize", "with a tooltip");
   EventUtils.synthesizeMouseAtCenter(button, {});
   await hidden(ess, "The hide button hides it");
   is(document.activeElement, home.linkedBrowser, "Focus goes back to the page");
 });
 
-add_task(async function switching_sites_keeps_pages_and_phone_layout() {
+addPanelTask(async function switching_sites_keeps_pages_and_phone_layout() {
   const a = await makeEssential("https://example.org/?a");
   const b = await makeEssential("https://example.com/?b");
   const loaded = BrowserTestUtils.browserLoaded(a.linkedBrowser);
@@ -189,7 +252,7 @@ add_task(async function switching_sites_keeps_pages_and_phone_layout() {
   gBrowser.selectedTab = home;
 });
 
-add_task(async function menu_checkbox_and_open_in_tab() {
+addPanelTask(async function menu_checkbox_and_open_in_tab() {
   const ess = await makeEssential("https://example.org/?menu");
   let menu = await openTabMenu(ess);
   const item = document.getElementById("context_whimsySidePanel");
@@ -236,18 +299,59 @@ add_task(async function menu_checkbox_and_open_in_tab() {
   ok(!ess.hasAttribute(WhimsySidePanel.OFF_ATTR), "on again");
 });
 
-async function drag(tab, dx) {
-  const g = grip(tab);
-  EventUtils.synthesizeMouse(g, 3, 100, { type: "mousedown" });
-  EventUtils.synthesizeMouse(g, 3 + dx / 2, 100, { type: "mousemove" });
-  EventUtils.synthesizeMouse(g, 3 + dx, 100, { type: "mousemove" });
-  EventUtils.synthesizeMouse(g, 3 + dx, 100, { type: "mouseup" });
+// Hit-test the actual grip on press. Subsequent events belong to the chrome
+// window, using screen coordinates even beyond the window (clamp coverage).
+function pointerAt(target) {
+  const rect = target.getBoundingClientRect();
+  const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
+  is(document.elementFromPoint(x, y), target, "Pointer hits the visible drag control");
+  let start;
+  const capture = e => { start = { screenX: e.screenX, screenY: e.screenY }; };
+  window.addEventListener("mousedown", capture, { capture: true, once: true });
+  try {
+    EventUtils.synthesizeMouseAtCenter(target, { type: "mousedown", clickCount: 1 });
+  } finally {
+    window.removeEventListener("mousedown", capture, true);
+  }
+  ok(start, "Press reaches the chrome window");
+  return start;
+}
+
+// Real pointer events target an element (window listeners read
+// event.target.documentGlobal), so dispatch on the root and let it bubble.
+function pointerMove(start, dx, dy, type = "mousemove") {
+  document.documentElement.dispatchEvent(new MouseEvent(type, {
+    bubbles: true, cancelable: true, button: 0,
+    buttons: type == "mouseup" ? 0 : 1,
+    screenX: start.screenX + dx, screenY: start.screenY + dy,
+  }));
+}
+
+async function drag(tab, dx, dy = 0, edge = "e") {
+  const start = pointerAt(box(tab).querySelector(`[data-edge="${edge}"]`));
+  try {
+    pointerMove(start, dx / 2, dy / 2);
+    pointerMove(start, dx, dy);
+    pointerMove(start, dx, dy, "mouseup");
+  } finally {
+    sp().cancelDrag?.();
+  }
   await settle(tab);
+}
+
+async function moveHeader(tab, dx, dy) {
+  const start = pointerAt(box(tab).querySelector(".whimsy-side-panel-host"));
+  try {
+    pointerMove(start, dx, dy);
+    pointerMove(start, dx, dy, "mouseup");
+  } finally {
+    sp().cancelDrag?.();
+  }
 }
 
 const saved = () => JSON.parse(Services.prefs.getStringPref(WIDTHS, "{}"));
 
-add_task(async function resize_is_clamped_and_kept_per_site() {
+addPanelTask(async function resize_is_clamped_and_kept_per_site() {
   const a = await makeEssential("https://example.org/?wide");
   const b = await makeEssential("https://example.com/?narrow");
   await clickTile(a, true);
@@ -255,7 +359,7 @@ add_task(async function resize_is_clamped_and_kept_per_site() {
   await TestUtils.waitForCondition(() => grip(a).getAttribute("aria-label") == "Resize side panel", "Named");
   await drag(a, 100);
   is(widthOf(a), 480, "Dragging the edge follows the pointer");
-  is(saved()["example.org"], 480, "and is kept for that site");
+  is(saved()["example.org"]?.width, 480, "and is kept for that site");
   await drag(a, 2000);
   is(widthOf(a), Math.floor(window.innerWidth / 2), "No wider than half the window");
   await drag(a, -2000);
@@ -285,6 +389,291 @@ add_task(async function resize_is_clamped_and_kept_per_site() {
   sp().hide({ animate: false });
 });
 
+addPanelTask(async function minimize_keeps_state_and_expand_is_only_once() {
+  const ess = await makeEssential("https://example.org/?expand");
+  const loaded = BrowserTestUtils.browserLoaded(ess.linkedBrowser);
+  await clickTile(ess, true);
+  await loaded;
+  await SpecialPowers.spawn(ess.linkedBrowser, [], () => { content.wrappedJSObject.kept = 42; });
+  await drag(ess, 35, -60, "se");
+  await moveHeader(ess, 120, 0);
+  const before = sp().geometry(ess);
+  EventUtils.synthesizeMouseAtCenter(box(ess).querySelector(".whimsy-side-panel-hide"), {});
+  await hidden(ess, "Minimized");
+  ok(ess.undiscardable && !ess.hasAttribute("pending"), "Minimize does not unload");
+  await clickTile(ess, true);
+  Assert.deepEqual(sp().geometry(ess), before, "Same size on next tile click");
+  is(await SpecialPowers.spawn(ess.linkedBrowser, [], () => content.wrappedJSObject.kept), 42, "Same page state");
+  const desktop = BrowserTestUtils.browserLoaded(ess.linkedBrowser);
+  EventUtils.synthesizeMouseAtCenter(box(ess).querySelector(".whimsy-side-panel-expand"), {});
+  await TestUtils.waitForCondition(() => ess.selected && !box(ess).hasAttribute("whimsy-popover"), "Expanded into the page");
+  await desktop;
+  ok(!ess.hasAttribute(WhimsySidePanel.OFF_ATTR), "Expand preserves popover-by-default");
+  ok(!ess.linkedBrowser._whimsySidePanelUA, "Phone override cleared");
+  ok(!(await SpecialPowers.spawn(ess.linkedBrowser, [], () => content.navigator.userAgent)).includes("iPhone"), "Desktop UA");
+  gBrowser.selectedTab = home;
+  await clickTile(ess, true);
+  const expanded = BrowserTestUtils.waitForEvent(gBrowser.tabContainer, "TabSelect");
+  EventUtils.synthesizeMouseAtCenter(box(ess).querySelector(".whimsy-side-panel-host"), { clickCount: 2 });
+  await expanded;
+  is(gBrowser.selectedTab, ess, "Header double-click also expands");
+  gBrowser.selectedTab = home;
+});
+
+addPanelTask(async function close_tab_follows_focus() {
+  const ess = await makeEssential("https://example.org/?focus");
+  await clickTile(ess, true);
+  let count = gBrowser.tabs.length;
+  ess.linkedBrowser.focus();
+  EventUtils.synthesizeKey("w", { accelKey: true });
+  await hidden(ess, "Close with browser focus minimizes");
+  is(gBrowser.tabs.length, count, "No tab closed");
+  await clickTile(ess, true);
+  box(ess).querySelector(".whimsy-side-panel-expand").focus();
+  EventUtils.synthesizeKey("w", { accelKey: true });
+  await hidden(ess, "Close with header focus minimizes");
+  is(gBrowser.tabs.length, count, "No tab closed from header");
+  const page = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?close-me");
+  await clickTile(ess, true);
+  page.linkedBrowser.focus();
+  const closed = BrowserTestUtils.waitForEvent(page, "TabClose");
+  EventUtils.synthesizeKey("w", { accelKey: true });
+  await closed;
+  ok(shown(ess), "Closing the focused page leaves PiP open");
+  sp().hide({ animate: false });
+  gBrowser.selectedTab = home;
+});
+
+function readoutContrast(node) {
+  const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  const light = value => {
+    ctx.fillStyle = value;
+    ctx.fillRect(0, 0, 1, 1);
+    const rgb = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map(c =>
+      (c /= 255) <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+  };
+  const style = getComputedStyle(node);
+  const a = light(style.color), b = light(style.backgroundColor);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+addPanelTask(async function eight_grips_geometry_compatibility_and_shots() {
+  Services.prefs.setStringPref(WIDTHS, JSON.stringify({ "example.org": 420 }));
+  const ess = await makeEssential("https://example.org/?geometry");
+  await clickTile(ess, true);
+  is(widthOf(ess), 420, "Legacy numeric width reads correctly");
+  for (const edge of ["e", "w", "n", "s", "ne", "nw", "se", "sw"]) {
+    const available = document.getElementById("tabbrowser-tabpanels").clientHeight - 40;
+    const height = Math.min(450, available);
+    const top = 20 + Math.min(80, Math.max(0, available - height));
+    Services.prefs.setStringPref(WIDTHS, JSON.stringify({ "example.org": { width: 380, height, left: 240, top } }));
+    const before = sp().geometry(ess);
+    await drag(ess, edge.includes("w") ? -30 : 30, edge.includes("n") ? 40 : -40, edge);
+    const after = sp().geometry(ess);
+    const rect = box(ess).getBoundingClientRect();
+    is(Math.round(rect.width), Math.round(after.width), `${edge}: rendered width follows geometry`);
+    is(Math.round(rect.height), Math.round(after.height), `${edge}: rendered height follows geometry`);
+    is(after.width, before.width + (/[ew]/.test(edge) ? 30 : 0), `${edge}: correct width`);
+    is(after.height, before.height - (/[ns]/.test(edge) ? Math.min(40, before.height - Math.min(320, available)) : 0), `${edge}: correct height`);
+    is(after.top, before.top + (edge.includes("n") ? Math.min(40, before.height - Math.min(320, available)) : 0), `${edge}: top edge follows pointer`);
+    is(after.left + after.width * (edge.includes("w") ? 1 : 0), before.left + before.width * (edge.includes("w") ? 1 : 0), `${edge}: opposite horizontal edge fixed`);
+    is(after.top + (edge.includes("n") ? after.height : 0), before.top + (edge.includes("n") ? before.height : 0), `${edge}: opposite vertical edge fixed`);
+    Assert.deepEqual(saved()["example.org"], Object.fromEntries(Object.entries(after).map(([k, v]) => [k, Math.round(v)])), "Saves full geometry");
+    await drag(ess, 0, edge.includes("n") ? 2000 : -2000, edge);
+    if (/[ns]/.test(edge)) {
+      is(sp().geometry(ess).height, Math.min(320, available), "Height minimum");
+    }
+    const g = box(ess).querySelector(`[data-edge="${edge}"]`);
+    EventUtils.synthesizeMouseAtCenter(g, { clickCount: 2 });
+    await settle(ess);
+    is(widthOf(ess), 380, "Any grip double-click resets width");
+    is(Math.round(sp().geometry(ess).height), Math.round(Math.min(680, document.getElementById("tabbrowser-tabpanels").clientHeight - 40)), "Resets height");
+  }
+  await drag(ess, 0, 2000, "s");
+  const size = sp().geometry(ess);
+  Assert.lessOrEqual(size.top + size.height, document.getElementById("tabbrowser-tabpanels").clientHeight - 20, "Bottom gap remains");
+  await drag(ess, 0, -2000, "n");
+  is(sp().geometry(ess).top, 20, "Top gap remains");
+  await clickTile(ess, false);
+  await clickTile(ess, true);
+  is(sp().geometry(ess).top, 20, "Saved vertical offset restored");
+  sp().resetWidth();
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    try {
+      await settle(ess);
+      Assert.greaterOrEqual(readoutContrast(box(ess).querySelector(".whimsy-side-panel-size")), 4.5, "Readout ink meets AA in both schemes");
+      await whimsyShot(`w29-pip-${dark ? "dark" : "light"}`);
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+  const start = pointerAt(grip(ess));
+  try {
+    pointerMove(start, 35, 30);
+    ok(box(ess).hasAttribute("resizing"), "Readout only while dragging");
+    ok(box(ess).querySelector(".whimsy-side-panel-size").textContent.includes(" × "), "Size readout");
+    await whimsyShot("w29-pip-drag");
+    pointerMove(start, 35, 30, "mouseup");
+    ok(!box(ess).hasAttribute("resizing"), "Readout hidden on release");
+    ok(!document.querySelector(".whimsy-side-panel-drag-shield"), "Release removes shield");
+  } finally {
+    sp().cancelDrag?.();
+  }
+  const root = document.documentElement;
+  const oldSide = root.getAttribute("zen-right-side");
+  try {
+    root.setAttribute("zen-right-side", "true");
+    sp().resetWidth();
+    sp().layout();
+    const before = sp().geometry(ess);
+    await drag(ess, -40, -40, "sw");
+    is(sp().geometry(ess).width, before.width + 40, "Left grip resizes with right edge fixed");
+    is(sp().geometry(ess).height, before.height - 40, "Right corner still resizes height");
+    const rect = box(ess).getBoundingClientRect();
+    const panels = document.getElementById("tabbrowser-tabpanels").getBoundingClientRect();
+    Assert.less(panels.right - rect.right, 40, "Right sidebar edge stays docked");
+  } finally {
+    if (oldSide === null) {
+      root.removeAttribute("zen-right-side");
+    } else {
+      root.setAttribute("zen-right-side", oldSide);
+    }
+    sp().layout();
+  }
+  sp().hide({ animate: false });
+  Services.prefs.clearUserPref(WIDTHS);
+});
+
+addPanelTask(async function header_moves_clamps_persists_and_resets() {
+  const ess = await makeEssential("https://example.org/?move");
+  const other = await makeEssential("https://example.com/?move-other");
+  Services.prefs.setStringPref(WIDTHS, JSON.stringify({ "example.org": { width: 380, height: 400, top: 60 } }));
+  await clickTile(ess, true);
+  const before = sp().geometry(ess);
+  await moveHeader(ess, 2, 0);
+  Assert.deepEqual(sp().geometry(ess), before, "Below 4px remains a click");
+  await moveHeader(ess, 160, 35);
+  const moved = sp().geometry(ess);
+  is(moved.left, before.left + 160, "Header tracks horizontal pointer 1:1");
+  is(moved.top, before.top + 35, "Header tracks vertical pointer 1:1");
+  is(moved.width, before.width, "Move preserves size");
+  Assert.deepEqual(saved()["example.org"], moved, "Position and size persisted together");
+  await clickTile(other, true);
+  await clickTile(ess, true);
+  Assert.deepEqual(sp().geometry(ess), moved, "Per-host position restored");
+  const panels = document.getElementById("tabbrowser-tabpanels");
+  await moveHeader(ess, panels.clientWidth, panels.clientHeight);
+  let g = sp().geometry(ess);
+  is(g.left + g.width, panels.clientWidth - 20, "Right gap clamped");
+  is(g.top + g.height, panels.clientHeight - 20, "Bottom gap clamped");
+  window.resizeTo(1050, 800);
+  await TestUtils.waitForCondition(() => window.innerWidth < 1100, "Smaller window");
+  g = sp().geometry(ess);
+  Assert.lessOrEqual(g.left + g.width, panels.clientWidth - 20, "Window resize clamps horizontal position");
+  Assert.lessOrEqual(g.top + g.height, panels.clientHeight - 20, "Window resize clamps vertical position");
+  window.resizeTo(1400, 900);
+  await TestUtils.waitForCondition(() => window.innerWidth >= 1300, "Wide again");
+  await moveHeader(ess, -panels.clientWidth, -panels.clientHeight);
+  is(sp().geometry(ess).left, 20, "Left gap clamped");
+  is(sp().geometry(ess).top, 20, "Top gap clamped");
+  sp().resetWidth();
+  is(sp().geometry(ess).left, 20, "Reset docks beside left sidebar");
+  await moveHeader(ess, Math.round((panels.clientWidth - 380) / 2) - 20, 0);
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    try {
+      await whimsyShot(`w29-pip-moved-${dark ? "dark" : "light"}`);
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+  EventUtils.synthesizeMouseAtCenter(grip(ess), { clickCount: 2 });
+  is(sp().geometry(ess).left, 20, "Grip double-click resets position");
+  is(sp().geometry(ess).width, 380, "Grip double-click resets size");
+  sp().hide({ animate: false });
+  Services.prefs.clearUserPref(WIDTHS);
+});
+
+addPanelTask(async function interrupted_drag_cleans_up_input_and_reset() {
+  const ess = await makeEssential("https://example.org/?cancel-drag");
+  await clickTile(ess, true);
+  for (const moving of [false, true]) {
+    const target = moving ? box(ess).querySelector(".whimsy-side-panel-host") : grip(ess);
+    const start = pointerAt(target);
+    pointerMove(start, 35, 30);
+    ok(document.querySelector(".whimsy-side-panel-drag-shield"), "Active drag shields content");
+    sp().hide({ animate: false });
+    ok(!sp().cancelDrag && !sp().dragSize, "Hide removes drag handlers and transient geometry");
+    ok(!document.querySelector(".whimsy-side-panel-drag-shield"), "Hide removes shield");
+    await clickTile(ess, true);
+    const before = sp().geometry(ess);
+    pointerMove(start, 100, 100);
+    pointerMove(start, 100, 100, "mouseup");
+    Assert.deepEqual(sp().geometry(ess), before, "A stale move/up cannot change a reopened popover");
+  }
+  const start = pointerAt(grip(ess));
+  pointerMove(start, 35, 0);
+  sp().resetWidth();
+  pointerMove(start, 100, 0, "mouseup");
+  is(sp().geometry(ess).width, 380, "Reset during drag survives a late release");
+  ok(!document.querySelector(".whimsy-side-panel-drag-shield"), "Reset removes shield");
+});
+
+// Exercise the real Glance lifecycle, including its nested tab and selection
+// bookkeeping; a synthetic GlanceOpen cannot reproduce those side effects.
+addPanelTask(async function glance_from_popover_keeps_essential_routing() {
+  const a = await makeEssential("https://example.org/?glance-parent");
+  const b = await makeEssential("https://example.com/?glance-other");
+  const state = (label, tab) => info(`${label}: ${JSON.stringify({
+    selected: tab.selected, actualSelected: gBrowser.selectedTab == tab,
+    routes: sp().routes(tab), elsewhere: sp().pageElsewhere(tab),
+    glance: tab.getAttribute("glance-id"), floating: sp().tab == tab,
+    pressed: sp().pressed?.id, box: box(tab)?.hasAttribute("whimsy-popover"),
+    visible: tab._zenContentsVisible, active: tab.linkedBrowser.zenModeActive,
+  })}`);
+  for (const explicitParent of [false, true]) {
+    for (const expand of [false, true]) {
+      gBrowser.selectedTab = home;
+      sp().hide({ animate: false });
+      await clickTile(a, true);
+      const geometry = sp().geometry(a);
+      state(`before owner=${explicitParent} expand=${expand}`, a);
+      const glance = await gZenGlanceManager.openGlance({
+        url: "https://example.com/?popover-glance",
+        clientX: 0, clientY: 0, width: 0, height: 0,
+        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+      }, null, explicitParent ? a : null);
+      state("opened", a);
+      is(gZenGlanceManager.getTabOrGlanceParent(glance), a, "Glance belongs to the popover site context");
+      ok(!sp().tab, "Glance temporarily hides the popover");
+      if (expand) {
+        await gZenGlanceManager.fullyOpenGlance();
+      } else {
+        await gZenGlanceManager.closeGlance({ onTabClose: true });
+      }
+      state("finished", a);
+      await TestUtils.waitForCondition(() => shown(a), "The original popover returns");
+      Assert.deepEqual(sp().geometry(a), geometry, "Position and size survive Glance");
+      is(gBrowser.selectedTab, expand ? glance : home, "Closing restores the underlying page; Expand selects the new page");
+      ok(!a.selected && !a.hasAttribute("glance-id"), "Essential selection and Glance ID cleaned up");
+      await clickTile(a, false);
+      state("same tile before reopening", a);
+      await clickTile(a, true);
+      state("different tile before reopening", b);
+      await clickTile(b, true);
+      sp().hide({ animate: false });
+      gBrowser.selectedTab = home;
+      if (expand) {
+        BrowserTestUtils.removeTab(glance);
+      }
+    }
+  }
+});
+
 // ---- Chat on the same surface ----
 
 const chat = () => WhimsyChatPanel.forWindow(window);
@@ -304,8 +693,9 @@ async function pressCmdE() {
   await settleChat();
 }
 
-add_task(async function chat_as_popover_toggle() {
+addPanelTask(async function chat_as_popover_toggle() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], ["whimsy.feature.ai-hints", false]] });
+  try {
   await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-side-panels-" + Date.now()));
   WhimsyAIProviders.setTestProvider(async function* () {
     yield { type: "text", delta: "Hello." };
@@ -356,5 +746,8 @@ add_task(async function chat_as_popover_toggle() {
   ok(!chatEl().hasAttribute("whimsy-popover"), "Off again: a column");
   chat().close({ reason: "key" });
   await settleChat();
-  await WhimsyAIStore._resetForTesting(null);
+  } finally {
+    await WhimsyAIStore._resetForTesting(null);
+    await SpecialPowers.popPrefEnv();
+  }
 });
