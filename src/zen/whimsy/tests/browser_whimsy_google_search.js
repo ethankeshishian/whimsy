@@ -269,10 +269,10 @@ add_task(async function chip_rows_and_settings_light_dark() {
     return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
   }
   const luminance = values => values.map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
-  const contrast = el => {
+  const contrast = (el, background = el) => {
     const style = getComputedStyle(el);
     const a = luminance(rgb(style.color));
-    const b = luminance(rgb(style.backgroundColor));
+    const b = luminance(rgb(getComputedStyle(background).backgroundColor));
     return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
   };
   try {
@@ -280,16 +280,26 @@ add_task(async function chip_rows_and_settings_light_dark() {
       gURLBar.focus();
       WhimsyGoogleSearch.enter(window, "mail", "invoice");
       await TestUtils.waitForCondition(() => document.querySelectorAll(".whimsy-google-row").length == 2, "Both account rows are drawn at the default command-bar width");
+      const selected = document.querySelector(".whimsy-google-row[selected]");
       Assert.greaterOrEqual(contrast(document.querySelector(".whimsy-google-mode")), 4.5, "Mode chip text meets AA");
-      Assert.greaterOrEqual(contrast(document.querySelector(".whimsy-google-row[selected]")), 4.5, "Selected row text meets AA");
+      Assert.greaterOrEqual(contrast(selected), 4.5, "Selected row text meets AA");
+      for (const el of selected.querySelectorAll(".urlbarView-title, .whimsy-google-detail")) {
+        Assert.greaterOrEqual(contrast(el, selected), 4.5, `Selected ${el.className} text meets AA on the row's fill`);
+      }
       const rows = [...document.querySelectorAll(".whimsy-google-row")];
       ok(rows.every(row => row.lastElementChild.classList.contains("whimsy-google-account")), "Account tags are last on each row");
       const list = document.querySelector(".whimsy-google-results");
       ok(list.getBoundingClientRect().width > 0 && list.scrollWidth <= list.clientWidth, "The list fits the default command-bar width");
       for (const row of rows) {
         ok(BrowserTestUtils.isVisible(row), "Each account row is visible");
+        // A missing brace earlier in the shared sheet nested these rules
+        // under the focus-tab caption. Inline spans then had no client box,
+        // and the selected option inherited the ordinary result colors.
+        is(getComputedStyle(row).display, "grid", "The result layout applies outside the focus-tab caption");
+        is(getComputedStyle(row.querySelector(".whimsy-google-text")).display, "flex", "The title and detail form a column");
         for (const el of row.querySelectorAll(".urlbarView-title, .whimsy-google-detail, .whimsy-google-account")) {
-          ok(el.scrollWidth <= el.clientWidth, "Row text and account labels are not clipped");
+          ok(el.clientWidth > 0, `${el.className} has a text box`);
+          ok(el.scrollWidth <= el.clientWidth, `${el.className} is not clipped (${el.scrollWidth}/${el.clientWidth}px)`);
           ok(el.getBoundingClientRect().right <= list.getBoundingClientRect().right + 1, "Row content stays inside the list");
         }
       }

@@ -8948,6 +8948,7 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
     overflow: hidden;
     text-overflow: ellipsis;
   }
+}
 /* ext: "Run in profiles:" in Firefox's add-extension prompt
    (WhimsySpaceExtensions.installPromptItem). The checkboxes are Firefox's
    moz-checkbox, as for "Allow extension to run in private windows";
