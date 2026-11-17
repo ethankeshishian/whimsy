@@ -1343,9 +1343,19 @@
     {
       "id": "ai-providers",
       "name": "AI Providers",
-      "text": "AI provider picker: Claude API key, Apple on-device or local Ollama, with no automatic cloud fallback",
+      "text": "Connect Claude and ChatGPT plan accounts, API keys, Apple Intelligence, and Ollama in Settings > AI; order accounts for automatic fallback and click usage rings for cached limits",
       "section": "AI",
       "pref": "whimsy.feature.ai-providers",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
+      "id": "ai-plan-accounts",
+      "name": "AI Plans and Accounts",
+      "text": "Multiple Claude and ChatGPT accounts: isolated sign-ins, editable labels, and account-to-account fallback in Settings > AI",
+      "section": "AI",
+      "pref": "whimsy.feature.ai-plan-accounts",
       "pane": null,
       "paneId": null,
       "command": null

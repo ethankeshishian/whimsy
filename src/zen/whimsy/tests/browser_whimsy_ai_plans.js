@@ -38,6 +38,7 @@ registerCleanupFunction(async () => {
   await IOUtils.remove(PLAN_FILE, { ignoreAbsent: true });
   for (const pref of [
     "whimsy.ai.provider",
+    "whimsy.ai.account-labels",
     "whimsy.ai.openai.auth",
     "whimsy.ai.claude.auth",
     "whimsy.ai.openai.model",
@@ -290,7 +291,7 @@ add_task(async function test_sign_in_with_chatgpt() {
   ok(!PrivateBrowsingUtils.isWindowPrivate(window), "It signed in in a normal window");
   click($("whimsyAIOpenAIDone"));
   await TestUtils.waitForCondition(() => !S.sheet, "Done closes the sheet");
-  await TestUtils.waitForCondition(() => row()?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-row-plan-openai", "Settings says 'ChatGPT plan', in the row");
+  await TestUtils.waitForCondition(() => row()?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-account-email-openai", "Settings says 'ChatGPT plan', in the row");
 
   // The listener is gone after its one callback.
   await rejectsWith(fetch(params.get("redirect_uri")).then(() => ({ code: "answered" })), undefined, "The loopback listener closed");
@@ -651,4 +652,156 @@ add_task(async function ai_off_until_first_connection() {
   }
   Services.prefs.setBoolPref("whimsy.ai.enabled", true);
   await WhimsyAI.pending;
+});
+
+add_task(async function additional_claude_accounts_use_isolated_cli_config() {
+  const P = WhimsyAIProviders;
+  const C = WhimsyAIClaudeCode;
+  const dir = PathUtils.join(PathUtils.profileDir, "plans-fake-cli");
+  const original = { plan: P._plans.claude, find: C._find, workdir: C._workdir, probe: C.supportsStreamJson, status: C._status, streams: P._claudePlanStreams };
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.ai-claude-plan", true], ["whimsy.feature.ai-plan-accounts", true],
+    ["whimsy.ai.accounts", "{}"], ["whimsy.ai.account-labels", "{}"], ["whimsy.ai.order", ""],
+    ["whimsy.ai.claude.auth", ""], ["whimsy.ai.usage", "{}"], ["whimsy.ai.resting", "{}"],
+    ["whimsy.ai.off", ""], ["whimsy.ai.enabled", true], ["whimsy.ai.auto-enabled", true],
+  ] });
+  const script = PathUtils.join(dir, "claude");
+  await IOUtils.makeDirectory(dir);
+  await IOUtils.writeUTF8(script, [
+    "#!/bin/sh",
+    'if [ "$1" = auth ] && [ "$2" = status ]; then',
+    '  case "$CLAUDE_CONFIG_DIR" in *whimsy-claude-accounts/claude-*) echo \'{"loggedIn":true,"email":"personal@example.com","subscriptionType":"pro"}\';;',
+    '  *) echo \'{"loggedIn":true,"email":"work@example.com","subscriptionType":"max"}\';; esac',
+    '  exit 0',
+    'fi',
+    'cat >/dev/null',
+    'printf \'{"type":"result","subtype":"success","result":"%s"}\\n\' "$CLAUDE_CONFIG_DIR"',
+  ].join("\n") + "\n");
+  await IOUtils.setPermissions(script, 0o700);
+  const added = [];
+  try {
+    C._find = async () => script;
+    C._workdir = async () => dir;
+    C.supportsStreamJson = async () => false;
+    C._status = null;
+    P._plans.claude = C;
+    const existingEnvironment = Services.env.get("CLAUDE_CONFIG_DIR");
+    const first = await P.connectPlan(window, "claude");
+    const second = await P.connectPlan(window, "claude", { additional: true });
+    added.push(second.id);
+    is(first.id, "claude", "Existing account retains its id");
+    is(C.configDir, null, "Existing account never selects a different folder");
+    const plan = P.planFor(second.id);
+    ok(plan.configDir.startsWith(PathUtils.join(PathUtils.profileDir, "whimsy-claude-accounts")), "Additional account config belongs to this profile");
+    is((await P.connection("claude")).planName, "max", "subscriptionType is reported as the first plan name");
+    is((await P.connection(second.id)).planName, "pro", "Second account has its own subscription type");
+    is(await plan.complete({ prompt: "fixture" }), plan.configDir, "Requests receive the isolated CLAUDE_CONFIG_DIR");
+    is(await C.complete({ prompt: "fixture" }), existingEnvironment, "Original account still inherits exactly the original environment");
+    const before = [...P.order];
+    await rejectsWith(P.connectPlan(window, "claude", { additional: true }), "duplicate-account", "Connecting the same email adds nothing");
+    Assert.deepEqual(P.order, before, "A duplicate cannot add a row");
+    is(Object.keys(P.accounts).length, 1, "No duplicate metadata persists");
+    is((await P.connection("claude")).label, "work@example.com", "Another sign-in never changes the first account");
+    P.cacheUsage(second.id, [{ id: "weekly", label: "Weekly", usedPercent: 31 }], "plan", 1234);
+    is(P.usage(second.id).checkedAt, 1234, "Usage is keyed by account id");
+    is(P.usage("claude"), null, "Second account usage does not bleed into the first");
+    const folder = plan.configDir;
+    P.setOn(second.id, false);
+    await P.disconnect(second.id);
+    ok(!Services.prefs.getStringPref("whimsy.ai.order").includes(second.id), "Disconnect removes the raw order reference");
+    ok(!Services.prefs.getStringPref("whimsy.ai.off", "").includes(second.id), "Disconnect removes the raw off-switch reference");
+    ok(!await IOUtils.exists(folder), "Disconnect removes only the owned config folder");
+    ok(await P.connection("claude"), "First account remains connected");
+  } finally {
+    for (const id of added) {
+      await P.planFor(id)?.discard?.();
+      delete P._plans[id];
+    }
+    P._plans.claude = original.plan;
+    C._find = original.find;
+    C._workdir = original.workdir;
+    C.supportsStreamJson = original.probe;
+    C._status = original.status;
+    P._claudePlanStreams = original.streams;
+    await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_task(async function chatgpt_account_credentials_are_separate_ciphertexts() {
+  const A = WhimsyAIOpenAIAuth;
+  const one = A.forAccount("openai-00000000-0000-4000-8000-000000000001");
+  const two = A.forAccount("openai-00000000-0000-4000-8000-000000000002");
+  try {
+    await one._saveSecret({ email: "one@example.com", refreshToken: REFRESH_1, planName: "plus" });
+    await two._saveSecret({ email: "two@example.com", refreshToken: REFRESH_2 });
+    is((await one.status()).label, "one@example.com", "First credential is independent");
+    is((await two.status()).label, "two@example.com", "Second credential is independent");
+    is((await one.status()).planName, "plus", "Only a reported plan name is returned");
+    is((await two.status()).planName, "", "Unknown ChatGPT tier stays unknown");
+    const saved = await IOUtils.readUTF8(one._path);
+    ok(!saved.includes(REFRESH_1) && !saved.includes("one@example.com"), "Credentials and email are encrypted on disk");
+    const reloaded = A.forAccount(one.accountId);
+    is((await reloaded.status()).label, "one@example.com", "Ciphertext survives a fresh account instance");
+    await one.discard();
+    is((await two.status()).label, "two@example.com", "Removing one account leaves the other untouched");
+  } finally {
+    await one.discard();
+    await two.discard();
+  }
+});
+
+add_task(async function chatgpt_duplicate_sign_in_keeps_existing_credentials() {
+  const P = WhimsyAIProviders;
+  const A = WhimsyAIOpenAIAuth;
+  const original = P._plans.openai;
+  const mock = await mockOpenAI();
+  const added = [];
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.feature.ai-openai-plan", true], ["whimsy.feature.ai-plan-accounts", true],
+    ["whimsy.ai.enabled", true], ["whimsy.ai.accounts", "{}"],
+    ["whimsy.ai.account-labels", "{}"], ["whimsy.ai.order", ""], ["whimsy.ai.openai.auth", ""],
+  ] });
+  try {
+    await IOUtils.remove(PLAN_FILE, { ignoreAbsent: true });
+    A._secret = undefined;
+    A._access = null;
+    P._plans.openai = A;
+    await P.connectPlan(window, "openai");
+    const before = await IOUtils.readUTF8(PLAN_FILE);
+    Services.prefs.setBoolPref("whimsy.feature.ai-plan-accounts", false);
+    await rejectsWith(P.connectPlan(window, "openai", { additional: true }), "unavailable", "The account feature gate prevents additions");
+    Services.prefs.setBoolPref("whimsy.feature.ai-plan-accounts", true);
+    const cancelled = P.connectPlan(window, "openai", { additional: true });
+    P.cancelPlan("openai");
+    await rejectsWith(cancelled, "sign-in-cancelled", "Cancellation before sign-in starts leaves no account");
+    await rejectsWith(P.connectPlan(window, "openai", { additional: true }), "duplicate-account", "A duplicate email is rejected after verified sign-in");
+    Assert.deepEqual(P.order, ["openai"], "Duplicate adds no entry");
+    is(await IOUtils.readUTF8(PLAN_FILE), before, "First encrypted credential is untouched");
+    is(Object.keys(P.accounts).length, 0, "Duplicate leaves no account metadata");
+    mock.idClaims = params => ({ nonce: params.get("nonce"), email: "other@example.com", "https://api.openai.com/auth": { chatgpt_plan_type: "plus" } });
+    const second = await P.connectPlan(window, "openai", { additional: true });
+    added.push(second.id);
+    is((await P.connection(second.id)).planName, "plus", "A signed, reported tier is shown");
+    is((await P.connection("openai")).planName, "", "The original account's unknown tier stays unknown");
+    const path = P.planFor(second.id)._path;
+    const secondBefore = await IOUtils.readUTF8(path);
+    mock.idClaims = params => ({ nonce: params.get("nonce"), email: "ME@EXAMPLE.COM" });
+    await rejectsWith(P.connectPlan(window, second.id), "duplicate-account", "Duplicate checks ignore email case during reauthentication too");
+    is(await IOUtils.readUTF8(path), secondBefore, "A duplicate cannot replace an existing account's encrypted credentials");
+    is((await P.connection(second.id)).label, "other@example.com", "Both original identities remain connected");
+    const files = (await IOUtils.getChildren(PathUtils.profileDir)).filter(file => /whimsy-ai-openai-[a-f0-9-]+-plan\.json$/.test(file));
+    Assert.deepEqual(files, [path], "No credential file survives either failed addition");
+  } finally {
+    for (const id of added) {
+      await P.planFor(id)?.discard?.();
+      delete P._plans[id];
+    }
+    await IOUtils.remove(PLAN_FILE, { ignoreAbsent: true });
+    A._secret = undefined;
+    A._access = null;
+    P._plans.openai = original;
+    await SpecialPowers.popPrefEnv();
+    await mock.stop();
+  }
 });

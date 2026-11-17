@@ -17,6 +17,7 @@ const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/htt
 
 const PREFS = [
   "whimsy.ai.auto-enabled",
+  "whimsy.ai.account-labels",
   "whimsy.ai.order",
   "whimsy.ai.off",
   "whimsy.ai.quick-text-apple",
@@ -530,4 +531,33 @@ add_task(async function stream_events_in_order() {
   is(WhimsyAIProviders._inflight.size, 0, "Nothing is left in flight");
   WhimsyAIProviders.setTestProvider(null);
   Services.prefs.clearUserPref("whimsy.ai.order");
+});
+
+add_task(async function two_claude_entries_fail_over_with_independent_state() {
+  const P = WhimsyAIProviders;
+  const id = "claude-00000000-0000-4000-8000-000000000001";
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.ai.accounts", JSON.stringify({ [id]: { provider: "claude", label: "Personal" } })],
+    ["whimsy.ai.account-labels", JSON.stringify({ claude: "Work" })],
+    ["whimsy.ai.order", `claude,${id}`], ["whimsy.ai.off", ""], ["whimsy.ai.resting", "{}"],
+  ] });
+  try {
+    const calls = stub({ claude: fails("plan-limit"), [id]: says("Personal answered") });
+    const result = await WhimsyAIRouter.run({ prompt: "fixture", tools: [] });
+    Assert.deepEqual(calls.map(c => c.provider), ["claude", id], "Router walks both rows of the same provider");
+    is(result.provider, id, "Second account answered");
+    Assert.deepEqual(result.handoffs.map(h => [h.from, h.to]), [["claude", id]], "Handoff keeps both account ids");
+    ok(P.resting("claude"), "Only Work is resting");
+    is(P.resting(id), null, "Personal has an independent limit");
+    is(P.providerName(id), "Claude (Personal)", "Handoff names the account when there are two");
+    P.setOn(id, false);
+    ok(P.isOn("claude") && !P.isOn(id), "Switches are independent");
+    P.setOrder([id, "claude", id]);
+    Assert.deepEqual(P.order, [id, "claude"], "Reorder retains both accounts and deduplicates entry ids");
+    P.setOrder([id]);
+    is(P.providerName(id), "Claude", "The label disappears when only one remains");
+  } finally {
+    P.setTestProvider(null);
+    await SpecialPowers.popPrefEnv();
+  }
 });

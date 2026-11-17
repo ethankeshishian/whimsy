@@ -1952,10 +1952,13 @@ FEATURES = [
     {"id": "playlist", "title": "Playlist: save videos and audio to Library -> Playlist and play them offline (direct files)",
      "detect": [("src/zen", r"(?i)\bplaylist\b")]},
 
-    # wave3/ai: AI v1. The provider every Whimsy AI feature uses (Claude API
-    # key, Apple on-device, local Ollama); no automatic cloud fallback.
-    {"id": "ai-providers", "title": "AI provider picker: Claude API key, Apple on-device or local Ollama, with no automatic cloud fallback",
+    # The ordered connections every Whimsy AI feature uses, including
+    # account-to-account fallback before an answer starts.
+    {"id": "ai-providers", "title": "Connect Claude and ChatGPT plan accounts, API keys, Apple Intelligence, and Ollama in Settings > AI; order accounts for automatic fallback and click usage rings for cached limits",
      "detect": [("src/zen", r"(?i)api\.anthropic\.com|FoundationModels|ollama")]},
+    {"id": "ai-plan-accounts", "title": "Multiple Claude and ChatGPT accounts: isolated sign-ins, editable labels, and account-to-account fallback in Settings > AI",
+     "help_name": "AI Plans and Accounts", "section": "AI",
+     "detect": [("src/zen", r"(?i)CLAUDE_CONFIG_DIR|chatgpt.{0,30}accounts")]},
     # W14 19: subscription sign-in for AI (Sign in with ChatGPT; the Claude
     # plan through the person's own Claude Code).
     {"id": "ai-openai-plan", "title": "Sign in with ChatGPT: use the ChatGPT plan for Whimsy AI",

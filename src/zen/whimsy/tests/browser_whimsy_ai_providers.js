@@ -45,6 +45,7 @@ registerCleanupFunction(async () => {
     "whimsy.feature.ai-openai-plan",
     "whimsy.feature.ai-claude-plan",
     "whimsy.ai.provider",
+    "whimsy.ai.account-labels",
     "whimsy.ai.order",
     "whimsy.ai.off",
     "whimsy.ai.resting",
@@ -675,7 +676,7 @@ add_task(async function test_settings_actions_and_plan_rows() {
   });
   Services.prefs.setBoolPref("whimsy.feature.ai-openai-plan", true);
   await WhimsyAIProviders.connectPlan(window, "openai");
-  await TestUtils.waitForCondition(() => rowOf("openai")?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-row-plan-openai", "Settings says the ChatGPT plan, in the row");
+  await TestUtils.waitForCondition(() => rowOf("openai")?.querySelector(".whimsy-ai-item-detail")?.getAttribute("data-l10n-id") == "whimsy-ai-account-email-openai", "Settings says the ChatGPT plan, in the row");
   click(rowOf("openai").querySelector('[data-action="details"]'));
   const body = await TestUtils.waitForCondition(() => rowOf("openai").nextElementSibling?.classList.contains("whimsy-ai-body") && rowOf("openai").nextElementSibling, "and the account, in the details");
   ok(body.textContent.includes("me@example.com"), "with the signed-in account");
@@ -1167,5 +1168,34 @@ add_task(async function test_apple_unavailable_os() {
     WhimsyAIProviders.appleDetail = "";
     Services.prefs.clearUserPref("whimsy.ai.test.macos-version");
     await IOUtils.remove(root, { recursive: true });
+  }
+});
+
+add_task(async function legacy_single_account_prefs_keep_their_identity() {
+  const P = WhimsyAIProviders;
+  const prefs = ["whimsy.ai.accounts", "whimsy.ai.account-labels", "whimsy.ai.order", "whimsy.ai.off", "whimsy.ai.usage", "whimsy.ai.resting", "whimsy.ai.provider"];
+  await SpecialPowers.pushPrefEnv({ set: [...prefs.map(pref => [pref, ""]), ["whimsy.ai.claude.auth", "key"]] });
+  const original = P.connection;
+  try {
+    Services.prefs.clearUserPref("whimsy.ai.order");
+    Services.prefs.setStringPref("whimsy.ai.provider", "openai");
+    P.connection = async id => ["claude", "openai"].includes(id) ? { method: "key" } : null;
+    await P.seedOrder();
+    Assert.deepEqual(P.order, ["openai", "claude"], "Migration preserves the previously selected provider first");
+    P.setOn("openai", false);
+    const until = Date.now() + 3600000;
+    P.setResting("claude", { until, message: "fixture" });
+    P.cacheUsage("claude", [{ id: "tokens", label: "Tokens", usedPercent: 80 }], "key", 1234);
+    const before = prefs.slice(2).map(pref => Services.prefs.getStringPref(pref, ""));
+    await P.seedOrder();
+    Assert.deepEqual(prefs.slice(2).map(pref => Services.prefs.getStringPref(pref, "")), before, "Seeding again leaves every legacy pref byte-for-byte unchanged");
+    is(P.providerId("claude"), "claude", "First account keeps its provider id");
+    is(P.provider, "claude", "The off switch still routes past OpenAI");
+    is(P.resting("claude").until, until, "The original resting entry is still used");
+    is(P.usage("claude").checkedAt, 1234, "The original cached usage is still used");
+    is(P.providerName("claude"), "Claude", "A single account has no label in handoff wording");
+  } finally {
+    P.connection = original;
+    await SpecialPowers.popPrefEnv();
   }
 });

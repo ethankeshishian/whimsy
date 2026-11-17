@@ -421,3 +421,35 @@ add_task(async function tables_and_video_times() {
   is(times[1].dataset.seconds, String(3600 + 3 * 60 + 15), "that knows where it points");
   await closeAll(tab);
 });
+
+add_task(async function handoff_between_accounts_names_both_labels() {
+  const id = "claude-00000000-0000-4000-8000-000000000001";
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.ai.accounts", JSON.stringify({ [id]: { provider: "claude", label: "Personal" } })],
+    ["whimsy.ai.account-labels", JSON.stringify({ claude: "Work" })],
+    ["whimsy.ai.order", `claude,${id}`], ["whimsy.ai.resting", "{}"],
+  ] });
+  let tab;
+  try {
+    await fresh();
+    await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.profileDir, "plans-chat-answer"));
+    tab = await openOn();
+    script = async function* (provider) {
+      if (provider == "claude") {
+        throw Object.assign(new WhimsyAIError("plan-limit"), { until: Date.now() + 7200000 });
+      }
+      yield { type: "text", delta: "Personal answered." };
+    };
+    type("Sum up");
+    await answered();
+    const note = await TestUtils.waitForCondition(() => part(".whimsy-chat-note[data-kind='handoff'] [data-l10n-id='whimsy-cmdbar-handoff-until']"), "The account handoff is shown");
+    const args = JSON.parse(note.getAttribute("data-l10n-args"));
+    is(args.to, "Claude (Personal)", "Chat names the answering account");
+    is(args.from, "Claude (Work)", "Chat names the resting account");
+  } finally {
+    if (tab) { await closeAll(tab); }
+    await WhimsyAIStore._resetForTesting(null);
+    await IOUtils.remove(PathUtils.join(PathUtils.profileDir, "plans-chat-answer"), { recursive: true, ignoreAbsent: true });
+    await SpecialPowers.popPrefEnv();
+  }
+});

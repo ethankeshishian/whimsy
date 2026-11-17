@@ -397,3 +397,36 @@ add_task(async function ask_hint_shows_with_the_first_ask_row() {
   await closeBar();
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function handoff_between_accounts_uses_the_account_label() {
+  const id = "claude-00000000-0000-4000-8000-000000000001";
+  const { WhimsyAIError } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["whimsy.ai.accounts", JSON.stringify({ [id]: { provider: "claude", label: "Personal" } })],
+    ["whimsy.ai.account-labels", JSON.stringify({ claude: "Work" })],
+    ["whimsy.ai.order", `claude,${id}`], ["whimsy.ai.resting", "{}"],
+  ] });
+  try {
+    await freshStore();
+    await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.profileDir, "plans-command-answer"));
+    script = async function* (provider) {
+      if (provider == "claude") {
+        throw Object.assign(new WhimsyAIError("plan-limit"), { until: Date.now() + 7200000 });
+      }
+      yield { type: "text", delta: "Personal answered." };
+    };
+    await askWithKeys();
+    await answered();
+    const line = cardEl().querySelector("[data-l10n-id='whimsy-cmdbar-handoff-until']");
+    ok(line, "The command bar shows the account handoff");
+    const args = document.l10n.getAttributes(line).args;
+    is(args.to, "Claude (Personal)", "The answering provider includes its account label");
+    is(args.from, "Work", "Covering for names the other account");
+    ok(cardEl().querySelector('.whimsy-ask-brand[src*="claude"]'), "The additional account keeps its provider logo");
+  } finally {
+    await closeBar();
+    await WhimsyAIStore._resetForTesting(null);
+    await IOUtils.remove(PathUtils.join(PathUtils.profileDir, "plans-command-answer"), { recursive: true, ignoreAbsent: true });
+    await SpecialPowers.popPrefEnv();
+  }
+});
