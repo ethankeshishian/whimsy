@@ -281,7 +281,6 @@
       el.id = "whimsyAIUsagePopover";
       el.setAttribute("role", "dialog");
       el.setAttribute("aria-labelledby", "whimsyAIUsageTitle");
-      el.tabIndex = -1;
       const title = S.el("h3", "", el);
       title.id = "whimsyAIUsageTitle";
       const plan = String(view.info.get(id)?.connection?.planName ?? "").trim().replace(/\b[a-z]/g, ch => ch.toUpperCase());
@@ -328,7 +327,7 @@
         window.removeEventListener("resize", reposition);
         document.removeEventListener("scroll", reposition, true);
       } };
-      el.focus({ preventScroll: true });
+      el.querySelector('[data-action="usage"]')?.focus({ preventScroll: true });
     });
   }
 
