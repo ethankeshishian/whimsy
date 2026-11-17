@@ -550,3 +550,9 @@ authorized targeted run; isolated old passes are not validation of these edits.
 - Added Readability, AboutReader, and Reader CSS overlay patches; protected article structures, normalized formula presentation, removed publishing/navigation clutter, kept reference targets in Reader, and contained every table in its own scroll viewport. Excluded MathML from guided-reading HTML wrapping. No Zen source edits, added controls, or commits.
 - Direct worker-parser checks: 13/13 pass; three existing fixture outputs unchanged. Syntax, manifest parsing, diff whitespace, and patch application checks pass.
 - Browser/consumer/visual checks not run: mandated `/tmp/w13/w24run.sh` is missing. Precheck also reports missing Zen strings in the engine setup. No mach/build/import workaround was attempted. See root `RESULT.md` for cause, fix, coverage, and pending validation.
+
+### 2026-11-16 — Reader table assertion repair
+
+- Traced the four supplied containment failures to resizing the inline `.moz-reader-content`: Reader's `reader-show-element` rule sets `display: initial`, so the requested widths were ignored. Existing table wrappers size against the enclosing block.
+- Updated the regression test to resize `.content`, assert its actual width, retain every original assertion, and additionally check wrapper edges and article scroll overflow. No product changes or weakened assertions.
+- Node syntax and diff whitespace checks pass. Gecko rerun/screenshots remain pending because `/tmp/w13/w24run.sh` is missing. No mach, build, import, verify, or commit. Removed the supplied test-run.log; details are in RESULT.md.

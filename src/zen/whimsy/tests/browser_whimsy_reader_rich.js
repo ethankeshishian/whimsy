@@ -35,13 +35,20 @@ add_task(async function rich_article_content_and_layout() {
       }
       // Narrow the article independently of the browser window, then change it
       // again: overflow containment must survive layout/font/width changes.
+      // Reader shows .moz-reader-content with display: initial (inline), so
+      // setting its width has no effect. Resize its block containing element.
+      const article = root.closest(".content");
       for (const width of [320, 520]) {
-        root.style.width = `${width}px`;
-        root.style.maxWidth = "100%";
+        article.style.width = `${width}px`;
+        article.style.maxWidth = "100%";
+        const articleRect = article.getBoundingClientRect();
+        Assert.ok(Math.abs(articleRect.width - width) <= 1, `Article actually lays out at ${width}px (got ${articleRect.width})`);
         for (const table of root.querySelectorAll("table")) {
           const box = table.parentElement;
+          const boxRect = box.getBoundingClientRect();
           Assert.equal(content.getComputedStyle(box).overflowX, "auto", "Every table has a scroll container");
-          Assert.ok(box.getBoundingClientRect().width <= width + 1, "Table viewport stays inside article");
+          Assert.ok(boxRect.width <= width + 1, "Table viewport stays inside article");
+          Assert.ok(boxRect.left >= articleRect.left - 1 && boxRect.right <= articleRect.right + 1, "Table viewport edges stay inside article");
         }
         const catalogue = [...root.querySelectorAll("table")].find(table => table.caption?.textContent == "Observation catalogue");
         Assert.ok(catalogue, "The catalogue table survives");
@@ -49,6 +56,7 @@ add_task(async function rich_article_content_and_layout() {
         Assert.ok(scroller.scrollWidth > scroller.clientWidth, "Wide data scrolls inside its container");
         scroller.scrollLeft = 100;
         Assert.ok(scroller.scrollLeft > 0, "Offscreen columns can be reached");
+        Assert.ok(article.scrollWidth <= article.clientWidth + 1, "Wide table never overflows the article");
         Assert.ok(doc.documentElement.scrollWidth <= doc.documentElement.clientWidth + 1, "Wide table never scrolls the page");
       }
     });
