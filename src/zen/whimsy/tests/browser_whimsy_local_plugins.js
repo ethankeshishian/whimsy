@@ -75,7 +75,7 @@ async function answerPrompt(addon, run, fromAddons = false) {
     await TestUtils.waitForCondition(() => manager.document.querySelector(`addon-card[addon-id="${addon.id}"]`)?.addon === addon, "current plugin card appears");
     toggle = manager.document.querySelector(`addon-card[addon-id="${addon.id}"] moz-toggle[action="toggle-disabled"]`);
     toggle.scrollIntoView();
-    await Promise.all(manager.document.getAnimations({ subtree: true }).map(a => a.finished));
+    await Promise.all(manager.document.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {})));
   }
   const shown = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
   if (fromAddons) {
@@ -94,7 +94,7 @@ async function answerPrompt(addon, run, fromAddons = false) {
   is(notification.secondaryButton.label, "Don't Run", "refusal label");
   const button = run ? notification.button : notification.secondaryButton;
   await TestUtils.waitForCondition(() => !button.disabled, "permission prompt safety delay has ended");
-  await Promise.all(PopupNotifications.panel.getAnimations({ subtree: true }).map(a => a.finished));
+  await Promise.all(PopupNotifications.panel.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {})));
   const response = fromAddons ? Promise.resolve() : new Promise(resolve => ExtensionsUI.once("sideload-response", resolve));
   const hidden = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popuphidden");
   EventUtils.synthesizeMouseAtCenter(button, {}, window);
@@ -276,7 +276,7 @@ add_task(async function test_refusal_and_disabled_state_survive_reload() {
   const toggle = card.querySelector('moz-toggle[action="toggle-disabled"]');
   ok(toggle, "Add-ons has its normal enable toggle");
   toggle.scrollIntoView();
-  await Promise.all(win.document.getAnimations({ subtree: true }).map(a => a.finished));
+  await Promise.all(win.document.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {})));
   EventUtils.synthesizeMouseAtCenter(toggle, {}, win);
   await TestUtils.waitForCondition(() => card.addon.userDisabled && !card.addon.isActive && !WebExtensionPolicy.getByID(id), "Add-ons stops the plugin");
   addon = await reloadStoppedPlugin(id);
@@ -389,7 +389,7 @@ add_task(async function test_open_folder_command_and_setting() {
       const buttons = doc.querySelectorAll("#whimsyLocalPluginsGroup button");
       is(buttons.length, 1, "one folder button in the Local Plugins row");
       buttons[0].scrollIntoView();
-      await Promise.all(doc.getAnimations({ subtree: true }).map(a => a.finished));
+      await Promise.all(doc.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {})));
       EventUtils.synthesizeMouseAtCenter(buttons[0], {}, browser.contentWindow);
       await TestUtils.waitForCondition(() => opened.length == 1, "Settings opens the plugins folder");
       is(opened.pop(), PLUGINS, "Settings uses the same folder");
