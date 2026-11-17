@@ -7,6 +7,10 @@ const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/Addo
 const { WhimsyCookieBanners } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsyCookieBanners.sys.mjs"
 );
+const { PromiseTestUtils } = ChromeUtils.importESModule("resource://testing-common/PromiseTestUtils.sys.mjs");
+// Turning the add-on off while autoconsent's content script is mid-message
+// drops that message; the extension framework reports it as a rejection.
+PromiseTestUtils.allowMatchingRejectionsGlobally(/Receiving end does not exist/);
 const UNKNOWN_PAGE = "https://example.com/browser/zen/whimsy/tests/cookie_banner_unknown.html";
 
 async function noticeState(browser) {
