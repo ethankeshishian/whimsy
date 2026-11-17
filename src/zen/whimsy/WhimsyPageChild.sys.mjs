@@ -328,7 +328,7 @@ export class WhimsyPageChild extends JSWindowActorChild {
       case "Whimsy:PortraitBounds":
         return this.portraitBounds(message.data.width);
       case "Whimsy:SetEditable":
-        return this.setEditable(message.data.on);
+        return this.setEditable(message.data.on, message.data.save);
       case "Whimsy:ZapActive": {
         const { WhimsyZapChild } = ChromeUtils.importESModule(
           "resource:///modules/whimsy/WhimsyZapChild.sys.mjs"
@@ -548,6 +548,8 @@ export class WhimsyPageChild extends JSWindowActorChild {
 
   didDestroy() {
     this.stopCallControls();
+    this.editObserver?.disconnect();
+    this.editObserver = this.editMutations = null;
   }
 
   liveCallVideos() {
@@ -1067,28 +1069,68 @@ export class WhimsyPageChild extends JSWindowActorChild {
     };
   }
 
-  // Edit text on page: designMode, with Esc to finish.
-  setEditable(on) {
+  // Keep original nodes (and their listeners), rather than serializing HTML.
+  setEditable(on, save = false) {
     const doc = this.document;
-    if (!doc) {
+    const win = this.contentWindow;
+    if (!doc || !win) {
       return false;
     }
-    doc.designMode = on ? "on" : "off";
-    const win = this.contentWindow;
-    if (on && !this.escListener) {
-      this.escListener = event => {
-        if (event.key == "Escape" && !event.defaultPrevented) {
+    if (on && !this.editObserver) {
+      this.editMutations = [];
+      this.editOriginalMode = doc.designMode;
+      this.editObserver = new win.MutationObserver(records => this.editMutations.push(...records));
+      this.editObserver.observe(doc, {
+        subtree: true, childList: true, attributes: true,
+        attributeOldValue: true, characterData: true, characterDataOldValue: true,
+      });
+      this.editKeyListener = event => {
+        const saveKey = event.key == "Enter" && event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
+        if (!event.isComposing && (event.key == "Escape" || saveKey)) {
           event.preventDefault();
-          this.setEditable(false);
+          event.stopImmediatePropagation();
+          this.setEditable(false, saveKey);
           this.sendAsyncMessage("Whimsy:EditingEnded");
         }
       };
-      win.addEventListener("keydown", this.escListener, true);
-    } else if (!on && this.escListener) {
-      win.removeEventListener("keydown", this.escListener, true);
-      this.escListener = null;
+      this.editPageHide = () => {
+        this.setEditable(false);
+        this.sendAsyncMessage("Whimsy:EditingEnded");
+      };
+      win.addEventListener("keydown", this.editKeyListener, true);
+      win.addEventListener("pagehide", this.editPageHide, true);
+      doc.designMode = "on";
+    } else if (!on && this.editObserver) {
+      this.editMutations.push(...this.editObserver.takeRecords());
+      this.editObserver.disconnect();
+      this.editObserver = null;
+      win.removeEventListener("keydown", this.editKeyListener, true);
+      win.removeEventListener("pagehide", this.editPageHide, true);
+      this.editKeyListener = this.editPageHide = null;
+      if (!save) {
+        for (const record of this.editMutations.reverse()) {
+          if (record.type == "characterData") {
+            record.target.data = record.oldValue;
+          } else if (record.type == "attributes") {
+            if (record.oldValue === null) {
+              record.target.removeAttributeNS(record.attributeNamespace, record.attributeName);
+            } else {
+              record.target.setAttributeNS(record.attributeNamespace, record.attributeName, record.oldValue);
+            }
+          } else {
+            for (const node of record.addedNodes) {
+              node.remove();
+            }
+            for (const node of record.removedNodes) {
+              record.target.insertBefore(node, record.nextSibling);
+            }
+          }
+        }
+      }
+      this.editMutations = null;
+      doc.designMode = this.editOriginalMode;
     }
-    return doc.designMode == "on";
+    return !!this.editObserver;
   }
 
   // Window capture listeners run before any of the page's own (on the

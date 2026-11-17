@@ -415,16 +415,17 @@ whimsy-action-copy-full-page = Capture Full Page
 whimsy-capture-copied-toast = Copied a screenshot of the whole page
 whimsy-capture-failed-toast = This page can’t be captured
 
-## Edit text on page (page context menu, command bar, address bar pill)
+## Edit text on page (page context menu, command bar, floating bar)
 
 whimsy-action-edit-page = Edit Text on Page
 whimsy-context-edit-page =
     .label = Edit Text on Page
     .accesskey = x
-whimsy-edit-page-toast = Click any text to edit it. Press Esc to finish.
-whimsy-editing-pill =
-    .value = Editing · Esc to finish
-    .tooltiptext = Stop editing this page
+whimsy-edit-page-bar =
+    .aria-label = Edit Text on Page
+whimsy-edit-page-helper = Click any text to edit it
+whimsy-edit-page-cancel = Cancel
+whimsy-edit-page-save = Save
 
 ## Allow copy and paste (command bar)
 
