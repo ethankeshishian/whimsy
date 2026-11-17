@@ -30,13 +30,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const CAPTURE_FEATURE_PREF = "whimsy.feature.capture";
 
 // Edit text on page (the designMode bookmarklet): turn it on from the page
-// menu or the command bar, click anywhere and type, then press Esc (or
-// click the "Editing" pill in the address bar) to finish. People use it to
+// menu or the command bar, click anywhere and type, then Save or Cancel.
+// People use it to
 // try copy changes, redact a screenshot, or test text lengths. It's per
 // page: reloading or leaving the page ends it.
 const EDIT_FEATURE_PREF = "whimsy.feature.edit-page";
 const EDIT_MENU_ID = "context-whimsy-edit-page";
-const EDIT_PILL_ID = "whimsy-editing-pill";
+const EDIT_BAR_ID = "whimsy-edit-page-bar";
 
 // Allow copy and paste ("Absolute Enable Right Click & Copy", "Don't
 // F*** With Paste"): on a site that blocks selecting, copying, pasting or
@@ -423,12 +423,31 @@ export const WhimsyPage = {
         this.updateEditMenu(win);
       }
     });
-    gBrowser.tabContainer.addEventListener("TabSelect", () => this.updateEditPill(win));
+    gBrowser.tabContainer.addEventListener("TabSelect", () => this.updateEditBar(win));
+    gBrowser.tabContainer.addEventListener("TabClose", event => {
+      const browser = event.target.linkedBrowser;
+      if (browser?.whimsyEditing) {
+        this.actorFor(browser)?.sendQuery("Whimsy:SetEditable", { on: false }).catch(() => {});
+        browser.whimsyEditing = false;
+        this.updateEditBar(win);
+      }
+    });
+    win.addEventListener("keydown", event => {
+      if (!gBrowser.selectedBrowser?.whimsyEditing || event.isComposing) {
+        return;
+      }
+      const save = event.key == "Enter" && event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey;
+      if (event.key == "Escape" || save) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.toggleEditing(win, false, save);
+      }
+    }, true);
     gBrowser.addTabsProgressListener({
       onLocationChange: (browser, webProgress, request, location, flags) => {
         if (webProgress.isTopLevel && !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) && browser.whimsyEditing) {
           browser.whimsyEditing = false;
-          this.updateEditPill(win);
+          this.updateEditBar(win);
         }
       },
     });
@@ -459,7 +478,7 @@ export const WhimsyPage = {
   },
 
   // Turns editing on or off for the current page; returns whether it's on.
-  async toggleEditing(win, on = !win.gBrowser.selectedBrowser.whimsyEditing) {
+  async toggleEditing(win, on = !win.gBrowser.selectedBrowser.whimsyEditing, save = false) {
     const browser = win.gBrowser.selectedBrowser;
     if (on && (!this.editPageEnabled || !isWebPage(win))) {
       return false;
@@ -468,50 +487,87 @@ export const WhimsyPage = {
     if (!actor) {
       return false;
     }
-    const editing = await actor.sendQuery("Whimsy:SetEditable", { on });
+    const editing = await actor.sendQuery("Whimsy:SetEditable", { on, save });
     browser.whimsyEditing = editing;
-    this.updateEditPill(win);
-    if (editing) {
-      win.gZenUIManager?.showToast?.("whimsy-edit-page-toast");
-    }
+    this.updateEditBar(win);
     return editing;
   },
 
-  // From the page: Esc ended editing.
+  // From the page: a shortcut or navigation ended editing.
   onEditingEnded(browser) {
     browser.whimsyEditing = false;
     const win = browser.ownerDocument?.defaultView;
     if (win) {
-      this.updateEditPill(win);
+      this.updateEditBar(win);
     }
   },
 
-  updateEditPill(win) {
-    const { document } = win;
-    const editing = !!win.gBrowser.selectedBrowser?.whimsyEditing;
-    let pill = document.getElementById(EDIT_PILL_ID);
-    if (!pill) {
-      if (!editing) {
-        return;
-      }
-      pill = document.createXULElement("hbox");
-      pill.id = EDIT_PILL_ID;
-      pill.setAttribute("align", "center");
-      pill.setAttribute("role", "button");
-      pill.setAttribute("tabindex", "0");
-      const label = document.createXULElement("label");
-      document.l10n.setAttributes(label, "whimsy-editing-pill");
-      pill.append(label);
-      pill.addEventListener("click", () => this.toggleEditing(win, false));
-      pill.addEventListener("keydown", event => {
-        if (event.key == "Enter" || event.key == " ") {
-          this.toggleEditing(win, false);
-        }
-      });
-      const buttons = document.getElementById("page-action-buttons");
-      buttons ? buttons.prepend(pill) : document.getElementById("urlbar-container")?.append(pill);
+  updateEditBar(win) {
+    const { document, gBrowser } = win;
+    const browser = gBrowser.selectedBrowser;
+    const editing = !!browser?.whimsyEditing;
+    let bar = document.getElementById(EDIT_BAR_ID);
+    if (!bar && !editing) {
+      return;
     }
-    pill.hidden = !editing;
+    if (!bar) {
+      bar = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+      bar.id = EDIT_BAR_ID;
+      bar.setAttribute("role", "toolbar");
+      document.l10n.setAttributes(bar, "whimsy-edit-page-bar");
+      const helper = document.createElementNS(bar.namespaceURI, "span");
+      document.l10n.setAttributes(helper, "whimsy-edit-page-helper");
+      bar.append(helper);
+      for (const [action, key] of [["cancel", "esc"], ["save", "⌘↩"]]) {
+        const button = document.createElementNS(bar.namespaceURI, "button");
+        button.type = "button";
+        button.className = `whimsy-edit-page-${action}`;
+        const label = document.createElementNS(bar.namespaceURI, "span");
+        document.l10n.setAttributes(label, `whimsy-edit-page-${action}`);
+        const hint = document.createElementNS(bar.namespaceURI, "kbd");
+        hint.textContent = key;
+        button.append(label, hint);
+        button.addEventListener("click", () => this.toggleEditing(win, false, action == "save"));
+        bar.append(button);
+      }
+      bar.hidden = true;
+    }
+    // Anchor inside the selected tab's content stack, never the URL bar.
+    const stack = browser.closest(".browserStack");
+    const changedTab = bar.parentNode != stack;
+    if (editing && stack && changedTab) {
+      stack.append(bar);
+    }
+    if (bar._editing == editing && !changedTab) {
+      return;
+    }
+    bar._editing = editing;
+    bar._motion?.cancel();
+    bar._motion = null;
+    bar.removeAttribute("entering");
+    bar.removeAttribute("exiting");
+    const reduced = win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!editing && (changedTab || reduced)) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    if (!reduced) {
+      bar.setAttribute(editing ? "entering" : "exiting", "");
+      const frames = [
+        { opacity: 0, transform: "translateY(8px)" },
+        { opacity: 1, transform: "translateY(0)" },
+      ];
+      const motion = bar.animate(editing ? frames : frames.reverse(), { duration: 160, easing: "ease-out" });
+      bar._motion = motion;
+      motion.finished.then(() => {
+        if (bar._motion == motion) {
+          bar.removeAttribute("entering");
+          bar.removeAttribute("exiting");
+          bar.hidden = !editing;
+        }
+      }).catch(() => {});
+    }
   },
 
   // --- Allow copy and paste ---
