@@ -87,6 +87,26 @@ HOTFIXES = [
                "          ChromeUtils.importESModule(\"resource:///modules/whimsy/WhimsySpaceExtensions.sys.mjs\")\n"
                "            .WhimsySpaceExtensions.isVisibleInWindow(addon.id, window) &&",
     },
+    {
+        "id": "command-bar-ranking-candidates",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "The shared muxer ranks all command candidates before limiting rows.",
+        "old": "    return results.slice(0, MAX_RECENT_ACTIONS).map(r => r.action);",
+        "new": "    return Services.prefs.getBoolPref(\"whimsy.feature.command-bar-ranking\", true)\n"
+               "      ? results.map(r => r.action)\n"
+               "      : results.slice(0, MAX_RECENT_ACTIONS).map(r => r.action);",
+    },
+    {
+        "id": "command-bar-ranking-normalization",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "Accent-insensitive exact and prefix candidates must reach the shared ranker.",
+        "old": "    const targetLower = target.toLowerCase();\n    const queryLower = query.toLowerCase();\n    const targetLen = target.length;\n    const queryLen = query.length;",
+        "new": "    const fold = value => Services.prefs.getBoolPref(\"whimsy.feature.command-bar-ranking\", true)\n"
+               "      ? value.normalize(\"NFD\").replace(/\\p{M}/gu, \"\").toLowerCase()\n"
+               "      : value.toLowerCase();\n"
+               "    const targetLower = fold(target);\n    const queryLower = fold(query);\n"
+               "    const targetLen = targetLower.length;\n    const queryLen = queryLower.length;",
+    },
     # W25 designfix: Hide Sidebar (⌘S) and the chat panel (⌘E) move with
     # one duration and easing. Zen's compact-mode toggle runs a 0.1s spring;
     # it asks Whimsy's window.gWhimsySidebarMotion (WhimsyChatPanel.initWindow)
@@ -2048,6 +2068,8 @@ FEATURES = [
     # W10-27: the floating command bar's open/close motion.
     {"id": "command-bar-motion", "title": "Command bar: a quick, subtle open and close (160ms in, 110ms out; a plain fade with Reduce Motion)",
      "detect": [("src/zen/urlbar", r"(?i)(urlbar|command-?bar)-?(open|close)-?(animation|motion)")]},
+    {"id": "command-bar-ranking", "title": "One stable command ranking: exact, prefix, word-prefix, and other matches",
+     "detect": [("src/zen/urlbar", r"(?i)rankCommandResults|commandMatchTier")]},
     {"id": "command-bar-dedup", "title": "Command bar: one row per page title on Figma, Notion, GitHub and Arc's other 7 hosts (Arc's dedupByTitleAndHost)",
      "detect": [("src/zen/urlbar", r"(?i)dedup")]},
     {"id": "arc-menus", "title": "Arc's menu bar: a Tabs menu, Arc's names (Hide Sidebar, Blank Window, New Space..., Undo Archive Tab), Show Toolbar, Reveal Tab in Sidebar, Capture in Portrait Mode, Help > Essential Keyboard Shortcuts",

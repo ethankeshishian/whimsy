@@ -296,3 +296,35 @@ add_task(async function test_settings_plain_subtitle() {
     ok(help.textContent.includes("shared by every profile"), "Settings says plainly what isn't separate");
   });
 });
+
+
+add_task(async function command_rows_follow_space_profile_visibility() {
+  const { ZenUrlbarProviderGlobalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBActionsProvider.sys.mjs");
+  const originalSpace = gZenWorkspaces.activeWorkspace;
+  const before = new Set(gBrowser.tabs);
+  const query = "";
+  const rowsIn = async space => {
+    await gZenWorkspaces.changeWorkspaceWithID(space.uuid);
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == space.uuid,
+      "The target space is active before querying extensions");
+    await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+    const rows = [];
+    await new ZenUrlbarProviderGlobalActions().startQuery({
+      searchString: query, trimmedLowerCaseSearchString: query,
+      searchMode: { source: ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs").UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS },
+    }, (_, result) => rows.push(result));
+    return rows.filter(r => r.payload.extensionId == extensionId);
+  };
+  try {
+    WhimsySpaceExtensions.setAllowedProfiles(extensionId, [containerKey]);
+    is((await rowsIn(firstSpace)).length, 0, "Hidden extension contributes no command rows in the default space");
+    is((await rowsIn(containerSpace)).length, 1, "The same extension contributes its action in its allowed space");
+    is((await rowsIn(firstSpace)).length, 0, "Switching back hides the extension command again");
+  } finally {
+    WhimsySpaceExtensions.setAllowedProfiles(extensionId, null);
+    for (const tab of gBrowser.tabs.filter(t => !before.has(t))) {
+      await BrowserTestUtils.removeTab(tab);
+    }
+    await gZenWorkspaces.changeWorkspaceWithID(originalSpace);
+  }
+});

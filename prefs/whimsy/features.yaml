@@ -501,6 +501,9 @@
 - name: whimsy.feature.command-bar-motion
   value: true
 
+- name: whimsy.feature.command-bar-ranking
+  value: true
+
 - name: whimsy.feature.command-bar-dedup
   value: true
 
