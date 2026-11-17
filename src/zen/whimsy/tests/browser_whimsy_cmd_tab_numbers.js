@@ -10,6 +10,9 @@ const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy
 const { WhimsySpaceSwitchQueue } = ChromeUtils.importESModule(
   "resource:///modules/whimsy/WhimsySpaceSwitchQueue.sys.mjs"
 );
+const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+UrlbarTestUtils.init(this);
+
 let win, root;
 const showing = () => root.hasAttribute("whimsy-tab-numbers");
 const badge = tab => Numbers.hint(win, tab);
@@ -528,9 +531,17 @@ add_task(async function tab_hints_follow_sidebar_colour_with_contrasting_ink() {
       root.style.setProperty("--toolbox-textcolor", color);
       await hold();
       await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "Hints faded in");
+      // Resolve the same sidebar token as the implementation: theme rules can
+      // override the requested inline value in this window.
+      const probe = win.document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+      probe.style.color = "var(--toolbox-textcolor)";
+      probe.hidden = true;
+      root.append(probe);
+      const sidebarText = win.getComputedStyle(probe).color;
+      probe.remove();
       for (const node of Numbers.layer(win).querySelectorAll(".hint")) {
         const style = win.getComputedStyle(node);
-        is(style.backgroundColor, color, "Tab hints use the sidebar text colour, not the space accent");
+        is(style.backgroundColor, sidebarText, "Tab hints use the sidebar text colour, not the space accent");
         const luminance = value => {
           const { r, g, b } = win.InspectorUtils.colorToRGBA(value);
           const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;

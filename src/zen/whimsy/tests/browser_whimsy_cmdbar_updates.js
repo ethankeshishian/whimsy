@@ -251,14 +251,41 @@ add_task(async function cmd_digit_picks_row_while_open() {
   ok(!gURLBar.view.isOpen, "⌘1 picked the first row and closed the bar");
 });
 
+// Resolve translucent text and surfaces before measuring contrast.
+function over(foreground, background) {
+  const f = InspectorUtils.colorToRGBA(foreground);
+  const b = InspectorUtils.colorToRGBA(background);
+  const a = f.a + b.a * (1 - f.a);
+  const channel = c => a ? (f[c] * f.a + b[c] * b.a * (1 - f.a)) / a : 0;
+  return `rgba(${channel("r")}, ${channel("g")}, ${channel("b")}, ${a})`;
+}
+
+function rowSurface(node) {
+  const color = getComputedStyle(node).backgroundColor;
+  if (InspectorUtils.colorToRGBA(color).a == 1) {
+    return color;
+  }
+  ok(node.parentElement, "The command bar has an opaque backing surface");
+  return over(color, node.parentElement ? rowSurface(node.parentElement) : "white");
+}
+
+function resolvedColor(node, token) {
+  const probe = document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+  probe.style.color = `var(${token})`;
+  probe.hidden = true;
+  node.append(probe);
+  const color = getComputedStyle(probe).color;
+  probe.remove();
+  return color;
+}
+
 function numberContrast(foreground, background) {
   const luminance = color => {
-    const { r, g, b, a } = InspectorUtils.colorToRGBA(color);
-    is(a, 1, "Number keycap colours are opaque");
+    const { r, g, b } = InspectorUtils.colorToRGBA(color);
     const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
     return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
   };
-  const f = luminance(foreground), b = luminance(background);
+  const f = luminance(over(foreground, background)), b = luminance(background);
   return (Math.max(f, b) + 0.05) / (Math.min(f, b) + 0.05);
 }
 
@@ -277,14 +304,58 @@ add_task(async function hold_cmd_shows_readable_numbers_in_both_schemes() {
       for (const [i, row] of numbered.entries()) {
         const inner = row.querySelector(".urlbarView-row-inner");
         is(row.getAttribute("whimsy-num"), `⌘${i + 1}`, "Rows count from one");
+        let normalSize;
         for (const selected of [false, true]) {
           row.toggleAttribute("selected", selected);
           const style = getComputedStyle(inner, "::after");
           is(style.content, `"⌘${i + 1}"`, "The painted pseudo-element contains its number");
           ok(parseFloat(style.height) >= 14, "The number box is at least 14px tall");
           ok(parseFloat(style.fontSize) >= 11, "The digit has readable type");
-          ok(numberContrast(style.color, style.backgroundColor) >= 4.5,
+          is(InspectorUtils.colorToRGBA(style.backgroundColor).a, 0, "The key hint has no solid fill");
+          is(style.color, resolvedColor(inner, selected ? "--whimsy-on-accent" : "--whimsy-ask-text-2"),
+            "The key hint uses on-accent or secondary-text ink");
+          is(style.borderTopWidth, "1px", "The key hint has a hairline outline");
+          is(style.borderTopStyle, "solid", "The outline is solid");
+          is(style.borderTopColor, style.color, "The outline follows the key hint ink");
+          is(style.alignSelf, "center", "The key hint is vertically centred");
+          is(style.marginInlineEnd, "6px", "The row end padding is kept");
+          const size = [style.height, style.minWidth, style.padding, style.fontSize].join("/");
+          if (selected) {
+            is(size, normalSize, "Selection keeps the same badge size");
+          } else {
+            normalSize = size;
+          }
+          ok(numberContrast(style.color, rowSurface(inner)) >= 4.5,
             `${dark ? "Dark" : "Light"} ${selected ? "selected" : "normal"} number meets AA`);
+          if (selected) {
+            const buttons = [...row.querySelectorAll(".whimsy-update-btn:not([hidden])")];
+            is(buttons.length, 3, "Open, Remind me, and Dismiss are covered");
+            for (const state of ["normal", ":hover", ":active", "selected"]) {
+              for (const button of buttons) {
+                try {
+                  if (state.startsWith(":")) {
+                    InspectorUtils.addPseudoClassLock(button, state);
+                  } else if (state == "selected") {
+                    button.setAttribute("selected", "");
+                  }
+                  const action = getComputedStyle(button);
+                  is(action.color, resolvedColor(inner, "--whimsy-on-accent"), "Each selected-row action uses on-accent ink");
+                  ok(numberContrast(action.color, rowSurface(button)) >= 4.5,
+                    `${dark ? "Dark" : "Light"} ${button.className} ${state} meets AA`);
+                  if (state == "normal") {
+                    is(action.backgroundColor, getComputedStyle(buttons[0]).backgroundColor,
+                      "Open, Remind me, and Dismiss share a surface");
+                  }
+                } finally {
+                  if (state.startsWith(":")) {
+                    InspectorUtils.removePseudoClassLock(button, state);
+                  } else if (state == "selected") {
+                    button.removeAttribute("selected");
+                  }
+                }
+              }
+            }
+          }
         }
         row.removeAttribute("selected");
         for (const tag of row.querySelectorAll(".urlbarView-action, .urlbarView-tag, .whimsy-update-time, .whimsy-update-needs")) {
