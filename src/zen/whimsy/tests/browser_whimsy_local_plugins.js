@@ -56,6 +56,15 @@ async function rescan() {
   return (await AddonManagerPrivate.getNewSideloads()).map(addon => addon.id);
 }
 
+async function closeAddonsTabs() {
+  for (const tab of [...gBrowser.tabs].filter(t => t.linkedBrowser?.currentURI?.spec?.startsWith("about:addons"))) {
+    if (gBrowser.tabs.length == 1) {
+      BrowserTestUtils.addTab(gBrowser, "about:blank");
+    }
+    await BrowserTestUtils.removeTab(tab);
+  }
+}
+
 // Exercise the real sideload prompt for both decisions. Wait until its
 // safety delay and all opening animations finish before synthesizing a click.
 async function answerPrompt(addon, run, fromAddons = false) {
@@ -131,9 +140,7 @@ add_setup(async function () {
   );
   registerCleanupFunction(async () => {
     await removeEverything();
-    for (const tab of [...gBrowser.tabs].filter(t => t.linkedBrowser.currentURI.spec.startsWith("about:addons"))) {
-      BrowserTestUtils.removeTab(tab);
-    }
+    await closeAddonsTabs();
     XPIDatabase.mustSign = realMustSign;
     for (const name of new Set([...Services.prefs.getChildList(""), ...before.keys()])) {
       const old = before.get(name);
@@ -188,9 +195,7 @@ add_task(async function test_plugin_loads_unsigned_after_approval() {
   ok(state?.enabled, "the startup state keeps it enabled");
   is(state?.path, dir, "loaded from its own folder");
 
-  for (const tab of gBrowser.tabs.filter(t => t.linkedBrowser.currentURI.spec.startsWith("about:addons"))) {
-    BrowserTestUtils.removeTab(tab);
-  }
+  await closeAddonsTabs();
 });
 
 add_task(async function test_changed_manifest_needs_approval_again() {
@@ -233,6 +238,7 @@ add_task(async function test_changed_manifest_needs_approval_again() {
   await IOUtils.remove(dir, { recursive: true });
   await rescan();
   is(await AddonManager.getAddonByID(id), null, "removing its folder removes the plugin");
+  await closeAddonsTabs();
 });
 
 add_task(async function test_refusal_and_disabled_state_survive_reload() {
@@ -281,6 +287,7 @@ add_task(async function test_refusal_and_disabled_state_survive_reload() {
   ok((await AddonManager.getAddonByID(id)).userDisabled, "metadata rescan preserves the user's off choice");
   await IOUtils.remove(dir, { recursive: true });
   await rescan();
+  await closeAddonsTabs();
 });
 
 add_task(async function test_manifest_v2_and_v3_run_after_approval() {
@@ -301,7 +308,61 @@ add_task(async function test_manifest_v2_and_v3_run_after_approval() {
     await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, `MV${version} runs after approval`);
     await IOUtils.remove(dir, { recursive: true });
     await rescan();
+    await closeAddonsTabs();
   }
+});
+
+add_task(async function test_open_addons_list_updates_on_rescan() {
+  const win = await BrowserAddonUI.openAddonsMgr("addons://list/extension");
+  const doc = win.document;
+  const list = doc.querySelector("addon-list");
+  ok(list, "Add-ons extension list is open before rescan");
+  // Make scrolling possible even when the profile has no other extensions.
+  // addon-list is an inline custom element; give its block parent the height.
+  doc.getElementById("main").style.minHeight = `${win.innerHeight + 2000}px`;
+  win.scrollTo({ top: 120, behavior: "instant" });
+  await TestUtils.waitForCondition(() => win.scrollY == 120, "Add-ons list is scrolled");
+
+  const id = "open-list@whimsy-plugins.test";
+  const dir = PathUtils.join(PLUGINS, "open-list");
+  await writeExtension(dir, manifestFor(id, { description: "first version" }));
+  ok((await rescan()).includes(id), "new plugin is found while Add-ons is open");
+  const addon = await AddonManager.getAddonByID(id);
+  await TestUtils.waitForCondition(
+    () => doc.querySelector(`addon-card[addon-id="${id}"]`)?.addon === addon &&
+      doc.querySelector(`addon-card[addon-id="${id}"] .addon-description`)?.textContent == "first version",
+    "new plugin card appears in the already-open Add-ons list"
+  );
+  const card = doc.querySelector(`addon-card[addon-id="${id}"]`);
+  is(win.document, doc, "Add-ons page was not reloaded");
+  is(doc.querySelector("addon-list"), list, "addon-list element was kept in place");
+  is(win.scrollY, 120, "scroll position is preserved when a plugin is added");
+  is(card.querySelector(".addon-description")?.textContent, "first version", "card shows initial description");
+
+  // A same-version manifest change also replaces the backend wrapper.
+  await writeExtension(dir, manifestFor(id, { description: "second version" }));
+  ok((await rescan()).includes(id), "changed plugin is found while Add-ons is open");
+  const updated = await AddonManager.getAddonByID(id);
+  await TestUtils.waitForCondition(
+    () => card.addon === updated &&
+      card.querySelector(".addon-description")?.textContent == "second version",
+    "changed plugin updates its card in the already-open Add-ons list"
+  );
+  is(win.document, doc, "Add-ons page was not reloaded on manifest change");
+  is(doc.querySelector("addon-list"), list, "manifest changes keep the existing list");
+  is(doc.querySelector(`addon-card[addon-id="${id}"]`), card, "manifest changes keep the existing card");
+  is(win.scrollY, 120, "scroll position is preserved when a plugin changes");
+  is(card.querySelector(".addon-description")?.textContent, "second version", "card shows updated description");
+  is(doc.querySelectorAll(`addon-card[addon-id="${id}"]`).length, 1, "rescan does not duplicate the card");
+
+  await IOUtils.remove(dir, { recursive: true });
+  await rescan();
+  await TestUtils.waitForCondition(
+    () => !doc.querySelector(`addon-card[addon-id="${id}"]`),
+    "removed plugin card disappears from the open Add-ons list"
+  );
+  is(win.scrollY, 120, "scroll position is preserved when a plugin is removed");
+  await closeAddonsTabs();
 });
 
 add_task(async function test_open_folder_command_and_setting() {

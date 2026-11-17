@@ -4,7 +4,7 @@ diff --git a/toolkit/mozapps/extensions/content/components/addon-card.mjs b/tool
 @@ -553,6 +553,19 @@
        }
      }
- 
+
 +    // A local plugin stays an extension; label its source on the card.
 +    let localLabel = card.querySelector(".whimsy-local-plugins-label");
 +    if (addon.installTelemetryInfo?.source == "whimsy-local-plugins") {
@@ -21,3 +21,27 @@ diff --git a/toolkit/mozapps/extensions/content/components/addon-card.mjs b/tool
      // Update the name.
      let name = this.addonNameEl;
      let setDisabledStyle = !(addon.isActive || addon.type === "theme");
+@@ -838,12 +851,22 @@
+     this.update();
+   }
+
+-  onInstalled() {
++  onInstalled(addon) {
+     // When a temporary addon is reloaded, onInstalled is triggered instead of
+     // onEnabled.
++    // Local rescans replace the wrapper without an onInstallEnded event.
++    // Keep the card and its controls in place while refreshing its data.
++    if (
++      addon?.installTelemetryInfo?.source == "whimsy-local-plugins" &&
++      this.addon !== addon
++    ) {
++      this.addon = addon;
++      this.details?.setAddon(addon);
++      this.closest("addon-list")?._updateAddon(addon);
++    }
+     this.reloading = false;
+     this.update();
+   }
+
+   onUninstalling() {
+     // Dispatch a remove event, the DetailView is listening for this to get us

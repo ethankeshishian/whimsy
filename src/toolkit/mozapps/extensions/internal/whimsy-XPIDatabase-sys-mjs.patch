@@ -110,3 +110,83 @@ diff --git a/toolkit/mozapps/extensions/internal/XPIDatabase.sys.mjs b/toolkit/m
    },
 
    /**
+@@ -3861,55 +3916,78 @@
+     }
+
+     let promises = [];
++    let whimsyInstalled = [];
++    let whimsyUninstalled = [];
+     for (let [id, addon] of currentVisible) {
+       // If we have a stored manifest for the add-on, it came from the
+       // startup data cache, and supersedes any previous XPIStates entry.
+       let xpiState =
+         !findManifest(addon.location, id) && addonStates.get(addon);
++      let previousAddon = previousVisible.get(id);
++      if (
++        addon.location.name == KEY_APP_WHIMSY_PLUGINS &&
++        previousAddon !== addon
++      ) {
++        whimsyInstalled.push(addon);
++      }
+
+       promises.push(
+-        this.applyStartupChange(addon, previousVisible.get(id), xpiState)
++        this.applyStartupChange(addon, previousAddon, xpiState)
+       );
+       previousVisible.delete(id);
+     }
+
+     if (promises.some(p => p)) {
+       XPIExports.XPIInternal.awaitPromise(Promise.all(promises));
+     }
+
+     for (let [id, addon] of previousVisible) {
+       if (addon.location) {
+         if (
+           addon.location.name === KEY_APP_BUILTINS ||
+           addon.location.name === KEY_APP_SYSTEM_BUILTINS
+         ) {
+           continue;
+         }
+         XPIExports.XPIInternal.BootstrapScope.get(addon).uninstall();
+         addon.location.removeAddon(id);
+         addon.visible = false;
+         addon.active = false;
++        if (addon.location.name == KEY_APP_WHIMSY_PLUGINS) {
++          whimsyUninstalled.push(addon);
++        }
+       }
+
+       lazy.AddonManagerPrivate.addStartupChange(
+         lazy.AddonManager.STARTUP_CHANGE_UNINSTALLED,
+         id
+       );
+     }
+
+     // Finally update XPIStates to match everything
+     for (let [locationName, locationAddons] of currentAddons) {
+       for (let [id, addon] of locationAddons) {
+         let xpiState = XPIExports.XPIInternal.XPIStates.getAddon(
+           locationName,
+           id
+         );
+         xpiState.syncWithDB(addon);
+       }
+     }
+     XPIExports.XPIInternal.XPIStates.save();
+     XPIDatabase.saveChanges();
+     XPIDatabase.rebuildingDatabase = false;
++    // Notify open about:addons views when a local-plugins rescan adds,
++    // updates, or removes a plugin.
++    for (let addon of whimsyInstalled) {
++      lazy.AddonManagerPrivate.callAddonListeners("onInstalled", addon.wrapper);
++    }
++    for (let addon of whimsyUninstalled) {
++      lazy.AddonManagerPrivate.callAddonListeners(
++        "onUninstalled",
++        addon.wrapper
++      );
++    }
+
+     if (aUpdateCompatibility || aSchemaChange) {
+       // Do some blocklist checks. These will happen after we've just saved everything,
