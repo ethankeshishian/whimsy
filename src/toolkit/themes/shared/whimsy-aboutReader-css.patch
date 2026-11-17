@@ -1,0 +1,35 @@
+diff --git a/toolkit/themes/shared/aboutReader.css b/toolkit/themes/shared/aboutReader.css
+--- a/toolkit/themes/shared/aboutReader.css
++++ b/toolkit/themes/shared/aboutReader.css
+@@ -1222,3 +1222,31 @@
+ .radiorow>label:hover::after {
+   border: none !important;
+ }
++
++/* Whimsy: article structures use Reader's existing type and color tokens. */
++.moz-reader-content .whimsy-reader-table {
++  width: 100%;
++  min-width: 0;
++  max-width: 100%;
++  overflow-x: auto;
++  margin-block: 1em;
++}
++
++.moz-reader-content .whimsy-reader-table > table {
++  margin: 0;
++}
++
++.moz-reader-content img.whimsy-reader-formula {
++  display: inline;
++  vertical-align: middle;
++  margin: 0;
++}
++
++.moz-reader-content math {
++  font-family: math;
++}
++
++.moz-reader-content math[display="block"] {
++  display: block;
++  overflow-x: auto;
++}

@@ -543,3 +543,10 @@ authorized targeted run; isolated old passes are not validation of these edits.
   and pgrep cannot access the process list in this sandbox. No mach, import,
   build, verify, commit, or background wait loop. Runtime durations and browser
   assertions still need the owner's harness. Changes remain on lane/w29-darksite.
+
+### 2026-11-16 — W29 reader rich article repair (browser validation blocked)
+
+- Added a registered local rich-article browser regression fixture/test before implementation: semantic tables/infoboxes, MathML and image fallbacks, figures/captions, references, clutter, and narrow-width scrolling. Added guided-reading MathML and optional light/dark screenshot coverage.
+- Added Readability, AboutReader, and Reader CSS overlay patches; protected article structures, normalized formula presentation, removed publishing/navigation clutter, kept reference targets in Reader, and contained every table in its own scroll viewport. Excluded MathML from guided-reading HTML wrapping. No Zen source edits, added controls, or commits.
+- Direct worker-parser checks: 13/13 pass; three existing fixture outputs unchanged. Syntax, manifest parsing, diff whitespace, and patch application checks pass.
+- Browser/consumer/visual checks not run: mandated `/tmp/w13/w24run.sh` is missing. Precheck also reports missing Zen strings in the engine setup. No mach/build/import workaround was attempted. See root `RESULT.md` for cause, fix, coverage, and pending validation.

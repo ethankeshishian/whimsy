@@ -1,0 +1,55 @@
+diff --git a/toolkit/components/reader/AboutReader.sys.mjs b/toolkit/components/reader/AboutReader.sys.mjs
+--- a/toolkit/components/reader/AboutReader.sys.mjs
++++ b/toolkit/components/reader/AboutReader.sys.mjs
+@@ -1353,18 +1353,15 @@
+   },
+ 
+   _updateWideTables() {
+-    let windowWidth = this._win.innerWidth;
+-
+-    // Avoid horizontal overflow in the document by making tables that are wider than half browser window's size
+-    // by making it scrollable.
+-    let tables = this._doc.querySelectorAll(this._TABLES_SELECTOR);
+-    for (let i = tables.length; --i >= 0; ) {
+-      let table = tables[i];
+-      let rect = table.getBoundingClientRect();
+-      let tableWidth = rect.width;
+-
+-      if (windowWidth / 2 <= tableWidth) {
+-        table.classList.add("moz-reader-wide-table");
++    // Whimsy: a table's min-content width can exceed the article at any
++    // window/font setting. Contain every table, preserving table semantics
++    // and avoiding a one-time measurement that goes stale after reflow.
++    for (const table of this._doc.querySelectorAll(this._TABLES_SELECTOR)) {
++      if (!table.parentElement.classList.contains("whimsy-reader-table")) {
++        const wrapper = this._doc.createElement("div");
++        wrapper.className = "whimsy-reader-table";
++        table.before(wrapper);
++        wrapper.append(table);
+       }
+     }
+   },
+@@ -1501,6 +1498,23 @@
+     );
+     this._contentElement.innerHTML = "";
+     this._contentElement.appendChild(contentFragment);
++    // Whimsy: sanitized relative links resolve against the source article.
++    // Keep surviving footnotes and section links in this reader document.
++    const sourceURL = new URL(article.url);
++    sourceURL.hash = "";
++    for (const link of this._contentElement.querySelectorAll("a[href]")) {
++      try {
++        const url = new URL(link.getAttribute("href"), article.url);
++        const hash = url.hash;
++        url.hash = "";
++        const target = hash && this._doc.getElementById(decodeURIComponent(hash.slice(1)));
++        if (url.href === sourceURL.href && target && this._contentElement.contains(target)) {
++          link.href = this._win.location.href.split("#")[0] + hash;
++        }
++      } catch (e) {
++        // A malformed URL or fragment remains a normal source link.
++      }
++    }
+     this._maybeSetTextDirection(article);
+     this._languageDeferred.resolve(article.detectedLanguage);
+ 
