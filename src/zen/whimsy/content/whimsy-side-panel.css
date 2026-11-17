@@ -93,7 +93,9 @@
   }
 }
 
-/* Physical edges stay under the pointer on either sidebar side. */
+/* Keep hit areas inside the browser panel. A center on its right/bottom
+   boundary belongs to the underlying browser, so those grips cannot receive
+   mousedown (or the double-click that resets geometry). */
 .whimsy-side-panel-grip {
   position: absolute;
   z-index: 3;
@@ -110,12 +112,12 @@
   &:is([data-edge="e"], [data-edge="w"]) {
     top: 12px;
     bottom: 12px;
-    right: -5px;
+    right: 0;
     width: 10px;
     cursor: ew-resize;
     &::before { top: calc(50% - 22px); left: 3px; width: 4px; height: 44px; }
   }
-  &[data-edge="w"] { right: auto; left: -5px; }
+  &[data-edge="w"] { right: auto; left: 0; }
   &:is([data-edge="n"], [data-edge="s"]) {
     left: 12px;
     right: 12px;
@@ -123,10 +125,10 @@
     cursor: ns-resize;
     &::before { left: calc(50% - 22px); top: 3px; width: 44px; height: 4px; }
   }
-  &[data-edge="n"] { top: -5px; }
-  &[data-edge="s"] { bottom: -5px; }
+  &[data-edge="n"] { top: 0; }
+  &[data-edge="s"] { bottom: 0; }
   &:is([data-edge="ne"], [data-edge="se"], [data-edge="nw"], [data-edge="sw"]) {
-    right: -6px;
+    right: 0;
     width: 20px;
     height: 20px;
     &::before {
@@ -138,27 +140,27 @@
     }
   }
   &[data-edge="ne"] {
-    top: -6px;
+    top: 0;
     cursor: nesw-resize;
     &::before { top: 4px; border-top: 3px solid var(--zen-accent-button-background, var(--whimsy-chat-accent-bg)); border-radius: 0 6px 0 0; }
   }
   &[data-edge="se"] {
-    bottom: -6px;
+    bottom: 0;
     cursor: nwse-resize;
     &::before { bottom: 4px; border-bottom: 3px solid var(--zen-accent-button-background, var(--whimsy-chat-accent-bg)); border-radius: 0 0 6px 0; }
   }
   &:is([data-edge="nw"], [data-edge="sw"]) {
     right: auto;
-    left: -6px;
+    left: 0;
     &::before { transform: scaleX(-1); }
   }
   &[data-edge="nw"] {
-    top: -6px;
+    top: 0;
     cursor: nwse-resize;
     &::before { top: 4px; border-top: 3px solid var(--zen-accent-button-background, var(--whimsy-chat-accent-bg)); border-radius: 0 6px 0 0; }
   }
   &[data-edge="sw"] {
-    bottom: -6px;
+    bottom: 0;
     cursor: nesw-resize;
     &::before { bottom: 4px; border-bottom: 3px solid var(--zen-accent-button-background, var(--whimsy-chat-accent-bg)); border-radius: 0 0 6px 0; }
   }

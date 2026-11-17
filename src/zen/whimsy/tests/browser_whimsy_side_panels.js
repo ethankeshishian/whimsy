@@ -28,6 +28,61 @@ const widthOf = tab => Math.round(box(tab).getBoundingClientRect().width);
 const startTabs = new Set(gBrowser.tabs);
 let home;
 
+// File-level cleanup runs too late: leaving each task's Essentials alive hits
+// Zen's 12-Essential cap before the Glance repro can even start. Always unwind
+// the task, including a failed assertion/await or an interrupted drag.
+function addPanelTask(task) {
+  const wrapped = async function () {
+    const tabs = new Set([...gBrowser.tabs, ...(gZenWorkspaces.allStoredTabs ?? [])]);
+    const prefs = PREFS.map(name => {
+      const type = Services.prefs.getPrefType(name);
+      return { name, type, value: Services.prefs.prefHasUserValue(name) ? whimsyReadPref(name, type) : undefined };
+    });
+    const { outerWidth, outerHeight } = window;
+    try {
+      await task();
+    } finally {
+      sp().hide({ animate: false });
+      ok(!sp().cancelDrag && !sp().dragSize, "Task leaves no drag listeners or transient geometry");
+      ok(!document.querySelector(".whimsy-side-panel-drag-shield"), "Task leaves no input shield");
+      // Also cancel if a future bug makes hide return before cancelling.
+      sp().cancelDrag?.();
+      sp().pressed = null;
+      sp().glanceSession = null;
+      await gZenGlanceManager.closeGlance({ onTabClose: true, skipPermitUnload: true });
+      for (const menu of [document.getElementById("tabContextMenu"), chat().headMenu]) {
+        if (menu?.state == "open" || menu?.state == "showing") {
+          menu.hidePopup();
+        }
+      }
+      chat().close({ reason: "test" });
+      gBrowser.selectedTab = home;
+      for (const tab of new Set([...gBrowser.tabs, ...(gZenWorkspaces.allStoredTabs ?? [])])) {
+        if (tabs.has(tab)) {
+          continue;
+        }
+        if (tab.hasAttribute("zen-essential")) {
+          gZenPinnedTabManager.removeEssentials(tab);
+        }
+        if (!tab.closing && tab.isConnected) {
+          await BrowserTestUtils.removeTab(tab);
+        }
+      }
+      for (const { name, type, value } of prefs) {
+        if (value === undefined) {
+          Services.prefs.clearUserPref(name);
+        } else {
+          whimsyWritePref(name, type, value);
+        }
+      }
+      WhimsyAIProviders.setTestProvider(null);
+      window.resizeTo(outerWidth, outerHeight);
+    }
+  };
+  Object.defineProperty(wrapped, "name", { value: task.name });
+  add_task(wrapped);
+}
+
 async function settle(tab) {
   await TestUtils.waitForCondition(
     () => !box(tab) || box(tab).getAnimations().every(a => a.playState != "running"),
@@ -37,6 +92,8 @@ async function settle(tab) {
 
 async function makeEssential(url) {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
+  info(`makeEssential: count=${gBrowser._numZenEssentials} limit=${gZenPinnedTabManager.maxEssentialTabs}`);
+  ok(gZenPinnedTabManager.canEssentialBeAdded(tab), "Essential setup has capacity and the correct container");
   gZenPinnedTabManager.addToEssentials(tab);
   await TestUtils.waitForCondition(() => tab.hasAttribute("zen-essential"), "An Essential");
   gBrowser.selectedTab = home;
@@ -93,7 +150,7 @@ add_setup(async function () {
   });
 });
 
-add_task(async function click_shows_beside_sidebar_without_selecting() {
+addPanelTask(async function click_shows_beside_sidebar_without_selecting() {
   const ess = await makeEssential("https://example.org/?mail");
   const pageWidth = home.linkedBrowser.getBoundingClientRect().width;
   await clickTile(ess, true);
@@ -115,7 +172,7 @@ add_task(async function click_shows_beside_sidebar_without_selecting() {
   is(gBrowser.selectedTab, home, "and nothing was selected");
 });
 
-add_task(async function page_click_and_tab_switch_keep_floating() {
+addPanelTask(async function page_click_and_tab_switch_keep_floating() {
   const ess = await makeEssential("https://example.org/?chat");
   await clickTile(ess, true);
   await SpecialPowers.spawn(home.linkedBrowser, [], () => {
@@ -139,7 +196,7 @@ add_task(async function page_click_and_tab_switch_keep_floating() {
   await TestUtils.waitForCondition(() => !sp().tab, "Closing the Essential hides it");
 });
 
-add_task(async function esc_goes_to_the_site_and_hide_button_hides() {
+addPanelTask(async function esc_goes_to_the_site_and_hide_button_hides() {
   const ess = await makeEssential("https://example.org/?esc");
   // The first show reloads it once with the phone user agent.
   const loaded = BrowserTestUtils.browserLoaded(ess.linkedBrowser);
@@ -168,7 +225,7 @@ add_task(async function esc_goes_to_the_site_and_hide_button_hides() {
   is(document.activeElement, home.linkedBrowser, "Focus goes back to the page");
 });
 
-add_task(async function switching_sites_keeps_pages_and_phone_layout() {
+addPanelTask(async function switching_sites_keeps_pages_and_phone_layout() {
   const a = await makeEssential("https://example.org/?a");
   const b = await makeEssential("https://example.com/?b");
   const loaded = BrowserTestUtils.browserLoaded(a.linkedBrowser);
@@ -195,7 +252,7 @@ add_task(async function switching_sites_keeps_pages_and_phone_layout() {
   gBrowser.selectedTab = home;
 });
 
-add_task(async function menu_checkbox_and_open_in_tab() {
+addPanelTask(async function menu_checkbox_and_open_in_tab() {
   const ess = await makeEssential("https://example.org/?menu");
   let menu = await openTabMenu(ess);
   const item = document.getElementById("context_whimsySidePanel");
@@ -242,28 +299,57 @@ add_task(async function menu_checkbox_and_open_in_tab() {
   ok(!ess.hasAttribute(WhimsySidePanel.OFF_ATTR), "on again");
 });
 
-async function drag(tab, dx, dy = 0, edge = "e") {
-  const g = box(tab).querySelector(`[data-edge="${edge}"]`);
-  const rect = g.getBoundingClientRect();
+// Hit-test the actual grip on press. Subsequent events belong to the chrome
+// window, using screen coordinates even beyond the window (clamp coverage).
+function pointerAt(target) {
+  const rect = target.getBoundingClientRect();
   const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
-  EventUtils.synthesizeMouseAtPoint(x, y, { type: "mousedown" });
-  EventUtils.synthesizeMouseAtPoint(x + dx / 2, y + dy / 2, { type: "mousemove" });
-  EventUtils.synthesizeMouseAtPoint(x + dx, y + dy, { type: "mousemove" });
-  EventUtils.synthesizeMouseAtPoint(x + dx, y + dy, { type: "mouseup" });
+  is(document.elementFromPoint(x, y), target, "Pointer hits the visible drag control");
+  let start;
+  const capture = e => { start = { screenX: e.screenX, screenY: e.screenY }; };
+  window.addEventListener("mousedown", capture, { capture: true, once: true });
+  try {
+    EventUtils.synthesizeMouseAtCenter(target, { type: "mousedown", clickCount: 1 });
+  } finally {
+    window.removeEventListener("mousedown", capture, true);
+  }
+  ok(start, "Press reaches the chrome window");
+  return start;
+}
+
+function pointerMove(start, dx, dy, type = "mousemove") {
+  window.dispatchEvent(new MouseEvent(type, {
+    bubbles: true, cancelable: true, button: 0,
+    buttons: type == "mouseup" ? 0 : 1,
+    screenX: start.screenX + dx, screenY: start.screenY + dy,
+  }));
+}
+
+async function drag(tab, dx, dy = 0, edge = "e") {
+  const start = pointerAt(box(tab).querySelector(`[data-edge="${edge}"]`));
+  try {
+    pointerMove(start, dx / 2, dy / 2);
+    pointerMove(start, dx, dy);
+    pointerMove(start, dx, dy, "mouseup");
+  } finally {
+    sp().cancelDrag?.();
+  }
   await settle(tab);
 }
 
 async function moveHeader(tab, dx, dy) {
-  const rect = box(tab).querySelector(".whimsy-side-panel-host").getBoundingClientRect();
-  const x = rect.x + 10, y = rect.y + rect.height / 2;
-  EventUtils.synthesizeMouseAtPoint(x, y, { type: "mousedown" });
-  EventUtils.synthesizeMouseAtPoint(x + dx, y + dy, { type: "mousemove" });
-  EventUtils.synthesizeMouseAtPoint(x + dx, y + dy, { type: "mouseup" });
+  const start = pointerAt(box(tab).querySelector(".whimsy-side-panel-host"));
+  try {
+    pointerMove(start, dx, dy);
+    pointerMove(start, dx, dy, "mouseup");
+  } finally {
+    sp().cancelDrag?.();
+  }
 }
 
 const saved = () => JSON.parse(Services.prefs.getStringPref(WIDTHS, "{}"));
 
-add_task(async function resize_is_clamped_and_kept_per_site() {
+addPanelTask(async function resize_is_clamped_and_kept_per_site() {
   const a = await makeEssential("https://example.org/?wide");
   const b = await makeEssential("https://example.com/?narrow");
   await clickTile(a, true);
@@ -271,7 +357,7 @@ add_task(async function resize_is_clamped_and_kept_per_site() {
   await TestUtils.waitForCondition(() => grip(a).getAttribute("aria-label") == "Resize side panel", "Named");
   await drag(a, 100);
   is(widthOf(a), 480, "Dragging the edge follows the pointer");
-  is(saved()["example.org"].width, 480, "and is kept for that site");
+  is(saved()["example.org"]?.width, 480, "and is kept for that site");
   await drag(a, 2000);
   is(widthOf(a), Math.floor(window.innerWidth / 2), "No wider than half the window");
   await drag(a, -2000);
@@ -301,7 +387,7 @@ add_task(async function resize_is_clamped_and_kept_per_site() {
   sp().hide({ animate: false });
 });
 
-add_task(async function minimize_keeps_state_and_expand_is_only_once() {
+addPanelTask(async function minimize_keeps_state_and_expand_is_only_once() {
   const ess = await makeEssential("https://example.org/?expand");
   const loaded = BrowserTestUtils.browserLoaded(ess.linkedBrowser);
   await clickTile(ess, true);
@@ -332,7 +418,7 @@ add_task(async function minimize_keeps_state_and_expand_is_only_once() {
   gBrowser.selectedTab = home;
 });
 
-add_task(async function close_tab_follows_focus() {
+addPanelTask(async function close_tab_follows_focus() {
   const ess = await makeEssential("https://example.org/?focus");
   await clickTile(ess, true);
   let count = gBrowser.tabs.length;
@@ -372,25 +458,31 @@ function readoutContrast(node) {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
-add_task(async function eight_grips_geometry_compatibility_and_shots() {
+addPanelTask(async function eight_grips_geometry_compatibility_and_shots() {
   Services.prefs.setStringPref(WIDTHS, JSON.stringify({ "example.org": 420 }));
   const ess = await makeEssential("https://example.org/?geometry");
   await clickTile(ess, true);
   is(widthOf(ess), 420, "Legacy numeric width reads correctly");
   for (const edge of ["e", "w", "n", "s", "ne", "nw", "se", "sw"]) {
-    Services.prefs.setStringPref(WIDTHS, JSON.stringify({ "example.org": { width: 380, height: 450, left: 240, top: 100 } }));
+    const available = document.getElementById("tabbrowser-tabpanels").clientHeight - 40;
+    const height = Math.min(450, available);
+    const top = 20 + Math.min(80, Math.max(0, available - height));
+    Services.prefs.setStringPref(WIDTHS, JSON.stringify({ "example.org": { width: 380, height, left: 240, top } }));
     const before = sp().geometry(ess);
     await drag(ess, edge.includes("w") ? -30 : 30, edge.includes("n") ? 40 : -40, edge);
     const after = sp().geometry(ess);
+    const rect = box(ess).getBoundingClientRect();
+    is(Math.round(rect.width), Math.round(after.width), `${edge}: rendered width follows geometry`);
+    is(Math.round(rect.height), Math.round(after.height), `${edge}: rendered height follows geometry`);
     is(after.width, before.width + (/[ew]/.test(edge) ? 30 : 0), `${edge}: correct width`);
-    is(after.height, before.height - (/[ns]/.test(edge) ? 40 : 0), `${edge}: correct height`);
-    is(after.top, before.top + (edge.includes("n") ? 40 : 0), `${edge}: top edge follows pointer`);
+    is(after.height, before.height - (/[ns]/.test(edge) ? Math.min(40, before.height - Math.min(320, available)) : 0), `${edge}: correct height`);
+    is(after.top, before.top + (edge.includes("n") ? Math.min(40, before.height - Math.min(320, available)) : 0), `${edge}: top edge follows pointer`);
     is(after.left + after.width * (edge.includes("w") ? 1 : 0), before.left + before.width * (edge.includes("w") ? 1 : 0), `${edge}: opposite horizontal edge fixed`);
     is(after.top + (edge.includes("n") ? after.height : 0), before.top + (edge.includes("n") ? before.height : 0), `${edge}: opposite vertical edge fixed`);
     Assert.deepEqual(saved()["example.org"], Object.fromEntries(Object.entries(after).map(([k, v]) => [k, Math.round(v)])), "Saves full geometry");
     await drag(ess, 0, edge.includes("n") ? 2000 : -2000, edge);
     if (/[ns]/.test(edge)) {
-      is(sp().geometry(ess).height, 320, "Height minimum");
+      is(sp().geometry(ess).height, Math.min(320, available), "Height minimum");
     }
     const g = box(ess).querySelector(`[data-edge="${edge}"]`);
     EventUtils.synthesizeMouseAtCenter(g, { clickCount: 2 });
@@ -409,19 +501,26 @@ add_task(async function eight_grips_geometry_compatibility_and_shots() {
   sp().resetWidth();
   for (const dark of [false, true]) {
     await whimsySetScheme(dark);
-    await settle(ess);
-    Assert.greaterOrEqual(readoutContrast(box(ess).querySelector(".whimsy-side-panel-size")), 4.5, "Readout ink meets AA in both schemes");
-    await whimsyShot(`w29-pip-${dark ? "dark" : "light"}`);
-    await SpecialPowers.popPrefEnv();
+    try {
+      await settle(ess);
+      Assert.greaterOrEqual(readoutContrast(box(ess).querySelector(".whimsy-side-panel-size")), 4.5, "Readout ink meets AA in both schemes");
+      await whimsyShot(`w29-pip-${dark ? "dark" : "light"}`);
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
   }
-  const g = grip(ess);
-  EventUtils.synthesizeMouseAtCenter(g, { type: "mousedown" });
-  EventUtils.synthesizeMouse(g, 35, 30, { type: "mousemove" });
-  ok(box(ess).hasAttribute("resizing"), "Readout only while dragging");
-  ok(box(ess).querySelector(".whimsy-side-panel-size").textContent.includes(" × "), "Size readout");
-  await whimsyShot("w29-pip-drag");
-  EventUtils.synthesizeMouse(g, 35, 30, { type: "mouseup" });
-  ok(!box(ess).hasAttribute("resizing"), "Readout hidden on release");
+  const start = pointerAt(grip(ess));
+  try {
+    pointerMove(start, 35, 30);
+    ok(box(ess).hasAttribute("resizing"), "Readout only while dragging");
+    ok(box(ess).querySelector(".whimsy-side-panel-size").textContent.includes(" × "), "Size readout");
+    await whimsyShot("w29-pip-drag");
+    pointerMove(start, 35, 30, "mouseup");
+    ok(!box(ess).hasAttribute("resizing"), "Readout hidden on release");
+    ok(!document.querySelector(".whimsy-side-panel-drag-shield"), "Release removes shield");
+  } finally {
+    sp().cancelDrag?.();
+  }
   const root = document.documentElement;
   const oldSide = root.getAttribute("zen-right-side");
   try {
@@ -447,7 +546,7 @@ add_task(async function eight_grips_geometry_compatibility_and_shots() {
   Services.prefs.clearUserPref(WIDTHS);
 });
 
-add_task(async function header_moves_clamps_persists_and_resets() {
+addPanelTask(async function header_moves_clamps_persists_and_resets() {
   const ess = await makeEssential("https://example.org/?move");
   const other = await makeEssential("https://example.com/?move-other");
   Services.prefs.setStringPref(WIDTHS, JSON.stringify({ "example.org": { width: 380, height: 400, top: 60 } }));
@@ -484,8 +583,11 @@ add_task(async function header_moves_clamps_persists_and_resets() {
   await moveHeader(ess, Math.round((panels.clientWidth - 380) / 2) - 20, 0);
   for (const dark of [false, true]) {
     await whimsySetScheme(dark);
-    await whimsyShot(`w29-pip-moved-${dark ? "dark" : "light"}`);
-    await SpecialPowers.popPrefEnv();
+    try {
+      await whimsyShot(`w29-pip-moved-${dark ? "dark" : "light"}`);
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
   }
   EventUtils.synthesizeMouseAtCenter(grip(ess), { clickCount: 2 });
   is(sp().geometry(ess).left, 20, "Grip double-click resets position");
@@ -494,9 +596,34 @@ add_task(async function header_moves_clamps_persists_and_resets() {
   Services.prefs.clearUserPref(WIDTHS);
 });
 
+addPanelTask(async function interrupted_drag_cleans_up_input_and_reset() {
+  const ess = await makeEssential("https://example.org/?cancel-drag");
+  await clickTile(ess, true);
+  for (const moving of [false, true]) {
+    const target = moving ? box(ess).querySelector(".whimsy-side-panel-host") : grip(ess);
+    const start = pointerAt(target);
+    pointerMove(start, 35, 30);
+    ok(document.querySelector(".whimsy-side-panel-drag-shield"), "Active drag shields content");
+    sp().hide({ animate: false });
+    ok(!sp().cancelDrag && !sp().dragSize, "Hide removes drag handlers and transient geometry");
+    ok(!document.querySelector(".whimsy-side-panel-drag-shield"), "Hide removes shield");
+    await clickTile(ess, true);
+    const before = sp().geometry(ess);
+    pointerMove(start, 100, 100);
+    pointerMove(start, 100, 100, "mouseup");
+    Assert.deepEqual(sp().geometry(ess), before, "A stale move/up cannot change a reopened popover");
+  }
+  const start = pointerAt(grip(ess));
+  pointerMove(start, 35, 0);
+  sp().resetWidth();
+  pointerMove(start, 100, 0, "mouseup");
+  is(sp().geometry(ess).width, 380, "Reset during drag survives a late release");
+  ok(!document.querySelector(".whimsy-side-panel-drag-shield"), "Reset removes shield");
+});
+
 // Exercise the real Glance lifecycle, including its nested tab and selection
 // bookkeeping; a synthetic GlanceOpen cannot reproduce those side effects.
-add_task(async function glance_from_popover_keeps_essential_routing() {
+addPanelTask(async function glance_from_popover_keeps_essential_routing() {
   const a = await makeEssential("https://example.org/?glance-parent");
   const b = await makeEssential("https://example.com/?glance-other");
   const state = (label, tab) => info(`${label}: ${JSON.stringify({
@@ -564,8 +691,9 @@ async function pressCmdE() {
   await settleChat();
 }
 
-add_task(async function chat_as_popover_toggle() {
+addPanelTask(async function chat_as_popover_toggle() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], ["whimsy.feature.ai-hints", false]] });
+  try {
   await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-side-panels-" + Date.now()));
   WhimsyAIProviders.setTestProvider(async function* () {
     yield { type: "text", delta: "Hello." };
@@ -616,5 +744,8 @@ add_task(async function chat_as_popover_toggle() {
   ok(!chatEl().hasAttribute("whimsy-popover"), "Off again: a column");
   chat().close({ reason: "key" });
   await settleChat();
-  await WhimsyAIStore._resetForTesting(null);
+  } finally {
+    await WhimsyAIStore._resetForTesting(null);
+    await SpecialPowers.popPrefEnv();
+  }
 });

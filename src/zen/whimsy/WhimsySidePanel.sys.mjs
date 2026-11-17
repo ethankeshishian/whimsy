@@ -513,10 +513,14 @@ class SidePanel {
     const box = this.container(tab);
     const grip = event.currentTarget;
     const edge = moving ? "" : grip.dataset.edge;
+    // Keep the pointer origin fixed for this manipulation.
+    const startX = event.screenX;
+    const startY = event.screenY;
     const start = this.geometry(tab);
     const panels = this.doc.getElementById("tabbrowser-tabpanels");
     const clamp = (n, min, max) => Math.max(min, Math.min(n, max));
     let active = !moving;
+    let ended = false;
     let shield;
     const activate = () => {
       for (const animation of box.getAnimations()) {
@@ -532,8 +536,11 @@ class SidePanel {
       grip.setAttribute("resizing", "true");
     };
     const apply = e => {
-      const dx = e.screenX - event.screenX;
-      const dy = e.screenY - event.screenY;
+      if (ended) {
+        return;
+      }
+      const dx = e.screenX - startX;
+      const dy = e.screenY - startY;
       if (!active) {
         if (Math.hypot(dx, dy) < 4) {
           return;
@@ -568,6 +575,10 @@ class SidePanel {
       this.layout();
     };
     const finish = () => {
+      if (ended) {
+        return;
+      }
+      ended = true;
       win.removeEventListener("mousemove", apply, true);
       win.removeEventListener("mouseup", up, true);
       win.removeEventListener("blur", finish);
@@ -582,11 +593,15 @@ class SidePanel {
       }
     };
     const up = e => {
-      if (active) {
-        apply(e);
-        this.saveGeometry(tab);
+      try {
+        if (active) {
+          apply(e);
+          this.saveGeometry(tab);
+        }
+      } finally {
+        // A failed pref write must not leave the shield or listeners alive.
+        finish();
       }
-      finish();
     };
     this.cancelDrag = finish;
     if (active) {
@@ -607,6 +622,7 @@ class SidePanel {
   }
 
   resetWidth() {
+    this.cancelDrag?.();
     const host = this.tab && hostOf(this.tab);
     if (!host) {
       return;
