@@ -234,7 +234,7 @@
     el.remove();
     anchor.setAttribute("aria-expanded", "false");
     anchor.removeAttribute("aria-controls");
-    if (restore && anchor.isConnected) { anchor.focus(); }
+    if (restore && anchor.isConnected) { anchor.focus({ preventScroll: true }); }
   }
 
   function usageRing(row, id) {
@@ -264,6 +264,15 @@
       svg.append(circle);
     }
     ring.append(svg);
+    // Keep keyboard activation on the same path as clicking the ring;
+    // cancel the native default so a key press cannot toggle it twice.
+    ring.addEventListener("keydown", event => {
+      if (event.key == "Enter" || event.key == " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) { ring.click(); }
+      }
+    });
     ring.addEventListener("click", () => {
       if (usagePopover?.anchor == ring) { closeUsage(); return; }
       closeUsage({ restore: false });
@@ -319,7 +328,7 @@
         window.removeEventListener("resize", reposition);
         document.removeEventListener("scroll", reposition, true);
       } };
-      el.focus();
+      el.focus({ preventScroll: true });
     });
   }
 

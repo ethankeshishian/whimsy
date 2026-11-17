@@ -993,6 +993,9 @@ add_task(async function account_labels_rings_and_card_in_both_schemes() {
       await inScheme(page, dark, async () => {
         page.$("whimsyAIProviderList").scrollIntoView({ block: "center" });
         await settled(page);
+        // Let the requested scroll reach the page before opening a popover
+        // whose outside-scroll handler intentionally dismisses it.
+        await new Promise(resolve => page.win.requestAnimationFrame(() => page.win.requestAnimationFrame(resolve)));
         const label = row(page, id).querySelector(".whimsy-ai-account-label");
         for (const pill of [label, row(page, "openai").querySelector(".whimsy-ai-resting")]) {
           const style = page.win.getComputedStyle(pill);
@@ -1002,13 +1005,17 @@ add_task(async function account_labels_rings_and_card_in_both_schemes() {
           ok(r.scrollWidth <= r.clientWidth, "Account names and subtitles fit the default card width");
         }
         const ring = row(page, "claude").querySelector(".whimsy-ai-usage-ring");
-        ring.focus();
-        EventUtils.synthesizeKey("KEY_Enter", {}, page.win);
-        await TestUtils.waitForCondition(() => page.$("whimsyAIUsagePopover"), "Keyboard opens usage");
+        ring.focus({ preventScroll: true });
+        is(page.doc.activeElement, ring, "The usage ring is keyboard reachable");
+        ok(ring.getAttribute("aria-label"), "The usage ring has an accessible label");
+        EventUtils.synthesizeKey(dark ? " " : "KEY_Enter", {}, page.win);
+        await TestUtils.waitForCondition(() => page.$("whimsyAIUsagePopover"), "Enter and Space open usage");
+        is(ring.getAttribute("aria-expanded"), "true", "The ring announces the open popover");
         await page.doc.l10n.translateFragment(page.$("whimsyAIUsagePopover"));
         await whimsyShot(`plans-accounts-card-${dark ? "dark" : "light"}`);
         EventUtils.synthesizeKey("KEY_Escape", {}, page.win);
         ok(!page.$("whimsyAIUsagePopover"), "Escape closes in both schemes");
+        is(page.doc.activeElement, ring, "Escape returns keyboard focus to the ring");
       });
     }
     const label = row(page, id).querySelector(".whimsy-ai-account-label");
