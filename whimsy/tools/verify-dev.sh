@@ -72,7 +72,7 @@ case $build_kind in
   faster) bcmd='./mach build faster';;
   backend) bcmd='./mach build-backend && ./mach build faster';;
   binaries) bcmd='./mach build binaries && ./mach build faster';;
-  *) bcmd='./mach build'; build_kind=full;;
+  *) bcmd='cd .. && npx surfer set brand release && npx surfer build'; build_kind=full;;  # surfer writes the branded mozconfig
 esac
 python3 $WHIMSY_TOOLS/buildstate.py begin $sha --by "verify-dev ${DEV//\//_}" 2>/dev/null
 (cd engine && eval "$bcmd") > $run/build.log 2>&1 || { step build red $(( $(date +%s) - ts )) $build_kind; red "build ($build_kind) failed: $(grep -m1 -E 'error:|failed' $run/build.log | cut -c1-200)"; }

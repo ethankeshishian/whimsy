@@ -54,6 +54,20 @@
       ]
     },
     {
+      "version": "1.24b-w3-dev.1159",
+      "date": "2026-11-17",
+      "title": "Several AI accounts and usage rings",
+      "new": [
+        "Connect more than one Claude or ChatGPT account in Settings > AI, each with its own sign-in and an editable label like Work or Personal.",
+        "When one account runs out, Whimsy moves on to the next account in your list before an answer starts."
+      ],
+      "improved": [
+        "A ring beside each plan account shows how much of its limit is used; click it to see 5-hour and weekly usage and when they reset.",
+        "Claude accounts show your plan name, such as Max or Pro.",
+        "The changelog lists every Dev build."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1150",
       "date": "2026-11-17",
       "title": "Gmail and Drive search",
