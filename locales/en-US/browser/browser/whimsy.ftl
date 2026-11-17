@@ -8955,3 +8955,13 @@ whimsy-ai-error-daily-quota = Gemini's free tier is used up for today.
 whimsy-ai-error-daily-quota-until = Gemini's free tier is used up for today. It resets at { $time }.
 whimsy-ai-error-plan-limit-until = Your { $provider } plan has no room left until { $time }.
 whimsy-ai-error-rate-limited-retry = { $provider } is busy. Try again in { $seconds } seconds.
+
+# Local folder extensions use Firefox's own permission descriptions.
+whimsy-local-plugins-label = Local plugins
+whimsy-local-plugins-open-folder = Open Plugins Folder
+whimsy-local-plugins-open-folder-button =
+    .label = Open Plugins Folder
+whimsy-local-plugins-run-header = Run the plugin “<>”?
+whimsy-local-plugins-can = It can:
+whimsy-local-plugins-run = Run
+whimsy-local-plugins-dont-run = Don't Run

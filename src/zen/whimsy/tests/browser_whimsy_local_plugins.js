@@ -7,7 +7,7 @@
 // approved): a folder for the owner's own unsigned extensions. Each real
 // folder in <profile>/whimsy-plugins is an unpacked WebExtension that loads
 // without a signature, turned off until approved through Firefox's own
-// permission prompt, and again for each new version. Signing stays required
+// permission prompt, and again for each manifest change. Signing stays required
 // everywhere else, and nothing reaches outside the folder (links, pointer
 // files, .xpi files). The engine scans the folder at startup; tests use the
 // same rescan Firefox runs for sideloads (getNewSideloads).
@@ -15,7 +15,7 @@
 const { AddonManager, AddonManagerPrivate } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
 const { ExtensionsUI } = ChromeUtils.importESModule("resource:///modules/ExtensionsUI.sys.mjs");
 const { XPIInternal } = ChromeUtils.importESModule("resource://gre/modules/addons/XPIProvider.sys.mjs");
-const { XPIDatabase } = ChromeUtils.importESModule("resource://gre/modules/addons/XPIDatabase.sys.mjs");
+const { XPIDatabase, AddonInternal } = ChromeUtils.importESModule("resource://gre/modules/addons/XPIDatabase.sys.mjs");
 const { Subprocess } = ChromeUtils.importESModule("resource://gre/modules/Subprocess.sys.mjs");
 
 const LOCATION = "whimsy-local-plugins";
@@ -56,6 +56,58 @@ async function rescan() {
   return (await AddonManagerPrivate.getNewSideloads()).map(addon => addon.id);
 }
 
+// Exercise the real sideload prompt for both decisions. Wait until its
+// safety delay and all opening animations finish before synthesizing a click.
+async function answerPrompt(addon, run, fromAddons = false) {
+  let toggle;
+  let manager;
+  if (fromAddons) {
+    manager = await BrowserAddonUI.openAddonsMgr("addons://list/extension");
+    await TestUtils.waitForCondition(() => manager.document.querySelector(`addon-card[addon-id="${addon.id}"]`)?.addon === addon, "current plugin card appears");
+    toggle = manager.document.querySelector(`addon-card[addon-id="${addon.id}"] moz-toggle[action="toggle-disabled"]`);
+    toggle.scrollIntoView();
+    await Promise.all(manager.document.getAnimations({ subtree: true }).map(a => a.finished));
+  }
+  const shown = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
+  if (fromAddons) {
+    EventUtils.synthesizeMouseAtCenter(toggle, {}, manager);
+  } else {
+    ExtensionsUI.showSideloaded(gBrowser, addon);
+  }
+  await shown;
+  const notification = PopupNotifications.panel.querySelector("popupnotification:not([hidden])");
+  is(notification?.id, "addon-webext-permissions-notification", "Firefox permission notification is reused");
+  const strings = notification.notification.options.customElementOptions.strings;
+  is(strings.header, "Run the plugin “<>”?", "Whimsy asks before running the named plugin");
+  is(strings.addonName, addon.name, "Firefox safely substitutes the plugin name");
+  is(strings.listIntro, "It can:", "permissions introduction");
+  is(notification.button.label, "Run", "affirmative label");
+  is(notification.secondaryButton.label, "Don't Run", "refusal label");
+  const button = run ? notification.button : notification.secondaryButton;
+  await TestUtils.waitForCondition(() => !button.disabled, "permission prompt safety delay has ended");
+  await Promise.all(PopupNotifications.panel.getAnimations({ subtree: true }).map(a => a.finished));
+  const response = fromAddons ? Promise.resolve() : new Promise(resolve => ExtensionsUI.once("sideload-response", resolve));
+  const hidden = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popuphidden");
+  EventUtils.synthesizeMouseAtCenter(button, {}, window);
+  await Promise.all([response, hidden]);
+  await TestUtils.waitForCondition(() => addon.seen && addon.userDisabled == !run, "the prompt decision is applied");
+  return strings;
+}
+
+// Reconstruct a stopped add-on from the same JSON and source/location data
+// used by XPIDatabase's startup loader, then exercise a filesystem rescan.
+async function reloadStoppedPlugin(id) {
+  const key = `${LOCATION}:${id}`;
+  const old = XPIDatabase.addonDB.get(key);
+  ok(old.userDisabled && !old.active, "only stopped plugins are reconstructed");
+  const data = JSON.parse(JSON.stringify(old));
+  data.location = XPIInternal.XPIStates.getLocation(data.location);
+  data._sourceBundle = old._sourceBundle;
+  XPIDatabase.addonDB.set(key, new AddonInternal(data));
+  await rescan();
+  return AddonManager.getAddonByID(id);
+}
+
 async function removeEverything() {
   await IOUtils.remove(PLUGINS, { recursive: true, ignoreAbsent: true });
   await IOUtils.remove(OUTSIDE, { recursive: true, ignoreAbsent: true });
@@ -79,6 +131,9 @@ add_setup(async function () {
   );
   registerCleanupFunction(async () => {
     await removeEverything();
+    for (const tab of [...gBrowser.tabs].filter(t => t.linkedBrowser.currentURI.spec.startsWith("about:addons"))) {
+      BrowserTestUtils.removeTab(tab);
+    }
     XPIDatabase.mustSign = realMustSign;
     for (const name of new Set([...Services.prefs.getChildList(""), ...before.keys()])) {
       const old = before.get(name);
@@ -119,26 +174,8 @@ add_task(async function test_plugin_loads_unsigned_after_approval() {
   ok(!(addon.permissions & AddonManager.PERM_CAN_UNINSTALL), "nothing removes it but deleting its folder");
   ok(!WebExtensionPolicy.getByID(id), "no extension is running");
 
-  // Approval is Firefox's own permission prompt for a sideloaded extension.
-  const shown = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
-  ExtensionsUI.showSideloaded(gBrowser, addon);
-  await shown;
-  const notification = PopupNotifications.panel.querySelector("popupnotification:not([hidden])");
-  is(notification?.id, "addon-webext-permissions-notification", "the extension permission prompt opens");
-  await TestUtils.waitForCondition(() => notification.textContent.includes("example.com"), "and lists the plugin's sites");
-  const enabled = new Promise(resolve => {
-    const listener = {
-      onEnabled(a) {
-        if (a.id == id) {
-          AddonManager.removeAddonListener(listener);
-          resolve();
-        }
-      },
-    };
-    AddonManager.addAddonListener(listener);
-  });
-  notification.button.click();
-  await enabled;
+  const strings = await answerPrompt(addon, true);
+  ok(strings.msgs.some(msg => msg.includes("example.com")), "Firefox describes the requested site");
   await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, "the plugin runs");
   is(WebExtensionPolicy.getByID(id).isPrivileged, false, "unprivileged at runtime too");
   const approved = await AddonManager.getAddonByID(id);
@@ -156,17 +193,20 @@ add_task(async function test_plugin_loads_unsigned_after_approval() {
   }
 });
 
-add_task(async function test_new_version_needs_approval_again() {
+add_task(async function test_changed_manifest_needs_approval_again() {
   const id = "hello@whimsy-plugins.test";
   const dir = PathUtils.join(PLUGINS, "hello");
   ok((await AddonManager.getAddonByID(id))?.isActive, "the approved plugin from the last task runs");
 
-  // An edit with the same version and no new permissions reloads quietly.
+  // Any manifest edit, even a description with unchanged permissions, asks again.
   await writeExtension(dir, manifestFor(id, { host_permissions: ["*://example.com/*"], description: "edited" }));
-  ok(!(await rescan()).includes(id), "a same-version edit asks nothing");
+  ok((await rescan()).includes(id), "a same-version manifest edit asks again");
   let addon = await AddonManager.getAddonByID(id);
   is(addon.description, "edited", "the edit is picked up");
-  is(addon.userDisabled, false, "and the plugin stays on");
+  is(addon.userDisabled, true, "the changed manifest cannot run before approval");
+  await TestUtils.waitForCondition(() => !WebExtensionPolicy.getByID(id), "the old plugin has stopped");
+  await answerPrompt(addon, true);
+  await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, "approved edit runs");
 
   // The same version asking for a new site needs approval.
   await writeExtension(dir, manifestFor(id, { host_permissions: ["*://example.com/*", "*://example.org/*"] }));
@@ -193,6 +233,114 @@ add_task(async function test_new_version_needs_approval_again() {
   await IOUtils.remove(dir, { recursive: true });
   await rescan();
   is(await AddonManager.getAddonByID(id), null, "removing its folder removes the plugin");
+});
+
+add_task(async function test_refusal_and_disabled_state_survive_reload() {
+  const id = "refused@whimsy-plugins.test";
+  const dir = PathUtils.join(PLUGINS, "refused");
+  const manifest = manifestFor(id, { permissions: ["tabs"] });
+  await writeExtension(dir, manifest);
+  ok((await rescan()).includes(id), "new plugin needs approval");
+  await answerPrompt(await AddonManager.getAddonByID(id), false);
+  let addon = await reloadStoppedPlugin(id);
+  ok(addon, "Don't Run keeps the plugin installed");
+  ok(addon.userDisabled && !addon.isActive, "Don't Run keeps it off after metadata reload");
+  ok(addon.seen, "the refusal is remembered");
+  ok(!(await rescan()).includes(id), "unchanged refused plugin is not offered again");
+  ok(!WebExtensionPolicy.getByID(id), "refused plugin never runs");
+
+  // Touching identical contents must preserve the refusal, too.
+  await writeExtension(dir, manifest);
+  ok(!(await rescan()).includes(id), "an unchanged manifest does not ask again");
+  ok((await AddonManager.getAddonByID(id)).userDisabled, "unchanged reload keeps the refusal");
+  await writeExtension(dir, { ...manifest, description: "changed after refusal" });
+  ok((await rescan()).includes(id), "a manifest change offers approval after refusal");
+  addon = await AddonManager.getAddonByID(id);
+  await answerPrompt(addon, true);
+  await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, "approved plugin runs");
+
+  // Use the actual Add-ons toggle to turn it off.
+  const win = await BrowserAddonUI.openAddonsMgr("addons://list/extension");
+  await TestUtils.waitForCondition(() => win.document.querySelector(`addon-card[addon-id="${id}"]`), "plugin card appears");
+  const card = win.document.querySelector(`addon-card[addon-id="${id}"]`);
+  const label = card.querySelector(".whimsy-local-plugins-label");
+  ok(label, "local plugin has a source label in Add-ons");
+  await win.document.l10n.translateElements([label]);
+  is(label.textContent, "Local plugins", "source label uses the requested Fluent copy");
+  const toggle = card.querySelector('moz-toggle[action="toggle-disabled"]');
+  ok(toggle, "Add-ons has its normal enable toggle");
+  toggle.scrollIntoView();
+  await Promise.all(win.document.getAnimations({ subtree: true }).map(a => a.finished));
+  EventUtils.synthesizeMouseAtCenter(toggle, {}, win);
+  await TestUtils.waitForCondition(() => card.addon.userDisabled && !card.addon.isActive && !WebExtensionPolicy.getByID(id), "Add-ons stops the plugin");
+  addon = await reloadStoppedPlugin(id);
+  ok(addon.userDisabled && !addon.isActive, "the Add-ons off switch survives startup metadata reconstruction");
+  ok(!XPIInternal.XPIStates.getLocation(LOCATION).get(id).enabled, "startup state keeps it off");
+  await writeExtension(dir, { ...manifest, description: "changed after refusal" });
+  ok(!(await rescan()).includes(id), "unchanged disabled plugin does not ask again");
+  ok((await AddonManager.getAddonByID(id)).userDisabled, "metadata rescan preserves the user's off choice");
+  await IOUtils.remove(dir, { recursive: true });
+  await rescan();
+});
+
+add_task(async function test_manifest_v2_and_v3_run_after_approval() {
+  for (const version of [2, 3]) {
+    const id = `mv${version}@whimsy-plugins.test`;
+    const dir = PathUtils.join(PLUGINS, `mv${version}`);
+    await writeExtension(dir, manifestFor(id, { manifest_version: version }));
+    ok((await rescan()).includes(id), `MV${version} plugin is discovered`);
+    const addon = await AddonManager.getAddonByID(id);
+    is(addon.manifestVersion, version, "requested manifest version loads");
+    ok(!addon.isActive, "approval is required even with no promptable permissions");
+    await answerPrompt(addon, false, true);
+    ok((await AddonManager.getAddonByID(id)).userDisabled, "Don't Run from Add-ons keeps the permissionless plugin off");
+    ok(!(await rescan()).includes(id), "Add-ons refusal is remembered without another prompt");
+    await writeExtension(dir, manifestFor(id, { manifest_version: version, description: "updated" }));
+    ok((await rescan()).includes(id), "changed permissionless manifest needs consent again");
+    await answerPrompt(await AddonManager.getAddonByID(id), true, true);
+    await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, `MV${version} runs after approval`);
+    await IOUtils.remove(dir, { recursive: true });
+    await rescan();
+  }
+});
+
+add_task(async function test_open_folder_command_and_setting() {
+  const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+  const { WhimsyLocalPlugins } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLocalPlugins.sys.mjs");
+  const actions = globalActions.filter(a => a.commandId == "cmd_whimsyOpenPluginsFolder");
+  is(actions.length, 1, "one Open Plugins Folder command");
+  is(actions[0].label, "Open Plugins Folder", "command name");
+  ok(actions[0].isAvailable(window), "command is offered with the feature on");
+  const launch = WhimsyLocalPlugins.launchFolder;
+  const opened = [];
+  WhimsyLocalPlugins.launchFolder = path => opened.push(path);
+  try {
+    await IOUtils.remove(PLUGINS, { recursive: true, ignoreAbsent: true });
+    await WhimsyLocalPlugins.openFolder();
+    ok(await IOUtils.exists(PLUGINS), "opening creates the plugins folder");
+    is(opened.pop(), PLUGINS, "opens the profile's plugins folder");
+    await BrowserTestUtils.withNewTab("about:preferences#privacy", async browser => {
+      const doc = browser.contentDocument;
+      await TestUtils.waitForCondition(() => doc.getElementById("whimsyOpenPluginsFolder"), "folder setting inserted");
+      const buttons = doc.querySelectorAll("#whimsyLocalPluginsGroup button");
+      is(buttons.length, 1, "one folder button in the Local Plugins row");
+      buttons[0].scrollIntoView();
+      await Promise.all(doc.getAnimations({ subtree: true }).map(a => a.finished));
+      EventUtils.synthesizeMouseAtCenter(buttons[0], {}, browser.contentWindow);
+      await TestUtils.waitForCondition(() => opened.length == 1, "Settings opens the plugins folder");
+      is(opened.pop(), PLUGINS, "Settings uses the same folder");
+    });
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.local-plugins", false]] });
+    try {
+      ok(!actions[0].isAvailable(window), "command is hidden with the feature off");
+      await WhimsyLocalPlugins.openFolder();
+      is(opened.length, 0, "disabled command does not open the folder");
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  } finally {
+    WhimsyLocalPlugins.launchFolder = launch;
+  }
 });
 
 add_task(async function test_nothing_outside_the_folder_loads() {

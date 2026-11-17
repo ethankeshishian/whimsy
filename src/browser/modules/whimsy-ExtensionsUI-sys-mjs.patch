@@ -1,0 +1,20 @@
+diff --git a/browser/modules/ExtensionsUI.sys.mjs b/browser/modules/ExtensionsUI.sys.mjs
+--- a/browser/modules/ExtensionsUI.sys.mjs
++++ b/browser/modules/ExtensionsUI.sys.mjs
+@@ -414,6 +414,16 @@
+       );
+     }
+     strings.addonName = info.addon.name;
++    if (info.type == "sideload" && info.addon.installTelemetryInfo?.source == "whimsy-local-plugins") {
++      const l10n = new Localization(["browser/whimsy.ftl"], true);
++      // Keep Firefox's permission descriptions and its safe name substitution.
++      strings.header = l10n.formatValueSync("whimsy-local-plugins-run-header");
++      strings.listIntro = l10n.formatValueSync("whimsy-local-plugins-can");
++      strings.acceptText = l10n.formatValueSync("whimsy-local-plugins-run");
++      strings.cancelText = l10n.formatValueSync("whimsy-local-plugins-dont-run");
++      strings.acceptKey = "R";
++      strings.cancelKey = "D";
++    }
+     return strings;
+   },
+ 

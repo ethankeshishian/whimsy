@@ -1,0 +1,23 @@
+diff --git a/toolkit/mozapps/extensions/content/components/addon-card.mjs b/toolkit/mozapps/extensions/content/components/addon-card.mjs
+--- a/toolkit/mozapps/extensions/content/components/addon-card.mjs
++++ b/toolkit/mozapps/extensions/content/components/addon-card.mjs
+@@ -553,6 +553,19 @@
+       }
+     }
+ 
++    // A local plugin stays an extension; label its source on the card.
++    let localLabel = card.querySelector(".whimsy-local-plugins-label");
++    if (addon.installTelemetryInfo?.source == "whimsy-local-plugins") {
++      if (!localLabel) {
++        localLabel = document.createElement("span");
++        localLabel.className = "whimsy-local-plugins-label addon-description";
++        document.l10n.setAttributes(localLabel, "whimsy-local-plugins-label");
++        card.querySelector(".card-contents").append(localLabel);
++      }
++    } else {
++      localLabel?.remove();
++    }
++
+     // Update the name.
+     let name = this.addonNameEl;
+     let setDisabledStyle = !(addon.isActive || addon.type === "theme");

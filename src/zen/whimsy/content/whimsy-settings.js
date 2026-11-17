@@ -293,6 +293,10 @@ var gWhimsySettings = {
     }
     template.remove();
     const inits = {
+      "local-plugins": () => document.getElementById("whimsyOpenPluginsFolder").addEventListener("command", () => {
+        const { WhimsyLocalPlugins } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLocalPlugins.sys.mjs");
+        WhimsyLocalPlugins.openFolder().catch(console.error);
+      }),
       "cookie-banners": () => this.initCookieBanners(),
       "strip-tracking": () => this.initStripTracking(),
       // W24: keep adult sites out of history.

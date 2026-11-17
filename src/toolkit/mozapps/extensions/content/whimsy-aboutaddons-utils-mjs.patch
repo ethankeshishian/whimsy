@@ -1,0 +1,26 @@
+diff --git a/toolkit/mozapps/extensions/content/aboutaddons-utils.mjs b/toolkit/mozapps/extensions/content/aboutaddons-utils.mjs
+--- a/toolkit/mozapps/extensions/content/aboutaddons-utils.mjs
++++ b/toolkit/mozapps/extensions/content/aboutaddons-utils.mjs
+@@ -254,6 +254,10 @@
+     return false;
+   }
+ 
++  if (addon.installTelemetryInfo?.source == "whimsy-local-plugins") {
++    // A plugin needs consent even if Firefox has no permissions to list.
++    return true;
++  }
+   let perms = addon.installPermissions;
+   return perms?.origins.length || perms?.permissions.length;
+ }
+@@ -291,6 +295,11 @@
+             addon.enable().then(onAddonEnabled);
+           },
+           reject() {
++            if (addon.installTelemetryInfo?.source == "whimsy-local-plugins") {
++              // Keep the plugin installed and off, and remember this refusal.
++              addon.markAsSeen();
++              resolve();
++            }
+             // Ignore a cancelled permission prompt.
+           },
+         },
