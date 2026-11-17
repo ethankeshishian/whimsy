@@ -317,8 +317,10 @@ function pointerAt(target) {
   return start;
 }
 
+// Real pointer events target an element (window listeners read
+// event.target.documentGlobal), so dispatch on the root and let it bubble.
 function pointerMove(start, dx, dy, type = "mousemove") {
-  window.dispatchEvent(new MouseEvent(type, {
+  document.documentElement.dispatchEvent(new MouseEvent(type, {
     bubbles: true, cancelable: true, button: 0,
     buttons: type == "mouseup" ? 0 : 1,
     screenX: start.screenX + dx, screenY: start.screenY + dy,
