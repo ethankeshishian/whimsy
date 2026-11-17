@@ -522,3 +522,24 @@ authorized targeted run; isolated old passes are not validation of these edits.
   WhimsyFocusTab, and whimsy-focus.js. No browser tests, engine edits, mach,
   git, import, build, or verify run. Browser behavior remains unverified.
 
+
+
+### 2026-11-16 — W29 darksite: ten-second site-switch stall
+
+- Traced the repeated 10s delay to the child actor waiting for two rAFs in a
+  view-transition update callback. Gecko suppresses rendering and rAF during
+  that callback; its 10000ms transition timeout breaks the circular wait.
+  The 26 normal flips and four private flips account for the supplied timings.
+- Made the update synchronous, retaining the existing 240ms fade. The shared
+  darkState helper waits only for the actor's fade and paint frames, avoiding
+  unrelated/infinite page animations.
+- Moved the two new site-switch tasks into browser_whimsy_dark_pages_site_switch.js
+  with the same head/support files, and added click-to-state/fade/paint assertions
+  under 2s. No timeout increases. Full cause, fix, and consumer suite list are
+  in darksite-result2.md.
+- Validation: node syntax checks, TOML parsing/support-file equality, and diff
+  whitespace checks pass. Precheck is blocked by missing Zen strings in the
+  engine-less worktree. Browser runs are blocked: /tmp/w13/w24run.sh is missing,
+  and pgrep cannot access the process list in this sandbox. No mach, import,
+  build, verify, commit, or background wait loop. Runtime durations and browser
+  assertions still need the owner's harness. Changes remain on lane/w29-darksite.

@@ -19,8 +19,10 @@ async function darkState(browser, expected) {
   });
   await TestUtils.waitForCondition(() => WhimsyDarkPages.state(browser) == expected, "Chrome received the page's state");
   await SpecialPowers.spawn(browser, [], async () => {
+    // Wait for our fade, not arbitrary site animations (which may loop).
+    const transition = content.windowGlobalChild.getActor("WhimsyDarkPages")._transition;
+    await transition?.finished.catch(() => {});
     await new Promise(resolve => content.requestAnimationFrame(() => content.requestAnimationFrame(resolve)));
-    await Promise.all(content.document.getAnimations().map(animation => animation.finished.catch(() => {})));
   });
 }
 

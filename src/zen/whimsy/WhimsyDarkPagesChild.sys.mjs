@@ -136,11 +136,11 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
     this._transition?.skipTransition();
     if (animate && this.document.startViewTransition && !win.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       this.sheet("fade", FADE);
-      this._transition = this.document.startViewTransition(async () => {
-        apply();
-        // The existing Boost setter requests a restyle. Capture its paint.
-        await new Promise(resolve => win.requestAnimationFrame(() => win.requestAnimationFrame(resolve)));
-      });
+      // View transitions suppress rendering (including rAF) until this
+      // callback settles. Waiting for a frame here deadlocks until Gecko's
+      // 10s transition timeout. The Boost setter requests a restyle; Gecko
+      // flushes layout before capturing the new state, so keep this synchronous.
+      this._transition = this.document.startViewTransition(apply);
       this._transition.ready.catch(() => {});
       this._transition.updateCallbackDone.catch(() => {});
       this._transition.finished.catch(() => {});
