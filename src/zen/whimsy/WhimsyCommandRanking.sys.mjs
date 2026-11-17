@@ -37,7 +37,7 @@ function commandInfo(result) {
       id: result.commandId ?? p.zenCommand ?? "",
     };
   }
-  if (p?.dynamicType == "whimsy-verb") {
+  if (p?.dynamicType == "whimsy-verb" && !p.subjectId) {
     return { name: p.title, kind: 3, id: p.whimsyVerb };
   }
   return null;
@@ -78,9 +78,10 @@ export function rankCommandResults(context, results) {
   // than before it. Actions mode can use the whole native result budget.
   const selected = source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS ? commands : commands.slice(0, 5);
   const exact = selected[0].tier == 0;
+  const heuristic = exact || (source == UrlbarShared.RESULT_SOURCE.ZEN_ACTIONS && query.length > 1 && !others.some(r => r.heuristic));
   for (const [i, { result }] of selected.entries()) {
-    result.heuristic = exact && i == 0;
-    result.suggestedIndex = result.heuristic ? undefined : i + (exact ? 0 : 1);
+    result.heuristic = heuristic && i == 0;
+    result.suggestedIndex = result.heuristic ? undefined : i + (heuristic ? 0 : 1);
   }
   pendingOrders.set(context, { selected: selected.map(({ result }) => result), exact });
   // Feed the exact command first, independent of provider arrival. Zen

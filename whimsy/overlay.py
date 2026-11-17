@@ -107,6 +107,13 @@ HOTFIXES = [
                "    const targetLower = fold(target);\n    const queryLower = fold(query);\n"
                "    const targetLen = targetLower.length;\n    const queryLen = queryLower.length;",
     },
+    {
+        "id": "command-bar-fallback-icon",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "Firefox moved trending.svg to chrome://global/skin/icons/trending.svg (UrlbarShared.ICON.TRENDING); loading the old URL crashes automation.",
+        "old": '          src: result.payload.icon || "chrome://browser/skin/trending.svg",',  # precheck: ignore-url
+        "new": "          src: result.payload.icon || UrlbarShared.ICON.TRENDING,",
+    },
     # W25 designfix: Hide Sidebar (⌘S) and the chat panel (⌘E) move with
     # one duration and easing. Zen's compact-mode toggle runs a 0.1s spring;
     # it asks Whimsy's window.gWhimsySidebarMotion (WhimsyChatPanel.initWindow)

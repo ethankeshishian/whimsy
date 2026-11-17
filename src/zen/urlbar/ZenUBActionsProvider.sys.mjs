@@ -476,7 +476,7 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
     return {
       icon: {
         attributes: {
-          src: result.payload.icon || "chrome://browser/skin/trending.svg",
+          src: result.payload.icon || UrlbarShared.ICON.TRENDING,
         },
       },
       titleStrong: {
