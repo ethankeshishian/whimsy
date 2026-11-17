@@ -16,6 +16,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIMemory: "resource:///modules/whimsy/WhimsyAIMemory.sys.mjs",
   WhimsyAIPage: "resource:///modules/whimsy/WhimsyAIPage.sys.mjs",
+  formatUsageReset: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReports: "resource:///modules/whimsy/WhimsyAIReports.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
@@ -832,11 +833,11 @@ export function errorSpec(msg, { win, panel } = {}) {
       ],
     };
   }
-  if (code == "plan-limit" || code == "rate-limited") {
-    const until = msg.until ? new Date(msg.until).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "";
+  if (["plan-limit", "rate-limited", "daily-quota", "credit-used-up"].includes(code)) {
+    const copy = P.errorL10n(code, provider, msg);
     return {
       tone: "amber",
-      l10n: [until ? "whimsy-chat-error-plan-out-until" : "whimsy-chat-error-plan-out", { provider: name, time: until }],
+      l10n: [copy.id, copy.args],
       buttons: [
         others.length
           ? { l10n: ["whimsy-chat-error-ask", { provider: providerName(others[0]) }], primary: true, run: retry({ provider: others[0] }) }
@@ -907,6 +908,9 @@ function renderHandoff(doc, msg) {
       iconUrl: `${ICONS}uturn-backward.svg`,
       l10n: [`whimsy-chat-note-fallback-${need}`, { to, from: whoLabel(msg.from, msg.fromModel) }],
     });
+  }
+  if (msg.reason == "quota" && msg.until) {
+    return noteLine(doc, { kind: "handoff", iconUrl: `${ICONS}uturn-backward.svg`, l10n: ["whimsy-cmdbar-handoff-until", { to, from: providerName(msg.from), time: lazy.formatUsageReset(msg.until) }] });
   }
   return noteLine(doc, { kind: "handoff", iconUrl: `${ICONS}uturn-backward.svg`, l10n: ["whimsy-chat-note-handoff", { to, from: providerName(msg.from) }] });
 }

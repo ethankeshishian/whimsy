@@ -31,7 +31,7 @@ const TOOL_TASKS = new Set(["chat", "ask", "agent", "routine"]);
 // Nobody is there to press Allow: only read-only tools, ever.
 const UNATTENDED_TASKS = new Set(["routine"]);
 // Out of room: the provider rests until its reset time.
-const QUOTA_CODES = new Set(["plan-limit", "rate-limited"]);
+const QUOTA_CODES = new Set(["plan-limit", "rate-limited", "daily-quota"]);
 // Never handed to another provider.
 const FINAL_CODES = new Set(["aborted", "blocked", "refused"]);
 const NEED_FLAGS = ["images", "video", "research", "imageGen", "code", "tools"];

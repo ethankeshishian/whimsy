@@ -404,12 +404,35 @@ export const WhimsyAIClaudeCode = {
     return { file, names, allowed, permissionTool };
   },
 
+  // Claude Code 2.1.283's embedded SDK schema: rate_limit_event has
+  // rate_limit_info; utilization is a fraction, resetsAt is epoch seconds.
+  // unifiedWindows carries all observed windows, when available.
+  _observeRateLimit(event) {
+    if (event?.type != "rate_limit_event") { return null; }
+    const info = event.rate_limit_info;
+    if (!info || !["allowed", "allowed_warning", "rejected"].includes(info.status)) { return null; }
+    const labels = { five_hour: "5-hour limit", seven_day: "Weekly limit", seven_day_opus: "Weekly Opus limit", seven_day_sonnet: "Weekly Sonnet limit", seven_day_overage_included: "Weekly overage-included limit", overage: "Extra usage limit" };
+    const windows = { ...info.unifiedWindows };
+    if (labels[info.rateLimitType] && typeof info.utilization == "number") {
+      windows[info.rateLimitType] = { utilization: info.utilization, resetsAt: info.resetsAt };
+    }
+    const limits = Object.entries(windows).filter(([id, value]) => labels[id] && value && Number.isFinite(value.utilization) && value.utilization >= 0).map(([id, value]) => ({
+      id, label: labels[id], usedPercent: value.utilization * 100,
+      resetAt: Number.isFinite(value.resetsAt) && value.resetsAt > 0 ? value.resetsAt * 1000 : null,
+    }));
+    lazy.WhimsyAIProviders.cacheUsage("claude", limits, "plan");
+    return info.status == "rejected" && Number.isFinite(info.resetsAt) && info.resetsAt > 0 ? info.resetsAt * 1000 : null;
+  },
+
   // What went wrong, from what Claude Code said.
   _failure(said, exitCode) {
     if (SIGNED_OUT.test(said)) {
       this._status = null;
       Services.obs.notifyObservers(null, "whimsy-ai-accounts-changed", "claude");
       return error("claude-code-signed-out");
+    }
+    if (/overloaded|\b(?:HTTP|status(?: code)?|API Error)\s*[:=]?\s*5\d\d\b|server_error|api_error/i.test(said)) {
+      return error("unavailable");
     }
     if (LIMIT.test(said)) {
       const failure = error("plan-limit");
@@ -484,12 +507,16 @@ export const WhimsyAIClaudeCode = {
       })();
       let streamed = false;
       let result = null;
+      let limitReset = null;
       for await (const line of lazy.textLines(lazy.pipeChunks(run.proc.stdout))) {
         let parsed;
         try {
           parsed = JSON.parse(line);
         } catch {
           continue;
+        }
+        if (parsed?.type == "rate_limit_event") {
+          limitReset = this._observeRateLimit(parsed);
         }
         if (parsed?.type == "stream_event" && parsed.event?.type == "content_block_delta") {
           const delta = parsed.event.delta ?? {};
@@ -511,7 +538,9 @@ export const WhimsyAIClaudeCode = {
         }
         return;
       }
-      throw this._failure(`${typeof result?.result == "string" ? result.result : ""}\n${stderr}`, exitCode);
+      const failure = this._failure(`${typeof result?.result == "string" ? result.result : ""}\n${stderr}`, exitCode);
+      if (limitReset && failure.code == "plan-limit") { failure.until = limitReset; }
+      throw failure;
     } finally {
       try {
         run?.proc.kill();

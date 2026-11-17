@@ -1242,7 +1242,7 @@ export const WhimsyCommandBarAI = {
       if (P.order.includes("apple") && P.isOn("apple") && provider != "apple") {
         buttons.push(this.button(doc, "whimsy-cmdbar-ask-apple", () => this.retry(win, { provider: "apple" }), { action: "apple", icon: BRAND_ICONS.apple }));
       }
-    } else if (code == "all-failed" || code == "plan-limit" || code == "rate-limited" || code == "none-capable") {
+    } else if (code == "all-failed" || code == "plan-limit" || code == "rate-limited" || code == "daily-quota" || code == "none-capable") {
       tone = "warn";
       const names = new Intl.ListFormat(Services.locale.appLocalesAsBCP47[0] ?? "en", { type: "conjunction" }).format((tried.length ? tried : [provider]).map(nameOf));
       l10n = code == "none-capable"
@@ -1257,6 +1257,11 @@ export const WhimsyCommandBarAI = {
       buttons.push(this.button(doc, ["whimsy-cmdbar-search-instead", { engine: engineName(win) }], () => this.searchInstead(win, card), { action: "search" }));
     } else if (others.length) {
       buttons.push(this.button(doc, ["whimsy-cmdbar-ask-other", { provider: nameOf(others[0]) }], () => this.retry(win, { provider: others[0] }), { action: "other", icon: BRAND_ICONS[others[0]] }));
+    }
+    if (["plan-limit", "rate-limited", "daily-quota", "credit-used-up"].includes(code)) {
+      const copy = P.errorL10n(code, provider, card.error);
+      l10n = [copy.id, copy.args];
+      tone = "warn";
     }
     return h(doc, "div", { class: "whimsy-ask-line", tone, role: "alert" }, img(doc, code == "offline" ? "chrome://browser/skin/zen-icons/info.svg" : "chrome://browser/skin/zen-icons/security-warning.svg", "whimsy-ask-line-icon"), h(doc, "span", { class: "whimsy-ask-line-text", l10n }), h(doc, "span", { class: "whimsy-ask-spacer" }), buttons);
   },

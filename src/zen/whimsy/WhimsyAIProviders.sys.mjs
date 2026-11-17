@@ -51,10 +51,11 @@ const AUTO_ENABLED_PREF = "whimsy.ai.auto-enabled";
 export const ORDER_PREF = "whimsy.ai.order";
 export const OFF_PREF = "whimsy.ai.off";
 export const QUICK_TEXT_APPLE_PREF = "whimsy.ai.quick-text-apple";
+export const USAGE_PREF = "whimsy.ai.usage";
 export const RESTING_PREF = "whimsy.ai.resting";
 export const CHANGED_TOPIC = "whimsy-ai-providers-changed";
 // A limit message with no reset time rests the provider this long.
-const DEFAULT_REST_MS = { "plan-limit": 60 * 60 * 1000, "rate-limited": 60 * 1000 };
+const DEFAULT_REST_MS = { "plan-limit": 60 * 60 * 1000, "rate-limited": 60 * 1000, "daily-quota": 60 * 1000 };
 // Thinking levels, as Settings and the model menu name them.
 export const THINKING_LEVELS = ["light", "normal", "deep"];
 const CLAUDE_EFFORT = { light: "low", normal: "medium", deep: "high" };
@@ -174,6 +175,8 @@ export const AI_ERROR_CODES = [
   "no-key",
   "bad-key",
   "rate-limited",
+  "credit-used-up",
+  "daily-quota",
   "network",
   "unavailable",
   "no-model",
@@ -520,6 +523,50 @@ export const WhimsyAIProviders = {
     }
   },
 
+  // Only observations from ordinary requests are stored. Separate auth paths
+  // keep a plan's cached limits from appearing on an API key (and vice versa).
+  cacheUsage(id, limits, method = "key", at = Date.now()) {
+    if (!CLOUD_PROVIDERS.includes(id) || !limits.length) {
+      return;
+    }
+    let all;
+    try { all = JSON.parse(Services.prefs.getStringPref(USAGE_PREF, "{}")); } catch {}
+    if (!all || typeof all != "object") { all = {}; }
+    const key = `${id}:${method}`;
+    const previous = all[key]?.limits ?? [];
+    const merged = new Map(previous.map(limit => [limit.id, limit]));
+    for (const limit of limits) { merged.set(limit.id, { ...limit, checkedAt: at }); }
+    all[key] = { checkedAt: at, limits: [...merged.values()] };
+    Services.prefs.setStringPref(USAGE_PREF, JSON.stringify(all));
+    this._changed("usage");
+  },
+
+  clearUsage(id, method = null) {
+    try {
+      const all = JSON.parse(Services.prefs.getStringPref(USAGE_PREF, "{}"));
+      for (const auth of method ? [method] : ["key", "plan"]) { delete all[`${id}:${auth}`]; }
+      Services.prefs.setStringPref(USAGE_PREF, JSON.stringify(all));
+    } catch {}
+  },
+
+  usage(id) {
+    if (!CLOUD_PROVIDERS.includes(id)) { return null; }
+    const method = this._usesPlan(id) ? "plan" : "key";
+    try {
+      const entry = JSON.parse(Services.prefs.getStringPref(USAGE_PREF, "{}"))[`${id}:${method}`];
+      if (!entry?.limits?.length) { return null; }
+      const limits = entry.limits.filter(limit => Number.isFinite(limit.usedPercent) && (method == "plan" || limit.usedPercent >= 80));
+      // The fullest windows matter most; keep ties in the provider's order.
+      return limits.length ? { ...entry, limits: limits.sort((a, b) => b.usedPercent - a.usedPercent) } : null;
+    } catch { return null; }
+  },
+
+  observeUsage(id, headers, method = "key") {
+    const limits = parseUsageHeaders(id, headers, method);
+    this.cacheUsage(id, limits, method);
+    return limits;
+  },
+
   // The provider's own usage page (a plan's when connected that way).
   usageUrl(id) {
     if (this._usesPlan(id)) {
@@ -544,10 +591,19 @@ export const WhimsyAIProviders = {
   },
 
   // The string for an error code, with the provider it came from.
-  errorL10n(code, provider = this.provider) {
+  errorL10n(code, provider = this.provider, failure = {}) {
+    let variant = code;
+    const args = { provider: this.providerName(provider) };
+    if (Number.isFinite(failure.until) && ["plan-limit", "daily-quota"].includes(code)) {
+      variant += "-until";
+      args.time = formatUsageReset(failure.until);
+    } else if (code == "rate-limited" && Number.isFinite(failure.until) && failure.until > Date.now()) {
+      variant = "rate-limited-retry";
+      args.seconds = Math.ceil((failure.until - Date.now()) / 1000);
+    }
     return {
-      id: `whimsy-ai-error-${AI_ERROR_CODES.includes(code) ? code : "failed"}`,
-      args: { provider: this.providerName(provider) },
+      id: `whimsy-ai-error-${AI_ERROR_CODES.includes(code) ? variant : "failed"}`,
+      args,
     };
   },
 
@@ -558,7 +614,7 @@ export const WhimsyAIProviders = {
     if (code == "aborted" || !win?.gZenUIManager) {
       return;
     }
-    const { id, args } = this.errorL10n(code, error?.provider);
+    const { id, args } = this.errorL10n(code, error?.provider, error);
     if (code == "plan-limit" && win.gZenUIManager.toasts) {
       win.gZenUIManager.toasts.open(id, {
         key: "whimsy-ai-plan-limit",
@@ -814,6 +870,7 @@ export const WhimsyAIProviders = {
   },
 
   async disconnect(provider) {
+    this.clearUsage(provider);
     // Revoked even while the plan's feature gate is off.
     if (this._plans[provider] && Services.prefs.getStringPref(authPref(provider), "") == "plan") {
       await this._plans[provider].disconnect();
@@ -1077,6 +1134,7 @@ export const WhimsyAIProviders = {
       body,
       signal
     );
+    this.observeUsage("claude", response.headers);
     if (!response.ok) {
       throw await this._httpError("claude", response);
     }
@@ -1114,7 +1172,7 @@ export const WhimsyAIProviders = {
           }
           break;
         case "error":
-          throw streamError(json.error?.type, json.error?.message);
+          throw this._withReportedReset(streamError(json.error?.type, json.error?.message), "claude", response.headers);
         case "message_stop":
           return;
       }
@@ -1160,6 +1218,7 @@ export const WhimsyAIProviders = {
     }
     const value = String(key ?? "").trim();
     const saved = await this._readKeys();
+    this.clearUsage(provider, "key");
     if (value) {
       // Creates the Keychain secret on first use; no prompt (reauth = false).
       await lazy.OSKeyStore.ensureLoggedIn(false);
@@ -1212,6 +1271,7 @@ export const WhimsyAIProviders = {
       body.reasoning = { effort: OPENAI_EFFORT[thinking] ?? "low", summary: "auto" };
     }
     const response = await this._post(`${ENDPOINTS.openai}/responses`, { authorization: `Bearer ${key}` }, body, signal);
+    this.observeUsage("openai", response.headers);
     if (!response.ok) {
       throw await this._httpError("openai", response);
     }
@@ -1220,7 +1280,11 @@ export const WhimsyAIProviders = {
       yield { type: "text", delta: text };
       return;
     }
-    yield* responsesEvents(response.body);
+    try {
+      yield* responsesEvents(response.body);
+    } catch (failure) {
+      throw this._withReportedReset(failure, "openai", response.headers);
+    }
   },
 
   // ---- Gemini (API key; the Generative Language API) ----
@@ -1252,13 +1316,17 @@ export const WhimsyAIProviders = {
     // The key goes in a header, never the address (logs, history).
     const url = `${ENDPOINTS.gemini}/models/${encodeURIComponent(model.replace(/^models\//, ""))}:streamGenerateContent?alt=sse`;
     const response = await this._post(url, { "x-goog-api-key": key }, body, signal);
+    this.observeUsage("gemini", response.headers);
     if (!response.ok) {
       throw await this._httpError("gemini", response);
     }
     const chunks = isStream(response) ? lazy.sseJSON(response.body) : oneChunk(response);
     for await (const { json } of chunks) {
       if (json.error) {
-        throw streamError(json.error.status, json.error.message);
+        throw await this._httpError("gemini", {
+          status: json.error.code ?? (json.error.status == "RESOURCE_EXHAUSTED" ? 429 : json.error.status == "UNAVAILABLE" ? 503 : 400),
+          headers: response.headers, json: async () => json,
+        });
       }
       if (json.promptFeedback?.blockReason) {
         throw new WhimsyAIError("refused");
@@ -1299,6 +1367,15 @@ export const WhimsyAIProviders = {
     }
   },
 
+  // Stream failures share the response's reset headers with HTTP failures.
+  _withReportedReset(failure, provider, headers) {
+    if (!["plan-limit", "rate-limited", "daily-quota"].includes(failure.code)) { return failure; }
+    const resets = parseUsageHeaders(provider, headers).filter(limit => limit.usedPercent >= 100 && limit.resetAt).map(limit => limit.resetAt);
+    failure.until ??= resets.length ? Math.max(...resets) : (failure.code == "daily-quota" ? null : retryAt(headers));
+    failure.until ??= parseResetTime(failure.detail ?? failure.message);
+    return failure;
+  },
+
   // A failed HTTP answer as a WhimsyAIError, with the provider's own words
   // (detail) and, for a limit, when it resets (until).
   async _httpError(provider, response) {
@@ -1311,11 +1388,13 @@ export const WhimsyAIProviders = {
     if (status == 401 || status == 403) {
       code = "bad-key";
     } else if (status == 400) {
-      code = provider == "gemini" && /API_KEY_INVALID/.test(JSON.stringify(data?.error ?? "")) ? "bad-key" : "failed";
+      code = provider == "claude" && /credit balance is too low/i.test(JSON.stringify(data ?? "")) ? "credit-used-up" : provider == "gemini" && /API_KEY_INVALID/.test(JSON.stringify(data?.error ?? "")) ? "bad-key" : "failed";
     } else if (status == 404) {
       code = "no-model";
     } else if (status == 429) {
-      code = /insufficient_quota|credit balance/i.test(JSON.stringify(data ?? "")) ? "plan-limit" : "rate-limited";
+      const said = JSON.stringify(data ?? "");
+      code = provider == "gemini" && /RESOURCE_EXHAUSTED/.test(said) && /per.?day|daily|PerDay/i.test(said)
+        ? "daily-quota" : /insufficient_quota|credit balance/i.test(said) ? "plan-limit" : "rate-limited";
     } else if (status >= 500) {
       code = "unavailable";
     } else {
@@ -1325,8 +1404,13 @@ export const WhimsyAIProviders = {
     const failure = new WhimsyAIError(code, detail || `${provider} ${status}`);
     failure.detail = detail;
     failure.provider = provider;
-    const until = retryAt(response.headers);
-    if (until) {
+    // A RetryInfo delay is a retry hint, not a daily quota's reset time.
+    const retry = data?.error?.details?.find(item => /RetryInfo$/.test(item?.["@type"] ?? ""))?.retryDelay;
+    const delay = typeof retry == "string" && /^(\d+(?:\.\d+)?)s$/.test(retry) ? Number(retry.slice(0, -1)) : null;
+    const limits = parseUsageHeaders(provider, response.headers);
+    const exhausted = limits.filter(limit => limit.usedPercent >= 100 && limit.resetAt).map(limit => limit.resetAt);
+    const until = exhausted.length ? Math.max(...exhausted) : (code == "daily-quota" ? parseResetTime(detail) : retryAt(response.headers) ?? (delay != null ? Date.now() + delay * 1000 : parseResetTime(detail)));
+    if (until && ["plan-limit", "rate-limited", "daily-quota"].includes(code)) {
       failure.until = until;
     }
     return failure;
@@ -1892,15 +1976,21 @@ async function* oneObject(response) {
 function streamError(type, message) {
   const text = `${type ?? ""} ${message ?? ""}`;
   let code = "failed";
-  if (/rate_limit|RESOURCE_EXHAUSTED|rate limit/i.test(text)) {
+  if (/overloaded|UNAVAILABLE|api_error|server_error/i.test(text)) {
+    code = "unavailable";
+  } else if (/credit balance is too low/i.test(text)) {
+    code = "credit-used-up";
+  } else if (/RESOURCE_EXHAUSTED/i.test(text) && /per.?day|daily|PerDay/i.test(text)) {
+    code = "daily-quota";
+  } else if (/rate_limit|RESOURCE_EXHAUSTED|rate limit/i.test(text)) {
     code = "rate-limited";
   } else if (/insufficient_quota|usage limit|credit balance/i.test(text)) {
     code = "plan-limit";
-  } else if (/overloaded|UNAVAILABLE|api_error|server_error/i.test(text)) {
-    code = "unavailable";
   }
   const failure = new WhimsyAIError(code, String(message || type || code));
   failure.detail = String(message ?? "");
+  const until = parseResetTime(message);
+  if (until && ["plan-limit", "rate-limited", "daily-quota"].includes(code)) { failure.until = until; }
   return failure;
 }
 
@@ -1933,14 +2023,16 @@ export function parseResetTime(text, now = Date.now()) {
   if (epoch) {
     return Number(epoch[1]) * 1000;
   }
-  const inMatch = value.match(/resets?\s+in\s+(\d+)\s*(minute|min|hour|hr|h|m)/i);
+  const iso = value.match(/resets?\s+(?:at\s+)?(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))/i);
+  if (iso) { const parsed = Date.parse(iso[1]); return Number.isFinite(parsed) ? parsed : null; }
+  const inMatch = value.match(/resets?\s+in\s+(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|h|m|s)\b/i);
   if (inMatch) {
-    const unit = /^h/i.test(inMatch[2]) ? 3600 * 1000 : 60 * 1000;
+    const unit = /^d/i.test(inMatch[2]) ? 86400000 : /^h/i.test(inMatch[2]) ? 3600000 : /^s/i.test(inMatch[2]) ? 1000 : 60000;
     return now + Number(inMatch[1]) * unit;
   }
-  const at = value.match(/resets?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+  const at = value.match(/resets?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?![\d:])/i);
   if (at) {
-    let hours = Number(at[1]) % 24;
+    let hours = Number(at[1]);
     const minutes = Number(at[2] ?? 0);
     const half = at[3]?.toLowerCase();
     if (half == "pm" && hours < 12) {
@@ -1950,6 +2042,25 @@ export function parseResetTime(text, now = Date.now()) {
     }
     if (hours > 23 || minutes > 59) {
       return null;
+    }
+    // Respect an explicit IANA timezone in Claude Code's clock message.
+    const zone = value.slice(at.index + at[0].length).match(/^\s*\(([^)]+)\)/)?.[1];
+    if (zone) {
+      try {
+        const formatter = new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric", hourCycle: "h23" });
+        const parts = time => Object.fromEntries(formatter.formatToParts(time).filter(part => part.type != "literal").map(part => [part.type, Number(part.value)]));
+        const current = parts(now);
+        const day = new Date(Date.UTC(current.year, current.month - 1, current.day));
+        if (hours * 60 + minutes <= current.hour * 60 + current.minute) { day.setUTCDate(day.getUTCDate() + 1); }
+        const target = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), hours, minutes);
+        let result = target;
+        for (let pass = 0; pass < 3; pass++) {
+          const local = parts(result);
+          result += target - Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second);
+        }
+        const checked = parts(result);
+        return checked.hour == hours && checked.minute == minutes ? result : null;
+      } catch { return null; }
     }
     const date = new Date(now);
     date.setHours(hours, minutes, 0, 0);
@@ -1994,7 +2105,7 @@ export async function* responsesEvents(body, mapCode = null) {
   const failed = async (code, message) => {
     const mapped = (mapCode && (await mapCode(code))) || null;
     if (mapped) {
-      return new WhimsyAIError(mapped, message || mapped);
+      return Object.assign(new WhimsyAIError(mapped, message || mapped), { detail: String(message ?? "") });
     }
     return streamError(code, message);
   };
@@ -2051,4 +2162,63 @@ function aborted(signal) {
     }
     signal.addEventListener("abort", () => reject(signal.reason), { once: true });
   });
+}
+
+// Missing, empty, negative, and non-finite fields never become usage numbers.
+function headerNumber(headers, name) {
+  const raw = headers.get(name);
+  if (raw == null || !raw.trim()) { return null; }
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function headerReset(value, now) {
+  if (!value) { return null; }
+  // OpenAI API duration headers, e.g. 1m30s or 250ms.
+  if (/^(?:\d+(?:\.\d+)?(?:ms|s|m|h|d))+$/.test(value)) {
+    let ms = 0;
+    for (const match of value.matchAll(/(\d+(?:\.\d+)?)(ms|s|m|h|d)/g)) {
+      ms += Number(match[1]) * { ms: 1, s: 1000, m: 60000, h: 3600000, d: 86400000 }[match[2]];
+    }
+    return now + ms;
+  }
+  const numeric = Number(value);
+  if (!Number.isNaN(numeric)) { return Number.isFinite(numeric * 1000) && numeric > 0 ? numeric * 1000 : null; }
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(value)) { return null; }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function parseUsageHeaders(provider, headers, method = "key", now = Date.now()) {
+  const limits = [];
+  if (provider == "openai" && method == "plan") {
+    for (const slot of ["primary", "secondary"]) {
+      const prefix = `x-codex-${slot}`;
+      const usedPercent = headerNumber(headers, `${prefix}-used-percent`);
+      const minutes = headerNumber(headers, `${prefix}-window-minutes`);
+      if (usedPercent == null || !minutes) { continue; }
+      const after = headerNumber(headers, `${prefix}-reset-after-seconds`);
+      const resetAt = after != null ? now + after * 1000 : headerReset(headers.get(`${prefix}-reset-at`), now);
+      limits.push({ id: slot, label: minutes == 300 ? "5-hour limit" : minutes == 10080 ? "Weekly limit" : `${minutes}-minute limit`, usedPercent, resetAt });
+    }
+    return limits;
+  }
+  // Only explicit limit/remaining pairs; token counts from a completion are
+  // not account quota. Gemini often reports no such headers at all.
+  for (const prefix of ["anthropic-ratelimit", "x-ratelimit"]) {
+    for (const unit of ["requests", "tokens", "input-tokens", "output-tokens"]) {
+      const limit = headerNumber(headers, `${prefix}-${unit}-limit`) ?? headerNumber(headers, `${prefix}-limit-${unit}`);
+      const remaining = headerNumber(headers, `${prefix}-${unit}-remaining`) ?? headerNumber(headers, `${prefix}-remaining-${unit}`);
+      if (!limit || remaining == null || remaining > limit) { continue; }
+      const resetAt = headerReset(headers.get(`${prefix}-${unit}-reset`) ?? headers.get(`${prefix}-reset-${unit}`), now);
+      limits.push({ id: `${prefix}-${unit}`, label: `${unit[0].toUpperCase()}${unit.slice(1).replaceAll("-", " ")} limit`, usedPercent: (limit - remaining) / limit * 100, resetAt });
+    }
+  }
+  return limits;
+}
+
+export function formatUsageReset(when, now = Date.now()) {
+  const date = new Date(when);
+  const sameDay = date.toDateString() == new Date(now).toDateString();
+  return date.toLocaleString(undefined, { ...(sameDay ? {} : { weekday: "short" }), hour: "numeric", minute: "2-digit" });
 }

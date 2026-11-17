@@ -16,6 +16,7 @@
   const lazy = {};
   ChromeUtils.defineESModuleGetters(lazy, {
     WhimsyAIClaudeCode: "resource:///modules/whimsy/WhimsyAIClaudeCode.sys.mjs",
+    formatUsageReset: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
     WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
     WhimsyClaudeCodeInstall: "resource:///modules/whimsy/WhimsyClaudeCodeInstall.sys.mjs",
   });
@@ -87,6 +88,9 @@
 
   function detail(row, data) {
     const shown = baseDetail(row, data);
+    row.querySelector(".whimsy-ai-meters")?.remove();
+    const usage = P().usage(data.id);
+    if (usage) { meters(row.querySelector(".whimsy-ai-item-text"), usage.limits.slice(0, 2)); }
     const cover = !data.problem && coveringFor(data.id);
     if (!shown || !cover) {
       return;
@@ -164,14 +168,6 @@
         onClick: () => S.openSheet(id, { restoreFocus: row.querySelector(".whimsy-ai-grip") }),
       }).dataset.action = "fix";
       S.button(end, "whimsy-ai-row-check-again", { small: true, onClick: () => render(true) }).dataset.action = "check";
-    } else {
-      const usage = providers.usageUrl(id);
-      if (usage && CLOUD.includes(id)) {
-        const link = S.el("button", "whimsy-ai-link is-external", end, "whimsy-ai-row-usage");
-        link.type = "button";
-        link.dataset.action = "usage";
-        link.addEventListener("click", () => openTab(usage));
-      }
     }
     const toggle = S.el("moz-toggle", "", end, "whimsy-ai-row-switch", { provider: nameOf(id) });
     toggle.setAttribute("data-l10n-attrs", "aria-label");
@@ -197,6 +193,50 @@
       cap.classList.toggle("is-no", !on);
     }
     return box;
+  }
+
+  function meters(parent, limits) {
+    const box = S.el("span", "whimsy-ai-meters", parent);
+    for (const limit of limits) {
+      const meter = S.el("span", "whimsy-ai-meter", box);
+      const percent = Math.round(limit.usedPercent);
+      S.el("span", "whimsy-ai-meter-label", meter, "whimsy-ai-usage-label", { limit: limit.label, percent });
+      if (limit.resetAt) {
+        S.el("span", "whimsy-ai-meter-reset", meter, "whimsy-ai-usage-resets", { time: lazy.formatUsageReset(limit.resetAt) });
+      }
+      const bar = S.el("span", "whimsy-ai-meter-bar", meter);
+      bar.setAttribute("role", "meter");
+      bar.setAttribute("aria-label", `${limit.label} · ${percent}% used`);
+      bar.setAttribute("aria-valuemin", "0");
+      bar.setAttribute("aria-valuemax", "100");
+      bar.setAttribute("aria-valuenow", String(Math.min(100, limit.usedPercent)));
+      const fill = S.el("span", "", bar);
+      fill.style.width = `${Math.min(100, limit.usedPercent)}%`;
+      fill.classList.toggle("is-high", limit.usedPercent >= 80);
+    }
+    return box;
+  }
+
+  function usageDetail(dd, id) {
+    dd.classList.add("whimsy-ai-usage-detail");
+    const usage = P().usage(id);
+    if (usage) { meters(dd, usage.limits); }
+    const note = S.el("span", "whimsy-ai-usage-note", dd);
+    if (usage) {
+      const seconds = Math.max(0, Math.floor((Date.now() - usage.checkedAt) / 1000));
+      const unit = seconds >= 86400 ? "day" : seconds >= 3600 ? "hour" : seconds >= 60 ? "minute" : "second";
+      const amount = Math.floor(seconds / { day: 86400, hour: 3600, minute: 60, second: 1 }[unit]);
+      const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "always" }).format(-amount, unit);
+      S.el("span", "", note, "whimsy-ai-usage-checked", { relative });
+    }
+    const url = P().usageUrl(id);
+    if (url) {
+      if (usage) { note.append(document.createTextNode(" · ")); }
+      const link = S.el("button", "whimsy-ai-link is-external", note, "whimsy-ai-manage-usage");
+      link.type = "button";
+      link.dataset.action = "usage";
+      link.addEventListener("click", () => openTab(url));
+    }
   }
 
   async function body(row, data) {
@@ -233,6 +273,9 @@
       pair("whimsy-ai-detail-model", dd => modelPicker(dd, id, c));
     }
     pair("whimsy-ai-detail-can-do", dd => caps(dd, id));
+    if (CLOUD.includes(id)) {
+      pair("whimsy-ai-detail-usage", dd => usageDetail(dd, id));
+    }
     const resting = providers.resting(id);
     if (resting?.message) {
       pair("whimsy-ai-detail-last-limit", dd => (dd.textContent = `“${resting.message}”`));

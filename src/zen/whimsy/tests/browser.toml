@@ -1445,3 +1445,5 @@ support-files = ["whimsy_totp_page.html"]
 skip-if = ["os != 'mac'"] # Cmd+V/Cmd+X are a Mac-only gesture, like browser_whimsy_cmd_tab_numbers.js
 
 ["browser_whimsy_w29_fixes.js"]
+
+["browser_whimsy_ai_usage.js"]

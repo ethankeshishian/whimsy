@@ -24,6 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIError: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
+  parseResetTime: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   responsesEvents: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
 });
@@ -72,6 +73,7 @@ export { sseEvents };
 // What an error code from OpenAI means for Whimsy (null: go by the status).
 function codeFor(code) {
   switch (code) {
+    case "usage_limit_reached":
     case "subscription_sharing_usage_limit_exceeded":
       return "plan-limit";
     case "subscription_sharing_user_not_eligible":
@@ -264,10 +266,38 @@ export const WhimsyAIOpenAIAuth = {
         signal,
       })
     );
+    const limits = lazy.WhimsyAIProviders.observeUsage("openai", response.headers, "plan");
+    const exhausted = limits.filter(limit => limit.usedPercent >= 100 && limit.resetAt).map(limit => limit.resetAt);
+    const until = exhausted.length ? Math.max(...exhausted) : null;
+    const decorate = failure => {
+      if (["plan-limit", "rate-limited"].includes(failure.code)) {
+        failure.until = until ?? lazy.parseResetTime(failure.detail ?? failure.message);
+        const retry = response.headers.get("retry-after");
+        if (!failure.until && retry) {
+          failure.until = /^\d+(?:\.\d+)?$/.test(retry) ? Date.now() + Number(retry) * 1000 : Date.parse(retry) || null;
+        }
+      }
+      return failure;
+    };
     if (!response.ok) {
-      throw error(await this._failure(response), `ChatGPT responses ${response.status}`);
+      let detail = "";
+      let reset = null;
+      try {
+        const data = (await response.clone().json())?.error;
+        detail = data?.message ?? "";
+        if (typeof data?.resets_at == "number" && Number.isFinite(data.resets_at) && data.resets_at > 0) { reset = data.resets_at * 1000; }
+      } catch {}
+      const failure = error(await this._failure(response), detail || `ChatGPT responses ${response.status}`);
+      failure.detail = detail;
+      decorate(failure);
+      if (reset && ["plan-limit", "rate-limited"].includes(failure.code)) { failure.until = reset; }
+      throw failure;
     }
-    yield* lazy.responsesEvents(response.body, code => this._mapped(codeFor(code)));
+    try {
+      yield* lazy.responsesEvents(response.body, code => this._mapped(codeFor(code)));
+    } catch (failure) {
+      throw decorate(failure);
+    }
   },
 
   async _mapped(code, fallback) {
@@ -279,6 +309,7 @@ export const WhimsyAIOpenAIAuth = {
 
   // The code for a failed (non-stream) answer.
   async _failure(response) {
+    if (response.status >= 500) { return "unavailable"; }
     let code = null;
     try {
       const data = await response.json();
