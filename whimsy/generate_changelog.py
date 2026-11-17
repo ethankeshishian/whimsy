@@ -1,7 +1,8 @@
 """Package reviewed release notes; never infer shipped features from work logs.
 
-Edit whimsy/changelog.json for dev builds, then run this script and commit both
-source and generated data. Published history comes from whimsy/version.json:
+Every Dev publish needs a reviewed group named for exactly that build's
+version (publish.py refuses otherwise). Edit whimsy/changelog.json, then run
+this script and commit both source and generated data. Published history comes from whimsy/version.json:
 it supplies each release's date, and a release with no reviewed entry shows
 its published notes under "New". Use --check to detect stale packaged notes
 without writing files.
@@ -60,6 +61,18 @@ def generate(root=ROOT):
     # Newest first; a build with no date yet (Unreleased) leads.
     result.sort(key=lambda b: b.get("date", "9999-99-99"), reverse=True)
     return {"groups": result}
+
+
+def missing(version, root=ROOT):
+    """Why a build named `version` can't be published, or None."""
+    root = Path(root)
+    groups = json.loads((root / "whimsy/changelog.json").read_text())["groups"]
+    if not any(g.get("version") == version for g in groups):
+        return f"no reviewed changelog entry for {version}: add one to whimsy/changelog.json"
+    packaged = (root / OUT.relative_to(ROOT)).read_text(encoding="utf-8")
+    if packaged != json.dumps(generate(root), indent=2) + "\n":
+        return "Changelog is stale: run python3 whimsy/generate_changelog.py"
+    return None
 
 
 def main():

@@ -1,6 +1,105 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1150",
+      "date": "2026-11-17",
+      "title": "Gmail and Drive search",
+      "new": [
+        "Search Gmail and Google Drive from the command bar across accounts connected in Settings > AI."
+      ],
+      "improved": [],
+      "fixed": []
+    },
+    {
+      "version": "1.24b-w3-dev.1145",
+      "date": "2026-11-16",
+      "title": "Local plugins and command ranking",
+      "new": [],
+      "improved": [
+        "Local plugins show their permissions before you choose Run or Don’t Run, with Open Plugins Folder in Settings > Privacy & Security.",
+        "Local plugins support older and newer extension formats and appear in open Add-ons lists after a rescan.",
+        "The command bar keeps commands in a consistent order and shows extensions available in the current space.",
+        "Cookie banner blocking dismisses more unrecognized banners without giving consent.",
+        "Tab numbers, link hints, and the Edit Field button share clearer key badges."
+      ],
+      "fixed": []
+    },
+    {
+      "version": "1.24b-w3-dev.1133",
+      "date": "2026-11-16",
+      "title": "Richer Reader and AI usage",
+      "new": [],
+      "improved": [
+        "Reader View includes tables, infoboxes, math, figures, and references while keeping wide content inside the article.",
+        "Edit Text on Page offers a floating bar with Save and Cancel to keep or undo all your edits.",
+        "AI providers show reported usage and reset times in Settings > AI, with clearer messages when a limit is reached.",
+        "Adaptive Dark Mode in the site panel shows the current result and lets you restore the profile’s choice.",
+        "The Focus session timer has a rounded appearance and smoother animation."
+      ],
+      "fixed": [
+        "Extensions hidden in the current space stay out of the command bar.",
+        "Cmd+click on a folder item opens a normal tab."
+      ]
+    },
+    {
+      "version": "1.24b-w3-dev.1118",
+      "date": "2026-11-16",
+      "title": "Dark mode and recent tabs",
+      "new": [],
+      "improved": [],
+      "fixed": [
+        "Site dark mode changes apply immediately, with controls that stay steady while toggling.",
+        "A Glance expanded into its own tab appears in Ctrl+Tab’s recent tabs."
+      ]
+    },
+    {
+      "version": "1.24b-w3-dev.1114",
+      "date": "2026-11-16",
+      "title": "Focus, passkeys, and page tools",
+      "new": [
+        "Focus sessions: start a timer from the command bar, pause distracting sites, and stay on one tab, with site choices in Settings > General.",
+        "Save Touch ID passkeys and verification codes, with controls in Settings > Privacy & Security.",
+        "Automatic dark mode uses a site’s own theme when available, with a switch in the site panel.",
+        "Highlight passages in four colors and add a page note from the right-click menu or command bar.",
+        "Keep adult sites out of history with a switch in Settings > Privacy & Security.",
+        "Choose which photo details to remove before uploads, drops, and pastes in Settings > Privacy & Security.",
+        "Safety Check in Settings > Privacy & Security reviews updates, breached passwords, risky extensions, and unused site permissions.",
+        "Local plugins: load extensions from your profile’s plugin folder after reviewing and approving them in Settings > Privacy & Security.",
+        "Play rain, cafe, woods, fireplace, ocean, or brown noise from the command bar.",
+        "Show Page Minimap in the command bar adds a live page overview you can click or drag to scroll.",
+        "Pass Keys to Page in the command bar gives a site your browser shortcuts until you hold Esc or leave the tab.",
+        "Edit Field in Text Editor opens the focused field in your Mac’s editor and brings your changes back."
+      ],
+      "improved": [
+        "The tab volume panel offers an eight-band equalizer with presets saved per site.",
+        "Space themes can match the current page with Blend, Gradient, or Replace, and Settings > Look and Feel offers Lucide and Phosphor icon packs.",
+        "The site panel separates Profile Settings from Site Settings, with permissions, dark mode, and zoom kept per profile.",
+        "Choose which profiles receive an extension when installing it, and find extension buttons in the site panel.",
+        "Chat can attach a page and the tabs opened from it as one context group, with a tab badge while AI reads.",
+        "The command bar offers Quiz Me on This Page, and Settings > AI lets you choose how AI writes and its preferred language.",
+        "AI finds relevant passages in long pages and transcripts, and agents can save a tab as a PDF after approval.",
+        "Call Options can share the current tab, call Picture-in-Picture follows other speakers, and Granola notes follow calls outside your calendar.",
+        "Essentials open in resizable popovers, and Show Chat as Popover is available from the command bar.",
+        "The empty command bar includes Recently Closed and Synced Tabs, and holding Command reveals tab numbers.",
+        "Tab and page menus put common actions first, with Search With for selected text and New Private Tab in the sidebar’s plus menu.",
+        "Settings offers space names in window titles, pop-ups as tabs, dimming inactive windows, and a second Esc press to leave full screen."
+      ],
+      "fixed": [
+        "Extension-opened tabs and windows stay in the space and profile that opened them.",
+        "A Private Space stays open when another synced window is not showing it.",
+        "Link hover cards let the page scroll, zoom, and receive clicks normally, and close when you leave the link.",
+        "The loading indicator stays visible when you switch to a background tab that is still loading.",
+        "Holding Cmd+K listens only while the keys are held, and a tap no longer starts listening.",
+        "The command bar keeps the last letters typed while it fades after Enter and hides actions that cannot run on the current page.",
+        "AI permission prompts appear in the front window, with pending requests available in Settings.",
+        "Cmd+S keeps the sidebar closed while the pointer rests on its edge.",
+        "Splitting a pinned tab with Shift+click leaves its folder collapsed.",
+        "Tidy titles keeps live folder tabs on their page titles.",
+        "VPN calls try the protected connection before offering to pause the VPN.",
+        "Downloads deleted from the Library move to the Trash."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.606",
       "title": "AI chat, agents, and routines",
       "new": [
