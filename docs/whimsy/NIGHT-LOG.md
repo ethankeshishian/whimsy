@@ -544,6 +544,18 @@ authorized targeted run; isolated old passes are not validation of these edits.
   build, verify, commit, or background wait loop. Runtime durations and browser
   assertions still need the owner's harness. Changes remain on lane/w29-darksite.
 
+### 2026-11-16 — W29 reader rich article repair (browser validation blocked)
+
+- Added a registered local rich-article browser regression fixture/test before implementation: semantic tables/infoboxes, MathML and image fallbacks, figures/captions, references, clutter, and narrow-width scrolling. Added guided-reading MathML and optional light/dark screenshot coverage.
+- Added Readability, AboutReader, and Reader CSS overlay patches; protected article structures, normalized formula presentation, removed publishing/navigation clutter, kept reference targets in Reader, and contained every table in its own scroll viewport. Excluded MathML from guided-reading HTML wrapping. No Zen source edits, added controls, or commits.
+- Direct worker-parser checks: 13/13 pass; three existing fixture outputs unchanged. Syntax, manifest parsing, diff whitespace, and patch application checks pass.
+- Browser/consumer/visual checks not run: mandated `/tmp/w13/w24run.sh` is missing. Precheck also reports missing Zen strings in the engine setup. No mach/build/import workaround was attempted. See root `RESULT.md` for cause, fix, coverage, and pending validation.
+
+### 2026-11-16 — Reader table assertion repair
+
+- Traced the four supplied containment failures to resizing the inline `.moz-reader-content`: Reader's `reader-show-element` rule sets `display: initial`, so the requested widths were ignored. Existing table wrappers size against the enclosing block.
+- Updated the regression test to resize `.content`, assert its actual width, retain every original assertion, and additionally check wrapper edges and article scroll overflow. No product changes or weakened assertions.
+- Node syntax and diff whitespace checks pass. Gecko rerun/screenshots remain pending because `/tmp/w13/w24run.sh` is missing. No mach, build, import, verify, or commit. Removed the supplied test-run.log; details are in RESULT.md.
 ## 2026-11-16 — W29 fixes worktree
 
 Implemented the three owner-approved fixes on lane/w29-fixes, without commits: shared toolbar/command-bar extension visibility (overlay hotfix), four rounded timer corners plus mirrored entrance motion, and folder accel-click opening an unpinned tab outside folders according to loadInBackground. Added and registered browser_whimsy_w29_fixes.js before production edits. Static syntax/TOML/whitespace checks and overlay apply passed. Precheck is blocked by missing engine strings; browser tests and light/dark visual QA are blocked because the mandated /tmp/w13/w24run.sh is absent. No mach/build/verify was run. See RESULT.md for causes, fixes, coverage, consumer list, and required follow-up. Not verified green.

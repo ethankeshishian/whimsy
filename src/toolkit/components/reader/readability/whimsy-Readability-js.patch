@@ -1,0 +1,109 @@
+diff --git a/toolkit/components/reader/readability/Readability.js b/toolkit/components/reader/readability/Readability.js
+--- a/toolkit/components/reader/readability/Readability.js
++++ b/toolkit/components/reader/readability/Readability.js
+@@ -261,7 +261,7 @@
+   ],
+ 
+   // These are the classes that readability sets itself.
+-  CLASSES_TO_PRESERVE: ["page"],
++  CLASSES_TO_PRESERVE: ["page", "whimsy-reader-formula"],
+ 
+   // These are the list of HTML entities that need to be escaped.
+   HTML_ESCAPE_MAP: {
+@@ -779,6 +779,60 @@
+    * @param Element
+    * @return void
+    **/
++  // Whimsy: semantic article structures are often short or link-heavy.
++  // Protect them from prose heuristics, without retaining page navigation.
++  _isRichContent(node) {
++    var tag = node.tagName.toLowerCase();
++    var classes = node.getAttribute("class") || "";
++    return (
++      tag === "figure" || tag === "math" ||
++      node.getAttribute("role") === "doc-endnotes" ||
++      /(?:^|\s)(?:infobox|references|reflist|reference|whimsy-reader-formula)(?:\s|$)/.test(classes) ||
++      (tag === "table" && node.getAttribute("role") !== "presentation" &&
++        this._getAllNodesWithTag(node, ["th", "caption", "thead"]).length > 0)
++    );
++  },
++
++  _prepareRichContent() {
++    // These are publishing conventions, independent of the article's host.
++    // Remove them before scoring, even when nested inside a data table.
++    this._removeNodes(this._getAllNodesWithTag(this._doc, ["div", "span", "table", "aside", "nav", "a"]), function (node) {
++      return /(?:^|\s)(?:hatnote|navbox|mw-editsection|editsection)(?:\s|$)/.test(node.getAttribute("class") || "") ||
++        node.getAttribute("role") === "navigation" ||
++        /(?:^|\s)edit(?:\s|$)/.test(node.getAttribute("rel") || "");
++    });
++
++    var maths = this._getAllNodesWithTag(this._doc, ["math"]);
++    this._forEachNode(maths, function (math) {
++      // Publishers hide native MathML behind their own CSS and show an image.
++      // Reader has native MathML support, but none of that publisher CSS.
++      var wrapper = math;
++      while (wrapper.parentNode &&
++        /math/i.test(wrapper.parentNode.getAttribute?.("class") || "")) {
++        wrapper = wrapper.parentNode;
++      }
++      var current = math;
++      while (current) {
++        current.removeAttribute("hidden");
++        current.removeAttribute("aria-hidden");
++        current.removeAttribute("style");
++        if (current === wrapper) {
++          break;
++        }
++        current = current.parentNode;
++      }
++      this._removeNodes(this._getAllNodesWithTag(wrapper, ["img"]), function (img) {
++        return /(?:math.*fallback|fallback.*math)/i.test(img.getAttribute("class") || "");
++      });
++    });
++    this._forEachNode(this._getAllNodesWithTag(this._doc, ["img"]), function (img) {
++      if (/(?:math.*fallback|fallback.*math)/i.test(img.getAttribute("class") || "")) {
++        img.removeAttribute("aria-hidden");
++        img.className += " whimsy-reader-formula";
++      }
++    });
++  },
++
+   _prepArticle(articleContent) {
+     this._cleanStyles(articleContent);
+ 
+@@ -1116,6 +1170,7 @@
+         // Remove unlikely candidates
+         if (stripUnlikelyCandidates) {
+           if (
++            !this._isRichContent(node) &&
+             this.REGEXPS.unlikelyCandidates.test(matchString) &&
+             !this.REGEXPS.okMaybeItsACandidate.test(matchString) &&
+             !this._hasAncestorTag(node, "table") &&
+@@ -1128,7 +1183,7 @@
+             continue;
+           }
+ 
+-          if (this.UNLIKELY_ROLES.includes(node.getAttribute("role"))) {
++          if (!this._isRichContent(node) && this.UNLIKELY_ROLES.includes(node.getAttribute("role"))) {
+             this.log(
+               "Removing content with role " +
+                 node.getAttribute("role") +
+@@ -2442,6 +2497,10 @@
+     //
+     // TODO: Consider taking into account original contentScore here.
+     this._removeNodes(this._getAllNodesWithTag(e, [tag]), function (node) {
++      if (this._isRichContent(node) ||
++        this._someNode(this._getAllNodesWithTag(node, ["figure", "math", "ol", "ul", "span", "img"]), child => this._isRichContent(child))) {
++        return false;
++      }
+       // First check if this node IS data table, in which case don't remove it.
+       var isDataTable = function (t) {
+         return t._readabilityDataTable;
+@@ -2738,6 +2797,7 @@
+     // Remove script tags from the document.
+     this._removeScripts(this._doc);
+ 
++    this._prepareRichContent();
+     this._prepDocument();
+ 
+     var metadata = this._getArticleMetadata(jsonLd);

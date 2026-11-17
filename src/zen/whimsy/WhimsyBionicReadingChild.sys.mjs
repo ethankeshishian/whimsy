@@ -147,7 +147,8 @@ export class WhimsyBionicReadingChild extends JSWindowActorChild {
         if (!node.parentNode || parentTag == "SCRIPT" || parentTag == "STYLE") {
           return doc.defaultView.NodeFilter.FILTER_REJECT;
         }
-        if (node.parentNode.closest?.(`.${WORD_CLASS}`)) {
+        // MathML has its own token/layout model; HTML <b> children break it.
+        if (node.parentNode.closest?.(`math, .${WORD_CLASS}`)) {
           return doc.defaultView.NodeFilter.FILTER_REJECT;
         }
         return /\S/.test(node.nodeValue) ? doc.defaultView.NodeFilter.FILTER_ACCEPT : doc.defaultView.NodeFilter.FILTER_SKIP;
