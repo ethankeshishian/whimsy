@@ -556,3 +556,19 @@ authorized targeted run; isolated old passes are not validation of these edits.
 - Traced the four supplied containment failures to resizing the inline `.moz-reader-content`: Reader's `reader-show-element` rule sets `display: initial`, so the requested widths were ignored. Existing table wrappers size against the enclosing block.
 - Updated the regression test to resize `.content`, assert its actual width, retain every original assertion, and additionally check wrapper edges and article scroll overflow. No product changes or weakened assertions.
 - Node syntax and diff whitespace checks pass. Gecko rerun/screenshots remain pending because `/tmp/w13/w24run.sh` is missing. No mach, build, import, verify, or commit. Removed the supplied test-run.log; details are in RESULT.md.
+## 2026-11-16 — W29 fixes worktree
+
+Implemented the three owner-approved fixes on lane/w29-fixes, without commits: shared toolbar/command-bar extension visibility (overlay hotfix), four rounded timer corners plus mirrored entrance motion, and folder accel-click opening an unpinned tab outside folders according to loadInBackground. Added and registered browser_whimsy_w29_fixes.js before production edits. Static syntax/TOML/whitespace checks and overlay apply passed. Precheck is blocked by missing engine strings; browser tests and light/dark visual QA are blocked because the mandated /tmp/w13/w24run.sh is absent. No mach/build/verify was run. See RESULT.md for causes, fixes, coverage, consumer list, and required follow-up. Not verified green.
+
+## 2026-11-16 — W29 timer consumer failure follow-up
+
+The supplied real-build log has one failure: all_off_is_just_a_timer misses
+the notch click while its new @starting-style entrance is still running.
+Sheet closure/session activation do not guarantee entrance completion. Added
+a shared local clickNotch helper for both mouse-panel checks, awaiting the
+notch's actual animation.finished promises before synthesizing the mouse click.
+Kept every assertion and the product's intended motion/radii. Node syntax and
+diff whitespace checks pass. Browser rerun is pending: the mandated
+/tmp/w13/w24run.sh is absent. No mach, build, import, verify, commit, background
+job, or wait loop. Cause and validation limits are in RESULT.md; removed the
+supplied test-run.log.

@@ -8683,7 +8683,7 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   gap: 7px;
   padding: 0 12px 0 10px;
   background: var(--zen-main-browser-background) fixed;
-  border-end-start-radius: var(--whimsy-focus-r);
+  border-radius: var(--whimsy-focus-r);
   color: var(--toolbox-textcolor, currentColor);
   font-size: 13px;
   font-weight: 600;
@@ -8718,6 +8718,11 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   }
   &.is-last .whimsy-focus-time {
     color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 70%, currentColor);
+  }
+  /* Mirror the existing cancel transition, including reduced-motion below. */
+  @starting-style {
+    translate: 0 -110%;
+    opacity: 0;
   }
   &.is-gone {
     translate: 0 -110%;
