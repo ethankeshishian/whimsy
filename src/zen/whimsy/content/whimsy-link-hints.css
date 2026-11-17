@@ -80,9 +80,13 @@
 }
 
 /* W25: hold-⌘ tab hints (WhimsyCmdTabNumbers) are these hints in the
-   browser chrome, using the same space accent as page hints. Kept between
+   browser chrome, filled with the sidebar text colour. Kept between
    holds: .leaving fades them out, and removing it
    fades back in from the current opacity. */
+#whimsy-hints.tab-shortcuts .hint {
+  background: var(--hint-bg);
+}
+
 #whimsy-hints.tab-shortcuts.leaving {
   opacity: 0;
 }

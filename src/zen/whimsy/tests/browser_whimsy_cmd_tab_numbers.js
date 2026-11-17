@@ -302,7 +302,11 @@ add_task(async function release_fades_out_in_every_focus_state() {
       }
       synth("keydown");
       await TestUtils.waitForCondition(showing, `Holding Command with the ${where} focused reveals numbers`);
-      await TestUtils.waitForCondition(() => !faded(), `Badges are visible with the ${where} focused`);
+      await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1",
+        `Badges finish fading in with the ${where} focused`);
+      await TestUtils.waitForCondition(() => [...Numbers.layer(win).children].some(node =>
+        !node.hidden && /[1-9]/.test(node.textContent) && node.getBoundingClientRect().height >= 14),
+      `A visible digit is painted with the ${where} focused`);
       synth("keyup");
       if (contentKeyup) {
         await contentKeyup;
@@ -489,13 +493,13 @@ add_task(async function expanded_and_compact_screenshots() {
           Assert.deepEqual(flags.map(attr => win.gNavToolbox.hasAttribute(attr)), before, "Hints never force compact mode open");
           await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "The hints finished fading in");
           const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
-          const expected = WhimsyLinkHints.colors(win);
+          const expected = WhimsyLinkHints.colors(win, "--toolbox-textcolor");
           const nodes = Numbers.layer(win).querySelectorAll(".hint");
           ok(nodes.length > 0, "Tab keycaps exist in this sidebar mode");
           for (const node of nodes) {
             const style = win.getComputedStyle(node);
             is(style.getPropertyValue("--whimsy-keycap-style").trim(), "keycap", "Tab numbers reuse the shared surface");
-            is(style.getPropertyValue("--hint-bg").trim(), expected.accent, "Tab numbers follow the space accent");
+            is(style.getPropertyValue("--hint-bg").trim(), expected.accent, "Tab numbers follow the sidebar text colour");
             is(style.borderRadius, "5px", "Tab numbers keep the rounded-square shape");
           }
           await whimsySettled(win.document);
@@ -517,30 +521,64 @@ add_task(async function expanded_and_compact_screenshots() {
   }
 });
 
-add_task(async function tab_keycaps_follow_changed_space_accent() {
-  const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
-  const previous = root.style.getPropertyValue("--zen-primary-color");
+add_task(async function tab_hints_follow_sidebar_colour_with_contrasting_ink() {
+  const previous = root.style.getPropertyValue("--toolbox-textcolor");
   try {
-    const accents = [];
-    for (const color of ["#e5b83d", "#4068cc"]) {
-      root.style.setProperty("--zen-primary-color", color);
-      const expected = WhimsyLinkHints.colors(win);
-      accents.push(expected.accent);
+    for (const color of ["rgb(22, 22, 26)", "rgb(240, 240, 244)"]) {
+      root.style.setProperty("--toolbox-textcolor", color);
       await hold();
-      await TestUtils.waitForCondition(() => Numbers.layer(win).querySelector(".hint"), "Tab keycaps exist");
+      await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "Hints faded in");
       for (const node of Numbers.layer(win).querySelectorAll(".hint")) {
-        is(win.getComputedStyle(node).getPropertyValue("--hint-bg").trim(), expected.accent,
-          "Tab keycaps use the changed space accent");
+        const style = win.getComputedStyle(node);
+        is(style.backgroundColor, color, "Tab hints use the sidebar text colour, not the space accent");
+        const luminance = value => {
+          const { r, g, b } = win.InspectorUtils.colorToRGBA(value);
+          const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+          return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+        };
+        const fg = luminance(style.color), bg = luminance(style.backgroundColor);
+        ok((Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05) >= 4.5, "Sidebar number contrast meets AA");
       }
       release();
     }
-    isnot(accents[0], accents[1], "Different space accents produce different keycaps");
   } finally {
     release();
     if (previous) {
-      root.style.setProperty("--zen-primary-color", previous);
+      root.style.setProperty("--toolbox-textcolor", previous);
     } else {
-      root.style.removeProperty("--zen-primary-color");
+      root.style.removeProperty("--toolbox-textcolor");
     }
+  }
+});
+
+add_task(async function open_command_bar_has_one_owner_for_digit_hints() {
+  try {
+    for (const rowNumbers of [false, true]) {
+      await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.command-bar-numbers", rowNumbers]] });
+      try {
+        await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, value: "example" });
+        ok(win.gURLBar.view.isOpen, "The command bar is open");
+        if (rowNumbers) {
+          key("KEY_Meta", { metaKey: true });
+          await TestUtils.waitForCondition(() => win.gURLBar.hasAttribute("whimsy-numbers"), "Command bar owns the digit shortcuts");
+          ok(!showing(), "No competing tab destinations are advertised");
+          await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "0", "Sidebar hints are faded out");
+        } else {
+          await hold();
+          await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "Tab hints show with the command bar open when it does not own digits");
+          await TestUtils.waitForCondition(() => [...Numbers.layer(win).children].some(node =>
+            !node.hidden && /[1-9]/.test(node.textContent) && node.getBoundingClientRect().height >= 14),
+          "Open command bar leaves visible sidebar digits");
+          ok(!win.gURLBar.hasAttribute("whimsy-numbers"), "There is only one set of destinations");
+        }
+      } finally {
+        release();
+        win.gURLBar.view.close();
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+  } finally {
+    release();
+    win.gURLBar.view.close();
   }
 });

@@ -251,16 +251,57 @@ add_task(async function cmd_digit_picks_row_while_open() {
   ok(!gURLBar.view.isOpen, "⌘1 picked the first row and closed the bar");
 });
 
-add_task(async function hold_cmd_shows_numbers() {
-  await fresh();
-  await post(1);
-  await openEmptyBar();
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
-  await TestUtils.waitForCondition(() => gURLBar.hasAttribute("whimsy-numbers"), "Holding ⌘ shows numbers");
-  is(updateRows()[0].getAttribute("whimsy-num"), "⌘1", "counting rows");
-  EventUtils.synthesizeKey("KEY_Meta", { type: "keyup" });
-  ok(!gURLBar.hasAttribute("whimsy-numbers"), "Letting go hides them");
-  await closeBar();
+function numberContrast(foreground, background) {
+  const luminance = color => {
+    const { r, g, b, a } = InspectorUtils.colorToRGBA(color);
+    is(a, 1, "Number keycap colours are opaque");
+    const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+  };
+  const f = luminance(foreground), b = luminance(background);
+  return (Math.max(f, b) + 0.05) / (Math.min(f, b) + 0.05);
+}
+
+add_task(async function hold_cmd_shows_readable_numbers_in_both_schemes() {
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    try {
+      await fresh();
+      await post(1);
+      await post(2);
+      await openEmptyBar();
+      EventUtils.synthesizeKey("KEY_Meta", { type: "keydown", metaKey: true });
+      await TestUtils.waitForCondition(() => gURLBar.hasAttribute("whimsy-numbers"), "Holding ⌘ shows numbers");
+      const numbered = WhimsyCommandBarAI.numberedRows(window);
+      ok(numbered.length >= 2, "Multiple rows are numbered");
+      for (const [i, row] of numbered.entries()) {
+        const inner = row.querySelector(".urlbarView-row-inner");
+        is(row.getAttribute("whimsy-num"), `⌘${i + 1}`, "Rows count from one");
+        for (const selected of [false, true]) {
+          row.toggleAttribute("selected", selected);
+          const style = getComputedStyle(inner, "::after");
+          is(style.content, `"⌘${i + 1}"`, "The painted pseudo-element contains its number");
+          ok(parseFloat(style.height) >= 14, "The number box is at least 14px tall");
+          ok(parseFloat(style.fontSize) >= 11, "The digit has readable type");
+          ok(numberContrast(style.color, style.backgroundColor) >= 4.5,
+            `${dark ? "Dark" : "Light"} ${selected ? "selected" : "normal"} number meets AA`);
+        }
+        row.removeAttribute("selected");
+        for (const tag of row.querySelectorAll(".urlbarView-action, .urlbarView-tag, .whimsy-update-time, .whimsy-update-needs")) {
+          is(getComputedStyle(tag).display, "none", "The number replaces time, tag, and action");
+        }
+      }
+      numbered[0].setAttribute("selected", "");
+      await whimsySettled(document);
+      await whimsyShot(`w29-cmdnums-held-${dark ? "dark" : "light"}`);
+    } finally {
+      EventUtils.synthesizeKey("KEY_Meta", { type: "keyup" });
+      ok(!gURLBar.hasAttribute("whimsy-numbers"), "Letting go hides numbers");
+      ok(!gURLBar.view.panel.querySelector("[whimsy-num]"), "Release clears both row and inner attributes");
+      await closeBar();
+      await SpecialPowers.popPrefEnv();
+    }
+  }
 });
 
 add_task(async function closed_cmd_digit_switches_tabs() {
