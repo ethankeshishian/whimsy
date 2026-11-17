@@ -1,5 +1,33 @@
 # Overnight log (Oct 29) — lead updates after each batch
 
+## 2026-11-16 — W29 darksite (partial; runtime checks blocked)
+
+- Confirmed the panel glitch: updateButton rebuilt the open panel on choice
+  changes and child reports; the profile callback also rebuilt it. Update the
+  existing site/profile switches, remembered markers, and Forget All instead.
+  Retain existing WhimsySurface switches and SiteSettings rows; no UI copy or
+  controls changed.
+- Added browser regressions first in the already-registered profile panel
+  file: real HTTPS pages, repeated on/off clicks, both directions of differing
+  profile/global defaults, scheme overrides, no reload, same row/control nodes,
+  external changes, and private isolation. They remain unrun.
+- The refresh-required cause remains unconfirmed. A diagnostic harness using
+  actual parent and child methods passes 96 flips across all modes, themes,
+  profile defaults, and private/public choices. Parent/child effective values
+  agree. No speculative actor fix was made; Gecko lifecycle/IPC/animation
+  still needs browser investigation.
+- Syntax, TOML parsing, and diff whitespace pass. Baseline panel rebuild
+  reproduced in the harness; updated module keeps controls. Precheck reports
+  only absent imported Zen strings (this worktree has no engine).
+- Required /tmp/w13/w24run.sh is missing, and pgrep is denied. No mach,
+  import, build, verify, browser tests, or screenshots. Pending consumers:
+  browser_whimsy_site_panel_profiles.js and all browser_whimsy_dark_pages*.js.
+  Full local handback: darksite-result.md.
+- Commit blocked: git add cannot create the shared .git/worktrees/darksite
+  index.lock (Operation not permitted). The requested handoff-directory write
+  was also denied. Changes remain uncommitted on lane/w29-darksite; no denial
+  was worked around.
+
 - Batch 1 (01:20–): Copy & share DONE 331e019 (rich link, multi-tab, Copy Links menu, toast). Strip tracking DONE 596ab90 (on by default, Privacy toggle). Cookie banners: Firefox 159 removed its built-in handler → requeued as bundling DuckDuckGo autoconsent (MPL-2.0). Zen #8894 (sites eat Cmd+Shift+C) open, untouched.
 - Batch 2: ALL DONE. Cookie banners f983365 (vendored DDG autoconsent 17.0.0 as hidden built-in add-on; whimsy/update-autoconsent.sh; engine_overrides copies addon files into engine/). Private indicator b34d62e (violet). AI kill switch 31abe45 (Privacy; translations stay on). Duplicate Cmd+Shift+D 6197c0a (Arc call: Pin/Unpin -> Cmd+D, Bookmark loses Cmd+D). New tabs below + in folder 1f12361. Dim sleeping 778c58d (off). Title lines 0506501.
 - Batch 3: New-tab dock at bottom 01df3f3 (toggle OFF: Arc keeps New Tab at top). Collapse pinned: existed, test fb1e687. Folder colors fd7d2e4. Loading line 97c8f22. A/V badges: existed, test d14431c. Unread badges/dots 7de9553 (title-based). Rename: existed ("Change Label…"), test 364beb2. Group by domain 8bba8b0.
@@ -494,3 +522,24 @@ authorized targeted run; isolated old passes are not validation of these edits.
   WhimsyFocusTab, and whimsy-focus.js. No browser tests, engine edits, mach,
   git, import, build, or verify run. Browser behavior remains unverified.
 
+
+
+### 2026-11-16 — W29 darksite: ten-second site-switch stall
+
+- Traced the repeated 10s delay to the child actor waiting for two rAFs in a
+  view-transition update callback. Gecko suppresses rendering and rAF during
+  that callback; its 10000ms transition timeout breaks the circular wait.
+  The 26 normal flips and four private flips account for the supplied timings.
+- Made the update synchronous, retaining the existing 240ms fade. The shared
+  darkState helper waits only for the actor's fade and paint frames, avoiding
+  unrelated/infinite page animations.
+- Moved the two new site-switch tasks into browser_whimsy_dark_pages_site_switch.js
+  with the same head/support files, and added click-to-state/fade/paint assertions
+  under 2s. No timeout increases. Full cause, fix, and consumer suite list are
+  in darksite-result2.md.
+- Validation: node syntax checks, TOML parsing/support-file equality, and diff
+  whitespace checks pass. Precheck is blocked by missing Zen strings in the
+  engine-less worktree. Browser runs are blocked: /tmp/w13/w24run.sh is missing,
+  and pgrep cannot access the process list in this sandbox. No mach, import,
+  build, verify, commit, or background wait loop. Runtime durations and browser
+  assertions still need the owner's harness. Changes remain on lane/w29-darksite.

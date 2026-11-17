@@ -255,10 +255,13 @@ add_task(async function test_dark_mode_per_profile() {
     await selectTab(workTab);
     await openPanel();
     const profileSwitch = document.getElementById("whimsy-site-settings-profile-dark-switch");
+    const siteSwitch = document.getElementById("whimsy-site-settings-dark-pages-switch");
     ok(profileSwitch.checked, "Automatic Dark Mode is on");
     ok(document.getElementById("whimsy-site-settings-dark-pages-switch").checked, "and the site's Dark Mode with it");
     EventUtils.synthesizeMouseAtCenter(profileSwitch, {});
     await darkState(workTab.linkedBrowser, "original");
+    is(document.getElementById(profileSwitch.id), profileSwitch, "The profile switch survives its own change");
+    is(document.getElementById(siteSwitch.id), siteSwitch, "The site switch follows its profile in place");
     ok(!WhimsyDarkPages.profileOn(WORK), "Work's Automatic Dark Mode is off");
     ok(WhimsyDarkPages.profileOn(0), "Default's isn't");
     await TestUtils.waitForCondition(

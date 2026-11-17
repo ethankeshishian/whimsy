@@ -8,6 +8,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyPage: "resource:///modules/whimsy/WhimsyPage.sys.mjs",
   WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
+  ZoomUI: "resource:///modules/ZoomUI.sys.mjs",
 });
 
 import { DARK_PAGES_KEY } from "resource:///modules/whimsy/WhimsyDarkPagesConfig.sys.mjs";
@@ -272,18 +273,45 @@ export const WhimsyDarkPages = {
     // and a click sets it back.
     button.hidden = !this.enabled || !this.siteKey(browser) || dark == this.active;
     button.toggleAttribute("active", dark);
-    // Keep an open site panel's row in step, only when this site's choice
-    // or state actually changed (a re-render would close other controls).
-    const shown = `${browser.browserId}|${this.siteKey(browser)}|${this.choice(browser)}|${this.state(browser)}`;
-    if (button._shown != shown) {
-      const panelOpen = win.document.getElementById("zen-unified-site-data-panel")?.state == "open";
-      if (panelOpen && button._shown?.startsWith(`${browser.browserId}|${this.siteKey(browser)}|`)) {
-        lazy.WhimsySiteSettings.render(win);
-      }
-      button._shown = shown;
+    // Publishing a choice and receiving the child's state both reach here.
+    // Keep existing controls (and their focus/hover) through both updates.
+    if (win.document.getElementById("zen-unified-site-data-panel")?.state == "open") {
+      this.updateRows(win, browser);
     }
     button.setAttribute("aria-pressed", dark);
     win.document.l10n.setAttributes(button, dark ? "whimsy-dark-pages-button-original" : "whimsy-dark-pages-button-dark");
+  },
+
+  updateRows(win, browser) {
+    const doc = win.document;
+    const siteToggle = doc.getElementById("whimsy-site-settings-dark-pages-switch");
+    // An open popup can briefly outlive its selected tab.
+    if (siteToggle?._whimsyBrowser != browser) {
+      return;
+    }
+    const update = (id, checked, remembered) => {
+      const toggle = doc.getElementById(id);
+      if (toggle) {
+        toggle.checked = checked;
+        toggle.closest("[whimsy-site-setting]").setAttribute("state", remembered ? "allow" : "block");
+      }
+    };
+    update("whimsy-site-settings-dark-pages-switch", this.isDark(browser), this.storedChoice(browser) != null);
+    const id = this.userContextIdOf(browser);
+    update("whimsy-site-settings-profile-dark-switch", this.profileOn(id), typeof this.profiles()[id] == "boolean");
+    const section = lazy.WhimsySiteSettings.sectionOf(win);
+    if (section) {
+      const updateRemembered = globalZoom => {
+        if (!siteToggle.isConnected || win.gBrowser.selectedBrowser != browser) {
+          return;
+        }
+        const remembered = !!section.querySelector(
+          '[whimsy-site-setting][state="allow"]:not([whimsy-site-setting="zoom"])');
+        const zoom = win.ZoomManager?.getZoomForBrowser?.(browser) ?? 1;
+        lazy.WhimsySiteSettings.updateForgetAll(section, remembered || Math.abs(zoom - globalZoom) > 0.001);
+      };
+      lazy.ZoomUI.getGlobalValue().then(updateRemembered).catch(() => {});
+    }
   },
 
   state(browser) {
@@ -338,6 +366,7 @@ export const WhimsyDarkPages = {
       id: "whimsy-site-settings-dark-pages-switch",
       onChange: checked => this.setDark(browser, checked),
     });
+    toggle._whimsyBrowser = browser;
     return lazy.WhimsySiteSettings.row(doc, {
       kind: "dark-pages",
       l10nId: "whimsy-site-settings-dark-mode",
@@ -487,10 +516,7 @@ export const WhimsyDarkPages = {
       checked: this.profileOn(userContextId),
       labelledBy: labelId,
       id: "whimsy-site-settings-profile-dark-switch",
-      onChange: checked => {
-        this.setProfileOn(userContextId, checked);
-        lazy.WhimsySiteSettings.render(win);
-      },
+      onChange: checked => this.setProfileOn(userContextId, checked),
     });
     return lazy.WhimsySiteSettings.row(doc, {
       kind: "profile-dark-pages",
