@@ -25,7 +25,7 @@ var WhimsyDarkPagesSettings = {
     });
     title.label.id = "whimsy-dark-pages-mode-label";
     const seg = WhimsySurface.seg(doc, {
-      name: "dark-pages-mode", label: "Dark pages",
+      name: "dark-pages-mode", label: "Adaptive Dark Mode",
       options: ["off", "match", "always"].map(value => ({ value, l10nId: `whimsy-dark-pages-${value}` })),
       onPick: value => Services.prefs.setStringPref("whimsy.dark-pages.mode", value),
     });

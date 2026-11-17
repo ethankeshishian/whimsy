@@ -8902,3 +8902,20 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   margin-block-start: var(--space-xsmall);
   padding-inline-start: var(--space-xlarge);
 }
+
+/* Variant A: the shared row detail and quiet button, inline as a reset link. */
+.whimsy-dark-page-detail {
+  flex-wrap: wrap;
+
+  & > .whimsy-surface-text-button {
+    min-height: 0;
+    padding: 0;
+    font: inherit;
+    color: LinkText;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
