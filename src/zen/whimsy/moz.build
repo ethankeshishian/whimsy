@@ -4,7 +4,6 @@
 
 EXTRA_JS_MODULES.whimsy += [
     "Whimsy.sys.mjs",
-    "WhimsyLocalPlugins.sys.mjs",
     "WhimsyAboutPage.sys.mjs",
     "WhimsyAccessCommands.sys.mjs",
     "WhimsyAI.sys.mjs",
@@ -123,6 +122,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyLiveFolderReading.sys.mjs",
     "WhimsyLiveFolders.sys.mjs",
     "WhimsyLiveSpeech.sys.mjs",
+    "WhimsyLocalPlugins.sys.mjs",
     "WhimsyLocalServersLiveFolder.sys.mjs",
     "WhimsyLook.sys.mjs",
     "WhimsyMarkdownCopy.sys.mjs",
