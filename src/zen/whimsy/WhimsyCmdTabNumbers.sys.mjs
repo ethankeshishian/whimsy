@@ -238,8 +238,8 @@ export const WhimsyCmdTabNumbers = {
       return;
     }
     const layer = this.ensureLayer(win, state);
-    // The sidebar's text colour, not the accent: tab shortcuts, not links.
-    const { accent, ink } = lazy.WhimsyLinkHints.colors(win, "--toolbox-textcolor");
+    // The same space-accent keycap as page hints and Edit Field.
+    const { accent, ink } = lazy.WhimsyLinkHints.colors(win);
     layer.style.setProperty("--hint-bg", accent);
     layer.style.setProperty("--hint-ink", ink);
     const root = win.document.documentElement;

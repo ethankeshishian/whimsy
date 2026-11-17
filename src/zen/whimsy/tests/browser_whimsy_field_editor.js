@@ -333,3 +333,50 @@ add_task(async function test_press_opens_the_editor_and_sets_pressed() {
       "Stopping the session un-presses the button");
   });
 });
+
+add_task(async function field_keycap_follows_live_space_accent() {
+  const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
+  const root = document.documentElement;
+  const previous = root.style.getPropertyValue("--zen-primary-color");
+  try {
+    for (const dark of [false, true]) {
+      await whimsySetScheme(dark);
+      try {
+        await BrowserTestUtils.withNewTab(PAGE, async browser => {
+          await focusField(browser, "area");
+          await TestUtils.waitForCondition(() => hasButton(browser), "Field button appeared");
+          for (const accent of ["#e5b83d", "#4068cc"]) {
+            root.style.setProperty("--zen-primary-color", accent);
+            const expected = WhimsyLinkHints.colors(window);
+            const read = () => SpecialPowers.spawn(browser, [HOST_ID], hostId => {
+              const button = content.document.getElementById(hostId).openOrClosedShadowRoot.querySelector("button");
+              const style = content.getComputedStyle(button);
+              return { shared: style.getPropertyValue("--whimsy-keycap-style").trim(),
+                accent: style.getPropertyValue("--hint-bg").trim(), ink: style.color,
+                radius: style.borderRadius, shadow: style.boxShadow,
+                width: button.offsetWidth, height: button.offsetHeight };
+            });
+            await TestUtils.waitForCondition(async () => {
+              const style = await read();
+              return style.shared == "keycap" && style.accent == expected.accent;
+            }, "The field button follows live changes to the space accent");
+            const style = await read();
+            is(style.ink, "rgb(255, 255, 255)", "Field icon uses on-accent ink");
+            is(style.radius, "5px", "Field icon reuses the rounded-square shape");
+            ok(style.shadow.includes("inset"), "Field icon has the shared raised edge");
+            is(style.width, 24, "Field button width is unchanged");
+            is(style.height, 24, "Field button height is unchanged");
+          }
+        });
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+  } finally {
+    if (previous) {
+      root.style.setProperty("--zen-primary-color", previous);
+    } else {
+      root.style.removeProperty("--zen-primary-color");
+    }
+  }
+});

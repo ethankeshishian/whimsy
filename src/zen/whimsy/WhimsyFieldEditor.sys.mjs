@@ -26,6 +26,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
@@ -39,6 +40,7 @@ const ICON = "chrome://browser/content/whimsy/icons/edit-field.svg";
 const DIR_NAME = "whimsy-field-editor";
 const POLL_MS = 500;
 const MAX_MS = 10 * 60 * 1000; // ten minutes
+let keycapCSS;
 
 export const WhimsyFieldEditor = {
   // At most one watch per window; a second run on a different field
@@ -66,6 +68,14 @@ export const WhimsyFieldEditor = {
         );
       },
     });
+    const refreshColors = () => {
+      const actor = this._qualified.get(win.gBrowser.selectedBrowser);
+      actor?.sendAsyncMessage("WhimsyFieldEditor:Colors", lazy.WhimsyLinkHints.colors(win));
+    };
+    win.addEventListener("ZenWorkspacesUIUpdate", refreshColors);
+    const colorsObserver = new win.MutationObserver(refreshColors);
+    colorsObserver.observe(win.document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    win.addEventListener("unload", () => colorsObserver.disconnect(), { once: true });
     win.addEventListener("TabClose", event => {
       if (this._sessions.get(win)?.tab == event.target) {
         this.stop(win);
@@ -222,6 +232,11 @@ export const WhimsyFieldEditor = {
 
 export class WhimsyFieldEditorParent extends JSWindowActorParent {
   receiveMessage(message) {
+    if (message.name == "WhimsyFieldEditor:Style") {
+      const win = this.browsingContext.topChromeWindow;
+      keycapCSS ??= win.fetch("chrome://browser/content/whimsy/whimsy-link-hints.css").then(response => response.text());
+      return keycapCSS.then(css => ({ css, ...lazy.WhimsyLinkHints.colors(win) }));
+    }
     if (message.name == "WhimsyFieldEditor:Qualified") {
       WhimsyFieldEditor._setQualified(this.browsingContext.top.embedderElement, message.data.on, this);
     } else if (message.name == "WhimsyFieldEditor:Press") {

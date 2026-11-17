@@ -488,6 +488,16 @@ add_task(async function expanded_and_compact_screenshots() {
           await hold();
           Assert.deepEqual(flags.map(attr => win.gNavToolbox.hasAttribute(attr)), before, "Hints never force compact mode open");
           await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "The hints finished fading in");
+          const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
+          const expected = WhimsyLinkHints.colors(win);
+          const nodes = Numbers.layer(win).querySelectorAll(".hint");
+          ok(nodes.length > 0, "Tab keycaps exist in this sidebar mode");
+          for (const node of nodes) {
+            const style = win.getComputedStyle(node);
+            is(style.getPropertyValue("--whimsy-keycap-style").trim(), "keycap", "Tab numbers reuse the shared surface");
+            is(style.getPropertyValue("--hint-bg").trim(), expected.accent, "Tab numbers follow the space accent");
+            is(style.borderRadius, "5px", "Tab numbers keep the rounded-square shape");
+          }
           await whimsySettled(win.document);
           await whimsyShot(`w24-cmdhints-${state}-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
         } finally {
@@ -503,6 +513,34 @@ add_task(async function expanded_and_compact_screenshots() {
       root.removeAttribute("zen-sidebar-expanded");
     } else {
       root.setAttribute("zen-sidebar-expanded", expanded);
+    }
+  }
+});
+
+add_task(async function tab_keycaps_follow_changed_space_accent() {
+  const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
+  const previous = root.style.getPropertyValue("--zen-primary-color");
+  try {
+    const accents = [];
+    for (const color of ["#e5b83d", "#4068cc"]) {
+      root.style.setProperty("--zen-primary-color", color);
+      const expected = WhimsyLinkHints.colors(win);
+      accents.push(expected.accent);
+      await hold();
+      await TestUtils.waitForCondition(() => Numbers.layer(win).querySelector(".hint"), "Tab keycaps exist");
+      for (const node of Numbers.layer(win).querySelectorAll(".hint")) {
+        is(win.getComputedStyle(node).getPropertyValue("--hint-bg").trim(), expected.accent,
+          "Tab keycaps use the changed space accent");
+      }
+      release();
+    }
+    isnot(accents[0], accents[1], "Different space accents produce different keycaps");
+  } finally {
+    release();
+    if (previous) {
+      root.style.setProperty("--zen-primary-color", previous);
+    } else {
+      root.style.removeProperty("--zen-primary-color");
     }
   }
 });

@@ -288,3 +288,41 @@ add_task(async function switch_off() {
   });
   await SpecialPowers.popPrefEnv();
 });
+
+add_task(async function keycaps_follow_space_accent_in_both_themes() {
+  const root = document.documentElement;
+  const previous = root.style.getPropertyValue("--zen-primary-color");
+  try {
+    for (const dark of [false, true]) {
+      await whimsySetScheme(dark);
+      try {
+        for (const accent of ["#e5b83d", "#4068cc"]) {
+          root.style.setProperty("--zen-primary-color", accent);
+          const expected = WhimsyLinkHints.colors(window);
+          const rgba = window.InspectorUtils.colorToRGBA(expected.accent);
+          const lin = v => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+          const lum = 0.2126 * lin(rgba.r) + 0.7152 * lin(rgba.g) + 0.0722 * lin(rgba.b);
+          ok(1.05 / (lum + 0.05) >= 4.5, "Keycap fill clears AA with its white ink");
+          await BrowserTestUtils.withNewTab(PAGE, async browser => {
+            await showHints(browser);
+            await TestUtils.waitForCondition(async () => (await peek(browser)).surface?.shared == "keycap",
+              "The page hint loaded the shared keycap surface");
+            const { surface } = await peek(browser);
+            is(surface.accent, expected.accent, "Page hints use the active space's accent fill");
+            is(surface.ink, "rgb(255, 255, 255)", "Page hints use on-accent ink");
+            is(surface.radius, "5px", "Page hints keep the rounded-square keycap");
+            ok(surface.background.includes("linear-gradient"), "The keycap has its raised gradient");
+          });
+        }
+      } finally {
+        await SpecialPowers.popPrefEnv();
+      }
+    }
+  } finally {
+    if (previous) {
+      root.style.setProperty("--zen-primary-color", previous);
+    } else {
+      root.style.removeProperty("--zen-primary-color");
+    }
+  }
+});
