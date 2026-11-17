@@ -149,6 +149,17 @@ export const WhimsyCtrlTab = {
       }
       return attachTab.apply(this, arguments);
     };
+    // A tab that became eligible while it was already selected (a Glance
+    // expanded into its own tab) never had a TabSelect to put it in the
+    // list; once you leave it, it was the most recent, so it goes in first.
+    const handleEvent = ctrlTab.handleEvent;
+    ctrlTab.handleEvent = function (event) {
+      const previous = event.type == "TabSelect" ? event.detail?.previousTab : null;
+      if (self.enabled && previous && this._recentlyUsedTabs && !this._recentlyUsedTabs.includes(previous)) {
+        this.attachTab(previous, 0);
+      }
+      return handleEvent.apply(this, arguments);
+    };
     const open = ctrlTab.open;
     ctrlTab.open = function () {
       this._whimsyBase = 0;
