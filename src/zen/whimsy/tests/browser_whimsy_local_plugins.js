@@ -315,8 +315,11 @@ add_task(async function test_manifest_v2_and_v3_run_after_approval() {
 add_task(async function test_open_addons_list_updates_on_rescan() {
   const win = await BrowserAddonUI.openAddonsMgr("addons://list/extension");
   const doc = win.document;
+  await TestUtils.waitForCondition(
+    () => doc.querySelector("addon-list") && !doc.querySelector("#main")?.hasAttribute("loading"),
+    "Add-ons extension list is open before rescan"
+  );
   const list = doc.querySelector("addon-list");
-  ok(list, "Add-ons extension list is open before rescan");
   // Make scrolling possible even when the profile has no other extensions.
   // addon-list is an inline custom element; give its block parent the height.
   doc.getElementById("main").style.minHeight = `${win.innerHeight + 2000}px`;
