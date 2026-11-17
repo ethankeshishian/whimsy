@@ -78,6 +78,15 @@ HOOKS = [
 ]
 
 HOTFIXES = [
+    {
+        "id": "command-bar-extension-visibility",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "Extension actions must use the toolbar's current-space visibility rule.",
+        "old": "          addon.isActive &&\n          !addon.isSystem &&",
+        "new": "          addon.isActive &&\n          !addon.isSystem &&\n"
+               "          ChromeUtils.importESModule(\"resource:///modules/whimsy/WhimsySpaceExtensions.sys.mjs\")\n"
+               "            .WhimsySpaceExtensions.isVisibleInWindow(addon.id, window) &&",
+    },
     # W25 designfix: Hide Sidebar (⌘S) and the chat panel (⌘E) move with
     # one duration and easing. Zen's compact-mode toggle runs a 0.1s spring;
     # it asks Whimsy's window.gWhimsySidebarMotion (WhimsyChatPanel.initWindow)

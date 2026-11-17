@@ -543,3 +543,20 @@ authorized targeted run; isolated old passes are not validation of these edits.
   and pgrep cannot access the process list in this sandbox. No mach, import,
   build, verify, commit, or background wait loop. Runtime durations and browser
   assertions still need the owner's harness. Changes remain on lane/w29-darksite.
+
+## 2026-11-16 — W29 fixes worktree
+
+Implemented the three owner-approved fixes on lane/w29-fixes, without commits: shared toolbar/command-bar extension visibility (overlay hotfix), four rounded timer corners plus mirrored entrance motion, and folder accel-click opening an unpinned tab outside folders according to loadInBackground. Added and registered browser_whimsy_w29_fixes.js before production edits. Static syntax/TOML/whitespace checks and overlay apply passed. Precheck is blocked by missing engine strings; browser tests and light/dark visual QA are blocked because the mandated /tmp/w13/w24run.sh is absent. No mach/build/verify was run. See RESULT.md for causes, fixes, coverage, consumer list, and required follow-up. Not verified green.
+
+## 2026-11-16 — W29 timer consumer failure follow-up
+
+The supplied real-build log has one failure: all_off_is_just_a_timer misses
+the notch click while its new @starting-style entrance is still running.
+Sheet closure/session activation do not guarantee entrance completion. Added
+a shared local clickNotch helper for both mouse-panel checks, awaiting the
+notch's actual animation.finished promises before synthesizing the mouse click.
+Kept every assertion and the product's intended motion/radii. Node syntax and
+diff whitespace checks pass. Browser rerun is pending: the mandated
+/tmp/w13/w24run.sh is absent. No mach, build, import, verify, commit, background
+job, or wait loop. Cause and validation limits are in RESULT.md; removed the
+supplied test-run.log.

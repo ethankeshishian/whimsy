@@ -129,6 +129,7 @@ export const WhimsyTabs = {
 
   initWindow(win) {
     this.watchPrefs();
+    this.initFolderAccelClick(win);
     const update = () => this.placeNewTabButtons(win);
     const observer = () => update();
     for (const pref of [FEATURE_PREF, BOTTOM_PREF]) {
@@ -158,6 +159,48 @@ export const WhimsyTabs = {
     this.initBadges(win);
     this.initGroupByDomain(win);
     this.initPinnedMarks(win);
+  },
+
+  // A folder item acts like a link on accel-click. Handle the press before
+  // native multiselection and the click before favicon/pinned-reset handlers.
+  initFolderAccelClick(win) {
+    const handle = event => {
+      const tab = event.target.closest?.("tab.tabbrowser-tab");
+      if (event.button != 0 || !event.getModifierState("Accel") ||
+          event.shiftKey || event.altKey || !tab?.group?.isZenFolder ||
+          tab.closing || event.target.closest?.(".tab-close-button, .tab-audio-button, .tab-icon-overlay")) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (event.type != "click") {
+        return;
+      }
+      const browser = win.gBrowser;
+      const inBackground = Services.prefs.getBoolPref("browser.tabs.loadInBackground", true);
+      // A fresh URL open deliberately has no opener: a related tab inherits
+      // its opener's folder. Insert after the entire pinned section instead.
+      const opened = browser.addTab(tab.linkedBrowser.currentURI.spec, {
+        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+        userContextId: tab.userContextId,
+        relatedToCurrent: false,
+        pinned: false,
+        tabGroup: null,
+        inBackground,
+        tabIndex: Infinity,
+      });
+      if (!inBackground) {
+        browser.selectedTab = opened;
+      }
+    };
+    for (const type of ["mousedown", "click"]) {
+      win.addEventListener(type, handle, true);
+    }
+    win.addEventListener("unload", () => {
+      for (const type of ["mousedown", "click"]) {
+        win.removeEventListener(type, handle, true);
+      }
+    }, { once: true });
   },
 
   // Mail summaries use the title only; a missing count means zero, not
