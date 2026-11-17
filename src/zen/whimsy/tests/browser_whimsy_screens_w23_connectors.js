@@ -51,16 +51,15 @@ async function openConnectors() {
   const doc = win.document;
   await TestUtils.waitForCondition(() => doc.getElementById("whimsyConnectorsList")?.dataset.ready == "true", "Connectors shows");
   win.WhimsyAISettings.jumpTo("connectors");
-  await new Promise(r => win.setTimeout(r, 400));
-  return { tab, win, doc, S: win.WhimsyAISettings, row: id => doc.querySelector(`.whimsy-ai-item[data-connector="${id}"]`) };
+  await whimsySettled(doc);
+  return { tab, win, doc, S: win.WhimsyAISettings, row: id => doc.querySelector(`[data-connector="${id}"]`) };
 }
 
 add_task(async function settings_states() {
   for (const [state, prepare] of [
     ["set-5.1", () => {}],
-    ["set-5.2", page => page.row("google").querySelector(".whimsy-ai-chev").click()],
+    ["set-5.2", page => page.row("google").querySelector("moz-toggle").scrollIntoView({ block: "center" })],
     ["set-5.3", async page => {
-      page.row("google").querySelector(".whimsy-ai-chev").click();
       (await TestUtils.waitForCondition(() => page.doc.querySelector('[data-action="disconnect"]'))).click();
     }],
     ["set-5.4", page => page.S.openSheet("connector-scopes", { connector: "microsoft" })],

@@ -137,3 +137,23 @@
   width: 24px;
   height: 24px;
 }
+
+/* Same card and switch tokens as the other connectors. */
+.whimsy-google-account-settings {
+  border-top: 1px solid var(--ai-hairline);
+}
+.whimsy-google-label {
+  max-width: 100%;
+  width: auto;
+  font-weight: 600;
+}
+.whimsy-google-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 0 14px 10px;
+}
+.whimsy-google-switches .whimsy-connectors-scope {
+  gap: 6px;
+  font-size: 12.5px;
+}

@@ -8955,3 +8955,23 @@ whimsy-ai-error-daily-quota = Gemini's free tier is used up for today.
 whimsy-ai-error-daily-quota-until = Gemini's free tier is used up for today. It resets at { $time }.
 whimsy-ai-error-plan-limit-until = Your { $provider } plan has no room left until { $time }.
 whimsy-ai-error-rate-limited-retry = { $provider } is busy. Try again in { $seconds } seconds.
+
+# Direct Google search modes in the command bar.
+whimsy-google-search-mail = Search Mail
+whimsy-google-search-drive = Search Drive
+whimsy-google-mode-mail = Mail
+whimsy-google-mode-drive = Drive
+whimsy-google-hint-mail = Search mail in { $count } accounts
+whimsy-google-hint-drive = Search files in { $count } accounts
+whimsy-google-failed = { $account } needs signing in again
+whimsy-google-more-mail = Show More Mail
+whimsy-google-more-drive = Show More Files
+whimsy-google-open = Open
+whimsy-google-new-tab = New Tab
+whimsy-google-accounts-count = { $count } accounts
+whimsy-google-account-label =
+    .aria-label = Label for { $account }
+whimsy-google-account-expired = Needs signing in
+whimsy-google-add-account = Add another account
+whimsy-google-use-search = Use in Search
+whimsy-google-file-detail = { $type } · edited { $date } · { $owner }
