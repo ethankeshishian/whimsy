@@ -43,6 +43,9 @@ support-files = ["whimsy_image_drop.html", "whimsy_image_drop.sjs"]
 
 ["browser_whimsy_autofill_manager.js"]
 
+["browser_whimsy_cookie_banner_fallback.js"]
+support-files = ["cookie_banner_unknown.html"]
+
 ["browser_whimsy_cookie_banners.js"]
 support-files = ["cookie_banner.html"]
 

@@ -1,0 +1,59 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Unrecognised notice fixture</title>
+<style>
+  #notice { position: fixed; bottom: 4px; left: 4px; padding: 16px;
+    max-width: 440px; background: #222; color: white; border-radius: 12px; }
+  #backdrop { position: fixed; inset: 0; background: #0008; }
+</style>
+<main><h1>Choose a professional</h1><p>The booking page remains usable.</p></main>
+<script>
+  const mode = new URLSearchParams(location.search).get("mode") || "dismiss";
+  function showNotice() {
+    const notice = document.createElement("div");
+    notice.id = "notice";
+    notice.innerHTML = mode === "ordinary"
+      ? '<p>Your appointment has been saved.</p><button data-choice="accept">Accept</button><button data-choice="dismiss">Dismiss</button>'
+      : '<strong>This site uses cookies</strong><p>Manage your privacy choices <a href="#privacy">here</a></p><button data-choice="accept">Accept</button>';
+    if (!["accept", "ordinary"].includes(mode)) {
+      const button = document.createElement("button");
+      button.dataset.choice = "dismiss";
+      button.textContent = ({ acknowledge: "Got it", implied: "Got it", close: "Close",
+        cross: "✕", thanks: "No thanks", misleading: "Accept" })[mode] || "Dismiss";
+      if (mode === "misleading") {
+        button.setAttribute("aria-label", "Dismiss");
+      }
+      notice.append(button);
+    }
+    if (mode === "implied") {
+      notice.insertAdjacentHTML("afterbegin", "<p>By clicking Got it, you consent to all cookies.</p>");
+    }
+    if (mode === "login") {
+      notice.insertAdjacentHTML("afterbegin", '<p>Sign in to manage cookies.</p><input type="password">');
+    }
+    if (mode === "payment") {
+      notice.insertAdjacentHTML("afterbegin", "<p>Confirm payment. Cookies keep your checkout secure.</p>");
+    }
+    if (mode === "blocked") {
+      const backdrop = document.createElement("div");
+      backdrop.id = "backdrop";
+      document.body.append(backdrop);
+      notice.querySelector('[data-choice="dismiss"]').remove();
+    }
+    if (mode === "modal") {
+      notice.setAttribute("aria-modal", "true");
+      notice.setAttribute("role", "dialog");
+    }
+    notice.addEventListener("click", event => {
+      const value = event.target.dataset.choice;
+      if (value) {
+        document.body.dataset.choice = value;
+        notice.remove();
+      }
+    });
+    document.body.append(notice);
+  }
+  if (mode !== "late") {
+    showNotice();
+  }
+</script>

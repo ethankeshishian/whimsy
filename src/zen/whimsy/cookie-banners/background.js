@@ -41,6 +41,23 @@ async function onMessage(msg, sender) {
       reply({ type: "initResp", config: CONFIG, rules: { autoconsent: [], compact } });
       break;
     }
+    case "report": {
+      // A second detection attempt means the first full rule pass found no
+      // CMP. Don't wait for nothingDetected: retries can wait a minute for a
+      // DOM mutation. Known CMPs retain control as soon as they are detected.
+      // The same config and content-script site access gates apply here.
+      const state = msg.state;
+      const unknown = state?.lifecycle === "nothingDetected" ||
+        (state?.lifecycle === "started" && state.findCmpAttempts === 2);
+      if (unknown || state?.lifecycle === "cmpDetected") {
+        reply({ type: "whimsyCookieFallback",
+          enabled: CONFIG.enabled && CONFIG.autoAction === "optOut" && unknown });
+      }
+      break;
+    }
+    case "cmpDetected":
+      reply({ type: "whimsyCookieFallback", enabled: false });
+      break;
     case "eval": {
       const func = evalSnippets[msg.snippetId];
       let result = false;
