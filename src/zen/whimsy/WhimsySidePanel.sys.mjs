@@ -306,7 +306,10 @@ class SidePanel {
       return true;
     }
     const tab = this.win.gBrowser.selectedTab;
-    if (this.isExpanded(tab) && this.container(tab)?.contains(this.doc.activeElement)) {
+    // A selected Essential may have been opened normally (keyboard, restore,
+    // or reopen). Only our temporary Expand owns the shrink-and-minimize path;
+    // all other selections keep Zen's pinned-tab close/reset behavior.
+    if (this.expanded?.tab == tab && this.isExpanded(tab) && this.container(tab)?.contains(this.doc.activeElement)) {
       this.shrink(tab, { minimize: true });
       return true;
     }
