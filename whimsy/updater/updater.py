@@ -54,6 +54,7 @@ State lives in ~/Library/Application Support/Whimsy Updater:
 """
 import datetime
 import fcntl
+import getpass
 import json
 import os
 import re
@@ -100,6 +101,8 @@ def pinned_node_bin():
 PATH = ":".join([
     *pinned_node_bin(),
     os.path.join(HOME, ".cargo", "bin"), os.path.join(HOME, ".mozbuild", "sccache"),
+    # Nix (system, then home-manager) comes before Homebrew; gh and git live there.
+    "/run/current-system/sw/bin", f"/etc/profiles/per-user/{getpass.getuser()}/bin",
     "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin",
 ])
 

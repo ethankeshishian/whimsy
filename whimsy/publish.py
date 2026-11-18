@@ -38,6 +38,7 @@ Each release is Zen's version plus a Whimsy revision, like 1.24b-w3
 import base64
 import configparser
 import datetime
+import getpass
 import glob
 import hashlib
 import json
@@ -58,7 +59,9 @@ CONTROL = os.path.expanduser("~/Library/Application Support/Whimsy Updater/contr
 PUBLIC_DER = os.path.join(ROOT, "whimsy", "signing", "whimsy-mar.der")
 sys.path.insert(0, os.path.join(ROOT, "whimsy"))
 import signing_backup  # noqa: E402
-PATH = ":".join([os.path.expanduser("~/.cargo/bin"), "/opt/homebrew/bin", "/usr/local/bin",
+# Nix (system, then home-manager) comes before Homebrew; gh and git live there.
+PATH = ":".join([os.path.expanduser("~/.cargo/bin"), "/run/current-system/sw/bin",
+                 f"/etc/profiles/per-user/{getpass.getuser()}/bin", "/opt/homebrew/bin", "/usr/local/bin",
                  "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
 
 

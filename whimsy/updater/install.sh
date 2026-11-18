@@ -8,7 +8,7 @@ REPO=$(cd "$(dirname "$0")/../.." && pwd)
 DATA="$HOME/Library/Application Support/Whimsy Updater"
 AGENTS="$HOME/Library/LaunchAgents"
 DOMAIN="gui/$(id -u)"
-PATH_VALUE="$HOME/.cargo/bin:$HOME/.mozbuild/sccache:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+PATH_VALUE="$HOME/.cargo/bin:$HOME/.mozbuild/sccache:/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 for job in app.whimsy.updater app.whimsy.applier; do
   launchctl bootout "$DOMAIN/$job" 2>/dev/null || true
