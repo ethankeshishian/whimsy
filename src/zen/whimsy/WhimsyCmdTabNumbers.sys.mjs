@@ -188,6 +188,12 @@ export const WhimsyCmdTabNumbers = {
     return states.get(win)?.badges.get(tab) ?? null;
   },
 
+  // Snapshot for input regression diagnostics; never expose the mutable Set.
+  chordState(win) {
+    const state = states.get(win);
+    return state ? { meta: state.meta, keys: [...state.keys], timer: state.timer } : null;
+  },
+
   ensureLayer(win, state) {
     if (state.layer?.isConnected) {
       return state.layer;

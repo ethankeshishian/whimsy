@@ -211,12 +211,11 @@ add_task(async function real_digits_match_badges() {
 add_task(async function chrome_document_blur_preserves_hold() {
   key("KEY_Meta", { type: "keydown", metaKey: true });
   try {
-    // Reproduce the window-targeted blur delivered as chrome hands focus to
-    // content after a tab switch. No top-level window deactivation occurs.
-    // Dispatch during the pending hold so cancelling its timer is observable.
-    win.dispatchEvent(new win.FocusEvent("blur"));
+    // A document blur is not a window blur. Window blur deliberately resets
+    // the chord (covered below); handing focus to content must preserve it.
+    win.document.dispatchEvent(new win.FocusEvent("blur"));
     await TestUtils.waitForCondition(showing, "Document blur preserves the pending Command hold");
-    win.dispatchEvent(new win.FocusEvent("blur"));
+    win.document.dispatchEvent(new win.FocusEvent("blur"));
     ok(showing(), "Document blur preserves visible badges in the active window");
   } finally {
     release();
@@ -619,6 +618,119 @@ add_task(async function command_bar_digit_then_sidebar() {
   }
 });
 
+function logChord(label) {
+  const state = Numbers.chordState(win);
+  info(`${label}: meta=${state.meta}, keys=${JSON.stringify(state.keys)}, pending timer=${state.timer}, bar=${win.gURLBar.view.isOpen}, tabs=${showing()}`);
+  return state;
+}
+
+// ZenUrlbarController.handleNewTab binds the new-tab command to a floating
+// command bar, and a second Command-T closes that session. Exercise the native
+// key path, including keyups delivered to the newly focused bar. Do not call
+// doCommand(), open the popup through a test helper, or pick a result here.
+async function summonThenClose(closePath) {
+  const testing = win.gZenUIManager.testingEnabled;
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["zen.urlbar.replace-newtab", true],
+    ["ui.prefersReducedMotion", 0],
+  ] });
+  const synth = (keyName, options = {}) => EventUtils.synthesizeKey(keyName, options, win);
+  function commandT(lostLetterKeyup) {
+    synth("KEY_Meta", { type: "keydown" });
+    synth("t", { type: "keydown", metaKey: true });
+    logChord("Command-T keydown");
+    if (!lostLetterKeyup) {
+      synth("t", { type: "keyup", metaKey: true });
+    }
+    synth("KEY_Meta", { type: "keyup" });
+    const state = logChord(`Command-T release (lost letter keyup=${lostLetterKeyup})`);
+    ok(!state.meta && !state.keys.length && !state.timer, "Meta release clears the entire summon chord");
+  }
+  try {
+    // Zen's testing flag intentionally bypasses the product Command-T path.
+    // Disable only that bypass; keep the real command and focus handlers.
+    win.gZenUIManager.testingEnabled = false;
+    await SimpleTest.promiseFocus(win);
+    await TestUtils.waitForCondition(() => !win.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      "Sidebar fade is enabled");
+    for (const lostLetterKeyup of [false, true]) {
+      win.gURLBar.view.close();
+      synth("KEY_Meta", { type: "keyup" });
+      win.gBrowser.selectedTab.focus();
+      const tabsBefore = [...win.gBrowser.tabs];
+      const selectedBefore = win.gBrowser.selectedTab;
+      logChord(`Before summon / ${closePath}`);
+      commandT(lostLetterKeyup);
+      await TestUtils.waitForCondition(() => win.gURLBar.view.isOpen && win.gURLBar.hasAttribute("zen-newtab"),
+        "The real Command-T summoned the command bar");
+      logChord(`Before immediate close / ${closePath}`);
+      if (closePath == "escape") {
+        synth("KEY_Escape");
+      } else if (closePath == "outside") {
+        const target = win.gBrowser.selectedTab;
+        ok(target.checkVisibility({ visibilityProperty: true }), "The outside click target is visible");
+        EventUtils.synthesizeMouseAtCenter(target, {}, win);
+      } else {
+        commandT(lostLetterKeyup);
+      }
+      await TestUtils.waitForCondition(() => !win.gURLBar.view.isOpen && !win.gURLBar.hasAttribute("zen-newtab"),
+        `${closePath} closed the summoned bar without picking a row`);
+      Assert.deepEqual([...win.gBrowser.tabs], tabsBefore, "Summon and close created no tab");
+      is(win.gBrowser.selectedTab, selectedBefore, "No result or tab was picked");
+      const state = logChord(`After close / ${closePath}`);
+      ok(!state.meta && !state.keys.length && !state.timer, "Closing leaves no stale chord or pending timer");
+
+      win.gBrowser.selectedTab.focus();
+      if (Numbers.layer(win)) {
+        await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "0",
+          "Sidebar starts transparent");
+      }
+      const revealed = BrowserTestUtils.waitForMutationCondition(root,
+        { attributes: true, attributeFilter: ["whimsy-tab-numbers"] }, showing);
+      synth("KEY_Meta", { type: "keydown" });
+      logChord(`Sidebar hold pending / ${closePath}`);
+      await revealed;
+      await assertBadgeFade(Numbers.layer(win), true, false);
+      ok([...Numbers.layer(win).children].some(node => !node.hidden && node.getBoundingClientRect().height > 0),
+        "The fading sidebar layer contains a visible badge");
+      logChord(`Sidebar hold revealed / ${closePath}`);
+      synth("KEY_Meta", { type: "keyup" });
+      await assertBadgeFade(Numbers.layer(win), false, false);
+
+      const targets = [...Numbers.tabsForShortcut(win)].slice(0, 3);
+      is(targets.length, 3, "Three real shortcut targets exist");
+      for (const [index, target] of targets.entries()) {
+        // Start elsewhere so every shortcut must actually switch a tab.
+        win.gBrowser.selectedTab = targets[(index + 1) % targets.length];
+        win.gBrowser.selectedTab.focus();
+        synth("KEY_Meta", { type: "keydown" });
+        synth(String(index + 1), { metaKey: true });
+        synth("KEY_Meta", { type: "keyup" });
+        await TestUtils.waitForCondition(() => win.gBrowser.selectedTab == target,
+          `Real Command-${index + 1} switches tabs after ${closePath}`);
+      }
+      logChord(`After sidebar shortcuts / ${closePath}`);
+    }
+  } finally {
+    synth("KEY_Meta", { type: "keyup" });
+    win.gURLBar.view.close();
+    win.gZenUIManager.testingEnabled = testing;
+    await SpecialPowers.popPrefEnv();
+  }
+}
+
+add_task(async function real_summon_escape_then_sidebar() {
+  await summonThenClose("escape");
+});
+
+add_task(async function real_summon_outside_click_then_sidebar() {
+  await summonThenClose("outside");
+});
+
+add_task(async function real_summon_shortcut_toggle_then_sidebar() {
+  await summonThenClose("shortcut");
+});
+
 function rectangles(nodes) {
   return nodes.map(node => {
     const r = node.getBoundingClientRect();
@@ -640,9 +752,13 @@ async function assertBadgeFade(node, visible, reduced) {
     if (fade) {
       fade.pause();
       await fade.ready;
+      fade.currentTime = 0;
+      const startOpacity = Number(win.getComputedStyle(node).opacity);
       fade.currentTime = fade.effect.getTiming().duration / 2;
       const opacity = Number(win.getComputedStyle(node).opacity);
       ok(opacity > 0 && opacity < 1, "The badge is partially painted midway through the transition");
+      ok(visible ? opacity > startOpacity : opacity < startOpacity,
+        `Sampled opacity ${visible ? "rises on entry" : "falls on exit"}: ${startOpacity} → ${opacity}`);
       fade.finish();
       await fade.finished;
     }
