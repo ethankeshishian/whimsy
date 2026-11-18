@@ -200,6 +200,7 @@ class SidePanel {
     if (!tab || this.expanding) {
       return;
     }
+    this.cancelShrink();
     this.cancelDrag?.();
     const box = this.container(tab);
     const from = box.getBoundingClientRect();
@@ -207,7 +208,7 @@ class SidePanel {
     for (const a of box.getAnimations()) {
       a.cancel();
     }
-    const expansion = {};
+    const expansion = { tab, page: this.win.gBrowser.selectedTab };
     this.expanding = expansion;
     box.setAttribute("expanding", "true");
     const reduce = reducedMotion(this.win);
@@ -222,6 +223,7 @@ class SidePanel {
     await animation.finished.catch(() => {});
     if (this.tab == tab && this.expanding == expansion) {
       this.hide({ animate: false });
+      this.expanded = expansion;
       this.win.gBrowser.selectedTab = tab;
       this.clearPhone(tab);
       tab.linkedBrowser.focus();
@@ -236,6 +238,81 @@ class SidePanel {
     }
   }
 
+  cancelShrink() {
+    const shrinking = this.shrinking;
+    this.shrinking = null;
+    shrinking?.animation.cancel();
+  }
+
+  isExpanded(tab = this.win.gBrowser.selectedTab) {
+    return this.routes(tab) && tab == this.win.gBrowser.selectedTab && this.tab != tab;
+  }
+
+  returnPage(tab) {
+    const space = this.win.gZenWorkspaces?.activeWorkspace;
+    const eligible = candidate => candidate && candidate != tab && candidate.isConnected &&
+      !candidate.closing && !candidate.hasAttribute("zen-glance-tab") &&
+      (!candidate.getAttribute("zen-workspace-id") || candidate.getAttribute("zen-workspace-id") == space);
+    const remembered = this.expanded?.tab == tab ? this.expanded.page : this.lastPage;
+    if (eligible(remembered)) {
+      return remembered;
+    }
+    return [...this.win.gBrowser.tabs].filter(eligible)
+      .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0];
+  }
+
+  // Expand is temporary. Restore the underlying page before floating its
+  // Essential again; selection's normal phone-UA cleanup runs before show().
+  async shrink(tab, { minimize = false } = {}) {
+    if (!this.isExpanded(tab) || this.shrinking) {
+      return;
+    }
+    const page = this.returnPage(tab);
+    if (!page) {
+      return;
+    }
+    const panels = this.doc.getElementById("tabbrowser-tabpanels").getBoundingClientRect();
+    const from = this.container(tab).getBoundingClientRect();
+    this.expanded = null;
+    this.win.gBrowser.selectedTab = page;
+    this.show(tab);
+    const box = this.container(tab);
+    for (const animation of box.getAnimations()) {
+      animation.cancel();
+    }
+    const to = this.geometry(tab);
+    const reduce = reducedMotion(this.win);
+    const animation = box.animate(reduce ? { opacity: [0, 1] } : [
+      { width: `${from.width}px`, height: `${from.height}px`,
+        left: `${from.left - panels.left}px`, top: `${from.top - panels.top}px`, borderRadius: "0px" },
+      { width: `${to.width}px`, height: `${to.height}px`,
+        left: `${to.left}px`, top: `${to.top}px` },
+    ], { duration: reduce ? 120 : 280, easing: "cubic-bezier(.32,.72,0,1)" });
+    const shrinking = { tab, animation };
+    this.shrinking = shrinking;
+    await animation.finished.catch(() => {});
+    animation.cancel();
+    if (this.shrinking == shrinking) {
+      this.shrinking = null;
+      if (minimize && this.tab == tab) {
+        this.hide();
+      }
+    }
+  }
+
+  closeFocused() {
+    if (this.hasFocus()) {
+      this.hide();
+      return true;
+    }
+    const tab = this.win.gBrowser.selectedTab;
+    if (this.isExpanded(tab) && this.container(tab)?.contains(this.doc.activeElement)) {
+      this.shrink(tab, { minimize: true });
+      return true;
+    }
+    return false;
+  }
+
   hasFocus() {
     return !!this.tab && !!this.container(this.tab)?.contains(this.doc.activeElement);
   }
@@ -248,7 +325,9 @@ class SidePanel {
   }
 
   toggle(tab) {
-    if (this.tab == tab) {
+    if (this.isExpanded(tab)) {
+      this.shrink(tab);
+    } else if (this.tab == tab) {
       this.hide();
     } else {
       this.show(tab);
@@ -258,6 +337,7 @@ class SidePanel {
   show(tab) {
     const { win } = this;
     const previous = this.tab;
+    this.cancelShrink();
     this.cancelDrag?.();
     this.expanding = null;
     if (previous == tab) {
@@ -315,6 +395,7 @@ class SidePanel {
     if (!tab) {
       return;
     }
+    this.cancelShrink();
     this.cancelDrag?.();
     this.expanding = null;
     this.tab = null;
@@ -701,9 +782,9 @@ class SidePanel {
     if (target.closest(".tab-close-button, .tab-reset-button, .tab-reset-pin-button, .tab-icon-overlay, .tab-audio-button")) {
       return null;
     }
-    // On it as a page already, or its page is in another window: a click
-    // stays a click.
-    if (tab.selected || (this.tab != tab && this.pageElsewhere(tab))) {
+    // A selected popover-by-default Essential shrinks on its next tile click.
+    // A page owned by another window still needs Zen to move it here.
+    if (this.tab != tab && this.pageElsewhere(tab)) {
       return null;
     }
     return tab;
@@ -770,7 +851,11 @@ class SidePanel {
       item.addEventListener("command", () => {
         const contextTab = win.TabContextMenu?.contextTab;
         if (contextTab?.hasAttribute("zen-essential")) {
-          this.setOn(contextTab, !this.isOn(contextTab));
+          if (this.isExpanded(contextTab)) {
+            this.shrink(contextTab);
+          } else {
+            this.setOn(contextTab, !this.isOn(contextTab));
+          }
         }
       });
       // Directly under Show Unread Badge (design section 1).
@@ -901,6 +986,9 @@ class SidePanel {
     }
     const onSelect = event => {
       const tab = event.target;
+      if (this.expanded && this.expanded.tab != tab) {
+        this.expanded = null;
+      }
       if (!tab.hasAttribute("zen-essential") && !tab.hasAttribute("zen-glance-tab")) {
         this.lastPage = tab;
       }
@@ -917,6 +1005,9 @@ class SidePanel {
       }
     };
     const onClose = event => {
+      if (event.target == this.expanded?.tab) {
+        this.expanded = null;
+      }
       if (event.target == this.glanceSession?.tab) {
         this.glanceSession = null;
       }
@@ -950,22 +1041,21 @@ class SidePanel {
     win.addEventListener("GlanceOpen", onGlance);
     win.addEventListener("ZenWorkspaceChanged", () => {
       this.glanceSession = null;
+      this.expanded = null;
       onGlance();
     });
     // Capture before Firefox's close-tab key/command. Remote browser focus is
     // represented by the browser element in the chrome document.
     win.addEventListener("keydown", e => {
-      if (e.key.toLowerCase() == "w" && e.getModifierState("Accel") && !e.shiftKey && !e.altKey && this.hasFocus()) {
+      if (e.key.toLowerCase() == "w" && e.getModifierState("Accel") && !e.shiftKey && !e.altKey && this.closeFocused()) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        this.hide();
       }
     }, true);
     win.addEventListener("command", e => {
-      if (e.target.id == "cmd_close" && this.hasFocus()) {
+      if (e.target.id == "cmd_close" && this.closeFocused()) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        this.hide();
       }
     }, true);
     win.addEventListener("resize", onResize);
@@ -982,6 +1072,7 @@ class SidePanel {
     win.addEventListener(
       "unload",
       () => {
+        this.cancelShrink();
         this.cancelDrag?.();
         Services.prefs.removeObserver(FEATURE_PREF, onPref);
         Services.prefs.removeObserver(WIDTHS_PREF, onWidths);
