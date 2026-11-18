@@ -1,7 +1,7 @@
 """Package reviewed release notes; never infer shipped features from work logs.
 
-Every Dev publish needs a reviewed group named for exactly that build's
-version (publish.py refuses otherwise). Edit whimsy/changelog.json, then run
+Every Dev and Release publish needs a reviewed group named for exactly
+that build's version (publish.py refuses otherwise). Edit whimsy/changelog.json, then run
 this script and commit both source and generated data. Published history comes from whimsy/version.json:
 it supplies each release's date, and a release with no reviewed entry shows
 its published notes under "New". Use --check to detect stale packaged notes

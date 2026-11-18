@@ -354,12 +354,13 @@ def main():
         signing_backup.key_source()
     except RuntimeError as e:
         raise SystemExit(f"publish: {e}")
-    if channel == "dev":
-        sys.path.insert(0, os.path.join(ROOT, "whimsy"))
-        import generate_changelog, version
-        problem = generate_changelog.missing(version.describe(ROOT)["version"], ROOT)
-        if problem:
-            raise SystemExit(f"publish: {problem}")
+    # Both channels ship only reviewed notes, named for the exact build.
+    sys.path.insert(0, os.path.join(ROOT, "whimsy"))
+    import generate_changelog, version
+    name = (version.describe(ROOT) if channel == "dev" else version.next_release(ROOT)[1])["version"]
+    problem = generate_changelog.missing(name, ROOT)
+    if problem:
+        raise SystemExit(f"publish: {problem}")
     obj = objdir()
     check_updater_trusts_whimsy()
     run(["./mach", "package"], cwd=ENGINE)
