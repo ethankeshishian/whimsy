@@ -116,10 +116,10 @@ add_task(async function shots_plates() {
     await shownControl(browser);
     await SpecialPowers.spawn(browser, [], () => content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").els.summ.focus({ focusVisible: true }));
   });
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
   const small = await openVideo("", "#small");
   await shootPage("w23-video-media-1.5", small.browser, () => hoverVideo(small.browser, "#small").then(() => shownControl(small.browser)));
-  BrowserTestUtils.removeTab(small.tab);
+  await closeVideoTab(small.tab);
 });
 
 add_task(async function shots_speed() {
@@ -149,7 +149,7 @@ add_task(async function shots_speed() {
   // The site keeps no speed for the shots after this one.
   const { WhimsyVideoSpeed } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyVideoSpeed.sys.mjs");
   await WhimsyVideoSpeed.forget(browser.browsingContext);
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 // Clicks a chip under the summary once a person could: the panel has
@@ -208,7 +208,7 @@ add_task(async function shots_summary() {
   await TestUtils.waitForCondition(() => chatPanel().body.querySelectorAll(".whimsy-chat-msg[data-role='ai']:not([busy])").length == 2, "The quotes are in");
   await shootPage("w23-video-key-quotes", browser, () => hoverVideo(browser));
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function shots_live() {
@@ -219,16 +219,13 @@ add_task(async function shots_live() {
     content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed").isLive = el => el.id == "video";
   });
   await hoverVideo(browser);
-  const state = await TestUtils.waitForCondition(async () => {
-    const s = await videoControl(browser);
-    return s?.right.shown && s;
-  }, "The live plates show");
+  const state = await shownLiveControl(browser);
   await clickPoint(browser, state.summ);
   await summaryAnswered();
   await TestUtils.waitForCondition(() => chatPanel().body.querySelector(".whimsy-video-chip[data-chip='update']"), "Update is in");
   await shootPage("w23-video-media-1.12", browser, () => hoverVideo(browser));
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function shots_settings() {
@@ -247,16 +244,22 @@ add_task(async function shots_settings() {
     ok(true, "media-2.8 shot");
     await whimsyBothSchemes("w23-video-media-2.9", async () => {
       const button = doc.getElementById("whimsyMediaDefaultSpeedMenu");
+      button.scrollIntoView({ block: "center" });
+      const shown = BrowserTestUtils.waitForEvent(doc, "popupshown", false,
+        event => event.target.id == "whimsyMediaDefaultSpeedMenu-list");
       EventUtils.synthesizeMouseAtCenter(button, {}, browser.contentWindow);
-      await TestUtils.waitForCondition(() => doc.querySelector("[role=option][data-value='1.5']") ?? window.document.querySelector("[role=option][data-value='1.5']"), "The menu opens");
+      const { target: popup } = await shown;
+      is(popup.state, "open", "The speed menu has opened its widget");
       // MUST 6: the menu is a panel of its own; copy it in for the shot.
-      await whimsySettled();
+      await whimsySettled(doc);
       // Settings opens it in its own document, not the window's.
       const undo = whimsyStandInPopups(doc);
       ok(doc.querySelector("div.whimsy-surface-tokens [role=option][data-value='1.5']"), "media-2.9: the speed menu is in the shot");
-      return () => {
+      return async () => {
         undo();
-        EventUtils.synthesizeKey("KEY_Escape", {}, browser.contentWindow);
+        const hidden = BrowserTestUtils.waitForEvent(popup, "popuphidden");
+        popup.hidePopup();
+        await hidden;
       };
     });
     ok(true, "media-2.9 shot");

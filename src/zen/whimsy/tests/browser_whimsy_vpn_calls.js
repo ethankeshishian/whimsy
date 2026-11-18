@@ -26,6 +26,10 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
     ["media.peerconnection.ice.proxy_only_if_behind_proxy", true],
     ["media.navigator.permission.disabled", true],
     ["media.navigator.streams.fake", true],
+    // The harness's loopback device takes precedence over streams.fake.
+    ["media.audio_loopback_dev", ""],
+    ["media.video_loopback_dev", ""],
+    ["media.navigator.permission.force", false],
     // A fake mic counts as capturing (as a real one does) only with this on.
     ["media.navigator.permission.fake", true],
     // The test relay lives on 127.0.0.1, and ICE skips loopback TURN servers
@@ -44,16 +48,56 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
     },
   };
   pps.registerChannelFilter(recorder, 0);
+  let registered = true;
   // A tab of profile 2 lives in a space of profile 2 (as Whimsy opens it).
   const home = gZenWorkspaces.getActiveWorkspace();
-  const space = await gZenWorkspaces.createAndSaveWorkspace("Profile 2", undefined, true, 2);
-  await gZenWorkspaces.changeWorkspace(space);
-  const tab = BrowserTestUtils.addTab(gBrowser, "https://example.com/", { userContextId: 2 });
-  const browser = tab.linkedBrowser;
+  let space, tab;
+  const cleanup = async () => {
+    if (!registered && !space && !tab?.isConnected) {
+      return;
+    }
+    if (registered) {
+      pps.unregisterChannelFilter(recorder);
+      registered = false;
+    }
+    try {
+      if (tab?.isConnected && !tab.closing) {
+        try {
+          await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+            content.whimsyTestClosed = true;
+            content.whimsyTestPc?.close();
+            content.whimsyTestStream?.getTracks().forEach(t => t.stop());
+          });
+        } finally {
+          const flushed = BrowserTestUtils.waitForSessionStoreUpdate(tab);
+          BrowserTestUtils.removeTab(tab, { animate: false });
+          await flushed;
+        }
+      }
+    } finally {
+      await gZenWorkspaces.changeWorkspace(home);
+      if (space) {
+        for (const t of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == space.uuid &&
+          !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
+          await BrowserTestUtils.removeTab(t);
+        }
+        await gZenWorkspaces.removeWorkspace(space.uuid);
+        space = null;
+      }
+    }
+  };
+  registerCleanupFunction(cleanup);
   try {
-    await BrowserTestUtils.browserLoaded(browser, false, "https://example.com/");
+    space = await gZenWorkspaces.createAndSaveWorkspace("Profile 2", undefined, true, 2);
+    await gZenWorkspaces.changeWorkspace(space);
+    tab = BrowserTestUtils.addTab(gBrowser, "about:blank", { userContextId: 2 });
+    await BrowserTestUtils.switchTab(gBrowser, tab);
+    const browser = tab.linkedBrowser;
+    const loaded = BrowserTestUtils.browserLoaded(browser, false, "https://example.com/");
+    BrowserTestUtils.startLoadingURIString(browser, "https://example.com/");
+    await loaded;
     is(browser.contentPrincipal.originAttributes.userContextId, 2, "The page is in profile 2");
-    await SpecialPowers.spawn(browser, [RELAY_PORT], async port => {
+    await SpecialPowers.spawn(browser, [RELAY_PORT], port => {
       const pc = new content.RTCPeerConnection({ iceServers: [{
         urls: `turn:127.0.0.1:${port}?transport=tcp`, username: "whimsy", credential: "whimsy",
       }] });
@@ -63,10 +107,35 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
       // A call captures the mic. Without a capture, ICE gathers on the
       // default route only, and it finds that route with a UDP probe, which a
       // page forced through the proxy may not send: no candidates at all.
-      const stream = await content.navigator.mediaDevices.getUserMedia({ audio: true });
-      content.whimsyTestStream = stream;
-      pc.addTrack(stream.getAudioTracks()[0], stream);
-      await pc.setLocalDescription();
+      content.whimsyTestPhase = "requesting microphone";
+      content.whimsyTestError = null;
+      // Force the fake device for this request too, independent of the
+      // harness's devices. Keep capture/offer completion observable without
+      // blocking SpecialPowers.spawn (and thus failure cleanup) on either.
+      content.navigator.mediaDevices.getUserMedia({ audio: true, fake: true }).then(async stream => {
+        content.whimsyTestStream = stream;
+        if (content.whimsyTestClosed) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        content.whimsyTestPhase = "creating offer";
+        pc.addTrack(stream.getAudioTracks()[0], stream);
+        await pc.setLocalDescription();
+        content.whimsyTestPhase = "gathering";
+      }).catch(e => { content.whimsyTestError = `${e.name}: ${e.message}`; });
+    });
+    let phase;
+    await TestUtils.waitForCondition(async () => {
+      const state = await SpecialPowers.spawn(browser, [], () => ({
+        phase: content.whimsyTestPhase, error: content.whimsyTestError,
+      }));
+      phase = state.phase;
+      if (state.error) {
+        throw new Error(`${phase}: ${state.error}`);
+      }
+      return phase == "gathering";
+    }, "The fake microphone and offer are ready").catch(e => {
+      throw new Error(`${e.message || e} (phase=${phase})`);
     });
     await TestUtils.waitForCondition(() => lookups.length, "The call looks up a proxy for its relay").catch(async e => {
       // What ICE did instead, so a failure here says why.
@@ -94,18 +163,10 @@ add_task(async function test_relay_lookup_is_asked_as_the_page() {
     Services.prefs.setStringPref("browser.ipProtection.whimsy.userContextIds", "3");
     ok(!filter.shouldProxy(channel), "…and with the VPN on for another profile only, it doesn't");
   } finally {
-    await SpecialPowers.spawn(browser, [], () => {
-      content.whimsyTestPc?.close();
-      content.whimsyTestStream?.getTracks().forEach(t => t.stop());
-    }).catch(() => {});
-    pps.unregisterChannelFilter(recorder);
-    BrowserTestUtils.removeTab(tab);
-    await gZenWorkspaces.changeWorkspace(home);
-    for (const t of gZenWorkspaces.allStoredTabs.filter(t => t.getAttribute("zen-workspace-id") == space.uuid &&
-      !t.hasAttribute("zen-essential") && !t.hasAttribute("zen-empty-tab"))) {
-      BrowserTestUtils.removeTab(t);
+    try {
+      await cleanup();
+    } finally {
+      await SpecialPowers.popPrefEnv();
     }
-    await gZenWorkspaces.removeWorkspace(space.uuid);
-    await SpecialPowers.popPrefEnv();
   }
 });

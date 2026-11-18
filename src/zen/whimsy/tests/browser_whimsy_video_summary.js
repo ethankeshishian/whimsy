@@ -30,6 +30,12 @@ add_setup(async function () {
     await closeChat();
     WhimsyAIProviders.setTestProvider(null);
   });
+  const usesPlan = WhimsyAIProviders._usesPlan;
+  const speech = WhimsyLiveSpeech.testSpeech;
+  registerCleanupFunction(() => {
+    WhimsyAIProviders._usesPlan = usesPlan;
+    WhimsyLiveSpeech.testSpeech = speech;
+  });
 });
 
 add_task(async function text_tracks_hidden_mode_all_cues() {
@@ -47,7 +53,7 @@ add_task(async function text_tracks_hidden_mode_all_cues() {
   ok(chatPanel().chips.querySelector("[data-kind='video']"), "Chat has a This video chip");
   ok(chatPanel().body.querySelector(".whimsy-chat-note[data-kind='video-source']"), "and says where the summary came from");
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function sniffed_ttml_matched_by_timing() {
@@ -61,7 +67,7 @@ add_task(async function sniffed_ttml_matched_by_timing() {
   ok(sent.includes("hiding a death"), "The sniffed TTML's text is read");
   ok(sent.includes("subtitles"), "and said to be from the subtitles");
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function drm_no_frames() {
@@ -74,7 +80,7 @@ add_task(async function drm_no_frames() {
   ok(!hasImage(providerCalls[0]), "No frames from protected video");
   ok(sentText(providerCalls[0]).includes("copy-protected"), "The model hears it's protected");
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function no_captions_starts_speech_silently() {
@@ -112,7 +118,7 @@ add_task(async function no_captions_starts_speech_silently() {
     SpeechTesting.tap = null;
   });
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
   WhimsyLiveSpeech.testSpeech = null;
 });
 
@@ -130,7 +136,7 @@ add_task(async function plan_text_only_video_note() {
   await TestUtils.waitForCondition(() => note.textContent.includes("can’t look at frames"), "The note says it can't see frames");
   WhimsyAIProviders._usesPlan = usesPlan;
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
   await SpecialPowers.popPrefEnv();
 });
 
@@ -146,16 +152,16 @@ add_task(async function timestamp_seeks_right_tab() {
     content.document.body.dataset.seeks = "0";
     video.addEventListener("seeked", () => (content.document.body.dataset.seeks = String(Number(content.document.body.dataset.seeks) + 1)));
   });
-  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  const other = ownVideoTab(await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/"));
   // From another tab, the conversation list shows the summary again.
   await WhimsyChatPanel.forWindow(window).open({ threadId });
   const pill = await TestUtils.waitForCondition(() => chatPanel().body.querySelector(".whimsy-chat-time[data-seconds='0']"), "Times are pills");
   EventUtils.synthesizeMouseAtCenter(pill, {});
   await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, "The summary's tab comes back first");
   await TestUtils.waitForCondition(async () => Number(await SpecialPowers.spawn(browser, [], () => content.document.body.dataset.seeks)) > 0, "and its video seeks");
-  BrowserTestUtils.removeTab(other);
+  await closeVideoTab(other);
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function live_relative_times() {
@@ -197,7 +203,7 @@ add_task(async function transcript_and_key_quotes_chips() {
   await TestUtils.waitForCondition(() => [...body.querySelectorAll(".whimsy-chat-msg[data-role='user']")].some(m => m.textContent.includes("Key quotes from this video")), "The question shows as yours");
   await TestUtils.waitForCondition(() => body.querySelectorAll(".whimsy-chat-msg[data-role='ai']:not([busy])").length == 2, "and the quotes stream in");
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function live_stream_update_chip() {
@@ -210,10 +216,7 @@ add_task(async function live_stream_update_chip() {
     actor.isLive = el => el.id == "video";
   });
   await hoverVideo(browser);
-  const state = await TestUtils.waitForCondition(async () => {
-    const s = await videoControl(browser);
-    return s?.right.shown && s;
-  }, "A live stream gets the top-right plates");
+  const state = await shownLiveControl(browser);
   ok(!state.shown, "but no speed plate: a live stream can't run ahead");
   ok(state.summ.shown, "Summarize shows on a live stream");
   await clickPoint(browser, state.summ);
@@ -238,7 +241,7 @@ add_task(async function live_stream_update_chip() {
   await TestUtils.waitForCondition(() => [...body.querySelectorAll(".whimsy-chat-msg[data-role='user']")].some(m => m.textContent.includes("happened since")), "The question shows as yours");
   await TestUtils.waitForCondition(() => body.querySelectorAll(".whimsy-chat-msg[data-role='ai']:not([busy])").length == 2, "and the update streams in");
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 // A thread Summarize doesn't own (or doesn't exist) can never rewind.
@@ -265,10 +268,7 @@ add_task(async function live_chapter_pill_reads_ago_and_cant_seek_when_not_seeka
     video.addEventListener("seeked", () => (content.document.body.dataset.seeks = String(Number(content.document.body.dataset.seeks) + 1)));
   });
   await hoverVideo(browser);
-  const state = await TestUtils.waitForCondition(async () => {
-    const s = await videoControl(browser);
-    return s?.right.shown && s;
-  }, "A live stream gets the top-right plates");
+  const state = await shownLiveControl(browser);
   await clickPoint(browser, state.summ);
   await summaryAnswered();
   const threadId = chatPanel().thread.id;
@@ -282,7 +282,7 @@ add_task(async function live_chapter_pill_reads_ago_and_cant_seek_when_not_seeka
   await new Promise(r => setTimeout(r, 200));
   is(await SpecialPowers.spawn(browser, [], () => content.document.body.dataset.seeks), "0", "A disabled pill never seeks");
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function drawn_subtitles_collected_while_playing() {
@@ -304,14 +304,18 @@ add_task(async function drawn_subtitles_collected_while_playing() {
   ok(lines.includes("This is the couchette.") && lines.includes("Lights out at eleven."), "Lines drawn while it played are kept");
   ok(!lines.includes("Vienna on time."), "only the latest, within the bound");
   is(lines.length, 3, "The bound holds");
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 
   // A private window never collects.
   const privateWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
-  const ptab = await BrowserTestUtils.openNewForegroundTab(privateWin.gBrowser, VIDEO_PAGE + "?drawn");
+  registerCleanupFunction(async () => {
+    if (!privateWin.closed) {
+      await BrowserTestUtils.closeWindow(privateWin);
+    }
+  });
+  const { tab: ptab } = await openVideo("?drawn", "#video", privateWin);
   const collected = await SpecialPowers.spawn(ptab.linkedBrowser, [], async () => {
     const video = content.document.getElementById("video");
-    await ContentTaskUtils.waitForCondition(() => video.readyState >= 1, "The video has its metadata");
     const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
     if (actor) {
       actor.drawnLimits = { every: 50, cues: 3, chars: 60000 };
@@ -323,5 +327,6 @@ add_task(async function drawn_subtitles_collected_while_playing() {
     return !!actor?.drawnCues?.has(video);
   });
   ok(!collected, "Nothing is collected in a private window");
+  await closeVideoTab(ptab);
   await BrowserTestUtils.closeWindow(privateWin);
 });
