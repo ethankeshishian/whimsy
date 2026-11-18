@@ -72,8 +72,14 @@ const SVG_PIP_OUT = `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y
 // triangle (skip to); back/forward are a double triangle alone (jump by), so
 // the two pairs read differently at a glance.
 const SVG_SEEK_START = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3v10"/><path d="M12.5 4 6.8 8l5.7 4"/></svg>`;
-const SVG_SEEK_BACK = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 4 4.8 8l4.7 4"/><path d="M13.5 4 8.8 8l4.7 4"/></svg>`;
-const SVG_SEEK_FORWARD = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 4l4.7 4-4.7 4"/><path d="M2.5 4l4.7 4-4.7 4"/></svg>`;
+// Back/Forward 10 s: Firefox's Picture-in-Picture seek arrow
+// (toolkit/themes/shared/media/picture-in-picture-seek*-button.svg, MPL)
+// with its "5" redrawn as "10" (owner, W29: "something like what's seen in
+// pip"). Filled shapes, so the digits never depend on a font.
+const SEEK_RING = "M9.196 19.097A7.455 7.455 0 0 1 7 13.793a.625.625 0 1 1 1.25 0c0 1.669.65 3.239 1.831 4.419a6.207 6.207 0 0 0 4.419 1.83 6.257 6.257 0 0 0 6.25-6.25 6.257 6.257 0 0 0-6.25-6.25 6.211 6.211 0 0 0-2.978.773l1.125 1.125a.5.5 0 0 1-.354.853h-3.52L8.5 10.02V6.5a.5.5 0 0 1 .854-.353l1.251 1.25A7.451 7.451 0 0 1 14.5 6.294c4.136 0 7.5 3.364 7.5 7.5 0 4.136-3.364 7.5-7.5 7.5a7.456 7.456 0 0 1-5.304-2.196v-.001Z";
+const SEEK_TEN = "M12.35 11.18h.95v5.8h-1.2v-4.38l-.86.5v-1.16Z M15.85 11.08c1.12 0 1.86 1.02 1.86 3c0 1.98-.74 3-1.86 3s-1.86-1.02-1.86-3c0-1.98.74-3 1.86-3Zm0 1.05c-.42 0-.67.56-.67 1.95s.25 1.95.67 1.95.67-.56.67-1.95-.25-1.95-.67-1.95Z";
+const SVG_SEEK_BACK = `<svg viewBox="6 5 17 17" aria-hidden="true"><path class="fill" d="${SEEK_RING}"/><path class="fill" fill-rule="evenodd" d="${SEEK_TEN}"/></svg>`;
+const SVG_SEEK_FORWARD = `<svg viewBox="6 5 17 17" aria-hidden="true"><path class="fill" transform="translate(29 0) scale(-1 1)" d="${SEEK_RING}"/><path class="fill" fill-rule="evenodd" d="${SEEK_TEN}"/></svg>`;
 const SVG_SEEK_END = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12 3v10"/><path d="M3.5 4l5.7 4-5.7 4"/></svg>`;
 const MARKUP = `<template>
   <link rel="stylesheet" href="${STYLESHEET}"/>
