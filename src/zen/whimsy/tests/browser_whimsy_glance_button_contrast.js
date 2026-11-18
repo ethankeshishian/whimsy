@@ -7,9 +7,12 @@
 // whatever the space's color: at least 3:1 against the circle, hovered or
 // not (W29: a purple space measured 1.7:1).
 
+// Computed colors come back as rgb(0-255) or, after color-mix(),
+// color(srgb 0-1).
 function luminance(color) {
+  const scale = color.startsWith("color(") ? 1 : 255;
   const [r, g, b] = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(v => {
-    v /= 255;
+    v /= scale;
     return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
