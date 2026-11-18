@@ -1393,6 +1393,11 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 
 ["browser_whimsy_cmd_tab_numbers.js"]
 skip-if = ["os != 'mac'"]
+support-files = ["head_cmd_tab_numbers.js"]
+
+["browser_whimsy_cmd_tab_numbers_cmdbar.js"]
+skip-if = ["os != 'mac'"]
+support-files = ["head_cmd_tab_numbers.js"]
 
 # W27 aiwrite: How AI writes and the preferred language in every system prompt; Settings › AI row.
 ["browser_whimsy_ai_style.js"]
