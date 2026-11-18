@@ -214,12 +214,16 @@ async function closeWithKey(tab) {
 
 async function closeAndWaitForReset(tab) {
   await closeWithKey(tab);
+  // Selection moves at the start of Zen's async close; the unload and reset
+  // follow, after Whimsy waits for SSTabRestored on a reopened tab. Under a
+  // loaded test run that takes longer than the default 5s, so poll the real
+  // state for up to 15s.
   // Check both history and the canonical URL on this same tab. A lazy
   // browser exposes its cached state here before being picked by hand.
   await TestUtils.waitForCondition(() => {
     const state = JSON.parse(SessionStore.getTabState(tab));
     return state.entries.length == 1 && state.entries[0].url == tab._zenPinnedInitialState?.entry?.url;
-  }, "...and reset it to its pinned page");
+  }, "...and reset it to its pinned page", 100, 150);
 }
 
 async function cleanUp(kind, tab, keep) {
@@ -255,7 +259,9 @@ for (const kind of ["pinned", "essential"]) {
       } else {
         await reopenFromTabMenu(keep);
       }
-      await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, `${how} brings the ${kind} tab back`);
+      // Reopen first waits for Zen's async close (unload and reset) to finish,
+      // which can take more than the default 5s under a loaded test run.
+      await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, `${how} brings the ${kind} tab back`, 100, 150);
       await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == away, `...at the page it navigated to (${away})`);
       await TestUtils.waitForCondition(() => tab.linkedBrowser.canGoBack, "...with its back history");
 
