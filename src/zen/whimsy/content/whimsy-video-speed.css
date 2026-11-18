@@ -411,6 +411,12 @@ button {
       height: 13px;
     }
   }
+
+  /* The "10" inside the seek arrow needs the extra size to read. */
+  & > :is(#seekback, #seekforward) > svg {
+    width: 17px;
+    height: 17px;
+  }
 }
 
 #summ {
