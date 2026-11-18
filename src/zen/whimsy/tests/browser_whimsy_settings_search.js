@@ -17,10 +17,19 @@ function shown(el) {
   return !!el?.isConnected;
 }
 
+// Waits for the search to finish laying out the pane: a row still shown from
+// the last query is visible before then, and a click on it can miss.
 async function search(doc, query) {
+  const win = doc.defaultView;
   const input = doc.getElementById("searchInput");
+  const wanted = query.trim().toLowerCase();
+  if (input.value.trim().toLowerCase() == wanted) {
+    return;
+  }
+  const done = BrowserTestUtils.waitForEvent(win, "PreferencesSearchCompleted", false, e => e.detail == wanted);
   input.value = query;
-  input.dispatchEvent(new doc.defaultView.InputEvent("input", { bubbles: true }));
+  input.dispatchEvent(new win.InputEvent("input", { bubbles: true }));
+  await done;
 }
 
 function groupLabel(group) {
