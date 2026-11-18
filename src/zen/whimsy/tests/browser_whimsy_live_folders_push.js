@@ -91,3 +91,55 @@ add_task(async function test_menu_option_sets_push_mode() {
   is(folder.state.interval, 60 * 1000, "and the 1-minute interval");
   folder.stop();
 });
+
+// Refresh from the folder's menu always fetches for real: the probe's
+// "unchanged" never answers it.
+add_task(async function test_refresh_skips_the_probe() {
+  const folder = new nsRssLiveFolderProvider({
+    id: "test-push-refresh",
+    manager: makeManager(),
+    state: { url: BASE, whimsyPush: true, interval: 60 * 60 * 1000, lastFetched: Date.now() },
+  });
+  // Running, as a folder in the sidebar is (Refresh re-arms its timer).
+  folder.start();
+  await folder.fetchItems();
+  await folder.fetchItems();
+  await folder.fetchItems();
+  const before = Number(await fullFetchCount());
+  const option = document.createXULElement("menuitem");
+  option.setAttribute("option-key", "refresh");
+  folder.onOptionTrigger(option);
+  await TestUtils.waitForCondition(async () => Number(await fullFetchCount()) == before + 1, "Refresh fetches the feed");
+  folder.stop();
+});
+
+// GitHub's items come from search URLs, so Push never answers from a probe
+// of another page: every Push tick reads the searches themselves.
+add_task(async function test_github_push_reads_the_searches() {
+  const { nsGithubLiveFolderProvider } = ChromeUtils.importESModule(
+    "resource:///modules/zen/GithubLiveFolder.sys.mjs"
+  );
+  const folder = new nsGithubLiveFolderProvider({
+    id: "test-push-github",
+    manager: makeManager(),
+    state: { type: "pull-requests", whimsyPush: true, isJsonApi: true, options: { assignedMe: true } },
+  });
+  let prs = [{ number: 1 }];
+  const asked = [];
+  folder.fetch = async url => {
+    asked.push(url);
+    const results = prs.map(n => ({
+      repoNameWithOwner: "whimsy/test",
+      number: n.number,
+      title: `PR ${n.number}`,
+      author: { displayLogin: "someone" },
+      permalink: `https://github.com/whimsy/test/pull/${n.number}`,
+    }));
+    return { status: 200, text: JSON.stringify({ payload: { pullsDashboardSurfaceContentRoute: { results } } }) };
+  };
+  is((await folder.fetchItems()).length, 1, "First tick: one pull request");
+  prs = [{ number: 1 }, { number: 2 }];
+  const items = await folder.fetchItems();
+  is(items.length, 2, "The next tick has the new pull request");
+  ok(asked.every(url => new URL(url).searchParams.get("q")?.includes("assignee:@me")), "Every request is the folder's search");
+});
