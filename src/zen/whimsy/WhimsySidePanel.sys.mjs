@@ -245,15 +245,19 @@ class SidePanel {
   }
 
   isExpanded(tab = this.win.gBrowser.selectedTab) {
-    return this.routes(tab) && tab == this.win.gBrowser.selectedTab && this.tab != tab;
+    return !!tab && this.expanded?.tab == tab && this.routes(tab) &&
+      tab == this.win.gBrowser.selectedTab && this.tab != tab;
   }
 
   returnPage(tab) {
+    if (!this.isExpanded(tab)) {
+      return null;
+    }
     const space = this.win.gZenWorkspaces?.activeWorkspace;
     const eligible = candidate => candidate && candidate != tab && candidate.isConnected &&
       !candidate.closing && !candidate.hasAttribute("zen-glance-tab") &&
       (!candidate.getAttribute("zen-workspace-id") || candidate.getAttribute("zen-workspace-id") == space);
-    const remembered = this.expanded?.tab == tab ? this.expanded.page : this.lastPage;
+    const remembered = this.expanded.page;
     if (eligible(remembered)) {
       return remembered;
     }
@@ -328,6 +332,9 @@ class SidePanel {
   }
 
   toggle(tab) {
+    if (!this.routes(tab)) {
+      return;
+    }
     if (this.isExpanded(tab)) {
       this.shrink(tab);
     } else if (this.tab == tab) {
@@ -785,9 +792,11 @@ class SidePanel {
     if (target.closest(".tab-close-button, .tab-reset-button, .tab-reset-pin-button, .tab-icon-overlay, .tab-audio-button")) {
       return null;
     }
-    // A selected popover-by-default Essential shrinks on its next tile click.
+    // Only Expand owns a selected tile's shrink route. Ordinary selections
+    // (including restore and keyboard navigation) belong to Zen.
     // A page owned by another window still needs Zen to move it here.
-    if (this.tab != tab && this.pageElsewhere(tab)) {
+    if ((tab.selected && !this.isExpanded(tab)) ||
+        (this.tab != tab && this.pageElsewhere(tab))) {
       return null;
     }
     return tab;

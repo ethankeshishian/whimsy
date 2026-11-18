@@ -7,6 +7,37 @@ Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_side_pan
 
 // Temporary Expand, shrink-back, Minimize, and focus-based close routing.
 
+addPanelTask(async function selected_essential_without_expand_keeps_native_tile_selection() {
+  const ess = await makeEssential("https://example.org/?native-selected-tile");
+  gBrowser.selectedTab = ess;
+  ok(!sp().expanded, "Ordinary selection has no Expand record");
+  ok(!sp().isExpanded(ess), "Selection alone does not authorize shrinking");
+  is(sp().tileFor({ target: ess, button: 0, getModifierState: () => false }), null,
+    "The selected tile stays on Zen's native click route");
+  await sp().shrink(ess);
+  is(gBrowser.selectedTab, ess, "Shrink cannot move an ordinarily selected Essential");
+  EventUtils.synthesizeMouseAtCenter(ess.querySelector(".tab-icon-image"), {});
+  is(gBrowser.selectedTab, ess, "Its favicon click keeps the selected page");
+  ok(!sp().tab && !sp().shrinking, "The click creates no popover or shrink");
+  // favicon_home's exclusion check next temporarily marks this selected tab
+  // as a Glance. Diverting the preceding click used to leave it backgrounded,
+  // where Zen's Glance selection produces a null selected tab.
+  ess.removeAttribute("zen-essential");
+  try {
+    ess.setAttribute("zen-glance-tab", "true");
+    EventUtils.synthesizeMouseAtCenter(ess.querySelector(".tab-icon-image"), {});
+    is(gBrowser.selectedTab, ess, "The following excluded Glance click retains a real selected tab");
+  } finally {
+    ess.removeAttribute("zen-glance-tab");
+    ess.setAttribute("zen-essential", "true");
+  }
+  ok(!sp().isExpanded(null), "A missing selected tab is not an expansion");
+  is(sp().returnPage(null), null, "A missing expansion has no return page");
+  await sp().shrink(null);
+  sp().toggle(null);
+  is(gBrowser.selectedTab, ess, "Null routing requests leave selection alone");
+});
+
 // A selected Essential is not necessarily the result of Expand. Keep Zen's
 // close/reset route for ordinary selection while side panels are enabled.
 addPanelTask(async function normally_selected_pinned_tabs_keep_close_routing() {
