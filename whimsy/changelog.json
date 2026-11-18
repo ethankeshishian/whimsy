@@ -1,6 +1,22 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1188",
+      "date": "2026-11-17",
+      "title": "A way back from Expand",
+      "improved": [
+        "Shrink an expanded Essential back into its popover by clicking its tile, pressing ⌘W, or choosing Open in Side Panel.",
+        "An Essential you shrank opens in its popover again next time, not full window.",
+        "Tab numbers and command bar numbers share one keycap that fades in and out, and rows no longer shift when the numbers appear.",
+        "In a Mini window, ⌘L floats the command bar right away."
+      ],
+      "fixed": [
+        "Holding Command shows tab numbers again after you open and close the command bar.",
+        "⌘W only shrinks an Essential you expanded; otherwise it closes the tab as usual.",
+        "The changelog lists builds newest first."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1169",
       "date": "2026-11-17",
       "title": "Essentials float like picture-in-picture",
