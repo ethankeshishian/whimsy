@@ -170,3 +170,20 @@ add_task(async function tab_hints_remain_readable_on_custom_sidebar_colours() {
     }
   }
 });
+
+add_task(async function nothing_keeps_animating() {
+  // Every space switch, hint fade, and Private Space slide above has an end.
+  const running = () => win.document.getAnimations().filter(a => a.playState == "running" &&
+    (a.effect?.getComputedTiming().endTime ?? 0) == Infinity || a.playState == "running");
+  const describe = a => {
+    const t = a.effect?.target;
+    const el = t?.element ?? t;
+    return `${a.animationName || a.transitionProperty || a.id || a.constructor.name} on ` +
+      `${el?.localName}#${el?.id || ""}.${[...(el?.classList ?? [])].join(".")}${t?.pseudoElement ?? ""} ` +
+      `(iterations=${a.effect?.getComputedTiming().iterations})`;
+  };
+  await TestUtils.waitForCondition(() => !running().length, "Animations settle", 100, 50).catch(() => {});
+  const left = running();
+  info(`Still running: ${left.map(describe).join(" | ") || "none"}`);
+  is(left.length, 0, `No animation is left running: ${left.map(describe).join(" | ")}`);
+});
