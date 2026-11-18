@@ -24,7 +24,13 @@ async function search(doc, query) {
 }
 
 function groupLabel(group) {
-  const heading = group.querySelector("h2, h3");
+  const namedBy = group.getAttribute("aria-labelledby")?.split(/\s+/)
+    .map(id => group.ownerDocument.getElementById(id)?.textContent.trim() || group.ownerDocument.getElementById(id)?.getAttribute("label")?.trim() || "")
+    .join(" ").trim();
+  if (namedBy) {
+    return namedBy;
+  }
+  const heading = group.querySelector("h1, h2, h3, .whimsy-menus-detail-title");
   if (heading?.textContent.trim()) {
     return heading.textContent.trim();
   }
@@ -56,7 +62,18 @@ add_task(async function test_every_whimsy_group_is_searchable() {
       el => el.localName != "hbox" && !el.closest("template")
     );
     ok(groups.length >= 8, `Found Whimsy's groups (${groups.length})`);
-    await TestUtils.waitForCondition(() => groups.every(groupLabel), "Every group's label is translated");
+    await doc.l10n.translateFragment(doc.getElementById("mainPrefPane"));
+    for (const group of groups) {
+      ok(groupLabel(group), `Every group's label is translated: #${group.id}`);
+    }
+    const plugins = doc.getElementById("whimsyLocalPluginsGroup");
+    if (plugins) {
+      is(groupLabel(plugins), "Local plugins", "The single-row card keeps its visible name");
+      is(win.gWhimsySettings.groupName(plugins), groupLabel(plugins), "Search breadcrumbs use that name too");
+    }
+    for (const el of doc.querySelectorAll("[id^=whimsy][preference]")) {
+      ok(win.Preferences.get(el.getAttribute("preference")), `#${el.id} has a registered preference binding`);
+    }
     for (const group of groups) {
       const label = groupLabel(group);
       await search(doc, label);
@@ -94,6 +111,44 @@ add_task(async function test_every_whimsy_group_is_searchable() {
 
     await search(doc, "");
   });
+});
+
+// These rows used to render without a Preferences registration. They must
+// read the stored value and write it back when pressed, even if their pane
+// was instantiated by search before the user opened it.
+add_task(async function test_template_checkbox_bindings() {
+  const cases = [
+    ["whimsyNotesEnabled", "whimsy.feature.notes"],
+    ["whimsyNoteBlocksEnabled", "whimsy.feature.note-blocks"],
+    ["whimsyEaselEnabled", "whimsy.feature.easel"],
+    ["whimsyFinderFoldersEnabled", "whimsy.feature.finder-folders"],
+    ["whimsyScreenshotSidebarEnabled", "whimsy.feature.screenshot-sidebar"],
+    ["whimsyCloseWindowWithLastTab", "browser.tabs.closeWindowWithLastTab"],
+    ["whimsyDockBadge", "whimsy.downloads.dock-badge"],
+    ["whimsyQuickLook", "whimsy.feature.quick-look"],
+    ["whimsySpaceExtensions", "whimsy.feature.space-extensions"],
+  ];
+  await SpecialPowers.pushPrefEnv({ set: cases.map(([, pref]) => [pref, false]) });
+  try {
+    await BrowserTestUtils.withNewTab("about:preferences#home", async browser => {
+      const doc = browser.contentDocument;
+      const win = browser.contentWindow;
+      await win.gSearchResultsPane.initializeCategories();
+      await doc.l10n.translateFragment(doc.getElementById("mainPrefPane"));
+      for (const [id, pref] of cases) {
+        const box = doc.getElementById(id);
+        ok(box, `#${id} is present`);
+        await search(doc, box.getAttribute("label"));
+        await TestUtils.waitForCondition(() => shown(box), `Search reveals #${id}`);
+        ok(!box.checked, `#${id} reads its stored false value`);
+        box.scrollIntoView({ block: "center" });
+        EventUtils.synthesizeMouseAtCenter(box, {}, win);
+        await TestUtils.waitForCondition(() => Services.prefs.getBoolPref(pref), `#${id} writes its preference`);
+      }
+    });
+  } finally {
+    await SpecialPowers.popPrefEnv();
+  }
 });
 
 // wave9/designfix (H2): with Firefox's settings redesign, General is hidden,

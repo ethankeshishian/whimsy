@@ -165,10 +165,10 @@
 
 # Settings → Privacy & Security: moved in above Firefox's privacy groups.
 <html:template id="template-whimsyPrivacy" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <html:div id="whimsyLocalPluginsGroup" data-category="panePrivacy" data-whimsy-feature="local-plugins" hidden="hidden" class="whimsy-setting-card">
+  <html:div id="whimsyLocalPluginsGroup" data-category="panePrivacy" data-whimsy-feature="local-plugins" hidden="hidden" class="whimsy-setting-card" aria-labelledby="whimsyLocalPluginsLabel">
     <html:moz-card role="presentation">
       <hbox align="center">
-        <label flex="1" data-l10n-id="whimsy-local-plugins-label"/>
+        <label id="whimsyLocalPluginsLabel" flex="1" data-l10n-id="whimsy-local-plugins-label"/>
         <button id="whimsyOpenPluginsFolder" data-l10n-id="whimsy-local-plugins-open-folder-button"/>
       </hbox>
     </html:moz-card>

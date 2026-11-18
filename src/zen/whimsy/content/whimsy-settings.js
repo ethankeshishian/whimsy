@@ -68,8 +68,8 @@ var gWhimsySettings = {
     if (!template) {
       return;
     }
-    Preferences.addAll([{ id: "whimsy.ui-zoom", type: "int" }]);
     const fragment = template.content;
+    this.registerPreferences(fragment);
     const groups = [...fragment.children];
     // Above Zen's first Look and Feel group, or at the end of the pane.
     const anchor = document.getElementById("zenVerticalTabsGroup");
@@ -224,6 +224,23 @@ var gWhimsySettings = {
       return row.hasAttribute("data-whimsy-opt-in") || Services.prefs.getDefaultBranch("").getBoolPref(pref, true);
     }
     return this.lazy.Whimsy.featureEnabled(id);
+  },
+
+  // Register template controls before connecting them: queueUpdateOfAllElements
+  // only binds preferences already known to Firefox's Preferences object.
+  registerPreferences(root) {
+    Preferences.addAll(
+      [...root.querySelectorAll("[preference]")]
+        .filter(el => !Preferences.get(el.getAttribute("preference")))
+        .map(el => ({
+          id: el.getAttribute("preference"),
+          type: el.dataset.prefType || ({
+            [Services.prefs.PREF_BOOL]: "bool",
+            [Services.prefs.PREF_INT]: "int",
+            [Services.prefs.PREF_STRING]: "string",
+          })[Services.prefs.getPrefType(el.getAttribute("preference"))],
+        }))
+    );
   },
 
   insertTabsGroup() {
@@ -1408,6 +1425,7 @@ Object.assign(gWhimsySettings, {
         row.remove();
       }
     }
+    this.registerPreferences(fragment);
     template.remove();
     const anchor = document.getElementById("whimsyTabsGroup") ?? document.getElementById("zenWorkspacesGroup");
     if (anchor) {
@@ -1417,6 +1435,7 @@ Object.assign(gWhimsySettings, {
     }
     group.hidden = false;
     this.initSpacesGroup();
+    Preferences.queueUpdateOfAllElements();
   },
 
   initSpacesGroup() {
@@ -1534,6 +1553,7 @@ Object.assign(gWhimsySettings, {
       template.remove();
       return;
     }
+    this.registerPreferences(fragment);
     template.remove();
     const anchor =
       document.getElementById("whimsySpacesGroup") ??
@@ -1545,6 +1565,7 @@ Object.assign(gWhimsySettings, {
       document.getElementById("mainPrefPane")?.append(fragment);
     }
     group.hidden = false;
+    Preferences.queueUpdateOfAllElements();
   },
 });
 
@@ -3849,11 +3870,15 @@ Object.assign(gWhimsySettings, {
   },
 
   groupName(group) {
-    const heading = group.querySelector("h2, h3, .whimsy-menus-detail-title");
+    const namedBy = group.getAttribute("aria-labelledby")?.split(/\s+/)
+      .map(id => document.getElementById(id)?.textContent.trim() || document.getElementById(id)?.getAttribute("label")?.trim() || "")
+      .join(" ").trim();
+    const heading = group.querySelector("h1, h2, h3, .whimsy-menus-detail-title");
     // A group that is one switch with no heading (Settings → AI's Enable
     // AI) goes by the switch's name.
     const controls = group.querySelectorAll("moz-toggle, moz-checkbox, checkbox");
     return (
+      namedBy ||
       heading?.textContent.trim() ||
       group.querySelector("moz-fieldset")?.getAttribute("label") ||
       (controls.length == 1 ? controls[0].getAttribute("label")?.trim() : "") ||

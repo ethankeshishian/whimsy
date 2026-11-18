@@ -22,12 +22,56 @@ function videoControl(browser, context = browser.browsingContext) {
   });
 }
 
-async function openVideo(query = "", selector = "#video") {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, VIDEO_PAGE + query);
+function ownVideoTab(tab) {
+  registerCleanupFunction(() => closeVideoTab(tab));
+  return tab;
+}
+
+async function closeVideoTab(tab) {
+  if (!tab.isConnected) {
+    return;
+  }
+  if (!tab.closing) {
+    // Stop playback and release media resources before destroying the page.
+    try {
+      await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+        for (const video of content.document.querySelectorAll("video")) {
+          video.pause();
+          video.removeAttribute("src");
+          video.querySelectorAll("source").forEach(source => source.remove());
+          video.load();
+        }
+      });
+    } finally {
+      // removeTab itself returns void. The final SessionStore message is
+      // Firefox's completion signal for teardown of this browser's content.
+      const flushed = BrowserTestUtils.waitForSessionStoreUpdate(tab);
+      BrowserTestUtils.removeTab(tab, { animate: false });
+      await flushed;
+    }
+  } else {
+    await TestUtils.waitForCondition(() => !tab.isConnected, "The video tab finished closing");
+  }
+}
+
+async function openVideo(query = "", selector = "#video", win = window) {
+  // Own the tab before navigation or metadata can fail.
+  const tab = ownVideoTab(BrowserTestUtils.addTab(win.gBrowser, "about:blank"));
   const browser = tab.linkedBrowser;
+  await BrowserTestUtils.switchTab(win.gBrowser, tab);
+  const loaded = BrowserTestUtils.browserLoaded(browser, false, VIDEO_PAGE + query);
+  BrowserTestUtils.startLoadingURIString(browser, VIDEO_PAGE + query);
+  await loaded;
   await SpecialPowers.spawn(browser, [selector], async sel => {
     const video = content.document.querySelector(sel);
-    await ContentTaskUtils.waitForCondition(() => video.readyState >= 1, "The video has its metadata");
+    // A decoder failure is terminal; report it rather than calling it a slow
+    // load. Keep the same metadata wait budget as the original test.
+    await ContentTaskUtils.waitForCondition(() => {
+      if (video.error) {
+        throw new Error(`Video load failed: ${video.error.code} ${video.error.message} (${video.currentSrc})`);
+      }
+      return video.readyState >= 1;
+    }, "The video has its metadata");
     await ContentTaskUtils.waitForCondition(() => {
       const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
       return actor?.videos.has(video) && actor.siteRate !== null;
@@ -35,6 +79,13 @@ async function openVideo(query = "", selector = "#video") {
   });
   browser.focus();
   return { tab, browser };
+}
+
+async function shownLiveControl(browser) {
+  return TestUtils.waitForCondition(async () => {
+    const state = await videoControl(browser);
+    return state?.right?.shown && state;
+  }, "The live video's top-right plates show");
 }
 
 async function hoverVideo(browser, selector = "#video", context = browser) {

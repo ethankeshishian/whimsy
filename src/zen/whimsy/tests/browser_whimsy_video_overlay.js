@@ -46,7 +46,7 @@ add_task(async function two_plates_fade_together() {
   await BrowserTestUtils.synthesizeMouse("body", 2, 700, { type: "mousemove" }, browser);
   const hidden = await shownControl(browser, false);
   ok(!hidden.shown && !hidden.right.shown, "Both fade out together");
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function tab_order() {
@@ -57,7 +57,7 @@ add_task(async function tab_order() {
   await TestUtils.waitForCondition(async () => (await videoControl(browser)).reset.shown, "Back to default shows off the default");
   const state = await videoControl(browser);
   Assert.deepEqual(state.focusOrder, ["reset", "value", "toggle", "cc", "summ", "pip"], "Back to default, number, presets, CC, Summarize, PiP");
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function small_video_icon_only_and_none() {
@@ -73,7 +73,7 @@ add_task(async function small_video_icon_only_and_none() {
   await hoverVideo(browser);
   state = await shownControl(browser);
   ok(!state.right.compact && state.summ.labelShown, "A big video gets the label");
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function ai_off_no_summarize_pip_stays() {
@@ -86,7 +86,7 @@ add_task(async function ai_off_no_summarize_pip_stays() {
   const state = await shownControl(browser);
   ok(!state.summ.shown, "AI off: no Summarize");
   ok(state.pip.shown, "PiP stays in the corner");
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
   await SpecialPowers.popPrefEnv();
   await WhimsyAI.pending;
 });
@@ -113,7 +113,7 @@ add_task(async function summarize_toggle_closes_and_reopens_same() {
   await TestUtils.waitForCondition(() => chatPanel().isOpen && chatPanel().thread?.id == threadId, "A third press reopens the same summary");
   is(providerCalls.length, 1, "without asking again");
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function switches_from_other_thread() {
@@ -131,7 +131,7 @@ add_task(async function switches_from_other_thread() {
   await TestUtils.waitForCondition(() => chatPanel().isOpen && chatPanel().thread?.id == threadId, "Summarize switches chat to its summary");
   ok(chatPanel().isOpen, "and chat stays open");
   await closeChat();
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function firefox_pip_toggle_hidden() {
@@ -142,15 +142,20 @@ add_task(async function firefox_pip_toggle_hidden() {
   const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null, win => win.document.documentURI.includes("pictureinpicture"));
   await clickPoint(browser, state.pip);
   const pipWin = await opened;
+  registerCleanupFunction(async () => {
+    if (!pipWin.closed) {
+      await BrowserTestUtils.closeWindow(pipWin);
+    }
+  });
   ok(pipWin, "Our PiP button opens Firefox's picture-in-picture window");
   await hoverVideo(browser);
   await TestUtils.waitForCondition(async () => (await videoControl(browser)).pip.pressed, "and shows pressed");
   await BrowserTestUtils.closeWindow(pipWin);
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
 
 add_task(async function cross_origin_embed_draws() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, VIDEO_PAGE + "?embed");
+  const tab = ownVideoTab(await BrowserTestUtils.openNewForegroundTab(gBrowser, VIDEO_PAGE + "?embed"));
   const browser = tab.linkedBrowser;
   const frame = await TestUtils.waitForCondition(() => browser.browsingContext.children[0], "The embed is there");
   await SpecialPowers.spawn(frame, [], async () => {
@@ -161,5 +166,5 @@ add_task(async function cross_origin_embed_draws() {
   await hoverVideo(browser, "#video", frame);
   const state = await shownControl(browser, true, frame);
   ok(state.summ.shown && state.pip.shown, "Both plates draw over a cross-origin embed");
-  BrowserTestUtils.removeTab(tab);
+  await closeVideoTab(tab);
 });
