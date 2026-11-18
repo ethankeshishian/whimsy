@@ -22,10 +22,19 @@ const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-commo
 const toasts = [];
 const realToast = gZenUIManager.showToast;
 add_setup(() => {
+  const startingTabs = new Set(gBrowser.tabs);
+  const startingGroups = new Set(gBrowser.tabGroups);
   WhimsyLinkLasso.initWindow(window);
   gZenUIManager.showToast = (id, options) => toasts.push({ id, options });
-  registerCleanupFunction(() => {
+  registerCleanupFunction(async () => {
     gZenUIManager.showToast = realToast;
+    await WhimsyPrivate.closeScratch(window);
+    for (const group of gBrowser.tabGroups.filter(g => !startingGroups.has(g) && g.isZenFolder)) {
+      await group.delete();
+    }
+    for (const tab of gBrowser.tabs.filter(t => !startingTabs.has(t) && !t.hasAttribute("zen-empty-tab"))) {
+      await BrowserTestUtils.removeTab(tab);
+    }
   });
 });
 
@@ -288,7 +297,7 @@ add_task(async function test_normal_drag_and_click_untouched() {
 });
 
 add_task(async function test_private_and_edges() {
-  const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+  const tab = openWhimsyPrivateTab(window, { url: PAGE, force: true });
   ok(tab, "a private tab opened");
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
   toasts.length = 0;

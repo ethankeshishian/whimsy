@@ -438,7 +438,7 @@ add_task(async function test_revisit_different_query_gets_no_offer() {
 add_task(async function test_private_tab_close_warns_then_closes() {
   const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
   const before = await fileText();
-  const tab = WhimsyPrivate.openPrivateTab(window, { url: FORM_PAGE, force: true });
+  const tab = openWhimsyPrivateTab(window, { url: FORM_PAGE, force: true });
   await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI?.spec == FORM_PAGE && !tab.hasAttribute("busy"),
     "The private tab loaded");
   gBrowser.selectedTab = tab;

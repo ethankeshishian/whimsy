@@ -17,7 +17,6 @@ const { WhimsyLinkHover } = ChromeUtils.importESModule("resource:///modules/whim
 const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
 const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
 const { WhimsyAIPage } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIPage.sys.mjs");
-const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 const { WhimsyConnectors } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectors.sys.mjs");
 const { WhimsyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
 const { WhimsyAIContext } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIContext.sys.mjs");
@@ -476,10 +475,11 @@ add_task(async function ai_off() {
 // shows only its text and address, and the linked page isn't loaded.
 add_task(async function private_tabs() {
   reset();
-  const tab = WhimsyPrivate.openPrivateTab(window, { url: LINKS, force: true });
+  const tab = openWhimsyPrivateTab(window, { url: LINKS, force: true });
+  let other;
   try {
     await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, LINKS);
-    const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+    other = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
     hoverTab(tab);
     const card = await openTabCard();
     const note = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-note"), "A note");
@@ -502,6 +502,9 @@ add_task(async function private_tabs() {
     is(asked.length, 0, "Nothing goes to AI");
   } finally {
     await closeAll();
+    if (other?.isConnected && !other.closing) {
+      await BrowserTestUtils.removeTab(other);
+    }
     BrowserTestUtils.removeTab(tab);
   }
 });
@@ -1184,7 +1187,7 @@ add_task(async function mail_hover_shows_nothing_while_screen_sharing() {
 
 add_task(async function mail_hover_private_mail_tab_makes_no_connector_request() {
   reset();
-  const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+  const tab = openWhimsyPrivateTab(window, { url: PAGE, force: true });
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE);
   const restoreMail = stubMailTab(tab, { provider: "google", count: 2, matches: true });
   let listCalls = 0;

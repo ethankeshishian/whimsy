@@ -15,6 +15,17 @@ const { WhimsySpaces } = ChromeUtils.importESModule("resource:///modules/whimsy/
 const { WhimsyPageWatch } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPageWatch.sys.mjs");
 const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
 
+const startingTabs = new Set(gBrowser.tabs);
+const startingSpace = gZenWorkspaces.getActiveWorkspace();
+registerCleanupFunction(async () => {
+  await closeMenu(document.getElementById("zenWorkspaceMoreActions"));
+  await WhimsyPrivate.closeScratch(window);
+  await gZenWorkspaces.changeWorkspace(startingSpace);
+  for (const tab of gBrowser.tabs.filter(t => !startingTabs.has(t) && !t.hasAttribute("zen-empty-tab"))) {
+    await BrowserTestUtils.removeTab(tab);
+  }
+});
+
 function shows(node) {
   return !!node && !node.hidden && node.getAttribute("collapsed") != "true";
 }

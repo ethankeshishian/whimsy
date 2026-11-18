@@ -126,13 +126,27 @@ export const WhimsyFocusTab = {
 
     const entry = { keep, session, restore: [], line: null, timer: null };
     state.set(win, entry);
+    // Other features already wrap these methods on the instance (private
+    // tabs, space locks, and the switch queue). Deleting our override would
+    // expose the prototype and permanently discard all of those wrappers.
+    const override = (object, name, value) => {
+      const own = Object.getOwnPropertyDescriptor(object, name);
+      object[name] = value;
+      entry.restore.push(() => {
+        if (own) {
+          Object.defineProperty(object, name, own);
+        } else {
+          delete object[name];
+        }
+      });
+    };
 
     // New tabs open in Glance over the kept tab. Content opens must return
     // their own unloaded browser to Gecko; the Whimsy tabbrowser patch adopts
     // those tabs after construction, before returning to BrowserDOMWindow.
     const addTab = gBrowser.addTab;
     let passthrough = false;
-    gBrowser.addTab = function (uri, options = {}) {
+    override(gBrowser, "addTab", function (uri, options = {}) {
       if (passthrough || options.openWindowInfo || options.adoptedTab || !state.has(win)) {
         return addTab.call(this, uri, options);
       }
@@ -160,25 +174,19 @@ export const WhimsyFocusTab = {
         }
       }
       return tab;
-    };
-    entry.restore.push(() => delete gBrowser.addTab);
+    });
 
     // Glance can't become a tab, or a split.
     const glance = win.gZenGlanceManager;
     if (glance) {
-      glance.fullyOpenGlance = async () => {};
-      glance.splitGlance = async () => {};
-      entry.restore.push(() => {
-        delete glance.fullyOpenGlance;
-        delete glance.splitGlance;
-      });
+      override(glance, "fullyOpenGlance", async () => {});
+      override(glance, "splitGlance", async () => {});
     }
 
     // Spaces don't change.
     const spaces = win.gZenWorkspaces;
     if (spaces?.changeWorkspace) {
-      spaces.changeWorkspace = async () => {};
-      entry.restore.push(() => delete spaces.changeWorkspace);
+      override(spaces, "changeWorkspace", async () => {});
     }
 
     // Tab keys do nothing.

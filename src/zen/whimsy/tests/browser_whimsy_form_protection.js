@@ -490,8 +490,7 @@ add_task(async function test_dismiss_deletes_without_filling() {
 // R1 v2 §4, §6: a private tab's draft stays in memory, never on disk, keyed
 // by the address without its fragment.
 add_task(async function test_private_draft_stays_in_memory() {
-  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
-  const tab = WhimsyPrivate.openPrivateTab(window, { url: FORM_PAGE, force: true });
+  const tab = openWhimsyPrivateTab(window, { url: FORM_PAGE, force: true });
   await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI?.spec == FORM_PAGE && !tab.hasAttribute("busy"),
     "The private tab loaded");
   try {

@@ -14,6 +14,7 @@ const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", 
 const PAGE = ROOT + "whimsy_article.html";
 
 const calls = [];
+const startingTabs = new Set(gBrowser.tabs);
 const realUpdater = WhimsyHandoff.updater;
 WhimsyHandoff.updater = {
   updateLocation(url, title) {
@@ -25,6 +26,9 @@ registerCleanupFunction(async () => {
   WhimsyHandoff.updater = realUpdater;
   if (WhimsyPrivate.getScratch(window)) {
     await WhimsyPrivate.closeScratch(window);
+  }
+  for (const tab of gBrowser.tabs.filter(t => !startingTabs.has(t) && !t.hasAttribute("zen-empty-tab"))) {
+    await BrowserTestUtils.removeTab(tab);
   }
 });
 
@@ -61,7 +65,7 @@ add_task(async function test_private_tab_not_offered() {
   const normal = await openTab(PAGE + "?handoff=normal");
   calls.length = 0;
   const url = PAGE + "?handoff=private";
-  const tab = WhimsyPrivate.openPrivateTab(window, { url });
+  const tab = openWhimsyPrivateTab(window, { url });
   ok(tab && WhimsyPrivate.isPrivateTab(tab), "A private tab opened");
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url);
   await TestUtils.waitForCondition(() => calls.length, "Handoff was updated");

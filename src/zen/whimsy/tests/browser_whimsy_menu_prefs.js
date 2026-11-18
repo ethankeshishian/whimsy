@@ -18,11 +18,24 @@ const PAGE = `data:text/html,<a id="l" href="https://example.com/" style="displa
 
 const startTabs = new Set(gBrowser.tabs);
 add_setup(async function () {
+  const clearMenuMarks = () => {
+    for (const popup of document.querySelectorAll("menupopup")) {
+      WhimsyMenuPrefs.clearMarks(popup);
+    }
+  };
+  // Marks belong to the popup last opened, including its closed submenus.
+  // Earlier menu suites may have opened Move Tab or Share; this file must
+  // start with its own menus and leave their DOM clean on every exit.
+  clearMenuMarks();
+  for (const menu of WhimsyMenuPrefs.menus) {
+    WhimsyMenuPrefs.restoreDefaults(menu.id);
+  }
   registerCleanupFunction(() => {
     Services.prefs.clearUserPref(FEATURE);
     for (const menu of WhimsyMenuPrefs.menus) {
       WhimsyMenuPrefs.restoreDefaults(menu.id);
     }
+    clearMenuMarks();
     for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
       BrowserTestUtils.removeTab(tab);
     }

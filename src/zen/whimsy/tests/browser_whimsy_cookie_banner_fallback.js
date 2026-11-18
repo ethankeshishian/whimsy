@@ -74,6 +74,7 @@ add_task(async function test_fallback_safety() {
             return Promise.resolve({
               choice: document.body.dataset.choice || null,
               visible: !!document.getElementById("notice")?.getBoundingClientRect().height,
+              url: location.href,
             });
           }
           return undefined;
@@ -82,15 +83,20 @@ add_task(async function test_fallback_safety() {
       },
     },
     background() {
-      let tabId;
+      // Content scripts also run in older example.com documents. Bind each
+      // scan to its fixture document, not whichever ready message ran last.
+      const pages = new Map();
+      const waiting = new Map();
       browser.runtime.onMessage.addListener((message, sender) => {
-        if (message.type === "ready") {
-          tabId = sender.tab.id;
-          browser.test.sendMessage("page-ready");
+        if (message.type === "ready" && sender.tab && sender.frameId === 0) {
+          pages.set(sender.url, sender.tab.id);
+          waiting.get(sender.url)?.(sender.tab.id);
+          waiting.delete(sender.url);
         }
       });
-      browser.test.onMessage.addListener(async (command, enabled) => {
+      browser.test.onMessage.addListener(async (command, { url, enabled }) => {
         if (command === "scan") {
+          const tabId = pages.has(url) ? pages.get(url) : await new Promise(resolve => waiting.set(url, resolve));
           await browser.tabs.sendMessage(tabId, { type: "whimsyCookieFallback", enabled });
           browser.test.sendMessage("scanned", await browser.tabs.sendMessage(tabId, { type: "snapshot" }));
         }
@@ -98,6 +104,8 @@ add_task(async function test_fallback_safety() {
     },
   });
   await extension.startup();
+  let probe = 0;
+  const probeId = Services.uuid.generateUUID().toString();
   try {
     for (const [mode, enabled, expectedChoice, expectedVisible] of [
       ["dismiss", true, "dismiss", false],
@@ -115,17 +123,18 @@ add_task(async function test_fallback_safety() {
       ["blocked", true, null, true],
       ["dismiss", false, null, true],
     ]) {
-      await BrowserTestUtils.withNewTab(`${UNKNOWN_PAGE}?mode=${mode}`, async () => {
-        await extension.awaitMessage("page-ready");
-        extension.sendMessage("scan", enabled);
+      const url = `${UNKNOWN_PAGE}?mode=${mode}&probe=${encodeURIComponent(probeId)}-${probe++}`;
+      await BrowserTestUtils.withNewTab(url, async () => {
+        extension.sendMessage("scan", { url, enabled });
         const result = await extension.awaitMessage("scanned");
+        is(result.url, url, "The scan answered for this fixture, not an earlier example.com tab");
         is(result.choice, expectedChoice, `${mode}, enabled=${enabled}: only non-consent actions`);
         is(result.visible, expectedVisible, `${mode}, enabled=${enabled}: expected visibility`);
       });
     }
-    await BrowserTestUtils.withNewTab(`${UNKNOWN_PAGE}?mode=late`, async browser => {
-      await extension.awaitMessage("page-ready");
-      extension.sendMessage("scan", true);
+    const url = `${UNKNOWN_PAGE}?mode=late&probe=${encodeURIComponent(probeId)}-${probe++}`;
+    await BrowserTestUtils.withNewTab(url, async browser => {
+      extension.sendMessage("scan", { url, enabled: true });
       await extension.awaitMessage("scanned");
       await SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.showNotice());
       await TestUtils.waitForCondition(async () => (await noticeState(browser)).choice === "dismiss",

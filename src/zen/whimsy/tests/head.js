@@ -187,6 +187,60 @@ add_setup(function whimsySnapshotLeakedPrefs() {
   }));
 });
 
+// These are instance wrappers, not disposable test stubs. Losing addTab
+// leaves _whimsyPrivateHooks set while private tabs silently become normal;
+// losing changeWorkspace bypasses the lock and space-switch queue.
+add_setup(function whimsySnapshotWindowHooks() {
+  const hooks = [
+    [gBrowser, "addTab"],
+    [gBrowser, "createBrowser"],
+    [gZenWorkspaces, "changeWorkspace"],
+    [gZenGlanceManager, "fullyOpenGlance"],
+    [gZenGlanceManager, "splitGlance"],
+  ].map(([object, name]) => ({
+    object, name, own: Object.getOwnPropertyDescriptor(object, name), value: object[name],
+  }));
+  registerCleanupFunction(() => registerCleanupFunction(function whimsyRestoreWindowHooks() {
+    const changed = [];
+    for (const { object, name, own, value } of hooks) {
+      if (object[name] != value) {
+        changed.push(name);
+      }
+      if (own) {
+        Object.defineProperty(object, name, own);
+      } else {
+        delete object[name];
+      }
+    }
+    Assert.deepEqual(changed, [], "The file restored the window's private-tab, space, and Glance hooks");
+  }));
+});
+
+// Check the actual Gecko context before a privacy assertion can accidentally
+// exercise a normal document. Own the tab even if this check or the task fails.
+function openWhimsyPrivateTab(win = window, options = {}) {
+  const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
+  const tab = WhimsyPrivate.openPrivateTab(win, options);
+  if (tab) {
+    registerCleanupFunction(async () => {
+      if (!win.closed && tab.isConnected && !tab.closing) {
+        // Bulk close bypasses the per-tab unsaved-typing warning, including
+        // when a form task failed before its second close confirmation.
+        win.gBrowser.removeTabs([tab], { skipPermitUnload: true, animate: false });
+        await TestUtils.waitForCondition(() => !win.gBrowser.tabs.includes(tab),
+          "The helper's private tab finished closing");
+      }
+    });
+  }
+  if (!tab || !WhimsyPrivate.isPrivateTab(tab)) {
+    throw new Error("openPrivateTab must return a marked private tab; check for a lost gBrowser.addTab wrapper");
+  }
+  if (!tab.linkedBrowser.browsingContext?.usePrivateBrowsing) {
+    throw new Error("openPrivateTab must create a real private BrowsingContext, never a normal document");
+  }
+  return tab;
+}
+
 // Several files put a real image or text on the system clipboard to test
 // copy/paste (the capture card, chat answers, the upload picker's Cmd+V).
 // Registered first and re-registering itself from inside its own callback,
