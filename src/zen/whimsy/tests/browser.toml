@@ -1420,13 +1420,13 @@ support-files = ["whimsy_oauth_opener.html", "whimsy_oauth_popup.html"]
 # W29 side panels: Essentials open in a popover next to the sidebar (default
 # on, resizable per site); Show Chat as Popover shares the surface.
 ["browser_whimsy_side_panels.js"]
-head = "head.js head-side-panel.js"
+support-files = ["head_side_panel.js"]
 
 ["browser_whimsy_side_panel_pip.js"]
-head = "head.js head-side-panel.js"
+support-files = ["head_side_panel.js"]
 
 ["browser_whimsy_side_panel_pip_resize.js"]
-head = "head.js head-side-panel.js"
+support-files = ["head_side_panel.js"]
 
 # W28 verification codes (WhimsyTOTP.sys.mjs).
 ["browser_whimsy_totp_math.js"]

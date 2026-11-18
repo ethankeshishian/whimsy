@@ -3,6 +3,8 @@
 
 "use strict";
 
+Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_side_panel.js", this);
+
 // Core Essential routing and chat on the shared popover surface.
 
 addPanelTask(async function click_shows_beside_sidebar_without_selecting() {

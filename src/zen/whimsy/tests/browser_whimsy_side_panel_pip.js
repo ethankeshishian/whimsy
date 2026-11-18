@@ -3,6 +3,8 @@
 
 "use strict";
 
+Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_side_panel.js", this);
+
 // Temporary Expand, shrink-back, Minimize, and focus-based close routing.
 
 // A selected Essential is not necessarily the result of Expand. Keep Zen's

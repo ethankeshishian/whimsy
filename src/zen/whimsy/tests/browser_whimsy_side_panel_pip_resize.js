@@ -3,6 +3,8 @@
 
 "use strict";
 
+Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_side_panel.js", this);
+
 // PiP geometry, header drag, and Glance lifecycle regressions.
 
 addPanelTask(async function resize_is_clamped_and_kept_per_site() {
