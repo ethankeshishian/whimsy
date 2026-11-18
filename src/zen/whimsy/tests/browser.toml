@@ -408,6 +408,8 @@ support-files = ["whimsy_call.html"]
 ["browser_whimsy_call_pip_follow.js"]
 support-files = ["whimsy_call.html"]
 # batch3glance: Glance size (Compact / Standard / Wide).
+["browser_whimsy_glance_button_contrast.js"]
+
 ["browser_whimsy_glance_size.js"]
 
 # batch3glance: Cmd+T in a split opens into the focused pane.
