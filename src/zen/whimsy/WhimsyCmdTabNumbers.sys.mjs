@@ -157,7 +157,11 @@ export const WhimsyCmdTabNumbers = {
       }
     };
     const blur = event => {
-      if (event.target == win) {
+      // Tab selection can blur the window's content focus while this browser
+      // still owns input. Match deactivate's active -> inactive guard; a
+      // background window's focus churn must not cancel delivered keys.
+      if (event.target == win && state.active && !this.isActiveWindow(win)) {
+        state.active = false;
         release();
         state.buttons = 0;
       }
@@ -191,7 +195,7 @@ export const WhimsyCmdTabNumbers = {
   // Snapshot for input regression diagnostics; never expose the mutable Set.
   chordState(win) {
     const state = states.get(win);
-    return state ? { meta: state.meta, keys: [...state.keys], timer: state.timer } : null;
+    return state ? { meta: state.meta, keys: [...state.keys], timer: state.timer, active: state.active, buttons: state.buttons } : null;
   },
 
   ensureLayer(win, state) {

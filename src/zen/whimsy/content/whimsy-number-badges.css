@@ -4,20 +4,28 @@
 
 /* Shared command-hold keycaps: .whimsy-cmdbar-key's shape and type,
    WhimsySurface's panel tokens. Opaque quiet fill also works on custom sidebars. */
+#urlbar .urlbarView-row .whimsy-number-badge,
+#urlbar .urlbarView-row[selected] .whimsy-number-badge,
 .whimsy-number-badge {
+  /* Panel tokens can carry alpha; keycaps need their opaque RGB values.
+     Resolve them on each badge, independently of selected-row text. */
+  --whimsy-number-ink: rgb(from var(--arrowpanel-color, CanvasText) r g b / 1);
+  --whimsy-number-fill: rgb(from var(--arrowpanel-background, Canvas) r g b / 1);
   box-sizing: border-box;
   display: inline-grid;
   place-items: center;
   min-width: 20px;
   height: 20px;
   padding: 0 5px;
-  border: 1px solid color-mix(in srgb, var(--arrowpanel-color, CanvasText) 20%, var(--arrowpanel-background, Canvas));
+  border: 1px solid color-mix(in srgb, var(--whimsy-number-ink) 20%, var(--whimsy-number-fill));
   border-radius: 4px;
   font: 600 11.5px/16px -apple-system, system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: color-mix(in srgb, var(--arrowpanel-color, CanvasText) 88%, var(--arrowpanel-background, Canvas));
-  background: color-mix(in srgb, var(--arrowpanel-color, CanvasText) 6%, var(--arrowpanel-background, Canvas));
+  /* Selected rows set descendant ink with !important. The same quiet
+     keycap keeps its own AA ink/fill pair on both surfaces. */
+  color: var(--whimsy-number-ink) !important;
+  background: color-mix(in srgb, var(--whimsy-number-ink) 6%, var(--whimsy-number-fill));
   pointer-events: none;
 }
 .whimsy-number-surface {

@@ -12,6 +12,7 @@ const { WhimsySpaceSwitchQueue } = ChromeUtils.importESModule(
 );
 const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
 UrlbarTestUtils.init(this);
+const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
 
 let win, root;
 const showing = () => root.hasAttribute("whimsy-tab-numbers");
@@ -45,7 +46,12 @@ async function hold() {
   const revealed = BrowserTestUtils.waitForMutationCondition(root,
     { attributes: true, attributeFilter: ["whimsy-tab-numbers"] }, showing);
   key("KEY_Meta", { type: "keydown", metaKey: true });
-  await revealed;
+  logChord("Hold keydown");
+  try {
+    await revealed;
+  } finally {
+    logChord("Hold completed or timed out");
+  }
 }
 
 // Negative cases wait for the production deadline, rather than asserting
@@ -92,6 +98,7 @@ async function assertShortcutTargets() {
     key(String(digit), { type: "keyup", metaKey: true });
     ok(!showing(), "A digit hides the badges immediately");
     await commanded;
+    logChord(`After native Command-${digit}`);
     is(win.gBrowser.selectedTab, expected, `⌘${digit} selected the badged tab`);
     release();
   }
@@ -141,7 +148,6 @@ add_setup(async function () {
   win.gURLBar.view.close();
   await TestUtils.waitForCondition(() => !win.gURLBar.view.isOpen, "The command bar is closed before holding Command");
   Numbers.initWindow(win);
-  const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
   // Every task exercises delivered input in an OS-background window. Real
   // activation changes from concurrent Firefox instances cannot race a hold.
   focus = sinon.stub(Numbers, "isActiveWindow").returns(false);
@@ -587,8 +593,19 @@ add_task(async function open_command_bar_has_one_owner_for_digit_hints() {
 add_task(async function command_bar_digit_then_sidebar() {
   const { WhimsyCommandBarAI: Bar } = ChromeUtils.importESModule(
     "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs");
+  const { UrlbarResult } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarResult.mjs");
+  const { UrlbarShared } = ChromeUtils.importESModule("chrome://browser/content/urlbar/UrlbarShared.mjs");
+  const provider = new UrlbarTestUtils.TestProvider({
+    priority: 100,
+    results: [1, 2].map(i => new UrlbarResult(UrlbarShared.RESULT_TYPE.URL,
+      UrlbarShared.RESULT_SOURCE.HISTORY, { url: `https://example.com/cmdbadge-${i}`, title: `Command badge ${i}` })),
+  });
+  const { ProvidersManager } = ChromeUtils.importESModule("moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs");
+  const manager = ProvidersManager.getInstanceForSap("urlbar");
+  manager.registerProvider(provider);
   try {
-    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, value: "example" });
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, value: "cmdbadge" });
+    await TestUtils.waitForCondition(() => Bar.numberedRows(win).length >= 2, "The fixture supplies two destinations");
     key("KEY_Meta", { metaKey: true });
     await TestUtils.waitForCondition(() => win.gURLBar.hasAttribute("whimsy-numbers"), "Bar owns hold");
     info(`Before Command-2: bar=${win.gURLBar.view.isOpen}, tabs=${showing()}, rows=${Bar.numberedRows(win).length}`);
@@ -615,12 +632,13 @@ add_task(async function command_bar_digit_then_sidebar() {
   } finally {
     release();
     win.gURLBar.view.close();
+    manager.unregisterProvider(provider);
   }
 });
 
 function logChord(label) {
   const state = Numbers.chordState(win);
-  info(`${label}: meta=${state.meta}, keys=${JSON.stringify(state.keys)}, pending timer=${state.timer}, bar=${win.gURLBar.view.isOpen}, tabs=${showing()}`);
+  info(`${label}: meta=${state.meta}, keys=${JSON.stringify(state.keys)}, pending timer=${state.timer}, active=${state.active}, buttons=${state.buttons}, bar=${win.gURLBar.view.isOpen}, tabs=${showing()}`);
   return state;
 }
 
@@ -804,6 +822,11 @@ add_task(async function shared_badges_have_motion_colours_and_no_layout_shift() 
           ok(tabBadge.isConnected, "Exit retains the badge node");
 
           await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, value: "example" });
+          // Compare resting geometry, after the bar's own scale/lift entrance.
+          // Keep badge motion enabled: it is what this task samples below.
+          await TestUtils.waitForCondition(() => win.gURLBar.getAnimations({ subtree: true })
+            .every(a => a.playState != "running" || a.effect.getComputedTiming().iterations == Infinity),
+          "The command bar entrance has finished");
           const rows = Bar.numberedRows(win);
           const contents = [...win.gURLBar.view.panel.querySelectorAll(".urlbarView-row")].flatMap(row =>
             [row, ...row.querySelectorAll("*:not(.whimsy-number-badge)")]);
@@ -818,11 +841,23 @@ add_task(async function shared_badges_have_motion_colours_and_no_layout_shift() 
           const barBadge = rows[0].querySelector(".whimsy-number-badge");
           Assert.deepEqual(appearance(barBadge), tabStyle, "Both surfaces have identical badge colours, shape, and type");
           await assertBadgeFade(barBadge, true, reduced);
+          Assert.deepEqual(rectangles(contents), rowRects, "Finished entry keeps every row rectangle");
+          // Selection's on-accent descendant rule must not override the
+          // keycap's own ink/fill pair (the light selected-row regression).
+          const selected = rows[0].hasAttribute("selected");
+          for (const value of [false, true]) {
+            rows[0].toggleAttribute("selected", value);
+            Assert.deepEqual(appearance(barBadge), tabStyle, "Normal and selected keycaps match the sidebar");
+            is(win.InspectorUtils.colorToRGBA(win.getComputedStyle(barBadge).backgroundColor).a, 1,
+              "Every keycap fill is opaque");
+          }
+          rows[0].toggleAttribute("selected", selected);
           if (!reduced) {
             await whimsyShot(`w29-cmdbadge-bar-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
           }
           release();
           await assertBadgeFade(barBadge, false, reduced);
+          Assert.deepEqual(rectangles(contents), rowRects, "Exit keeps every command row rectangle");
           ok(barBadge.isConnected, "The command-bar exit retains its node");
           win.gURLBar.view.close();
         } finally {
@@ -837,10 +872,33 @@ add_task(async function shared_badges_have_motion_colours_and_no_layout_shift() 
   }
 });
 
+add_task(async function content_focus_blur_preserves_pending_hold() {
+  try {
+    for (const active of [true, false]) {
+      focus.returns(active);
+      key("KEY_Meta", { metaKey: true });
+      const before = Numbers.chordState(win);
+      win.dispatchEvent(new win.Event("blur"));
+      const after = Numbers.chordState(win);
+      ok(after.meta && after.timer == before.timer,
+        `Content blur without an activation loss preserves the pending hold (active=${active})`);
+      await TestUtils.waitForCondition(showing, "Delivered Command still reveals after content focus changes");
+      win.dispatchEvent(new win.Event("blur"));
+      ok(showing(), "Content focus blur also preserves a visible hold");
+      release();
+    }
+  } finally {
+    release();
+    focus.returns(false);
+  }
+});
+
 add_task(async function blur_and_visibility_reset_the_entire_chord() {
   for (const type of ["blur", "visibilitychange"]) {
+    focus.returns(true);
     await hold();
     key("2", { code: "Digit2", metaKey: true });
+    focus.returns(false);
     if (type == "blur") {
       win.dispatchEvent(new win.Event(type));
     } else {

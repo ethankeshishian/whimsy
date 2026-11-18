@@ -43,6 +43,7 @@ const ASK_TYPE = "whimsy-ask";
 const CARD_TYPE = "whimsy-ask-card";
 const LOADING_MS = 300;
 const HOLD_MS = MODIFIER_HOLD_MS;
+const numberHolds = new WeakMap();
 const PAGE_CHARS = 60000;
 const SAVED_HINT_PREF = "whimsy.ai.cmdbar.answer-saved-shown";
 const REDUCED = "(prefers-reduced-motion: reduce)";
@@ -1040,14 +1041,14 @@ export const WhimsyCommandBarAI = {
     }
     const open = !!win.gURLBar?.view.isOpen;
     if (event.key == "Meta" || event.key == "Control") {
-      if (open && !win._whimsyNumberHold) {
-        win._whimsyNumberHold = win.setTimeout(() => this.showNumbers(win), HOLD_MS);
+      if (open && !numberHolds.has(win)) {
+        numberHolds.set(win, win.setTimeout(() => this.showNumbers(win), HOLD_MS));
       }
       return;
     }
-    if (win._whimsyNumberHold) {
-      win.clearTimeout(win._whimsyNumberHold);
-      win._whimsyNumberHold = 0;
+    if (numberHolds.has(win)) {
+      win.clearTimeout(numberHolds.get(win));
+      numberHolds.delete(win);
     }
     if (!open || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || !/^Digit[1-9]$/.test(event.code)) {
       return;
@@ -1071,7 +1072,7 @@ export const WhimsyCommandBarAI = {
   },
 
   showNumbers(win) {
-    win._whimsyNumberHold = 0;
+    numberHolds.delete(win);
     if (!win.gURLBar?.view.isOpen) {
       return;
     }
@@ -1093,9 +1094,9 @@ export const WhimsyCommandBarAI = {
   },
 
   stopNumbers(win) {
-    if (win._whimsyNumberHold) {
-      win.clearTimeout(win._whimsyNumberHold);
-      win._whimsyNumberHold = 0;
+    if (numberHolds.has(win)) {
+      win.clearTimeout(numberHolds.get(win));
+      numberHolds.delete(win);
     }
     const urlbar = win.gURLBar;
     if (!urlbar?.hasAttribute("whimsy-numbers")) {
