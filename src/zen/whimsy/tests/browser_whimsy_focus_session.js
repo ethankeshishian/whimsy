@@ -66,7 +66,13 @@ let prefDepth = 0;
 function addFocusTask(task) {
   const isolated = async function () {
     const windows = new Map([...Services.wm.getEnumerator("navigator:browser")].map(win =>
-      [win, { tabs: new Set(win.gBrowser.tabs), selected: win.gBrowser.selectedTab }]));
+      [win, {
+        tabs: new Set(win.gBrowser.tabs), selected: win.gBrowser.selectedTab,
+        hooks: [
+          [win.gBrowser, "addTab"], [win.gZenWorkspaces, "changeWorkspace"],
+          [win.gZenGlanceManager, "fullyOpenGlance"], [win.gZenGlanceManager, "splitGlance"],
+        ].map(([object, name]) => ({ object, name, own: Object.getOwnPropertyDescriptor(object, name) })),
+      }]));
     const prefs = [...Object.values(P), MUTE_PREF].map(name => {
       const type = Services.prefs.getPrefType(name);
       const hadUserValue = Services.prefs.prefHasUserValue(name);
@@ -132,6 +138,15 @@ async function cleanupFocusTask() {
     if (!original) {
       await clean("Closing a test window", () => within(BrowserTestUtils.closeWindow(win), "Closing a test window"));
       continue;
+    }
+    // Keep a failed task from removing another feature's instance wrappers.
+    // The task assertions below check that end() itself restores them.
+    for (const { object, name, own } of original.hooks) {
+      if (own) {
+        Object.defineProperty(object, name, own);
+      } else {
+        delete object[name];
+      }
     }
     for (const tab of [...win.gBrowser.tabs]) {
       if (!original.tabs.has(tab)) {
@@ -930,6 +945,8 @@ async function closeGlanceTab(win, glance) {
 
 addFocusTask(async function stay_on_this_tab() {
   resetPrefs();
+  const hooksBefore = [gBrowser.addTab, gZenWorkspaces.changeWorkspace,
+    gZenGlanceManager.fullyOpenGlance, gZenGlanceManager.splitGlance];
   const others = [
     await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.org/"), "Opening focus test tab https://example.org/"),
     await within(BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.net/"), "Opening focus test tab https://example.net/"),
@@ -1080,9 +1097,19 @@ addFocusTask(async function stay_on_this_tab() {
   ok(!keep.hasAttribute("whimsy-focus-keep"), "The kept tab is ordinary again");
   ok(others.every(t => t.checkVisibility()), "The other tabs show");
   ok(!document.querySelector(".whimsy-focus-tab-line"), "The line goes");
-  ok(!Object.hasOwn(gBrowser, "addTab"), "New tabs open as tabs again");
-  ok(!Object.hasOwn(gZenWorkspaces, "changeWorkspace"), "Spaces change again");
-  ok(!Object.hasOwn(gZenGlanceManager, "fullyOpenGlance"), "Glance opens as a tab again");
+  is(gBrowser.addTab, hooksBefore[0], "New tabs use the original private-tab wrapper again");
+  is(gZenWorkspaces.changeWorkspace, hooksBefore[1], "Spaces use the original lock and switch queue again");
+  is(gZenGlanceManager.fullyOpenGlance, hooksBefore[2], "Glance opens as a tab again");
+  is(gZenGlanceManager.splitGlance, hooksBefore[3], "Glance splits using its original method again");
+  const privateTab = openWhimsyPrivateTab(window, { url: "https://example.com/?after-focus", force: true });
+  try {
+    await BrowserTestUtils.browserLoaded(privateTab.linkedBrowser, false, "https://example.com/?after-focus");
+    const privateId = await SpecialPowers.spawn(privateTab.linkedBrowser, [], () =>
+      content.document.nodePrincipal.originAttributes.privateBrowsingId);
+    is(privateId, 1, "Ending focus preserves real private documents for subsequent tests");
+  } finally {
+    await BrowserTestUtils.removeTab(privateTab);
+  }
   gBrowser.selectedTab = others[0];
   await within(TestUtils.waitForTick(), "Processing tab selection after ending focus");
   is(gBrowser.selectedTab, others[0], "Switching tabs works again");

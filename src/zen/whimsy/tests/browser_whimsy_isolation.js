@@ -37,6 +37,7 @@ let home, work, workSpace, answers, asked;
 const realConfirm = WhimsyProfileMoves.confirm;
 
 add_setup(async function () {
+  const startingTabs = new Set(gBrowser.tabs);
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.space-profiles", true]] });
   home = gZenWorkspaces.getActiveWorkspace();
   work = WhimsyProfiles.create("Whimsy Isolation Work");
@@ -50,11 +51,15 @@ add_setup(async function () {
   };
   registerCleanupFunction(async () => {
     WhimsyProfileMoves.confirm = realConfirm;
+    await WhimsyPrivate.closeScratch(window);
     if (gZenWorkspaces.activeWorkspace != home.uuid) {
       await gZenWorkspaces.changeWorkspace(home);
     }
-    for (const tab of tabsOf(workSpace)) {
-      BrowserTestUtils.removeTab(tab);
+    for (const tab of gBrowser.tabs.filter(t => !startingTabs.has(t))) {
+      if (!tab.hasAttribute("zen-empty-tab")) {
+        gBrowser.removeTabs([tab], { animate: false, skipPermitUnload: true });
+        await TestUtils.waitForCondition(() => !gBrowser.tabs.includes(tab), "Isolation's tab finished closing");
+      }
     }
     await gZenWorkspaces.removeWorkspace(workSpace.uuid);
     ContextualIdentityService.remove(work);
@@ -286,7 +291,7 @@ add_task(async function private_pages_never_reach_normal_history() {
     await gZenWorkspaces.changeWorkspace(home);
   }
   const url = `${PAGE}?whimsy-private-${Date.now()}`;
-  const tab = WhimsyPrivate.openPrivateTab(window, { url, force: true });
+  const tab = openWhimsyPrivateTab(window, { url, force: true });
   ok(tab && WhimsyPrivate.isPrivateTab(tab), "A private tab");
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url);
   ok(!(await PlacesUtils.history.hasVisits(url)), "Its page isn't in history");
@@ -391,7 +396,7 @@ add_task(async function add_to_note_is_not_offered_on_a_private_page() {
   const subject = { kind: "page", url: PAGE, title: "Page", text: "", markdown: "" };
   const normal = await openHomeTab(PAGE + "?note");
   ok(WhimsyVerbs.verbsFor(window, subject).some(v => v.id == "note"), "Offered on a normal page");
-  const priv = WhimsyPrivate.openPrivateTab(window, { url: PAGE + "?private-note", force: true });
+  const priv = openWhimsyPrivateTab(window, { url: PAGE + "?private-note", force: true });
   gBrowser.selectedTab = priv;
   ok(!WhimsyVerbs.verbsFor(window, subject).some(v => v.id == "note"), "Not on a private page");
   BrowserTestUtils.removeTab(priv);

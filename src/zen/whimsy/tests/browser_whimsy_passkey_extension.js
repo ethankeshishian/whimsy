@@ -587,7 +587,7 @@ add_task(async function private_permission_matches_firefox() {
       if (scratch) {
         await WhimsyPrivate.openScratch(window);
       }
-      const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+      const tab = openWhimsyPrivateTab(window, { url: PAGE, force: true });
       tabs.add(tab);
       await loaded(tab.linkedBrowser);
       is(tab.linkedBrowser.contentPrincipal.originAttributes.privateBrowsingId, 1, "Real private document");
@@ -609,7 +609,7 @@ add_task(async function private_permission_matches_firefox() {
     if (scratch) {
       await WhimsyPrivate.openScratch(window);
     }
-    const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE, force: true });
+    const tab = openWhimsyPrivateTab(window, { url: PAGE, force: true });
     tabs.add(tab);
     await loaded(tab.linkedBrowser);
     await intercepted(tab.linkedBrowser, `${scratch ? "Private Space" : "Private tab"} with private permission`);

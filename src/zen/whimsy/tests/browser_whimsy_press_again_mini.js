@@ -20,17 +20,35 @@ const { WhimsyQuickWindow } = ChromeUtils.importESModule("resource:///modules/wh
 const HINT = "whimsy-press-again-toast";
 
 const took = browser => SpecialPowers.spawn(browser, [], () => [...content.wrappedJSObject.took]);
+const startingTabs = new Set(gBrowser.tabs);
+const startingWindows = new Set(WhimsyQuickWindow.windows());
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.quick-window.size", ""]] });
+  const anchor = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await BrowserTestUtils.switchTab(gBrowser, anchor);
+  // Exercise adoption with a real trailing tab, regardless of run order.
+  ok(gBrowser.selectedTab != gBrowser.tabs.at(-1), "The destination has a tab after its selection");
 });
 
 registerCleanupFunction(async () => {
-  for (const win of WhimsyQuickWindow.windows()) {
+  for (const win of WhimsyQuickWindow.windows().filter(w => !startingWindows.has(w))) {
     await WhimsyQuickWindow.whenReady(win);
     await BrowserTestUtils.closeWindow(win);
   }
+  for (const tab of gBrowser.tabs.filter(t => !startingTabs.has(t) && !t.hasAttribute("zen-empty-tab"))) {
+    await BrowserTestUtils.removeTab(tab, { skipPermitUnload: true });
+  }
 });
+
+function adoptedTab(before) {
+  // Adoption and window sync decide placement. An earlier file can leave
+  // another tab after that position. The last tab need not be Mini's page.
+  const added = gBrowser.tabs.filter(tab => !before.has(tab) && !tab.hasAttribute("zen-empty-tab"));
+  Assert.equal(added.length, 1, "Exactly one tab was adopted from Mini");
+  return added[0];
+}
 
 async function openMini() {
   const win = WhimsyQuickWindow.open(PAGE, { opener: window });
@@ -106,6 +124,7 @@ add_task(async function test_cmd_o_in_mini_page_first_then_open_in_space() {
   const win = await openMini();
   const browser = win.gBrowser.selectedBrowser;
   const tabCountBefore = gBrowser.tabs.length;
+  const tabsBefore = new Set(gBrowser.tabs);
 
   EventUtils.synthesizeKey("o", { accelKey: true }, win);
   await TestUtils.waitForCondition(async () => (await took(browser)).length == 1, "The page got the first ⌘O");
@@ -126,7 +145,7 @@ add_task(async function test_cmd_o_in_mini_page_first_then_open_in_space() {
   EventUtils.synthesizeKey("o", { accelKey: true }, win);
   await TestUtils.waitForCondition(() => win.closed, "The second ⌘O moves the page into the space");
   is(gBrowser.tabs.length, tabCountBefore + 1, "The page landed in the main window");
-  const adopted = gBrowser.tabs[gBrowser.tabs.length - 1];
+  const adopted = adoptedTab(tabsBefore);
   is(adopted.linkedBrowser.currentURI.spec, PAGE, "It's Mini's page");
   is((await took(adopted.linkedBrowser)).length, 1, "The page never saw the second press");
   BrowserTestUtils.removeTab(adopted);
@@ -175,9 +194,10 @@ add_task(async function test_mini_page_that_doesnt_use_the_key() {
   await SimpleTest.promiseFocus(win);
   win.gBrowser.selectedBrowser.focus();
   const tabCountBefore = gBrowser.tabs.length;
+  const tabsBefore = new Set(gBrowser.tabs);
   EventUtils.synthesizeKey("o", { accelKey: true }, win);
   await TestUtils.waitForCondition(() => win.closed, "The first ⌘O moves the page");
   is(gBrowser.tabs.length, tabCountBefore + 1, "It landed in the main window");
   ok(!toastFor(HINT), "No hint");
-  BrowserTestUtils.removeTab(gBrowser.tabs[gBrowser.tabs.length - 1]);
+  await BrowserTestUtils.removeTab(adoptedTab(tabsBefore));
 });

@@ -7,7 +7,6 @@
 // them into the profile for offline play, never from private browsing.
 
 const { WhimsyPlaylist } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPlaylist.sys.mjs");
-const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const PAGE = ROOT + "whimsy_video.html";
@@ -157,7 +156,7 @@ add_task(async function test_unsupported_and_private() {
   is(await WhimsyPlaylist.add(window, { url: "blob:https://example.com/x" }), null, "Streams (blob:) aren't saved");
   ok(toasts.includes("whimsy-playlist-unsupported-toast"), "and it says why");
 
-  const tab = WhimsyPrivate.openPrivateTab(window, { url: PAGE });
+  const tab = openWhimsyPrivateTab(window, { url: PAGE });
   ok(tab, "A private tab opened");
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, PAGE);
   toasts.length = 0;

@@ -32,6 +32,12 @@ add_setup(async function () {
     for (const menu of WhimsyMenuPrefs.menus) {
       WhimsyMenuPrefs.restoreDefaults(menu.id);
     }
+    // Closing a submenu does not unapply its Settings marks. In particular,
+    // Move Tab's closed descendants must not pollute menu_prefs' switch-off
+    // assertion, which deliberately checks the entire menu subtree.
+    for (const popup of document.querySelectorAll("menupopup")) {
+      WhimsyMenuPrefs.clearMarks(popup);
+    }
     WhimsyShareMenu._service = undefined;
     for (const tab of gBrowser.tabs.filter(t => !startTabs.has(t))) {
       BrowserTestUtils.removeTab(tab);
