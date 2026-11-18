@@ -187,7 +187,8 @@
         "Tidy Tabs leaves agent task folders intact.",
         "Library sections keep their order when turned off and back on.",
         "Pages scroll normally beneath an open link preview."
-      ]
+      ],
+      "date": "2026-11-10"
     },
     {
       "version": "1.24b-w2",

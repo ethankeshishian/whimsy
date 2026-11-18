@@ -1,59 +1,6 @@
 {
   "groups": [
     {
-      "version": "1.24b-w3-dev.606",
-      "title": "AI chat, agents, and routines",
-      "new": [
-        "Chat: press Cmd+E to talk about a page, with separate conversations for each tab.",
-        "Attach tabs to chat and inspect what AI sees before sending.",
-        "Ask AI directly from the command bar and continue the answer in chat.",
-        "Agent mode: review a plan and let Whimsy carry out a browser task.",
-        "Connect outside agents and review their actions in Activity.",
-        "Routines: schedule tasks or run them when you visit a site or return to the browser.",
-        "Updates in the command bar collect watch results and routine notifications, with reminders for later.",
-        "Connect apps through MCP in Settings and bring Granola context into chat.",
-        "Save reusable AI commands with prompts that include page or selected text.",
-        "Memory: let chat remember facts you share, with controls to inspect, edit, export, or delete them.",
-        "Related results find previously visited pages by meaning.",
-        "Summarize pages and PDFs with links back to the passages used.",
-        "Summarize videos with chapter links, transcripts, and key quotes.",
-        "Draft replies and fill visible form fields with AI, with Undo for written replies.",
-        "Describe changes to a page and keep its edited appearance.",
-        "Translate pages with AI while keeping their links.",
-        "Get scam warnings before entering sensitive details on unfamiliar sites.",
-        "Compare products by their true price from the address bar.",
-        "Hold Fn to dictate, or hold Cmd+K to speak a command.",
-        "Select, copy, find, and translate text inside images.",
-        "Listen to pages with macOS voices and sentence highlighting.",
-        "Type : in the command bar to find and insert an emoji."
-      ],
-      "improved": [
-        "AI settings bring providers, models, permissions, and feature controls onto one page.",
-        "Chat answers include citations, tables, and research reports you can open in a tab.",
-        "Link previews can show a short AI summary.",
-        "Hover over the chat dock edge to peek at a conversation.",
-        "Expand memory chips to see facts used or saved, and remove saved facts in place.",
-        "The command bar finds open tabs across spaces and profiles, labeled with their space.",
-        "Fire lets you choose spaces, data types, and time ranges, including chats and agent activity.",
-        "Video speed ranges from 1/16\u00d7 to 16\u00d7, with a button to return to your default.",
-        "Find can open as a floating card with an option to ask AI about the page.",
-        "Agents ask before visiting new sites, sending forms, or using connector tools that make changes.",
-        "Agents reuse open tabs and check whether a task succeeded before reporting completion.",
-        "Cookie banner blocking uses updated rules."
-      ],
-      "fixed": [
-        "Chat memory skips invented and repeated facts.",
-        "Chat suggestion chips send their question when clicked.",
-        "Mouse back and forward buttons work at the Library edge.",
-        "Tab status text fits within its row.",
-        "Read aloud buttons stay clickable as their controls expand.",
-        "Typing in sidebar fields no longer triggers tab navigation or deletion.",
-        "Tidy Tabs leaves agent task folders intact.",
-        "Library sections keep their order when turned off and back on.",
-        "Pages scroll normally beneath an open link preview."
-      ]
-    },
-    {
       "version": "1.24b-w3-dev.1169",
       "date": "2026-11-17",
       "title": "Essentials float like picture-in-picture",
@@ -180,6 +127,60 @@
         "Tidy titles keeps live folder tabs on their page titles.",
         "VPN calls try the protected connection before offering to pause the VPN.",
         "Downloads deleted from the Library move to the Trash."
+      ]
+    },
+    {
+      "version": "1.24b-w3-dev.606",
+      "date": "2026-11-10",
+      "title": "AI chat, agents, and routines",
+      "new": [
+        "Chat: press Cmd+E to talk about a page, with separate conversations for each tab.",
+        "Attach tabs to chat and inspect what AI sees before sending.",
+        "Ask AI directly from the command bar and continue the answer in chat.",
+        "Agent mode: review a plan and let Whimsy carry out a browser task.",
+        "Connect outside agents and review their actions in Activity.",
+        "Routines: schedule tasks or run them when you visit a site or return to the browser.",
+        "Updates in the command bar collect watch results and routine notifications, with reminders for later.",
+        "Connect apps through MCP in Settings and bring Granola context into chat.",
+        "Save reusable AI commands with prompts that include page or selected text.",
+        "Memory: let chat remember facts you share, with controls to inspect, edit, export, or delete them.",
+        "Related results find previously visited pages by meaning.",
+        "Summarize pages and PDFs with links back to the passages used.",
+        "Summarize videos with chapter links, transcripts, and key quotes.",
+        "Draft replies and fill visible form fields with AI, with Undo for written replies.",
+        "Describe changes to a page and keep its edited appearance.",
+        "Translate pages with AI while keeping their links.",
+        "Get scam warnings before entering sensitive details on unfamiliar sites.",
+        "Compare products by their true price from the address bar.",
+        "Hold Fn to dictate, or hold Cmd+K to speak a command.",
+        "Select, copy, find, and translate text inside images.",
+        "Listen to pages with macOS voices and sentence highlighting.",
+        "Type : in the command bar to find and insert an emoji."
+      ],
+      "improved": [
+        "AI settings bring providers, models, permissions, and feature controls onto one page.",
+        "Chat answers include citations, tables, and research reports you can open in a tab.",
+        "Link previews can show a short AI summary.",
+        "Hover over the chat dock edge to peek at a conversation.",
+        "Expand memory chips to see facts used or saved, and remove saved facts in place.",
+        "The command bar finds open tabs across spaces and profiles, labeled with their space.",
+        "Fire lets you choose spaces, data types, and time ranges, including chats and agent activity.",
+        "Video speed ranges from 1/16\u00d7 to 16\u00d7, with a button to return to your default.",
+        "Find can open as a floating card with an option to ask AI about the page.",
+        "Agents ask before visiting new sites, sending forms, or using connector tools that make changes.",
+        "Agents reuse open tabs and check whether a task succeeded before reporting completion.",
+        "Cookie banner blocking uses updated rules."
+      ],
+      "fixed": [
+        "Chat memory skips invented and repeated facts.",
+        "Chat suggestion chips send their question when clicked.",
+        "Mouse back and forward buttons work at the Library edge.",
+        "Tab status text fits within its row.",
+        "Read aloud buttons stay clickable as their controls expand.",
+        "Typing in sidebar fields no longer triggers tab navigation or deletion.",
+        "Tidy Tabs leaves agent task folders intact.",
+        "Library sections keep their order when turned off and back on.",
+        "Pages scroll normally beneath an open link preview."
       ]
     },
     {
