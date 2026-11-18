@@ -98,7 +98,8 @@ add_task(async function summarize_toggle_closes_and_reopens_same() {
   await pressSummarize(browser);
   await summaryAnswered();
   const threadId = chatPanel().thread.id;
-  is(providerCalls.length, 1, "One summary was asked for");
+  // The chat's text says what answered when the provider wasn't asked.
+  is(providerCalls.length, 1, `One summary was asked for (chat: ${chatPanel().body.textContent.trim().slice(0, 300)})`);
   await hoverVideo(browser);
   await TestUtils.waitForCondition(async () => (await videoControl(browser)).summ.pressed, "Summarize shows pressed");
   is((await videoControl(browser)).summ.title, "Hide summary", "The tooltip says a press hides it");
