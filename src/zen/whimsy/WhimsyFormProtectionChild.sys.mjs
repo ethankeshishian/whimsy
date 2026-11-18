@@ -26,7 +26,8 @@
 // hidden field, card number, one-time code or autocomplete=off secret-
 // looking field never crosses IPC. beforeunload and pagehide flush a
 // pending send at once. Clearing (a save, a submit, back to the start)
-// sends { url, data: null }, once.
+// sends { url, data: null }, once. A rich editor (contenteditable) is kept
+// as its text and restored by typing it back through editing commands.
 //
 // Refill (W10-25, F08, kept by R1 v2): when the same address loads again,
 // it asks the parent for the draft (Whimsy:FormSnapshotFor), counts the
@@ -309,6 +310,9 @@ function draftValue(el, kind) {
       return { selectedIndex: el.selectedIndex, value: el.value };
     case "text":
       return el.value;
+    case "editable":
+      // The text as laid out, line breaks and all (a post, a comment).
+      return el.innerText;
   }
   return undefined;
 }
@@ -628,14 +632,16 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     const doc = this.document;
     const covered = new Set(this._targets(filtered).map(([el]) => el));
     for (const [el, entry] of this._tracked) {
-      if (!el.isConnected || covered.has(el) || !["text", "check", "select"].includes(entry.kind)) {
+      // Rich editors (a contenteditable composer: LinkedIn's, X's) too:
+      // Gecko's collector never reads them.
+      if (!el.isConnected || covered.has(el) || !["text", "editable", "check", "select"].includes(entry.kind)) {
         continue;
       }
       if (el.ownerDocument != doc || isSecret(el) || isSearch(el)) {
         continue;
       }
       const value = currentValue(el, entry.kind);
-      if (value == entry.baseline || (entry.kind == "text" && !String(value).trim())) {
+      if (value == entry.baseline || ((entry.kind == "text" || entry.kind == "editable") && !String(value).trim())) {
         continue;
       }
       const id = el.id;
@@ -757,7 +763,29 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     if (el.localName == "textarea" || el.localName == "input") {
       return typeof value == "string" && value.length > 0 && !el.value;
     }
+    if (el.isContentEditable && editingHost(el) == el) {
+      return typeof value == "string" && !!value.trim() && !el.textContent.trim();
+    }
     return false;
+  }
+
+  // Types `text` into an empty rich editor through editing commands, as
+  // the person's typing would arrive: a framework editor (Draft.js, Quill,
+  // Lexical, ProseMirror) only takes text from beforeinput/input, never
+  // from its DOM being changed under it.
+  _typeInto(el, text) {
+    const doc = el.ownerDocument;
+    el.focus();
+    const selection = doc.getSelection();
+    selection.selectAllChildren(el);
+    text.split(/\r?\n/).forEach((line, index) => {
+      if (index) {
+        doc.execCommand("insertParagraph");
+      }
+      if (line) {
+        doc.execCommand("insertText", false, line);
+      }
+    });
   }
 
   async offerRefill() {
@@ -828,6 +856,11 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
         el.selectedIndex = byValue >= 0 ? byValue : index;
       } else if (el.type == "checkbox" || el.type == "radio") {
         el.checked = true;
+      } else if (el.isContentEditable) {
+        // Editing commands fire the page's own input events.
+        this._typeInto(el, value);
+        filled.push(el);
+        continue;
       } else {
         el.value = value;
       }
