@@ -20,6 +20,12 @@ OUT = ROOT / "src/zen/whimsy/content/whimsy-changelog.json"
 KINDS = ("new", "improved", "fixed")
 
 
+def _build(version):
+    """The trailing build number (dev.N, w3), so same-day builds order."""
+    m = re.search(r"(\d+)$", version)
+    return int(m.group(1)) if m else 0
+
+
 def _lines(version, kind, value):
     if value is None:
         return []
@@ -45,6 +51,8 @@ def generate(root=ROOT):
         seen.add(version)
         build = {"version": version}
         date = group.get("date") or dates.get(version)
+        if not date:
+            raise ValueError(f"Every version needs a date (YYYY-MM-DD): {version}")
         if date is not None:
             if not isinstance(date, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
                 raise ValueError(f"Date must be YYYY-MM-DD: {version}")
@@ -58,8 +66,8 @@ def generate(root=ROOT):
         if not any(kind in build for kind in KINDS):
             raise ValueError(f"Invalid release notes: {version}")
         result.append(build)
-    # Newest first; a build with no date yet (Unreleased) leads.
-    result.sort(key=lambda b: b.get("date", "9999-99-99"), reverse=True)
+    # Newest first: by date, then by build number within a day.
+    result.sort(key=lambda b: (b["date"], _build(b["version"])), reverse=True)
     return {"groups": result}
 
 
