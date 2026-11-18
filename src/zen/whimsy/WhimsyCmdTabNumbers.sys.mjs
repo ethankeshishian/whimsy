@@ -8,8 +8,6 @@ import { MODIFIER_HOLD_MS } from "resource:///modules/whimsy/WhimsyHold.sys.mjs"
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
-  WhimsyLinkHints: "resource:///modules/whimsy/WhimsyLinkHints.sys.mjs",
-  STYLESHEET: "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs",
   placeHint: "resource:///modules/whimsy/WhimsyLinkHintsChild.sys.mjs",
 });
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -108,6 +106,9 @@ export const WhimsyCmdTabNumbers = {
     };
     const release = () => {
       state.meta = false;
+      // Closing the bar can swallow a digit keyup. Meta release ends the
+      // entire chord, including keys whose releases never reached chrome.
+      state.keys.clear();
       hide();
     };
     const keyup = event => {
@@ -155,7 +156,14 @@ export const WhimsyCmdTabNumbers = {
         this.show(win);
       }
     };
-    const listeners = { keydown, keyup, pointerdown, pointerup, mousemove: moved, wheel: moved, deactivate,
+    const blur = event => {
+      if (event.target == win) {
+        release();
+        state.buttons = 0;
+      }
+    };
+    const visibilitychange = () => { release(); state.buttons = 0; };
+    const listeners = { blur, visibilitychange, keydown, keyup, pointerdown, pointerup, mousemove: moved, wheel: moved, deactivate,
       ZenWorkspacesUIUpdate: workspace };
     for (const [type, listener] of Object.entries(listeners)) {
       win.addEventListener(type, listener, true);
@@ -171,8 +179,7 @@ export const WhimsyCmdTabNumbers = {
     }, { once: true });
   },
 
-  // The ⌘J link-hint overlay (whimsy-link-hints.css, .hint), drawn in the
-  // browser chrome inside a shadow root so its selectors stay scoped.
+  // A fixed chrome overlay, sharing the command bar keycap stylesheet.
   layer(win) {
     return states.get(win)?.layer ?? null;
   },
@@ -193,17 +200,20 @@ export const WhimsyCmdTabNumbers = {
     const shadow = host.attachShadow({ mode: "open" });
     const link = doc.createElementNS(HTML_NS, "link");
     link.rel = "stylesheet";
-    link.href = lazy.STYLESHEET;
+    link.href = "chrome://browser/content/whimsy/whimsy-number-badges.css";
     // The first hold can precede stylesheet loading. Re-measure with the
     // actual fixed-position keycap geometry, rather than unstyled spans.
     link.addEventListener("load", () => {
       if (doc.documentElement.hasAttribute("whimsy-tab-numbers")) {
+        layer.classList.remove("is-visible");
         this.place(win, state);
+        layer.getBoundingClientRect();
+        layer.classList.add("is-visible");
       }
     }, { once: true });
     const layer = doc.createElementNS(HTML_NS, "div");
     layer.id = "whimsy-hints";
-    layer.className = "tab-shortcuts leaving";
+    layer.className = "whimsy-number-surface";
     shadow.append(link, layer);
     doc.documentElement.append(host);
     state.layer = layer;
@@ -250,16 +260,6 @@ export const WhimsyCmdTabNumbers = {
       return;
     }
     const layer = this.ensureLayer(win, state);
-    // Tab shortcuts use the sidebar's text colour (f7f56afd), not link
-    // hints' space accent. The shared helper assumes white on an AA accent;
-    // a sidebar token can be light, so choose contrasting ink here.
-    const { accent } = lazy.WhimsyLinkHints.colors(win, "--toolbox-textcolor");
-    const rgba = win.InspectorUtils.colorToRGBA(accent);
-    const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-    const luminance = 0.2126 * linear(rgba.r) + 0.7152 * linear(rgba.g) + 0.0722 * linear(rgba.b);
-    const ink = luminance > 0.179 ? "#000000" : "#ffffff";
-    layer.style.setProperty("--hint-bg", accent);
-    layer.style.setProperty("--hint-ink", ink);
     const root = win.document.documentElement;
     const refresh = () => {
       const targets = this.targets(win);
@@ -273,7 +273,7 @@ export const WhimsyCmdTabNumbers = {
         let node = state.badges.get(tab);
         if (!node) {
           node = win.document.createElementNS(HTML_NS, "span");
-          node.className = "hint";
+          node.className = "whimsy-number-badge";
           layer.append(node);
           state.badges.set(tab, node);
         }
@@ -293,7 +293,7 @@ export const WhimsyCmdTabNumbers = {
     }));
     // Establish the transparent starting style before fading in.
     layer.getBoundingClientRect();
-    layer.classList.remove("leaving");
+    layer.classList.add("is-visible");
     root.setAttribute("whimsy-tab-numbers", "");
     if (!state.observer) {
       state.observer = new win.MutationObserver(refresh);
@@ -323,6 +323,6 @@ export const WhimsyCmdTabNumbers = {
     }
     win.document.documentElement.removeAttribute("whimsy-tab-numbers");
     // Keep the hints for the fade out, and reuse them on the next hold.
-    state.layer?.classList.add("leaving");
+    state.layer?.classList.remove("is-visible");
   },
 };

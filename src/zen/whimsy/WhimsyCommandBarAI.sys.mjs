@@ -444,6 +444,8 @@ export const WhimsyCommandBarAI = {
     win.addEventListener("keydown", event => this.onWindowKey(win, event), true);
     win.addEventListener("keyup", event => this.onWindowKeyUp(win, event), true);
     win.addEventListener("blur", () => this.stopNumbers(win));
+    win.document.addEventListener("visibilitychange", () => this.stopNumbers(win));
+    win.addEventListener("unload", () => this.stopNumbers(win), { once: true });
     urlbar?.controller?.addListener({
       onViewClose: () => this.onViewClose(win),
     });
@@ -1033,19 +1035,19 @@ export const WhimsyCommandBarAI = {
   },
 
   onWindowKey(win, event) {
-    if (!Services.prefs.getBoolPref(NUMBERS_FEATURE, true)) {
+    if (event.isReplyEventFromRemoteContent || !Services.prefs.getBoolPref(NUMBERS_FEATURE, true)) {
       return;
     }
     const open = !!win.gURLBar?.view.isOpen;
     if (event.key == "Meta" || event.key == "Control") {
-      if (open && !this._hold) {
-        this._hold = win.setTimeout(() => this.showNumbers(win), HOLD_MS);
+      if (open && !win._whimsyNumberHold) {
+        win._whimsyNumberHold = win.setTimeout(() => this.showNumbers(win), HOLD_MS);
       }
       return;
     }
-    if (this._hold) {
-      win.clearTimeout(this._hold);
-      this._hold = 0;
+    if (win._whimsyNumberHold) {
+      win.clearTimeout(win._whimsyNumberHold);
+      win._whimsyNumberHold = 0;
     }
     if (!open || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || !/^Digit[1-9]$/.test(event.code)) {
       return;
@@ -1069,28 +1071,40 @@ export const WhimsyCommandBarAI = {
   },
 
   showNumbers(win) {
-    this._hold = 0;
+    win._whimsyNumberHold = 0;
     if (!win.gURLBar?.view.isOpen) {
       return;
     }
     for (const [i, row] of this.numberedRows(win).entries()) {
       row.setAttribute("whimsy-num", `⌘${i + 1}`);
-      // attr() reads the originating element of ::after, not its parent.
-      row.querySelector(".urlbarView-row-inner")?.setAttribute("whimsy-num", `⌘${i + 1}`);
+      const inner = row.querySelector(".urlbarView-row-inner") ?? row;
+      let badge = inner.querySelector(":scope > .whimsy-number-badge");
+      if (!badge) {
+        badge = win.document.createElementNS("http://www.w3.org/1999/xhtml", "kbd");
+        badge.className = "whimsy-number-badge whimsy-number-surface";
+        badge.setAttribute("aria-hidden", "true");
+        inner.append(badge);
+      }
+      badge.textContent = String(i + 1);
+      badge.getBoundingClientRect(); // Establish opacity 0 on the first hold.
+      badge.classList.add("is-visible");
     }
     win.gURLBar.setAttribute("whimsy-numbers", "");
   },
 
   stopNumbers(win) {
-    if (this._hold) {
-      win.clearTimeout(this._hold);
-      this._hold = 0;
+    if (win._whimsyNumberHold) {
+      win.clearTimeout(win._whimsyNumberHold);
+      win._whimsyNumberHold = 0;
     }
     const urlbar = win.gURLBar;
     if (!urlbar?.hasAttribute("whimsy-numbers")) {
       return;
     }
     urlbar.removeAttribute("whimsy-numbers");
+    for (const badge of urlbar.view.panel.querySelectorAll(".whimsy-number-badge")) {
+      badge.classList.remove("is-visible");
+    }
     for (const row of urlbar.view.panel.querySelectorAll("[whimsy-num]")) {
       row.removeAttribute("whimsy-num");
     }

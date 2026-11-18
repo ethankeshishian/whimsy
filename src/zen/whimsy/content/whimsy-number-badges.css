@@ -1,0 +1,48 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* Shared command-hold keycaps: .whimsy-cmdbar-key's shape and type,
+   WhimsySurface's panel tokens. Opaque quiet fill also works on custom sidebars. */
+.whimsy-number-badge {
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--arrowpanel-color, CanvasText) 20%, var(--arrowpanel-background, Canvas));
+  border-radius: 4px;
+  font: 600 11.5px/16px -apple-system, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--arrowpanel-color, CanvasText) 88%, var(--arrowpanel-background, Canvas));
+  background: color-mix(in srgb, var(--arrowpanel-color, CanvasText) 6%, var(--arrowpanel-background, Canvas));
+  pointer-events: none;
+}
+.whimsy-number-surface {
+  opacity: 0;
+  transition: opacity 90ms ease-in;
+}
+.whimsy-number-surface.is-visible {
+  opacity: 1;
+  transition: opacity 120ms ease-out;
+}
+#whimsy-hints.whimsy-number-surface {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+}
+#whimsy-hints > .whimsy-number-badge {
+  position: fixed;
+}
+.whimsy-number-badge[hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-number-surface,
+  .whimsy-number-surface.is-visible {
+    transition: none;
+  }
+}

@@ -42,8 +42,10 @@ function release() {
   key("KEY_Meta", { type: "keyup" });
 }
 async function hold() {
+  const revealed = BrowserTestUtils.waitForMutationCondition(root,
+    { attributes: true, attributeFilter: ["whimsy-tab-numbers"] }, showing);
   key("KEY_Meta", { type: "keydown", metaKey: true });
-  await TestUtils.waitForCondition(showing, "Holding Command past the shared delay reveals numbers");
+  await revealed;
 }
 
 // Negative cases wait for the production deadline, rather than asserting
@@ -58,7 +60,7 @@ async function assertShortcutTargets() {
   const entries = [...Numbers.targets(win)];
   for (const [tab, label] of entries) {
     is(badge(tab)?.textContent, label, "A badge marks the shortcut's actual row");
-    is(badge(tab).className, "hint", "Each number is a ⌘J link hint");
+    ok(badge(tab).classList.contains("whimsy-number-badge"), "Each number uses the shared keycap");
     is(badge(tab).getRootNode().host.getAttribute("aria-hidden"), "true", "Numbers are decorative");
     ok(!tab.getAttribute("aria-label")?.includes(" · 9"), "No number is added to the tab's accessible label");
   }
@@ -495,15 +497,11 @@ add_task(async function expanded_and_compact_screenshots() {
           await hold();
           Assert.deepEqual(flags.map(attr => win.gNavToolbox.hasAttribute(attr)), before, "Hints never force compact mode open");
           await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "The hints finished fading in");
-          const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
-          const expected = WhimsyLinkHints.colors(win, "--toolbox-textcolor");
-          const nodes = Numbers.layer(win).querySelectorAll(".hint");
+          const nodes = Numbers.layer(win).querySelectorAll(".whimsy-number-badge");
           ok(nodes.length > 0, "Tab keycaps exist in this sidebar mode");
           for (const node of nodes) {
             const style = win.getComputedStyle(node);
-            is(style.getPropertyValue("--whimsy-keycap-style").trim(), "keycap", "Tab numbers reuse the shared surface");
-            is(style.getPropertyValue("--hint-bg").trim(), expected.accent, "Tab numbers follow the sidebar text colour");
-            is(style.borderRadius, "5px", "Tab numbers keep the rounded-square shape");
+            is(style.borderRadius, "4px", "Tab numbers use the command keycap shape");
           }
           await whimsySettled(win.document);
           await whimsyShot(`w24-cmdhints-${state}-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
@@ -524,24 +522,16 @@ add_task(async function expanded_and_compact_screenshots() {
   }
 });
 
-add_task(async function tab_hints_follow_sidebar_colour_with_contrasting_ink() {
+add_task(async function tab_hints_remain_readable_on_custom_sidebar_colours() {
   const previous = root.style.getPropertyValue("--toolbox-textcolor");
   try {
     for (const color of ["rgb(22, 22, 26)", "rgb(240, 240, 244)"]) {
       root.style.setProperty("--toolbox-textcolor", color);
       await hold();
       await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "Hints faded in");
-      // Resolve the same sidebar token as the implementation: theme rules can
-      // override the requested inline value in this window.
-      const probe = win.document.createElementNS("http://www.w3.org/1999/xhtml", "span");
-      probe.style.color = "var(--toolbox-textcolor)";
-      probe.hidden = true;
-      root.append(probe);
-      const sidebarText = win.getComputedStyle(probe).color;
-      probe.remove();
-      for (const node of Numbers.layer(win).querySelectorAll(".hint")) {
+      for (const node of Numbers.layer(win).querySelectorAll(".whimsy-number-badge")) {
         const style = win.getComputedStyle(node);
-        is(style.backgroundColor, sidebarText, "Tab hints use the sidebar text colour, not the space accent");
+        isnot(style.backgroundColor, "rgb(0, 0, 0)", "Custom sidebar colours keep a quiet keycap fill");
         const luminance = value => {
           const { r, g, b } = win.InspectorUtils.colorToRGBA(value);
           const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
@@ -591,5 +581,157 @@ add_task(async function open_command_bar_has_one_owner_for_digit_hints() {
   } finally {
     release();
     win.gURLBar.view.close();
+  }
+});
+
+// Owner regression: a command-bar shortcut must not poison the next hold.
+add_task(async function command_bar_digit_then_sidebar() {
+  const { WhimsyCommandBarAI: Bar } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs");
+  try {
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, value: "example" });
+    key("KEY_Meta", { metaKey: true });
+    await TestUtils.waitForCondition(() => win.gURLBar.hasAttribute("whimsy-numbers"), "Bar owns hold");
+    info(`Before Command-2: bar=${win.gURLBar.view.isOpen}, tabs=${showing()}, rows=${Bar.numberedRows(win).length}`);
+    ok(Bar.numberedRows(win).length >= 2, "Command-2 has a destination");
+    // Use a real pick without navigating a network fixture.
+    const expectedRow = Bar.numberedRows(win)[1];
+    const pick = sinon.stub(win.gURLBar, "pickElement").callsFake(() => win.gURLBar.view.close());
+    try {
+      key("2", { code: "Digit2", metaKey: true });
+      ok(pick.calledOnce, "The bar picked its second row");
+      is(pick.firstCall.args[0], expectedRow.querySelector(".urlbarView-row-inner") ?? expectedRow,
+        "Command-2 picks the second result");
+    } finally {
+      pick.restore();
+    }
+    // macOS may omit the digit keyup when the bar closes.
+    release();
+    win.gBrowser.selectedTab.focus();
+    info(`After Command-2/release: bar=${win.gURLBar.view.isOpen}, tabs=${showing()}`);
+    await hold();
+    info(`Next sidebar hold: tabs=${showing()}`);
+    release();
+    await assertShortcutTargets();
+  } finally {
+    release();
+    win.gURLBar.view.close();
+  }
+});
+
+function rectangles(nodes) {
+  return nodes.map(node => {
+    const r = node.getBoundingClientRect();
+    return [r.x, r.y, r.width, r.height];
+  });
+}
+
+async function assertBadgeFade(node, visible, reduced) {
+  const style = win.getComputedStyle(node);
+  const animations = node.getAnimations();
+  if (reduced) {
+    is(style.transitionDuration, "0s", "Reduced motion is instant");
+    is(animations.length, 0, "Reduced motion starts no transition");
+  } else {
+    is(style.transitionDuration, visible ? "0.12s" : "0.09s", "Enter and exit use the shared durations");
+    is(style.transitionTimingFunction, visible ? "ease-out" : "ease-in", "Shared easing");
+    const fade = animations.find(a => a.transitionProperty == "opacity");
+    ok(fade, `${visible ? "Enter" : "Exit"} actually starts an opacity transition`);
+    if (fade) {
+      fade.pause();
+      await fade.ready;
+      fade.currentTime = fade.effect.getTiming().duration / 2;
+      const opacity = Number(win.getComputedStyle(node).opacity);
+      ok(opacity > 0 && opacity < 1, "The badge is partially painted midway through the transition");
+      fade.finish();
+      await fade.finished;
+    }
+  }
+  is(win.getComputedStyle(node).opacity, visible ? "1" : "0", "The fade reaches its endpoint");
+}
+
+add_task(async function shared_badges_have_motion_colours_and_no_layout_shift() {
+  const { WhimsyCommandBarAI: Bar } = ChromeUtils.importESModule(
+    "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs");
+  const appearance = node => {
+    const s = win.getComputedStyle(node);
+    return [s.color, s.backgroundColor, s.borderRadius, s.fontFamily, s.fontSize,
+      s.fontWeight, s.fontVariantNumeric, s.height, s.minWidth, s.width, s.padding];
+  };
+  for (const dark of [false, true]) {
+    await whimsySetScheme(dark);
+    try {
+      await TestUtils.waitForCondition(() => win.matchMedia(`(prefers-color-scheme: ${dark ? "dark" : "light"})`).matches,
+        "The test window has the requested scheme");
+      for (const reduced of [false, true]) {
+        await SpecialPowers.pushPrefEnv({ set: [["ui.prefersReducedMotion", reduced ? 1 : 0]] });
+        try {
+          await TestUtils.waitForCondition(() => win.matchMedia("(prefers-reduced-motion: reduce)").matches == reduced,
+            "Motion preference applied");
+          win.gURLBar.view.close();
+          const tabs = [...win.gBrowser.visibleTabs].flatMap(tab =>
+            [tab, ...tab.querySelectorAll(".tab-label, .tab-icon-image, .tab-content")]);
+          const tabRects = rectangles(tabs);
+          await hold();
+          Assert.deepEqual(rectangles(tabs), tabRects, "Every sidebar tab, title, and icon keeps its rectangle");
+          await assertBadgeFade(Numbers.layer(win), true, reduced);
+          const tabBadge = [...Numbers.layer(win).children].find(n => !n.hidden);
+          ok(tabBadge, "A sidebar badge is visible");
+          const tabStyle = appearance(tabBadge);
+          isnot(tabStyle[0], "rgb(0, 0, 0)", "Badge ink is not hard black");
+          isnot(tabStyle[1], "rgb(0, 0, 0)", "Badge fill is not hard black");
+          if (!reduced) {
+            await whimsyShot(`w29-cmdbadge-tabs-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
+          }
+          release();
+          await assertBadgeFade(Numbers.layer(win), false, reduced);
+          ok(tabBadge.isConnected, "Exit retains the badge node");
+
+          await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, value: "example" });
+          const rows = Bar.numberedRows(win);
+          const contents = [...win.gURLBar.view.panel.querySelectorAll(".urlbarView-row")].flatMap(row =>
+            [row, ...row.querySelectorAll("*:not(.whimsy-number-badge)")]);
+          const rowRects = rectangles(contents);
+          // Trigger the production hold deadline without polling past its 120ms fade.
+          const revealed = BrowserTestUtils.waitForMutationCondition(win.gURLBar,
+            { attributes: true, attributeFilter: ["whimsy-numbers"] },
+            () => win.gURLBar.hasAttribute("whimsy-numbers"));
+          key("KEY_Meta", { metaKey: true });
+          await revealed;
+          Assert.deepEqual(rectangles(contents), rowRects, "Every command row, text, and icon keeps its rectangle");
+          const barBadge = rows[0].querySelector(".whimsy-number-badge");
+          Assert.deepEqual(appearance(barBadge), tabStyle, "Both surfaces have identical badge colours, shape, and type");
+          await assertBadgeFade(barBadge, true, reduced);
+          if (!reduced) {
+            await whimsyShot(`w29-cmdbadge-bar-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
+          }
+          release();
+          await assertBadgeFade(barBadge, false, reduced);
+          ok(barBadge.isConnected, "The command-bar exit retains its node");
+          win.gURLBar.view.close();
+        } finally {
+          release();
+          win.gURLBar.view.close();
+          await SpecialPowers.popPrefEnv();
+        }
+      }
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});
+
+add_task(async function blur_and_visibility_reset_the_entire_chord() {
+  for (const type of ["blur", "visibilitychange"]) {
+    await hold();
+    key("2", { code: "Digit2", metaKey: true });
+    if (type == "blur") {
+      win.dispatchEvent(new win.Event(type));
+    } else {
+      win.document.dispatchEvent(new win.Event(type, { bubbles: true }));
+    }
+    ok(!showing(), `${type} ends the hold without keyup`);
+    await hold();
+    release();
   }
 });
