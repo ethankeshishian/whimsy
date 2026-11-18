@@ -40,7 +40,21 @@ async function withTabs(task) {
 
 async function openPage(url = PAGE, options = {}) {
   const tab = BrowserTestUtils.addTab(gBrowser, url, options);
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url);
+  // Bounded, so a load that never finishes fails here with the tab's state
+  // instead of silently timing out the whole file.
+  let timer;
+  const stuck = new Promise((resolve, reject) => {
+    timer = setTimeout(() => { // eslint-disable-line mozilla/no-arbitrary-setTimeout
+      const b = tab.linkedBrowser;
+      reject(new Error(`${url} never loaded: at ${b?.currentURI?.spec}, busy=${tab.hasAttribute("busy")}, ` +
+        `pending=${tab.hasAttribute("pending")}, remote=${b?.isRemoteBrowser}, connected=${tab.isConnected}`));
+    }, 15000);
+  });
+  try {
+    await Promise.race([BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url), stuck]);
+  } finally {
+    clearTimeout(timer);
+  }
   return tab;
 }
 
