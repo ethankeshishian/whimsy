@@ -12,7 +12,9 @@
 //   themselves that the site hasn't saved yet. Parent side, the state is
 //   per window global and only the current one of each frame counts.
 //   A same-site fetch/XHR/beacon with a body from the tab after the edit
-//   is the site saving: the observer below tells the document.
+//   may be the site saving: the observer below hands the body to the
+//   document, which counts it a save of the fields whose answers it carries
+//   (analytics posts carry none and change nothing).
 // - A tab with unsaved input: whimsy-form-typed (the marker),
 //   whimsy-form-protected (also set by Protect This Tab; the auto-archive
 //   sweep skips it), and tab.undiscardable (Firefox's TabUnloader skips it).
@@ -30,6 +32,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
+  NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -65,6 +68,36 @@ const TOAST_TIMEOUT_MS = 4000;
 const CLOSE_CONFIRM_MS = 4000;
 // Requests that carry a page's own save.
 const SAVE_METHODS_SKIPPED = new Set(["GET", "HEAD", "OPTIONS"]);
+// How much of a request body the document is shown to look for its answers.
+const SAVE_BODY_LIMIT = 512 * 1024;
+
+// A request's body as text, or null when it has none or it can only be read
+// by taking it from the request (a streamed body). Read from the start and
+// put back where it was, so the request still sends all of it.
+function requestBody(channel) {
+  let stream;
+  try {
+    stream = channel.QueryInterface(Ci.nsIUploadChannel).uploadStream;
+  } catch (e) {
+    return null;
+  }
+  if (!(stream instanceof Ci.nsISeekableStream)) {
+    return null;
+  }
+  try {
+    const start = stream.tell();
+    stream.seek(Ci.nsISeekableStream.NS_SEEK_SET, 0);
+    try {
+      const length = Math.min(stream.available(), SAVE_BODY_LIMIT);
+      const bytes = length ? lazy.NetUtil.readInputStreamToString(stream, length) : "";
+      return new TextDecoder().decode(Uint8Array.from(bytes, c => c.charCodeAt(0)));
+    } finally {
+      stream.seek(Ci.nsISeekableStream.NS_SEEK_SET, start);
+    }
+  } catch (e) {
+    return null;
+  }
+}
 
 // innerWindowId -> browsingContext, for documents that reported unsaved
 // input. Only dirty documents are kept; a document counts only while it is
@@ -461,7 +494,9 @@ function isCurrent(innerWindowId, bc) {
 
 // The site saved (W13-R1 design §2): after the edit, a fetch/XHR/beacon
 // with a body to the dirty document's own site, made by that document's tab
-// or by a service worker of its site. One rule for every site, no list.
+// or by a service worker of its site, that carries what was typed (the
+// document checks: WhimsyFormProtectionChild._markSentIn). One rule for
+// every site, no list.
 // Observed at http-on-modify-request, which nsHttpChannel notifies in
 // ContinuePrepareToConnect, before ContinueOnBeforeConnect hands a request
 // to a service worker, so pages a worker controls are seen the same way.
@@ -500,6 +535,7 @@ const networkSaveObserver = {
     if (!topId && !fromWorker) {
       return;
     }
+    let body;
     for (const [innerWindowId, bc] of dirtyDocuments) {
       if (bc.isDiscarded) {
         dirtyDocuments.delete(innerWindowId);
@@ -519,7 +555,11 @@ const networkSaveObserver = {
         ) {
           continue;
         }
-        global.getExistingActor("WhimsyFormProtection")?.sendAsyncMessage("Whimsy:FormSaved", {});
+        body ??= requestBody(channel);
+        if (!body) {
+          return;
+        }
+        global.getExistingActor("WhimsyFormProtection")?.sendAsyncMessage("Whimsy:FormSaved", { body });
       } catch (e) {
         // The document is going away.
       }

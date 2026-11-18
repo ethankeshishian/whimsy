@@ -15,6 +15,12 @@
 // starting value, or the field leaving the page clears it. The parent hears
 // one boolean per document, only when it changes.
 //
+// A request or socket message counts as saving a field only when it carries
+// what the field holds (sentIn below). Sites post analytics to their own
+// domain all the time, and taking those for saves cleared the mark and the
+// draft of a post still being written (LinkedIn, X), so the tab was unloaded
+// with nothing to offer back.
+//
 // Drafts (R1 v2 §2, §5): while the top document is typed, the child sends
 // Whimsy:FormDraft { url, data } debounced 400ms, filtered so a password,
 // hidden field, card number, one-time code or autocomplete=off secret-
@@ -117,6 +123,77 @@ function isSearch(el) {
     }
   }
   return false;
+}
+
+// Text reduced for finding typed words inside a request body: entities,
+// JSON escapes and markup undone, whitespace and zero-width characters
+// dropped (a rich editor's text and the HTML or JSON it sends space lines
+// differently), lower case.
+function squeeze(text) {
+  return text
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\[nrt]/g, " ")
+    .replace(/\\(["\\/'])/g, "$1")
+    .replace(/&nbsp;|&#160;/g, " ")
+    .replace(/&#(\d{1,7});/g, (_, code) => (Number(code) <= 0x10ffff ? String.fromCodePoint(Number(code)) : ""))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/[\s\u200b-\u200d\u2060\ufeff]+/g, "")
+    .toLowerCase();
+}
+
+// A byte string (one char per byte) read as UTF-8.
+function utf8(bytes) {
+  return new TextDecoder().decode(Uint8Array.from(bytes, c => c.charCodeAt(0)));
+}
+
+// Percent-encoding undone, as a form-encoded body or query carries it.
+function urlDecoded(text) {
+  return text.replace(/\+/g, " ").replace(/(?:%[0-9a-fA-F]{2})+/g, run => {
+    try {
+      return decodeURIComponent(run);
+    } catch (e) {
+      return run;
+    }
+  });
+}
+
+// The ways a page may have encoded what it sends: as is (JSON, multipart,
+// a socket message), form-encoded, and either with its markup taken out.
+function bodyForms(body) {
+  const forms = new Set();
+  for (const text of [body, urlDecoded(body)]) {
+    forms.add(squeeze(text));
+    forms.add(squeeze(text.replace(/<[^>]*>/g, "")));
+  }
+  return [...forms];
+}
+
+// How much of a long answer must appear in a request for it to be a save:
+// its end, where typing usually is. A site that sends the whole text has it;
+// one that sends only the latest keystrokes doesn't, and keeps the mark
+// (the safe side: the draft stays).
+const SAVED_TAIL = 32;
+
+// Whether `forms` (bodyForms of a request or socket message) carry what
+// tracked field `el` holds now. Text must be there; a checkbox, radio or
+// select, whose value a request can't be matched against, counts when the
+// request names the field.
+function sentIn(el, kind, forms) {
+  let probe;
+  if (kind == "text" || kind == "editable") {
+    probe = squeeze(currentValue(el, kind));
+    probe = probe.slice(-SAVED_TAIL);
+  } else {
+    probe = squeeze(el.name || el.id || "");
+    if (probe.length < 3) {
+      return false;
+    }
+  }
+  return !!probe && forms.some(form => form.includes(probe));
 }
 
 // The editing host of a contenteditable region (the body in designMode).
@@ -386,6 +463,27 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
     this._report({ saved: true });
   }
 
+  // A request or socket message the page sent: the fields whose answers it
+  // carries are saved. One that carries none (analytics, a heartbeat)
+  // leaves everything as it was.
+  _markSentIn(body) {
+    let forms;
+    try {
+      forms = bodyForms(String(body));
+    } catch (e) {
+      return;
+    }
+    const saved = new Set();
+    for (const [el, entry] of this._tracked) {
+      if (el.isConnected && sentIn(el, entry.kind, forms)) {
+        saved.add(el);
+      }
+    }
+    if (saved.size) {
+      this._markSaved(el => saved.has(el));
+    }
+  }
+
   _isRadioDirty(el) {
     // A radio group is one answer: dirty if any tracked radio of the group
     // differs from where it started.
@@ -568,7 +666,8 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
         frameReceived() {},
         frameSent: (serial, channelId, frame) => {
           if (WS_DATA_OPCODES.has(frame.opCode) && this._tracked.size) {
-            this._markSaved();
+            // The payload comes as bytes; the page's text is UTF-8.
+            this._markSentIn(utf8(frame.payload));
           }
         },
       };
@@ -603,10 +702,10 @@ export class WhimsyFormProtectionChild extends JSWindowActorChild {
         return dirty;
       }
       case "Whimsy:FormSaved":
-        // The parent saw this page send a request after the last edit
-        // (an autosave or a save button's fetch).
-        if (this._tracked.size) {
-          this._markSaved();
+        // The parent saw this page send a request with a body after the
+        // last edit; it saved the fields whose answers it carries.
+        if (this._tracked.size && typeof message.data?.body == "string") {
+          this._markSentIn(message.data.body);
         }
         return null;
       case "Whimsy:FormRefill":

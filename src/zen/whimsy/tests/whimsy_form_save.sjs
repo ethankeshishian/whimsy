@@ -1,6 +1,7 @@
 /* Any copyright is dedicated to the Public Domain. */
 // W13-R1: the autosave and submit endpoint. ?save and ?submit count a
-// request; ?count answers how many saves arrived; ?reset clears.
+// request; ?count answers how many saves arrived; ?reset clears. ?ping is
+// analytics: answered, never counted.
 function handleRequest(request, response) {
   const query = request.queryString;
   response.setHeader("Cache-Control", "no-store");
@@ -12,6 +13,10 @@ function handleRequest(request, response) {
   if (query == "count") {
     response.setHeader("Content-Type", "text/plain");
     response.write(getState("saves") || "0");
+    return;
+  }
+  if (query == "ping") {
+    response.setStatusLine(request.httpVersion, 204, "No Content");
     return;
   }
   if (query == "save" || query == "submit") {
