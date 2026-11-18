@@ -9006,3 +9006,13 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
 #urlbar .urlbarView-row[dynamicType="whimsy-google-search"] .whimsy-google-row[selected] {
   color: var(--whimsy-on-accent) !important;
 }
+
+/* W29: Glance's side buttons drew their icons in the space's color on a
+   near-black (or near-white) circle: a purple space measured 1.7:1. The
+   icon keeps the space's hue, mixed 60% toward the circle's opposite
+   (white on the dark circle, black on the light one), which stays above
+   3:1 for every space color, hover included. Close's red confirm state
+   keeps its own white. */
+.zen-glance-sidebar-container toolbarbutton:not([waitconfirmation]) {
+  color: color-mix(in srgb, var(--zen-primary-color) 40%, light-dark(white, black)) !important;
+}
