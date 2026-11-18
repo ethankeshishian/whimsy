@@ -334,25 +334,22 @@ add_task(async function hold_cmd_shows_readable_numbers_in_both_schemes() {
         let normalSize;
         for (const selected of [false, true]) {
           row.toggleAttribute("selected", selected);
-          const style = getComputedStyle(inner, "::after");
-          is(style.content, `"⌘${i + 1}"`, "The painted pseudo-element contains its number");
+          const badge = inner.querySelector(".whimsy-number-badge");
+          const style = getComputedStyle(badge);
+          is(badge.textContent, String(i + 1), "The overlay contains its number");
           ok(parseFloat(style.height) >= 14, "The number box is at least 14px tall");
           ok(parseFloat(style.fontSize) >= 11, "The digit has readable type");
-          is(InspectorUtils.colorToRGBA(style.backgroundColor).a, 0, "The key hint has no solid fill");
-          is(style.color, resolvedColor(inner, selected ? "--whimsy-on-accent" : "--whimsy-ask-text-2"),
-            "The key hint uses on-accent or secondary-text ink");
+          is(InspectorUtils.colorToRGBA(style.backgroundColor).a, 1, "The quiet fill is opaque on any row");
+          isnot(style.backgroundColor, "rgb(0, 0, 0)", "The fill is never hard black");
           is(style.borderTopWidth, "1px", "The key hint has a hairline outline");
-          is(style.borderTopStyle, "solid", "The outline is solid");
-          is(style.borderTopColor, style.color, "The outline follows the key hint ink");
-          is(style.alignSelf, "center", "The key hint is vertically centred");
-          is(style.marginInlineEnd, "6px", "The row end padding is kept");
+          is(style.position, "absolute", "The badge overlays the row");
           const size = [style.height, style.minWidth, style.padding, style.fontSize].join("/");
           if (selected) {
             is(size, normalSize, "Selection keeps the same badge size");
           } else {
             normalSize = size;
           }
-          const surface = rowSurface(inner, pageBackground);
+          const surface = style.backgroundColor;
           const contrast = numberContrast(style.color, surface);
           info(`${dark ? "Dark" : "Light"} ${selected ? "selected" : "normal"} number: ink=${style.color}, surface=${surface}, contrast=${contrast}`);
           ok(contrast >= 4.5,
@@ -395,9 +392,7 @@ add_task(async function hold_cmd_shows_readable_numbers_in_both_schemes() {
           }
         }
         row.removeAttribute("selected");
-        for (const tag of row.querySelectorAll(".urlbarView-action, .urlbarView-tag, .whimsy-update-time, .whimsy-update-needs")) {
-          is(getComputedStyle(tag).display, "none", "The number replaces time, tag, and action");
-        }
+        ok(row.querySelector(".whimsy-number-badge"), "The row has a persistent overlay");
       }
       numbered[0].setAttribute("selected", "");
       await whimsySettled(document);

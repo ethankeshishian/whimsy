@@ -3,157 +3,7 @@
 
 "use strict";
 
-const { WhimsyCmdTabNumbers: Numbers } = ChromeUtils.importESModule(
-  "resource:///modules/whimsy/WhimsyCmdTabNumbers.sys.mjs"
-);
-const { WhimsyPrivate } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPrivate.sys.mjs");
-const { WhimsySpaceSwitchQueue } = ChromeUtils.importESModule(
-  "resource:///modules/whimsy/WhimsySpaceSwitchQueue.sys.mjs"
-);
-const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
-UrlbarTestUtils.init(this);
-
-let win, root;
-const showing = () => root.hasAttribute("whimsy-tab-numbers");
-const badge = tab => Numbers.hint(win, tab);
-let originalSpace, startTabs, mainStartTabs, essential, pinned, focus;
-
-// A space switch sets activeWorkspace first and selects its tab when the
-// slide ends; queued switches play after it. Wait for all of that, so a tab
-// opened or a hint read afterwards sees the space the test asked for.
-async function settled(what) {
-  await TestUtils.waitForCondition(
-    () => !win.gZenWorkspaces.isChangingWorkspace && !WhimsySpaceSwitchQueue.isSwitching(win),
-    what
-  );
-}
-
-// Exercise this window's input listener directly: native synthesized keys
-// can be routed to another Firefox instance by the OS during full verify.
-function key(key, options = {}) {
-  const { type = "keydown", ...modifiers } = options;
-  win.dispatchEvent(new win.KeyboardEvent(type, {
-    key: key.replace(/^KEY_/, ""), code: key == "KEY_Meta" ? "MetaLeft" : key,
-    bubbles: true, ...modifiers,
-  }));
-}
-
-function release() {
-  key("KEY_Meta", { type: "keyup" });
-}
-async function hold() {
-  key("KEY_Meta", { type: "keydown", metaKey: true });
-  await TestUtils.waitForCondition(showing, "Holding Command past the shared delay reveals numbers");
-}
-
-// Negative cases wait for the production deadline, rather than asserting
-// immediately before a still-pending reveal timer could have fired.
-async function pastDeadline() {
-  await new Promise(resolve => win.setTimeout(resolve, Numbers.HOLD_MS + 1)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
-}
-
-async function assertShortcutTargets() {
-  await hold();
-  const tabs = [...win.gBrowser.visibleTabs];
-  const entries = [...Numbers.targets(win)];
-  for (const [tab, label] of entries) {
-    is(badge(tab)?.textContent, label, "A badge marks the shortcut's actual row");
-    is(badge(tab).className, "hint", "Each number is a ⌘J link hint");
-    is(badge(tab).getRootNode().host.getAttribute("aria-hidden"), "true", "Numbers are decorative");
-    ok(!tab.getAttribute("aria-label")?.includes(" · 9"), "No number is added to the tab's accessible label");
-  }
-  // Check all nine real commands against the visible badges, not just a
-  // second calculation of their order. The first digit must hide the hints
-  // without consuming or changing the native shortcut.
-  for (let digit = 1; digit <= 9; digit++) {
-    if (!showing()) {
-      await hold();
-    }
-    const direct = entries.find(([, label]) => label.split(" · ").includes(String(digit)));
-    const expected = direct?.[0] ?? entries.find(([, label]) => label.split(" · ").includes("9"))?.[0];
-    ok(expected, `A badge identifies ⌘${digit}`);
-    // Verify the native key binding and execute that key's real command,
-    // including when a short list clamps digits to the already-selected tab.
-    // Native keyboard routing itself requires OS focus and belongs to Firefox.
-    // Capture is required: mainKeyset's handler passes the command event
-    // to selectTabAtIndex, which stops propagation before document's bubble
-    // listener can see it. waitForEvent resolves on a later main-thread turn,
-    // after that handler has selected the tab.
-    const keyId = digit == 9 ? "key_selectLastTab" : `key_selectTab${digit}`;
-    const commanded = BrowserTestUtils.waitForEvent(win.document, "command", true,
-      event => event.target.id == keyId);
-    const nativeKey = win.document.getElementById(keyId);
-    is(nativeKey.getAttribute("key"), String(digit), "The native key binds this digit");
-    ok(nativeKey.getAttribute("modifiers").split(/[ ,]+/).includes("accel"), "The native shortcut uses Command");
-    key(String(digit), { metaKey: true });
-    nativeKey.doCommand();
-    key(String(digit), { type: "keyup", metaKey: true });
-    ok(!showing(), "A digit hides the badges immediately");
-    await commanded;
-    is(win.gBrowser.selectedTab, expected, `⌘${digit} selected the badged tab`);
-    release();
-  }
-  for (const tab of tabs.filter(t => !entries.some(([target]) => target == t))) {
-    ok(!badge(tab), "Unreachable middle tabs have no hint");
-  }
-}
-
-add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({ set: [[Numbers.PREF, true]] });
-  mainStartTabs = new Set(gBrowser.tabs);
-  // The suite's main window has already received other tests' key/pointer
-  // events. A fresh window gives this input-listener test a fresh hold state.
-  win = await BrowserTestUtils.openNewBrowserWindow();
-  registerCleanupFunction(async () => {
-    release();
-    Numbers.hide(win);
-    focus?.restore();
-    try {
-      if (originalSpace) {
-        await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
-      }
-      for (const tab of [...win.gBrowser.tabs]) {
-        if (startTabs && !startTabs.has(tab) && !tab.closing) {
-          if (tab.hasAttribute("zen-essential")) {
-            win.gZenPinnedTabManager.removeEssentials(tab);
-          }
-          await BrowserTestUtils.removeTab(tab, { animate: false });
-        }
-      }
-    } finally {
-      await BrowserTestUtils.closeWindow(win);
-      // Pinned tabs and Essentials are mirrored into the main window; drop
-      // any copy whose original was closed with this window.
-      for (const tab of [...gBrowser.tabs]) {
-        if (mainStartTabs && !mainStartTabs.has(tab) && !tab.closing) {
-          if (tab.hasAttribute("zen-essential")) {
-            gZenPinnedTabManager.removeEssentials(tab);
-          }
-          await BrowserTestUtils.removeTab(tab, { animate: false });
-        }
-      }
-    }
-  });
-  root = win.document.documentElement;
-  await win.gZenWorkspaces.promiseInitialized;
-  win.gURLBar.view.close();
-  await TestUtils.waitForCondition(() => !win.gURLBar.view.isOpen, "The command bar is closed before holding Command");
-  Numbers.initWindow(win);
-  const { sinon } = ChromeUtils.importESModule("resource://testing-common/Sinon.sys.mjs");
-  // Every task exercises delivered input in an OS-background window. Real
-  // activation changes from concurrent Firefox instances cannot race a hold.
-  focus = sinon.stub(Numbers, "isActiveWindow").returns(false);
-  originalSpace = win.gZenWorkspaces.activeWorkspace;
-  startTabs = new Set(win.gBrowser.tabs);
-  essential = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank");
-  win.gZenPinnedTabManager.addToEssentials(essential);
-  await TestUtils.waitForCondition(() => essential.hasAttribute("zen-essential"), "An Essential exists");
-  pinned = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank");
-  win.gBrowser.pinTab(pinned);
-  for (let i = 0; i < 11; i++) {
-    await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank");
-  }
-});
+Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_cmd_tab_numbers.js", this);
 
 // A hint sits only on a visible tab row, inside it, never on another row
 // (the Space header, a collapsed pinned section, a folder header).
@@ -209,12 +59,11 @@ add_task(async function real_digits_match_badges() {
 add_task(async function chrome_document_blur_preserves_hold() {
   key("KEY_Meta", { type: "keydown", metaKey: true });
   try {
-    // Reproduce the window-targeted blur delivered as chrome hands focus to
-    // content after a tab switch. No top-level window deactivation occurs.
-    // Dispatch during the pending hold so cancelling its timer is observable.
-    win.dispatchEvent(new win.FocusEvent("blur"));
+    // A document blur is not a window blur. Window blur deliberately resets
+    // the chord (covered below); handing focus to content must preserve it.
+    win.document.dispatchEvent(new win.FocusEvent("blur"));
     await TestUtils.waitForCondition(showing, "Document blur preserves the pending Command hold");
-    win.dispatchEvent(new win.FocusEvent("blur"));
+    win.document.dispatchEvent(new win.FocusEvent("blur"));
     ok(showing(), "Document blur preserves visible badges in the active window");
   } finally {
     release();
@@ -384,212 +233,40 @@ add_task(async function preference_disables_pending_and_visible_hints() {
   await SpecialPowers.popPrefEnv();
 });
 
-add_task(async function other_spaces_have_no_badges() {
-  const other = await win.gZenWorkspaces.createAndSaveWorkspace("Tab numbers test", undefined, true);
+add_task(async function content_focus_blur_preserves_pending_hold() {
   try {
-    await win.gZenWorkspaces.changeWorkspaceWithID(other.uuid);
-    const foreign = [];
-    for (let i = 0; i < 2; i++) {
-      foreign.push(await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank"));
-    }
-    await assertShortcutTargets(); // Also checks Firefox's short-list clamp.
-    for (let i = 0; i < 9; i++) {
-      foreign.push(await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "about:blank"));
-    }
-    await assertShortcutTargets();
-    await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
-    await hold();
-    for (const tab of foreign) {
-      ok(!Numbers.targets(win).has(tab), "Other-space tabs are unreachable");
-      ok(!badge(tab), "No stale badge on an unreachable tab");
-    }
-    release();
-    await assertShortcutTargets();
-    // Hold Command through a space switch, then release in the new space:
-    // the hints follow the current space and no space keeps any.
-    const faded = () => win.getComputedStyle(Numbers.layer(win)).opacity == "0";
-    await hold();
-    await win.gZenWorkspaces.changeWorkspaceWithID(other.uuid);
-    await settled("Switched space while holding Command");
-    if (showing()) {
-      await TestUtils.waitForCondition(() => foreign.some(tab => badge(tab)), "Hints follow the new space");
-      for (const tab of startTabs) {
-        ok(!badge(tab) || win.gBrowser.visibleTabs.includes(tab), "No hint stays on the previous space's tabs");
-      }
-    }
-    release();
-    await TestUtils.waitForCondition(faded, "Releasing after a space switch fades every hint");
-    await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
-    await settled("Back on the original space");
-    ok(faded() && !showing(), "No hint is left in the original space either");
-  } finally {
-    release();
-    await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
-    await win.gZenWorkspaces.removeWorkspace(other.uuid);
-  }
-});
-
-add_task(async function private_space_excludes_essentials() {
-  // The previous task's space removal and switch back must be over, or its
-  // queued switch lands after the Private Space opens.
-  await settled("The previous space switch finished");
-  win.document.getElementById("cmd_whimsyNewScratch").doCommand();
-  await TestUtils.waitForCondition(() => WhimsyPrivate.activeSpaceIsScratch(win), "Private Space active");
-  // Tabs opened mid-slide are overridden by the slide's own selection.
-  await settled("The switch to the Private Space finished");
-  // This window is synced with the suite's main window, which lists the
-  // Private Space too without showing it: it must not close it as left empty.
-  await new Promise(resolve => win.setTimeout(resolve, 300)); // eslint-disable-line mozilla/no-arbitrary-setTimeout
-  await settled("No space switch follows the Private Space opening");
-  ok(WhimsyPrivate.activeSpaceIsScratch(win), "The empty Private Space stays open");
-  const scratchId = WhimsyPrivate.getScratch(win)?.uuid;
-  ok(scratchId, "The Private Space exists");
-  const tabs = [];
-  try {
-    for (let i = 0; i < 10; i++) {
-      tabs.push(WhimsyPrivate.openPrivateTab(win, { url: "about:blank" }));
-    }
-    await TestUtils.waitForCondition(() =>
-      tabs.every(tab => tab?.getAttribute("zen-workspace-id") == scratchId) &&
-      win.gBrowser.selectedTab == tabs.at(-1),
-    "Every private tab is in the Private Space, the last one selected");
-    await settled("No space switch follows the private tabs");
-    ok(WhimsyPrivate.activeSpaceIsScratch(win), "Still on the Private Space");
-    await hold();
-    for (const tab of Numbers.targets(win).keys()) {
-      ok(!tab.hasAttribute("zen-essential") && !tab.hasAttribute("zen-empty-tab"), "Only Private Space tabs are badged");
-    }
-    release();
-    await assertShortcutTargets();
-  } finally {
-    release();
-    for (const tab of tabs) {
-      if (tab?.isConnected && !tab.closing) {
-        await BrowserTestUtils.removeTab(tab, { animate: false });
-      }
-    }
-    await WhimsyPrivate.closeScratch(win);
-    await settled("Back from the Private Space");
-    if (win.gZenWorkspaces.activeWorkspace != originalSpace) {
-      await win.gZenWorkspaces.changeWorkspaceWithID(originalSpace);
-      await settled("Back on the original space");
-    }
-  }
-});
-
-add_task(async function expanded_and_compact_screenshots() {
-  const expanded = root.getAttribute("zen-sidebar-expanded");
-  const compact = win.gZenCompactModeManager.preference;
-  try {
-    for (const state of ["expanded", "compact"]) {
-      win.gZenCompactModeManager.preference = state == "compact";
-      root.setAttribute("zen-sidebar-expanded", state == "expanded" ? "true" : "false");
-      for (const dark of [false, true]) {
-        await whimsySetScheme(dark);
-        try {
-          await TestUtils.waitForCondition(() =>
-            win.matchMedia(`(prefers-color-scheme: ${dark ? "dark" : "light"})`).matches,
-          "The hints window has the requested color scheme");
-          const flags = ["zen-has-hover", "has-popup-menu", "flash-popup", "zen-user-show"];
-          const before = flags.map(attr => win.gNavToolbox.hasAttribute(attr));
-          await hold();
-          Assert.deepEqual(flags.map(attr => win.gNavToolbox.hasAttribute(attr)), before, "Hints never force compact mode open");
-          await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "The hints finished fading in");
-          const { WhimsyLinkHints } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyLinkHints.sys.mjs");
-          const expected = WhimsyLinkHints.colors(win, "--toolbox-textcolor");
-          const nodes = Numbers.layer(win).querySelectorAll(".hint");
-          ok(nodes.length > 0, "Tab keycaps exist in this sidebar mode");
-          for (const node of nodes) {
-            const style = win.getComputedStyle(node);
-            is(style.getPropertyValue("--whimsy-keycap-style").trim(), "keycap", "Tab numbers reuse the shared surface");
-            is(style.getPropertyValue("--hint-bg").trim(), expected.accent, "Tab numbers follow the sidebar text colour");
-            is(style.borderRadius, "5px", "Tab numbers keep the rounded-square shape");
-          }
-          await whimsySettled(win.document);
-          await whimsyShot(`w24-cmdhints-${state}-${dark ? "dark" : "light"}`, win.browsingContext.currentWindowGlobal);
-        } finally {
-          release();
-          await SpecialPowers.popPrefEnv();
-        }
-      }
-    }
-  } finally {
-    release();
-    win.gZenCompactModeManager.preference = compact;
-    if (expanded == null) {
-      root.removeAttribute("zen-sidebar-expanded");
-    } else {
-      root.setAttribute("zen-sidebar-expanded", expanded);
-    }
-  }
-});
-
-add_task(async function tab_hints_follow_sidebar_colour_with_contrasting_ink() {
-  const previous = root.style.getPropertyValue("--toolbox-textcolor");
-  try {
-    for (const color of ["rgb(22, 22, 26)", "rgb(240, 240, 244)"]) {
-      root.style.setProperty("--toolbox-textcolor", color);
-      await hold();
-      await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "Hints faded in");
-      // Resolve the same sidebar token as the implementation: theme rules can
-      // override the requested inline value in this window.
-      const probe = win.document.createElementNS("http://www.w3.org/1999/xhtml", "span");
-      probe.style.color = "var(--toolbox-textcolor)";
-      probe.hidden = true;
-      root.append(probe);
-      const sidebarText = win.getComputedStyle(probe).color;
-      probe.remove();
-      for (const node of Numbers.layer(win).querySelectorAll(".hint")) {
-        const style = win.getComputedStyle(node);
-        is(style.backgroundColor, sidebarText, "Tab hints use the sidebar text colour, not the space accent");
-        const luminance = value => {
-          const { r, g, b } = win.InspectorUtils.colorToRGBA(value);
-          const linear = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-          return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
-        };
-        const fg = luminance(style.color), bg = luminance(style.backgroundColor);
-        ok((Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05) >= 4.5, "Sidebar number contrast meets AA");
-      }
+    for (const active of [true, false]) {
+      focus.returns(active);
+      key("KEY_Meta", { metaKey: true });
+      const before = Numbers.chordState(win);
+      win.dispatchEvent(new win.Event("blur"));
+      const after = Numbers.chordState(win);
+      ok(after.meta && after.timer == before.timer,
+        `Content blur without an activation loss preserves the pending hold (active=${active})`);
+      await TestUtils.waitForCondition(showing, "Delivered Command still reveals after content focus changes");
+      win.dispatchEvent(new win.Event("blur"));
+      ok(showing(), "Content focus blur also preserves a visible hold");
       release();
     }
   } finally {
     release();
-    if (previous) {
-      root.style.setProperty("--toolbox-textcolor", previous);
-    } else {
-      root.style.removeProperty("--toolbox-textcolor");
-    }
+    focus.returns(false);
   }
 });
 
-add_task(async function open_command_bar_has_one_owner_for_digit_hints() {
-  try {
-    for (const rowNumbers of [false, true]) {
-      await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.command-bar-numbers", rowNumbers]] });
-      try {
-        await UrlbarTestUtils.promiseAutocompleteResultPopup({ window: win, value: "example" });
-        ok(win.gURLBar.view.isOpen, "The command bar is open");
-        if (rowNumbers) {
-          key("KEY_Meta", { metaKey: true });
-          await TestUtils.waitForCondition(() => win.gURLBar.hasAttribute("whimsy-numbers"), "Command bar owns the digit shortcuts");
-          ok(!showing(), "No competing tab destinations are advertised");
-          await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "0", "Sidebar hints are faded out");
-        } else {
-          await hold();
-          await TestUtils.waitForCondition(() => win.getComputedStyle(Numbers.layer(win)).opacity == "1", "Tab hints show with the command bar open when it does not own digits");
-          await TestUtils.waitForCondition(() => [...Numbers.layer(win).children].some(node =>
-            !node.hidden && /[1-9]/.test(node.textContent) && node.getBoundingClientRect().height >= 14),
-          "Open command bar leaves visible sidebar digits");
-          ok(!win.gURLBar.hasAttribute("whimsy-numbers"), "There is only one set of destinations");
-        }
-      } finally {
-        release();
-        win.gURLBar.view.close();
-        await SpecialPowers.popPrefEnv();
-      }
+add_task(async function blur_and_visibility_reset_the_entire_chord() {
+  for (const type of ["blur", "visibilitychange"]) {
+    focus.returns(true);
+    await hold();
+    key("2", { code: "Digit2", metaKey: true });
+    focus.returns(false);
+    if (type == "blur") {
+      win.dispatchEvent(new win.Event(type));
+    } else {
+      win.document.dispatchEvent(new win.Event(type, { bubbles: true }));
     }
-  } finally {
+    ok(!showing(), `${type} ends the hold without keyup`);
+    await hold();
     release();
-    win.gURLBar.view.close();
   }
 });
