@@ -259,7 +259,9 @@ for (const kind of ["pinned", "essential"]) {
       } else {
         await reopenFromTabMenu(keep);
       }
-      await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, `${how} brings the ${kind} tab back`);
+      // Reopen first waits for Zen's async close (unload and reset) to finish,
+      // which can take more than the default 5s under a loaded test run.
+      await TestUtils.waitForCondition(() => gBrowser.selectedTab == tab, `${how} brings the ${kind} tab back`, 100, 150);
       await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == away, `...at the page it navigated to (${away})`);
       await TestUtils.waitForCondition(() => tab.linkedBrowser.canGoBack, "...with its back history");
 
