@@ -222,6 +222,8 @@ for (const [via, field] of [
   ["sw-queue", "body"],
   ["sw-message", "body"],
   ["ws", "editor"],
+  ["html", "editor"],
+  ["form", "body"],
 ]) {
   add_task(async function test_site_saves_clear() {
     info(`Saving through ${via}, typing in #${field}`);
@@ -242,6 +244,58 @@ for (const [via, field] of [
     } finally {
       BrowserTestUtils.removeTab(tab);
       BrowserTestUtils.removeTab(other);
+    }
+  });
+}
+
+// A page that posts analytics to its own site as you type (LinkedIn's and
+// X's composers do) hasn't saved anything: the requests don't carry what
+// was typed. The mark, the draft and the tab's protection from Firefox's
+// tab unloader all stay, and after an unload the draft is offered back.
+// Taking those posts for saves lost both sites' half-written posts.
+for (const field of ["body", "editor"]) {
+  add_task(async function test_analytics_posts_are_not_saves() {
+    info(`Typing in #${field}`);
+    const page = `${SAVES_PAGE}?via=ping`;
+    const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?other");
+    const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, page);
+    const browser = tab.linkedBrowser;
+    try {
+      await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.ready), "The page is ready");
+      await typeInto(browser, field, "Half a post");
+      await TestUtils.waitForCondition(() => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.pings), "The page posted analytics");
+      await typeInto(browser, field, " still");
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(browser, [], () => content.wrappedJSObject.pings >= 2),
+        "and again after more typing"
+      );
+      is(await askPage(browser), true, "The page still has unsaved input");
+      ok(typed(tab), "The mark stays");
+      ok(tab.undiscardable, "Firefox's tab unloader still skips the tab");
+      await TestUtils.waitForCondition(() => WhimsyFormProtection.snapshotFor(browser, page), "The draft is kept");
+
+      gBrowser.selectedTab = other;
+      ok(await gBrowser.explicitUnloadTabs([tab]), "Unload goes through");
+      await TestUtils.waitForCondition(() => !tab.linkedPanel, "The tab is unloaded");
+      const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+      gBrowser.selectedTab = tab;
+      await loaded;
+      const toast = await TestUtils.waitForCondition(() => toastFor("whimsy-form-refill-ask"), "Coming back offers what was typed");
+      await toast.shown;
+      const [restore] = toast.element.querySelectorAll(".whimsy-toast-button");
+      EventUtils.synthesizeMouseAtCenter(restore, {});
+      await TestUtils.waitForCondition(
+        () => SpecialPowers.spawn(tab.linkedBrowser, [field], id => {
+          const el = content.document.getElementById(id);
+          return (el.value ?? el.textContent) == "Half a post still";
+        }),
+        "Restore puts the post back"
+      );
+      closeToasts();
+    } finally {
+      BrowserTestUtils.removeTab(tab);
+      BrowserTestUtils.removeTab(other);
+      await WhimsyFormDrafts.delete({ url: page });
     }
   });
 }

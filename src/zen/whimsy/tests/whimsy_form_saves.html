@@ -4,17 +4,33 @@
 <body>
 <!-- W13-R1: an editor that saves as you type, through the channel named by
      ?via= (fetch, beacon, ws, sw-fetch, sw-queue, sw-message), 100 ms after each edit.
-     ?via=none never saves. Nothing about it is site-specific. -->
+     ?via=none never saves. ?via=ping never saves either, but posts
+     analytics to its own site as you type, as LinkedIn and X do; html saves
+     the editor's markup in JSON, form saves form-encoded. Nothing about it
+     is site-specific. -->
 <textarea id="body"></textarea>
 <div id="editor" contenteditable="true" style="min-height: 40px"></div>
 <script>
   const via = new URLSearchParams(location.search).get("via") || "fetch";
   window.saves = 0;
+  window.pings = 0;
   window.ready = false;
   let socket = null;
   const text = () => document.getElementById("body").value + document.getElementById("editor").textContent;
   const send = {
     none() {},
+    ping() {
+      const event = JSON.stringify({ event: "composer_keypress", surface: "share_box", ts: Date.now() });
+      navigator.sendBeacon("whimsy_form_save.sjs?ping", event);
+      fetch("whimsy_form_save.sjs?ping", { method: "POST", body: event }).then(() => window.pings++);
+    },
+    html: () =>
+      fetch("whimsy_form_save.sjs?save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentary: `<p>${document.getElementById("editor").innerHTML}</p>` }),
+      }).then(() => window.saves++),
+    form: () => fetch("whimsy_form_save.sjs?save", { method: "POST", body: new URLSearchParams({ text: text() }) }).then(() => window.saves++),
     fetch: () => fetch("whimsy_form_save.sjs?save", { method: "POST", body: text() }).then(() => window.saves++),
     beacon: () => navigator.sendBeacon("whimsy_form_save.sjs?save", text()) && window.saves++,
     ws: () => socket.send(JSON.stringify({ text: text() })),
