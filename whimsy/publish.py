@@ -63,6 +63,8 @@ import signing_backup  # noqa: E402
 PATH = ":".join([os.path.expanduser("~/.cargo/bin"), "/run/current-system/sw/bin",
                  f"/etc/profiles/per-user/{getpass.getuser()}/bin", "/opt/homebrew/bin", "/usr/local/bin",
                  "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
+# Every tool this starts, helpers included, searches the same folders.
+os.environ["PATH"] = PATH
 
 
 # Arguments whose value is a secret unless it names a file or variable.
