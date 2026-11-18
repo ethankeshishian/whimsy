@@ -195,7 +195,12 @@ export const WhimsyLiveFolders = {
       const { nsGithubLiveFolderProvider } = ChromeUtils.importESModule(
         "resource:///modules/zen/GithubLiveFolder.sys.mjs"
       );
-      this.wrapPushableFetchItems(nsGithubLiveFolderProvider.prototype, provider => provider.state.url);
+      // No probe for GitHub: the folder's items come from search URLs
+      // (?q=assignee:@me, review-requested:@me, ...), and the bare page
+      // it would probe is a different list, so its 304 said "nothing
+      // new" while new pull requests and issues arrived. Push there is a
+      // full fetch every minute.
+      this.wrapPushableFetchItems(nsGithubLiveFolderProvider.prototype, () => null);
     } catch (e) {
       console.error("Whimsy: github push hook failed", e);
     }
@@ -385,6 +390,10 @@ export const WhimsyLiveFolders = {
         this.start();
         return;
       }
+      if (key === "refresh") {
+        // Refresh asks the server for real, never the Push probe's answer.
+        delete this.state.whimsyEtag;
+      }
       if (key === "setInterval") {
         // Picking a normal, fixed interval leaves Push mode.
         this.state.whimsyPush = false;
@@ -416,7 +425,8 @@ export const WhimsyLiveFolders = {
   },
 
   // Wraps a provider's fetchItems so that, in Push mode, a cheap
-  // conditional probe runs first: a 304 (nothing changed) returns the
+  // conditional probe of `urlOf(provider)` runs first (only where that URL
+  // is exactly what fetchItems reads; null skips the probe): a 304 (nothing changed) returns the
   // same items fetchItems returned last time -- no re-parse, no tab
   // churn -- instead of doing the real, full fetch. Not wired up for
   // Jira yet (left for a follow-up): this only covers Zen's own two
