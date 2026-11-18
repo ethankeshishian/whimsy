@@ -207,7 +207,10 @@ async function closeAll() {
   await TestUtils.waitForCondition(
     () => (!linkPanel() || linkPanel().state == "closed") && (!tabPanel() || tabPanel().state == "closed"),
     "The cards are closed"
-  );
+  ).catch(e => {
+    // Which card stayed up, and in what state, says what kept it there.
+    throw new Error(`${e.message} (link: ${linkPanel()?.state}, tab: ${tabPanel()?.state} for ${WhimsyHoverCards.forWindow(window)?.tab?.label})`);
+  });
 }
 
 function hoverTab(tab) {
