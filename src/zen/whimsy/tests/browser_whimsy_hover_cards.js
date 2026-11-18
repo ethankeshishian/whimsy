@@ -53,11 +53,11 @@ add_setup(async () => {
       ["zen.view.sidebar-expanded", true],
     ],
   });
-  // The pointer starts in a page corner, away from the tabs. An earlier file
-  // can leave it over the tab strip, and a tab laid out under it then gets a
-  // real hover, which reopens a card this file has just closed.
-  const page = gBrowser.selectedBrowser;
-  EventUtils.synthesizeMouse(page, page.clientWidth - 4, page.clientHeight - 4, { type: "mousemove" });
+  // The pointer starts in the window's corner, away from the tabs and the
+  // page. An earlier file can leave it over the tab strip, and a tab laid
+  // out under it then gets a real hover, which reopens a card this file has
+  // just closed.
+  EventUtils.synthesizeMouse(document.documentElement, 2, 2, { type: "mousemove" });
   imageBytes = new Uint8Array(await (await fetch(IMAGE)).arrayBuffer());
   // Descriptions kept from an earlier run go (as Fire does), so each run reads.
   Services.obs.notifyObservers(null, "whimsy-ai-store-cleared");
