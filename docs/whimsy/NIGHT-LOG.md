@@ -572,3 +572,12 @@ diff whitespace checks pass. Browser rerun is pending: the mandated
 /tmp/w13/w24run.sh is absent. No mach, build, import, verify, commit, background
 job, or wait loop. Cause and validation limits are in RESULT.md; removed the
 supplied test-run.log.
+
+
+## 2026-11-17 — W29 private-tab polluter and repeat-flaky test isolation
+
+- Confirmed focus_session's Stay on This Tab teardown deletes the existing private addTab wrapper and the space/Glance wrappers. Restored original instance descriptors in WhimsyFocusTab; added per-task cleanup restoration, exact method identity checks, and a real post-focus private-document regression.
+- Added a shared hook leak guard and a strict private-tab helper with failure cleanup. Updated private-path consumers and cleaned failure leftovers in hover_cards, Handoff, isolation, lasso, and menus_review.
+- Gave group_domain a temporary Default-profile space and competing baseline tab; dark_pages_offer a neutral selection plus an older generated-page regression; Mini adoption identity tracking plus an explicit trailing-tab precondition; cookie fallback URL-bound scan readiness; and menu suites explicit submenu-mark cleanup. Kept existing behavioral assertions and added no retries, sleeps, or timeout increases.
+- RESULT.md covers all 13 reported files, source/raw-line evidence, fixes, ordered owner test runs, and explicit limits where the original tab/sender identity is not in the supplied logs. Primary focus pollution is source-confirmed; secondary runtime validation and minimal reproducing prefixes remain for the owner.
+- Precheck reports only the expected missing engine strings, BUILD: faster. All 18 changed JS/module files pass node syntax; manifest parsing and diff whitespace checks pass. No mach/build/import/verify/browser runs, runner search on resume, commits, background jobs, or wait loops.

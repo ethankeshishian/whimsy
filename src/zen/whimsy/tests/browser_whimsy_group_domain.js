@@ -10,11 +10,11 @@
 
 const startTabs = new Set(gBrowser.tabs);
 const startGroups = new Set(gBrowser.tabGroups);
-let homeSpace, testSpace;
+let homeSpace, testSpace, background;
 add_setup(async function () {
   homeSpace = gZenWorkspaces.getActiveWorkspace();
   // Reproduce the competing baseline tab even when this file runs alone.
-  await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?group-domain-background");
+  background = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?group-domain-background");
   // sameSiteTabs intentionally counts every loose tab in this space. A
   // shared starting tab from an earlier file must not become a fourth one.
   testSpace = await gZenWorkspaces.createAndSaveWorkspace("Group Domain Test", undefined, true, 0);
@@ -31,6 +31,10 @@ registerCleanupFunction(async () => {
   }
   if (homeSpace) {
     await gZenWorkspaces.changeWorkspace(homeSpace);
+  }
+  // It stays in the home space, which the loop above doesn't see.
+  if (background?.isConnected) {
+    await BrowserTestUtils.removeTab(background);
   }
   if (testSpace) {
     await gZenWorkspaces.removeWorkspace(testSpace.uuid);
