@@ -137,9 +137,12 @@ add_task(async function test_template_checkbox_bindings() {
     ["whimsyQuickLook", "whimsy.feature.quick-look"],
     ["whimsySpaceExtensions", "whimsy.feature.space-extensions"],
   ];
-  await SpecialPowers.pushPrefEnv({ set: cases.map(([, pref]) => [pref, false]) });
-  try {
-    await BrowserTestUtils.withNewTab("about:preferences#home", async browser => {
+  await BrowserTestUtils.withNewTab("about:preferences#home", async browser => {
+    // The switches are put back before this tab closes: one of them is
+    // "close the window with its last tab", and closing the tab with it on
+    // can close the test's window.
+    await SpecialPowers.pushPrefEnv({ set: cases.map(([, pref]) => [pref, false]) });
+    try {
       const doc = browser.contentDocument;
       const win = browser.contentWindow;
       await win.gSearchResultsPane.initializeCategories();
@@ -154,10 +157,10 @@ add_task(async function test_template_checkbox_bindings() {
         EventUtils.synthesizeMouseAtCenter(box, {}, win);
         await TestUtils.waitForCondition(() => Services.prefs.getBoolPref(pref), `#${id} writes its preference`);
       }
-    });
-  } finally {
-    await SpecialPowers.popPrefEnv();
-  }
+    } finally {
+      await SpecialPowers.popPrefEnv();
+    }
+  });
 });
 
 // wave9/designfix (H2): with Firefox's settings redesign, General is hidden,
