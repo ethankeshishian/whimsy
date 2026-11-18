@@ -130,6 +130,7 @@ add_task(async function test_cmd_l_opens_the_floating_command_bar() {
     EventUtils.synthesizeKey("l", { accelKey: true }, win);
     await TestUtils.waitForCondition(() => win.gURLBar.focused, "Cmd+L focuses Mini's command bar");
     is(win.gURLBar.getAttribute("zen-floating-urlbar"), "true", "...floating, as from the address");
+    ok(win.gURLBar.matches(":popover-open"), "...in the top layer as soon as it has focus");
     ok(win.gURLBar.hasAttribute("breakout-extend"), "...revealed, not a hidden input");
     ok(!win.gURLBar.readOnly, "...and editable");
     EventUtils.sendString("example", win);
@@ -163,11 +164,18 @@ add_task(async function test_switch_to_tab_opens_the_page_in_mini() {
 add_task(async function test_cmd_o_moves_the_navigated_page_to_the_space() {
   const win = await openMini();
   await go(win, "https://example.org/");
-  const tabCountBefore = gBrowser.tabs.length;
+  const before = new Set(gBrowser.tabs);
+  const tabCountBefore = before.size;
   EventUtils.synthesizeKey("o", { accelKey: true }, win);
   await TestUtils.waitForCondition(() => win.closed, "Cmd+O moves the page and closes Mini");
   is(gBrowser.tabs.length, tabCountBefore + 1, "The page landed in the current space");
-  const adopted = gBrowser.tabs[gBrowser.tabs.length - 1];
+  // Workspace placement can insert the adopted tab before existing tabs.
+  // Identify the new tab, then wait for the swapped browser's URI update;
+  // closing the source window is part of adoption, not its completion signal.
+  const adopted = gBrowser.tabs.find(tab => !before.has(tab));
+  ok(adopted, "The space contains the adopted tab");
+  await TestUtils.waitForCondition(() => adopted.linkedBrowser.currentURI.spec == "https://example.org/",
+    "The adopted browser reports the navigated page");
   is(adopted.linkedBrowser.currentURI.spec, "https://example.org/", "It's the page the command bar opened");
   BrowserTestUtils.removeTab(adopted);
 });

@@ -1425,6 +1425,9 @@ support-files = ["head_side_panel.js"]
 ["browser_whimsy_side_panel_pip.js"]
 support-files = ["head_side_panel.js"]
 
+["browser_whimsy_side_panel_pip_routes.js"]
+support-files = ["head_side_panel.js"]
+
 ["browser_whimsy_side_panel_pip_resize.js"]
 support-files = ["head_side_panel.js"]
 

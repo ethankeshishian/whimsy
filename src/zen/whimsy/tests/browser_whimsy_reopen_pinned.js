@@ -213,7 +213,26 @@ async function closeWithKey(tab) {
 }
 
 async function closeAndWaitForReset(tab) {
-  await closeWithKey(tab);
+  // Selection changes at the START of Zen's async close, before unloading
+  // and resetting. After a reopen, Whimsy first waits for SSTabRestored too:
+  // currentURI/canGoBack already expose the restored history before then.
+  // Observe the real command's completion instead of spending the reset
+  // assertion's polling budget on those preceding operations. Leave the
+  // first closeWithKey/reopen sequence immediate to exercise that race.
+  const manager = gZenPinnedTabManager;
+  const original = manager.onCloseTabShortcut;
+  let closing;
+  manager.onCloseTabShortcut = function (...args) {
+    closing = original.apply(this, args);
+    return closing;
+  };
+  try {
+    await closeWithKey(tab);
+    await TestUtils.waitForCondition(() => closing, "⌘W reached the pinned close handler");
+    await closing;
+  } finally {
+    manager.onCloseTabShortcut = original;
+  }
   // Check both history and the canonical URL on this same tab. A lazy
   // browser exposes its cached state here before being picked by hand.
   await TestUtils.waitForCondition(() => {

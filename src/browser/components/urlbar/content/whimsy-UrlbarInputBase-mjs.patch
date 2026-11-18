@@ -52,3 +52,20 @@ index 3ca7b07..4857f97 100644
        }
      }
  
+@@ -5708,7 +5729,15 @@
+     if (!this._hideFocus) {
+       this.toggleAttribute("focused", true);
+     }
+-    this.updatePopover();
++    // Whimsy: Mini has no inline address bar. Open its top-layer surface in
++    // the focus handler, before autocomplete's asynchronous results arrive.
++    // Use Zen's opener so geometry and open/close hooks stay paired; normal
++    // view closure still closes the popover (even before results arrive).
++    if (this.#isAddressbar && this.window._whimsyQuickWindow) {
++      this.#openPopover();
++    } else {
++      this.updatePopover();
++    }
+
+     // If the value was trimmed, check whether we should untrim it.
+     // This is necessary when a protocol was typed, but the whole url has
