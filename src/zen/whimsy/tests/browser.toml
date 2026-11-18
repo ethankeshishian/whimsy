@@ -1395,6 +1395,10 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 skip-if = ["os != 'mac'"]
 support-files = ["head_cmd_tab_numbers.js"]
 
+["browser_whimsy_cmd_tab_numbers_spaces.js"]
+skip-if = ["os != 'mac'"]
+support-files = ["head_cmd_tab_numbers.js"]
+
 ["browser_whimsy_cmd_tab_numbers_cmdbar.js"]
 skip-if = ["os != 'mac'"]
 support-files = ["head_cmd_tab_numbers.js"]
