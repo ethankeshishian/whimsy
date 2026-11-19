@@ -73,6 +73,47 @@ add_task(async function test_quick_window_target_opens_a_quick_window() {
   await BrowserTestUtils.closeWindow(win);
 });
 
+// A link a Space Routing rule claims goes to that rule's space as a tab,
+// not into Mini Whimsy or a Glance (owner, W29: a "unicorner" rule still
+// opened the link in Mini Whimsy).
+add_task(async function test_routed_link_skips_mini_and_glance() {
+  const { gZenSpaceRoutingManager: routing } = ChromeUtils.importESModule(
+    "resource:///modules/zen/spacerouting/ZenSpaceRoutingManager.sys.mjs"
+  );
+  const home = gZenWorkspaces.activeWorkspace;
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Routed", undefined, true);
+  await gZenWorkspaces.changeWorkspaceWithID(home);
+  const route = routing.createNewRoute();
+  route.reference = "routed-here";
+  route.openIn = space.uuid;
+  routing.updateRoute(route);
+  try {
+    for (const target of ["quick-window", "glance"]) {
+      Services.prefs.setStringPref("whimsy.external-links.target", target);
+      const context = openExternal("https://example.com/?routed-here");
+      ok(context, `${target}: a routed link opens as a tab, not in ${target}`);
+      const tab = gBrowser.getTabForBrowser(context.embedderElement);
+      ok(tab && !tab.hasAttribute("glance-id"), `${target}: a plain tab`);
+      await TestUtils.waitForCondition(
+        () => tab.getAttribute("zen-workspace-id") == space.uuid,
+        `${target}: the tab lands in the rule's space`
+      );
+      BrowserTestUtils.removeTab(tab);
+      await gZenWorkspaces.changeWorkspaceWithID(home);
+    }
+
+    // A link no rule claims still goes to Mini Whimsy.
+    Services.prefs.setStringPref("whimsy.external-links.target", "quick-window");
+    const newWindow = BrowserTestUtils.waitForNewWindow();
+    is(openExternal("https://example.com/?elsewhere"), null, "An unrouted link still goes to Mini Whimsy");
+    await BrowserTestUtils.closeWindow(await newWindow);
+  } finally {
+    routing.removeRoute(route.id);
+    await gZenWorkspaces.changeWorkspaceWithID(home);
+    await gZenWorkspaces.removeWorkspace(space.uuid);
+  }
+});
+
 // The feature off (not external-link-target; quick-window itself): falls
 // back to a tab, same as Firefox's own handling.
 add_task(async function test_quick_window_feature_off_falls_back_to_a_tab() {

@@ -12,10 +12,15 @@
 // Wraps BrowserDOMWindow's openURI (browser/modules/BrowserDOMWindow.sys.mjs),
 // Firefox's nsIBrowserDOMWindow, for OPEN_EXTERNAL opens only. Every other
 // open (window.open, links clicked inside the browser) is untouched.
+//
+// A link one of the owner's Space Routing rules matches goes to that rule's
+// space instead, as Arc's Air Traffic Control wins over Little Arc: Glance
+// and Mini Whimsy only take links no rule claims.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
+  gZenSpaceRoutingManager: "resource:///modules/zen/spacerouting/ZenSpaceRoutingManager.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.external-link-target";
@@ -51,6 +56,7 @@ export const WhimsyExternalLinks = {
         if (
           isExternal &&
           self.enabled &&
+          !self.routedToSpace(aURI) &&
           (self.openInGlance(aURI, aTriggeringPrincipal) || self.openInQuickWindow(aURI, aTriggeringPrincipal))
         ) {
           return null;
@@ -60,6 +66,15 @@ export const WhimsyExternalLinks = {
       }
       return original.call(this, aURI, aOpenWindowInfo, aWhere, aFlags, aTriggeringPrincipal, aPolicyContainer);
     };
+  },
+
+  // True when a Space Routing rule sends this link to a space, so Zen's
+  // routing (getWindowForExternalUri, then the new tab's route) places it.
+  routedToSpace(uri) {
+    const routing = lazy.gZenSpaceRoutingManager;
+    return routing
+      .getAllRoutes()
+      .some(route => route.openIn != "most-recent-space" && routing.isRouteMatching(uri.spec, route));
   },
 
   // Opens the link as a Glance over the most recent window's current tab
