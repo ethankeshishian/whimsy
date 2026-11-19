@@ -156,7 +156,10 @@ HOTFIXES = [
     # back and stayed open until the pointer moved off. The flag now holds
     # while the pointer is on the settled bar (or its edge splitter) and ends
     # when the pointer moves off it, so the next approach to the edge reveals
-    # the bar as usual.
+    # the bar as usual. It also ends (owner, W29: "the tab bar only comes up
+    # after i press a button") on a push of a few pixels along the settled
+    # bar's edge strip, which reveals the bar, or when the pointer leaves the
+    # window: either used to leave hover dead until the next ⌘S.
     {
         "id": "compact-close-hover-hold",
         "file": "src/zen/compact-mode/ZenCompactMode.mjs",
@@ -182,12 +185,38 @@ HOTFIXES = [
                "      this._whimsyHoldPoint = [event.clientX, event.clientY];\n"
                "      const onBar =\n"
                "        this.sidebar.contains(event.target) || splitter?.contains(event.target);\n"
-               "      if (!this._ignoreNextHover || (hold.settled && moved && !onBar)) {\n"
+               "      // Once the bar has settled, a move of a few pixels on it from where\n"
+               "      // the pointer rested is a push toward the edge, asking for the bar\n"
+               "      // back; a resting hand only jitters by a pixel.\n"
+               "      hold.anchor ??= this._whimsyHoldPoint;\n"
+               "      const pushed =\n"
+               "        !!hold.anchor &&\n"
+               "        Math.max(\n"
+               "          Math.abs(event.clientX - hold.anchor[0]),\n"
+               "          Math.abs(event.clientY - hold.anchor[1])\n"
+               "        ) >= 3;\n"
+               "      if (!this._ignoreNextHover || (hold.settled && moved && (!onBar || pushed))) {\n"
                "        this._whimsyEndHoverHold();\n"
+               "        // Already on the bar, so no mouseover will reveal it.\n"
+               "        if (onBar && pushed && this.preference) {\n"
+               "          this._setElementExpandAttribute(this.sidebar, true);\n"
+               "        }\n"
                "      }\n"
                "    };\n"
                "    window.addEventListener(\"mousemove\", onMove, options);\n"
                "    window.addEventListener(\"mouseover\", onMove, options);\n"
+               "    // Leaving the window once the bar has settled ends the hold too, so the\n"
+               "    // edge reveals the bar and hover works when the pointer comes back.\n"
+               "    document.documentElement.addEventListener(\n"
+               "      \"mouseleave\",\n"
+               "      // Captured mouseleaves of the bar's own elements, as it slides away\n"
+               "      // from under the pointer, are not the pointer leaving the window.\n"
+               "      event =>\n"
+               "        hold.settled &&\n"
+               "        event.target == document.documentElement &&\n"
+               "        this._whimsyEndHoverHold(),\n"
+               "      options\n"
+               "    );\n"
                "  },\n"
                "\n"
                "  // Whimsy hotfix: once the bar has settled, keep ignoring hover only while\n"
