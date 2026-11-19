@@ -180,9 +180,11 @@ add_task(async function test_rows_where_arc_has_them() {
       "Opening the menu again keeps the order");
   }
 
-  // View Media… and View Boosts… open the Library on their sections.
+  // View Downloads…, View Media…, and View Boosts… are commands too (the
+  // command bar lists them; owner, W29: no Downloads there), and open the
+  // Library on their sections.
   const ZenLibrary = customElements.get("zen-library");
-  for (const section of ["media", "boosts"]) {
+  for (const section of ["downloads", "media", "boosts"]) {
     document.getElementById(`cmd_whimsyView-${section}`).doCommand();
     await TestUtils.waitForCondition(
       () => ZenLibrary.isLibraryOpen && document.querySelector("zen-library").activeTab == section,

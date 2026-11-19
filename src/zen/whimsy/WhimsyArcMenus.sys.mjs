@@ -154,7 +154,11 @@ export const WhimsyArcMenus = {
       icon: "chrome://browser/skin/zen-icons/reload.svg",
       isAvailable: w => enabled() && w.gBrowser.tabs.some(t => t.pinned && !t.hasAttribute("zen-essential")),
     });
-    for (const [section, l10nId] of [["media", "whimsy-action-view-media"], ["boosts", "whimsy-action-view-boosts"]]) {
+    for (const [section, l10nId] of [
+      ["downloads", "whimsy-action-view-downloads"],
+      ["media", "whimsy-action-view-media"],
+      ["boosts", "whimsy-action-view-boosts"],
+    ]) {
       WhimsyCommands.register(win, {
         id: `cmd_whimsyView-${section}`,
         l10nId,
