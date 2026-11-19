@@ -412,6 +412,9 @@ support-files = ["whimsy_call.html"]
 
 ["browser_whimsy_glance_size.js"]
 
+# W29: expanding a Glance from a pinned tab or Essential gives a normal tab.
+["browser_whimsy_glance_expand_from_pinned.js"]
+
 # batch3glance: Cmd+T in a split opens into the focused pane.
 ["browser_whimsy_split_new_tab.js"]
 
