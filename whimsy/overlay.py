@@ -754,6 +754,20 @@ HOTFIXES = [
         "old": 'zenCKSOption-group-zen-other = Other Zen Features',
         "new": 'zenCKSOption-group-zen-other = Other Whimsy Features',
     },
+    # W29: expanding a Glance from a pinned tab, a folder, or an Essential.
+    # Zen moves the tab next to its parent: in a folder it pins it there
+    # (zen.folders.owned-tabs-in-folder, on in Whimsy), and next to an
+    # Essential or pinned tab it falls back to gBrowser.tabs[pinnedTabCount],
+    # which counts every space and can be another space's folder. The owner
+    # wants a normal tab in the current space.
+    {
+        "id": "glance-expand-from-pinned",
+        "file": "src/zen/glance/ZenGlanceManager.mjs",
+        "why": "Expanding a Glance from a pinned tab, folder, or Essential "
+               "gives a normal tab at the top of the current space.",
+        "old": '    this.#handleZenFolderPinning();\n    gBrowser.moveTabAfter(this.#currentTab, this.#currentParentTab);\n\n    if (this.#currentTab.hasAttribute("zen-workspace-id")) {\n      // the glance may have been opened in another space (e.g. from an essential,\n      // which is shared between spaces). the tab now lives in the current space,\n      // keep its id in sync\n      this.#currentTab.setAttribute(\n        "zen-workspace-id",\n        gZenWorkspaces.activeWorkspace\n      );\n    }\n',
+        "new": '    if (this.#currentTab.hasAttribute("zen-workspace-id")) {\n      // the glance may have been opened in another space (e.g. from an essential,\n      // which is shared between spaces). the tab now lives in the current space,\n      // keep its id in sync\n      this.#currentTab.setAttribute(\n        "zen-workspace-id",\n        gZenWorkspaces.activeWorkspace\n      );\n    }\n\n    // Whimsy hotfix: a Glance from a pinned tab, a folder, or an Essential\n    // expands into a normal tab at the top of this space\'s tabs.\n    if (this.#currentParentTab.pinned) {\n      const strip = gZenWorkspaces.activeWorkspaceStrip;\n      const first = [...strip.children].find(\n        el =>\n          el !== this.#currentTab &&\n          el.matches("tab:not([zen-empty-tab], [zen-glance-tab]), tab-group, tab-split-view-wrapper")\n      );\n      if (first) {\n        gBrowser.moveTabBefore(this.#currentTab, first);\n      } else {\n        strip.append(this.#currentTab);\n        gBrowser.tabContainer._invalidateCachedTabs();\n      }\n    } else {\n      this.#handleZenFolderPinning();\n      gBrowser.moveTabAfter(this.#currentTab, this.#currentParentTab);\n    }\n',
+    },
     # batch3glance: Glance size. Zen hard-codes 80% in the arc animation and
     # in the final width; both read Whimsy's chosen width instead.
     {

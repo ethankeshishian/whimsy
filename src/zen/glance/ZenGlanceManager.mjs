@@ -1784,9 +1784,6 @@ class nsZenGlanceManager extends nsZenDOMOperatedFeature {
     this.animatingFullOpen = true;
     this.#currentTab.setAttribute("zen-dont-split-glance", true);
 
-    this.#handleZenFolderPinning();
-    gBrowser.moveTabAfter(this.#currentTab, this.#currentParentTab);
-
     if (this.#currentTab.hasAttribute("zen-workspace-id")) {
       // the glance may have been opened in another space (e.g. from an essential,
       // which is shared between spaces). the tab now lives in the current space,
@@ -1795,6 +1792,26 @@ class nsZenGlanceManager extends nsZenDOMOperatedFeature {
         "zen-workspace-id",
         gZenWorkspaces.activeWorkspace
       );
+    }
+
+    // Whimsy hotfix: a Glance from a pinned tab, a folder, or an Essential
+    // expands into a normal tab at the top of this space's tabs.
+    if (this.#currentParentTab.pinned) {
+      const strip = gZenWorkspaces.activeWorkspaceStrip;
+      const first = [...strip.children].find(
+        el =>
+          el !== this.#currentTab &&
+          el.matches("tab:not([zen-empty-tab], [zen-glance-tab]), tab-group, tab-split-view-wrapper")
+      );
+      if (first) {
+        gBrowser.moveTabBefore(this.#currentTab, first);
+      } else {
+        strip.append(this.#currentTab);
+        gBrowser.tabContainer._invalidateCachedTabs();
+      }
+    } else {
+      this.#handleZenFolderPinning();
+      gBrowser.moveTabAfter(this.#currentTab, this.#currentParentTab);
     }
 
     this.#prepareTabForFullOpen();
