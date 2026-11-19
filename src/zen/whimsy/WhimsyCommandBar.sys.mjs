@@ -700,6 +700,9 @@ const ZEN_ACTION_NEEDS = {
 // Zen's rows that go first in the "/" list on a "Problem loading page",
 // where reloading is what helps (the provider's command-bar-reload-first
 // hotfix reads whimsyFirst).
+const ZEN_ACTION_KEYWORDS = {
+  "zen-action-open-space-routing": "whimsy-keywords-space-routing",
+};
 const ZEN_ACTIONS_FIRST_ON_ERROR = ["zen-action-reload-tab", "zen-action-reload-tab-without-cache"];
 
 export const WhimsyCommandBar = {
@@ -738,6 +741,23 @@ export const WhimsyCommandBar = {
     }
   },
 
+  // Zen's actions whose Arc name hides the word people search for: Space
+  // Routing is "Air Traffic Control…" here (owner, W29: "routing is not in
+  // the command bar").
+  addZenActionKeywords() {
+    const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
+    for (const action of globalActions) {
+      const l10nId = ZEN_ACTION_KEYWORDS[action.l10nId];
+      if (!l10nId || Object.hasOwn(action, "whimsyKeywords")) {
+        continue;
+      }
+      Object.defineProperty(action, "whimsyKeywords", {
+        configurable: true,
+        get: () => lazy.WhimsyCommands.keywords(l10nId),
+      });
+    }
+  },
+
   linkAppearanceActions() {
     const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
     const group = globalActions.filter(a => APPEARANCE_ACTIONS.includes(a.l10nId));
@@ -765,6 +785,7 @@ export const WhimsyCommandBar = {
     this.initSlashFilter(win);
     this.initDedup(win);
     this.linkAppearanceActions();
+    this.addZenActionKeywords();
     this.gateZenActions();
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyOpenPluginsFolder",

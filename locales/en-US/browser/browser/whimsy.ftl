@@ -3228,6 +3228,7 @@ whimsy-action-whats-new = What’s New
 
 whimsy-action-restart = Restart Whimsy
 whimsy-keywords-restart = Relaunch, Reopen, Reboot, Restart Browser
+whimsy-keywords-space-routing = Space Routing, Routing, Routes, Rules
 
 ## W27: page animations on the current tab (until it reloads) from the command bar, and
 ## the toast that confirms the change. Keywords are comma-separated search words.
