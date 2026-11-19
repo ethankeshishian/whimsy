@@ -175,3 +175,38 @@ add_task(async function cmd_s_repeat_mid_slide_stays_closed() {
   assertHidden("repeat");
   await revealFromEdge("repeat");
 });
+
+// W29 (owner: "the tab bar only comes up after i press a button"): after ⌘S
+// with the pointer at the bar's edge, the bar settles under the pointer.
+// Pushing on toward the window edge is the way to ask for it back, and must
+// reveal it without first moving off and back.
+add_task(async function cmd_s_then_push_to_edge_reveals() {
+  await showSidebar();
+  const at = pointOnBar(3);
+  moveTo(at);
+  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "push: pointer on the bar");
+  assertSlidOutOnce(await closeAndWatch(), "push");
+  assertHidden("push");
+  moveTo({ x: 0, y: at.y });
+  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "push: pushing to the edge reveals the bar");
+  ok(!gZenCompactModeManager._ignoreNextHover, "push: hover works again");
+  moveTo(pointOnPage());
+  await TestUtils.waitForCondition(() => !sidebar().hasAttribute("zen-has-hover"), "push: bar hides again");
+});
+
+// The pointer leaves the window past the bar's edge (the window isn't at the
+// screen edge). That is the same request: the bar comes back, and hover works
+// when the pointer returns, instead of staying dead until another ⌘S.
+add_task(async function cmd_s_then_leave_window_reveals() {
+  await showSidebar();
+  const at = pointOnBar(3);
+  moveTo(at);
+  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "leave: pointer on the bar");
+  assertSlidOutOnce(await closeAndWatch(), "leave");
+  assertHidden("leave");
+  root.dispatchEvent(new MouseEvent("mouseleave", { clientX: -1, clientY: at.y }));
+  await TestUtils.waitForCondition(() => !gZenCompactModeManager._ignoreNextHover, "leave: the hold ends");
+  await TestUtils.waitForCondition(() => sidebar().hasAttribute("zen-has-hover"), "leave: the edge reveals the bar");
+  moveTo(pointOnPage());
+  await TestUtils.waitForCondition(() => !sidebar().hasAttribute("zen-has-hover"), "leave: bar hides again");
+});
