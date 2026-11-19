@@ -24,6 +24,10 @@ add_setup(async function () {
       ["whimsy.ai.off", ""],
       ["media.autoplay.default", 0],
       ["media.autoplay.blocking_policy", 0],
+      // A private window keeps media in memory only, and the test profile caps
+      // that at 256 KB per process: the page's three copies of the 243 KB
+      // video don't fit, and the last one to load fails to init its decoder.
+      ["media.memory_caches_combined_limit_kb", 4096],
     ],
   });
   registerCleanupFunction(async () => {
