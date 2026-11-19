@@ -1,6 +1,25 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1220",
+      "date": "2026-11-18",
+      "title": "A sidebar that stays put",
+      "improved": [
+        "Links from other apps follow your Space Routing rules before opening in Mini Whimsy or Glance.",
+        "Searching Routing in the command bar finds Air Traffic Control.",
+        "View Downloads in the command bar opens the Library on Downloads.",
+        "Video seek buttons use Picture-in-Picture's skip arrow, with 10 on it."
+      ],
+      "fixed": [
+        "After ⌘S, the sidebar stays hidden while your pointer rests at the edge; push to the edge or leave the window to bring it back.",
+        "Drafts keep and restore text typed into rich editors, like LinkedIn and X posts.",
+        "Analytics requests no longer count as a page saving what you typed, so drafts aren't thrown away.",
+        "GitHub live folders show new pull requests and issues, and Refresh always fetches.",
+        "Glance's side buttons stay readable in any space color.",
+        "Private tabs stay private after a focus session ends."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1191",
       "date": "2026-11-17",
       "title": "A way back from Expand",
