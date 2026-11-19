@@ -27,6 +27,8 @@ add_task(async function test_icons_contrast_in_any_space_color() {
   const container = document.createElement("div");
   container.className = "zen-glance-sidebar-container";
   const button = document.createXULElement("toolbarbutton");
+  // Glance eases its background; read the end value, not the start.
+  button.style.transition = "none";
   container.append(button);
   document.getElementById("browser").append(container);
   try {
