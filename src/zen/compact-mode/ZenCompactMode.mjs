@@ -600,12 +600,33 @@ window.gZenCompactModeManager = {
       this._whimsyHoldPoint = [event.clientX, event.clientY];
       const onBar =
         this.sidebar.contains(event.target) || splitter?.contains(event.target);
-      if (!this._ignoreNextHover || (hold.settled && moved && !onBar)) {
+      // Once the bar has settled, a move of a few pixels on it is a push
+      // toward the edge, asking for the bar back; a resting hand only
+      // jitters by a pixel.
+      hold.anchor ??= hold.settled ? this._whimsyHoldPoint : null;
+      const pushed =
+        !!hold.anchor &&
+        Math.max(
+          Math.abs(event.clientX - hold.anchor[0]),
+          Math.abs(event.clientY - hold.anchor[1])
+        ) >= 3;
+      if (!this._ignoreNextHover || (hold.settled && moved && (!onBar || pushed))) {
         this._whimsyEndHoverHold();
+        // Already on the bar, so no mouseover will reveal it.
+        if (onBar && pushed && this.preference) {
+          this._setElementExpandAttribute(this.sidebar, true);
+        }
       }
     };
     window.addEventListener("mousemove", onMove, options);
     window.addEventListener("mouseover", onMove, options);
+    // Leaving the window once the bar has settled ends the hold too, so the
+    // edge reveals the bar and hover works when the pointer comes back.
+    document.documentElement.addEventListener(
+      "mouseleave",
+      () => hold.settled && this._whimsyEndHoverHold(),
+      options
+    );
   },
 
   // Whimsy hotfix: once the bar has settled, keep ignoring hover only while
@@ -628,6 +649,7 @@ window.gZenCompactModeManager = {
       return;
     }
     hold.settled = true;
+    hold.anchor = this._whimsyHoldPoint;
   },
 
   _whimsyEndHoverHold() {
