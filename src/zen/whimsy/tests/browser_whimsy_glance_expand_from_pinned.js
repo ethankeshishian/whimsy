@@ -47,7 +47,11 @@ add_task(async function expand_from_pinned_tab_in_folder() {
   const folder = await gZenFolders.createFolder([parent], { renameFolder: false, label: "Work" });
   const tab = await expandFrom(parent);
   assertNormalTab(tab, "folder");
-  is(folder.tabs.length, 1, "folder: only the parent is in the folder");
+  Assert.deepEqual(
+    folder.tabs.filter(t => !t.hasAttribute("zen-empty-tab")),
+    [parent],
+    "folder: only the parent is in the folder"
+  );
   BrowserTestUtils.removeTab(tab);
   await folder.delete();
 });
