@@ -600,10 +600,10 @@ window.gZenCompactModeManager = {
       this._whimsyHoldPoint = [event.clientX, event.clientY];
       const onBar =
         this.sidebar.contains(event.target) || splitter?.contains(event.target);
-      // Once the bar has settled, a move of a few pixels on it is a push
-      // toward the edge, asking for the bar back; a resting hand only
-      // jitters by a pixel.
-      hold.anchor ??= hold.settled ? this._whimsyHoldPoint : null;
+      // Once the bar has settled, a move of a few pixels on it from where
+      // the pointer rested is a push toward the edge, asking for the bar
+      // back; a resting hand only jitters by a pixel.
+      hold.anchor ??= this._whimsyHoldPoint;
       const pushed =
         !!hold.anchor &&
         Math.max(
@@ -624,7 +624,12 @@ window.gZenCompactModeManager = {
     // edge reveals the bar and hover works when the pointer comes back.
     document.documentElement.addEventListener(
       "mouseleave",
-      () => hold.settled && this._whimsyEndHoverHold(),
+      // Captured mouseleaves of the bar's own elements, as it slides away
+      // from under the pointer, are not the pointer leaving the window.
+      event =>
+        hold.settled &&
+        event.target == document.documentElement &&
+        this._whimsyEndHoverHold(),
       options
     );
   },
@@ -649,7 +654,6 @@ window.gZenCompactModeManager = {
       return;
     }
     hold.settled = true;
-    hold.anchor = this._whimsyHoldPoint;
   },
 
   _whimsyEndHoverHold() {
