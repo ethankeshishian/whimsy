@@ -149,3 +149,23 @@ add_task(async function exact_before_history_and_tabs_in_real_queries() {
     await PlacesUtils.history.remove([url, "https://example.com/?cmdrank-tab"]);
   }
 });
+
+// Air Traffic Control… is Zen's Space Routing; searching "routing" finds it
+// (owner, W29).
+add_task(async function routing_finds_air_traffic_control() {
+  try {
+    await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, value: "routing" });
+    const labels = [];
+    for (let i = 0; i < UrlbarTestUtils.getResultCount(window); i++) {
+      const { result } = await UrlbarTestUtils.getDetailsOfResultAt(window, i);
+      if (result.payload.dynamicType == "zen-actions") {
+        labels.push(result.payload.title);
+      }
+    }
+    ok(labels.some(label => label.startsWith("Air Traffic Control")), `"routing" lists Air Traffic Control… (got ${labels.join(", ")})`);
+  } finally {
+    await UrlbarTestUtils.promisePopupClose(window, () => gURLBar.view.close());
+    gURLBar.searchMode = null;
+    gURLBar.blur();
+  }
+});
