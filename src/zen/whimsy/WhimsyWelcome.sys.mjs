@@ -138,6 +138,16 @@ export const WhimsyWelcome = {
         }
         result.splice(at + 1, 0, ...WhimsyAIOnboarding.pages(win, helpers));
       }
+      // W29: "Open Mini Whimsy from any app?" comes after the AI steps,
+      // right before Essentials.
+      const hotkey = this.hotkeyPage(helpers);
+      if (hotkey) {
+        let at = result.findIndex(page => page?.id == "essentials");
+        if (at < 0) {
+          at = result.findIndex(page => page?.id == "finish");
+        }
+        result.splice(at < 0 ? result.length : at, 0, hotkey);
+      }
       return result.length == pages.length ? pages : result;
     } catch (e) {
       console.error("Whimsy: onboarding", e);
@@ -249,6 +259,76 @@ export const WhimsyWelcome = {
         const checked = content.querySelector(`input[name="${group}"]:checked`);
         if (checked) {
           self.setFont(checked.value);
+        }
+      },
+    };
+  },
+
+  // W29 (owner, r3: "Opt space, enabled during onboarding"): offer the
+  // shortcut that opens Mini Whimsy from any app, Yes picked. ⌥Space, or
+  // ⌥⇧Space when another app holds ⌥Space; skipped when both are taken.
+  // Nothing registers until Next.
+  hotkeyPage({ createOption, kNextButton }) {
+    const { WhimsyGlobalHotKey, KEY_PREF, ENABLED_PREF, MOD, serializeShortcut } = ChromeUtils.importESModule(
+      "resource:///modules/whimsy/WhimsyGlobalHotKey.sys.mjs"
+    );
+    if (!WhimsyGlobalHotKey.supported) {
+      return null;
+    }
+    const PRIMARY = { code: "Space", modifiers: MOD.Alt };
+    const FALLBACK = { code: "Space", modifiers: MOD.Alt | MOD.Shift };
+    const group = "whimsy-welcome-hotkey";
+    let choice;
+    const pick = () => {
+      if (choice === undefined) {
+        choice = WhimsyGlobalHotKey.firstFree([PRIMARY, FALLBACK]);
+      }
+      return choice;
+    };
+    const fallback = () => pick() && pick().modifiers != PRIMARY.modifiers;
+    return {
+      id: "whimsy-global-hotkey",
+      title: "whimsy-welcome-hotkey-title",
+      get descriptions() {
+        return [fallback() ? "whimsy-welcome-hotkey-description-fallback" : "whimsy-welcome-hotkey-description"];
+      },
+      buttons: [kNextButton],
+      skip() {
+        return !pick();
+      },
+      render(content) {
+        const yes = createOption({
+          id: `${group}-yes`,
+          group,
+          l10n: fallback() ? "whimsy-welcome-hotkey-yes-fallback" : "whimsy-welcome-hotkey-yes",
+          checked: true,
+        });
+        yes.querySelector("input").value = "yes";
+        const no = createOption({ id: `${group}-no`, group, l10n: "whimsy-welcome-hotkey-no" });
+        no.querySelector("input").value = "no";
+        content.append(yes, no);
+        if (fallback()) {
+          const doc = content.ownerDocument;
+          const hint = doc.createElement("p");
+          hint.className = "whimsy-welcome-hotkey-taken";
+          doc.l10n.setAttributes(hint, "whimsy-welcome-hotkey-taken");
+          content.append(hint);
+        }
+      },
+      commit(content) {
+        const checked = content.querySelector(`input[name="${group}"]:checked`);
+        if (!checked) {
+          return;
+        }
+        if (checked.value == "yes" && pick()) {
+          if (fallback()) {
+            Services.prefs.setStringPref(KEY_PREF, serializeShortcut(pick()));
+          } else {
+            Services.prefs.clearUserPref(KEY_PREF);
+          }
+          Services.prefs.setBoolPref(ENABLED_PREF, true);
+        } else {
+          Services.prefs.setBoolPref(ENABLED_PREF, false);
         }
       },
     };

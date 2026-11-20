@@ -379,6 +379,8 @@ var gWhimsySettings = {
       // W28: Keep Window on Top needs the Cocoa widget's always-on-top
       // support, macOS only.
       "window-on-top": AppConstants.platform == "macosx",
+      // W29: a Carbon hot key, macOS only.
+      "global-hotkey": AppConstants.platform == "macosx",
     };
     for (const row of [...group.querySelectorAll("[data-whimsy-feature]")]) {
       const id = row.dataset.whimsyFeature;
@@ -403,8 +405,147 @@ var gWhimsySettings = {
       Preferences.queueUpdateOfAllElements();
     }
     this.initTransparency();
+    this.initGlobalHotKey();
     this.initUiFont();
     this.initIconPacks();
+  },
+
+  // W29: the shortcut field under "Open Mini Whimsy from any app". Click
+  // (or ticking the box with no shortcut yet) starts recording; Esc stops;
+  // the clear button forgets the shortcut but leaves the box ticked.
+  initGlobalHotKey() {
+    const field = document.getElementById("whimsyGlobalHotKeyField");
+    if (!field) {
+      return;
+    }
+    const box = document.getElementById("whimsyGlobalHotKey");
+    const error = document.getElementById("whimsyGlobalHotKeyError");
+    const { WhimsyGlobalHotKey, ENABLED_PREF, KEY_PREF, displayShortcut, serializeShortcut, shortcutFromEvent } =
+      ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyGlobalHotKey.sys.mjs");
+    let recording = false;
+
+    const showError = (id, args) => {
+      if (!id) {
+        error.hidden = true;
+        error.removeAttribute("data-l10n-id");
+        error.textContent = "";
+        return;
+      }
+      document.l10n.setAttributes(error, id, args);
+      error.hidden = false;
+    };
+    const render = () => {
+      const enabled = Services.prefs.getBoolPref(ENABLED_PREF, false);
+      const shortcut = WhimsyGlobalHotKey.shortcut;
+      field.classList.toggle("is-recording", recording);
+      field.classList.toggle("is-disabled", !enabled);
+      field.setAttribute("aria-disabled", String(!enabled));
+      field.tabIndex = enabled ? 0 : -1;
+      field.replaceChildren();
+      if (recording || !shortcut) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "whimsy-hotkey-placeholder";
+        document.l10n.setAttributes(
+          placeholder,
+          recording ? "whimsy-look-global-hotkey-recording" : "whimsy-look-global-hotkey-record"
+        );
+        field.append(placeholder);
+        if (recording) {
+          const caret = document.createElement("span");
+          caret.className = "whimsy-hotkey-caret";
+          field.append(caret);
+        }
+        return;
+      }
+      const keys = document.createElement("kbd");
+      keys.textContent = displayShortcut(shortcut);
+      const clear = document.createElement("button");
+      clear.className = "whimsy-hotkey-clear";
+      clear.disabled = !enabled;
+      document.l10n.setAttributes(clear, "whimsy-look-global-hotkey-clear");
+      clear.addEventListener("click", event => {
+        event.stopPropagation();
+        showError(null);
+        Services.prefs.setStringPref(KEY_PREF, "");
+        field.focus();
+      });
+      field.append(keys, clear);
+    };
+    const stop = () => {
+      if (!recording) {
+        return;
+      }
+      recording = false;
+      WhimsyGlobalHotKey.resume();
+      render();
+    };
+    const start = () => {
+      if (recording || !Services.prefs.getBoolPref(ENABLED_PREF, false)) {
+        return;
+      }
+      recording = true;
+      showError(null);
+      WhimsyGlobalHotKey.pause();
+      render();
+      field.focus();
+    };
+
+    field.addEventListener("click", start);
+    field.addEventListener("keydown", event => {
+      if (!recording) {
+        if (event.key == "Enter" || event.key == " ") {
+          event.preventDefault();
+          start();
+        }
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key == "Escape" && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+        stop();
+        return;
+      }
+      const shortcut = shortcutFromEvent(event);
+      if (!shortcut) {
+        return;
+      }
+      const keys = displayShortcut(shortcut);
+      const { result, feature } = WhimsyGlobalHotKey.check(shortcut);
+      if (result == "ok") {
+        showError(null);
+        recording = false;
+        Services.prefs.setStringPref(KEY_PREF, serializeShortcut(shortcut));
+        WhimsyGlobalHotKey.resume();
+        render();
+      } else if (result == "not-allowed") {
+        showError("whimsy-look-global-hotkey-not-allowed");
+      } else if (result == "system") {
+        showError("whimsy-look-global-hotkey-system", { keys, feature: feature || "other" });
+      } else {
+        showError(result == "taken" ? "whimsy-look-global-hotkey-taken" : "whimsy-look-global-hotkey-failed", {
+          keys,
+        });
+      }
+    });
+    field.addEventListener("blur", stop);
+    box?.addEventListener("command", () => {
+      // Ticking the box with no shortcut yet starts recording one.
+      if (box.checked && !WhimsyGlobalHotKey.shortcut) {
+        Services.tm.dispatchToMainThread(start);
+      } else if (!box.checked) {
+        showError(null);
+        stop();
+      }
+    });
+    const observer = () => render();
+    Services.prefs.addObserver(ENABLED_PREF, observer);
+    Services.prefs.addObserver(KEY_PREF, observer);
+    window.addEventListener("unload", () => {
+      Services.prefs.removeObserver(ENABLED_PREF, observer);
+      Services.prefs.removeObserver(KEY_PREF, observer);
+      stop();
+    });
+    render();
   },
 
   // The font list: the system's families, after "System Font".

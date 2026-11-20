@@ -9016,3 +9016,12 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
 .zen-glance-sidebar-container toolbarbutton:not([waitconfirmation]) {
   color: color-mix(in srgb, var(--zen-primary-color) 40%, light-dark(white, black)) !important;
 }
+
+/* W29: onboarding's "Open Mini Whimsy from any app?" says why it offers
+   ⌥⇧Space when another app holds ⌥Space. */
+#zen-welcome-pages .whimsy-welcome-hotkey-taken {
+  margin: 0;
+  max-width: 24rem;
+  font-size: 0.95rem;
+  color: var(--zen-welcome-text-secondary);
+}

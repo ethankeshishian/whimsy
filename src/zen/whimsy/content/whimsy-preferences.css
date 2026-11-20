@@ -1052,3 +1052,82 @@ mark.whimsy-search-mark {
     outline: 1px solid currentColor;
   }
 }
+
+/* W29: the shortcut that opens Mini Whimsy from any app, drawn as one
+   recorder field (about:keyboard's recorder, as a field). */
+#whimsyGlobalHotKeyFieldRow {
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.whimsy-hotkey-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  width: 170px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 6px;
+  background: light-dark(#fff, rgba(255, 255, 255, 0.06));
+  font-size: 12.5px;
+  cursor: pointer;
+
+  &:focus-visible,
+  &.is-recording {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 0;
+  }
+
+  &.is-disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  kbd {
+    font: inherit;
+  }
+
+  .whimsy-hotkey-placeholder {
+    color: var(--text-color-deemphasized);
+  }
+
+  .whimsy-hotkey-caret {
+    width: 1.5px;
+    height: 14px;
+    background: AccentColor;
+    animation: whimsy-hotkey-blink 1s steps(2) infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+
+  .whimsy-hotkey-clear {
+    appearance: none;
+    margin: 0;
+    margin-inline-start: auto;
+    min-width: 0;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: color-mix(in srgb, currentColor 14%, transparent) url("chrome://browser/skin/zen-icons/close.svg") center / 9px no-repeat;
+    -moz-context-properties: fill;
+    fill: currentColor;
+  }
+}
+
+@keyframes whimsy-hotkey-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.whimsy-hotkey-error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-color-error, light-dark(#d0342c, #ff848b));
+}

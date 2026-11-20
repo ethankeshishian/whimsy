@@ -1842,6 +1842,9 @@ FEATURES = [
      "detect": [("src/zen", r"(?i)print[\w.-]*clean[\w.-]*page")]},
     {"id": "menu-bar-extra", "title": "Menu bar extra (macOS): quick window and recent tabs",
      "detect": [("src/zen", r"(?i)menu[\w.-]*bar[\w.-]*extra|systemstatusbar")]},
+    # W29: a system-wide shortcut that opens Mini Whimsy from any app.
+    {"id": "global-hotkey", "title": "System-wide shortcut that opens Mini Whimsy from any app (macOS)",
+     "detect": [("src/zen", r"(?i)RegisterEventHotKey|global[\w.-]*hot[\w.-]*key")]},
     # batch11: live folders (Jira + Push refresh + RSS autodiscovery).
     {"id": "live-folders-jira", "title": "Jira live folder: assigned, unresolved issues as a self-updating folder",
      "detect": [("src/zen/live-folders", r"(?i)jira")]},
