@@ -152,30 +152,52 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
   isDark() {
     const win = this.contentWindow;
     const doc = this.document;
+    const root = doc.documentElement;
+    // What shows through where nothing paints a background: the canvas,
+    // which is dark when the page opts into dark with color-scheme (we've
+    // asked it for dark). Pages dark only this way read as light before.
+    const canvas = () => {
+      const scheme = `${win.getComputedStyle(root).colorScheme} ${
+        doc.querySelector("meta[name='color-scheme' i]")?.content || ""}`;
+      return /\bdark\b/.test(scheme) && !/\bonly\s+light\b/.test(scheme) ? 0 : 1;
+    };
     // Read authored computed colors: the paint-time boost deliberately
     // doesn't change them, so native-theme detection cannot double-darken.
     const background = el => {
-      let depth = 0;
-      for (let node = el; node && depth++ < 32; node = node.parentElement) {
+      for (let node = el; node; node = node.parentElement) {
         const light = luminance(win.getComputedStyle(node).backgroundColor);
         if (light != null) {
           return light;
         }
       }
-      return 1;
+      return canvas();
+    };
+    // A popup, menu or sticky bar floats over the page; it isn't the page.
+    // A light sign-in bubble over a dark page used to outvote the page and
+    // invert it to grey. A fixed layer that fills the viewport is the page.
+    const area = win.innerWidth * win.innerHeight;
+    const floating = el => {
+      for (let node = el; node && node != root; node = node.parentElement) {
+        const position = win.getComputedStyle(node).position;
+        if (position == "fixed" || position == "sticky") {
+          const rect = node.getBoundingClientRect();
+          return rect.width * rect.height < area * 0.9;
+        }
+      }
+      return false;
     };
     let dark = 0;
     let count = 0;
     for (const x of [0.2, 0.5, 0.8]) {
       for (const y of [0.15, 0.45, 0.75]) {
-        const el = doc.elementFromPoint(win.innerWidth * x, win.innerHeight * y);
+        const el = doc.elementsFromPoint(win.innerWidth * x, win.innerHeight * y).find(e => !floating(e));
         if (el) {
           dark += background(el) < 0.4 ? 1 : 0;
           count++;
         }
       }
     }
-    return count ? dark / count >= 0.6 : background(doc.body || doc.documentElement) < 0.4;
+    return count ? dark / count >= 0.6 : background(doc.body || root) < 0.4;
   }
 
   refresh() {
