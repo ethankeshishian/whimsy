@@ -61,9 +61,10 @@ function pick(content, id) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-// W23 connectors: the AI steps have their own test (browser_whimsy_ai_onboarding.js).
+// W23 connectors: the AI steps have their own test (browser_whimsy_ai_onboarding.js),
+// and so does the W29 shortcut step (browser_whimsy_global_hotkey.js).
 add_setup(async function () {
-  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-onboarding", false]] });
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-onboarding", false], ["whimsy.feature.global-hotkey", false]] });
 });
 
 add_task(async function test_hook_and_order() {
