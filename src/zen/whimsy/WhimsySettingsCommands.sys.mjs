@@ -398,6 +398,8 @@ export const SETTINGS = [
       value,
       l10nId: `whimsy-mini-archive-after-${value}`,
     })) },
+  { name: "global-hotkey", setting: "whimsyGlobalHotKey", pref: "whimsy.mini.global-hotkey.enabled",
+    feature: ["global-hotkey"], when: mac },
   { name: "glance-size", setting: "whimsyGlanceSize", pref: "whimsy.glance.size", feature: ["glance-size"],
     command: ["cmd_whimsyGlanceSize"] },
   { name: "peek-essential-links", setting: "whimsyPeekEssentialLinks", pref: "zen.glance.open-essential-external-links",

@@ -5043,6 +5043,7 @@ whimsy-setting-auto-archive = Auto-Archive Idle Tabs
 whimsy-setting-archive-idle-after = Archive Tabs After
     .keywords = auto archive time, idle time, 12 hours, 24 hours, 7 days, 30 days
 whimsy-setting-mini-archive-after = Archive Mini Windows After
+whimsy-setting-global-hotkey = Open Mini Whimsy from Any App
     .keywords = mini windows, little arc, auto archive time, cleanup, 6 hours, 12 hours, 24 hours, never
 whimsy-setting-form-protection = Unsaved Form Protection
     .keywords = forms, drafts, unsaved changes, protect tabs
