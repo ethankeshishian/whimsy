@@ -1,6 +1,21 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1242",
+      "date": "2026-11-20",
+      "title": "Links that open Whimsy",
+      "new": [
+        "whimsy:// links can switch Spaces, run a search, and run a short list of safe commands, so a note or another app can send you straight there."
+      ],
+      "improved": [
+        "Dark pages stay dark: Whimsy judges a page while it loads, when its address changes, and when it changes its own theme."
+      ],
+      "fixed": [
+        "A panel or expanded results opening over a page no longer flips it between light and dark.",
+        "Renaming a tab no longer shows a toast."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1231",
       "date": "2026-11-19",
       "title": "Mini Whimsy from any app",
