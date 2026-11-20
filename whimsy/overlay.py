@@ -79,6 +79,14 @@ HOOKS = [
 
 HOTFIXES = [
     {
+        "id": "quiet-tab-rename",
+        "file": "src/zen/tabs/ZenTabRenamer.mjs",
+        "why": "Owner (W29): no \"Tab has been successfully renamed!\" toast; the new name is the feedback.",
+        "old": "        gBrowser._setTabLabel(edited, newName, { _zenChangeLabelFlag: true });\n        gZenUIManager.showToast(\"zen-tabs-renamed\");\n",
+        "new": "        gBrowser._setTabLabel(edited, newName, { _zenChangeLabelFlag: true });\n"
+               "        // Whimsy: no rename toast; the new name is the feedback.\n",
+    },
+    {
         "id": "command-bar-extension-visibility",
         "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
         "why": "Extension actions must use the toolbar's current-space visibility rule.",

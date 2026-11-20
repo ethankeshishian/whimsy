@@ -176,7 +176,7 @@ class nsZenTabRenamer extends nsZenDOMOperatedFeature {
       if (hasChanged || (edited.zenStaticLabel && newName)) {
         edited.zenStaticLabel = newName;
         gBrowser._setTabLabel(edited, newName, { _zenChangeLabelFlag: true });
-        gZenUIManager.showToast("zen-tabs-renamed");
+        // Whimsy: no rename toast; the new name is the feedback.
       } else {
         delete edited.zenStaticLabel;
         gBrowser.setTabTitle(edited);
