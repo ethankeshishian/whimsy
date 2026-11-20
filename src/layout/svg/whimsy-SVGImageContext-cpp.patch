@@ -1,0 +1,65 @@
+diff --git a/layout/svg/SVGImageContext.cpp b/layout/svg/SVGImageContext.cpp
+--- a/layout/svg/SVGImageContext.cpp
++++ b/layout/svg/SVGImageContext.cpp
+@@ -13,9 +13,11 @@
+ #include "mozilla/dom/BrowsingContext.h"
+ #include "mozilla/dom/Document.h"
+ #include "nsIFrame.h"
++#include "nsGkAtoms.h"
+ #include "nsISVGPaintContext.h"
+ #include "nsPresContext.h"
+ #include "nsStyleStruct.h"
++#include "nsUnicodeProperties.h"
+ 
+ namespace mozilla {
+ 
+@@ -32,12 +34,47 @@
+   }
+ }
+ 
++// Whimsy: an <img> whose alt text is an emoji is a picture of a colour
++// glyph (how many sites draw emoji in text), not an icon. Automatic Dark Mode
++// and Boosts leave its colours alone, as they do for system emoji text.
++static bool WhimsyIsEmojiImage(const nsIContent* aContent) {
++  if (!aContent || !aContent->IsHTMLElement(nsGkAtoms::img)) {
++    return false;
++  }
++  nsAutoString alt;
++  if (!aContent->AsElement()->GetAttr(nsGkAtoms::alt, alt) || alt.IsEmpty() ||
++      alt.Length() > 64) {
++    return false;
++  }
++  bool emoji = false;
++  for (uint32_t i = 0; i < alt.Length(); i++) {
++    uint32_t ch = alt[i];
++    if (NS_IS_HIGH_SURROGATE(ch) && i + 1 < alt.Length() &&
++        NS_IS_LOW_SURROGATE(alt[i + 1])) {
++      ch = SURROGATE_TO_UCS4(ch, alt[++i]);
++    }
++    const auto presentation = unicode::GetEmojiPresentation(ch);
++    if (ch == unicode::kVariationSelector16 ||
++        presentation == unicode::EmojiDefault) {
++      emoji = true;
++    } else if (presentation == unicode::TextOnly && ch != 0x200D &&
++               ch != unicode::kVariationSelector15 && ch != 0x20E3 &&
++               (ch < 0xE0020 || ch > 0xE007F)) {
++      return false;
++    }
++  }
++  return emoji;
++}
++
+ /* static */
+ void SVGImageContext::MaybeStoreContextPaint(SVGImageContext& aContext,
+                                              nsIFrame* aFromFrame,
+                                              imgIContainer* aImgContainer) {
+-  return MaybeStoreContextPaint(aContext, *aFromFrame->PresContext(),
+-                                *aFromFrame->Style(), aImgContainer);
++  MaybeStoreContextPaint(aContext, *aFromFrame->PresContext(),
++                         *aFromFrame->Style(), aImgContainer);
++  if (WhimsyIsEmojiImage(aFromFrame->GetContent())) {
++    aContext.SetZenBoosts(0, 0.0f, false);
++  }
+ }
+ 
+ /* static */
