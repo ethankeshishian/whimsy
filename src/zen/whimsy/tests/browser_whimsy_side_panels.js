@@ -260,7 +260,8 @@ addPanelTask(async function chat_as_popover_toggle() {
   await TestUtils.waitForCondition(() => !chat().isOpen, "A site in the popover closes chat");
   await pressCmdE();
   await hidden(ess, "Chat in the popover hides the site");
-  EventUtils.synthesizeMouse(home.linkedBrowser, home.linkedBrowser.getBoundingClientRect().width - 40, 200, {});
+  // Chat docks right by default, so click the page's left side.
+  EventUtils.synthesizeMouse(home.linkedBrowser, 40, 200, {});
   await TestUtils.waitForCondition(() => !chat().isOpen, "A page click closes chat in the popover");
   await settleChat();
 
