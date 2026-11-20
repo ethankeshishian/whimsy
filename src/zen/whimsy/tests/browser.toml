@@ -264,6 +264,9 @@ support-files = ["whimsy_article.html"]
 ["browser_whimsy_bionic_reading.js"]
 support-files = ["whimsy_article.html"]
 
+["browser_whimsy_global_hotkey.js"]
+run-if = ["os == 'mac'"]
+
 ["browser_whimsy_menu_bar_extra.js"]
 run-if = ["os == 'mac'"]
 

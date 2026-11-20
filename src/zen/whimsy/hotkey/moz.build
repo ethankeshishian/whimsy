@@ -1,0 +1,30 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# W29: the system-wide shortcut that opens Mini Whimsy from any app
+# (RegisterEventHotKey, Carbon). Only built on macOS (see ../moz.build).
+
+XPIDL_SOURCES += [
+    "nsIWhimsyGlobalHotKey.idl",
+]
+
+XPIDL_MODULE = "whimsy_hotkey"
+
+EXPORTS.mozilla += [
+    "nsWhimsyGlobalHotKey.h",
+]
+
+SOURCES += [
+    "nsWhimsyGlobalHotKey.mm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+OS_LIBS += [
+    "-framework Carbon",
+]
+
+FINAL_LIBRARY = "xul"

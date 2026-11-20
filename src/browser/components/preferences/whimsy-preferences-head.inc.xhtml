@@ -139,6 +139,20 @@
     <!-- batch13: menu bar extra -->
     <checkbox id="whimsyMenuBarExtra" data-whimsy-feature="menu-bar-extra"
               data-l10n-id="whimsy-look-menu-bar-extra" preference="whimsy.menu-bar-extra.show"/>
+    <!-- W29: the shortcut that opens Mini Whimsy from any app (macOS).
+         gWhimsySettings.initGlobalHotKey fills the field. -->
+    <vbox id="whimsyGlobalHotKeyRow" data-whimsy-feature="global-hotkey">
+      <checkbox id="whimsyGlobalHotKey" data-l10n-id="whimsy-look-global-hotkey"
+                preference="whimsy.mini.global-hotkey.enabled" aria-describedby="whimsyGlobalHotKeyDescription"/>
+      <description id="whimsyGlobalHotKeyDescription" class="description-deemphasized indent"
+                   data-l10n-id="whimsy-look-global-hotkey-description"/>
+      <hbox id="whimsyGlobalHotKeyFieldRow" class="indent" align="center">
+        <label id="whimsyGlobalHotKeyLabel" data-l10n-id="whimsy-look-global-hotkey-field"/>
+        <html:div id="whimsyGlobalHotKeyField" class="whimsy-hotkey-field" role="button" tabindex="0"
+                  aria-labelledby="whimsyGlobalHotKeyLabel whimsyGlobalHotKeyField"/>
+      </hbox>
+      <html:p id="whimsyGlobalHotKeyError" class="whimsy-hotkey-error indent" role="alert" hidden="hidden"/>
+    </vbox>
     <!-- batch7: seasonal themes -->
     <!-- wave7/season: one switch for every seasonal touch, now described -->
     <vbox id="whimsySeasonalThemesRow" data-whimsy-feature="seasonal-themes">

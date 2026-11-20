@@ -1,0 +1,51 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * @brief One system-wide shortcut (a Carbon hot key) that works while any
+ * app is in front and needs no Accessibility permission. Pressing it
+ * notifies the "whimsy-global-hotkey" observer topic on the main thread.
+ * Only Mini Whimsy's "Open Mini Whimsy from any app" setting uses it.
+ */
+[scriptable, uuid(96a88229-ee8b-409c-97e0-874ce1166437)]
+interface nsIWhimsyGlobalHotKey : nsISupports {
+  /**
+   * @brief Registers the shortcut, replacing the one registered before.
+   * @param code The key, as a KeyboardEvent.code ("Space", "KeyK", "F5").
+   * @param modifiers A mask of 1 (⌘), 2 (⇧), 4 (⌥) and 8 (⌃).
+   * @return "ok", "taken" (another app holds it; the old one stays),
+   *         "invalid" (a key this can't register; the old one stays) or
+   *         "failed".
+   */
+  ACString register(in ACString code, in unsigned long modifiers);
+
+  /** @brief Unregisters the shortcut, if one is registered. */
+  void unregister();
+
+  readonly attribute boolean registered;
+
+  /**
+   * @brief macOS's own shortcuts the user has set (Spotlight, input
+   * sources, Mission Control and the like), as a JSON array of
+   * { id, code, modifiers, enabled }, read from com.apple.symbolichotkeys.
+   * `id` is macOS's number for the action. Entries macOS has never
+   * written are missing; callers add macOS's defaults for those.
+   */
+  readonly attribute AUTF8String systemHotKeys;
+
+  /**
+   * @brief Brings Whimsy forward without its other windows (only the key
+   * window comes along), remembering the app that was in front so
+   * restorePreviousApp() can give focus back to it.
+   */
+  void activate();
+
+  /**
+   * @brief Gives focus back to the app activate() found in front, when
+   * that was another app. Does nothing otherwise.
+   */
+  void restorePreviousApp();
+};

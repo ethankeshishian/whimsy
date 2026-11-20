@@ -242,6 +242,16 @@
 - name: whimsy.menu-bar-extra.show
   value: true
 
+# W29: open Mini Whimsy's command bar from any app with one system-wide
+# shortcut (Settings → Look and Feel → Mini Whimsy, macOS only). Off until
+# turned on; onboarding offers it, on by default. The shortcut is
+# modifiers then a KeyboardEvent.code, joined with "+" ("Alt+Space").
+- name: whimsy.mini.global-hotkey.enabled
+  value: false
+
+- name: whimsy.mini.global-hotkey
+  value: "Alt+Space"
+
 # Bionic reading in Reader View (its own toolbar toggle button): bolds the
 # leading letters of each word. Opt-in, off by default — some readers find
 # it faster, others find it distracting.

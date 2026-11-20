@@ -243,6 +243,9 @@
 - name: whimsy.feature.menu-bar-extra
   value: true
 
+- name: whimsy.feature.global-hotkey
+  value: true
+
 - name: whimsy.feature.live-folders-jira
   value: true
 

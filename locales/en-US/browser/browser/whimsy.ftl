@@ -896,6 +896,33 @@ whimsy-menu-bar-extra-no-recent-tabs =
 
 whimsy-look-menu-bar-extra =
     .label = Show a menu bar icon for Mini Whimsy and recent tabs
+
+## Settings → Look and Feel → Look: the shortcut that opens Mini Whimsy from any app (W29)
+## Variables:
+##   $keys (String) - the shortcut, in Apple's symbols, like "⌥Space"
+##   $feature (String) - which macOS feature uses it: spotlight, finder-search, input-sources, mission-control, screenshots, or other
+
+whimsy-look-global-hotkey =
+    .label = Open Mini Whimsy from any app
+whimsy-look-global-hotkey-description = Press the shortcut in any app to open Mini Whimsy’s command bar.
+whimsy-look-global-hotkey-field = Shortcut
+whimsy-look-global-hotkey-record = Record Shortcut
+whimsy-look-global-hotkey-recording = Press a shortcut
+whimsy-look-global-hotkey-clear =
+    .aria-label = Clear
+    .title = Clear
+whimsy-look-global-hotkey-not-allowed = Key cannot be used. Include ⌘, ⌃, or ⌥.
+whimsy-look-global-hotkey-system =
+    { $feature ->
+        [spotlight] macOS uses { $keys } for Spotlight. Pick another shortcut.
+        [finder-search] macOS uses { $keys } for Finder search. Pick another shortcut.
+        [input-sources] macOS uses { $keys } for Input Sources. Pick another shortcut.
+        [mission-control] macOS uses { $keys } for Mission Control. Pick another shortcut.
+        [screenshots] macOS uses { $keys } for screenshots. Pick another shortcut.
+       *[other] macOS uses { $keys }. Pick another shortcut.
+    }
+whimsy-look-global-hotkey-taken = Another app is using { $keys }. Pick another shortcut, or change it in that app.
+whimsy-look-global-hotkey-failed = Key cannot be used. Pick another shortcut.
 ## batch7: Settings → Look and Feel → Look
 
 whimsy-look-seasonal-themes =
@@ -1568,6 +1595,16 @@ whimsy-welcome-transparency-glassy = <strong>A LOT</strong>, make it glassy.
 whimsy-welcome-font-title = Pick your interface font.
 whimsy-welcome-font-description = Tabs, menus and the address bar use it. Websites keep their own fonts. You can always change it later.
 whimsy-welcome-font-system = System font
+
+## Onboarding: the shortcut that opens Mini Whimsy from any app (W29)
+
+whimsy-welcome-hotkey-title = Open Mini Whimsy from any app?
+whimsy-welcome-hotkey-description = Press ⌥Space in any app to open Mini Whimsy’s command bar. You can always change this later.
+whimsy-welcome-hotkey-description-fallback = Press ⌥⇧Space in any app to open Mini Whimsy’s command bar. You can always change this later.
+whimsy-welcome-hotkey-yes = <strong>YES</strong>, use ⌥Space.
+whimsy-welcome-hotkey-yes-fallback = <strong>YES</strong>, use ⌥⇧Space.
+whimsy-welcome-hotkey-no = <strong>NO</strong>, I’ll set it up later.
+whimsy-welcome-hotkey-taken = Another app is using ⌥Space.
 
 ## wave3/icons: skin tone button beside the emoji search in the icon picker
 

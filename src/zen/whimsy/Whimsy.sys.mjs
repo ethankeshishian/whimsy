@@ -83,6 +83,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   // batch13: page & reading
   WhimsyBionicReading: "resource:///modules/whimsy/WhimsyBionicReading.sys.mjs",
   WhimsyMenuBarExtra: "resource:///modules/whimsy/WhimsyMenuBarExtra.sys.mjs",
+  WhimsyGlobalHotKey: "resource:///modules/whimsy/WhimsyGlobalHotKey.sys.mjs",
   WhimsyPrintClean: "resource:///modules/whimsy/WhimsyPrintClean.sys.mjs",
   WhimsySplitFavorites: "resource:///modules/whimsy/WhimsySplitFavorites.sys.mjs",
   // batch7: new feature modules
@@ -973,6 +974,8 @@ export const Whimsy = {
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
     later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
+    // W29: the shortcut that opens Mini Whimsy from any app (macOS).
+    later("global-hotkey", () => lazy.WhimsyGlobalHotKey.init());
     run("bionic-reading", () => lazy.WhimsyBionicReading.init());
     later("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
     run("split-favorites", () => lazy.WhimsySplitFavorites.initWindow(win));

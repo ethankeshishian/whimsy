@@ -821,6 +821,16 @@
       "command": null
     },
     {
+      "id": "global-hotkey",
+      "name": "Global Hotkey",
+      "text": "System-wide shortcut that opens Mini Whimsy from any app (macOS)",
+      "section": "Keyboard",
+      "pref": "whimsy.feature.global-hotkey",
+      "pane": null,
+      "paneId": null,
+      "command": null
+    },
+    {
       "id": "live-folders-jira",
       "name": "Live Folders Jira",
       "text": "Jira live folder: assigned, unresolved issues as a self-updating folder",
