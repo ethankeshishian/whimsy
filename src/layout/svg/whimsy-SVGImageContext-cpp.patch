@@ -1,7 +1,11 @@
 diff --git a/layout/svg/SVGImageContext.cpp b/layout/svg/SVGImageContext.cpp
 --- a/layout/svg/SVGImageContext.cpp
 +++ b/layout/svg/SVGImageContext.cpp
-@@ -13,9 +13,11 @@
+@@ -10,12 +10,15 @@
+ #include "mozilla/LookAndFeel.h"
+ #include "mozilla/ServoCSSParser.h"
+ #include "mozilla/StaticPrefs_svg.h"
++#include "mozilla/Utf16.h"
  #include "mozilla/dom/BrowsingContext.h"
  #include "mozilla/dom/Document.h"
  #include "nsIFrame.h"
@@ -13,7 +17,7 @@ diff --git a/layout/svg/SVGImageContext.cpp b/layout/svg/SVGImageContext.cpp
  
  namespace mozilla {
  
-@@ -32,12 +34,47 @@
+@@ -32,12 +35,47 @@
    }
  }
  
@@ -32,9 +36,9 @@ diff --git a/layout/svg/SVGImageContext.cpp b/layout/svg/SVGImageContext.cpp
 +  bool emoji = false;
 +  for (uint32_t i = 0; i < alt.Length(); i++) {
 +    uint32_t ch = alt[i];
-+    if (NS_IS_HIGH_SURROGATE(ch) && i + 1 < alt.Length() &&
-+        NS_IS_LOW_SURROGATE(alt[i + 1])) {
-+      ch = SURROGATE_TO_UCS4(ch, alt[++i]);
++    if (IsHighSurrogate(ch) && i + 1 < alt.Length() &&
++        IsLowSurrogate(alt[i + 1])) {
++      ch = SurrogateToUCS4(ch, alt[++i]);
 +    }
 +    const auto presentation = unicode::GetEmojiPresentation(ch);
 +    if (ch == unicode::kVariationSelector16 ||
