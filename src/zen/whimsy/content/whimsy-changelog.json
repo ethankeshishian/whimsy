@@ -1,6 +1,17 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1226",
+      "date": "2026-11-19",
+      "title": "Dark pages that stay dark",
+      "fixed": [
+        "Expanding a Glance opened from a pinned tab, a folder, or an Essential gives a normal tab in the current space.",
+        "Auto dark mode leaves dark sites dark when a light popup, like a search box's suggestions, is open.",
+        "Sites that are dark through their own color scheme aren't turned grey.",
+        "Emoji drawn as images keep their colours in auto dark mode."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1220",
       "date": "2026-11-18",
       "title": "A sidebar that stays put",
