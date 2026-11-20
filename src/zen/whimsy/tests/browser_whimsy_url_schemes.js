@@ -5,6 +5,9 @@
 "use strict";
 
 const { WhimsyProtocol } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProtocol.sys.mjs");
+const { SearchTestUtils } = ChromeUtils.importESModule("resource://testing-common/SearchTestUtils.sys.mjs");
+
+SearchTestUtils.init(this);
 
 add_task(function test_route_table() {
   is(WhimsyProtocol.route("whimsy://settings").url, "about:preferences", "settings routes to preferences");
@@ -95,8 +98,81 @@ add_task(function test_link_routes_are_strict() {
     "whimsy://new-tab?url=https://example.com/&space=Work",
     "whimsy://delete?url=https://example.com/",
     "whimsy://open",
+    // W29: space, search and command.
+    "whimsy://space",
+    "whimsy://space?name=",
+    "whimsy://space?name=Work&name=Home",
+    "whimsy://space?name=Work&url=https://example.com/",
+    "whimsy://search?q=",
+    "whimsy://search?q=%20%20",
+    "whimsy://search?q=a&q=b",
+    `whimsy://search?q=${"a".repeat(2049)}`,
+    "whimsy://search?q=cats&url=https://example.com/",
+    "whimsy://command?id=close-all",
+    "whimsy://command?id=toString",
+    "whimsy://command?id=__proto__",
+    "whimsy://command?id=new-easel&id=new-note",
+    "whimsy://command?id=new-easel&space=Work",
   ]) {
     is(WhimsyProtocol.linkRoute(uri), null, `Rejected: ${uri}`);
+  }
+  const space = WhimsyProtocol.linkRoute("whimsy://space?name=My%20Work");
+  is(space.action, "space", "space action");
+  is(space.space, "My Work", "Space name decoded");
+  const search = WhimsyProtocol.linkRoute("whimsy://search?q=%20best%20ramen%20&space=Home");
+  is(search.query, "best ramen", "Query trimmed and decoded");
+  is(search.space, "Home", "Search keeps its space");
+  is(WhimsyProtocol.linkRoute("whimsy://command?id=new-easel").command, "cmd_whimsyNewEasel", "Allowed command");
+});
+
+// W29: whimsy://space, whimsy://search and whimsy://command from other apps.
+add_task(async function test_space_search_and_command_links() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.external-links.target", "tab"]] });
+  const active = gZenWorkspaces.getActiveWorkspace();
+  const other = await gZenWorkspaces.createAndSaveWorkspace("Whimsy link test space");
+  try {
+    ok(await WhimsyProtocol.openExternal("whimsy://space?name=Whimsy%20link%20test%20space"), "A space link opens");
+    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == other.uuid, "It switched to that space");
+    ok(!(await WhimsyProtocol.openExternal("whimsy://space?name=No%20such%20space")), "An unknown space does nothing");
+    is(gZenWorkspaces.activeWorkspace, other.uuid, "And stays put");
+
+    // A local default engine: tests can't reach the real ones.
+    await SearchTestUtils.installSearchExtension(
+      { name: "Whimsy Link Search", search_url: "https://example.com/link-search", search_url_get_params: "q={searchTerms}" },
+      { setAsDefault: true }
+    );
+    const { SearchService } = ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs");
+    const engine = SearchService.defaultEngine;
+    is(engine.name, "Whimsy Link Search", "The test engine is the default");
+    const expected = engine.getSubmission("whimsy ramen").uri.spec;
+    const searched = BrowserTestUtils.waitForNewTab(gBrowser, expected);
+    ok(
+      await WhimsyProtocol.openExternal(`whimsy://search?q=whimsy%20ramen&space=${encodeURIComponent(active.name)}`),
+      "A search link opens"
+    );
+    const tab = await searched;
+    is(tab.getAttribute("zen-workspace-id"), active.uuid, "In the named space, with the default engine");
+    is(gBrowser.selectedTab, tab, "And selected");
+    BrowserTestUtils.removeTab(tab);
+
+    const tabs = gBrowser.tabs.length;
+    ok(!(await WhimsyProtocol.openExternal("whimsy://command?id=close-all")), "A command off the list does nothing");
+    is(gBrowser.tabs.length, tabs, "Nothing closed");
+    const command = document.getElementById("cmd_zenToggleSidebar");
+    let ran = 0;
+    const onCommand = () => ran++;
+    command.addEventListener("command", onCommand);
+    try {
+      ok(await WhimsyProtocol.openExternal("whimsy://command?id=toggle-sidebar"), "An allowed command runs");
+      is(ran, 1, "Exactly once");
+      ok(await WhimsyProtocol.openExternal("whimsy://command?id=toggle-sidebar"), "And again, back as it was");
+    } finally {
+      command.removeEventListener("command", onCommand);
+    }
+  } finally {
+    await gZenWorkspaces.changeWorkspaceWithID(active.uuid);
+    await gZenWorkspaces.removeWorkspace(other.uuid);
+    await SpecialPowers.popPrefEnv();
   }
 });
 
