@@ -5,6 +5,9 @@
 "use strict";
 
 const { WhimsyProtocol } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyProtocol.sys.mjs");
+const { SearchTestUtils } = ChromeUtils.importESModule("resource://testing-common/SearchTestUtils.sys.mjs");
+
+SearchTestUtils.init(this);
 
 add_task(function test_route_table() {
   is(WhimsyProtocol.route("whimsy://settings").url, "about:preferences", "settings routes to preferences");
@@ -133,9 +136,14 @@ add_task(async function test_space_search_and_command_links() {
     ok(!(await WhimsyProtocol.openExternal("whimsy://space?name=No%20such%20space")), "An unknown space does nothing");
     is(gZenWorkspaces.activeWorkspace, other.uuid, "And stays put");
 
+    // A local default engine: tests can't reach the real ones.
+    await SearchTestUtils.installSearchExtension(
+      { name: "Whimsy Link Search", search_url: "https://example.com/link-search", search_url_get_params: "q={searchTerms}" },
+      { setAsDefault: true }
+    );
     const { SearchService } = ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs");
-    await SearchService.init();
     const engine = SearchService.defaultEngine;
+    is(engine.name, "Whimsy Link Search", "The test engine is the default");
     const expected = engine.getSubmission("whimsy ramen").uri.spec;
     const searched = BrowserTestUtils.waitForNewTab(gBrowser, expected);
     ok(
