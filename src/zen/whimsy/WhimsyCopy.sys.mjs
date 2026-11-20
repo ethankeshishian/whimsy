@@ -8,9 +8,10 @@
 // button all:
 // - copy every selected tab when several are multi-selected (one URL per
 //   line, or a Markdown list);
-// - put a titled link (text/html) next to the plain URL, so pasting into
-//   Docs, Slack or Notion gives the page title as a link, and plain-text
-//   fields still get the bare URL (Arc's "Copy Link");
+// - copy the bare, clean URL and nothing else, so it pastes the same in
+//   Docs, Slack, Notion and plain-text fields (W30, owner: "it pastes funny
+//   sometimes instead of just the raw clean link"; a titled text/html link
+//   used to ride along);
 // - show a toast with the URL or the number of links copied.
 // It also adds "Copy Link"/"Copy Links" to the tab context menu. Tracking
 // parameters are stripped the way Zen's copy does (Firefox's Copy Clean Link
@@ -301,8 +302,7 @@ export const WhimsyCopy = {
     return spec;
   },
 
-  // The clipboard contents for some links: plain text (URLs, or Markdown) and,
-  // for the plain variant, titled HTML links for rich-text editors.
+  // The clipboard contents for some links: plain text only (URLs, or Markdown).
   format(links, { markdown }) {
     const title = link => link.title?.trim() || link.url;
     if (markdown) {
@@ -311,11 +311,7 @@ export const WhimsyCopy = {
         text: links.length == 1 ? md(links[0]) : links.map(l => `- ${md(l)}`).join("\n"),
       };
     }
-    const a = link => `<a href="${escapeHTML(link.url)}">${escapeHTML(title(link))}</a>`;
-    return {
-      text: links.map(l => l.url).join("\n"),
-      html: links.length == 1 ? a(links[0]) : `<ul>${links.map(l => `<li>${a(l)}</li>`).join("")}</ul>`,
-    };
+    return { text: links.map(l => l.url).join("\n") };
   },
 
   // The transferable takes its private flag from the load context it's

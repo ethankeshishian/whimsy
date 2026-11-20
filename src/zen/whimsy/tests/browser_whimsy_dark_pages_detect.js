@@ -66,6 +66,33 @@ add_task(async function settled_page_keeps_its_mode() {
   });
 });
 
+// W30 (owner: "the figma bug ... is still there"). FigJam rewrites its
+// query on every click and apps toggle classes on <body> as a popup opens:
+// neither is a new page or a new theme, so the page keeps its mode. A new
+// path is a new page and is judged again.
+add_task(async function popup_with_query_rewrite_keeps_its_mode() {
+  const url = page(`<style>body { margin: 0; font: 16px system-ui; } main { height: 3000px; }
+    #picker { position: absolute; inset: 0 0 auto 0; height: 2000px; background: #111; color: #eee; display: none; }
+    body.dark-board { background: #1e1e1e; }</style>
+    <main>Board</main><div id="picker">Colours</div>`);
+  await BrowserTestUtils.withNewTab(url, async browser => {
+    await darkState(browser, "generated");
+    await SpecialPowers.spawn(browser, [], () => new Promise(r => content.setTimeout(r, 3500)));
+    await SpecialPowers.spawn(browser, [], () => {
+      const doc = content.document;
+      content.history.replaceState(null, "", content.location.href + "&node-id=1-2");
+      doc.getElementById("picker").style.display = "block";
+      doc.body.classList.add("popup-open");
+    });
+    await stillAfterAFrame(browser, "generated");
+    await SpecialPowers.spawn(browser, [], () => { content.document.body.classList.remove("popup-open"); });
+    await stillAfterAFrame(browser, "generated");
+    // A new path with the picker still covering it: judged again.
+    await SpecialPowers.spawn(browser, [], () => { content.history.pushState(null, "", "/other-board"); content.document.body.classList.add("x"); });
+    await darkState(browser, "native");
+  });
+});
+
 add_task(async function dark_only_through_color_scheme() {
   for (const html of [`<meta name="color-scheme" content="dark light"><p id="p">Hello</p>`,
                       `<style>:root { color-scheme: dark; }</style><p id="p">Hello</p>`]) {

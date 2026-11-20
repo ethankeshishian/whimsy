@@ -103,9 +103,9 @@ add_task(async function test_single_tab_rich_link() {
   await clearClipboard();
   command("cmd_zenCopyCurrentURL");
   await waitForClipboard(PAGE_2, "Plain URL copied");
-  const html = clipboard("text/html");
-  ok(html.includes(`href="${PAGE_2}"`), "The HTML flavor links to the page");
-  ok(html.includes(`>${gBrowser.selectedTab.label}</a>`), "with the tab title as link text");
+  // W30 (owner: "it pastes funny sometimes instead of just the raw clean
+  // link"): only the URL, so rich editors paste it as is too.
+  ok(!clipboard("text/html"), "No titled HTML link beside the URL");
   const toast = await TestUtils.waitForCondition(() => toastLabel("whimsy-copy-toast"), "A toast confirms");
   is(toast.querySelector(".whimsy-copy-url")?.getAttribute("value"), PAGE_2, "The toast shows the URL");
   const modifiers = AppConstants.platform == "macosx" ? { metaKey: true, shiftKey: true } : { ctrlKey: true, shiftKey: true };
@@ -132,8 +132,7 @@ add_task(async function test_multiple_selected_tabs() {
   await clearClipboard();
   command("cmd_zenCopyCurrentURL");
   await waitForClipboard(selectedURLs(), "Both URLs, one per line, in tab order");
-  const html = clipboard("text/html");
-  is((html.match(/<li><a href=/g) || []).length, 2, "Both as an HTML list of titled links");
+  ok(!clipboard("text/html"), "Plain URLs only");
   const toast = await TestUtils.waitForCondition(() => toastLabel("whimsy-copy-toast"));
   const label = toast.querySelector("label");
   Assert.deepEqual(document.l10n.getAttributes(label).args, { count: 2, stripped: "no" }, "The toast counts the links");
@@ -162,12 +161,8 @@ add_task(async function test_format_edge_cases() {
   const md = WhimsyCopy.format([{ url: "https://a.test/", title: "A [b] c" }], { markdown: true });
   is(md.text, "[A \\[b\\] c](https://a.test/)", "Brackets in titles are escaped for Markdown");
   ok(!("html" in md), "Markdown is plain text only");
-  const rich = WhimsyCopy.format([{ url: "https://a.test/?x=1&y=<2>", title: "" }], { markdown: false });
-  is(
-    rich.html,
-    '<a href="https://a.test/?x=1&amp;y=&lt;2&gt;">https://a.test/?x=1&amp;y=&lt;2&gt;</a>',
-    "HTML is escaped, and an untitled page uses its URL as text"
-  );
+  const plain = WhimsyCopy.format([{ url: "https://a.test/?x=1", title: "A" }], { markdown: false });
+  Assert.deepEqual(plain, { text: "https://a.test/?x=1" }, "Copy URL is the bare URL only");
   is(WhimsyCopy.linksFor([]).length, 0, "No tabs, no links");
 });
 

@@ -56,7 +56,7 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
         // A slow page's own load restarts the settling time.
         this.settle();
         this.schedule();
-      } else if (this.settling && (!event.type.startsWith("Style") || event.stylesheet?.ownerNode || event.rule?.parentStyleSheet?.ownerNode)) {
+      } else if (!event.type.startsWith("Style") || event.stylesheet?.ownerNode || event.rule?.parentStyleSheet?.ownerNode) {
         this.schedule();
       }
     }
@@ -219,6 +219,7 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
     this.sheet("canvas", state == "generated" ? CANVAS : null);
     this.sheet("dim", this._dim && state != "original" ? "@media screen { img, video { filter: brightness(.8) !important; } }" : null);
     this.document.documentElement.setAttribute("data-whimsy-dark-page", state);
+    this._theme = this.theme();
     this.sendAsyncMessage("Whimsy:DarkPagesState", state);
     if (this._active) {
       this.watch();
@@ -227,35 +228,50 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
 
   // W29 (owner: "clicking on the color of the popup in figjam, and ...
   // expanding the results in google, changes"). The page is judged while
-  // it loads and hydrates, and again when it moves to a new address or
-  // changes its own theme (attributes on <html>, <body>, or a stylesheet
-  // link). After that, content opening over the page (a colour picker,
-  // expanded results) never flips it between dark and light.
+  // it loads and hydrates, and again when it moves to a new page or
+  // changes its own theme. After that, content opening over the page (a
+  // colour picker, expanded results) never flips it between dark and light.
+  // W30 (owner: "the figma bug ... is still there"): FigJam rewrites its
+  // query (?node-id=) on every click, and apps toggle classes on <body> as
+  // popups open, so neither counts by itself. A new page is a new path; a
+  // theme change is a change in the colours <html> and <body> compute.
   get settling() {
     return Date.now() < (this._settleUntil || 0);
   }
 
   settle() {
     this._settleUntil = Date.now() + 3000;
-    this._href = this.document.location?.href;
+    this._page = this.pageIdentity();
   }
 
-  themeChange(records) {
+  pageIdentity() {
+    const location = this.document.location;
+    return location ? location.origin + location.pathname : null;
+  }
+
+  // The colours a theme switch changes: the paint-time boost leaves
+  // computed colours alone, so Whimsy's own darkening never shows here.
+  theme() {
+    const win = this.contentWindow;
     const doc = this.document;
-    if (doc.location?.href != this._href) {
+    return [doc.documentElement, doc.body].map(el => {
+      const style = el && win.getComputedStyle(el);
+      return style ? `${style.backgroundColor} ${style.color} ${style.colorScheme}` : "";
+    }).join("|") + `|${doc.querySelector("meta[name='color-scheme' i]")?.content || ""}`;
+  }
+
+  // Whether a change after settling is the page's own: a new page, or new
+  // theme colours.
+  changed() {
+    if (this.pageIdentity() != this._page) {
       this.settle();
       return true;
     }
-    return records.some(r => r.type == "attributes" &&
-      (r.target == doc.documentElement || r.target == doc.body || ["LINK", "STYLE"].includes(r.target.localName?.toUpperCase())));
+    return this.theme() != this._theme;
   }
 
   watch() {
-    this._observer ??= new this.contentWindow.MutationObserver(records => {
-      if (this.settling || this.themeChange(records)) {
-        this.schedule();
-      }
-    });
+    this._observer ??= new this.contentWindow.MutationObserver(() => this.schedule());
     // Color changes and SPA hydration are detected with nine paint samples,
     // once per refresh tick. No traversal of long pages or color rewriting.
     this._observer.observe(this.document.documentElement, { subtree: true, childList: true,
@@ -269,7 +285,7 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
     this._scheduled = true;
     this.contentWindow.requestAnimationFrame(() => {
       this._scheduled = false;
-      if (this._record) {
+      if (this._record && (this.settling || this.changed())) {
         this.refresh();
       }
     });
