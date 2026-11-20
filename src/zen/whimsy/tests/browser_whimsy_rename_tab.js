@@ -53,7 +53,21 @@ async function restartTab(tab) {
 
 add_task(async function test_rename_from_menu_persists() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
+  // W29 (owner): no "Tab has been successfully renamed!" toast.
+  const toasts = [];
+  const container = document.getElementById("zen-toast-container");
+  const observer = new MutationObserver(records => {
+    for (const record of records) {
+      toasts.push(...[...record.addedNodes].filter(n => n.nodeType == Node.ELEMENT_NODE));
+    }
+  });
+  if (container) {
+    observer.observe(container, { childList: true, subtree: true });
+  }
   await renameFromMenu(tab, "  My   renamed tab ");
+  await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 300)));
+  observer.disconnect();
+  is(toasts.length, 0, "Renaming shows no toast");
   is(tab.label, "My renamed tab", "The tab takes the new name (spaces tidied)");
   is(tab.zenStaticLabel, "My renamed tab", "kept as its fixed label");
 
