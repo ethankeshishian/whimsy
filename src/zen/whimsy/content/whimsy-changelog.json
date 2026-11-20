@@ -1,6 +1,15 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1248",
+      "date": "2026-11-20",
+      "title": "Clean links and steady pages",
+      "fixed": [
+        "Copy URL copies only the clean link, so it pastes the same in Docs, Slack, Notion, and plain text fields.",
+        "Clicking in apps like FigJam, which change their address or open a popup, no longer flips the page between light and dark."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1246",
       "date": "2026-11-20",
       "title": "Links that open Whimsy",
