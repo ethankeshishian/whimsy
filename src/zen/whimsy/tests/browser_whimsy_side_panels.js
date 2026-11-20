@@ -193,12 +193,54 @@ addPanelTask(async function chat_as_popover_toggle() {
   chat().close({ reason: "key" });
   await settleChat();
 
+  // Switching keeps chat open, both ways.
+  await pressCmdE();
+  ok(chat().isOpen, "Open as a column");
+  Services.prefs.setBoolPref("whimsy.chat.popover", true);
+  ok(chatEl().hasAttribute("whimsy-popover"), "On: chat floats in the popover");
+  ok(chat().isOpen, "Switching to the popover keeps chat open");
+  await settleChat();
+  ok(chat().isOpen, "and it stays open");
+  is(home.linkedBrowser.getBoundingClientRect().width, pageWidth, "The page doesn't move");
+
+  // It docks on chat's side, not the sidebar's.
+  const panels = document.getElementById("tabbrowser-tabpanels").getBoundingClientRect();
+  Services.prefs.setStringPref("whimsy.chat.side", "right");
+  await TestUtils.waitForCondition(() => panels.right - chatEl().getBoundingClientRect().right < 40, "Docked right when chat is on the right");
+  Services.prefs.setStringPref("whimsy.chat.side", "left");
+  await TestUtils.waitForCondition(() => chatEl().getBoundingClientRect().left - panels.left < 40, "Docked left when chat is on the left");
+  Services.prefs.clearUserPref("whimsy.chat.side");
+
+  // Minimize replaces the sidebar button, with the same action.
+  const hideButton = document.getElementById("whimsy-chat-hide-button");
+  is(hideButton.querySelector(".whimsy-chat-icon").dataset.icon, "minimize", "Minimize in the popover's header");
+  is(hideButton.getAttribute("data-l10n-id"), "whimsy-chat-minimize-button", "named Minimize");
+
+  // ⌘W closes the focused popover, not the tab.
+  const tabs = gBrowser.tabs.length;
+  chatEl().querySelector("textarea, [contenteditable], button")?.focus();
+  ok(chatEl().contains(document.activeElement), "Focus is in chat");
+  EventUtils.synthesizeKey("w", { accelKey: true });
+  await TestUtils.waitForCondition(() => !chat().isOpen, "⌘W closes the popover");
+  is(gBrowser.tabs.length, tabs, "and leaves the tab");
+  await settleChat();
+
+  await pressCmdE();
+  ok(chat().isOpen, "Open in the popover");
+  Services.prefs.setBoolPref("whimsy.chat.popover", false);
+  ok(!chatEl().hasAttribute("whimsy-popover"), "Off: a column");
+  ok(chat().isOpen, "Switching to the column keeps chat open");
+  await settleChat();
+  ok(chat().isOpen, "and it stays open");
+  is(hideButton.querySelector(".whimsy-chat-icon").dataset.icon, "chat-hide", "The column keeps its own hide button");
+  EventUtils.synthesizeMouse(home.linkedBrowser, home.linkedBrowser.getBoundingClientRect().width / 2, 200, {});
+  ok(chat().isOpen, "A page click doesn't close the column (it's no longer the popover)");
+  hideButton.click();
+  await TestUtils.waitForCondition(() => !chat().isOpen, "Hidden");
+  await settleChat();
   Services.prefs.setBoolPref("whimsy.chat.popover", true);
   await pressCmdE();
-  ok(chatEl().hasAttribute("whimsy-popover"), "On: chat floats in the popover");
-  is(home.linkedBrowser.getBoundingClientRect().width, pageWidth, "The page doesn't move");
-  const panels = document.getElementById("tabbrowser-tabpanels").getBoundingClientRect();
-  Assert.less(chatEl().getBoundingClientRect().left - panels.left, 40, "Next to the sidebar");
+  ok(chatEl().hasAttribute("whimsy-popover"), "On again");
 
   const menu = chat().headMenu;
   const shownEvent = BrowserTestUtils.waitForEvent(menu, "popupshown");
@@ -207,7 +249,7 @@ addPanelTask(async function chat_as_popover_toggle() {
   const popover = document.getElementById("whimsy-chat-menu-popover");
   await TestUtils.waitForCondition(() => popover.label == "Show Chat as Popover", "Its name");
   is(popover.getAttribute("checked"), "true", "Checked");
-  ok(popover.previousElementSibling.disabled, "Moving chat is off while it floats");
+  ok(!popover.previousElementSibling.disabled, "Chat can still move sides while it floats");
   await closeMenu(menu);
 
   // One thing at a time.
@@ -218,7 +260,8 @@ addPanelTask(async function chat_as_popover_toggle() {
   await TestUtils.waitForCondition(() => !chat().isOpen, "A site in the popover closes chat");
   await pressCmdE();
   await hidden(ess, "Chat in the popover hides the site");
-  EventUtils.synthesizeMouse(home.linkedBrowser, home.linkedBrowser.getBoundingClientRect().width - 40, 200, {});
+  // Chat docks right by default, so click the page's left side.
+  EventUtils.synthesizeMouse(home.linkedBrowser, 40, 200, {});
   await TestUtils.waitForCondition(() => !chat().isOpen, "A page click closes chat in the popover");
   await settleChat();
 

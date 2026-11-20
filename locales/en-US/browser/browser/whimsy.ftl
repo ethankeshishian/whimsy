@@ -5782,6 +5782,10 @@ whimsy-chat-new-button =
 whimsy-chat-hide-button =
     .title = Hide chat ⌘E
     .aria-label = Hide chat
+# Chat's hide button while chat floats as a popover (same action).
+whimsy-chat-minimize-button =
+    .title = Minimize ⌘E
+    .aria-label = Minimize
 whimsy-chat-splitter =
     .aria-label = Resize chat
 whimsy-chat-private-title = Private tab
