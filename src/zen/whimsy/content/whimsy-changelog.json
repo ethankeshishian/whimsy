@@ -1,6 +1,20 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1231",
+      "date": "2026-11-19",
+      "title": "Mini Whimsy from any app",
+      "new": [
+        "Press \u2325Space in any app to open Mini Whimsy\u2019s command bar. Turn it on and pick another shortcut in Settings \u203a Look and Feel, or say yes during onboarding."
+      ],
+      "improved": [
+        "Chat as a popover docks on chat\u2019s own side, has a Minimize button, and closes with \u2318W when it\u2019s focused."
+      ],
+      "fixed": [
+        "Switching chat between the sidebar and a popover keeps it open."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1226",
       "date": "2026-11-19",
       "title": "Dark pages that stay dark",
