@@ -8,9 +8,6 @@
 // background muting used to mute the tab first, and Firefox never pops out
 // a muted tab. The tab now gets a moment to pop out before it's muted.
 
-// Seven playing-video tasks with deliberate 1.5s waits: past 45s under a full verify's load.
-requestLongerTimeout(2);
-
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_video_sound.html";
 const AUTO_PIP = "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled";
 const FEATURE = "whimsy.feature.pip-auto-before-mute";
@@ -186,9 +183,12 @@ add_task(async function test_fallback_respects_closed_by_hand() {
 // rather than only showing in the sidebar.
 add_task(async function test_w8_31_auto_pip_floating_window() {
   const video = await openPlayingVideo();
-  const opened = BrowserTestUtils.domWindowOpenedAndLoaded(null);
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
-  const player = await opened;
+  // Wait on the player itself, as the tasks above do: waiting for the next
+  // window's load event can miss a load that fired first under a full verify.
+  await TestUtils.waitForCondition(() => video.pictureinpicture, "the tab is in PiP");
+  await TestUtils.waitForCondition(() => players().length == 1, "one player window");
+  const [player] = players();
   is(
     player.document.documentElement.getAttribute("windowtype"),
     "Toolkit:PictureInPicture",
