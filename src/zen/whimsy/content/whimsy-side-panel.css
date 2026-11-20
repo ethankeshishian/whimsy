@@ -80,7 +80,8 @@
 .whimsy-side-panel-head [data-icon="expand"] {
   --whimsy-chat-icon: url("chrome://browser/skin/zen-icons/fullscreen.svg");
 }
-.whimsy-side-panel-head [data-icon="minimize"] {
+/* Chat as a popover uses the same Minimize (WhimsyChatPanel layout()). */
+:is(.whimsy-side-panel-head, #whimsy-chat[whimsy-popover] .whimsy-chat-head) [data-icon="minimize"] {
   background: none;
   &::before {
     content: "";

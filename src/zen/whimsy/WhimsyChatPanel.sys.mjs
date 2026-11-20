@@ -38,8 +38,10 @@ const FEATURE_PREF = "whimsy.feature.ai-chat";
 const AI_PREF = "whimsy.ai.enabled";
 const SIDE_PREF = "whimsy.chat.side";
 const WIDTH_PREF = "whimsy.chat.width";
-// W29 side panels: Show Chat as Popover (chat floats in the side panel
-// popover's spot, WhimsySidePanel.sys.mjs).
+// W29 side panels: Show Chat as Popover (chat floats over the page,
+// WhimsySidePanel.sys.mjs). It docks on chat's own side, like a column
+// would (owner: "they doc on the side of the tab"), and its header's last
+// button is the popover's Minimize.
 const POPOVER_PREF = "whimsy.chat.popover";
 const HOVER_PREF = "whimsy.ai.chat.edge-hover";
 const OFF_TOAST_PREF = "whimsy.chat.ai-off-toast-seen";
@@ -423,8 +425,6 @@ class ChatPanel {
     menu.append(move, popover);
     menu.addEventListener("popupshowing", () => {
       doc.l10n.setAttributes(move, this.side == "left" ? "whimsy-chat-menu-move-right" : "whimsy-chat-menu-move-left");
-      // The popover always sits by the sidebar.
-      move.disabled = this.popoverMode;
       if (this.popoverMode) {
         popover.setAttribute("checked", "true");
       } else {
@@ -447,9 +447,6 @@ class ChatPanel {
   }
 
   get side() {
-    if (this.popoverMode) {
-      return this.doc.documentElement.getAttribute("zen-right-side") == "true" ? "right" : "left";
-    }
     return Services.prefs.getStringPref(SIDE_PREF, "right") == "left" ? "left" : "right";
   }
 
@@ -483,6 +480,12 @@ class ChatPanel {
     const popover = this.popoverMode;
     this.el.setAttribute("side", side);
     this.el.toggleAttribute("whimsy-popover", popover);
+    // Floating, chat's hide button is the popover's Minimize (same action).
+    const hide = this.header?.querySelector("#whimsy-chat-hide-button");
+    if (hide) {
+      hide.firstElementChild.dataset.icon = popover ? "minimize" : "chat-hide";
+      doc.l10n.setAttributes(hide, popover ? "whimsy-chat-minimize-button" : "whimsy-chat-hide-button");
+    }
     if (side == "left" && this.el.nextElementSibling != tabbox) {
       tabbox.before(this.el);
     } else if (side == "right" && this.el.previousElementSibling != tabbox) {
@@ -807,6 +810,27 @@ class ChatPanel {
           }
         }
       },
+    };
+    // ⌘W closes chat's popover while focus is in it, before Firefox's
+    // close-tab key and command (as the Essentials popover does).
+    const closeFocused = () => {
+      if (this._open && this.el?.hasAttribute("whimsy-popover") && this.el.contains(this.doc.activeElement)) {
+        this.close({ reason: "key" });
+        return true;
+      }
+      return false;
+    };
+    listeners.keydown = e => {
+      if (e.key.toLowerCase() == "w" && e.getModifierState("Accel") && !e.shiftKey && !e.altKey && closeFocused()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    listeners.command = e => {
+      if (e.target.id == "cmd_close" && closeFocused()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
     };
     for (const [type, fn] of Object.entries(listeners)) {
       win.addEventListener(type, fn, true);
@@ -2167,10 +2191,25 @@ class ChatPanel {
       [WIDTH_PREF]: () => this.layout(),
       [POPOVER_PREF]: () => {
         this.clearHoverTimers();
-        if (this._open) {
-          this.close({ reason: "popover-pref" });
+        if (!this._open || this.peeking) {
+          if (this._open) {
+            this.close({ reason: "popover-pref" });
+          }
+          this.layout();
+          return;
+        }
+        // Switching keeps chat open: it moves into its new place.
+        for (const a of this.animations()) {
+          a.cancel();
         }
         this.layout();
+        const sidePanel = lazy.WhimsySidePanel.forWindow(this.win);
+        if (this.el.hasAttribute("whimsy-popover")) {
+          sidePanel.chatShown(this);
+        } else {
+          sidePanel.chatHidden(this);
+        }
+        this.animateIn();
       },
       [AI_PREF]: () => {
         if (lazy.WhimsyAI.enabled) {
@@ -2313,7 +2352,7 @@ export const WhimsyChatPanel = {
         l10nId: `whimsy-chat-cmd-move-${side}`,
         run: () => panel.setSide(side),
         icon: `${ICONS}chat.svg`,
-        isAvailable: () => ai() && !panel.popoverMode && panel.side != side,
+        isAvailable: () => ai() && panel.side != side,
       });
     }
   },
