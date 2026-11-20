@@ -29,6 +29,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+  SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
   WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
 });
@@ -256,8 +257,8 @@ export const WhimsyProtocol = {
     }
     let url = link.url;
     if (link.action == "search") {
-      await Services.search.init();
-      url = (await Services.search.getDefault())?.getSubmission(link.query)?.uri.spec;
+      await lazy.SearchService.init();
+      url = lazy.SearchService.defaultEngine?.getSubmission(link.query)?.uri.spec;
       if (!url) {
         return false;
       }

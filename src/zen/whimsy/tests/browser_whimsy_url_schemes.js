@@ -133,7 +133,9 @@ add_task(async function test_space_search_and_command_links() {
     ok(!(await WhimsyProtocol.openExternal("whimsy://space?name=No%20such%20space")), "An unknown space does nothing");
     is(gZenWorkspaces.activeWorkspace, other.uuid, "And stays put");
 
-    const engine = await Services.search.getDefault();
+    const { SearchService } = ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs");
+    await SearchService.init();
+    const engine = SearchService.defaultEngine;
     const expected = engine.getSubmission("whimsy ramen").uri.spec;
     const searched = BrowserTestUtils.waitForNewTab(gBrowser, expected);
     ok(
