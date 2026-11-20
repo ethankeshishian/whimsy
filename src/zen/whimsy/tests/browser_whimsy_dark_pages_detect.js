@@ -44,6 +44,28 @@ add_task(async function light_popup_over_a_dark_page() {
   });
 });
 
+// W29 (owner: "clicking on the color of the popup in figjam, and ...
+// expanding the results in google, changes"). Once the page has settled,
+// content opening over it never flips it; its own theme change still does.
+add_task(async function settled_page_keeps_its_mode() {
+  const url = page(`<style>body { margin: 0; font: 16px system-ui; } main { height: 3000px; }
+    #panel { position: absolute; inset: 0 0 auto 0; height: 2000px; background: #111; color: #eee; display: none; }
+    html.night { background: #181a20; color: #ddd; }</style>
+    <main>Results</main><div id="panel">Expanded</div>`);
+  await BrowserTestUtils.withNewTab(url, async browser => {
+    await darkState(browser, "generated");
+    // Past the settling time.
+    await SpecialPowers.spawn(browser, [], () => new Promise(r => content.setTimeout(r, 3500)));
+    await SpecialPowers.spawn(browser, [], () => { content.document.getElementById("panel").style.display = "block"; });
+    await stillAfterAFrame(browser, "generated");
+    await SpecialPowers.spawn(browser, [], () => { content.document.getElementById("panel").style.display = "none"; });
+    await stillAfterAFrame(browser, "generated");
+    // The page's own theme switch still counts.
+    await SpecialPowers.spawn(browser, [], () => { content.document.documentElement.className = "night"; });
+    await darkState(browser, "native");
+  });
+});
+
 add_task(async function dark_only_through_color_scheme() {
   for (const html of [`<meta name="color-scheme" content="dark light"><p id="p">Hello</p>`,
                       `<style>:root { color-scheme: dark; }</style><p id="p">Hello</p>`]) {

@@ -28,9 +28,11 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
     } else if (!this._record && event.type == "pageshow" && event.persisted) {
       // Back from the cache, from before the actor was registered.
       this._ready = true;
+      this.settle();
       this.start();
     } else if (this._record && (event.type == "DOMContentLoaded" || event.type == "pageshow")) {
       this._ready = true;
+      this.settle();
       if (event.type == "pageshow" && event.persisted) {
         this._record = beginDarkPage(this.browsingContext);
         this._originalScheme = this._record.originalScheme;
@@ -50,7 +52,11 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
         this.configure();
       } else if (event.type == "pagehide") {
         this._transition?.skipTransition();
-      } else if (!event.type.startsWith("Style") || event.stylesheet?.ownerNode || event.rule?.parentStyleSheet?.ownerNode) {
+      } else if (event.type == "load" && event.target == this.document) {
+        // A slow page's own load restarts the settling time.
+        this.settle();
+        this.schedule();
+      } else if (this.settling && (!event.type.startsWith("Style") || event.stylesheet?.ownerNode || event.rule?.parentStyleSheet?.ownerNode)) {
         this.schedule();
       }
     }
@@ -62,6 +68,7 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
   receiveMessage({ name }) {
     if (name == "Whimsy:DarkPagesStart" && !this._record) {
       this._ready = this.document.readyState != "loading";
+      this.settle();
       this.start();
     }
   }
@@ -218,8 +225,37 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
     }
   }
 
+  // W29 (owner: "clicking on the color of the popup in figjam, and ...
+  // expanding the results in google, changes"). The page is judged while
+  // it loads and hydrates, and again when it moves to a new address or
+  // changes its own theme (attributes on <html>, <body>, or a stylesheet
+  // link). After that, content opening over the page (a colour picker,
+  // expanded results) never flips it between dark and light.
+  get settling() {
+    return Date.now() < (this._settleUntil || 0);
+  }
+
+  settle() {
+    this._settleUntil = Date.now() + 3000;
+    this._href = this.document.location?.href;
+  }
+
+  themeChange(records) {
+    const doc = this.document;
+    if (doc.location?.href != this._href) {
+      this.settle();
+      return true;
+    }
+    return records.some(r => r.type == "attributes" &&
+      (r.target == doc.documentElement || r.target == doc.body || ["LINK", "STYLE"].includes(r.target.localName?.toUpperCase())));
+  }
+
   watch() {
-    this._observer ??= new this.contentWindow.MutationObserver(() => this.schedule());
+    this._observer ??= new this.contentWindow.MutationObserver(records => {
+      if (this.settling || this.themeChange(records)) {
+        this.schedule();
+      }
+    });
     // Color changes and SPA hydration are detected with nine paint samples,
     // once per refresh tick. No traversal of long pages or color rewriting.
     this._observer.observe(this.document.documentElement, { subtree: true, childList: true,
