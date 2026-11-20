@@ -8,6 +8,9 @@
 // background muting used to mute the tab first, and Firefox never pops out
 // a muted tab. The tab now gets a moment to pop out before it's muted.
 
+// Seven playing-video tasks with deliberate 1.5s waits: past 45s under a full verify's load.
+requestLongerTimeout(2);
+
 const PAGE = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "whimsy_video_sound.html";
 const AUTO_PIP = "media.videocontrols.picture-in-picture.enable-when-switching-tabs.enabled";
 const FEATURE = "whimsy.feature.pip-auto-before-mute";
