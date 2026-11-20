@@ -17,6 +17,10 @@
 //   whimsy://open?url=<URL>&space=<S>    a new tab in space S (name or id,
 //                                        like Zen's --space)
 //   whimsy://new-tab?url=<URL>           Mini Whimsy (Arc's Little Arc)
+//   whimsy://space?name=<S>              switch to space S
+//   whimsy://search?q=<text>             a new tab searching with the
+//   whimsy://search?q=<text>&space=<S>   default engine (in space S)
+//   whimsy://command?id=<id>             one of COMMANDS below
 // Only http(s) targets; anything else is swallowed, never handed back to
 // macOS (which would send it straight back here).
 // whimsy.feature.url-schemes.
@@ -53,6 +57,31 @@ const ROUTES = {
   help: { url: "about:whimsy?help" },
 };
 
+// W29: whimsy://command?id=<id>. Any app can open a link, so only
+// commands that are harmless from a hostile caller: nothing that closes,
+// clears, sends, or signs out, and nothing that reads the page.
+const COMMANDS = {
+  "new-easel": "cmd_whimsyNewEasel",
+  "new-note": "cmd_whimsyCreateNote",
+  "toggle-sidebar": "cmd_zenToggleSidebar",
+  "compact-mode": "cmd_zenCompactModeToggle",
+  "next-space": "cmd_zenWorkspaceForward",
+  "previous-space": "cmd_zenWorkspaceBackward",
+  "do-not-disturb": "cmd_whimsyDoNotDisturb",
+  "focus-session": "cmd_whimsyFocusSession",
+};
+
+// What each link action takes: [required, optional] query keys.
+const LINK_PARAMS = {
+  open: [["url"], ["space"]],
+  "new-tab": [["url"], []],
+  space: [["name"], []],
+  search: [["q"], ["space"]],
+  command: [["id"], []],
+};
+
+const MAX_QUERY = 2048;
+
 const PATTERN = /^whimsy:\/\/([a-z-]+)\/?$/i;
 
 export const WhimsyProtocol = {
@@ -65,9 +94,10 @@ export const WhimsyProtocol = {
     return match ? ROUTES[match[1].toLowerCase()] ?? null : null;
   },
 
-  // whimsy://open and whimsy://new-tab links from other apps:
-  // { action, url, space } or null. Strict: one http(s) url, at most one
-  // space, nothing else.
+  // whimsy://open, new-tab, space, search and command links from other
+  // apps: { action, url, space, query, command } or null. Strict: each
+  // key the action takes at most once, the required ones present and
+  // non-empty, and nothing else.
   linkRoute(value) {
     if (typeof value != "string" || value.length > 8192) {
       return null;
@@ -81,7 +111,7 @@ export const WhimsyProtocol = {
     const action = link.hostname.toLowerCase();
     if (
       link.protocol != "whimsy:" ||
-      !["open", "new-tab"].includes(action) ||
+      !Object.hasOwn(LINK_PARAMS, action) ||
       link.username ||
       link.password ||
       link.port ||
@@ -91,13 +121,25 @@ export const WhimsyProtocol = {
       return null;
     }
     const params = link.searchParams;
+    const [required, optional] = LINK_PARAMS[action];
     if (
-      [...params.keys()].some(key => key != "url" && key != "space") ||
-      params.getAll("url").length != 1 ||
-      params.getAll("space").length > 1 ||
-      (action == "new-tab" && params.has("space"))
+      [...params.keys()].some(key => !required.includes(key) && !optional.includes(key)) ||
+      required.some(key => params.getAll(key).length != 1 || !params.get(key).trim()) ||
+      optional.some(key => params.getAll(key).length > 1)
     ) {
       return null;
+    }
+    const space = params.get("space") || null;
+    if (action == "space") {
+      return { action, space: params.get("name") };
+    }
+    if (action == "search") {
+      const query = params.get("q").trim();
+      return query.length > MAX_QUERY ? null : { action, query, space };
+    }
+    if (action == "command") {
+      const id = params.get("id");
+      return Object.hasOwn(COMMANDS, id) ? { action, command: COMMANDS[id] } : null;
     }
     let target;
     try {
@@ -108,7 +150,7 @@ export const WhimsyProtocol = {
     if (!["http:", "https:"].includes(target.protocol) || target.username || target.password) {
       return null;
     }
-    return { action, url: target.href, space: params.get("space") || null };
+    return { action, url: target.href, space };
   },
 
   initWindow(win) {
@@ -159,7 +201,7 @@ export const WhimsyProtocol = {
       return false;
     }
     const principal = Services.scriptSecurityManager.createNullPrincipal({});
-    if (link && !link.space) {
+    if (link && ["open", "new-tab"].includes(link.action) && !link.space) {
       const uri = Services.io.newURI(link.url);
       if (link.action == "new-tab" && lazy.WhimsyQuickWindow.enabled) {
         return !!lazy.WhimsyQuickWindow.open(link.url, { triggeringPrincipal: principal });
@@ -182,6 +224,15 @@ export const WhimsyProtocol = {
       win.focus();
       return true;
     }
+    if (link.action == "command") {
+      const command = win.document.getElementById(link.command);
+      if (!command || command.getAttribute("disabled") == "true") {
+        return false;
+      }
+      win.focus();
+      command.doCommand();
+      return true;
+    }
     let userContextId = 0;
     let zenWorkspaceId;
     if (link.space) {
@@ -196,13 +247,25 @@ export const WhimsyProtocol = {
       if (space.uuid != spaces.activeWorkspace) {
         await spaces.changeWorkspaceWithID(space.uuid);
       }
+      if (link.action == "space") {
+        win.focus();
+        return true;
+      }
       userContextId = space.containerTabId || 0;
       zenWorkspaceId = space.uuid;
+    }
+    let url = link.url;
+    if (link.action == "search") {
+      await Services.search.init();
+      url = (await Services.search.getDefault())?.getSubmission(link.query)?.uri.spec;
+      if (!url) {
+        return false;
+      }
     }
     if (win.closed) {
       return false;
     }
-    win.gBrowser.selectedTab = win.gBrowser.addTab(link.url, {
+    win.gBrowser.selectedTab = win.gBrowser.addTab(url, {
       triggeringPrincipal: principal,
       userContextId,
       zenWorkspaceId,
