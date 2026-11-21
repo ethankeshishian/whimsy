@@ -22,6 +22,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -38,7 +39,9 @@ const MAX_PROMPT = 8000;
 const MAX_NAME = 80;
 const PAGE_CHARS = 60000;
 
-export const RESULTS = ["replace", "insert-after", "copy", "link"];
+// W30 agentplus: "task" runs through the ⌘K agent (plan, Approve, Drive or
+// Background, and the guards), asking for the prompt's {blanks} first.
+export const RESULTS = ["replace", "insert-after", "copy", "link", "task"];
 
 // Text commands answer on the selection; Summarize works on what's showing.
 export const BUILT_INS = [
@@ -350,6 +353,33 @@ export const WhimsyAICommands = {
     lazy.WhimsyAIProviders.openSettings(win, "commands");
   },
 
+  /**
+   * A task command's request: the prompt with selection, page, and link
+   * filled in (redacted, no page text), its other {blanks} left to ask.
+   */
+  templateFor(cmd, subject = {}) {
+    const redact = text => lazy.WhimsyAISensitive.redactText(String(text ?? "")).text;
+    const page = [subject.title, subject.url].filter(Boolean).join(" ");
+    return String(cmd.prompt ?? "")
+      .replace(/\{selection\}/g, redact(subject.text ?? ""))
+      .replace(/\{page\}/g, page)
+      .replace(/\{link\}/g, String(subject.href ?? subject.url ?? ""))
+      .replace(/\s+/g, " ")
+      .trim();
+  },
+
+  /** The {blanks} still in `text`, in order, each once. */
+  blanksIn(text) {
+    const out = [];
+    for (const m of String(text ?? "").matchAll(/\{([^{}\n]{1,40})\}/g)) {
+      const blank = m[1].trim();
+      if (blank && !out.includes(blank)) {
+        out.push(blank);
+      }
+    }
+    return out;
+  },
+
   /** The prompt with its tokens filled in, redacted. */
   promptFor(cmd, subject = {}, { language } = {}) {
     const redact = text => lazy.WhimsyAISensitive.redactText(String(text ?? "")).text;
@@ -383,6 +413,11 @@ export const WhimsyAICommands = {
     }
     if (!lazy.WhimsyAI.enabled || (tab && lazy.WhimsyAIContext.isPrivate(tab))) {
       throw Object.assign(new Error("blocked"), { code: "blocked" });
+    }
+    if (cmd.result == "task") {
+      // ⌘K asks for the blanks, then plans it there (W30 agentplus).
+      await lazy.WhimsyVerbs.WhimsyContextCommands.runTask(win, subject, cmd);
+      return { kind: "task", text: "" };
     }
     const result = await lazy.WhimsyAIRouter.run({
       task: cmd.task ?? "quick-text",

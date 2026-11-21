@@ -401,6 +401,8 @@ add_task(async function save_as_command_prefills_with_blanks() {
     EventUtils.synthesizeKey("KEY_Enter");
     await TestUtils.waitForCondition(() => opened, "The command sheet opens");
     is(opened.prefill.prompt, PLAN.template, "with the plan's prompt, details as blanks");
+    is(opened.prefill.result, "task", "Run a task is preselected (W30 agentplus)");
+    is(opened.prefill.name, PLAN.title, "and the command takes the task's title");
     ok(!part(".whimsy-agent-save-menu"), "and the menu closes");
   } finally {
     WhimsyAICommands.openEditor = real;

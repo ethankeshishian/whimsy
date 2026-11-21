@@ -1380,6 +1380,7 @@ export const WhimsyChatAgent = {
       skipped: task.skipped.slice(),
       template: run.template,
       prompt: run.request,
+      title: task.title ?? "",
     });
     await this.update(run.threadId, run.cardId, shortfall
       ? { state: "done", current: run.current, failedAt: Math.min(run.current, run.steps.length - 1) }
@@ -1404,6 +1405,37 @@ export const WhimsyChatAgent = {
   },
 
   openSaveMenu(panel, anchor, msg) {
+    const { win } = panel;
+    const items = [
+      { id: "command", l10n: "whimsy-agent-chat-save-command", detail: "whimsy-agent-chat-save-command-detail", run: () => this.saveAsCommand(win, msg) },
+      // Routines (routines-ui) registers the maker; the row also needs
+      // routines and AI on.
+      state.routineMaker && Services.prefs.getBoolPref("whimsy.feature.routines", true) && lazy.WhimsyAI.enabled && { id: "routine", l10n: "whimsy-agent-chat-save-routine", detail: "whimsy-agent-chat-save-routine-detail", run: () => state.routineMaker(win, { prompt: msg.prompt ?? msg.template ?? "" }) },
+    ].filter(Boolean);
+    this.openListMenu(panel, anchor, { className: "whimsy-agent-save-menu", l10n: "whimsy-agent-chat-save-menu", items });
+  },
+
+  /**
+   * W30 agentplus: the sign-in card's Account row with more than one saved
+   * login for the site. The same styled list as Save as; picking one only
+   * changes which login "Sign in" fills.
+   */
+  openLoginMenu(panel, anchor, msg) {
+    const preview = msg.preview ?? {};
+    const items = (preview.logins ?? []).map(l => ({
+      id: l.guid,
+      label: l.username,
+      selected: l.guid == preview.login,
+      run: () => lazy.WhimsyAgentTasks.chooseLogin(msg.taskId, msg.pauseId, l.guid),
+    }));
+    this.openListMenu(panel, anchor, { className: "whimsy-agent-login-menu", label: l10nSync().formatValueSync("whimsy-agent-field-account"), items });
+  },
+
+  /**
+   * Chat's styled list (whimsy-chat-answer.css .whimsy-chat-menu) under an
+   * anchor in the panel: items {id, l10n|label, detail?, selected?, run}.
+   */
+  openListMenu(panel, anchor, { className, l10n = null, label = null, items }) {
     const { doc, win } = panel;
     panel.panel.querySelector(".whimsy-chat-menu")?.remove();
     const close = () => {
@@ -1411,24 +1443,22 @@ export const WhimsyChatAgent = {
       anchor.setAttribute("aria-expanded", "false");
       anchor.focus();
     };
-    const items = [
-      { id: "command", l10n: "whimsy-agent-chat-save-command", detail: "whimsy-agent-chat-save-command-detail", run: () => this.saveAsCommand(win, msg) },
-      // Routines (routines-ui) registers the maker; the row also needs
-      // routines and AI on.
-      state.routineMaker && Services.prefs.getBoolPref("whimsy.feature.routines", true) && lazy.WhimsyAI.enabled && { id: "routine", l10n: "whimsy-agent-chat-save-routine", detail: "whimsy-agent-chat-save-routine-detail", run: () => state.routineMaker(win, { prompt: msg.prompt ?? msg.template ?? "" }) },
-    ].filter(Boolean);
-    const menu = h(doc, "div", { class: "whimsy-chat-menu whimsy-agent-save-menu", role: "listbox", tabindex: "-1", l10n: "whimsy-agent-chat-save-menu" },
+    const first = Math.max(0, items.findIndex(item => item.selected));
+    const menu = h(doc, "div", { class: `whimsy-chat-menu ${className}`, role: "listbox", tabindex: "-1", l10n, "aria-label": label },
       ...items.map((item, i) => h(doc, "div", {
         class: "whimsy-chat-option",
         role: "option",
         tabindex: "-1",
         "data-item": item.id,
-        "aria-selected": String(i == 0),
+        "aria-selected": String(i == first),
         onclick: () => {
           close();
           item.run();
         },
-      }, h(doc, "span", { class: "whimsy-chat-option-label", l10n: item.l10n }), h(doc, "span", { class: "whimsy-chat-option-detail", l10n: item.detail }))));
+      },
+      item.selected != null ? h(doc, "span", { class: "whimsy-chat-option-check" }) : null,
+      item.l10n ? h(doc, "span", { class: "whimsy-chat-option-label", l10n: item.l10n }) : h(doc, "span", { class: "whimsy-chat-option-label", dir: "auto" }, item.label ?? ""),
+      item.detail ? h(doc, "span", { class: "whimsy-chat-option-detail", l10n: item.detail }) : null)));
     menu.addEventListener("keydown", event => {
       const options = [...menu.querySelectorAll(".whimsy-chat-option")];
       let index = options.findIndex(o => o.getAttribute("aria-selected") == "true");
@@ -1460,7 +1490,9 @@ export const WhimsyChatAgent = {
 
   /** The plan's prompt with its details as blanks, into the command sheet; nothing saves silently. */
   saveAsCommand(win, msg) {
-    return lazy.WhimsyAICommands.openEditor(win, { prefill: { prompt: msg.template || msg.prompt || "", title: "" } });
+    // W30 agentplus: a task saved is a "Run a task" command named after the task.
+    const name = String(msg.title ?? lazy.WhimsyAgentTasks.get(msg.taskId)?.title ?? "").slice(0, 80);
+    return lazy.WhimsyAICommands.openEditor(win, { prefill: { prompt: msg.template || msg.prompt || "", result: "task", name } });
   },
 
   // ---- Outside apps: a read-only thread like a driven chat ----
@@ -1905,10 +1937,19 @@ export const WhimsyChatAgent = {
           button(doc, "whimsy-agent-chat-end-task", () => lazy.WhimsyAgentTasks.stop(msg.taskId), { choice: "stop" })));
     }
     const fields = h(doc, "div", { class: "whimsy-agent-preview" });
+    const chooser = (preview.logins?.length ?? 0) > 1 && msg.state == "open";
     for (const f of preview.fields ?? []) {
       const value = f.hidden || f.sensitive
         ? h(doc, "span", { class: "whimsy-agent-redacted" }, icon(doc, "lock"), f.note ?? "")
-        : h(doc, "span", {}, f.value ?? "");
+        : chooser && f.l10nId == "whimsy-agent-field-account"
+          // W30 agentplus: which saved login to fill (chat's model button + list).
+          ? h(doc, "span", {}, h(doc, "button", {
+            class: "whimsy-chat-model-button whimsy-agent-login-button",
+            "aria-haspopup": "listbox",
+            "aria-expanded": "false",
+            onclick: e => this.openLoginMenu(ctx.panel, e.currentTarget, msg),
+          }, h(doc, "span", { class: "whimsy-chat-model-name", dir: "auto" }, f.value ?? ""), icon(doc, "chevron")))
+          : h(doc, "span", {}, f.value ?? "");
       fields.append(h(doc, "div", { class: "whimsy-agent-preview-row", "data-strong": !!f.strong }, h(doc, "span", {}, f.label ?? ""), value));
     }
     if (preview.press) {

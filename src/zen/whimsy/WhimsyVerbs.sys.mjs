@@ -817,7 +817,7 @@ export const WhimsyContextCommands = {
         label: cmd.name,
         tag: lazy.l10n.formatValueSync(`whimsy-commands-result-${cmd.result}`),
         link: cmd.result == "link",
-        run: (w, s) => (cmd.result == "link" ? lazy.WhimsyAICommands.run(w, cmd.id, s) : this.runText(w, s, cmd)),
+        run: (w, s) => (cmd.result == "link" ? lazy.WhimsyAICommands.run(w, cmd.id, s) : cmd.result == "task" ? this.runTask(w, s, cmd) : this.runText(w, s, cmd)),
       });
     }
     rows.push({
@@ -939,6 +939,54 @@ export const WhimsyContextCommands = {
     }
     const question = subject.kind == "selection" ? `${cmd.name}: “${firstLine(subject.text, MAX_SNIPPET)}”` : cmd.name;
     win.setTimeout(() => lazy.WhimsyCommandBarAI.ask(win, question, { prompt, provider: cmd.model && cmd.model != "auto" ? cmd.model : null }), 0);
+  },
+
+  /**
+   * W30 agentplus: a "Run a task" command. Its prompt's {blanks} are asked
+   * for one at a time in ⌘K's own mode (openMode, as Change This Page
+   * does), then the request goes to the ⌘K agent: plan, Approve, Drive or
+   * Background, and the guards, as if it had been typed there.
+   */
+  async runTask(win, subject, cmd) {
+    const { WhimsyAICommands: commands } = lazy;
+    const text = commands.templateFor(cmd, subject);
+    const blanks = commands.blanksIn(text);
+    if (!blanks.length) {
+      win.gURLBar.view.close();
+      win.setTimeout(() => lazy.WhimsyCommandBarAgent.plan(win, text), 0);
+      return;
+    }
+    win.setTimeout(() => this.askBlank(win, cmd, text, blanks, 0), 0);
+  },
+
+  askBlank(win, cmd, text, blanks, index) {
+    const blank = blanks[index];
+    const fill = value => text.split(`{${blank}}`).join(String(value ?? "").trim());
+    const next = value => {
+      const filled = fill(value);
+      if (index + 1 < blanks.length) {
+        win.setTimeout(() => this.askBlank(win, cmd, filled, blanks, index + 1), 0);
+        return;
+      }
+      win.gURLBar.view.close();
+      win.setTimeout(() => lazy.WhimsyCommandBarAgent.plan(win, filled), 0);
+    };
+    const detail = lazy.l10n.formatValueSync("whimsy-cmdk-blank-detail", { blank, step: index + 1, total: blanks.length });
+    const row = value => ({
+      id: `task-blank:${cmd.id}:${index}`,
+      icon: cmd.icon,
+      label: value ? fill(value) : text,
+      detail,
+      run: () => (value ? next(value) : win.setTimeout(() => this.askBlank(win, cmd, text, blanks, index), 0)),
+    });
+    return lazy.WhimsyVerbs.openMode(win, {
+      mode: "task-blank",
+      label: { id: "whimsy-cmdk-blank-group", args: { name: cmd.name } },
+      rows: [row("")],
+      placeholder: { id: "whimsy-cmdk-blank-placeholder", args: { blank } },
+      title: cmd.name,
+      typed: value => row(value),
+    });
   },
 
   async replace(subject, text) {
@@ -1244,7 +1292,8 @@ export const WhimsyVerbs = {
     const subject = { kind: "page", title, mode, groups: [{ kind: mode, label, rows, all: rows }], modeTyped: typed };
     await this.start(win, subject);
     if (placeholder) {
-      win.document.l10n.setAttributes(win.gURLBar.inputField, placeholder);
+      const [id, args] = typeof placeholder == "string" ? [placeholder] : [placeholder.id, placeholder.args];
+      win.document.l10n.setAttributes(win.gURLBar.inputField, id, args);
     }
     if (value) {
       win.gURLBar.inputField.setUserInput(value);
