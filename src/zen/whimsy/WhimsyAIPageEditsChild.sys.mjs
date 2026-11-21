@@ -11,6 +11,10 @@
 const BLOCKS = "p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption, dt, dd, td, th, summary, caption";
 const SECTION_CHARS = 1500;
 const MAX_OUTLINE = 160;
+// The page cross-fades over 200ms when a change lands or is undone (W30
+// R.1 motion); a view transition's default is 250ms.
+const FADE_MS = 200;
+const FADE_SHEET = `data:text/css,${encodeURIComponent(`::view-transition-old(root), ::view-transition-new(root) { animation-duration: ${FADE_MS}ms; }`)}`;
 
 function visible(el) {
   const r = el.getBoundingClientRect();
@@ -176,26 +180,53 @@ export class WhimsyAIPageEditsChild extends JSWindowActorChild {
           this.sheets.push(uri);
         }
       };
-      // The new look swaps in with a crossfade of the page (a view
-      // transition's default fade); reduced motion and background tabs
-      // swap instantly.
-      const reduce = this.contentWindow.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (!reduce && doc.visibilityState == "visible" && typeof doc.startViewTransition == "function") {
-        try {
-          await doc.startViewTransition(load).updateCallbackDone;
-        } catch {}
-      }
+      await this.crossFade(load);
       load();
     }
     return { hidden: hidden.length, matched: hidden, missing: hide.length - hidden.length, styled: !!css };
   }
 
-  revert() {
-    for (const uri of this.sheets.splice(0)) {
-      try {
-        this.utils.removeSheetUsingURIString(uri, this.utils.AUTHOR_SHEET);
-      } catch {}
+  // The new look swaps in with a cross-fade of the page (a view transition
+  // over the page root, 200ms); reduced motion and background tabs swap
+  // instantly. `change` is called inside the transition, or not at all
+  // when there is none: callers call it again afterwards, so it must be
+  // idempotent.
+  async crossFade(change) {
+    const doc = this.document;
+    const reduce = this.contentWindow.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || doc.visibilityState != "visible" || typeof doc.startViewTransition != "function") {
+      return;
     }
+    const utils = this.utils;
+    try {
+      utils.loadSheetUsingURIString(FADE_SHEET, utils.AUTHOR_SHEET);
+      const transition = doc.startViewTransition(change);
+      await transition.updateCallbackDone;
+      transition.finished.catch(() => {}).then(() => this.dropFadeSheet());
+    } catch {
+      this.dropFadeSheet();
+    }
+  }
+
+  dropFadeSheet() {
+    try {
+      this.utils.removeSheetUsingURIString(FADE_SHEET, this.utils.AUTHOR_SHEET);
+    } catch {}
+  }
+
+  async revert() {
+    const sheets = this.sheets.splice(0);
+    const remove = () => {
+      for (const uri of sheets) {
+        try {
+          this.utils.removeSheetUsingURIString(uri, this.utils.AUTHOR_SHEET);
+        } catch {}
+      }
+    };
+    if (sheets.length) {
+      await this.crossFade(remove);
+    }
+    remove();
     return true;
   }
 

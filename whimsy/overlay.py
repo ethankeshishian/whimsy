@@ -79,6 +79,17 @@ HOOKS = [
 
 HOTFIXES = [
     {
+        "id": "page-edits-per-profile",
+        "file": "src/zen/boosts/actors/ZenBoostsParent.sys.mjs",
+        "why": "W30 Remix: a page's Boost sheet is composed for its profile (Change This Page edits kept per profile).",
+        "old": "        const styleData =\n"
+               "          await lazy.gZenBoostsManager.getStyleSheetForBoost(domain);\n",
+        "new": "        // Whimsy hotfix: the sheet for this page's profile (see WhimsyAIPageEdits.styleSheetFor).\n"
+               "        const styleData = await ChromeUtils.importESModule(\n"
+               "          \"resource:///modules/whimsy/WhimsyAIPageEdits.sys.mjs\"\n"
+               "        ).WhimsyAIPageEdits.styleSheetFor(domain, this.browsingContext);\n",
+    },
+    {
         "id": "quiet-tab-rename",
         "file": "src/zen/tabs/ZenTabRenamer.mjs",
         "why": "Owner (W29): no \"Tab has been successfully renamed!\" toast; the new name is the feedback.",

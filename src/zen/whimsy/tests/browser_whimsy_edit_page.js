@@ -107,7 +107,11 @@ add_task(async function test_cancel_preserves_nodes_scripts_and_exact_structure(
       state.original.setAttribute("data-original", "before");
       state.clicks = 0;
       state.original.addEventListener("click", () => state.clicks++);
-      state.before = doc.documentElement.outerHTML;
+      // The body is what editing can touch. The head and the root's
+      // attributes belong to other features that write them on their own
+      // clock (autoconsent's prehide style, Dark Pages' state), before or
+      // after editing starts, so they aren't part of this check.
+      state.before = doc.body.outerHTML;
     });
     await WhimsyPage.toggleEditing(window, true);
     await readyBar();
@@ -133,7 +137,7 @@ add_task(async function test_cancel_preserves_nodes_scripts_and_exact_structure(
     await SpecialPowers.spawn(browser, [], () => {
       const state = content.wrappedJSObject;
       const doc = state.document;
-      is(doc.documentElement.outerHTML, state.before, "Cancel restores the exact DOM");
+      is(doc.body.outerHTML, state.before, "Cancel restores the exact DOM");
       ok(doc.getElementById("p") == state.original, "Original element identity survives");
       ok(state.original.firstChild == state.text, "Original text node survives");
       ok(doc.getElementById("p").firstChild == state.text, "The live paragraph contains the original text node");
