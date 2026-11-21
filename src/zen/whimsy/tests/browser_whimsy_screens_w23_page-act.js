@@ -243,11 +243,12 @@ add_task(async function translate_and_edit_shots() {
 add_task(async function scam_shots() {
   for (const [state, page] of [["fu-page-dec-13", "whimsy_ai_scam.html"], ["page-8.3", "whimsy_ai_bakery.html"]]) {
     await BrowserTestUtils.withNewTab(url(page), async browser => {
-      // Drawn: the shield goes in after the bar is localized and its message added.
+      // Drawn: the message bar renders its stock triangle first, and the
+      // shield replaces it once the bar has updated, so wait for the shield.
       const notification = await TestUtils.waitForCondition(() => {
         const bar = gBrowser.getNotificationBox(browser).getNotificationWithValue("whimsy-scam-warning");
-        return bar?.messageImage?.getAttribute("src") ? bar : null;
-      }, "The warning shows");
+        return bar?.messageImage?.getAttribute("src")?.endsWith("tracking-protection.svg") ? bar : null;
+      }, `${state}: the warning shows with a shield, not the warning triangle`);
       await document.l10n.translateFragment(notification);
       ok(notification, `${state}: the scam warning`);
       ok(notification.messageImage?.getAttribute("src")?.endsWith("tracking-protection.svg"), `${state}: a shield, not the warning triangle`);
