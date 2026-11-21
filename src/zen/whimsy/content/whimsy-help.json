@@ -2599,6 +2599,16 @@
       "pane": null,
       "paneId": null,
       "command": null
+    },
+    {
+      "id": "webkit-tabs",
+      "name": "WebKit Tabs",
+      "text": "WebKit tabs: open a tab or a site in macOS WebKit from \u2318K or the site panel, with a WebKit pill in the address bar",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.webkit-tabs",
+      "pane": null,
+      "paneId": null,
+      "command": null
     }
   ]
 }

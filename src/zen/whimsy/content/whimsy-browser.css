@@ -9221,3 +9221,83 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   font-size: 0.95rem;
   color: var(--zen-welcome-text-secondary);
 }
+
+/* W29: WebKit tabs (W.2 address-bar pill and Engine rows).
+   Reuses #whimsy-annotations-button page-action layout
+   (whimsy-browser.css:8215-8258) and #whimsy-pass-keys-pill accent token pair
+   (whimsy-navigation.css:351-385) for >= 4.5:1 WCAG AA contrast in light and
+   dark themes. */
+#whimsy-webkit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  margin-inline: 2px;
+  border-radius: 6px;
+  background-color: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+#whimsy-webkit-pill[hidden] {
+  display: none !important;
+}
+
+#whimsy-webkit-pill:hover {
+  background-color: color-mix(in srgb, var(--whimsy-accent-fill) 88%, black);
+}
+
+#whimsy-webkit-pill:focus-visible {
+  outline: 2px solid var(--whimsy-accent, currentColor);
+  outline-offset: 1px;
+}
+
+#whimsy-webkit-pill .whimsy-webkit-pill-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+#whimsy-webkit-pill .whimsy-webkit-pill-label {
+  margin: 0 !important;
+  padding: 0 !important;
+  color: inherit !important;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Hide the placeholder Gecko <browser> while a native WKWebView sits below
+   ChildView so the hole shows the WKWebView underneath. */
+browser[whimsy-webkit="true"] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.whimsy-webkit-engine-note {
+  margin: 6px 4px 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--whimsy-surface-muted, var(--text-color-deemphasized));
+}
+
+.permission-popup-permission-item-site-protection[whimsy-webkit-off] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+#unified-extensions-panel.whimsy-webkit-extensions-panel {
+  min-width: 300px;
+}
+
+#whimsy-webkit-extensions-engine-section {
+  padding: 10px 12px;
+}

@@ -1490,3 +1490,11 @@ support-files = ["whimsy_reader_rich.html"]
 ["browser_whimsy_command_ranking.js"]
 
 ["browser_whimsy_google_search.js"]
+
+# W29: WebKit tabs (lane 1: engine-tab model, switching, indicator, site list,
+# reserved shortcuts, overlay hole subtraction, focus hand-offs, pill and
+# Engine rows in both panels, private windows, light/dark shots and contrast).
+["browser_whimsy_webkit.js"]
+run-if = ["os == 'mac'"]
+skip-if = ["headless"]
+

@@ -15,6 +15,9 @@ add_task(async function test_window_strings_resolve() {
   ok(tab?.attributes?.length, "Firefox menubar strings resolve");
   ok(zenLibrary, "Zen strings resolve too");
 
+  // The tab context menu gets its strings the first time it opens, so this
+  // doesn't depend on an earlier test having opened it.
+  gBrowser.translateTabContextMenu();
   const menuItem = document.getElementById("context_reloadTab");
   await document.l10n.translateElements([menuItem]);
   ok(menuItem.getAttribute("label"), "Tab context menu items have a label");
