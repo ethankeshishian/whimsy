@@ -972,8 +972,10 @@ export const WhimsyContextCommands = {
       win.setTimeout(() => lazy.WhimsyCommandBarAgent.plan(win, filled), 0);
     };
     const detail = lazy.l10n.formatValueSync("whimsy-cmdk-blank-detail", { blank, step: index + 1, total: blanks.length });
+    // The typed row needs its own id: a pick looks in the mode's rows
+    // before the typed one, so a shared id would run the empty row.
     const row = value => ({
-      id: `task-blank:${cmd.id}:${index}`,
+      id: `${value ? "typed:" : ""}task-blank:${cmd.id}:${index}`,
       icon: cmd.icon,
       label: value ? fill(value) : text,
       detail,
