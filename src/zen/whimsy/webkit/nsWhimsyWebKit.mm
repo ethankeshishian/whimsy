@@ -20,7 +20,6 @@
 #include "mozilla/StaticPtr.h"
 #include "mozilla/dom/Promise.h"
 #include "nsCOMPtr.h"
-#include "nsChildView.h"
 #include "nsCocoaUtils.h"
 #include "nsIBaseWindow.h"
 #include "nsIDocShell.h"
