@@ -197,7 +197,7 @@ add_task(async function translate_and_edit_shots() {
     };
     await whimsyBothSchemes(NAME("page-6.2"), async () => {
       const suggested = await changeMode("");
-      Assert.deepEqual(suggested, ["change-page:whimsy-edit-suggest-comments", "change-page:whimsy-edit-suggest-bigger", "change-page:whimsy-edit-suggest-article"], "page-6.2: ⌘K in Change this page, with three suggestions");
+      Assert.deepEqual(suggested, ["change-page:whimsy-edit-suggest-comments", "change-page:whimsy-edit-suggest-bigger", "change-page:whimsy-edit-suggest-article", "change-page:whimsy-edit-suggest-grid"], "page-6.2: ⌘K in Change this page, with four suggestions (W30: Show this as a grid)");
       is(gURLBar.inputField.getAttribute("data-l10n-id"), "whimsy-edit-cmdk-placeholder", "page-6.2: Describe a change");
       ok(!WhimsyPageBar.current(window), "page-6.2: no bottom bar");
       await TestUtils.waitForCondition(() => gURLBar.view.panel.querySelector(".urlbarView-row[label]"), "page-6.2: a heading");

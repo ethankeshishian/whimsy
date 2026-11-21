@@ -218,8 +218,10 @@ export class ZenBoostsParent extends JSWindowActorParent {
           workspaceGradient = currentWorkspace.theme.gradientColors;
         }
 
-        const styleData =
-          await lazy.gZenBoostsManager.getStyleSheetForBoost(domain);
+        // Whimsy hotfix: the sheet for this page's profile (see WhimsyAIPageEdits.styleSheetFor).
+        const styleData = await ChromeUtils.importESModule(
+          "resource:///modules/whimsy/WhimsyAIPageEdits.sys.mjs"
+        ).WhimsyAIPageEdits.styleSheetFor(domain, this.browsingContext);
 
         return {
           ...boost,

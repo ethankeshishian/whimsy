@@ -273,13 +273,16 @@ export const WhimsyZap = {
     if (!domain) {
       return false;
     }
-    const selectors = [...this.getZapSelectors(domain)];
+    // W30: only the zaps this page's profile sees; another profile's kept
+    // zaps stay its own.
+    const userContextId = win?.gBrowser?.selectedBrowser?.browsingContext?.originAttributes?.userContextId || 0;
+    const selectors = this.getZapSelectors(domain).filter(sel => lazy.WhimsyAIPageEdits.zapInProfile(domain, sel, userContextId));
     if (!selectors.length) {
       return false;
     }
     this.wrapManager();
     const manager = lazy.gZenBoostsManager;
-    manager.clearZapSelectorsForActive(domain, "zap");
+    manager.clearZapSelectorsForActive(domain, "zap", selectors);
     const entry = {
       type: "zap-all",
       selectors,
@@ -292,7 +295,7 @@ export const WhimsyZap = {
         }),
       redo: () =>
         this.replay(() => {
-          manager.clearZapSelectorsForActive(domain, "zap");
+          manager.clearZapSelectorsForActive(domain, "zap", selectors);
         }),
     };
     if (win && lazy.WhimsyUndo.enabled) {
@@ -506,7 +509,11 @@ export const WhimsyZap = {
       const show = this.canZap(win);
       item.hidden = !show;
       const domain = this.domainFor(win.gBrowser.selectedBrowser);
-      const count = show ? this.zapCount(domain) : 0;
+      // W30: a zap kept from a sentence belongs to the profile it was kept
+      // in, so the menu lists the ones this page's profile sees.
+      const userContextId = win.gBrowser.selectedBrowser.browsingContext?.originAttributes?.userContextId || 0;
+      const selectors = show ? this.getZapSelectors(domain).filter(sel => lazy.WhimsyAIPageEdits.zapInProfile(domain, sel, userContextId)) : [];
+      const count = selectors.length;
       if (subMenu) {
         subMenu.hidden = !show || count === 0;
       }
@@ -518,14 +525,13 @@ export const WhimsyZap = {
           const subPopup = subMenu.querySelector("menupopup");
           if (subPopup) {
             subPopup.textContent = "";
-            const selectors = this.getZapSelectors(domain);
             const items = selectors.map((sel, index) => {
               const elItem = document.createXULElement("menuitem");
               elItem.className = "whimsy-site-zapped-item";
               // A readable name, never the raw CSS selector (review
               // design-full-4 L9). "Element 2" until the page describes it.
               // W23 page-act: a zap kept from a sentence is named by it.
-              const sentence = lazy.WhimsyAIPageEdits.zapName(domain, sel);
+              const sentence = lazy.WhimsyAIPageEdits.zapName(domain, sel, userContextId);
               if (sentence) {
                 elItem._whimsyName = sentence;
                 elItem._whimsyNamed = true;
