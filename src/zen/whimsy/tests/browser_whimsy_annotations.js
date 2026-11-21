@@ -126,6 +126,14 @@ async function openContextMenuOn(browser, selector) {
   return menu;
 }
 
+async function openPagePanelAndWait(anchor) {
+  const panel = await WhimsyAnnotations.openPagePanel(window, anchor);
+  if (panel.state !== "open") {
+    await BrowserTestUtils.waitForPopupEvent(panel, "shown");
+  }
+  return panel;
+}
+
 async function closeContextMenu(menu) {
   if (menu.state === "closed") {
     return;
@@ -842,21 +850,21 @@ add_task(async function test_pen_drawing_coordinates_reload_and_width_rule() {
       "Link under stroke navigates normally after Done"
     );
 
-    // Layout width rule: changing page layout width hides the stroke; restoring shows it again
-    const hiddenAtDiffWidth = await SpecialPowers.spawn(browser, [], () => {
-      content.document.documentElement.style.width = "420px";
-      content.dispatchEvent(new content.Event("resize"));
-      const path = content.document.querySelector("path.whimsy-annotation-stroke");
-      return path?.hasAttribute("hidden") && content.getComputedStyle(path).display === "none";
-    });
+    // Layout width rule: changing page layout width hides the stroke; restoring shows it again.
+    // documentElement.clientWidth is the viewport, so narrow the browser itself.
+    const strokeHidden = () =>
+      SpecialPowers.spawn(browser, [], () => {
+        const path = content.document.querySelector("path.whimsy-annotation-stroke");
+        return Boolean(path?.hasAttribute("hidden") && content.getComputedStyle(path).display === "none");
+      });
+    browser.style.maxWidth = "420px";
+    let hiddenAtDiffWidth = false;
+    await TestUtils.waitForCondition(async () => (hiddenAtDiffWidth = await strokeHidden()), "Stroke hides at a narrower layout").catch(() => {});
     ok(hiddenAtDiffWidth, "Stroke is hidden when page layout width differs from when it was drawn");
 
-    const shownAtOrigWidth = await SpecialPowers.spawn(browser, [], () => {
-      content.document.documentElement.style.width = "";
-      content.dispatchEvent(new content.Event("resize"));
-      const path = content.document.querySelector("path.whimsy-annotation-stroke");
-      return Boolean(path && !path.hasAttribute("hidden") && content.getComputedStyle(path).display !== "none");
-    });
+    browser.style.maxWidth = "";
+    let shownAtOrigWidth = false;
+    await TestUtils.waitForCondition(async () => (shownAtOrigWidth = !(await strokeHidden())), "Stroke returns at the original layout").catch(() => {});
     ok(shownAtOrigWidth, "Stroke is shown again when page returns to its original layout width");
 
     // Reload persistence
@@ -1013,7 +1021,7 @@ add_task(async function test_pen_eraser_undo_panel_and_reduced_motion() {
     is(countLabel.getAttribute("value"), "1", "URL-bar badge count includes the drawing");
 
     // Open page panel (P.3): check Drawings · 1 row, preview SVG, Edit, Remove + Undo
-    const panel = await openPagePanelAndWait();
+    const panel = await openPagePanelAndWait(urlbarBtn);
     const drwSection = panel.querySelector(".whimsy-annotations-drawings-section");
     ok(drwSection, "Drawings section is rendered in the page panel");
     const drwLabel = drwSection.querySelector(".whimsy-annotations-drawings-label");
@@ -1037,7 +1045,7 @@ add_task(async function test_pen_eraser_undo_panel_and_reduced_motion() {
     await WhimsyAnnotations.stopPen(window, { immediate: true });
 
     // Reopen panel and click Remove -> deletes all drawings with Undo toast
-    const panel2 = await openPagePanelAndWait();
+    const panel2 = await openPagePanelAndWait(urlbarBtn);
     const removeBtn = panel2.querySelector(".whimsy-annotations-drawings-remove");
     ok(removeBtn, "Remove button exists on Drawings row");
     removeBtn.click();
