@@ -47,6 +47,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   DownloadPaths: "resource://gre/modules/DownloadPaths.sys.mjs",
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   HttpServer: "chrome://remote/content/server/httpd.sys.mjs",
+  LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
@@ -59,6 +60,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyOutsideAgents: "resource:///modules/whimsy/WhimsyOutsideAgents.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
+  WhimsyProfilePasswords: "resource:///modules/whimsy/WhimsyProfilePasswords.sys.mjs",
+  WhimsyProfiles: "resource:///modules/whimsy/WhimsyProfiles.sys.mjs",
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -1437,6 +1440,82 @@ export const WhimsyClaude = {
     return fn(tab);
   },
 
+  // --- Saved logins (W30 agentplus) ---
+  //
+  // The sign-in card offers the profile's saved login for this exact origin
+  // (the login manager's own match, never a substring), so "Sign in" can fill
+  // it in chrome code. Only {guid, username} ever leaves this file: the
+  // password stays in the login manager and the page.
+
+  async offerSavedLogin(tab, verdict) {
+    const browser = tab.linkedBrowser;
+    if (!verdict.preview || lazy.PrivateBrowsingUtils.isBrowserPrivate(browser) || lazy.WhimsyAIContext.isPrivate(tab)) {
+      return;
+    }
+    const logins = await this.savedLogins(browser).catch(e => (console.error("Whimsy: saved logins", e), []));
+    if (!logins.length) {
+      return;
+    }
+    const fields = verdict.preview.fields ?? (verdict.preview.fields = []);
+    let account = fields.find(f => f?.l10nId == "whimsy-agent-field-account");
+    if (!account) {
+      account = { l10nId: "whimsy-agent-field-account", label: lazy.WhimsyAgentGuard.label("whimsy-agent-field-account"), value: "" };
+      const at = fields.findIndex(f => f?.sensitive == "password");
+      fields.splice(at < 0 ? fields.length : at, 0, account);
+    }
+    account.value = logins[0].username;
+    verdict.preview.logins = logins;
+    verdict.preview.login = logins[0].guid;
+    verdict.choices = ["do", "self", "skip"];
+  },
+
+  /** This profile's logins for the page's origin, most recently used first, as {guid, username}. */
+  async savedLogins(browser) {
+    const origin = lazy.LoginHelper.getLoginOrigin(browser.currentURI.spec);
+    if (!origin) {
+      return [];
+    }
+    let logins = await Services.logins.searchLoginsAsync({ origin, schemeUpgrades: lazy.LoginHelper.schemeUpgrades });
+    logins = logins.filter(l => lazy.LoginHelper.isOriginMatching(l.origin, origin, { schemeUpgrades: lazy.LoginHelper.schemeUpgrades }));
+    if (lazy.WhimsyProfilePasswords.enabled) {
+      const key = lazy.WhimsyProfiles.keyFor(browser.browsingContext.originAttributes.userContextId);
+      logins = logins.filter(l => lazy.WhimsyProfilePasswords.keyOfLogin(l) == key);
+    }
+    logins = lazy.LoginHelper.dedupeLogins(logins, ["username", "password"], ["scheme", "timePasswordChanged"], origin);
+    return logins
+      .filter(l => l.password)
+      .sort((a, b) => (b.QueryInterface(Ci.nsILoginMetaInfo).timeLastUsed || 0) - (a.QueryInterface(Ci.nsILoginMetaInfo).timeLastUsed || 0))
+      .map(l => ({ guid: l.QueryInterface(Ci.nsILoginMetaInfo).guid, username: l.username }));
+  },
+
+  /** Fills the pause's chosen login into the sign-in form; true once the page has it. */
+  async fillSavedLogin(tab, pause, ctx) {
+    const browser = tab.linkedBrowser;
+    if (lazy.PrivateBrowsingUtils.isBrowserPrivate(browser)) {
+      return false;
+    }
+    const guid = pause.preview?.login ?? pause.preview?.logins?.[0]?.guid;
+    if (!guid || !pause.preview.logins.some(l => l.guid == guid)) {
+      return false;
+    }
+    const [login] = await Services.logins.searchLoginsAsync({ guid });
+    const origin = lazy.LoginHelper.getLoginOrigin(browser.currentURI.spec);
+    if (!login || !origin || !lazy.LoginHelper.isOriginMatching(login.origin, origin, { schemeUpgrades: lazy.LoginHelper.schemeUpgrades })) {
+      return false;
+    }
+    const where = await this.page(tab, "Claude:LoginField", ctx.locator ?? {});
+    if (!where?.id || where.origin != origin) {
+      return false;
+    }
+    const actor = BrowsingContext.get(where.id.browsingContextId)?.currentWindowGlobal?.getActor("LoginManager");
+    if (!actor) {
+      return false;
+    }
+    actor.fillForm({ browser, inputElementIdentifier: where.id, loginFormOrigin: where.origin, login });
+    const { filled } = await this.page(tab, "Claude:LoginFilled", { id: where.id });
+    return !!filled;
+  },
+
   // The guardrails: what this action would do, and the person's choice when
   // it's one that pauses.
   async guardAction(tab, action, args, ctx) {
@@ -1453,6 +1532,8 @@ export const WhimsyClaude = {
       value: args.text ?? args.value ?? null,
     });
     ctx.target = target;
+    // Where the control is, for the saved-login fill (it never goes to Claude).
+    ctx.locator = { ref: args.ref ?? null, coordinate: action == "click" ? coordinate ?? null : null };
     if (target.none) {
       return;
     }
@@ -1474,7 +1555,16 @@ export const WhimsyClaude = {
   // StepResult when they did it themselves or chose not to.
   async askPerson(tab, verdict, ctx) {
     const { task } = ctx;
-    if (!verdict || (!verdict.everyTime && lazy.WhimsyAgentTasks.allowed(task, verdict.kind, verdict.host))) {
+    if (!verdict) {
+      return;
+    }
+    // W30 agentplus: pressing the sign-in button right after Whimsy filled
+    // the saved login finishes the step the person just approved.
+    if (verdict.kind == "sign-in" && !verdict.handOver && task.loginFilled && task.loginFilled == verdict.host) {
+      task.loginFilled = null;
+      return;
+    }
+    if (!verdict.everyTime && lazy.WhimsyAgentTasks.allowed(task, verdict.kind, verdict.host)) {
       return;
     }
     const uri = tab.linkedBrowser.currentURI;
@@ -1483,6 +1573,9 @@ export const WhimsyClaude = {
       if (task.pause) {
         lazy.WhimsyAgentTasks.clearPause(task);
       }
+      if (verdict.kind == "sign-in") {
+        await this.offerSavedLogin(tab, verdict);
+      }
       pause = lazy.WhimsyAgentTasks.pause(task.id, { ...verdict, sig: ctx.sig, tabId: this.tabId(tab), url: this.pageURL(uri) });
     }
     if (verdict.kind == "captcha" && !pause.choice) {
@@ -1490,6 +1583,20 @@ export const WhimsyClaude = {
     }
     const choice = await this.decision(ctx, pause);
     lazy.WhimsyAgentTasks.clearPause(task, pause);
+    if (choice == "do" && pause.preview?.logins?.length) {
+      // Sign in with the saved login: Whimsy fills it through the login
+      // manager; Claude only learns that it was filled.
+      const filled = await this.fillSavedLogin(tab, pause, ctx);
+      if (!filled) {
+        throw new StepResult("The saved login could not be filled on this page. Ask the person to sign in themselves, then read the page again.");
+      }
+      if (verdict.handOver) {
+        task.loginFilled = verdict.host;
+        throw new StepResult("Whimsy filled the saved login for this site (you never see the password). Press the sign-in button to submit it, then read the page again.");
+      }
+      ctx.filledLogin = true;
+      return;
+    }
     if (choice == "do" && !verdict.handOver && verdict.kind != "captcha") {
       return;
     }
@@ -1873,7 +1980,7 @@ export const WhimsyClaude = {
           coordinate,
           double: !!args.double,
         });
-        return `Clicked ${clicked}.`;
+        return `${ctx.filledLogin ? "Whimsy filled the saved login for this site first. " : ""}Clicked ${clicked}.`;
       });
     },
 

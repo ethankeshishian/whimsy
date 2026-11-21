@@ -27,6 +27,12 @@ import {
   withoutValues,
 } from "resource:///modules/whimsy/WhimsyAISensitive.sys.mjs";
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  ContentDOMReference: "resource://gre/modules/ContentDOMReference.sys.mjs",
+  LoginHelper: "resource://gre/modules/LoginHelper.sys.mjs",
+});
+
 const MAX_LINES = 1500;
 const MAX_TEXT = 60000;
 const MAX_NAME = 100;
@@ -181,6 +187,10 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
           return this.describeTarget(data);
         case "Claude:Captcha":
           return { captcha: this.pageCaptcha() };
+        case "Claude:LoginField":
+          return this.loginField(data);
+        case "Claude:LoginFilled":
+          return this.loginFilled(data);
       }
     } catch (e) {
       return { error: String(e?.message || e) };
@@ -832,6 +842,66 @@ export class WhimsyClaudeChild extends JSWindowActorChild {
       });
     }
     return out;
+  }
+
+  // --- Saved logins (W30 agentplus) ---
+
+  // The sign-in form's username field (else its password field) around the
+  // control, as a ContentDOMReference for the login manager's fillForm, with
+  // the form's origin. No value of any field leaves here.
+  loginField({ ref, coordinate } = {}) {
+    let el = null;
+    if (ref) {
+      el = this.element(ref);
+    } else if (Array.isArray(coordinate) && coordinate.length == 2) {
+      el = this.doc.elementFromPoint(Number(coordinate[0]), Number(coordinate[1]));
+    } else {
+      el = this.doc.activeElement;
+    }
+    const control = el?.closest?.("button, a[href], input, select, textarea, [role=button], [contenteditable]") ?? el;
+    const form = control?.form ?? control?.closest?.("form") ?? null;
+    const inputs = form ? [...form.elements].filter(f => f.localName == "input") : control?.localName == "input" ? [control] : [];
+    const password = inputs.find(isPassword) ?? null;
+    const typed = f => !isPassword(f) && ["text", "email", "tel"].includes(f.type) && !f.hidden && !f.disabled;
+    const username = inputs.find(f => typed(f) && /^(username|email)$/.test((f.getAttribute("autocomplete") || "").toLowerCase()))
+      ?? inputs.find(f => typed(f) && /\b(e-?mail|user|login|account)\b/i.test(`${f.name} ${f.id} ${f.placeholder}`))
+      ?? inputs.find(typed)
+      ?? null;
+    const field = username ?? password;
+    if (!field) {
+      return { none: true };
+    }
+    return { id: lazy.ContentDOMReference.get(field), origin: lazy.LoginHelper.getLoginOrigin(this.doc.documentURI), hasPassword: !!password };
+  }
+
+  // Resolves {filled} once the form's password field has a value (the login
+  // manager's setUserInput fires "input"), or false if nothing arrives.
+  loginFilled({ id } = {}) {
+    try {
+      const field = lazy.ContentDOMReference.resolve(id);
+      const form = field?.form ?? field?.closest?.("form") ?? null;
+      const target = (form ? [...form.elements] : [field]).find(isPassword) ?? field;
+      if (!target) {
+        return { filled: false };
+      }
+      if (target.value) {
+        return { filled: true };
+      }
+      const win = this.contentWindow;
+      return new Promise(resolve => {
+        let timer = 0;
+        const done = ok => {
+          win.clearTimeout(timer);
+          target.removeEventListener("input", on);
+          resolve({ filled: ok });
+        };
+        const on = () => target.value && done(true);
+        target.addEventListener("input", on);
+        timer = win.setTimeout(() => done(!!target.value), 3000);
+      });
+    } catch (e) {
+      return { filled: false };
+    }
   }
 
   // What the agent is about to press, type into, or send keys to.
