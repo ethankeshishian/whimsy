@@ -662,7 +662,7 @@ static void DestroyEntry(TabEntry& aEntry) {
 
 }  // namespace
 
-namespace mozilla::whimsy {
+namespace whimsy {
 
 NS_IMPL_ISUPPORTS(nsWhimsyWebKit, nsIWhimsyWebKit)
 
@@ -1271,4 +1271,4 @@ nsWhimsyWebKit::DestroyTab(uint32_t aId) {
   NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
 }
 
-}  // namespace mozilla::whimsy
+}  // namespace whimsy

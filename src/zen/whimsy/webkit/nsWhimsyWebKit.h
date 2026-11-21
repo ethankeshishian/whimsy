@@ -7,7 +7,7 @@
 
 #include "nsIWhimsyWebKit.h"
 
-namespace mozilla::whimsy {
+namespace whimsy {
 
 class nsWhimsyWebKit final : public nsIWhimsyWebKit {
  public:
@@ -20,6 +20,6 @@ class nsWhimsyWebKit final : public nsIWhimsyWebKit {
   ~nsWhimsyWebKit();
 };
 
-}  // namespace mozilla::whimsy
+}  // namespace whimsy
 
 #endif  // mozilla_whimsy_nsWhimsyWebKit_h
