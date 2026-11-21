@@ -8584,6 +8584,8 @@ whimsy-annotations-context-highlight =
     .label = Highlight
 whimsy-annotations-context-add-note =
     .label = Add Note…
+whimsy-annotations-context-draw =
+    .label = Draw on Page
 
 whimsy-verb-highlight = Highlight
 whimsy-verb-highlight-yellow = Highlight Yellow
@@ -8591,6 +8593,58 @@ whimsy-verb-highlight-green = Highlight Green
 whimsy-verb-highlight-blue = Highlight Blue
 whimsy-verb-highlight-pink = Highlight Pink
 whimsy-verb-annotate = Add Note…
+whimsy-verb-draw = Draw on This Page
+
+whimsy-annotations-pen-toolbar =
+    .aria-label = Draw on page
+whimsy-annotations-pen-color-yellow =
+    .tooltiptext = Yellow
+    .title = Yellow
+    .aria-label = Yellow
+whimsy-annotations-pen-color-green =
+    .tooltiptext = Green
+    .title = Green
+    .aria-label = Green
+whimsy-annotations-pen-color-blue =
+    .tooltiptext = Blue
+    .title = Blue
+    .aria-label = Blue
+whimsy-annotations-pen-color-pink =
+    .tooltiptext = Pink
+    .title = Pink
+    .aria-label = Pink
+whimsy-annotations-pen-thin =
+    .tooltiptext = Thin Line
+    .title = Thin Line
+    .aria-label = Thin Line
+whimsy-annotations-pen-thick =
+    .tooltiptext = Thick Line
+    .title = Thick Line
+    .aria-label = Thick Line
+whimsy-annotations-pen-eraser =
+    .tooltiptext = Eraser
+    .title = Eraser
+    .aria-label = Eraser
+whimsy-annotations-pen-undo =
+    .tooltiptext = Undo (⌘Z)
+    .title = Undo (⌘Z)
+    .aria-label = Undo (⌘Z)
+whimsy-annotations-pen-done = Done
+    .tooltiptext = Done (Esc)
+    .title = Done (Esc)
+    .aria-label = Done (Esc)
+whimsy-annotations-pen-hint = Drag to draw. Scroll with two fingers. Press Esc when you’re done.
+
+# $count (Number) - how many drawings are on this page
+whimsy-annotations-drawings-label = Drawings · { $count }
+whimsy-annotations-drawings-edit = Edit
+whimsy-annotations-drawings-remove = Remove
+# $index (Number) - 1-based index of the drawing preview
+whimsy-annotations-drawings-preview =
+    .tooltiptext = Drawing { $index }
+    .title = Drawing { $index }
+    .aria-label = Drawing { $index }
+whimsy-annotations-toast-drawings-removed = Drawings removed
 
 # $count (Number) - the page's highlights, plus one for its page note
 whimsy-annotations-urlbar-button =
