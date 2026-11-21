@@ -437,6 +437,7 @@ add_task(async function take_over_on_the_status_card() {
   const toast = await TestUtils.waitForCondition(() => statusToast(st.taskId)?.querySelector("#whimsy-agent-chat-take-over") && statusToast(st.taskId), "A Drive run's status card has Take over");
   Assert.deepEqual([...toast.querySelectorAll(".whimsy-toast-button")].map(b => b.id), ["whimsy-agent-chat-take-over", "whimsy-cmdk-stop"], "before Stop, so Stop stays last");
   const button = toast.querySelector("#whimsy-agent-chat-take-over");
+  await document.l10n.translateFragment(toast);
   is(button.querySelector(".whimsy-toast-button-label").textContent, "Take over", "the chat run card's words");
   ok(button.querySelector(".whimsy-toast-button-icon").style.getPropertyValue("--whimsy-toast-button-icon").includes("hand.svg"), "and its hand");
   button.click();

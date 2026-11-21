@@ -22,7 +22,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
-  WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
+  WhimsyContextCommands: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -416,7 +416,7 @@ export const WhimsyAICommands = {
     }
     if (cmd.result == "task") {
       // ⌘K asks for the blanks, then plans it there (W30 agentplus).
-      await lazy.WhimsyVerbs.WhimsyContextCommands.runTask(win, subject, cmd);
+      await lazy.WhimsyContextCommands.runTask(win, subject, cmd);
       return { kind: "task", text: "" };
     }
     const result = await lazy.WhimsyAIRouter.run({
