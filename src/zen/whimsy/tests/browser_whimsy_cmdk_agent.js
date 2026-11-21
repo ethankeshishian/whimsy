@@ -15,6 +15,7 @@ Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_cmdbar_a
 const { WhimsyCommandBarAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommandBarAgent.sys.mjs");
 const { WhimsyChatAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatAgent.sys.mjs");
 const { WhimsyAgentTasks } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAgentTasks.sys.mjs");
+const { WhimsyAICommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAICommands.sys.mjs");
 
 const MODE = "whimsy.ai.agent.mode";
 const PAGES = ["https://example.org/", "https://test1.example.com/", "https://test2.example.com/"].map(
@@ -438,11 +439,11 @@ add_task(async function take_over_on_the_status_card() {
   const button = toast.querySelector("#whimsy-agent-chat-take-over");
   is(button.querySelector(".whimsy-toast-button-label").textContent, "Take over", "the chat run card's words");
   ok(button.querySelector(".whimsy-toast-button-icon").style.getPropertyValue("--whimsy-toast-button-icon").includes("hand.svg"), "and its hand");
-  EventUtils.synthesizeMouseAtCenter(button, {});
+  button.click();
   await TestUtils.waitForCondition(() => WhimsyAgentTasks.get(st.taskId).pause?.kind == "take-over", "Take over pauses the task the way chat's button does");
   const yours = await TestUtils.waitForCondition(() => statusToast(st.taskId)?.getAttribute("whimsy-cmdk-status") == "yours" && statusToast(st.taskId), "The card says the tab is yours");
   Assert.deepEqual([...yours.querySelectorAll(".whimsy-toast-button")].map(b => b.id), ["whimsy-cmdk-continue", "whimsy-cmdk-stop"], "with Continue and Stop");
-  EventUtils.synthesizeMouseAtCenter(yours.querySelector("#whimsy-cmdk-continue"), {});
+  yours.querySelector("#whimsy-cmdk-continue").click();
   await finished(st.taskId);
 });
 

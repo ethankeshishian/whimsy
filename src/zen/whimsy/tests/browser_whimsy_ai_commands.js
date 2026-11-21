@@ -346,6 +346,6 @@ add_task(async function save_as_command_prefill_preselects_run_a_task() {
   await commandSheet(page);
   is(page.$("whimsyCommandName").value, "Coffee reorder", "Named from the task's title");
   is(page.doc.querySelector('#whimsyCommandResult [aria-checked="true"]')?.dataset.result, "task", "Run a task preselected");
-  is(page.$("whimsyCommandPrompt").value, "Order {count} more bags of {coffee}", "with the plan's prompt");
+  is(page.$("whimsyCommandPrompt").textContent, "Order {count} more bags of {coffee}", "with the plan's prompt");
   await closePage(page);
 });

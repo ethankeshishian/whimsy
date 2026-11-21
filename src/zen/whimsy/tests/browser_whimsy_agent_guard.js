@@ -358,7 +358,7 @@ add_task(async function sign_in_fills_the_saved_login_and_submits() {
     const clicked = await own(task, "click", { tabId, ref: refIn(tree, /button "Sign in"/) });
     results.push(clicked);
     ok(!task.pause, "No second card for pressing Sign in");
-    ok(textOf(clicked).includes("Clicked Sign in"), "The agent submitted");
+    is(textOf(clicked), 'Clicked button "Sign in".', "The agent submitted");
     is(task.loginFilled ?? null, null, "and the allowance was one-time");
     neverLeaks(task, results, pause);
     await own(task, "tabs_close", { tabId });
@@ -376,7 +376,7 @@ add_task(async function sign_in_button_fills_first_then_presses() {
     const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url => url.startsWith("https://example.com/whimsy-login"));
     WhimsyAgentTasks.decide(task.id, "do");
     const clicked = await pressing;
-    ok(textOf(clicked).startsWith("Whimsy filled the saved login for this site first. Clicked Sign in"), "Filled, then pressed");
+    is(textOf(clicked), 'Whimsy filled the saved login for this site first. Clicked button "Sign in".', "Filled, then pressed");
     await loaded;
     neverLeaks(task, [clicked], pause);
     await own(task, "tabs_close", { tabId });
