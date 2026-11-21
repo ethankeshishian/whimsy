@@ -81,7 +81,9 @@ add_task(function path_and_subdomain_of_a_new_origin_are_data() {
   is(pause?.kind, "navigate", "A visited site, but an origin the task hasn't been to: a path pauses");
   ok(pause.data, "as data");
   ok(!pause.preview.fields.some(f => f.note), "without calling the site new");
-  is(WhimsyAgentGuard.navigation(uri("https://docs.google.com/"), sites, { origins }), null, "The root of that origin goes ahead");
+  ok(WhimsyAgentGuard.navigation(uri("https://docs.google.com/"), sites, { origins }).data,
+    "The root of that origin still carries its host label: a visited site's unvisited subdomain is the same channel as <secret>.evil.example");
+  is(WhimsyAgentGuard.navigation(uri("https://www.google.com/"), sites, { origins }), null, "www at the root of a visited site goes ahead");
   is(WhimsyAgentGuard.navigation(uri(`https://mail.google.com/mail/u/0/${secret}`), sites, { origins }), null, "A path on an origin the task has been to goes ahead");
   const links = new Set([`https://docs.google.com/forms/d/e/${secret}/viewform`]);
   is(WhimsyAgentGuard.navigation(uri(`https://docs.google.com/forms/d/e/${secret}/viewform`), sites, { origins, links }), null, "A path a page the task read linked goes ahead");

@@ -25,6 +25,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  TabStateFlusher: "moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs",
   WhimsyArchiveMenu: "resource:///modules/whimsy/WhimsyArchiveMenu.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
@@ -109,7 +110,7 @@ export const WhimsyArcMenus = {
   // Arc's Tabs → Reset all tabs in this Space: Zen's per-tab "Reset Pinned
   // Tab", for every pinned tab (not Essentials) of the current space.
   // wave9/menus: `space` is the space menu's space when it isn't the current one.
-  resetSpaceTabs(win, space = win.gZenWorkspaces?.activeWorkspace) {
+  async resetSpaceTabs(win, space = win.gZenWorkspaces?.activeWorkspace) {
     const tabs = win.gBrowser.tabs.filter(
       tab =>
         tab.pinned &&
@@ -118,8 +119,16 @@ export const WhimsyArcMenus = {
     );
     // W30 U7: the whole reset is one undo (Edit → Undo, ⌘Z, the toast),
     // like Clear Archive: each tab's state from before the reset comes back.
+    // SessionStore's copy of a tab's history lags the tab by up to its
+    // update interval, so each tab is flushed first: without that, a page
+    // the person reached moments ago wouldn't be in the snapshot and Undo
+    // would put the tab back on an older page.
+    await Promise.all(tabs.map(tab => lazy.TabStateFlusher.flush(tab.linkedBrowser).catch(() => {})));
     const before = [];
     for (const tab of tabs) {
+      if (!tab.isConnected || tab.closing || !tab.pinned) {
+        continue;
+      }
       try {
         const state = lazy.WhimsyUndo.tabStateOf(tab);
         win.gZenPinnedTabManager?.resetPinnedTab(tab);
