@@ -27,6 +27,7 @@
 #include "nsIWidget.h"
 #include "nsObjCExceptions.h"
 #include "nsPIDOMWindow.h"
+#include "nsPIDOMWindowInlines.h"
 #include "nsString.h"
 #include "nsTArray.h"
 #include "nsXULAppAPI.h"
