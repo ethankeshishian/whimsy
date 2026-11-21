@@ -8,13 +8,17 @@
 // error page's own tab, the same way WhimsyProtocol.go() does for the
 // address bar.
 
-import { clearInterval, clearTimeout, setInterval, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
+import { clearTimeout, setTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 // While the game plays on an error page, "back online" means a page really
 // loads: the OS's link state can stay up with no internet (and on macOS
 // isLinkUp is only the cached reachability flag), so a check of the
 // captive-portal page, the one Firefox and macOS use, decides. Network
 // events check at once; a poll every 5s catches a reconnect nobody reported.
+// W30 U8: the poll's longest wait, as a multiple of WhimsyNetProbe.intervalMs
+// (a minute at the 5s default).
+const MAX_BACKOFF = 12;
+
 const CHECK_TOPICS = [
   "network:link-status-changed",
   "network:offline-status-changed",
@@ -147,12 +151,47 @@ export class WhimsyNetErrorParent extends JSWindowActorParent {
     if (this._observer) {
       return;
     }
-    this._observer = (subject, topic) => this.check(topic);
+    this._observer = (subject, topic) => {
+      // A network event is news: the next polls come quickly again.
+      this._delay = 0;
+      this.check(topic);
+    };
     for (const topic of CHECK_TOPICS) {
       Services.obs.addObserver(this._observer, topic);
     }
-    this._timer = setInterval(() => this.check("poll"), WhimsyNetProbe.intervalMs);
+    this._delay = 0;
+    this._idle = 0;
+    this.schedule();
     this.check("start");
+  }
+
+  // W30 U8: the poll backs off. Each poll waits twice as long as the last
+  // (5s, 10s, 20s… up to a minute) until a network event or a change in
+  // what the check finds, and a page nobody is looking at (a background
+  // tab, a minimized window) isn't checked at all; back in front, the
+  // quick polls start over.
+  schedule() {
+    clearTimeout(this._timer);
+    if (!this._observer) {
+      return;
+    }
+    const base = WhimsyNetProbe.intervalMs;
+    this._delay = this._delay ? Math.min(this._delay * 2, base * MAX_BACKOFF) : base;
+    this._timer = setTimeout(() => this.poll(), this._delay);
+  }
+
+  poll() {
+    if (!this._observer) {
+      return;
+    }
+    if (this.browsingContext?.isActive === false) {
+      this._idle++;
+      this._delay = 0;
+      this.schedule();
+      return;
+    }
+    this.check("poll");
+    this.schedule();
   }
 
   // The page the error is for (what Reload loads), from the error page's u=.
@@ -178,6 +217,8 @@ export class WhimsyNetErrorParent extends JSWindowActorParent {
           continue;
         }
         this._online = online;
+        // The connection changed: watch closely again.
+        this._delay = 0;
         try {
           this.sendAsyncMessage(online ? "WhimsyNetError:BackOnline" : "WhimsyNetError:Offline");
         } catch {
@@ -196,6 +237,6 @@ export class WhimsyNetErrorParent extends JSWindowActorParent {
       }
       this._observer = null;
     }
-    clearInterval(this._timer);
+    clearTimeout(this._timer);
   }
 }

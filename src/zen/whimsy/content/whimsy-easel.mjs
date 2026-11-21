@@ -1608,14 +1608,20 @@ class EaselApp {
           event.preventDefault();
           this.duplicate();
           return;
-        case "]":
-          event.preventDefault();
-          this.reorder(event.shiftKey ? "front" : "forward");
-          return;
-        case "[":
-          event.preventDefault();
-          this.reorder(event.shiftKey ? "back" : "backward");
-          return;
+      }
+      // W30 U4: the bracket keys by physical key. Shift+] is "}" on a US
+      // layout, so matching the character never saw ⇧⌘] / ⇧⌘[ (Bring to
+      // front, Send to back) and the press went on to switch tabs.
+      if (event.code == "BracketRight" || event.code == "BracketLeft") {
+        event.preventDefault();
+        event.stopPropagation();
+        const forward = event.code == "BracketRight";
+        if (event.shiftKey) {
+          this.reorder(forward ? "front" : "back");
+        } else {
+          this.reorder(forward ? "forward" : "backward");
+        }
+        return;
       }
       return;
     }

@@ -394,6 +394,46 @@ export const WhimsyAgentGuard = {
     return !!site && (!!sites?.has(site) || !!trustedForTesting?.includes(site));
   },
 
+  /** A URL's origin as the task's `origins` set keys it: "https://mail.google.com". */
+  originOf(uri) {
+    try {
+      return uri.prePath;
+    } catch {
+      return "";
+    }
+  },
+
+  /** W30 S2: whether the task has been on `uri`'s exact origin. */
+  visitedOrigin(uri, origins) {
+    const origin = this.originOf(uri);
+    return !!origin && (!!origins?.has(origin) || !!trustedForTesting?.includes(this.siteOf(uri)));
+  },
+
+  /** The host labels in front of the site ("<secret>.evil.example" → "secret"); "www" doesn't count. */
+  hostData(uri, site = this.siteOf(uri)) {
+    let host = "";
+    try {
+      host = uri.host ?? "";
+    } catch {
+      return "";
+    }
+    if (!site || host == site || !host.endsWith(`.${site}`)) {
+      return "";
+    }
+    return host.slice(0, -site.length - 1).replace(/^www(\.|$)/, "");
+  },
+
+  /** The path beyond "/", which on an unvisited origin can carry what a task read. */
+  pathData(uri) {
+    let path = "/";
+    try {
+      path = uri.filePath || "/";
+    } catch {
+      return "";
+    }
+    return path == "/" ? "" : path.slice(1);
+  },
+
   /**
    * H2 and P2-H1: whether going to `uri` pauses ("Go to <site>?"). It goes
    * ahead only when the task has visited the site (it started there, or
@@ -402,25 +442,36 @@ export const WhimsyAgentGuard = {
    * fragment needs that exact address (fragment aside) among the links or
    * form actions on a page the task read. Returns the pause, or null.
    *
+   * W30 S2: a query and a fragment aren't the only places an address can
+   * carry what the task read. On an origin the task hasn't been to (it
+   * didn't start there, the person didn't approve an address there, and no
+   * page the task read linked it), the path ("https://evil.example/<the
+   * secret>") and any host labels beyond the site ("https://<the
+   * secret>.evil.example/") count as data too, so they show in the pause's
+   * Carries row and keep a visited site from going ahead unasked.
+   *
    * @param {nsIURI} uri
    * @param {Set<string>} sites visited sites (registrable domains)
    * @param {object} [opts]
    * @param {Set<string>} [opts.links] page-supplied addresses, no fragment
    * @param {boolean} [opts.knownSite] the person used the host before today
+   * @param {Set<string>} [opts.origins] visited origins (scheme://host:port)
    */
-  navigation(uri, sites, { links = null, knownSite = false } = {}) {
+  navigation(uri, sites, { links = null, knownSite = false, origins = null } = {}) {
     const site = this.siteOf(uri);
     if (!site || trustedForTesting?.includes(site)) {
       return null;
     }
     const visited = this.visited(uri, sites);
-    const extra = (uri.query?.length ?? 0) + (uri.ref?.length ?? 0);
-    const hasData = !!(uri.query || uri.ref);
-    const supplied = hasData && !!links?.has(uri.specIgnoringRef);
-    if (visited && (!hasData || supplied)) {
+    const supplied = !!links?.has(uri.specIgnoringRef);
+    let extra = (uri.query?.length ?? 0) + (uri.ref?.length ?? 0);
+    if (!supplied && !this.visitedOrigin(uri, origins)) {
+      extra += this.hostData(uri, site).length + this.pathData(uri).length;
+    }
+    const data = !supplied && extra > 0;
+    if (visited && !data) {
       return null;
     }
-    const data = hasData && !supplied;
     const bundle = l10n();
     const address = uri.prePath + uri.filePath;
     // "new to you" only when the person has no visit there before today.

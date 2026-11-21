@@ -362,3 +362,52 @@ add_task(async function replay_title_agent_runs() {
   });
   await WhimsyClaudeReplay.clear();
 });
+
+// W30 S9: a password or code typed into a plain field (a code box with no
+// autocomplete, a password mirrored into a text input) is masked in the
+// run's log the same way a value for a marked field is; the sentence
+// around it stays readable.
+add_task(async function test_typed_secrets_masked_in_plain_fields() {
+  const { SECRET_LABEL } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAISensitive.sys.mjs");
+  const typed = WhimsyClaudeReplay.target("type", { ref: "ref_1", text: "the code is 482913 and the key Hunter2Secret9x" });
+  ok(!typed.includes("482913") && !typed.includes("Hunter2Secret9x"), `No code or password in “${typed}”`);
+  ok(typed.includes(SECRET_LABEL) && typed.includes("the code is"), "but the words around them");
+  const filled = WhimsyClaudeReplay.target("form_input", { ref: "ref_2", value: "Hunter2Secret9x" });
+  ok(!filled.includes("Hunter2Secret9x") && filled.includes(SECRET_LABEL), "A form value is masked too");
+  is(
+    WhimsyClaudeReplay.target("form_input", { ref: "ref_3", value: "a plain word", sensitive: true }),
+    `ref_3 = ${SECRET_LABEL}`,
+    "A value for a field the page marks is hidden whole"
+  );
+  ok(WhimsyClaudeReplay.target("type", { text: "turkey on rye" }).includes("turkey on rye"), "Ordinary words stay");
+
+  await turnOn();
+  const { tabId } = JSON.parse(textOf(await okCall("tabs_create", { url: PAGE })));
+  const tab = WhimsyClaude.tabById(tabId);
+  try {
+    const tree = textOf(await okCall("read_page", { tabId }));
+    const ref = tree
+      .split("\n")
+      .find(l => l.includes("Type a sandwich"))
+      ?.match(/\[(ref_\d+)\]/)?.[1];
+    ok(ref, "The plain field has a ref");
+    await okCall("type", { tabId, ref, text: "Hunter2Secret9x" });
+    await WhimsyClaudeReplay.flush();
+    const saved = await IOUtils.readUTF8(FILE);
+    ok(!saved.includes("Hunter2Secret9x"), "A password typed into a plain field never reaches the disk");
+    const [run] = await WhimsyClaudeReplay.runs();
+    ok(run.steps.some(s => s.tool == "type"), "The step itself is kept");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
+});
+
+// W30: the replay page carries a Content Security Policy like the other
+// about:whimsy pages.
+add_task(async function test_replay_page_has_a_csp() {
+  await BrowserTestUtils.withNewTab("about:whimsy?replay", async browser => {
+    const csp = browser.contentDocument.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content ?? "";
+    ok(csp.includes("default-src chrome:"), `A CSP: ${csp}`);
+    ok(csp.includes("object-src 'none'"), "with no plugins");
+  });
+});

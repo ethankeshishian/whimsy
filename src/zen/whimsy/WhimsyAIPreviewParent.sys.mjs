@@ -33,6 +33,12 @@ export class WhimsyAIPreviewParent extends JSWindowActorParent {
       return undefined;
     }
     if (name == "WhimsyAIPreview:Show") {
+      // W30 S3: the child says what the link is, so only a web address is
+      // taken here, where the card's click will open it. A page process
+      // can't make the browser follow file:, chrome:, or javascript:.
+      if (!lazy.WhimsyLinkHover.isWebAddress(data?.url)) {
+        return undefined;
+      }
       lazy.WhimsyLinkHover.forWindow(win).enter({ ...data, source: "link", how: "hover", browser });
     } else if (name == "WhimsyAIPreview:Leave") {
       lazy.WhimsyLinkHover.forWindow(win).leave(null, data?.url);

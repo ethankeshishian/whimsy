@@ -24,6 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyAIIndex: "resource:///modules/whimsy/WhimsyAIIndex.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
@@ -861,6 +862,13 @@ export const WhimsyAIPage = {
       const text = await lazy.WhimsyAIReader.readTab(browser, { removeBoilerplate: true, sufficientLength: 15000 })
         .catch(() => "");
       throwIfAborted(shared);
+      // W30 S5: a hover is not a request. A signed-in page (mail, a bank, a
+      // workspace) stays on this Mac unless the person asks about it
+      // themselves: the history index skips such pages the same way, and
+      // nothing is cached, so a later on-device provider can describe it.
+      if (lazy.WhimsyAIProviders.isCloud && lazy.WhimsyAIIndex._signedIn(browser, browser.currentURI, title, text)) {
+        throw Object.assign(new Error("Signed-in page"), { code: "signed-in" });
+      }
       return this.describeText(cacheKey, { url, title, text }, { signal: shared, userStarted: false });
     });
   },

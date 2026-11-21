@@ -206,6 +206,8 @@ const CAPTURE_FEATURE_PREF = "whimsy.feature.capture";
 export const CONSOLE_KEY_ID = "key_browserConsole";
 export const CONSOLE_BINDING = { modifiers: "accel,alt", key: "J" };
 export const DOWNLOADS_BINDING = { modifiers: "accel,shift", key: "J" };
+// Firefox's own Downloads key, where it goes back when Shift+Cmd+J is taken (W30 U6).
+const DOWNLOADS_DEFAULT_BINDING = { modifiers: "accel", key: "J" };
 
 const ATTRS = ["data-l10n-id", "key", "keycode", "modifiers"];
 
@@ -305,23 +307,39 @@ export const WhimsyShortcuts = {
         const taken = lazy.WhimsyCommands.findConflict(document, CONSOLE_BINDING, CONSOLE_KEY_ID);
         if (taken || this.isCustomized(CONSOLE_KEY_ID)) {
           console.warn(`Whimsy: Browser Console keeps Cmd+Shift+J; ${taken?.id || "a custom key"} has Cmd+Opt+J`);
-          return "kept";
+          result = "kept";
+        } else {
+          consoleKey.setAttribute("modifiers", CONSOLE_BINDING.modifiers);
+          keysets.add(consoleKey.parentElement);
+          result = "moved";
         }
-        consoleKey.setAttribute("modifiers", CONSOLE_BINDING.modifiers);
-        keysets.add(consoleKey.parentElement);
-        result = "moved";
       } else {
         result = "moved"; // Customized elsewhere already: Cmd+Shift+J is free.
       }
     }
+    // W30 U6: Downloads gets its key whether or not the Console moved. Link
+    // hints took Cmd+J from it earlier on the promise of Shift+Cmd+J; when
+    // that stays taken too, Downloads has Cmd+J back and the Whimsy key
+    // that borrowed it stands aside, marked so nothing is unbound in silence.
     const downloads = document.getElementById("key_openDownloads");
-    if (
-      downloads &&
-      !this.isCustomized("key_openDownloads") &&
-      !lazy.WhimsyCommands.findConflict(document, DOWNLOADS_BINDING, "key_openDownloads")
-    ) {
-      this.setBinding(downloads, DOWNLOADS_BINDING);
-      keysets.add(downloads.parentElement);
+    if (downloads && !this.isCustomized("key_openDownloads")) {
+      const taken = lazy.WhimsyCommands.findConflict(document, DOWNLOADS_BINDING, "key_openDownloads");
+      if (!taken) {
+        this.setBinding(downloads, DOWNLOADS_BINDING);
+        keysets.add(downloads.parentElement);
+      } else if (!downloads.getAttribute("key") && !downloads.getAttribute("keycode")) {
+        const borrower = lazy.WhimsyCommands.findConflict(document, DOWNLOADS_DEFAULT_BINDING, "key_openDownloads");
+        if (borrower?.hasAttribute(lazy.WhimsyCommands.AUTO_KEY_ATTR)) {
+          console.warn(`Whimsy: ${borrower.id} left unbound; Downloads has Cmd+J back because ${taken.id || "another key"} keeps Cmd+Shift+J`);
+          this.setBinding(borrower, {});
+          borrower.setAttribute(lazy.WhimsyCommands.CONFLICT_ATTR, "key_openDownloads");
+          keysets.add(borrower.parentElement);
+        }
+        if (!lazy.WhimsyCommands.findConflict(document, DOWNLOADS_DEFAULT_BINDING, "key_openDownloads")) {
+          this.setBinding(downloads, DOWNLOADS_DEFAULT_BINDING);
+          keysets.add(downloads.parentElement);
+        }
+      }
     }
     const inspectorMac = document.getElementById("key_inspectorMac");
     if (inspectorMac && !this.isCustomized("key_inspectorMac")) {

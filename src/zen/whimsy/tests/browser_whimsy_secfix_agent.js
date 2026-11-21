@@ -69,7 +69,7 @@ add_task(async function new_site_pauses_before_any_request() {
 });
 
 add_task(async function start_and_named_sites_count_as_visited() {
-  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"] });
+  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"], origins: ["https://example.com"] });
   const result = await own(task, "tabs_create", { url: PAGE });
   ok(!result.isError && !task.pause, "A site the person named (or started on) goes ahead");
   const { tabId } = JSON.parse(textOf(result));
@@ -80,7 +80,7 @@ add_task(async function start_and_named_sites_count_as_visited() {
 add_task(async function background_never_reads_the_persons_tabs() {
   const mine = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?mine");
   const mineId = WhimsyClaude.tabId(mine);
-  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"] });
+  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"], origins: ["https://example.com"] });
   const listed = await own(task, "tabs_list");
   ok(!textOf(listed).includes("?mine"), "Background: the person's tabs aren't listed");
   for (const tool of ["read_page", "get_page_text", "screenshot", "click"]) {
@@ -89,7 +89,7 @@ add_task(async function background_never_reads_the_persons_tabs() {
   }
   WhimsyAgentTasks.finish(task.id);
 
-  const drive = WhimsyAgentTasks.start({ client: "whimsy", mode: "drive", sites: ["example.com"] });
+  const drive = WhimsyAgentTasks.start({ client: "whimsy", mode: "drive", sites: ["example.com"], origins: ["https://example.com"] });
   ok((await own(drive, "read_page", { tabId: mineId })).isError, "Drive: an unattached tab is refused too");
   drive.attached.add(mine);
   const read = await own(drive, "get_page_text", { tabId: mineId });
@@ -106,7 +106,7 @@ add_task(async function frame_clicks_pause() {
   ok(unit.handOver, "and is the person's to press");
   is(unit.preview.reason, "frame", "saying why");
 
-  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"] });
+  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"], origins: ["https://example.com"] });
   const created = await own(task, "tabs_create", { url: ROOT + "whimsy_secfix_frame.html" });
   const { tabId } = JSON.parse(textOf(created));
   const tab = WhimsyClaude.tabById(tabId);

@@ -261,6 +261,12 @@ export const WhimsySplitKeys = {
       return;
     }
     const [keyId, keycode] = PHYSICAL_KEYS[event.code] ?? [];
+    // W30 U9: outside a split only Add Split View has anything to do; the
+    // other keys pass to the page (web apps use Ctrl+Shift+digit and the
+    // brackets) instead of being swallowed with nothing to show for it.
+    if (keyId && keyId != "key_whimsyAddSplitView" && !this.currentGroup(win)) {
+      return;
+    }
     const keyEl = keyId && win.document.getElementById(keyId);
     // Only while the key still has its default; a person who rebound it
     // in about:keyboard gets their binding through the normal <key> path.

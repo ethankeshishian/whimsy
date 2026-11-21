@@ -207,3 +207,60 @@ add_task(async function no_text_no_text_commands() {
     WhimsyVerbs.sessions.delete(window);
   });
 });
+
+// W30 U3: whether the image's text may go to the cloud is decided for the
+// tab the image is in, when Translate is asked for, not for whichever tab
+// is in front once recognition has finished.
+add_task(async function translate_decides_privacy_for_the_images_tab() {
+  const realTranslateWithAI = WhimsyImageText.translateWithAI;
+  const realTestTranslate = WhimsyImageText.testTranslate;
+  const cloudCalls = [];
+  WhimsyImageText.translateWithAI = async lines => {
+    cloudCalls.push(lines);
+    return lines.map(line => TRANSLATIONS[line] ?? line);
+  };
+  const recognized = browser =>
+    TestUtils.waitForCondition(
+      () =>
+        SpecialPowers.spawn(browser, [], () => {
+          const actor = content.windowGlobalChild.getExistingActor("WhimsyImageText");
+          return !!actor && actor.images.size > 0;
+        }),
+      "The image in view was recognized"
+    );
+  const normal = await BrowserTestUtils.openNewForegroundTab(gBrowser, IMAGE_TEXT_PAGE("jp"));
+  await recognized(normal.linkedBrowser);
+  const priv = openWhimsyPrivateTab(window, { url: IMAGE_TEXT_PAGE("jp"), force: true });
+  try {
+    await BrowserTestUtils.browserLoaded(priv.linkedBrowser, false, IMAGE_TEXT_PAGE("jp"));
+    gBrowser.selectedTab = priv;
+    await recognized(priv.linkedBrowser);
+
+    // Asked in the private tab; the person switches away while it works.
+    WhimsyImageText.testTranslate = () => {
+      gBrowser.selectedTab = normal;
+      return null;
+    };
+    ok(!(await WhimsyImageText.translate(window)), "No on-device translation and no cloud: it fails quietly");
+    is(cloudCalls.length, 0, "A private tab's image never goes to the cloud, whatever tab is in front later");
+    closeToasts();
+
+    // Asked in a normal tab; switching to the private one doesn't block it.
+    gBrowser.selectedTab = normal;
+    WhimsyImageText.testTranslate = () => {
+      gBrowser.selectedTab = priv;
+      return null;
+    };
+    ok(await WhimsyImageText.translate(window), "A normal tab's image is translated by the cloud");
+    is(cloudCalls.length, 1, "exactly once");
+    closeToasts();
+  } finally {
+    WhimsyImageText.translateWithAI = realTranslateWithAI;
+    WhimsyImageText.testTranslate = realTestTranslate;
+    gBrowser.selectedTab = normal;
+    BrowserTestUtils.removeTab(normal);
+    if (priv.isConnected && !priv.closing) {
+      gBrowser.removeTabs([priv], { skipPermitUnload: true, animate: false });
+    }
+  }
+});

@@ -673,3 +673,48 @@ add_task(async function game_only_in_tabs_and_for_network_errors() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// W30 U8: the poll backs off (each wait twice the last, up to a minute),
+// a page nobody is looking at isn't checked, and a network event or the
+// tab coming back in front brings the quick checks back.
+add_task(async function polling_backs_off_and_rests_when_hidden() {
+  await SpecialPowers.pushPrefEnv({ set: GAME_PREFS });
+  const interval = WhimsyNetProbe.intervalMs;
+  WhimsyNetProbe.intervalMs = 50;
+  let checks = 0;
+  WhimsyNetProbe.check = async () => {
+    checks++;
+    return false;
+  };
+  try {
+    await withWhimsyError("netOffline", async browser => {
+      await prepare(browser);
+      await BrowserTestUtils.synthesizeKey(" ", {}, browser);
+      is((await gameState(browser, true)).state, "running", "The error page is the game");
+      const actor = browser.browsingContext.currentWindowGlobal.getActor("WhimsyNetError");
+      await TestUtils.waitForCondition(() => checks >= 3, "A few polls have run");
+      Assert.greater(actor._delay, WhimsyNetProbe.intervalMs, "The wait between polls grew");
+      Assert.lessOrEqual(actor._delay, WhimsyNetProbe.intervalMs * 12, "and is capped");
+
+      const front = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+      await TestUtils.waitForCondition(() => actor._idle > 0, "A poll found the page hidden");
+      const hidden = checks;
+      await TestUtils.waitForCondition(() => actor._idle > 2, "and so did the next ones");
+      is(checks, hidden, "A hidden page isn't checked");
+
+      gBrowser.selectedTab = gBrowser.getTabForBrowser(browser);
+      await TestUtils.waitForCondition(() => checks > hidden, "Back in front, the checks resume");
+      BrowserTestUtils.removeTab(front);
+
+      await TestUtils.waitForCondition(() => actor._delay > WhimsyNetProbe.intervalMs, "The wait grows again");
+      const before = checks;
+      Services.obs.notifyObservers(null, "network:link-status-changed", "changed");
+      is(actor._delay, 0, "A network event starts the quick polls over");
+      await TestUtils.waitForCondition(() => checks > before, "and checks at once");
+    });
+  } finally {
+    WhimsyNetProbe.intervalMs = interval;
+    WhimsyNetProbe.check = async () => null;
+    await SpecialPowers.popPrefEnv();
+  }
+});

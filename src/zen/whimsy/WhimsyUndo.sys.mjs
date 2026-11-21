@@ -152,6 +152,29 @@ function restorePreResetState(tab) {
 export const WhimsyUndo = {
   _suppressed: 0,
 
+  // W30 U7: a tab's session state (its history and place in it) as a
+  // string, for an undo that puts the tab back as it was, or null.
+  tabStateOf(tab) {
+    try {
+      return lazy().SessionStore.getTabState(tab);
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // Puts a tab back to a state tabStateOf() gave, waiting out any restore
+  // still under way on it (the same path ⌘⇧T on a reset pinned tab takes).
+  restoreTabState(tab, state) {
+    try {
+      delete tab._whimsyPreResetState;
+      setPinnedTabState(tab, state);
+      return true;
+    } catch (e) {
+      console.error("Whimsy: restoring a tab's state failed", e);
+      return false;
+    }
+  },
+
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },

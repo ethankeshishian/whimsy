@@ -585,14 +585,14 @@ export class WhimsyFormProtectionParent extends JSWindowActorParent {
       // R1 v2 §2, §6: the continuous draft of the top document's typing.
       // data: null deletes it (a save, a submit, back to the start).
       case "Whimsy:FormDraft": {
-        if (!browser || this.browsingContext != this.browsingContext.top) {
+        const url = this.documentAddress();
+        if (!browser || !url || this.browsingContext != this.browsingContext.top) {
           return null;
         }
         const { userContextId, isPrivate } = WhimsyFormProtection.contextFor(browser);
-        const url = message.data?.url;
         if (message.data?.data) {
           WhimsyFormDrafts.put({ url, data: message.data.data, userContextId, isPrivate });
-        } else if (url) {
+        } else {
           WhimsyFormDrafts.delete({ url, userContextId, isPrivate });
         }
         return null;
@@ -601,15 +601,30 @@ export class WhimsyFormProtectionParent extends JSWindowActorParent {
         if (!browser || this.browsingContext != this.browsingContext.top) {
           return null;
         }
-        return WhimsyFormProtection.snapshotFor(browser, message.data?.url);
+        return WhimsyFormProtection.snapshotFor(browser, this.documentAddress());
       }
-      case "Whimsy:FormRefillReady":
-        if (browser) {
-          WhimsyFormProtection.offerRefill(browser, this, message.data?.url, message.data?.count);
+      case "Whimsy:FormRefillReady": {
+        const url = this.documentAddress();
+        if (browser && url) {
+          WhimsyFormProtection.offerRefill(browser, this, url, message.data?.count);
         }
         return null;
+      }
     }
     return null;
+  }
+
+  // W30 S4: a draft's address is the document this actor belongs to, as
+  // the parent knows it (fragment aside, the child's key), never the
+  // address the message names: a page process can't read, replace, or
+  // delete another address's draft by claiming to be it.
+  documentAddress() {
+    try {
+      const uri = this.manager?.documentURI;
+      return uri && /^https?$/.test(uri.scheme) ? uri.specIgnoringRef : null;
+    } catch (e) {
+      return null;
+    }
   }
 
   didDestroy() {

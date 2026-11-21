@@ -177,7 +177,7 @@ add_task(async function test_cards_and_the_open_card() {
   ok(chip, "A page chip");
   is(chip.querySelector("img").getAttribute("src"), `page-icon:${url}`, "...with the page's favicon");
   is(chip.querySelector(".whimsy-note-chip-label").textContent, tab.label, "...and its title (it's the page in front)");
-  is(hereCard.querySelector(".whimsy-note-card-age").textContent, "Now", "How long ago: Now");
+  is(hereCard.querySelector(".whimsy-note-card-age").textContent, "Just now", "How long ago: Just now");
   const freeCard = cardFor(free.id);
   is(freeCard.querySelector(".whimsy-note-card-title").textContent, "Trip plan", "Untitled: the first line is the title");
   is(freeCard.querySelector(".whimsy-note-card-line").textContent, "Lisbon, 12–16 Dec", "...and the second the line");

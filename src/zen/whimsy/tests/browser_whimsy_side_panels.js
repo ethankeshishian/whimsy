@@ -119,7 +119,7 @@ addPanelTask(async function menu_checkbox_and_open_in_tab() {
   // The regroup puts Side Panel beside Essentials in Where it lives;
   // Show Unread Badge belongs to the later Label group.
   is(item.previousElementSibling?.id, "context_zen-remove-essential", "under Remove from Essentials");
-  await TestUtils.waitForCondition(() => item.label == "Open in Side Panel", "Its name");
+  await TestUtils.waitForCondition(() => item.label == "Open as Popover", "Its name");
   menu.activateItem(item);
   await BrowserTestUtils.waitForEvent(menu, "popuphidden");
   ok(ess.hasAttribute(WhimsySidePanel.OFF_ATTR), "Unchecked");

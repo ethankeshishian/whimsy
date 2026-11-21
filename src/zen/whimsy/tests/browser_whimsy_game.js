@@ -423,3 +423,13 @@ add_task(async function test_no_online_notice_in_standalone_game() {
     ok(!doc.getElementById("whimsy-game-online-notice"), "Notice does not show when online event fires in standalone game");
   });
 });
+
+// W30: the page carries a Content Security Policy like the other
+// about:whimsy pages.
+add_task(async function test_page_has_a_csp() {
+  await withGame(async ({ doc }) => {
+    const csp = doc.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content ?? "";
+    ok(csp.includes("default-src chrome:"), `A CSP: ${csp}`);
+    ok(csp.includes("object-src 'none'"), "with no plugins");
+  });
+});

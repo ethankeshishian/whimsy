@@ -129,17 +129,32 @@ add_task(async function test_switch_off() {
 
 add_task(async function test_reset_space_tabs() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?pinned-home");
-  gBrowser.pinTab(tab);
-  const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-  BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "https://example.com/?wandered");
-  await loaded;
-  ok(WhimsyArcMenus.resetSpaceTabs(window) >= 1, "Resets this space's pinned tabs");
-  await TestUtils.waitForCondition(
-    () => tab.linkedBrowser.currentURI.spec.includes("pinned-home"),
-    "Back on its pinned page"
-  );
-  gBrowser.unpinTab(tab);
-  BrowserTestUtils.removeTab(tab);
+  try {
+    gBrowser.pinTab(tab);
+    const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser);
+    BrowserTestUtils.startLoadingURIString(tab.linkedBrowser, "https://example.com/?wandered");
+    await loaded;
+    ok((await WhimsyArcMenus.resetSpaceTabs(window)) >= 1, "Resets this space's pinned tabs");
+    await TestUtils.waitForCondition(
+      () => tab.linkedBrowser.currentURI.spec.includes("pinned-home"),
+      "Back on its pinned page"
+    );
+    // W30 U7: the whole reset is one undo, with a toast.
+    const toast = gZenUIManager.toasts.getToasts().find(t => t.messageId == "whimsy-reset-space-tabs-toast");
+    ok(toast, "A toast says what was reset");
+    is(WhimsyUndo.peek(window)?.type, "reset-space-tabs", "and ⌘Z has the reset");
+    ok(WhimsyUndo.undo(window), "Undo runs");
+    await TestUtils.waitForCondition(
+      () => tab.linkedBrowser.currentURI.spec.includes("wandered"),
+      "Undo puts the tab back where it had wandered"
+    );
+    ok(tab.pinned, "still pinned");
+  } finally {
+    if (tab.pinned) {
+      gBrowser.unpinTab(tab);
+    }
+    BrowserTestUtils.removeTab(tab);
+  }
 });
 
 // wave10 (W10-53): the rows sit where Arc's menu bar has them
