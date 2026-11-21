@@ -1,6 +1,28 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1281",
+      "date": "2026-11-21",
+      "title": "A pen, WebKit tabs, and tasks in \u2318K",
+      "new": [
+        "Draw on Page puts a freehand pen on any page, and your drawings are listed in the page panel.",
+        "Open in WebKit moves a tab or site into macOS WebKit, and Open in Firefox moves it back.",
+        "Run a task commands ask for their blanks in \u2318K, then plan the task right there.",
+        "Take over on the \u2318K status card hands you the tab while the agent drives, and Continue gives it back.",
+        "When the agent reaches a sign-in form, it fills your saved login for that site first."
+      ],
+      "improved": [
+        "Change This Page can rearrange a page into grids, columns, and rows, and a kept change stays with the profile you made it in.",
+        "Reset All Tabs in This Space can be undone, and Undo puts each tab back on the page it was showing.",
+        "Downloads always keeps a shortcut, and a shortcut that can't be set names what it conflicts with."
+      ],
+      "fixed": [
+        "Hover cards and Spaces Sync open only web pages, and signed-in tabs you hover are never sent to a cloud model.",
+        "Replay hides codes and passwords typed into plain text fields.",
+        "Easel's front and back keys match the bracket keys on your keyboard."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1248",
       "date": "2026-11-20",
       "title": "Clean links and steady pages",
