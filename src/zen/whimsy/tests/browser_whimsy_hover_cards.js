@@ -1237,7 +1237,7 @@ add_task(async function signed_in_tabs_stay_off_the_cloud() {
     const card = await openTabCard();
     const note = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-note"), "A note");
     is(note.dataset.note, "signed-in", "A signed-in page isn't described by a cloud model");
-    is(note.getAttribute("data-l10n-id"), "whimsy-hover-card-signed-in", "and says so");
+    is(note.querySelector("span")?.getAttribute("data-l10n-id"), "whimsy-hover-card-signed-in", "and says so");
     ok(!card.querySelector(".whimsy-hc-points"), "...with no bullets");
     is(asked.filter(described).length, 0, "and nothing went to the model");
   } finally {
