@@ -1053,6 +1053,11 @@ add_task(async function test_pen_eraser_undo_panel_and_reduced_motion() {
       () => WhimsyAnnotations.getDrawings(TEST_URL).length === 0,
       "Clicking Remove deletes all drawings on the page"
     );
+    // The store empties first; the badge refresh and the Undo entry follow.
+    await TestUtils.waitForCondition(
+      () => urlbarBtn.hidden,
+      "Badge hides when drawings are removed and page has no other annotations"
+    );
     ok(urlbarBtn.hidden, "Badge hides when drawings are removed and page has no other annotations");
 
     // Undo restores the removed drawings
@@ -1064,6 +1069,7 @@ add_task(async function test_pen_eraser_undo_panel_and_reduced_motion() {
       () => WhimsyAnnotations.getDrawings(TEST_URL).length === 1,
       "Undo restores the removed drawings"
     );
+    await TestUtils.waitForCondition(() => !urlbarBtn.hidden, "Badge returns after Undo");
     is(countLabel.getAttribute("value"), "1", "Badge count returns to 1 after Undo");
 
     // Clear Page clears drawings
