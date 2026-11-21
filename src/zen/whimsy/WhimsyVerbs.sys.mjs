@@ -979,7 +979,7 @@ export const WhimsyContextCommands = {
       detail,
       run: () => (value ? next(value) : win.setTimeout(() => this.askBlank(win, cmd, text, blanks, index), 0)),
     });
-    return lazy.WhimsyVerbs.openMode(win, {
+    return WhimsyVerbs.openMode(win, {
       mode: "task-blank",
       label: { id: "whimsy-cmdk-blank-group", args: { name: cmd.name } },
       rows: [row("")],
