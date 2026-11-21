@@ -756,7 +756,7 @@ nsWhimsyWebKit::CreateTab(mozIDOMWindowProxy* aWindow,
       if (store) {
         [config setValue:store forKey:@"websiteDataStore"];
       }
-    } else if ([aDataStoreId EqualsLiteral:@"ephemeral"]) {
+    } else if (aDataStoreId.EqualsLiteral("ephemeral")) {
       id store = [storeClass performSelector:@selector(nonPersistentDataStore)];
       if (store) {
         [config setValue:store forKey:@"websiteDataStore"];
