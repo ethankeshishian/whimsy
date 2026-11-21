@@ -1053,6 +1053,11 @@
 # W24 annotations: last highlight color chosen ("yellow", "green", "blue", "pink").
 - name: whimsy.annotations.color
   value: "yellow"
+# W29 pen: last freehand pen line width ("thin" or "thick") and first-use hint count.
+- name: whimsy.annotations.pen-width
+  value: "thin"
+- name: whimsy.annotations.pen-hint-shown
+  value: 0
 
 # W28: Page Minimap, a picture of a long page at its right edge (Show Page
 # Minimap in the command bar). Off by default.

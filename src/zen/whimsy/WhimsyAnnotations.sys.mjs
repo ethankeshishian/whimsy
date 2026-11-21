@@ -20,13 +20,19 @@ ChromeUtils.defineESModuleGetters(lazy, {
 
 const PREF_ENABLED = "whimsy.feature.annotations";
 const PREF_COLOR = "whimsy.annotations.color";
+const PREF_PEN_WIDTH = "whimsy.annotations.pen-width";
+const PREF_PEN_HINT_SHOWN = "whimsy.annotations.pen-hint-shown";
 const STORE_FILENAME = "whimsy-annotations.json";
 const BUTTON_ID = "whimsy-annotations-button";
 const POPOVER_ID = "whimsy-annotation-popover";
 const PAGE_PANEL_ID = "whimsy-annotations-page-panel";
+const PEN_BAR_ID = "whimsy-annotations-pen-bar";
+const PEN_HINT_ID = "whimsy-annotations-pen-hint";
 const CTX_HIGHLIGHT_ID = "context-whimsy-highlight";
 const CTX_ADD_NOTE_ID = "context-whimsy-add-note";
+const CTX_DRAW_ID = "context-whimsy-draw";
 const CTX_SEP_ID = "context-whimsy-annotations-separator";
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 export const ANNOTATION_COLORS = Object.freeze([
   "yellow",
@@ -34,6 +40,8 @@ export const ANNOTATION_COLORS = Object.freeze([
   "blue",
   "pink",
 ]);
+
+export const PEN_WIDTHS = Object.freeze(["thin", "thick"]);
 
 const COLOR_LABELS = Object.freeze({
   yellow: "Yellow",
@@ -61,6 +69,16 @@ export class WhimsyAnnotationsParent extends JSWindowActorParent {
             highlightId: message.data.id,
             rect: message.data.rect,
           });
+        }
+        break;
+      case "WhimsyAnnotations:PenStrokeAdded":
+        if (message.data?.stroke) {
+          WhimsyAnnotations._onActorStrokeAdded(win, browser, message.data);
+        }
+        break;
+      case "WhimsyAnnotations:PenStrokeErased":
+        if (message.data?.strokeId) {
+          WhimsyAnnotations._onActorStrokeErased(win, browser, message.data);
         }
         break;
     }
@@ -153,8 +171,10 @@ export const WhimsyAnnotations = {
   _initialized: false,
   _windows: new WeakSet(),
   _anchoredByBrowser: new WeakMap(),
+  _penSessions: new WeakMap(),
 
   COLORS: ANNOTATION_COLORS,
+  PEN_WIDTHS,
 
   init() {
     if (this._initialized) {
@@ -205,6 +225,27 @@ export const WhimsyAnnotations = {
 
   normalizeColor(color) {
     return ANNOTATION_COLORS.includes(color) ? color : this.lastColor;
+  },
+
+  get lastPenWidth() {
+    try {
+      const w = Services.prefs.getStringPref(PREF_PEN_WIDTH, "thin");
+      return PEN_WIDTHS.includes(w) ? w : "thin";
+    } catch {
+      return "thin";
+    }
+  },
+
+  set lastPenWidth(width) {
+    if (PEN_WIDTHS.includes(width)) {
+      try {
+        Services.prefs.setStringPref(PREF_PEN_WIDTH, width);
+      } catch {}
+    }
+  },
+
+  normalizePenWidth(width) {
+    return PEN_WIDTHS.includes(width) ? width : this.lastPenWidth;
   },
 
   normalizeURL(rawUrl) {
@@ -289,6 +330,9 @@ export const WhimsyAnnotations = {
   _onEnabledChanged() {
     for (const win of Services.wm.getEnumerator("navigator:browser")) {
       if (!win.closed) {
+        if (!this.enabled && this.isPenActive(win)) {
+          this.stopPen(win, { immediate: true });
+        }
         this.updateUrlbarButton(win);
         if (win.gBrowser?.selectedBrowser) {
           this.restoreForBrowser(win.gBrowser.selectedBrowser);
@@ -356,6 +400,31 @@ export const WhimsyAnnotations = {
           return this.openAddNoteForSelection(win, { subject });
         },
       });
+
+      lazy.WhimsyVerbs.registerVerb({
+        id: "draw",
+        l10nId: "whimsy-verb-draw",
+        icon: "chrome://browser/content/whimsy/icons/pencil.svg",
+        scope: "both",
+        group: "page",
+        when: win => this.canAnnotate(win),
+        isAvailable: (win, subject, view) => {
+          if (!this.canAnnotate(win)) {
+            return false;
+          }
+          const session = lazy.WhimsyVerbs.sessions?.get?.(win);
+          if (session && !session.groups && !view) {
+            const q = String(win?.gURLBar?.value || "").trim();
+            if (!q) {
+              return false;
+            }
+          }
+          return true;
+        },
+        run: win => {
+          return this.startPen(win);
+        },
+      });
     } catch {}
   },
 
@@ -381,6 +450,9 @@ export const WhimsyAnnotations = {
     });
 
     const onTabSelect = () => {
+      if (this.isPenActive(win)) {
+        this.stopPen(win, { immediate: true });
+      }
       this.updateUrlbarButton(win);
       const browser = win.gBrowser?.selectedBrowser;
       if (browser) {
@@ -392,9 +464,15 @@ export const WhimsyAnnotations = {
         "nsIWebProgressListener",
         "nsISupportsWeakReference",
       ]),
-      onLocationChange: aWebProgress => {
+      onLocationChange: (aWebProgress, _aRequest, _aLocation, aFlags) => {
         if (!aWebProgress?.isTopLevel) {
           return;
+        }
+        const sameDoc = Boolean(
+          aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT
+        );
+        if (!sameDoc && this.isPenActive(win)) {
+          this.stopPen(win, { immediate: true });
         }
         this.updateUrlbarButton(win);
         const browser = win.gBrowser?.selectedBrowser;
@@ -453,6 +531,16 @@ export const WhimsyAnnotations = {
       this.openAddNoteForSelection(win);
     });
 
+    const drawItem = doc.createXULElement("menuitem");
+    drawItem.id = CTX_DRAW_ID;
+    drawItem.className = "menuitem-iconic";
+    drawItem.setAttribute("data-l10n-id", "whimsy-annotations-context-draw");
+    drawItem.setAttribute("label", "Draw on Page");
+    drawItem.hidden = true;
+    drawItem.addEventListener("command", () => {
+      this.startPen(win);
+    });
+
     const sep = doc.createXULElement("menuseparator");
     sep.id = CTX_SEP_ID;
     sep.hidden = true;
@@ -464,9 +552,10 @@ export const WhimsyAnnotations = {
     if (anchor) {
       menu.insertBefore(hlItem, anchor);
       menu.insertBefore(noteItem, anchor);
+      menu.insertBefore(drawItem, anchor);
       menu.insertBefore(sep, anchor);
     } else {
-      menu.append(hlItem, noteItem, sep);
+      menu.append(hlItem, noteItem, drawItem, sep);
     }
 
     menu.addEventListener("popupshowing", event => {
@@ -474,10 +563,34 @@ export const WhimsyAnnotations = {
         return;
       }
       const show = this._shouldShowContextItems(win);
+      const showDraw = this._shouldShowDrawContextItem(win);
       hlItem.hidden = !show;
       noteItem.hidden = !show;
+      drawItem.hidden = !showDraw;
       sep.hidden = true;
     });
+  },
+
+  _shouldShowDrawContextItem(win) {
+    if (!this.canAnnotate(win)) {
+      return false;
+    }
+    const cm = win.gContextMenu;
+    if (cm) {
+      if (
+        cm.onTextInput ||
+        cm.onEditable ||
+        cm.onPassword ||
+        cm.onImage ||
+        cm.onCanvas ||
+        cm.onVideo ||
+        cm.onAudio ||
+        cm.onLink
+      ) {
+        return false;
+      }
+    }
+    return true;
   },
 
   _shouldShowContextItems(win) {
@@ -565,7 +678,11 @@ export const WhimsyAnnotations = {
     }
     const data = gStore.dataSync;
     // Async restore/panel entry points refresh this cached record from Notes.
-    return data.pages[normUrl] || null;
+    const rec = data.pages[normUrl] || null;
+    if (rec && !Array.isArray(rec.drawings)) {
+      rec.drawings = [];
+    }
+    return rec;
   },
 
   getHighlights(rawUrl, opts = {}) {
@@ -574,6 +691,17 @@ export const WhimsyAnnotations = {
       return [];
     }
     return rec.highlights.map(h => ({ ...h }));
+  },
+
+  getDrawings(rawUrl, opts = {}) {
+    const rec = this.getPageRecord(rawUrl, opts);
+    if (!rec || !Array.isArray(rec.drawings)) {
+      return [];
+    }
+    return rec.drawings.map(d => ({
+      ...d,
+      points: Array.isArray(d.points) ? d.points.map(pt => [pt[0], pt[1]]) : [],
+    }));
   },
 
   getPageNote(rawUrl, opts = {}) {
@@ -596,6 +724,7 @@ export const WhimsyAnnotations = {
         updatedAt: now,
         profileKey: profileKey || "default",
         highlights: [],
+        drawings: [],
       };
       data.pages[normUrl] = rec;
     } else {
@@ -604,6 +733,12 @@ export const WhimsyAnnotations = {
       }
       if (profileKey) {
         rec.profileKey = profileKey;
+      }
+      if (!Array.isArray(rec.highlights)) {
+        rec.highlights = [];
+      }
+      if (!Array.isArray(rec.drawings)) {
+        rec.drawings = [];
       }
     }
     return rec;
@@ -617,9 +752,194 @@ export const WhimsyAnnotations = {
     }
     const hasHighlights = Array.isArray(rec.highlights) && rec.highlights.length > 0;
     const hasNote = Boolean(rec.note && String(rec.note).trim());
-    if (!hasHighlights && !hasNote) {
+    const hasDrawings = Array.isArray(rec.drawings) && rec.drawings.length > 0;
+    if (!hasHighlights && !hasNote && !hasDrawings) {
       delete data.pages[normUrl];
     }
+  },
+
+  _sanitizeDrawingStroke(stroke, fallbackGroupId = "") {
+    if (!stroke || !Array.isArray(stroke.points)) {
+      return null;
+    }
+    const roundHalf = v => Math.round((Number(v) || 0) * 2) / 2;
+    const points = [];
+    for (const pt of stroke.points) {
+      if (!Array.isArray(pt) || pt.length < 2) {
+        continue;
+      }
+      const x = roundHalf(pt[0]);
+      const y = roundHalf(pt[1]);
+      if (points.length) {
+        const [px, py] = points[points.length - 1];
+        if (Math.hypot(x - px, y - py) < 1) {
+          continue;
+        }
+      }
+      points.push([x, y]);
+    }
+    if (points.length < 2) {
+      return null;
+    }
+    const now = Date.now();
+    const id =
+      String(stroke.id || "") ||
+      globalThis.crypto?.randomUUID?.() ||
+      `drw-${now}-${Math.random().toString(36).slice(2, 8)}`;
+    const groupId = String(stroke.groupId || fallbackGroupId || id);
+    const color = ANNOTATION_COLORS.includes(stroke.color)
+      ? stroke.color
+      : this.lastColor;
+    const width = stroke.width === "thick" ? "thick" : "thin";
+    const layoutWidth = Math.max(0, Math.round(Number(stroke.layoutWidth) || 0));
+    const createdAt = Number(stroke.createdAt) || now;
+    return {
+      id,
+      groupId,
+      color,
+      width,
+      layoutWidth,
+      points,
+      createdAt,
+    };
+  },
+
+  _drawingGroupsForRecord(rec) {
+    const drawings = Array.isArray(rec?.drawings) ? rec.drawings : [];
+    if (!drawings.length) {
+      return [];
+    }
+    const byGroup = new Map();
+    for (const d of drawings) {
+      if (!d || !Array.isArray(d.points) || d.points.length < 2) {
+        continue;
+      }
+      const gid = String(d.groupId || d.id || "");
+      let group = byGroup.get(gid);
+      if (!group) {
+        group = { groupId: gid, strokes: [] };
+        byGroup.set(gid, group);
+      }
+      group.strokes.push(d);
+    }
+    return [...byGroup.values()];
+  },
+
+  _drawingCountForRecord(rec) {
+    return this._drawingGroupsForRecord(rec).length;
+  },
+
+  async addDrawingStroke(
+    rawUrl,
+    stroke,
+    { win = null, browser = null, title = "", groupId = "", renderContent = false } = {}
+  ) {
+    if (win && this.isPrivate(win, browser)) {
+      return null;
+    }
+    const normUrl = this.normalizeURL(rawUrl);
+    if (!normUrl) {
+      return null;
+    }
+    const clean = this._sanitizeDrawingStroke(stroke, groupId);
+    if (!clean) {
+      return null;
+    }
+    await gStore.ensureLoaded();
+    const profileKey = this._profileKeyForWindow(win);
+    const pageTitle =
+      title ||
+      browser?.contentTitle ||
+      win?.gBrowser?.selectedBrowser?.contentTitle ||
+      normUrl;
+    const rec = this._ensurePageRecord(normUrl, {
+      title: pageTitle,
+      profileKey,
+    });
+    const existingIdx = rec.drawings.findIndex(d => d.id === clean.id);
+    if (existingIdx !== -1) {
+      rec.drawings[existingIdx] = clean;
+    } else {
+      rec.drawings.push(clean);
+    }
+    rec.updatedAt = Date.now();
+    gStore.saveSoon();
+
+    await this._refreshWindowsForUrl(normUrl, { renderContent });
+    return { ...clean, points: clean.points.map(p => [p[0], p[1]]) };
+  },
+
+  async removeDrawingStroke(
+    rawUrl,
+    strokeId,
+    { win = null, browser = null, renderContent = false } = {}
+  ) {
+    if (win && this.isPrivate(win, browser)) {
+      return null;
+    }
+    const normUrl = this.normalizeURL(rawUrl);
+    if (!normUrl || !strokeId) {
+      return null;
+    }
+    await gStore.ensureLoaded();
+    const rec = gStore.dataSync.pages[normUrl];
+    if (!rec || !Array.isArray(rec.drawings)) {
+      return null;
+    }
+    const idx = rec.drawings.findIndex(d => d.id === strokeId);
+    if (idx === -1) {
+      return null;
+    }
+    const [removed] = rec.drawings.splice(idx, 1);
+    rec.updatedAt = Date.now();
+    this._pruneIfEmpty(normUrl);
+    gStore.saveSoon();
+
+    await this._refreshWindowsForUrl(normUrl, { renderContent });
+    return { stroke: removed, index: idx };
+  },
+
+  async setDrawings(
+    rawUrl,
+    drawings = [],
+    { win = null, browser = null, title = "", renderContent = true } = {}
+  ) {
+    if (win && this.isPrivate(win, browser)) {
+      return [];
+    }
+    const normUrl = this.normalizeURL(rawUrl);
+    if (!normUrl) {
+      return [];
+    }
+    await gStore.ensureLoaded();
+    const cleanList = Array.isArray(drawings)
+      ? drawings.map(d => this._sanitizeDrawingStroke(d)).filter(Boolean)
+      : [];
+    if (cleanList.length) {
+      const profileKey = this._profileKeyForWindow(win);
+      const pageTitle =
+        title ||
+        browser?.contentTitle ||
+        win?.gBrowser?.selectedBrowser?.contentTitle ||
+        normUrl;
+      const rec = this._ensurePageRecord(normUrl, {
+        title: pageTitle,
+        profileKey,
+      });
+      rec.drawings = cleanList;
+      rec.updatedAt = Date.now();
+    } else if (gStore.dataSync.pages[normUrl]) {
+      gStore.dataSync.pages[normUrl].drawings = [];
+      gStore.dataSync.pages[normUrl].updatedAt = Date.now();
+      this._pruneIfEmpty(normUrl);
+    }
+    gStore.saveSoon();
+    await this._refreshWindowsForUrl(normUrl, { renderContent });
+    return cleanList;
+  },
+
+  async clearDrawings(rawUrl, { win = null, browser = null } = {}) {
+    return this.setDrawings(rawUrl, [], { win, browser, renderContent: true });
   },
 
   async _syncRecordFromNotesStore(rec) {
@@ -931,7 +1251,10 @@ export const WhimsyAnnotations = {
         const actor = browser.browsingContext?.currentWindowGlobal?.getActor(
           "WhimsyAnnotations"
         );
-        await actor?.sendQuery("WhimsyAnnotations:Render", { highlights: [] });
+        await actor?.sendQuery("WhimsyAnnotations:Render", {
+          highlights: [],
+          drawings: [],
+        });
       } catch {}
       this.updateUrlbarButton(win);
       return { anchoredIds: [], droppedIds: [] };
@@ -953,6 +1276,7 @@ export const WhimsyAnnotations = {
       gStore.saveSoon();
     }
     const highlights = rec?.highlights || [];
+    const drawings = rec?.drawings || [];
 
     let result = { anchoredIds: [], droppedIds: [] };
     try {
@@ -962,6 +1286,7 @@ export const WhimsyAnnotations = {
       if (actor) {
         const rendered = await actor.sendQuery("WhimsyAnnotations:Render", {
           highlights,
+          drawings,
         });
         if (rendered && Array.isArray(rendered.anchoredIds)) {
           result = rendered;
@@ -1039,7 +1364,8 @@ export const WhimsyAnnotations = {
     }
     const activeHighlights = this._activeHighlightsForBrowser(win, browser);
     const hasNote = Boolean(rec.note && String(rec.note).trim());
-    const count = activeHighlights.length + (hasNote ? 1 : 0);
+    const drawingCount = this._drawingCountForRecord(rec);
+    const count = activeHighlights.length + (hasNote ? 1 : 0) + drawingCount;
 
     if (count <= 0) {
       btn.hidden = true;
@@ -1049,6 +1375,640 @@ export const WhimsyAnnotations = {
     btn.querySelector(".whimsy-annotations-button-count")?.setAttribute("value", String(count));
     doc.l10n.setAttributes(btn, "whimsy-annotations-urlbar-button", { count });
     btn.hidden = false;
+  },
+
+  isPenActive(win) {
+    return Boolean(this._penSessions.get(win)?.active);
+  },
+
+  getPenSession(win) {
+    return this._penSessions.get(win) || null;
+  },
+
+  _createPenSvgIcon(doc, pathSpecs) {
+    const svg = doc.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("aria-hidden", "true");
+    for (const spec of pathSpecs) {
+      const p = doc.createElementNS(SVG_NS, "path");
+      p.setAttribute("d", spec.d);
+      if (spec.strokeWidth) {
+        p.setAttribute("stroke-width", String(spec.strokeWidth));
+      }
+      svg.appendChild(p);
+    }
+    return svg;
+  },
+
+  _ensurePenBar(win) {
+    const doc = win.document;
+    let bar = doc.getElementById(PEN_BAR_ID);
+    if (bar) {
+      return bar;
+    }
+
+    bar = doc.createElement("div");
+    bar.id = PEN_BAR_ID;
+    bar.className = "whimsy-annotations-pen-bar whimsy-surface-tokens";
+    bar.setAttribute("role", "toolbar");
+    bar.setAttribute("data-l10n-id", "whimsy-annotations-pen-toolbar");
+    bar.setAttribute("aria-label", "Draw on page");
+    bar.hidden = true;
+
+    const swatchesWrap = doc.createElement("div");
+    swatchesWrap.className = "whimsy-annotation-swatches";
+    swatchesWrap.setAttribute("role", "radiogroup");
+    swatchesWrap.setAttribute("aria-label", "Ink color");
+
+    for (const c of ANNOTATION_COLORS) {
+      const swatch = doc.createElement("button");
+      swatch.type = "button";
+      swatch.className = "whimsy-annotation-swatch whimsy-pen-swatch";
+      swatch.setAttribute("role", "radio");
+      swatch.setAttribute("data-color", c);
+      swatch.setAttribute("data-l10n-id", `whimsy-annotations-pen-color-${c}`);
+      swatch.setAttribute("aria-label", COLOR_LABELS[c]);
+      swatch.setAttribute("title", COLOR_LABELS[c]);
+      swatch.setAttribute("tooltiptext", COLOR_LABELS[c]);
+      swatch.setAttribute("aria-checked", "false");
+      swatch.addEventListener("click", () => {
+        this.setPenColor(win, c);
+      });
+      swatchesWrap.appendChild(swatch);
+    }
+
+    const sep1 = doc.createElement("div");
+    sep1.className = "whimsy-pen-sep whimsy-surface-rule";
+    sep1.setAttribute("role", "separator");
+
+    const thinBtn = doc.createElement("button");
+    thinBtn.type = "button";
+    thinBtn.className = "whimsy-pen-tool-btn whimsy-pen-width-btn";
+    thinBtn.setAttribute("data-width", "thin");
+    thinBtn.setAttribute("data-l10n-id", "whimsy-annotations-pen-thin");
+    thinBtn.setAttribute("aria-label", "Thin Line");
+    thinBtn.setAttribute("title", "Thin Line");
+    thinBtn.setAttribute("tooltiptext", "Thin Line");
+    thinBtn.setAttribute("aria-pressed", "true");
+    thinBtn.appendChild(
+      this._createPenSvgIcon(doc, [{ d: "M3 13L13 3", strokeWidth: 1.5 }])
+    );
+    thinBtn.addEventListener("click", () => {
+      this.setPenWidth(win, "thin");
+    });
+
+    const thickBtn = doc.createElement("button");
+    thickBtn.type = "button";
+    thickBtn.className = "whimsy-pen-tool-btn whimsy-pen-width-btn";
+    thickBtn.setAttribute("data-width", "thick");
+    thickBtn.setAttribute("data-l10n-id", "whimsy-annotations-pen-thick");
+    thickBtn.setAttribute("aria-label", "Thick Line");
+    thickBtn.setAttribute("title", "Thick Line");
+    thickBtn.setAttribute("tooltiptext", "Thick Line");
+    thickBtn.setAttribute("aria-pressed", "false");
+    thickBtn.appendChild(
+      this._createPenSvgIcon(doc, [{ d: "M3 13L13 3", strokeWidth: 3.2 }])
+    );
+    thickBtn.addEventListener("click", () => {
+      this.setPenWidth(win, "thick");
+    });
+
+    const eraserBtn = doc.createElement("button");
+    eraserBtn.type = "button";
+    eraserBtn.className = "whimsy-pen-tool-btn whimsy-pen-eraser-btn";
+    eraserBtn.setAttribute("data-tool", "eraser");
+    eraserBtn.setAttribute("data-l10n-id", "whimsy-annotations-pen-eraser");
+    eraserBtn.setAttribute("aria-label", "Eraser");
+    eraserBtn.setAttribute("title", "Eraser");
+    eraserBtn.setAttribute("tooltiptext", "Eraser");
+    eraserBtn.setAttribute("aria-pressed", "false");
+    eraserBtn.appendChild(
+      this._createPenSvgIcon(doc, [
+        { d: "M9.5 3.5l3 3-6 6H3.5v-3zM3 12.5h10" },
+      ])
+    );
+    eraserBtn.addEventListener("click", () => {
+      const session = this._penSessions.get(win);
+      const nextTool = session?.tool === "eraser" ? "pen" : "eraser";
+      this.setPenTool(win, nextTool);
+    });
+
+    const sep2 = doc.createElement("div");
+    sep2.className = "whimsy-pen-sep whimsy-surface-rule";
+    sep2.setAttribute("role", "separator");
+
+    const undoBtn = doc.createElement("button");
+    undoBtn.type = "button";
+    undoBtn.className = "whimsy-pen-tool-btn whimsy-pen-undo-btn";
+    undoBtn.setAttribute("data-action", "undo");
+    undoBtn.setAttribute("data-l10n-id", "whimsy-annotations-pen-undo");
+    undoBtn.setAttribute("aria-label", "Undo (⌘Z)");
+    undoBtn.setAttribute("title", "Undo (⌘Z)");
+    undoBtn.setAttribute("tooltiptext", "Undo (⌘Z)");
+    undoBtn.appendChild(
+      this._createPenSvgIcon(doc, [
+        { d: "M6 4L2.5 7.5 6 11" },
+        { d: "M3 7.5h6.5a3.5 3.5 0 0 1 0 7H8" },
+      ])
+    );
+    undoBtn.addEventListener("click", () => {
+      this.undoPen(win);
+    });
+
+    const doneBtn = doc.createElement("button");
+    doneBtn.type = "button";
+    doneBtn.className =
+      "whimsy-pen-done footer-button whimsy-surface-button primary";
+    doneBtn.setAttribute("data-action", "done");
+    doneBtn.setAttribute("data-l10n-id", "whimsy-annotations-pen-done");
+    doneBtn.setAttribute("aria-label", "Done (Esc)");
+    doneBtn.setAttribute("title", "Done (Esc)");
+    doneBtn.setAttribute("tooltiptext", "Done (Esc)");
+    doneBtn.textContent = "Done";
+    doneBtn.addEventListener("click", () => {
+      this.stopPen(win);
+    });
+
+    bar.append(
+      swatchesWrap,
+      sep1,
+      thinBtn,
+      thickBtn,
+      eraserBtn,
+      sep2,
+      undoBtn,
+      doneBtn
+    );
+    return bar;
+  },
+
+  _syncPenBar(win) {
+    const doc = win?.document;
+    const bar = doc?.getElementById(PEN_BAR_ID);
+    const session = this._penSessions.get(win);
+    if (!bar || !session) {
+      return;
+    }
+    const isEraser = session.tool === "eraser";
+    for (const swatch of bar.querySelectorAll(".whimsy-pen-swatch")) {
+      const c = swatch.getAttribute("data-color");
+      const active = !isEraser && c === session.color;
+      swatch.setAttribute("aria-checked", active ? "true" : "false");
+    }
+    for (const btn of bar.querySelectorAll(".whimsy-pen-width-btn")) {
+      const w = btn.getAttribute("data-width");
+      const active = !isEraser && w === session.width;
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+      if (active) {
+        btn.setAttribute("data-active", "true");
+      } else {
+        btn.removeAttribute("data-active");
+      }
+    }
+    const eraserBtn = bar.querySelector(".whimsy-pen-eraser-btn");
+    if (eraserBtn) {
+      eraserBtn.setAttribute("aria-pressed", isEraser ? "true" : "false");
+      if (isEraser) {
+        eraserBtn.setAttribute("data-active", "true");
+      } else {
+        eraserBtn.removeAttribute("data-active");
+      }
+    }
+  },
+
+  _showPenHintIfNeeded(win, stack) {
+    const doc = win?.document;
+    if (!doc || !stack) {
+      return;
+    }
+    let shownCount = 0;
+    try {
+      shownCount = Services.prefs.getIntPref(PREF_PEN_HINT_SHOWN, 0);
+    } catch {}
+    if (shownCount >= 2) {
+      return;
+    }
+    try {
+      Services.prefs.setIntPref(PREF_PEN_HINT_SHOWN, shownCount + 1);
+    } catch {}
+
+    let hint = doc.getElementById(PEN_HINT_ID);
+    if (!hint) {
+      hint = doc.createElement("div");
+      hint.id = PEN_HINT_ID;
+      hint.className = "whimsy-annotations-pen-hint whimsy-surface-tokens";
+      hint.setAttribute("data-l10n-id", "whimsy-annotations-pen-hint");
+      hint.textContent =
+        "Drag to draw. Scroll with two fingers. Press Esc when you’re done.";
+    }
+    if (hint.parentNode !== stack) {
+      stack.appendChild(hint);
+    }
+    hint.hidden = false;
+
+    const session = this._penSessions.get(win);
+    if (session?.hintTimer) {
+      win.clearTimeout(session.hintTimer);
+    }
+    const timer = win.setTimeout(() => {
+      if (hint) {
+        hint.hidden = true;
+      }
+      if (session && session.hintTimer === timer) {
+        session.hintTimer = 0;
+      }
+    }, 2000);
+    if (session) {
+      session.hintTimer = timer;
+    }
+  },
+
+  _hidePenHint(win) {
+    const session = this._penSessions.get(win);
+    if (session?.hintTimer) {
+      win.clearTimeout(session.hintTimer);
+      session.hintTimer = 0;
+    }
+    const hint = win?.document?.getElementById(PEN_HINT_ID);
+    if (hint) {
+      hint.hidden = true;
+    }
+  },
+
+  async _syncPenStateToActor(win) {
+    const session = this._penSessions.get(win);
+    const browser = session?.browser || win?.gBrowser?.selectedBrowser;
+    if (!browser) {
+      return null;
+    }
+    const normUrl =
+      session?.normUrl || this.normalizeURL(browser.currentURI?.spec || "");
+    const drawings = normUrl ? this.getDrawings(normUrl, { win, browser }) : [];
+    try {
+      const actor = browser.browsingContext?.currentWindowGlobal?.getActor(
+        "WhimsyAnnotations"
+      );
+      return await actor?.sendQuery("WhimsyAnnotations:SetPenState", {
+        active: Boolean(session?.active),
+        color: session?.color || this.lastColor,
+        width: session?.width || this.lastPenWidth,
+        tool: session?.tool || "pen",
+        groupId: session?.groupId || "",
+        drawings,
+      });
+    } catch {}
+    return null;
+  },
+
+  async startPen(win, { color = null, width = null, tool = "pen" } = {}) {
+    const browser = win?.gBrowser?.selectedBrowser;
+    if (!this.canAnnotate(win, browser)) {
+      return null;
+    }
+    const normUrl = this.normalizeURL(browser.currentURI?.spec || "");
+    if (!normUrl) {
+      return null;
+    }
+    await gStore.ensureLoaded();
+
+    const initialColor = color ? this.normalizeColor(color) : this.lastColor;
+    const initialWidth = width
+      ? this.normalizePenWidth(width)
+      : this.lastPenWidth;
+    this.lastColor = initialColor;
+    this.lastPenWidth = initialWidth;
+
+    let session = this._penSessions.get(win);
+    const now = Date.now();
+    const groupId =
+      globalThis.crypto?.randomUUID?.() ||
+      `grp-${now}-${Math.random().toString(36).slice(2, 8)}`;
+
+    if (session?.onKeyDown) {
+      try {
+        win.removeEventListener("keydown", session.onKeyDown, true);
+      } catch {}
+    }
+    if (session?.hintTimer) {
+      win.clearTimeout(session.hintTimer);
+    }
+
+    const onKeyDown = event => {
+      if (!this.isPenActive(win)) {
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.stopPen(win);
+        return;
+      }
+      const isAccel =
+        Services.appinfo.OS === "Darwin" ? event.metaKey : event.ctrlKey;
+      if (
+        isAccel &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key?.toLowerCase() === "z"
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.undoPen(win);
+      }
+    };
+
+    session = {
+      active: true,
+      browser,
+      normUrl,
+      color: initialColor,
+      width: initialWidth,
+      tool: tool === "eraser" ? "eraser" : "pen",
+      groupId,
+      undoStack: [],
+      onKeyDown,
+      hintTimer: 0,
+    };
+    this._penSessions.set(win, session);
+    win.addEventListener("keydown", onKeyDown, true);
+
+    const bar = this._ensurePenBar(win);
+    const stack =
+      browser.closest(".browserStack") ||
+      win.document.getElementById("tabbrowser-tabbox") ||
+      browser.parentElement;
+    if (stack && bar.parentNode !== stack) {
+      stack.appendChild(bar);
+    }
+    this._syncPenBar(win);
+
+    bar._motion?.cancel();
+    bar._motion = null;
+    bar.removeAttribute("entering");
+    bar.removeAttribute("exiting");
+    bar.hidden = false;
+
+    const reduced = win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduced) {
+      bar.setAttribute("entering", "");
+      const frames = [
+        { opacity: 0, transform: "translate(-50%, -8px)" },
+        { opacity: 1, transform: "translate(-50%, 0)" },
+      ];
+      const motion = bar.animate(frames, {
+        duration: 180,
+        easing: "cubic-bezier(0.075, 0.82, 0.165, 1)",
+      });
+      bar._motion = motion;
+      motion.finished
+        .then(() => {
+          if (bar._motion === motion) {
+            bar.removeAttribute("entering");
+            bar._motion = null;
+          }
+        })
+        .catch(() => {});
+    }
+
+    this._showPenHintIfNeeded(win, stack);
+    await this._syncPenStateToActor(win);
+    return bar;
+  },
+
+  async stopPen(win, { immediate = false } = {}) {
+    const session = this._penSessions.get(win);
+    if (!session) {
+      const existingBar = win?.document?.getElementById(PEN_BAR_ID);
+      if (existingBar) {
+        existingBar.hidden = true;
+      }
+      return;
+    }
+
+    session.active = false;
+    if (session.onKeyDown) {
+      try {
+        win.removeEventListener("keydown", session.onKeyDown, true);
+      } catch {}
+      session.onKeyDown = null;
+    }
+    this._hidePenHint(win);
+
+    await this._syncPenStateToActor(win);
+    this._penSessions.delete(win);
+    this.updateUrlbarButton(win);
+
+    const bar = win?.document?.getElementById(PEN_BAR_ID);
+    if (!bar) {
+      return;
+    }
+    bar._motion?.cancel();
+    bar._motion = null;
+    bar.removeAttribute("entering");
+    bar.removeAttribute("exiting");
+
+    const reduced =
+      immediate || win.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      bar.hidden = true;
+      return;
+    }
+
+    bar.setAttribute("exiting", "");
+    const frames = [
+      { opacity: 1, transform: "translate(-50%, 0)" },
+      { opacity: 0, transform: "translate(-50%, -8px)" },
+    ];
+    const motion = bar.animate(frames, {
+      duration: 180,
+      easing: "cubic-bezier(0.075, 0.82, 0.165, 1)",
+    });
+    bar._motion = motion;
+    try {
+      await motion.finished;
+    } catch {}
+    if (bar._motion === motion) {
+      bar.removeAttribute("exiting");
+      bar.hidden = true;
+      bar._motion = null;
+    }
+  },
+
+  async setPenColor(win, color) {
+    const valid = this.normalizeColor(color);
+    this.lastColor = valid;
+    const session = this._penSessions.get(win);
+    if (!session || !session.active) {
+      return;
+    }
+    session.color = valid;
+    session.tool = "pen";
+    this._syncPenBar(win);
+    await this._syncPenStateToActor(win);
+  },
+
+  async setPenWidth(win, width) {
+    const valid = this.normalizePenWidth(width);
+    this.lastPenWidth = valid;
+    const session = this._penSessions.get(win);
+    if (!session || !session.active) {
+      return;
+    }
+    session.width = valid;
+    session.tool = "pen";
+    this._syncPenBar(win);
+    await this._syncPenStateToActor(win);
+  },
+
+  async setPenTool(win, tool) {
+    const session = this._penSessions.get(win);
+    if (!session || !session.active) {
+      return;
+    }
+    session.tool = tool === "eraser" ? "eraser" : "pen";
+    this._syncPenBar(win);
+    await this._syncPenStateToActor(win);
+  },
+
+  async _onActorStrokeAdded(win, browser, { stroke, url } = {}) {
+    if (!this.canAnnotate(win, browser) || !stroke) {
+      return null;
+    }
+    const session = this._penSessions.get(win);
+    const rawUrl = url || session?.normUrl || browser.currentURI?.spec || "";
+    const saved = await this.addDrawingStroke(rawUrl, stroke, {
+      win,
+      browser,
+      groupId: session?.groupId || stroke.groupId || "",
+      renderContent: false,
+    });
+    if (saved && session?.active) {
+      session.undoStack.push({ type: "add", stroke: saved });
+    }
+    this.updateUrlbarButton(win);
+    return saved;
+  },
+
+  async _onActorStrokeErased(win, browser, { strokeId, url } = {}) {
+    if (!this.canAnnotate(win, browser) || !strokeId) {
+      return null;
+    }
+    const session = this._penSessions.get(win);
+    const rawUrl = url || session?.normUrl || browser.currentURI?.spec || "";
+    const removed = await this.removeDrawingStroke(rawUrl, strokeId, {
+      win,
+      browser,
+      renderContent: false,
+    });
+    if (removed && session?.active) {
+      session.undoStack.push({
+        type: "erase",
+        stroke: removed.stroke,
+        index: removed.index,
+      });
+    }
+    this.updateUrlbarButton(win);
+    return removed;
+  },
+
+  async undoPen(win) {
+    const session = this._penSessions.get(win);
+    if (!session || !session.active || !session.undoStack.length) {
+      return false;
+    }
+    const browser = session.browser || win?.gBrowser?.selectedBrowser;
+    const normUrl =
+      session.normUrl || this.normalizeURL(browser?.currentURI?.spec || "");
+    if (!normUrl) {
+      return false;
+    }
+    const action = session.undoStack.pop();
+    if (!action) {
+      return false;
+    }
+    await gStore.ensureLoaded();
+    if (action.type === "add") {
+      await this.removeDrawingStroke(normUrl, action.stroke.id, {
+        win,
+        browser,
+        renderContent: true,
+      });
+    } else if (action.type === "erase" && action.stroke) {
+      const profileKey = this._profileKeyForWindow(win);
+      const rec = this._ensurePageRecord(normUrl, {
+        title: browser?.contentTitle || normUrl,
+        profileKey,
+      });
+      const idx = Math.max(
+        0,
+        Math.min(rec.drawings.length, Number(action.index) || 0)
+      );
+      rec.drawings.splice(idx, 0, action.stroke);
+      rec.updatedAt = Date.now();
+      gStore.saveSoon();
+      await this._refreshWindowsForUrl(normUrl, { renderContent: true });
+    }
+    return true;
+  },
+
+  _buildDrawingThumbSvg(doc, strokes) {
+    const svg = doc.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 38 24");
+    svg.setAttribute("aria-hidden", "true");
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const s of strokes) {
+      for (const [x, y] of s.points || []) {
+        if (x < minX) {
+          minX = x;
+        }
+        if (y < minY) {
+          minY = y;
+        }
+        if (x > maxX) {
+          maxX = x;
+        }
+        if (y > maxY) {
+          maxY = y;
+        }
+      }
+    }
+    if (!Number.isFinite(minX)) {
+      return svg;
+    }
+
+    const spanX = Math.max(1, maxX - minX);
+    const spanY = Math.max(1, maxY - minY);
+    const padX = 4;
+    const padY = 4;
+    const availW = 38 - padX * 2;
+    const availH = 24 - padY * 2;
+    const scale = Math.min(availW / spanX, availH / spanY);
+    const offsetX = padX + (availW - spanX * scale) / 2;
+    const offsetY = padY + (availH - spanY * scale) / 2;
+    const round1 = v => Math.round(v * 10) / 10;
+
+    for (const s of strokes) {
+      const pts = s.points || [];
+      if (!pts.length) {
+        continue;
+      }
+      const path = doc.createElementNS(SVG_NS, "path");
+      path.setAttribute("data-color", s.color || "yellow");
+      path.setAttribute("stroke-width", s.width === "thick" ? "2.4" : "1.8");
+      let d = "";
+      for (let i = 0; i < pts.length; i++) {
+        const tx = round1(offsetX + (pts[i][0] - minX) * scale);
+        const ty = round1(offsetY + (pts[i][1] - minY) * scale);
+        d += i === 0 ? `M ${tx} ${ty}` : ` L ${tx} ${ty}`;
+      }
+      path.setAttribute("d", d);
+      svg.appendChild(path);
+    }
+    return svg;
   },
 
   async openHighlightPopover(
@@ -1480,7 +2440,8 @@ export const WhimsyAnnotations = {
             await this.removeHighlight(normUrl, hl.id, { win, browser });
             const remaining = this._activeHighlightsForBrowser(win, browser);
             const currNote = this.getPageNote(normUrl, { win, browser });
-            if (!remaining.length && !currNote.trim()) {
+            const currDrawings = this.getDrawings(normUrl, { win, browser });
+            if (!remaining.length && !currNote.trim() && !currDrawings.length) {
               lazy.WhimsySurface.close(panel);
             } else {
               renderPanelBody();
@@ -1510,6 +2471,122 @@ export const WhimsyAnnotations = {
       hlSection.appendChild(listEl);
 
       body.append(noteSection, hlSection);
+
+      const drawingGroups = this._drawingGroupsForRecord(rec);
+      if (drawingGroups.length > 0) {
+        const drwSection = doc.createElement("div");
+        drwSection.className = "whimsy-annotations-drawings-section";
+
+        const drwLabel = doc.createElement("div");
+        drwLabel.className =
+          "whimsy-annotations-section-label whimsy-annotations-drawings-label";
+        doc.l10n.setAttributes(
+          drwLabel,
+          "whimsy-annotations-drawings-label",
+          { count: drawingGroups.length }
+        );
+        drwLabel.textContent = `Drawings · ${drawingGroups.length}`;
+        drwSection.appendChild(drwLabel);
+
+        const drwRow = doc.createElement("div");
+        drwRow.className =
+          "whimsy-annotations-item whimsy-annotations-drawings-row";
+
+        const drwActions = doc.createElement("div");
+        drwActions.className = "whimsy-annotations-item-actions";
+
+        const thumbsWrap = doc.createElement("div");
+        thumbsWrap.className = "whimsy-annotations-drawings-thumbs";
+
+        drawingGroups.forEach((grp, idx) => {
+          const thumbBtn = doc.createElement("button");
+          thumbBtn.type = "button";
+          thumbBtn.className = "whimsy-annotations-drawing-thumb";
+          thumbBtn.setAttribute("data-group-id", grp.groupId);
+          doc.l10n.setAttributes(
+            thumbBtn,
+            "whimsy-annotations-drawings-preview",
+            { index: idx + 1 }
+          );
+          thumbBtn.setAttribute("aria-label", `Drawing ${idx + 1}`);
+          thumbBtn.setAttribute("title", `Drawing ${idx + 1}`);
+          thumbBtn.appendChild(this._buildDrawingThumbSvg(doc, grp.strokes));
+          thumbBtn.addEventListener("click", async event => {
+            event.stopPropagation();
+            try {
+              const actor =
+                browser.browsingContext?.currentWindowGlobal?.getActor(
+                  "WhimsyAnnotations"
+                );
+              await actor?.sendQuery("WhimsyAnnotations:ScrollToDrawing", {
+                groupId: grp.groupId,
+                strokeIds: grp.strokes.map(s => s.id),
+              });
+            } catch {}
+          });
+          thumbsWrap.appendChild(thumbBtn);
+        });
+
+        const drwBtns = doc.createElement("div");
+        drwBtns.className = "whimsy-annotations-item-buttons";
+
+        const drwEditBtn = doc.createElement("button");
+        drwEditBtn.type = "button";
+        drwEditBtn.className =
+          "whimsy-surface-text-button whimsy-surface-ghost whimsy-annotations-item-btn whimsy-annotations-drawings-edit";
+        drwEditBtn.setAttribute(
+          "data-l10n-id",
+          "whimsy-annotations-drawings-edit"
+        );
+        drwEditBtn.textContent = "Edit";
+        drwEditBtn.addEventListener("click", async event => {
+          event.stopPropagation();
+          await saveNoteNow();
+          lazy.WhimsySurface.close(panel);
+          await this.startPen(win);
+        });
+
+        const drwDelBtn = doc.createElement("button");
+        drwDelBtn.type = "button";
+        drwDelBtn.className =
+          "whimsy-surface-text-button whimsy-surface-ghost whimsy-annotations-item-btn whimsy-annotations-drawings-remove danger";
+        drwDelBtn.setAttribute(
+          "data-l10n-id",
+          "whimsy-annotations-drawings-remove"
+        );
+        drwDelBtn.textContent = "Remove";
+        drwDelBtn.addEventListener("click", async event => {
+          event.stopPropagation();
+          const snapshot = this.getDrawings(normUrl, { win, browser });
+          await this.clearDrawings(normUrl, { win, browser });
+          try {
+            lazy.WhimsyUndo.showToast(
+              win,
+              "whimsy-annotations-toast-drawings-removed",
+              {
+                type: "annotation",
+                undo: () =>
+                  this.setDrawings(normUrl, snapshot, { win, browser }),
+                redo: () =>
+                  this.clearDrawings(normUrl, { win, browser }),
+              }
+            );
+          } catch {}
+          const remaining = this._activeHighlightsForBrowser(win, browser);
+          const currNote = this.getPageNote(normUrl, { win, browser });
+          if (!remaining.length && !currNote.trim()) {
+            lazy.WhimsySurface.close(panel);
+          } else {
+            renderPanelBody();
+          }
+        });
+
+        drwBtns.append(drwEditBtn, drwDelBtn);
+        drwActions.append(thumbsWrap, drwBtns);
+        drwRow.appendChild(drwActions);
+        drwSection.appendChild(drwRow);
+        body.appendChild(drwSection);
+      }
     };
     const clearBtn = lazy.WhimsySurface.footerButton(doc, {
       l10nId: "whimsy-annotations-clear-page",
@@ -1614,6 +2691,11 @@ export const WhimsyAnnotations = {
             h => (h.updatedAt || h.createdAt || 0) < since
           );
         }
+        if (Array.isArray(rec.drawings)) {
+          rec.drawings = rec.drawings.filter(
+            d => (d.createdAt || 0) < since
+          );
+        }
         if ((rec.noteUpdatedAt || rec.updatedAt || 0) >= since) {
           rec.note = "";
           await this._syncPageNoteToNotesStore(rec);
@@ -1672,7 +2754,19 @@ export const WhimsyAnnotations = {
   },
 
   async resetForTests() {
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      if (!win.closed && this.isPenActive(win)) {
+        await this.stopPen(win, { immediate: true });
+      }
+    }
     await this.clearAll();
     this.lastColor = "yellow";
+    for (const pref of [PREF_COLOR, PREF_PEN_WIDTH, PREF_PEN_HINT_SHOWN]) {
+      try {
+        if (Services.prefs.prefHasUserValue(pref)) {
+          Services.prefs.clearUserPref(pref);
+        }
+      } catch {}
+    }
   },
 };

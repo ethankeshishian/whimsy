@@ -8199,12 +8199,26 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
   --whimsy-hl-blue-edge: light-dark(#3b82f6, #2563eb);
   --whimsy-hl-pink: light-dark(#f9a8d4, #f472b6);
   --whimsy-hl-pink-edge: light-dark(#ec4899, #db2777);
+  --whimsy-ink-yellow: light-dark(#d9a400, #f2c94c);
+  --whimsy-ink-yellow-edge: light-dark(#b48600, #d9a400);
+  --whimsy-ink-green: light-dark(#1f9a45, #5fd27f);
+  --whimsy-ink-green-edge: light-dark(#177a35, #38b259);
+  --whimsy-ink-blue: light-dark(#2a6fe0, #7fb0ff);
+  --whimsy-ink-blue-edge: light-dark(#1d57b8, #5c98ff);
+  --whimsy-ink-pink: light-dark(#d6337f, #ff7fb6);
+  --whimsy-ink-pink-edge: light-dark(#b02265, #e65c97);
 }
 :is(.whimsy-annotation-quote, .whimsy-annotation-swatch, .whimsy-annotations-item, .whimsy-annotations-item-swatch) {
   &[data-color="yellow"] { --whimsy-hl: var(--whimsy-hl-yellow); --whimsy-hl-edge: var(--whimsy-hl-yellow-edge); }
   &[data-color="green"] { --whimsy-hl: var(--whimsy-hl-green); --whimsy-hl-edge: var(--whimsy-hl-green-edge); }
   &[data-color="blue"] { --whimsy-hl: var(--whimsy-hl-blue); --whimsy-hl-edge: var(--whimsy-hl-blue-edge); }
   &[data-color="pink"] { --whimsy-hl: var(--whimsy-hl-pink); --whimsy-hl-edge: var(--whimsy-hl-pink-edge); }
+}
+.whimsy-annotations-pen-bar .whimsy-annotation-swatch {
+  &[data-color="yellow"] { --whimsy-hl: var(--whimsy-ink-yellow); --whimsy-hl-edge: var(--whimsy-ink-yellow-edge); }
+  &[data-color="green"] { --whimsy-hl: var(--whimsy-ink-green); --whimsy-hl-edge: var(--whimsy-ink-green-edge); }
+  &[data-color="blue"] { --whimsy-hl: var(--whimsy-ink-blue); --whimsy-hl-edge: var(--whimsy-ink-blue-edge); }
+  &[data-color="pink"] { --whimsy-hl: var(--whimsy-ink-pink); --whimsy-hl-edge: var(--whimsy-ink-pink-edge); }
 }
 
 /* The revisit cue: the approved W24 pill (gen-w24.py .w-smart, 2.4/2.6), a
@@ -8433,6 +8447,188 @@ zen-workspace[whimsy-space-covered] :is(zen-folder, tab-group, .tabbrowser-tab) 
 }
 .whimsy-annotations-item-btn.danger:hover {
   color: var(--button-background-color-destructive);
+}
+
+/* W29 pen: floating pen bar (P.2), first-use hint, and panel Drawings row (P.3).
+   Matches WhimsySurface tokens, radius, shadow, focus rings, swatches, and
+   icon/primary buttons used by #whimsy-annotation-popover. */
+#whimsy-annotations-pen-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translate(-50%, 0);
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid var(--whimsy-surface-border, light-dark(rgba(24, 24, 27, 0.12), rgba(255, 255, 255, 0.14)));
+  border-radius: var(--whimsy-surface-radius, 12px);
+  background-color: light-dark(#ffffff, #202024);
+  color: light-dark(#18181b, #f2f2f5);
+  box-shadow: var(--whimsy-surface-shadow, 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08));
+  font-size: 11.5px;
+  user-select: none;
+
+  &[hidden] {
+    display: none !important;
+  }
+}
+#whimsy-annotations-pen-bar .whimsy-annotation-swatches {
+  gap: 5px;
+}
+#whimsy-annotations-pen-bar .whimsy-annotation-swatch {
+  width: 17px;
+  height: 17px;
+  border-width: 1.5px;
+  &[aria-checked="true"] {
+    box-shadow: 0 0 0 1.5px light-dark(#ffffff, #202024), 0 0 0 3px light-dark(#18181b, #f2f2f5);
+  }
+}
+#whimsy-annotations-pen-bar .whimsy-pen-sep {
+  width: 1px;
+  height: 16px;
+  margin-inline: 2px;
+  background-color: var(--whimsy-surface-hairline, light-dark(rgba(24, 24, 27, 0.1), rgba(255, 255, 255, 0.12)));
+}
+#whimsy-annotations-pen-bar .whimsy-pen-tool-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--whimsy-control-radius, 7px);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--whimsy-dur-fast, 120ms) ease-out, color var(--whimsy-dur-fast, 120ms) ease-out;
+
+  &:hover {
+    background-color: var(--whimsy-surface-hover, light-dark(rgba(24, 24, 27, 0.06), rgba(255, 255, 255, 0.08)));
+  }
+  &[aria-pressed="true"],
+  &[data-active="true"] {
+    background-color: light-dark(rgba(26, 103, 232, 0.14), rgba(92, 152, 255, 0.18));
+    color: light-dark(#1453bd, #7fb0ff);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus, 2px solid var(--whimsy-focus-ring));
+    outline-offset: 1px;
+  }
+  & > svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+  }
+}
+#whimsy-annotations-pen-bar .whimsy-pen-done {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  margin: 0;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--whimsy-control-radius, 7px);
+  background-color: light-dark(#1a67e8, #5c98ff);
+  color: light-dark(#ffffff, #0b1628);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(1.05);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus, 2px solid var(--whimsy-focus-ring));
+    outline-offset: 2px;
+  }
+}
+#whimsy-annotations-pen-hint {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 5px 11px;
+  border: 1px solid var(--whimsy-surface-border, light-dark(rgba(24, 24, 27, 0.12), rgba(255, 255, 255, 0.14)));
+  border-radius: 999px;
+  background-color: light-dark(#ffffff, #202024);
+  color: light-dark(#18181b, #f2f2f5);
+  box-shadow: var(--whimsy-surface-shadow, 0 8px 24px rgba(0, 0, 0, 0.14));
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+
+  &[hidden] {
+    display: none !important;
+  }
+}
+.whimsy-annotations-drawings-row {
+  border-inline-start-color: var(--whimsy-ink-blue);
+  cursor: default;
+}
+.whimsy-annotations-drawings-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.whimsy-annotations-drawing-thumb {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 26px;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--whimsy-surface-hairline, light-dark(rgba(24, 24, 27, 0.12), rgba(255, 255, 255, 0.14)));
+  border-radius: 5px;
+  background-color: light-dark(#ffffff, #202024);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--whimsy-ink-blue);
+  }
+  &:focus-visible {
+    outline: var(--whimsy-surface-focus, 2px solid var(--whimsy-focus-ring));
+    outline-offset: 1px;
+  }
+  & > svg {
+    width: 34px;
+    height: 20px;
+    overflow: visible;
+    pointer-events: none;
+  }
+  & > svg path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  & > svg path[data-color="yellow"] { stroke: var(--whimsy-ink-yellow); }
+  & > svg path[data-color="green"] { stroke: var(--whimsy-ink-green); }
+  & > svg path[data-color="blue"] { stroke: var(--whimsy-ink-blue); }
+  & > svg path[data-color="pink"] { stroke: var(--whimsy-ink-pink); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-annotations-pen-bar,
+  #whimsy-annotations-pen-bar .whimsy-pen-tool-btn,
+  #whimsy-annotations-pen-bar .whimsy-pen-done {
+    transition: none;
+  }
 }
 
 /* W25 designfix: command-bar contrast. The mode chip (Actions, a search

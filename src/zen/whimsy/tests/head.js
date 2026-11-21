@@ -16,6 +16,15 @@ registerCleanupFunction(function whimsyCloseToasts() {
   for (const win of Services.wm.getEnumerator("navigator:browser")) {
     win.gZenUIManager?.toasts?.getToasts({ includeClosing: true }).forEach(toast => toast.close({ instant: true }));
   }
+  for (const pref of [
+    "whimsy.annotations.color",
+    "whimsy.annotations.pen-width",
+    "whimsy.annotations.pen-hint-shown",
+  ]) {
+    if (Services.prefs.prefHasUserValue(pref)) {
+      Services.prefs.clearUserPref(pref);
+    }
+  }
 });
 
 // W23 secfix H2: the agent pauses before going to a site its task hasn't

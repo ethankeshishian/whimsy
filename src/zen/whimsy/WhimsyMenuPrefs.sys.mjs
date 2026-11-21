@@ -309,7 +309,8 @@ const MENUS = [
       item("send-to-device", "whimsy-menus-page-send-to-device", ["context-sendpagetodevice"]),
       SEPARATOR,
       // Make.
-      item("new-note", "whimsy-menus-page-new-note", ["context-whimsy-new-note"]),
+      item("new-note", "whimsy-menus-page-new-note", ["context-whimsy-new-note", "context-whimsy-add-note"]),
+      item("draw", "whimsy-annotations-context-draw", ["context-whimsy-draw"]),
       item("screenshot", "whimsy-menus-page-screenshot", ["context-take-screenshot"]),
       // wave9/menus (W9-09): off by default.
       item("capture-full-page", "whimsy-menus-page-capture-full-page", ["context-whimsy-capture-full-page"]),
@@ -367,6 +368,7 @@ const MENUS = [
       SEPARATOR,
       item("highlight", "whimsy-annotations-context-highlight", ["context-whimsy-highlight"]),
       item("add-note", "whimsy-annotations-context-add-note", ["context-whimsy-add-note"]),
+      item("draw", "whimsy-annotations-context-draw", ["context-whimsy-draw"]),
       item("note", "whimsy-menus-selection-note", ["context-whimsy-verb-note"]),
       // W10-20: Quick Actions ▸ (macOS's own name for "do this in another
       // app"), with each row naming the app. WhimsyVerbs builds it; a
