@@ -30,7 +30,8 @@ const EXT_SECTION_ID = "whimsy-webkit-extensions-engine-section";
 const SITE_PANEL_ID = "zen-unified-site-data-panel";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const SVG_NS = "http://www.w3.org/2000/svg";
-const ICONS = "chrome://browser/skin/zen-icons/";
+// The engine verbs use Whimsy's globe (Library's "Open site" mark); Zen has no compass.
+const GLOBE = "chrome://browser/content/whimsy/icons/globe-line.svg";
 
 // Map XUL VK_* keycode names to macOS Carbon virtual key codes so keyset
 // bindings using keycode="VK_*" are matched by the native NSEvent monitor.
@@ -1524,7 +1525,7 @@ export const WhimsyWebKit = {
       id: "webkit:switch-tab",
       group: "page",
       scope: "page",
-      icon: `${ICONS}compass.svg`,
+      icon: GLOBE,
       isAvailable: win => {
         const tab = win?.gBrowser?.selectedTab;
         return this.availableForTab(tab) && !!this.currentHostOf(tab);
@@ -1552,7 +1553,7 @@ export const WhimsyWebKit = {
       id: "webkit:toggle-site",
       group: "page",
       scope: "page",
-      icon: `${ICONS}compass.svg`,
+      icon: GLOBE,
       isAvailable: win => {
         const tab = win?.gBrowser?.selectedTab;
         return this.availableForTab(tab) && !!this.currentHostOf(tab);
@@ -1586,7 +1587,7 @@ export const WhimsyWebKit = {
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyOpenInWebKit",
       l10nId: "whimsy-webkit-cmd-open",
-      icon: `${ICONS}compass.svg`,
+      icon: GLOBE,
       isAvailable: w => {
         const tab = w.gBrowser?.selectedTab;
         return (
@@ -1601,7 +1602,7 @@ export const WhimsyWebKit = {
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyOpenInFirefox",
       l10nId: "whimsy-webkit-cmd-open-firefox",
-      icon: `${ICONS}compass.svg`,
+      icon: GLOBE,
       isAvailable: w => {
         const tab = w.gBrowser?.selectedTab;
         return this.availableForTab(tab) && this.isWebKitTab(tab);
