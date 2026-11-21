@@ -416,7 +416,8 @@ class ZenToast {
 
   /**
    * @param {Array<object>|null} buttons - { id, l10nId, l10nArgs, label,
-   *   keys, ariaKeys, command }. command(event, toast) may return "keep";
+   *   icon, keys, ariaKeys, command }. `icon` is a url for a leading 14px
+   *   mark before the word. command(event, toast) may return "keep";
    *   otherwise the toast closes, unless the command changed it.
    */
   #setButtons(buttons) {
@@ -446,7 +447,15 @@ class ZenToast {
       } else {
         label.textContent = spec.label ?? "";
       }
-      button.append(spinner, label);
+      button.append(spinner);
+      if (spec.icon) {
+        const icon = document.createElementNS(HTML_NS, "span");
+        icon.className = "whimsy-toast-button-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.style.setProperty("--whimsy-toast-button-icon", `url("${spec.icon}")`);
+        button.append(icon);
+      }
+      button.append(label);
       if (spec.keys) {
         const keys = document.createElementNS(HTML_NS, "kbd");
         keys.className = "whimsy-toast-keys";
