@@ -650,6 +650,11 @@ add_task(async function test_pen_context_menu_and_verb() {
 
   // Hidden on about:blank
   await BrowserTestUtils.withNewTab("about:blank", async browser => {
+    // about:blank's body has no height: a click at its centre lands on the
+    // document itself, which the context menu never opens for.
+    await SpecialPowers.spawn(browser, [], () => {
+      content.document.body.style.minHeight = "100vh";
+    });
     const menu = document.getElementById("contentAreaContextMenu");
     const shown = BrowserTestUtils.waitForPopupEvent(menu, "shown");
     await BrowserTestUtils.synthesizeMouseAtCenter(
@@ -670,16 +675,14 @@ add_task(async function test_pen_drawing_coordinates_reload_and_width_rule() {
 
   await BrowserTestUtils.withNewTab(TEST_URL, async browser => {
     // Load a tall page with a link so we can scroll and test link clicks under strokes
-    await SpecialPowers.spawn(browser, [ARTICLE_HTML], html => {
-      content.document.open();
-      content.document.write(
-        html +
-          `<div style="height: 1600px; padding-top: 40px;">` +
-          `<a id="under-link" href="#clicked-link" style="display: inline-block; padding: 20px; background: #eee;">Target Link</a>` +
-          `</div>`
-      );
-      content.document.close();
-      content.dispatchEvent(new content.Event("pageshow", { bubbles: true }));
+    // document.write is refused from the test sandbox (SecurityError):
+    // load the fixture the way loadArticle does, then add the tall part.
+    await loadArticle(browser);
+    await SpecialPowers.spawn(browser, [], () => {
+      const tall = content.document.createElement("div");
+      tall.style.cssText = "height: 1600px; padding-top: 40px;";
+      tall.innerHTML = `<a id="under-link" href="#clicked-link" style="display: inline-block; padding: 20px; background: #eee;">Target Link</a>`;
+      content.document.body.append(tall);
     });
     await WhimsyAnnotations.restoreForBrowser(browser);
 
@@ -993,7 +996,6 @@ add_task(async function test_pen_eraser_undo_panel_and_reduced_motion() {
         4.5,
         `Done button text on filled primary surface meets WCAG AA (4.5:1) in ${scheme}: ${ratio.toFixed(2)}`
       );
-      return bar;
     });
 
     bar.querySelector(".whimsy-pen-done").click();
@@ -1023,7 +1025,7 @@ add_task(async function test_pen_eraser_undo_panel_and_reduced_motion() {
     ok(thumb && thumb.querySelector("svg path"), "Drawing preview renders a scaled SVG path");
 
     // Light and dark screenshots of P.3 (panel row)
-    await whimsyBothSchemes("w29-pen-p3-panel", async () => panel);
+    await whimsyBothSchemes("w29-pen-p3-panel", async () => {});
 
     // Clicking Edit reopens the pen
     const editBtn = drwSection.querySelector(".whimsy-annotations-drawings-edit");
