@@ -116,12 +116,37 @@ export const WhimsyArcMenus = {
         !tab.hasAttribute("zen-essential") &&
         (!space || tab.getAttribute("zen-workspace-id") == space)
     );
+    // W30 U7: the whole reset is one undo (Edit → Undo, ⌘Z, the toast),
+    // like Clear Archive: each tab's state from before the reset comes back.
+    const before = [];
     for (const tab of tabs) {
       try {
+        const state = lazy.WhimsyUndo.tabStateOf(tab);
         win.gZenPinnedTabManager?.resetPinnedTab(tab);
+        if (state) {
+          before.push({ tab, state });
+        }
       } catch (e) {
         console.error("Whimsy: reset pinned tab", e);
       }
+    }
+    if (before.length) {
+      lazy.WhimsyUndo.showToast(
+        win,
+        "whimsy-reset-space-tabs-toast",
+        {
+          type: "reset-space-tabs",
+          undo: () => {
+            for (const { tab, state } of before) {
+              if (tab.isConnected && !tab.closing) {
+                lazy.WhimsyUndo.restoreTabState(tab, state);
+              }
+            }
+          },
+          redo: null,
+        },
+        { count: before.length }
+      );
     }
     return tabs.length;
   },

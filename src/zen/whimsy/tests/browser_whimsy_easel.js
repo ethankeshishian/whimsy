@@ -1052,3 +1052,27 @@ add_task(async function test_private_never_makes_an_easel() {
 
   is((await gWhimsyEaselStore.list()).length, before, "No easel was made");
 });
+
+// W30 U4: ⇧⌘] and ⇧⌘[ (Bring to front, Send to back) go by the physical
+// key. Shift+] is "}" on a US layout, so matching the character missed
+// them and the press went on to the browser, which switched tabs.
+add_task(async function test_front_and_back_by_physical_key() {
+  const { win, app, tab } = await openNewEasel();
+  const doc = win.document;
+  const rect = doc.getElementById("viewport").getBoundingClientRect();
+  const at = (x, y) => ({ x: rect.left + x, y: rect.top + y });
+  app.setTool("rect");
+  await drag(win, at(100, 100), at(200, 200));
+  await drag(win, at(300, 100), at(400, 200));
+  const [first, second] = app.items.filter(i => i.type == "shape");
+  ok(first && second, "Two shapes");
+  app.select([first.id]);
+  EventUtils.synthesizeKey("}", { accelKey: true, shiftKey: true, code: "BracketRight" }, win);
+  is(app.items.at(-1).id, first.id, "⇧⌘] brings the selection to the front");
+  is(gBrowser.selectedTab, tab, "and the browser didn't switch tabs");
+  EventUtils.synthesizeKey("{", { accelKey: true, shiftKey: true, code: "BracketLeft" }, win);
+  is(app.items[0].id, first.id, "⇧⌘[ sends it to the back");
+  EventUtils.synthesizeKey("]", { accelKey: true, code: "BracketRight" }, win);
+  is(app.items.indexOf(app.items.find(i => i.id == first.id)), 1, "⌘] moves it forward one");
+  is(gBrowser.selectedTab, tab, "still in the easel's tab");
+});

@@ -77,3 +77,44 @@ add_task(async function test_year_day_and_hour_names_follow_the_locale() {
   const src = await (await fetch("chrome://browser/content/whimsy/whimsy-year.js")).text();
   ok(!src.includes('"Sunday"') && !src.includes('"pm"'), "no English day or am/pm tables in the recap");
 });
+
+// W30 copy: no label is the bare word "Now" (a time, not a state); lists
+// of three or more take the serial comma; the floating Essential is a
+// popover everywhere (the changelog's word and Chat's: Show Chat as Popover).
+add_task(function test_no_bare_now_labels() {
+  for (const id of ["whimsy-library-notes-just-now", "whimsy-meeting-now", "whimsy-action-lock-private-now"]) {
+    const text = value(id);
+    isnot(text.trim(), "Now", `${id} says more than "Now" (${text})`);
+    ok(!/\bNow$/.test(text), `${id} doesn't end in Now`);
+  }
+  is(value("whimsy-meeting-now"), "In progress", "A meeting that has started is in progress");
+  is(value("whimsy-action-lock-private-now"), label("whimsy-menu-lock-private"), "The command and the menu row share a name");
+});
+
+add_task(async function test_serial_commas() {
+  ok(value("whimsy-split-always-show-headers-help").includes("address, and the pane"), "a list of five ends with ', and'");
+  ok(value("whimsy-game-hint").includes("WASD, or"), "a list of three ends with ', or'");
+  // Every list of three or more in the file carries the comma before its
+  // and/or: no "a, b and c" anywhere (keyword lists aside).
+  const ftl = await (await fetch("chrome://browser/locale/browser/whimsy.ftl").catch(() => null))?.text?.(); // precheck: ignore-url (tolerates a missing file)
+  if (!ftl) {
+    info("The strings file isn't fetchable in this build; the formatted strings above stand");
+    return;
+  }
+  const offenders = ftl
+    .split("\n")
+    .filter(line => !line.startsWith("#") && !line.includes(".keywords") && !line.includes("whimsy-easel-empty-body"))
+    .filter(line => /\w+, \w+(?: \w+)? (?:and|or) \w/.test(line) && !/, (?:and|or) /.test(line));
+  Assert.deepEqual(offenders, [], "No list without its serial comma");
+});
+
+add_task(function test_popover_is_the_name() {
+  for (const id of ["tab-context-whimsy-side-panel", "whimsy-menus-tab-side-panel"]) {
+    is(label(id), "Open as Popover", `${id} calls it a popover`);
+  }
+  is(value("whimsy-action-open-in-side-panel"), "Open as Popover", "The command bar too");
+  is(value("whimsy-action-side-panel"), "Open as Popover or Tab", "and the toggle");
+  const [splitter] = l10n.formatMessagesSync([{ id: "whimsy-side-panel-splitter" }]);
+  is(splitter.attributes.find(a => a.name == "aria-label")?.value, "Resize popover", "The grip too");
+  ok(label("whimsy-chat-menu-popover").includes("Popover"), "the same word Chat uses");
+});

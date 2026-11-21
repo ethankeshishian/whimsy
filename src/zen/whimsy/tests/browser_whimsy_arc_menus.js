@@ -138,6 +138,16 @@ add_task(async function test_reset_space_tabs() {
     () => tab.linkedBrowser.currentURI.spec.includes("pinned-home"),
     "Back on its pinned page"
   );
+  // W30 U7: the whole reset is one undo, with a toast.
+  const toast = gZenUIManager.toasts.getToasts().find(t => t.messageId == "whimsy-reset-space-tabs-toast");
+  ok(toast, "A toast says what was reset");
+  is(WhimsyUndo.pendingUndo(window)?.type, "reset-space-tabs", "and ⌘Z has the reset");
+  ok(WhimsyUndo.undo(window), "Undo runs");
+  await TestUtils.waitForCondition(
+    () => tab.linkedBrowser.currentURI.spec.includes("wandered"),
+    "Undo puts the tab back where it had wandered"
+  );
+  ok(tab.pinned, "still pinned");
   gBrowser.unpinTab(tab);
   BrowserTestUtils.removeTab(tab);
 });

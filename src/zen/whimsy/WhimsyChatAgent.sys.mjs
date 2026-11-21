@@ -768,9 +768,11 @@ export const WhimsyChatAgent = {
   async adopt(win, thread, card, text, { plan, steps, tabs }, { tab = null, named = [], mode = this.mode, cmdk = false } = {}) {
     const startUri = tab && !lazy.WhimsyAIContext.isOffLimits(tab) ? tab.linkedBrowser.currentURI : null;
     const sites = this.startSites(text, startUri);
+    const origins = startUri && /^https?$/.test(startUri.scheme) ? [lazy.WhimsyAgentGuard.originOf(startUri)] : [];
     const task = lazy.WhimsyAgentTasks.start({
       client: "whimsy",
       sites,
+      origins,
       mode,
       threadId: thread.id,
       spaceId: win.gZenWorkspaces?.activeWorkspace ?? null,

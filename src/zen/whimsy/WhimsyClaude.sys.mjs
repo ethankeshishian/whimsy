@@ -1070,11 +1070,13 @@ export const WhimsyClaude = {
   async guardNavigation(uri, ctx) {
     const { task } = ctx;
     task.sites ??= new Set();
-    if (!lazy.WhimsyAgentGuard.navigation(uri, task.sites, { links: task.links })) {
+    task.origins ??= new Set();
+    const opts = { links: task.links, origins: task.origins };
+    if (!lazy.WhimsyAgentGuard.navigation(uri, task.sites, opts)) {
       return;
     }
     const knownSite = await lazy.WhimsyAgentGuard.isKnownSite(uri.host).catch(() => false);
-    const verdict = lazy.WhimsyAgentGuard.navigation(uri, task.sites, { links: task.links, knownSite });
+    const verdict = lazy.WhimsyAgentGuard.navigation(uri, task.sites, { ...opts, knownSite });
     await this.askToGo(verdict, uri, ctx);
   },
 
@@ -1093,6 +1095,8 @@ export const WhimsyClaude = {
     lazy.WhimsyAgentTasks.clearPause(task, pause);
     if (choice == "do") {
       task.sites.add(verdict.host);
+      // W30 S2: the person saw this exact address, so its origin is visited.
+      (task.origins ??= new Set()).add(lazy.WhimsyAgentGuard.originOf(uri));
       (task.approvedSites ??= new Set()).add(verdict.host);
       return;
     }
@@ -1113,8 +1117,10 @@ export const WhimsyClaude = {
       return;
     }
     task.sites ??= new Set();
+    task.origins ??= new Set();
     if (!task.moved?.has(tab)) {
       task.sites.add(lazy.WhimsyAgentGuard.siteOf(uri));
+      task.origins.add(lazy.WhimsyAgentGuard.originOf(uri));
       return;
     }
     if (lazy.WhimsyAgentGuard.visited(uri, task.sites)) {
@@ -1122,8 +1128,11 @@ export const WhimsyClaude = {
     }
     const knownSite = await lazy.WhimsyAgentGuard.isKnownSite(uri.host).catch(() => false);
     // Where the tab already is: the address it carried has gone, so the
-    // question is only whether the agent may use this site.
-    const verdict = lazy.WhimsyAgentGuard.navigation(uri, new Set(), { knownSite });
+    // question is only whether the agent may use this site (its origin
+    // counts as seen, so the path isn't called data).
+    const verdict = lazy.WhimsyAgentGuard.navigation(uri, new Set(), {
+      knownSite, origins: new Set([lazy.WhimsyAgentGuard.originOf(uri)]),
+    });
     await this.askToGo(verdict, uri, ctx, tab);
   },
 

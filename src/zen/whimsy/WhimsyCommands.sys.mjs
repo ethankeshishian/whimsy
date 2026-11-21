@@ -42,6 +42,9 @@ const FEATURE_PREF = "whimsy.feature.command-registry";
 const KEYSET_ID = "whimsyKeyset";
 // WhimsyShortcuts.WHIMSY_KEY_ATTR: press again (B16) finds Whimsy's keys by it.
 const AUTO_KEY_ATTR = "whimsy-command-key";
+// W30 U6: a key that lost its default to another binding names that key here,
+// so a cheat sheet or test can see it isn't bound and why; never silently.
+const CONFLICT_ATTR = "whimsy-key-conflict";
 const GROUP_L10N_ID = "whimsy-cheatsheet-group-whimsy";
 // wave10/mini: commands whose keys work only inside one kind of window
 // (spec.scope) get their own group in about:keyboard, listed from every
@@ -158,6 +161,9 @@ const MENU_OF = {
 const MENU_BY_ID = new Map(Object.entries(MENU_OF).flatMap(([menu, ids]) => ids.map(id => [id, menu])));
 
 export const WhimsyCommands = {
+  AUTO_KEY_ATTR,
+  CONFLICT_ATTR,
+
   // W26 audit: the command bar hides what can't apply. A tab command needs
   // a tab (not a space's empty tab); a page command needs a web page (an
   // http, https, or file page, or reader view), never a settings or other
@@ -374,6 +380,7 @@ export const WhimsyCommands = {
       const conflict = allowConflict ? null : this.findConflict(document, binding, id);
       if (conflict) {
         console.warn(`Whimsy: ${id} left unbound; ${conflict.id || "another key"} already uses that shortcut`);
+        keyEl.setAttribute(CONFLICT_ATTR, conflict.id || "");
       } else {
         keyEl.setAttribute("modifiers", binding.modifiers);
         keyEl.setAttribute(binding.keycode ? "keycode" : "key", binding.keycode ?? binding.key);

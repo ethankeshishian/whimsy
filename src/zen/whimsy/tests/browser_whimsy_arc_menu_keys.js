@@ -37,8 +37,20 @@ add_task(async function test_downloads_and_console() {
   const result = WhimsyShortcuts.moveConsoleAndDownloads(window);
   const consoleKey = document.getElementById("key_browserConsole");
   if (result == "kept") {
-    info("Cmd+Opt+J is taken: the console and Downloads keep Firefox's keys");
-    is(binding("key_openDownloads"), "accel|J", "Downloads stays on Cmd+J");
+    info("Cmd+Opt+J is taken: the console keeps Cmd+Shift+J");
+    // W30 U6: Downloads is never left without a key. Shift+Cmd+J when it's
+    // free; otherwise Cmd+J comes back and the Whimsy key that borrowed it
+    // (link hints) stands aside, marked with what took its shortcut.
+    const downloads = binding("key_openDownloads");
+    ok(downloads == "accel,shift|J" || downloads == "accel|J", `Downloads has a key (${downloads})`);
+    noOtherKey("key_openDownloads");
+    if (downloads == "accel|J") {
+      const hints = document.getElementById("key_whimsyLinkHints");
+      if (hints) {
+        ok(!hints.getAttribute("key"), "Link hints gave Cmd+J back");
+        is(hints.getAttribute(WhimsyCommands.CONFLICT_ATTR), "key_openDownloads", "and says who has it");
+      }
+    }
     return;
   }
   is(binding("key_openDownloads"), "accel,shift|J", "View Downloads is Cmd+Shift+J");
@@ -113,3 +125,23 @@ add_task(async function test_browser_keys_press_again_not_reserved() {
   await TestUtils.waitForCondition(() => bindingOf(document.getElementById("zen-toggle-pin-tab")) == "accel|D", "Reset: ⌘D");
 });
 
+
+// W30 U6: a Whimsy key whose default shortcut is taken is left unbound,
+// but never in silence: it carries the id of the key that has it, for the
+// cheat sheet and for anyone wondering why a shortcut does nothing.
+add_task(function test_unbound_keys_name_their_conflict() {
+  const keyEl = WhimsyCommands.addKey(window, {
+    id: "key_whimsyTestConflict",
+    command: "cmd_whimsyTestConflict",
+    key: "J",
+    modifiers: "accel,shift",
+  });
+  try {
+    ok(!keyEl.getAttribute("key"), "A key whose shortcut is taken stays unbound");
+    const taken = WhimsyCommands.findConflict(document, { key: "J", modifiers: "accel,shift" }, "key_whimsyTestConflict");
+    ok(taken, "Cmd+Shift+J belongs to another key");
+    is(keyEl.getAttribute(WhimsyCommands.CONFLICT_ATTR), taken.id, `and the new key names it (${taken.id})`);
+  } finally {
+    keyEl.remove();
+  }
+});

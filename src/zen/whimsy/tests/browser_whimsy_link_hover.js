@@ -511,3 +511,32 @@ add_task(async function people_card_survives_the_pointer_reaching_it() {
     restore();
   }
 });
+
+// W30 S3: only a web address makes a card. A page process that forges the
+// hover message with a file:, chrome:, or javascript: address gets no card,
+// so a click on a card can never make the browser open one.
+add_task(async function only_web_addresses_make_cards() {
+  const restore = stubAI(false);
+  try {
+    await BrowserTestUtils.withNewTab("https://example.com/browser/", async browser => {
+      const link = { x: 120, y: 120, width: 140, height: 18, title: "A link" };
+      for (const url of ["file:///etc/hosts", "chrome://browser/content/browser.xhtml", "javascript:alert(1)", "about:config", "data:text/html,hi"]) {
+        enterAt({ ...link, url });
+        ok(!host.pending && !host.target, `${url}: the host makes no card`);
+        await SpecialPowers.spawn(browser, [{ ...link, url }], data =>
+          content.windowGlobalChild.getActor("WhimsyAIPreview").sendQuery("WhimsyAIPreview:Show", data));
+        ok(!host.pending && !host.target, `${url}: nor does the page's own message`);
+      }
+      ok(WhimsyLinkHover.isWebAddress("https://example.org/article") && WhimsyLinkHover.isWebAddress("http://example.org/"), "Web addresses are web addresses");
+      ok(!WhimsyLinkHover.isWebAddress("") && !WhimsyLinkHover.isWebAddress(null) && !WhimsyLinkHover.isWebAddress("not a url"), "Nothing else is");
+      await SpecialPowers.spawn(browser, [{ ...link, url: "https://example.org/article" }], data =>
+        content.windowGlobalChild.getActor("WhimsyAIPreview").sendQuery("WhimsyAIPreview:Show", data));
+      ok(host.pending || host.target, "A web address from the page starts a card");
+      host.hide({ animate: false });
+    });
+  } finally {
+    host.hide({ animate: false });
+    await closed();
+    restore();
+  }
+});

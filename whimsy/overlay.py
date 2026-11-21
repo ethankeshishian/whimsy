@@ -1626,6 +1626,37 @@ HOTFIXES = [
                "    window.removeEventListener(\"mousedown\", this.#onOutsidePointer, true);\n"
                "    document.documentElement.removeAttribute(\"zen-renaming-tab\");\n",
     },
+    {
+        "id": "spaces-sync-web-urls-only",
+        "file": "src/zen/sync/ZenSpacesSyncApplier.sys.mjs",
+        "why": "W30 S9: a synced tab record opens only http(s) pages; file:, javascript:, about: and the rest are skipped.",
+        "old": "        if (!data.url || data.url === \"about:blank\") {\n          continue;\n        }\n        const existing = this.#itemIn(win, tabId);",
+        "new": "        if (!data.url || data.url === \"about:blank\") {\n          continue;\n        }\n"
+               "        // Whimsy hotfix (W30 S9): only web pages open from a synced record.\n"
+               "        if (!/^https?:\\/\\//i.test(data.url)) {\n          continue;\n        }\n"
+               "        const existing = this.#itemIn(win, tabId);",
+    },
+    {
+        "id": "spaces-sync-untrusted-tab",
+        "file": "src/zen/sync/ZenSpacesSyncApplier.sys.mjs",
+        "why": "W30 S9: a synced tab opens as content would (a null principal), not as the browser itself.",
+        "old": "    const tab = win.gBrowser.addTrustedTab(data.url, {\n      createLazyBrowser: true,",
+        "new": "    // Whimsy hotfix (W30 S9): a synced record is remote data, so its page\n"
+               "    // opens with a null principal, never with the system principal.\n"
+               "    const tab = win.gBrowser.addTab(data.url, {\n"
+               "      triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),\n"
+               "      createLazyBrowser: true,",
+    },
+    {
+        "id": "spaces-sync-retarget-web-only",
+        "file": "src/zen/sync/ZenSpacesSyncApplier.sys.mjs",
+        "why": "W30 S9: an unloaded tab is never pointed at a non-web address by a synced record.",
+        "old": "  #retargetUnloadedTab(win, tab, data, previousPinUrl) {\n    try {\n      const state = JSON.parse(win.SessionStore.getTabState(tab));",
+        "new": "  #retargetUnloadedTab(win, tab, data, previousPinUrl) {\n"
+               "    // Whimsy hotfix (W30 S9): only web pages, as in #applyTabs.\n"
+               "    if (!/^https?:\\/\\//i.test(data.url)) {\n      return;\n    }\n"
+               "    try {\n      const state = JSON.parse(win.SessionStore.getTabState(tab));",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.

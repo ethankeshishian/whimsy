@@ -85,3 +85,26 @@ add_task(async function test_switch_off() {
   cleanup(tabs);
   await SpecialPowers.popPrefEnv();
 });
+
+// W30 U9: outside a split the digit and bracket keys have nothing to do,
+// so they pass to the page (web apps use Ctrl+Shift+digit) instead of
+// being swallowed. Add Split View still works everywhere.
+add_task(async function test_keys_pass_through_without_a_split() {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/?plain");
+  ok(!tab.splitView, "A plain tab");
+  const seen = [];
+  const listener = event => seen.push({ code: event.code, prevented: event.defaultPrevented });
+  window.addEventListener("keydown", listener);
+  try {
+    press("Digit1", "!");
+    press("BracketRight", "}");
+    const digit = seen.find(e => e.code == "Digit1");
+    const bracket = seen.find(e => e.code == "BracketRight");
+    ok(digit && !digit.prevented, "Ctrl+Shift+1 isn't swallowed without a split");
+    ok(bracket && !bracket.prevented, "nor Ctrl+Shift+]");
+    is(gBrowser.selectedTab, tab, "and the tab stays");
+  } finally {
+    window.removeEventListener("keydown", listener);
+    BrowserTestUtils.removeTab(tab);
+  }
+});

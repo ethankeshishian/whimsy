@@ -739,3 +739,32 @@ add_task(async function test_forget_all_write_is_bounded() {
 add_task(async function test_tests_use_a_throwaway_keystore() {
   ok(OSKeyStore.STORE_LABEL.startsWith("test-"), "A throwaway Keychain item");
 });
+
+// W30 S4: a page's draft is keyed by the address the parent knows for its
+// document, never by one the page process names. A compromised page can't
+// read, replace, or delete another address's draft by claiming to be it.
+add_task(async function test_page_cannot_name_another_address() {
+  const OTHER = "https://example.org/apply?job=2";
+  ok(await WhimsyFormDrafts.put({ url: OTHER, data: draft("theirs") }), "Another site's draft is stored");
+  await BrowserTestUtils.withNewTab(PAGE, async browser => {
+    const snapshot = await SpecialPowers.spawn(browser, [OTHER], url =>
+      content.windowGlobalChild.getActor("WhimsyFormProtection").sendQuery("Whimsy:FormSnapshotFor", { url })
+    );
+    is(snapshot, null, "Asking for another address's draft gets nothing");
+    await SpecialPowers.spawn(browser, [OTHER], url => {
+      const actor = content.windowGlobalChild.getActor("WhimsyFormProtection");
+      actor.sendAsyncMessage("Whimsy:FormDraft", { url, data: { id: { message: "mine" } } });
+    });
+    await TestUtils.waitForCondition(
+      async () => (await WhimsyFormDrafts.get({ url: PAGE }))?.data.id.message == "mine",
+      "The draft lands under the page's own address"
+    );
+    is((await WhimsyFormDrafts.get({ url: OTHER }))?.data.id.message, "theirs", "The other site's draft is untouched");
+    await SpecialPowers.spawn(browser, [OTHER], url => {
+      content.windowGlobalChild.getActor("WhimsyFormProtection").sendAsyncMessage("Whimsy:FormDraft", { url, data: null });
+    });
+    await TestUtils.waitForCondition(async () => !(await WhimsyFormDrafts.get({ url: PAGE })), "A delete clears the page's own draft");
+    is((await WhimsyFormDrafts.get({ url: OTHER }))?.data.id.message, "theirs", "and never another site's");
+  });
+  await WhimsyFormDrafts.delete({ url: OTHER });
+});

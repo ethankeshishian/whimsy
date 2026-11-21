@@ -12,7 +12,7 @@ addPanelTask(async function resize_is_clamped_and_kept_per_site() {
   const b = await makeEssential("https://example.com/?narrow");
   await clickTile(a, true);
   ok(grip(a).checkVisibility(), "A grip on the free edge");
-  await TestUtils.waitForCondition(() => grip(a).getAttribute("aria-label") == "Resize side panel", "Named");
+  await TestUtils.waitForCondition(() => grip(a).getAttribute("aria-label") == "Resize popover", "Named");
   await drag(a, 100);
   is(widthOf(a), 480, "Dragging the edge follows the pointer");
   is(saved()["example.org"]?.width, 480, "and is kept for that site");

@@ -1240,3 +1240,13 @@ addFocusTask(async function screens() {
   WhimsyFocusSession.doneHoldMs = HOLD_MS;
   resetPrefs();
 });
+
+// W30: the page carries a Content Security Policy like the other
+// about:whimsy pages.
+add_task(async function test_page_has_a_csp() {
+  await BrowserTestUtils.withNewTab("about:whimsy?focus", async browser => {
+    const csp = browser.contentDocument.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content ?? "";
+    ok(csp.includes("default-src chrome:"), `A CSP: ${csp}`);
+    ok(csp.includes("object-src 'none'"), "with no plugins");
+  });
+});

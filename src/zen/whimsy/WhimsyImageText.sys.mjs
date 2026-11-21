@@ -301,6 +301,11 @@ export const WhimsyImageText = {
   /** Covers each line of the image in view (or `src`) with its translation. */
   async translate(win, src = null) {
     const browser = win.gBrowser.selectedBrowser;
+    // W30 U3: the tab whose image this is, decided before anything waits.
+    // The person can switch tabs while the text is recognized, and the
+    // private check below is about this tab, not whichever is in front then.
+    const tab = win.gBrowser.getTabForBrowser(browser) ?? win.gBrowser.selectedTab;
+    const isPrivate = lazy.WhimsyAIContext.isPrivate(tab);
     const found = await this.textOf(browser, src);
     if (!found?.lines?.length) {
       win.gZenUIManager?.showToast?.("whimsy-image-text-none");
@@ -315,7 +320,7 @@ export const WhimsyImageText = {
     let lines = null;
     if (from && primary(from) != to) {
       lines = await this.translateOnDevice(found.lines, from, to);
-      if (!lines && lazy.WhimsyAI.enabled && !lazy.WhimsyAIContext.isPrivate(win.gBrowser.selectedTab)) {
+      if (!lines && lazy.WhimsyAI.enabled && !isPrivate) {
         lines = await this.translateWithAI(found.lines, to);
       }
     }

@@ -62,6 +62,18 @@ export const WhimsyLinkHover = {
     return lazy.WhimsyHoverCards.enabled;
   },
 
+  /** W30 S3: a card only shows for, and only ever opens, an http(s) address. */
+  isWebAddress(url) {
+    if (typeof url != "string" || !url) {
+      return false;
+    }
+    try {
+      return /^https?:$/.test(new URL(url).protocol);
+    } catch {
+      return false;
+    }
+  },
+
   forWindow(win) {
     let host = hosts.get(win);
     if (!host) {
@@ -123,7 +135,7 @@ class LinkHover {
    */
   enter(req) {
     const { browser, url } = req;
-    if (!browser || !url) {
+    if (!browser || !WhimsyLinkHover.isWebAddress(url)) {
       return;
     }
     const key = keyOf(url);
@@ -373,7 +385,7 @@ class LinkHover {
   #hoverCard(target, ai) {
     const card = this.#card("link");
     card.append(lazy.WhimsyHoverCards.linkCard(this.win, { ...target, ai }));
-    card.addEventListener("click", event => this.#follow(event, target.url));
+    card.addEventListener("click", event => this.#follow(event, target.url, target));
     return card;
   }
 
@@ -407,19 +419,27 @@ class LinkHover {
     // Its buttons act; a click elsewhere on the card opens the profile.
     card.addEventListener("click", event => {
       if (!event.target.closest("button")) {
-        this.#follow(event, profileUrl);
+        this.#follow(event, profileUrl, target);
       }
     });
     return card;
   }
 
-  // Clicking a card opens the link, as clicking the link would.
-  #follow(event, url) {
-    if (event.button != 0) {
+  // Clicking a card opens the link, as clicking the link would. W30 S3:
+  // the address came from the page, so it loads as a page's link does, in
+  // the tab the link is on, with a page-level principal, and only when it's
+  // a web address; never as the browser itself (openTrustedLinkIn).
+  #follow(event, url, target) {
+    if (event.button != 0 || !WhimsyLinkHover.isWebAddress(url)) {
       return;
     }
     this.hide({ animate: false });
-    this.win.openTrustedLinkIn(url, "current");
+    const browser = target?.browser?.isConnected ? target.browser : this.win.gBrowser.selectedBrowser;
+    const userContextId = target?.userContextId || browser.getAttribute("usercontextid") | 0;
+    this.win.openLinkIn(url, "current", {
+      targetBrowser: browser,
+      triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
+    });
   }
 
   // The card leaves on one attribute, one exit transition, then the popup

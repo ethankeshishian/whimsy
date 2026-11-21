@@ -1342,6 +1342,8 @@ support-files = ["whimsy_secfix_late_scam.html", "whimsy_secfix_scam_frame.html"
 support-files = ["whimsy_secfix_inject.html", "whimsy_secfix2_links.html", "whimsy_secfix2_redirect.sjs"]
 ["browser_whimsy_secfix2_page.js"]
 support-files = ["whimsy_secfix2_codes.html"]
+# W30 secfix: the W30 security audit's fixes (research-w30/security-audit.md).
+["browser_whimsy_secfix_spaces_sync.js"]
 
 # W24: keep adult sites out of history (stand-in hash and labelled stand-in pages).
 ["browser_whimsy_adult_history.js"]

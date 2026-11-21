@@ -18,7 +18,7 @@
 //   Run clear it; clearing a time range clears that range.
 // - whimsy.claude.replay turns recording off.
 
-import { redactText } from "resource:///modules/whimsy/WhimsyAISensitive.sys.mjs";
+import { SECRET_LABEL, redactText } from "resource:///modules/whimsy/WhimsyAISensitive.sys.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -65,6 +65,22 @@ function pageURL(spec) {
   } catch {
     return String(spec ?? "").split(/[?#]/)[0];
   }
+}
+
+// W30 S9: what the agent typed, with anything secret-shaped masked. The
+// tool already hides a value meant for a field the page marks as a
+// password, card, or one-time code (`sensitive`); this also catches the
+// same values typed into a plain field (a code box with no autocomplete,
+// a password mirrored into a text input): a 4-8 digit code, and a single
+// run of 8+ characters with letters and digits or a long token.
+function maskTyped(value, args = {}) {
+  if (args.sensitive) {
+    return SECRET_LABEL;
+  }
+  return redactText(String(value ?? ""))
+    .text.replace(/(?<![\w-])\d{4,8}(?![\w-])/g, SECRET_LABEL)
+    .replace(/(?<!\S)(?=\S{8,})(?=\S*\d)(?=\S*[A-Za-z])\S+/g, SECRET_LABEL)
+    .replace(/(?<!\S)[A-Za-z0-9_-]{20,}(?!\S)/g, SECRET_LABEL);
 }
 
 function clip(value, max = CLIP) {
@@ -166,11 +182,11 @@ export const WhimsyClaudeReplay = {
       case "click":
         return args.ref ? clip(args.ref) : Array.isArray(args.coordinate) ? `(${args.coordinate.map(Math.round).join(", ")})` : "";
       case "type":
-        return `“${clip(redactText(args.text).text, 60)}”${args.ref ? ` → ${clip(args.ref, 20)}` : ""}`;
+        return `“${clip(maskTyped(args.text, args), 60)}”${args.ref ? ` → ${clip(args.ref, 20)}` : ""}`;
       case "key":
         return clip(args.keys, 60);
       case "form_input":
-        return `${clip(args.ref, 20)} = ${clip(redactText(String(args.value ?? "")).text, 40)}`;
+        return `${clip(args.ref, 20)} = ${clip(maskTyped(args.value, args), 40)}`;
       case "scroll":
         return clip(`${args.direction || "down"}${args.amount ? ` ×${args.amount}` : ""}`);
       case "find":

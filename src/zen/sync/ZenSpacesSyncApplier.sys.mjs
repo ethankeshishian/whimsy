@@ -544,6 +544,10 @@ class nsZenSpacesSyncApplier {
         if (!data.url || data.url === "about:blank") {
           continue;
         }
+        // Whimsy hotfix (W30 S9): only web pages open from a synced record.
+        if (!/^https?:\/\//i.test(data.url)) {
+          continue;
+        }
         const existing = this.#itemIn(win, tabId);
         if (win.gBrowser.isTab(existing)) {
           this.#updateTab(win, existing, data);
@@ -563,7 +567,10 @@ class nsZenSpacesSyncApplier {
         `(essential=${!!data.essential}, container=${userContextId})`,
       data.url
     );
-    const tab = win.gBrowser.addTrustedTab(data.url, {
+    // Whimsy hotfix (W30 S9): a synced record is remote data, so its page
+    // opens with a null principal, never with the system principal.
+    const tab = win.gBrowser.addTab(data.url, {
+      triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({ userContextId }),
       createLazyBrowser: true,
       inBackground: true,
       skipAnimation: true,
@@ -678,6 +685,10 @@ class nsZenSpacesSyncApplier {
    * @param {?string} previousPinUrl - The pin url before this record applied.
    */
   #retargetUnloadedTab(win, tab, data, previousPinUrl) {
+    // Whimsy hotfix (W30 S9): only web pages, as in #applyTabs.
+    if (!/^https?:\/\//i.test(data.url)) {
+      return;
+    }
     try {
       const state = JSON.parse(win.SessionStore.getTabState(tab));
       const entries = state.entries || [];

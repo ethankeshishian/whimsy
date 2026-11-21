@@ -44,7 +44,7 @@ add_task(async function real_world_code_and_card_fields() {
 });
 
 add_task(async function split_code_stays_out_of_agent_reads_and_typing() {
-  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"] });
+  const task = WhimsyAgentTasks.start({ client: "whimsy", mode: "background", sites: ["example.com"], origins: ["https://example.com"] });
   const { tabId } = JSON.parse(textOf(await own(task, "tabs_create", { url: PAGE })));
   const tab = WhimsyClaude.tabById(tabId);
   await SpecialPowers.spawn(tab.linkedBrowser, [], () => {

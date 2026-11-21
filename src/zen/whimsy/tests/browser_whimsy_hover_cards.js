@@ -1219,3 +1219,39 @@ add_task(async function mail_hover_private_mail_tab_makes_no_connector_request()
     BrowserTestUtils.removeTab(tab);
   }
 });
+
+// W30 S5: a hover is not a request. With a cloud provider, a tab that looks
+// signed in (Sign out on the page, an inbox, an account cookie) gets a
+// note instead of a description, and nothing is sent.
+add_task(async function signed_in_tabs_stay_off_the_cloud() {
+  reset();
+  Services.obs.notifyObservers(null, "whimsy-ai-store-cleared");
+  const cloud = Object.getOwnPropertyDescriptor(WhimsyAIProviders, "isCloud");
+  Object.defineProperty(WhimsyAIProviders, "isCloud", { configurable: true, get: () => true });
+  WhimsyAIReader.setTestReader((url, options) => {
+    reads.push({ url, ...options });
+    return "Welcome back, Grace. Sign out. The offsite is on March 14 in Lisbon.";
+  });
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE + "?signed-in");
+  const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINKS);
+  try {
+    hoverTab(tab);
+    const card = await openTabCard();
+    const note = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-note"), "A note");
+    is(note.dataset.note, "signed-in", "A signed-in page isn't described by a cloud model");
+    is(note.getAttribute("data-l10n-id"), "whimsy-hover-card-signed-in", "and says so");
+    ok(!card.querySelector(".whimsy-hc-points"), "...with no bullets");
+    ok(reads.length, "The page was read on this Mac to decide");
+    is(asked.filter(described).length, 0, "and nothing went to the model");
+  } finally {
+    await closeAll();
+    Object.defineProperty(WhimsyAIProviders, "isCloud", cloud);
+    WhimsyAIReader.setTestReader((url, options) => {
+      reads.push({ url, ...options });
+      return "The offsite is on March 14 in Lisbon. The espresso machine costs $129.";
+    });
+    Services.obs.notifyObservers(null, "whimsy-ai-store-cleared");
+    BrowserTestUtils.removeTab(other);
+    BrowserTestUtils.removeTab(tab);
+  }
+});

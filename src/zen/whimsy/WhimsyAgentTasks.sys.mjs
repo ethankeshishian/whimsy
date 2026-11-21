@@ -146,7 +146,7 @@ export const WhimsyAgentTasks = {
    *   title?: string, session?: string}} opts
    */
   start({ client = "whimsy", clientName = "", mode = "drive", threadId = null, spaceId = null, plan = null,
-    namedSpaceIds = [], title = "", session = null, sites = [], kind = "" } = {}) {
+    namedSpaceIds = [], title = "", session = null, sites = [], origins = [], kind = "" } = {}) {
     this.init();
     const task = {
       id: uuid(),
@@ -169,6 +169,10 @@ export const WhimsyAgentTasks = {
       // person named; going anywhere else pauses. And the person's own tabs
       // they attached to a Drive task.
       sites: new Set(sites),
+      // W30 S2: the exact origins ("https://mail.google.com") it has been
+      // on. Elsewhere on a visited site, an address's path and extra host
+      // labels count as data until a page the task read supplied it.
+      origins: new Set(origins),
       attached: new Set(),
       steps: [],
       pause: null,

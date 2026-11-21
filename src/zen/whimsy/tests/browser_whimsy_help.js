@@ -263,3 +263,13 @@ add_task(async function test_contrast_and_screenshots() {
   }
   BrowserTestUtils.removeTab(tab);
 });
+
+// W30: the page carries a Content Security Policy like the other
+// about:whimsy pages.
+add_task(async function test_page_has_a_csp() {
+  const { tab, doc } = await openHelp();
+  const csp = doc.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content ?? "";
+  ok(csp.includes("default-src chrome:"), `A CSP: ${csp}`);
+  ok(csp.includes("object-src 'none'"), "with no plugins");
+  BrowserTestUtils.removeTab(tab);
+});

@@ -517,7 +517,8 @@ export const WhimsyHoverCards = {
       return;
     }
     console.debug("Whimsy: hover card not described", error?.code ?? "", error?.message ?? error);
-    this.fillDescription(win, card, { note: "failed" });
+    // W30 S5: a signed-in page isn't sent to a cloud model; the card says so.
+    this.fillDescription(win, card, { note: error?.code == "signed-in" ? "signed-in" : "failed" });
   },
 
   /**
