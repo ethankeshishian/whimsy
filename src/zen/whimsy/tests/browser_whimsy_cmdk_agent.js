@@ -15,6 +15,7 @@ Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_cmdbar_a
 const { WhimsyCommandBarAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommandBarAgent.sys.mjs");
 const { WhimsyChatAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatAgent.sys.mjs");
 const { WhimsyAgentTasks } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAgentTasks.sys.mjs");
+const { WhimsyAICommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAICommands.sys.mjs");
 
 const MODE = "whimsy.ai.agent.mode";
 const PAGES = ["https://example.org/", "https://test1.example.com/", "https://test2.example.com/"].map(
@@ -417,4 +418,76 @@ add_task(async function cant_do_it_offers_chat() {
   EventUtils.synthesizeKey("KEY_Enter");
   await TestUtils.waitForCondition(() => WhimsyChat.isOpen(window), "Ask in chat opened chat");
   WhimsyChat.close(window, { reason: "key" });
+});
+
+// --- W30 agentplus ---
+
+add_task(async function take_over_on_the_status_card() {
+  await freshAgent();
+  actions = [
+    async () => {
+      const task = WhimsyAgentTasks.list({ client: "whimsy" })[0];
+      await TestUtils.waitForCondition(() => task.state == "paused", "The run waits while the person has the tab");
+      await TestUtils.waitForCondition(() => task.state == "running", "and goes on after Continue");
+      return { done: "Booked a table for 4 at 7:00 PM." };
+    },
+  ];
+  const st = await planWithKeys();
+  EventUtils.synthesizeKey("KEY_Enter");
+  const toast = await TestUtils.waitForCondition(() => statusToast(st.taskId)?.querySelector("#whimsy-agent-chat-take-over") && statusToast(st.taskId), "A Drive run's status card has Take over");
+  Assert.deepEqual([...toast.querySelectorAll(".whimsy-toast-button")].map(b => b.id), ["whimsy-agent-chat-take-over", "whimsy-cmdk-stop"], "before Stop, so Stop stays last");
+  const button = toast.querySelector("#whimsy-agent-chat-take-over");
+  await document.l10n.translateFragment(toast);
+  is(button.querySelector(".whimsy-toast-button-label").textContent, "Take over", "the chat run card's words");
+  ok(button.querySelector(".whimsy-toast-button-icon").style.getPropertyValue("--whimsy-toast-button-icon").includes("hand.svg"), "and its hand");
+  button.click();
+  await TestUtils.waitForCondition(() => WhimsyAgentTasks.get(st.taskId).pause?.kind == "take-over", "Take over pauses the task the way chat's button does");
+  const yours = await TestUtils.waitForCondition(() => statusToast(st.taskId)?.getAttribute("whimsy-cmdk-status") == "yours" && statusToast(st.taskId), "The card says the tab is yours");
+  Assert.deepEqual([...yours.querySelectorAll(".whimsy-toast-button")].map(b => b.id), ["whimsy-cmdk-continue", "whimsy-cmdk-stop"], "with Continue and Stop");
+  yours.querySelector("#whimsy-cmdk-continue").click();
+  await finished(st.taskId);
+});
+
+add_task(async function background_run_keeps_only_stop() {
+  await freshAgent();
+  let release = false;
+  actions = [
+    async () => {
+      await TestUtils.waitForCondition(() => release, "The test looked at the card");
+      return { done: "Done." };
+    },
+  ];
+  const st = await planWithKeys();
+  EventUtils.synthesizeMouseAtCenter(control("background"), {});
+  const toast = await TestUtils.waitForCondition(() => statusToast(st.taskId)?.getAttribute("whimsy-cmdk-status") == "running" && statusToast(st.taskId), "The background run's card is up");
+  Assert.deepEqual([...toast.querySelectorAll(".whimsy-toast-button")].map(b => b.id), ["whimsy-cmdk-stop"], "A background run is unchanged: Stop only");
+  release = true;
+  await finished(st.taskId);
+});
+
+add_task(async function run_a_task_command_asks_blanks_then_plans() {
+  await freshAgent();
+  await WhimsyAICommands._resetForTesting();
+  await WhimsyAICommands.init();
+  const cmd = await WhimsyAICommands.save({ name: "Book a table", result: "task", prompt: "Book a table for {count} at {place} on Friday" });
+  is(WhimsyAICommands.get(cmd.id).result, "task", "Run a task is a saved result");
+  const subject = { kind: "page", url: gBrowser.selectedBrowser.currentURI.spec, title: gBrowser.selectedTab.label };
+  await WhimsyAICommands.run(window, cmd.id, subject);
+  await TestUtils.waitForCondition(() => gURLBar.view.isOpen && gURLBar.inputField.placeholder == "Type the count", "⌘K asks for the first blank");
+  is(gURLBar.value, "", "with nothing typed yet");
+  EventUtils.sendString("4");
+  await UrlbarTestUtils.promiseSearchComplete(window);
+  const first = rows().find(r => r.getAttribute("dynamicType"));
+  ok(first?.textContent.includes("Book a table for 4 at {place} on Friday"), "The row shows the request filling in");
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(() => gURLBar.inputField.placeholder == "Type the place", "then the next blank");
+  EventUtils.sendString("the cafe");
+  await UrlbarTestUtils.promiseSearchComplete(window);
+  EventUtils.synthesizeKey("KEY_Enter");
+  await TestUtils.waitForCondition(() => planCard()?.querySelector(".whimsy-cmdk-step") && control("approve"), "The plan with Approve is up, as for a typed task");
+  const st = WhimsyCommandBarAgent.state(window);
+  is(st.request, "Book a table for 4 at the cafe on Friday", "planned from the filled template");
+  EventUtils.synthesizeKey("KEY_Enter");
+  await finished(st.taskId);
+  await WhimsyAICommands._resetForTesting();
 });

@@ -513,6 +513,30 @@ export const WhimsyAgentTasks = {
   },
 
   /**
+   * W30 agentplus: the sign-in card's Account chooser picked one of the
+   * pause's own saved logins (by guid). The card re-renders with it.
+   */
+  chooseLogin(id, pauseId, guid) {
+    const task = tasks.get(id);
+    const pause = task?.pause;
+    const login = pause?.preview?.logins?.find(l => l.guid == guid);
+    if (!login || pause.id != pauseId || pause.choice) {
+      return false;
+    }
+    pause.preview.login = guid;
+    const account = pause.preview.fields?.find(f => f?.l10nId == "whimsy-agent-field-account");
+    if (account) {
+      account.value = login.username;
+    }
+    if (task.threadId && pause.msgId) {
+      lazy.WhimsyAIStore.updateMessage(task.threadId, pause.msgId, { preview: pause.preview })
+        .catch(e => console.error("Whimsy: agent card", e));
+    }
+    notify(task);
+    return true;
+  },
+
+  /**
    * Waits for the person. Resolves the choice, "stop", or "waiting" after
    * `holdMs` (an outside app's call returns before its client gives up).
    */

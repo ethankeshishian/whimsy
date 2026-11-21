@@ -1164,7 +1164,7 @@ support-files = ["whimsy_chat_article.html", "whimsy_chat_media.html"]
 # W23 agent-core: guardrail pauses (classifier, previews, the MCP hold,
 # captchas) and this lane's screenshots.
 ["browser_whimsy_agent_guard.js"]
-support-files = ["whimsy_agent_checkout.html", "whimsy_agent_send.html", "whimsy_agent_settings.html", "whimsy_agent_captcha.html"]
+support-files = ["whimsy_agent_checkout.html", "whimsy_agent_send.html", "whimsy_agent_settings.html", "whimsy_agent_captcha.html", "whimsy_login_form.html"]
 
 ["browser_whimsy_screens_w23_agent-core.js"]
 

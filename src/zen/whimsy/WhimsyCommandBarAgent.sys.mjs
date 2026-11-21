@@ -50,6 +50,8 @@ const ROW_TYPE = "whimsy-cmdk-agent";
 const CARD_TYPE = "whimsy-cmdk-plan";
 const ASK_FEATURE = "whimsy.feature.ai-ask";
 const SPARKLE = "chrome://browser/skin/zen-icons/sparkles.svg";
+// The chat run card's Take over hand (WhimsyChatAgent ICON_URLS.hand).
+const HAND = "chrome://browser/content/whimsy/icons/hand.svg";
 const CHEVRON = "chrome://browser/content/whimsy/icons/chevron-down.svg";
 // "Planning…" gets its spinner only when planning takes longer than this.
 const SLOW_MS = 300;
@@ -1102,12 +1104,16 @@ export const WhimsyCommandBarAgent = {
     const title = task.title || run?.request || "";
     const stop = { id: "whimsy-cmdk-stop", l10nId: "whimsy-cmdk-stop", keys: "⌘.", ariaKeys: "Meta+Period", command: () => (lazy.WhimsyAgentTasks.stop(task.id), "keep") };
     const cont = { id: "whimsy-cmdk-continue", l10nId: "whimsy-cmdk-continue", command: () => (lazy.WhimsyAgentTasks.resume(task.id), "keep") };
+    // W30 agentplus: a Drive run can be taken over from here too, with the
+    // chat run card's button (same words, hand, and takeOver()), before
+    // Stop so Stop keeps its place at the end. Background runs: Stop only.
+    const takeOver = { id: "whimsy-agent-chat-take-over", l10nId: "whimsy-agent-chat-take-over", icon: HAND, command: () => (lazy.WhimsyChatAgent.takeOver(task), "keep") };
     switch (task.state) {
       case "planning":
       case "running":
         return {
           kind: "running",
-          sig: `run|${index}|${what}|${task.mode}`,
+          sig: `run|${task.state}|${index}|${what}|${task.mode}`,
           messageId: "whimsy-cmdk-text",
           l10nArgs: { text: title },
           descriptionId: "whimsy-cmdk-run-step",
@@ -1117,7 +1123,7 @@ export const WhimsyCommandBarAgent = {
           body: null,
           timeout: 0,
           closable: false,
-          buttons: [stop],
+          buttons: task.state == "running" && task.mode == "drive" ? [takeOver, stop] : [stop],
         };
       case "paused": {
         const pause = task.pause ?? {};
@@ -1154,17 +1160,69 @@ export const WhimsyCommandBarAgent = {
           },
         }));
         const fields = (preview.fields ?? []).filter(f => f && (f.label || f.value));
+        // W30 agentplus: more than one saved login for the site: the Account
+        // value is the card's own drop button, opening chat's styled list
+        // (K.5a) with the usernames; picking one re-renders the card.
+        const chooser = (preview.logins?.length ?? 0) > 1;
+        const loginMenu = () => h(doc, "div", { class: "whimsy-chat-menu whimsy-chat-model-menu whimsy-cmdk-menu whimsy-cmdk-login-menu", role: "listbox", "aria-label": preview.fields.find(f => f?.l10nId == "whimsy-agent-field-account")?.label ?? "" },
+          ...preview.logins.map(l => h(doc, "div", {
+            class: "whimsy-chat-option",
+            role: "option",
+            tabindex: "0",
+            "data-login": l.guid,
+            "aria-selected": String(l.guid == preview.login),
+            onclick: () => lazy.WhimsyAgentTasks.chooseLogin(task.id, pause.id, l.guid),
+            onkeydown: e => {
+              if (e.key == "Enter" || e.key == " ") {
+                e.preventDefault();
+                lazy.WhimsyAgentTasks.chooseLogin(task.id, pause.id, l.guid);
+              } else if (e.key == "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                e.currentTarget.closest(".whimsy-cmdk-login-menu")?.remove();
+                doc.getElementById("cmdk-pause-login")?.setAttribute("aria-expanded", "false");
+                doc.getElementById("cmdk-pause-login")?.focus();
+              } else if (e.key == "ArrowDown" || e.key == "ArrowUp") {
+                e.preventDefault();
+                const options = [...e.currentTarget.parentNode.children];
+                const at = options.indexOf(e.currentTarget);
+                options[(at + (e.key == "ArrowDown" ? 1 : options.length - 1)) % options.length]?.focus();
+              }
+            },
+          }, h(doc, "span", { class: "whimsy-chat-option-check" }), h(doc, "span", { class: "whimsy-chat-option-label", dir: "auto" }, l.username))));
+        const value = f => chooser && f.l10nId == "whimsy-agent-field-account"
+          ? h(doc, "button", {
+            id: "cmdk-pause-login",
+            class: "whimsy-chat-model-button whimsy-cmdk-drop",
+            "aria-haspopup": "listbox",
+            "aria-expanded": "false",
+            onclick: e => {
+              const button = e.currentTarget;
+              const body = button.closest(".whimsy-cmdk-fields");
+              const open = body.querySelector(".whimsy-cmdk-login-menu");
+              if (open) {
+                open.remove();
+                button.setAttribute("aria-expanded", "false");
+                return;
+              }
+              const menu = loginMenu();
+              body.append(menu);
+              button.setAttribute("aria-expanded", "true");
+              menu.querySelector("[aria-selected='true']")?.focus();
+            },
+          }, h(doc, "span", { class: "whimsy-chat-model-name", dir: "auto" }, f.value ?? ""), h(doc, "img", { class: "whimsy-chat-model-chevron", src: CHEVRON, alt: "" }))
+          : f.hidden || f.sensitive ? f.note || "••••" : f.value ?? "";
         const body = fields.length
           ? h(doc, "div", { class: "whimsy-cmdk-fields" }, fields.map(f => h(doc, "div", { class: "whimsy-cmdk-field", "data-strong": f.strong ? "" : null },
             h(doc, "span", { class: "whimsy-cmdk-field-label" }, f.label ?? ""),
-            h(doc, "span", { class: "whimsy-cmdk-field-value", dir: "auto" }, f.hidden || f.sensitive ? f.note || "••••" : f.value ?? ""))))
+            h(doc, "span", { class: "whimsy-cmdk-field-value", dir: "auto" }, value(f)))))
           : null;
         const head = preview.titleL10n
           ? { messageId: preview.titleL10n.id, l10nArgs: preview.titleL10n.args }
           : preview.title ? { messageId: "whimsy-cmdk-text", l10nArgs: { text: preview.title } } : { messageId: "whimsy-agent-chat-paused", l10nArgs: undefined };
         return {
           kind: "pause",
-          sig: `pause|${pause.id}`,
+          sig: `pause|${pause.id}|${preview.login ?? ""}`,
           ...head,
           descriptionId: "whimsy-cmdk-pause-step",
           descriptionArgs: { task: title, step: index + 1, total },

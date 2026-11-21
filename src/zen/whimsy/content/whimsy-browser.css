@@ -6018,6 +6018,19 @@ menupopup > [whimsy-menu-pref-hidden] {
     }
   }
 
+  /* A button's leading mark (the status card's Take over hand), the same
+     14px icon the chat run card's button wears. */
+  & .whimsy-toast-button-icon {
+    display: inline-block;
+    flex: none;
+    width: 14px;
+    height: 14px;
+    background: var(--whimsy-toast-button-icon) center / contain no-repeat;
+    -moz-context-properties: fill, fill-opacity, stroke, stroke-opacity;
+    fill: currentColor;
+    stroke: currentColor;
+  }
+
   & .whimsy-toast-keys {
     font: inherit;
     font-size: 11px;

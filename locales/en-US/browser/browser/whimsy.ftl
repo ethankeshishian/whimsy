@@ -6802,8 +6802,9 @@ whimsy-commands-result-replace = Replace
 whimsy-commands-result-insert-after = Insert after
 whimsy-commands-result-copy = Copy
 whimsy-commands-result-link = Link
+whimsy-commands-result-task = Run a task
 whimsy-commands-result = Result
-whimsy-commands-result-hint = Replace swaps the selection. Insert after puts it under the selection. Copy puts it on the clipboard. Link opens a page.
+whimsy-commands-result-hint = Replace swaps the selection. Insert after puts it under the selection. Copy puts it on the clipboard. Link opens a page. Run a task plans it in ⌘K, asks for its blanks, and asks before it acts.
 whimsy-commands-name = Name
 whimsy-commands-prompt = Prompt
 whimsy-commands-prompt-hint = Type {"{"} to add <span data-l10n-name="selection">selection</span>, <span data-l10n-name="page">page</span>, or <span data-l10n-name="link">link</span>.
@@ -8856,6 +8857,15 @@ whimsy-cmdk-pause-step = { $task } · { $step } of { $total }
 whimsy-cmdk-stop = Stop
 whimsy-cmdk-continue = Continue
 whimsy-cmdk-took-over = You have the tab. Continue when you’re done.
+# A Run a task command asking for a blank in its prompt (W30 agentplus).
+# $name (string) - the command’s name
+whimsy-cmdk-blank-group =
+    .label = { $name }
+# $blank (string) - the blank’s name, like area or price
+whimsy-cmdk-blank-placeholder =
+    .placeholder = Type the { $blank }
+# $blank (string) - the blank’s name; $step, $total (number) - which blank this is
+whimsy-cmdk-blank-detail = { $blank } · { $step } of { $total }
 whimsy-cmdk-done = Done: { $task }
 whimsy-cmdk-failed = Couldn’t finish “{ $task }”
 # $why (string) - error, turns, repeat, typed, or search; $sent (string) - yes or no

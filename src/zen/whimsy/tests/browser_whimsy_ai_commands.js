@@ -309,3 +309,43 @@ add_task(async function save_as_command_on_a_reused_prompt() {
   WhimsyAICommands._promptOf = new Map();
   restorePrefs();
 });
+
+// W30 agentplus: the Result segment gains Run a task, after Link.
+add_task(async function run_a_task_result() {
+  await fresh();
+  const page = await openCommands();
+  click(page, page.$("whimsyCommandsNew"));
+  await commandSheet(page);
+  const task = page.doc.querySelector('#whimsyCommandResult [data-result="task"]');
+  ok(task, "Run a task is a Result option");
+  is(page.doc.querySelectorAll("#whimsyCommandResult [data-result]").length, 5, "the fifth, after Link");
+  is(task.querySelector(".whimsy-ai-seg-label").textContent, "Run a task", "Sentence case, as the others");
+  for (const b of page.doc.querySelectorAll("#whimsyCommandResult [data-result]")) {
+    ok(b.scrollWidth <= b.clientWidth + 1, `${b.dataset.result} is not clipped`);
+  }
+  click(page, task);
+  ok(visible(page.$("whimsyCommandPrompt")), "A task has a prompt");
+  ok(!visible(page.$("whimsyCommandAddress")), "not an address");
+  page.$("whimsyCommandName").focus();
+  EventUtils.sendString("Book a table", page.win);
+  page.$("whimsyCommandPrompt").focus();
+  EventUtils.sendString("Book a table for {count} at {place}", page.win);
+  click(page, page.$("whimsyCommandSave"));
+  await TestUtils.waitForCondition(() => !page.$("whimsyAISheet"), "Saved and closed");
+  const made = WhimsyAICommands.list().find(c => c.name == "Book a table");
+  is(made?.result, "task", "The command runs as a task");
+  const row = await TestUtils.waitForCondition(() => [...page.doc.querySelectorAll("#whimsyCommandsList [data-pill='result']")].find(p => p.textContent == "Run a task"), "The list's pill says Run a task");
+  ok(row, "pill shown");
+  await closePage(page);
+});
+
+add_task(async function save_as_command_prefill_preselects_run_a_task() {
+  await fresh();
+  const page = await openCommands();
+  WhimsyAICommands.openEditor(window, { prefill: { prompt: "Order {count} more bags of {coffee}", result: "task", name: "Coffee reorder" } });
+  await commandSheet(page);
+  is(page.$("whimsyCommandName").value, "Coffee reorder", "Named from the task's title");
+  is(page.doc.querySelector('#whimsyCommandResult [aria-checked="true"]')?.dataset.result, "task", "Run a task preselected");
+  is(page.$("whimsyCommandPrompt").textContent, "Order {count} more bags of {coffee}", "with the plan's prompt");
+  await closePage(page);
+});

@@ -286,3 +286,157 @@ add_task(async function captcha_waits_no_click() {
   await own(task, "tabs_close", { tabId });
   WhimsyAgentTasks.finish(task.id);
 });
+
+// --- W30 agentplus: Sign in fills the saved login ---
+
+const LOGIN_FORM = ROOT + "whimsy_login_form.html";
+const LoginInfo = Components.Constructor("@mozilla.org/login-manager/loginInfo;1", Ci.nsILoginInfo, "init");
+const SECRET = "s3cret-pw-XYZ-never-shown";
+const OTHER_SECRET = "other-site-pw-QQQ";
+
+function savedLogin(origin, username, password) {
+  return new LoginInfo(origin, origin, null, username, password, "username", "password");
+}
+
+async function withLogins(logins, fn) {
+  // The form starts empty (no autofill on load), so the fill is the card's.
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["signon.rememberSignons", true],
+      ["signon.autofillForms", false],
+      ["signon.testOnlyUserHasInteractedByPrefValue", true],
+      ["signon.testOnlyUserHasInteractedWithDocument", true],
+    ],
+  });
+  for (const login of logins) {
+    await Services.logins.addLoginAsync(login);
+  }
+  try {
+    await fn();
+  } finally {
+    await Services.logins.removeAllUserFacingLoginsAsync();
+    await SpecialPowers.popPrefEnv();
+  }
+}
+
+const formValues = tab => SpecialPowers.spawn(tab.linkedBrowser, [], () => ({
+  username: content.document.getElementById("username").value,
+  password: content.document.getElementById("password").value,
+  type: content.document.getElementById("password").type,
+}));
+
+function neverLeaks(task, results, pause) {
+  const everything = [JSON.stringify(task.steps), ...results.map(textOf), JSON.stringify({ ...pause, waiters: null })].join("\n");
+  ok(!everything.includes(SECRET), "The password is in no tool result, Activity step, or pause card");
+  ok(!everything.includes(OTHER_SECRET), "nor another site's password");
+}
+
+add_task(async function sign_in_fills_the_saved_login_and_submits() {
+  await withLogins([
+    savedLogin("https://example.com", "ethan", SECRET),
+    savedLogin("https://example.org", "other", OTHER_SECRET),
+    savedLogin("https://test1.example.com", "sub", OTHER_SECRET),
+  ], async () => {
+    const task = WhimsyAgentTasks.start({ mode: "drive" });
+    const { tabId, tab, tree } = await open(task, LOGIN_FORM);
+    const results = [];
+    const typing = own(task, "type", { tabId, ref: refIn(tree, /textbox "Password"/), text: "whatever" });
+    const pause = await waitForPause(task, "sign-in");
+    Assert.deepEqual(pause.preview.logins.map(l => l.username), ["ethan"], "Only this origin's saved login is offered, never example.org's or a subdomain's");
+    is(fieldValue(pause.preview, "Account"), "ethan", "The Account row names the saved username");
+    Assert.deepEqual(pause.choices, ["do", "self", "skip"], "Sign in joins I’ll sign in and Don’t sign in");
+    ok(pause.preview.fields.some(f => f.sensitive == "password" && !f.value), "The password row stays hidden");
+    WhimsyAgentTasks.decide(task.id, "do");
+    const typed = await typing;
+    results.push(typed);
+    ok(textOf(typed).includes("filled the saved login"), "Claude learns only that it was filled");
+    ok(!textOf(typed).includes("ethan"), "not even the username");
+    Assert.deepEqual(await formValues(tab), { username: "ethan", password: SECRET, type: "password" }, "The login manager filled both fields in the page");
+    neverLeaks(task, results, pause);
+
+    // Submitting what was just filled is the same approved step.
+    const clicked = await own(task, "click", { tabId, ref: refIn(tree, /button "Sign in"/) });
+    results.push(clicked);
+    ok(!task.pause, "No second card for pressing Sign in");
+    is(textOf(clicked), 'Clicked button "Sign in".', "The agent submitted");
+    is(task.loginFilled ?? null, null, "and the allowance was one-time");
+    neverLeaks(task, results, pause);
+    await own(task, "tabs_close", { tabId });
+    WhimsyAgentTasks.finish(task.id);
+  });
+});
+
+add_task(async function sign_in_button_fills_first_then_presses() {
+  await withLogins([savedLogin("https://example.com", "ethan", SECRET)], async () => {
+    const task = WhimsyAgentTasks.start({ mode: "drive" });
+    const { tabId, tab, tree } = await open(task, LOGIN_FORM);
+    const pressing = own(task, "click", { tabId, ref: refIn(tree, /button "Sign in"/) });
+    const pause = await waitForPause(task, "sign-in");
+    is(fieldValue(pause.preview, "Account"), "ethan", "Pressing Sign in with empty fields offers the saved login");
+    const loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url => url.startsWith("https://example.com/whimsy-login"));
+    WhimsyAgentTasks.decide(task.id, "do");
+    const clicked = await pressing;
+    is(textOf(clicked), 'Whimsy filled the saved login for this site first. Clicked button "Sign in".', "Filled, then pressed");
+    await loaded;
+    neverLeaks(task, [clicked], pause);
+    await own(task, "tabs_close", { tabId });
+    WhimsyAgentTasks.finish(task.id);
+  });
+});
+
+add_task(async function several_saved_logins_make_a_chooser() {
+  await withLogins([
+    savedLogin("https://example.com", "ethan", SECRET),
+    savedLogin("https://example.com", "work", SECRET + "-work"),
+  ], async () => {
+    const task = WhimsyAgentTasks.start({ mode: "drive" });
+    const { tabId, tab, tree } = await open(task, LOGIN_FORM);
+    const typing = own(task, "type", { tabId, ref: refIn(tree, /textbox "Password"/), text: "x" });
+    const pause = await waitForPause(task, "sign-in");
+    is(pause.preview.logins.length, 2, "Both logins are offered");
+    is(pause.preview.login, pause.preview.logins[0].guid, "the first picked");
+    const work = pause.preview.logins.find(l => l.username == "work");
+    ok(!WhimsyAgentTasks.chooseLogin(task.id, pause.id, "not-a-saved-guid"), "Only the card's own logins can be chosen");
+    ok(WhimsyAgentTasks.chooseLogin(task.id, pause.id, work.guid), "Choosing work");
+    is(fieldValue(pause.preview, "Account"), "work", "renames the Account row");
+    WhimsyAgentTasks.decide(task.id, "do");
+    const typed = await typing;
+    is((await formValues(tab)).username, "work", "and that login is the one filled");
+    neverLeaks(task, [typed], pause);
+    await own(task, "tabs_close", { tabId });
+    WhimsyAgentTasks.finish(task.id);
+  });
+});
+
+add_task(async function no_saved_login_is_todays_hand_over() {
+  await withLogins([savedLogin("https://example.org", "other", OTHER_SECRET), savedLogin("https://test1.example.com", "sub", OTHER_SECRET)], async () => {
+    const task = WhimsyAgentTasks.start({ mode: "drive" });
+    const { tabId, tree } = await open(task, LOGIN_FORM);
+    const typing = own(task, "type", { tabId, ref: refIn(tree, /textbox "Password"/), text: "x" });
+    const pause = await waitForPause(task, "sign-in");
+    ok(!pause.preview.logins, "Another site's login is never offered here");
+    ok(!fieldValue(pause.preview, "Account"), "and no Account is named");
+    Assert.deepEqual(pause.choices, ["self", "skip"], "I’ll sign in or Don’t sign in, as before");
+    WhimsyAgentTasks.decide(task.id, "skip");
+    const typed = await typing;
+    neverLeaks(task, [typed], pause);
+    await own(task, "tabs_close", { tabId });
+    WhimsyAgentTasks.finish(task.id);
+  });
+});
+
+add_task(async function private_windows_never_fill() {
+  await withLogins([savedLogin("https://example.com", "ethan", SECRET)], async () => {
+    const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+    const tab = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, LOGIN_FORM);
+    const verdict = { kind: "sign-in", host: "example.com", handOver: true, preview: { fields: [{ l10nId: "whimsy-agent-field-site", label: "Site", value: "example.com" }] } };
+    await WhimsyClaude.offerSavedLogin(tab, verdict);
+    ok(!verdict.preview.logins, "No saved login is offered in a private window");
+    ok(!verdict.choices, "so the card stays a hand-over");
+    const guid = (await Services.logins.searchLoginsAsync({ origin: "https://example.com" }))[0].QueryInterface(Ci.nsILoginMetaInfo).guid;
+    const forced = { preview: { login: guid, logins: [{ guid, username: "ethan" }] } };
+    is(await WhimsyClaude.fillSavedLogin(tab, forced, { locator: {} }), false, "and nothing fills there even when asked");
+    is((await formValues(tab)).password, "", "The form stays empty");
+    await BrowserTestUtils.closeWindow(win);
+  });
+});

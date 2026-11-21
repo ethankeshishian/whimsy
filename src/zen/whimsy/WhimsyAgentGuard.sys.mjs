@@ -305,6 +305,11 @@ export const WhimsyAgentGuard = {
   WAITING_TEXT,
   holdMs: HOLD_MS,
 
+  /** A preview field's label, as `field()` writes it (for fields added later). */
+  label(l10nId) {
+    return l10n().formatValueSync(l10nId);
+  },
+
   /**
    * What an action would do, or null when it's free to go ahead.
    *
