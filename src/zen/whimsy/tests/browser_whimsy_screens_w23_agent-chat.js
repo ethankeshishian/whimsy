@@ -269,7 +269,7 @@ add_task(async function shot_end() {
     await planned();
     // Click Start once the plan has unfolded, not while it moves.
     await whimsySettled();
-    EventUtils.synthesizeMouseAtCenter(part("[data-choice='start']"), {});
+    part("[data-choice='start']").click();
     await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done");
   };
   await whimsyBothSchemes(`${P}fu-agent-7.1-end`, async () => {
