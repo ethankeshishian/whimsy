@@ -96,6 +96,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCheatSheet: "resource:///modules/whimsy/WhimsyCheatSheet.sys.mjs",
   WhimsyDelight: "resource:///modules/whimsy/WhimsyDelight.sys.mjs",
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
+  WhimsyWebKit: "resource:///modules/whimsy/WhimsyWebKit.sys.mjs",
   WhimsyCookieEditor: "resource:///modules/whimsy/WhimsyCookieEditor.sys.mjs",
   // batch hover: shared hover card (History rows, People cards).
   WhimsyHoverCard: "resource:///modules/whimsy/WhimsyHoverCard.sys.mjs",
@@ -1348,6 +1349,9 @@ export const Whimsy = {
     run("double-escape", () => lazy.WhimsyFullscreenEscape.initWindow(win));
     // W29: Pass Keys to Page (whimsy-GlobalKeyListener-cpp.patch).
     run("pass-keys-to-page", () => lazy.WhimsyKeysToPage.initWindow(win));
+
+    // W29: WebKit tabs (lane 1: engine-tab model, switching, indicator).
+    run("webkit-tabs", () => lazy.WhimsyWebKit.initWindow(win));
 
     // wave9: form protection (W9-03)
     run("form-protection", () => lazy.WhimsyFormProtection.initWindow(win));

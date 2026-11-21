@@ -58,6 +58,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyCommandBarAI: "resource:///modules/whimsy/WhimsyCommandBarAI.sys.mjs",
   WhimsyDictation: "resource:///modules/whimsy/WhimsyDictation.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
+  WhimsyWebKit: "resource:///modules/whimsy/WhimsyWebKit.sys.mjs",
   LanguageDetector: "resource://gre/modules/translations/LanguageDetector.sys.mjs",
   TranslationsParent: "resource://gre/actors/TranslationsParent.sys.mjs",
 });
@@ -1126,6 +1127,9 @@ export const WhimsyVerbs = {
     const browser = win.gBrowser.selectedBrowser;
     const url = browser.currentURI.spec;
     const title = win.gBrowser.selectedTab.label || browser.contentTitle || url;
+    if (lazy.WhimsyWebKit.isWebKitTab(win.gBrowser.selectedTab)) {
+      return { kind: "page", text: "", markdown: pageLink({ title, url }), url, title, event: null, phone: null };
+    }
     const contexts = browser.browsingContext?.getAllBrowsingContextsInSubtree() ?? [];
     for (const context of contexts) {
       try {

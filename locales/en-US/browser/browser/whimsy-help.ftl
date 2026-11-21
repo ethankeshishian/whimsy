@@ -519,3 +519,5 @@ whimsy-help-safety-check-name = Safety Check
 whimsy-help-safety-check-text = Safety Check: a Settings card that checks for updates, breached passwords, risky extensions and unused site permissions
 whimsy-help-search-with-name = Search With
 whimsy-help-search-with-text = Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above
+whimsy-help-webkit-tabs-name = WebKit Tabs
+whimsy-help-webkit-tabs-text = WebKit tabs: open a tab or a site in macOS WebKit from ⌘K or the site panel, with a WebKit pill in the address bar

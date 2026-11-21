@@ -1,0 +1,33 @@
+diff --git a/widget/cocoa/nsCocoaWindow.mm b/widget/cocoa/nsCocoaWindow.mm
+index 3e14df1279..b84a912c40 100644
+--- a/widget/cocoa/nsCocoaWindow.mm
++++ b/widget/cocoa/nsCocoaWindow.mm
+@@ -1891,6 +1891,27 @@
+ // Allow this to be a 'focused' widget for event dispatch.
+ - (BOOL)acceptsFirstResponder {
+   return YES;
+ }
++
++// Whimsy WebKit tabs: when a native WKWebView sits below Gecko's ChildView,
++// return nil inside the web view's uncovered hole rects so AppKit routes mouse,
++// scroll, cursor, and drag events to the native sibling below while Gecko's
++// chrome and overlays painted outside the hole still receive hits.
++- (NSView*)hitTest:(NSPoint)aPoint {
++  NSView* hit = [super hitTest:aPoint];
++  if (hit == self) {
++    NSArray<NSValue*>* holes =
++        objc_getAssociatedObject(self, @selector(whimsyNativeHoles));
++    if (holes.count) {
++      NSPoint local = [self convertPoint:aPoint fromView:[self superview]];
++      for (NSValue* val in holes) {
++        if (NSPointInRect(local, [val rectValue])) {
++          return nil;
++        }
++      }
++    }
++  }
++  return hit;
++}
+ 
+ // Accept mouse down events on background windows
+ - (BOOL)acceptsFirstMouse:(NSEvent*)aEvent {

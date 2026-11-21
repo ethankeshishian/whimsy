@@ -2410,6 +2410,10 @@ FEATURES = [
     {"id": "search-with", "title": "Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above",
      "detect": [("locales/en-US", r"(?im)^zen-[\w-]*search-with[\w-]*\s*="),
                 ("src/zen", r"(?i)zen[-_.]?search[-_.]?with|searchwith-?menu")]},
+    # W29: WebKit tabs (lane 1: engine-tab model, switching, indicator).
+    {"id": "webkit-tabs", "help_name": "WebKit Tabs", "section": "Tabs and spaces",
+     "title": "WebKit tabs: open a tab or a site in macOS WebKit from ⌘K or the site panel, with a WebKit pill in the address bar",
+     "detect": [("src/zen", r"(?i)zen[-_.]?webkit[-_.]?tabs|WKWebView")]},
 ]
 
 # W29/help: whimsy://help (WhimsyHelp.sys.mjs) reads one sentence and one

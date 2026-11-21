@@ -9061,3 +9061,27 @@ whimsy-ai-add-key-billing = Billed by { $provider }
 whimsy-ai-account-usage-title = { $provider }{ $plan }{ $label }
 
 whimsy-ai-account-manage-usage = Manage Usage
+
+# W29: WebKit tabs (W.1 ⌘K commands, W.2 address-bar pill and Engine rows).
+whimsy-webkit-cmd-open = Open in WebKit
+whimsy-webkit-cmd-open-firefox = Open in Firefox
+whimsy-webkit-cmd-always-open = Always Open { $host } in WebKit
+whimsy-webkit-cmd-stop-opening = Stop Opening { $host } in WebKit
+whimsy-webkit-cmd-tag-tab = This tab
+whimsy-webkit-cmd-tag-site = This site
+whimsy-webkit-pill-label = WebKit
+whimsy-webkit-pill =
+    .tooltiptext = This tab is using WebKit. Click for Engine settings.
+    .aria-label = WebKit
+whimsy-webkit-engine-heading = Engine
+whimsy-webkit-engine-label = Engine
+whimsy-webkit-engine-tooltip =
+    .tooltiptext = Choose whether this tab uses Firefox or macOS WebKit
+whimsy-webkit-engine-firefox = Firefox
+whimsy-webkit-engine-webkit = WebKit
+whimsy-webkit-always-use = Always use for this site
+whimsy-webkit-always-use-tooltip =
+    .tooltiptext = Open this site in WebKit whenever you visit it
+whimsy-webkit-engine-note = Some Whimsy features don’t work in WebKit tabs, like extensions, Dark Pages, and annotations.
+whimsy-webkit-protections-off = Off in WebKit
+whimsy-webkit-other-sites-firefox = Every other site uses Firefox.

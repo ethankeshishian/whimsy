@@ -1064,3 +1064,13 @@
 - name: whimsy.window-on-top.enabled
   value: false
 
+# W29: WebKit tabs (lane 1: engine-tab model, switching, indicator).
+# JSON list of host patterns (or per-profile map of host pattern lists) that
+# open in WebKit by default, plus the per-profile WKWebsiteDataStore UUID map.
+- name: whimsy.webkit.sites
+  value: "[ ]"
+
+- name: whimsy.webkit.datastores
+  value: "{ }"
+
+

@@ -240,6 +240,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNCallChild.sys.mjs",
     "WhimsyVPNCallParent.sys.mjs",
     "WhimsyVPNScope.sys.mjs",
+    "WhimsyWebKit.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
     "WhimsyWindowOnTop.sys.mjs",
@@ -479,4 +480,5 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
         "passkeys",
         "share",
         "speech",
+        "webkit",
     ]

@@ -88,6 +88,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyProfileZoom: "resource:///modules/whimsy/WhimsyProfileZoom.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
   WhimsyUserAgent: "resource:///modules/whimsy/WhimsyUserAgent.sys.mjs",
+  WhimsyWebKit: "resource:///modules/whimsy/WhimsyWebKit.sys.mjs",
   ZoomUI: "resource:///modules/ZoomUI.sys.mjs",
 });
 
@@ -635,6 +636,21 @@ export const WhimsySiteSettings = {
       profileSection.hidden = false;
     }
     section.querySelector(".whimsy-site-settings-caption-who").textContent = site.host;
+
+    // W29 WebKit tabs (W.2): Engine segmented control ("Firefox | WebKit") and
+    // "Always use for this site" switch, plus the WebKit note when active.
+    for (const oldNote of section.querySelectorAll(".whimsy-webkit-engine-note")) {
+      oldNote.remove();
+    }
+    const engineParts = lazy.WhimsyWebKit.buildEngineRows(win, { idPrefix: "whimsy-site-settings" });
+    if (engineParts) {
+      list.append(engineParts.engineRow, engineParts.alwaysRow);
+      remembered += engineParts.alwaysUse ? 1 : 0;
+      if (engineParts.note) {
+        list.after(engineParts.note);
+      }
+    }
+    lazy.WhimsyWebKit.updateSitePanelProtections(win);
 
     // Adaptive Dark Mode follows the profile until this site overrides it.
     const darkRow = lazy.WhimsyDarkPages.siteRow(win, browser);

@@ -1,0 +1,61 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+interface mozIDOMWindowProxy;
+
+[scriptable, function, uuid(7e3c9b14-4d8a-4f32-9b61-0c8e5a2d1f90)]
+interface nsIWhimsyWebKitListener : nsISupports
+{
+  void onEvent(in uint32_t aId, in AString aType, in AString aData);
+};
+
+[scriptable, uuid(c48a2b19-6f3d-4e91-8a52-1d7f3e9b0c41)]
+interface nsIWhimsyWebKit : nsISupports
+{
+  boolean available(in mozIDOMWindowProxy aWindow);
+
+  uint32_t createTab(in mozIDOMWindowProxy aWindow,
+                     in AString aDataStoreId,
+                     in AString aLayerMode,
+                     in nsIWhimsyWebKitListener aListener);
+
+  void setFrame(in uint32_t aId,
+                in double aX,
+                in double aY,
+                in double aWidth,
+                in double aHeight,
+                in double aRadius,
+                in AString aExclusionsJson);
+
+  void setVisible(in uint32_t aId, in boolean aVisible);
+
+  void loadURL(in uint32_t aId, in AString aURL);
+
+  void loadHTML(in uint32_t aId, in AString aHTML, in AString aBaseURL);
+
+  void goBack(in uint32_t aId);
+  void goForward(in uint32_t aId);
+  void reload(in uint32_t aId);
+  void stop(in uint32_t aId);
+
+  boolean canGoBack(in uint32_t aId);
+  boolean canGoForward(in uint32_t aId);
+  boolean isLoading(in uint32_t aId);
+
+  void focus(in uint32_t aId);
+  void blur(in uint32_t aId);
+  boolean isFocused(in uint32_t aId);
+
+  void setReservedShortcuts(in uint32_t aId, in AString aShortcutsJson);
+
+  [implicit_jscontext]
+  Promise evaluate(in uint32_t aId, in AString aScript);
+
+  AString hitTestAt(in uint32_t aId, in double aX, in double aY);
+  boolean acceptsFirstMouseAt(in uint32_t aId, in double aX, in double aY);
+
+  void destroyTab(in uint32_t aId);
+};

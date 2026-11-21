@@ -113,6 +113,8 @@ const WHIMSY_SHARED_LEAK_PREFS = [
   "whimsy.profiles.search-engines",
   "whimsy.profiles.extensions",
   "whimsy.useragent.sites",
+  "whimsy.webkit.sites",
+  "whimsy.webkit.datastores",
   "whimsy.stats.zapped",
   "screenshots.browser.component.last-screenshot-method",
   "screenshots.browser.component.last-saved-method",
