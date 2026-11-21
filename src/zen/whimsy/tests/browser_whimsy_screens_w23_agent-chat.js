@@ -270,7 +270,12 @@ add_task(async function shot_end() {
     // Click Start once the plan has unfolded, not while it moves.
     await whimsySettled();
     part("[data-choice='start']").click();
-    await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done");
+    await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "Done").catch(e => {
+      const tasks = WhimsyAgentTasks.list().map(t => `${t.id}:${t.state}:${t.mode}:${t.pause?.kind ?? ""}`).join(", ");
+      const toasts = window.gZenUIManager.toasts.getToasts().map(t => `${t.key}:${t.element.textContent.replace(/\s+/g, " ").slice(0, 80)}`).join(" | ");
+      info(`Done timed out. Tasks: ${tasks}. Cards: ${[...el().querySelectorAll("[data-card]")].map(c => c.dataset.card + "/" + (c.getAttribute("data-state") ?? "")).join(", ")}. Start: ${!!part("[data-choice='start']")}. Toasts: ${toasts}`);
+      throw e;
+    });
   };
   await whimsyBothSchemes(`${P}fu-agent-7.1-end`, async () => {
     await finishOnce();

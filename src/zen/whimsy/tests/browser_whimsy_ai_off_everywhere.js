@@ -101,11 +101,16 @@ add_task(async function hints_never_show_with_ai_off_unless_marked() {
     set: [["whimsy.ai.enabled", false], ["whimsy.ai.hints.seen", ""], ["whimsy.ai.hints.today", ""]],
   });
   const unregister = WhimsyAIHints.register({ id: "test-ai-off-hint", isVisible: () => true });
+  const describe = t => `${t.key} ${t.element.getAttribute("whimsy-cmdk-status") ?? ""} ${t.element.textContent.replace(/\s+/g, " ").slice(0, 120)}`;
   try {
+    for (const t of window.gZenUIManager.toasts.getToasts({ includeClosing: true })) {
+      info(`Toast already up before the hint: ${describe(t)}`);
+    }
     const asked = WhimsyAIHints.request(window, "test-ai-off-hint");
     is(asked, false, "request() refuses outright (not even queued) for a plain hint with AI off");
     await new Promise(r => setTimeout(r, 50));
-    is(currentToast(), null, "...so nothing ever shows");
+    const shown = currentToast();
+    is(shown, null, "...so nothing ever shows" + (shown ? ` (${describe(shown)})` : ""));
   } finally {
     unregister();
     WhimsyAIHints._settleForTesting();
