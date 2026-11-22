@@ -1,6 +1,14 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1283",
+      "date": "2026-11-21",
+      "title": "Site Settings shows every row again",
+      "fixed": [
+        "Site Settings in the site panel shows Tracking Protection, Zoom, Autoplay, and the rest again, beneath the Engine row."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1281",
       "date": "2026-11-21",
       "title": "A pen, WebKit tabs, and tasks in \u2318K",
