@@ -521,3 +521,5 @@ whimsy-help-search-with-name = Search With
 whimsy-help-search-with-text = Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above
 whimsy-help-webkit-tabs-name = WebKit Tabs
 whimsy-help-webkit-tabs-text = WebKit tabs: open a tab or a site in macOS WebKit from ⌘K or the site panel, with a WebKit pill in the address bar
+whimsy-help-applescript-name = AppleScript
+whimsy-help-applescript-text = AppleScript: scripts can list windows, tabs, and spaces, and open, close, reload, and select tabs, like Chrome's dictionary, never in private windows or tabs (macOS)

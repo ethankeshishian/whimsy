@@ -2609,6 +2609,16 @@
       "pane": null,
       "paneId": null,
       "command": null
+    },
+    {
+      "id": "applescript",
+      "name": "AppleScript",
+      "text": "AppleScript: scripts can list windows, tabs, and spaces, and open, close, reload, and select tabs, like Chrome's dictionary, never in private windows or tabs (macOS)",
+      "section": "Tabs and spaces",
+      "pref": "whimsy.feature.applescript",
+      "pane": null,
+      "paneId": null,
+      "command": null
     }
   ]
 }

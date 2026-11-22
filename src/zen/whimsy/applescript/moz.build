@@ -1,0 +1,24 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# W30 AppleScript: Cocoa scripting for Whimsy.sdef (Chrome's dictionary:
+# windows, tabs, and spaces). Only built on macOS (see ../moz.build);
+# WhimsyScripting.sys.mjs (../) is the front end. Cocoa finds the classes by
+# the names in the sdef, so nothing here is an XPCOM component.
+
+XPIDL_SOURCES += [
+    "nsIWhimsyScripting.idl",
+]
+
+XPIDL_MODULE = "whimsy_scripting"
+
+SOURCES += [
+    "nsWhimsyScripting.mm",
+]
+
+OS_LIBS += [
+    "-framework AppKit",
+]
+
+FINAL_LIBRARY = "xul"

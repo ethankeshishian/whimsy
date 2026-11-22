@@ -315,6 +315,19 @@ support-files = ["whimsy_slow_download.sjs"]
 
 ["browser_whimsy_url_schemes.js"]
 
+# W30 AppleScript: what Whimsy.sdef's classes see and do
+# (WhimsyScripting.sys.mjs): windows, tabs, and spaces, never private
+# windows or tabs, Scratch, hidden, or locked spaces; each command; only
+# http(s) and about:blank; the switch.
+["browser_whimsy_applescript.js"]
+run-if = ["os == 'mac'"]
+
+# W30 AppleScript through osascript (needs a real window and the
+# Automation permission, so not in the headless runs).
+["browser_whimsy_applescript_osascript.js"]
+run-if = ["os == 'mac'"]
+skip-if = ["headless"] # a real Apple event round trip; run it headed
+
 ["browser_whimsy_upload_clipboard.js"]
 support-files = ["whimsy_upload.html", "whimsy_upload_widgets.html", "whimsy_upload_dropzone.html"]
 
