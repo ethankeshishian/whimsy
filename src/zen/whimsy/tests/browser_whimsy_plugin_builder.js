@@ -341,7 +341,8 @@ async function writesAPluginThatStaysOff(tab) {
   BrowserTestUtils.removeTab(await opened);
   await backTo(tab);
 
-  // Don't Run: still off.
+  // Don't Run: still off. The chat redraws on the way back to its tab.
+  await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-chat-pill-btn.primary"), "The card is back after the file tab");
   let strings = await reviewAndRun(false);
   ok(strings.msgs.some(text => text.includes("youtube.com")), "The prompt lists what it can do");
   ok((await AddonManager.getAddonByID(id)).userDisabled, "Don’t Run keeps it off");
