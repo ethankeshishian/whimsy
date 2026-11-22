@@ -146,6 +146,33 @@ add_task(async function test_section_rows_and_command() {
   });
 });
 
+// 1281: the Engine row (WebKit tabs) built its segmented control wrong and
+// threw, leaving the list empty: no Tracking Protection, Zoom or Autoplay.
+// WebKit is unavailable headless, so pretend it's available here to build
+// the row the way a headed Mac does.
+add_task(async function test_engine_rows_keep_the_other_rows() {
+  clearAll();
+  const { WhimsyWebKit } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWebKit.sys.mjs");
+  const available = WhimsyWebKit.available;
+  WhimsyWebKit.available = () => true;
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async () => {
+      await openPanel();
+      Assert.deepEqual(
+        [...section().querySelectorAll("[whimsy-site-setting]")].map(r => r.getAttribute("whimsy-site-setting")),
+        ["engine", "engine-always", "tracking", "zoom", "autoplay", "reader", "fullscreen", "useragent"],
+        "The Engine rows come first and every other row still shows"
+      );
+      const seg = document.getElementById("whimsy-site-settings-engine-seg");
+      ok(seg?.classList.contains("whimsy-surface-seg"), "The Engine row holds a segmented control");
+      is(seg.querySelector('[data-value="firefox"]').getAttribute("aria-checked"), "true", "with Firefox picked");
+      await closePanel();
+    });
+  } finally {
+    WhimsyWebKit.available = available;
+  }
+});
+
 // W10-16: "the zoom button doesn't work": − / + step Firefox's zoom and
 // the % resets to 100%.
 add_task(async function test_zoom_stepper() {
