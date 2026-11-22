@@ -1498,3 +1498,8 @@ support-files = ["whimsy_reader_rich.html"]
 run-if = ["os == 'mac'"]
 skip-if = ["headless"]
 
+# W30: WebKit cookie copy on an engine switch (site selection, attribute
+# mapping, container and private isolation, copy-before-load ordering). The
+# native cookie store and tab service are stood in for, so it runs headless.
+["browser_whimsy_webkit_cookies.js"]
+
