@@ -28,6 +28,10 @@ const EASE = "cubic-bezier(0.075, 0.82, 0.165, 1)";
 const REDACTED = /\[(card number|secret|hidden)\]/g;
 const FILE_CHARS = 200000;
 const DEFAULT_FAVICON = "chrome://global/skin/icons/defaultFavicon.svg";
+const FOLDER_ICON = "chrome://browser/skin/zen-icons/folder.svg";
+// Chips that read a set of tabs when the message is sent (W29 group, W30
+// space and folder): counted in tabs, like All my tabs.
+const SCOPE_KINDS = new Set(["group", "space", "folder"]);
 const KIND_ICON = {
   text: `${ICONS}text-chip.svg`,
   images: `${ICONS}image-chip.svg`,
@@ -120,8 +124,8 @@ function chipArgs(chip) {
     text: c.text ? 1 : 0,
     images: Number(c.images) || 0,
     videos: Number(c.videos) || 0,
-    pages: chip.kind == "group" ? 0 : Number(c.pages) || 0,
-    tabs: chip.kind == "group" ? Number(c.pages) || 0 : 0,
+    pages: SCOPE_KINDS.has(chip.kind) ? 0 : Number(c.pages) || 0,
+    tabs: SCOPE_KINDS.has(chip.kind) ? Number(c.pages) || 0 : 0,
   };
 }
 
@@ -190,6 +194,10 @@ export const WhimsyChatContextUI = {
     // W29: a page and the tabs opened from it, read when the message is sent.
     if (desc.kind == "group") {
       return lazy.WhimsyAIContext.forGroup(win, desc);
+    }
+    // W30: every tab in a space or a Zen folder, read when the message is sent.
+    if (desc.kind == "space" || desc.kind == "folder") {
+      return lazy.WhimsyAIContext.forScope(win, desc);
     }
     // W23 video: "This video", what Summarize read.
     if (desc.kind == "video") {
@@ -337,7 +345,7 @@ export const WhimsyChatContextUI = {
     // one when the page has none); All my tabs keeps its tabs icon.
     const mark = chip.icon || (chip.kind == "tab" || chip.kind == "pane" || chip.kind == "group" ? DEFAULT_FAVICON : KIND_ICON.text);
     const lead =
-      !/^chrome:\/\/browser\/content\/whimsy\/icons\//.test(mark)
+      !/^chrome:\/\/browser\/(content\/whimsy\/icons|skin\/zen-icons)\//.test(mark)
         ? h(doc, "img", { class: "whimsy-chat-chip-mark", src: mark, alt: "" })
         : icon(doc, mark, "whimsy-chat-chip-mark");
     const label =
@@ -348,10 +356,10 @@ export const WhimsyChatContextUI = {
     // full breakdown stays in the body's tooltip (whimsy-chat-chip-words).
     const count = (kind, n) => h(doc, "span", { class: "whimsy-chat-chip-count", "data-kind": kind, l10n: ["whimsy-chat-chip-count", { kind: n && kind == "text" ? "pages" : kind, count: n || 0 }] });
     const summary = [
-      counts.text && chip.kind != "tabs" && chip.kind != "group" ? count("text", chip.kind == "file" || chip.kind == "pdf" ? counts.pages : 0) : null,
+      counts.text && chip.kind != "tabs" && !SCOPE_KINDS.has(chip.kind) ? count("text", chip.kind == "file" || chip.kind == "pdf" ? counts.pages : 0) : null,
       counts.images ? count("images", counts.images) : null,
       counts.videos ? count("videos", counts.videos) : null,
-      chip.kind == "tabs" || chip.kind == "group" ? count("tabs", counts.pages) : null,
+      chip.kind == "tabs" || SCOPE_KINDS.has(chip.kind) ? count("tabs", counts.pages) : null,
     ].filter(Boolean);
     return h(
       doc,
@@ -481,6 +489,20 @@ export const WhimsyChatContextUI = {
     const groupId = group && `group:${group.rootKey}`;
     const groupTabs = group && !current.has(groupId) ? lazy.WhimsyAIContext.groupTabs(win, group.rootKey, selected).tabs : [];
     const groupRow = groupTabs.length > 1 ? { id: groupId, rootKey: group.rootKey, label: group.title, icon: group.icon, count: groupTabs.length } : null;
+    // W30: the current space by name, then the tab's Zen folder (no row
+    // outside one), each until its chip is in.
+    const scopeRow = (kind, id, label) => {
+      const chipId = id && `${kind}:${id}`;
+      const count = chipId && !current.has(chipId) ? lazy.WhimsyAIContext.scopeTabs(win, kind, id).tabs.length : 0;
+      return count ? { id: chipId, kind, scope: id, label, count } : null;
+    };
+    const spaceId = win.gZenWorkspaces?.activeWorkspace;
+    const space = spaceId && lazy.WhimsyAIContext.spaces(win).find(s => s.uuid == spaceId);
+    const folder = lazy.WhimsyAIContext.folderOf(selected);
+    const scopeRows = [
+      space ? scopeRow("space", space.uuid, space.name) : null,
+      folder ? scopeRow("folder", folder.id, folder.label) : null,
+    ].filter(Boolean);
     const close = () => menu.remove();
     const item = (attrs, ...children) => h(doc, "button", { class: "whimsy-chat-option", role: "menuitem", tabindex: "-1", ...attrs }, ...children);
     const menu = h(
@@ -519,6 +541,14 @@ export const WhimsyChatContextUI = {
           h(doc, "span", { class: "whimsy-chat-option-detail", l10n: ["whimsy-chat-chip-count", { kind: "tabs", count: groupRow.count }] })
         )
         : null,
+      scopeRows.map(row =>
+        item(
+          { [`data-${row.kind}`]: row.id, onclick: () => (close(), this.addChip(win, { id: row.id, kind: row.kind, [row.kind == "space" ? "spaceId" : "folderId"]: row.scope, label: row.label })) },
+          icon(doc, row.kind == "folder" ? FOLDER_ICON : KIND_ICON.tabs),
+          h(doc, "span", { class: "whimsy-chat-option-label" }, row.label),
+          h(doc, "span", { class: "whimsy-chat-option-detail", l10n: ["whimsy-chat-chip-count", { kind: "tabs", count: row.count }] })
+        )
+      ),
       item({ onclick: () => (close(), this.addChip(win, { id: "tabs", kind: "tabs" })) }, icon(doc, KIND_ICON.tabs), h(doc, "span", { class: "whimsy-chat-option-label", l10n: "whimsy-chat-add-all-tabs" })),
       item({ onclick: () => (close(), this.pickFile(win)) }, icon(doc, `${ICONS}pdf.svg`), h(doc, "span", { class: "whimsy-chat-option-label", l10n: "whimsy-chat-add-file" }))
     );
