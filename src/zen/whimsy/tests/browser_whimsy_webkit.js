@@ -683,10 +683,10 @@ add_task(async function test_both_engine_panels_and_contrast_with_screenshots() 
   );
 
   const siteSegButtons = [
-    ...siteEngineRow.querySelectorAll(".whimsy-surface-seg-button"),
+    ...siteEngineRow.querySelectorAll(".whimsy-surface-segment"),
   ];
   Assert.deepEqual(
-    siteSegButtons.map(b => b.textContent.trim()),
+    siteSegButtons.map(b => b.querySelector(".whimsy-surface-segment-label").textContent.trim()),
     ["Firefox", "WebKit"],
     "Site panel Engine row reads 'Firefox | WebKit'"
   );
@@ -743,7 +743,7 @@ add_task(async function test_both_engine_panels_and_contrast_with_screenshots() 
     );
 
     for (const btn of sitePanel.querySelectorAll(
-      "#whimsy-site-settings-engine-seg .whimsy-surface-seg-button"
+      "#whimsy-site-settings-engine-seg .whimsy-surface-segment"
     )) {
       const fg = parseRGBA(getComputedStyle(btn).color);
       const bg = effectiveBackground(btn);
@@ -787,10 +787,10 @@ add_task(async function test_both_engine_panels_and_contrast_with_screenshots() 
   );
 
   const extSegButtons = [
-    ...extEngineRow.querySelectorAll(".whimsy-surface-seg-button"),
+    ...extEngineRow.querySelectorAll(".whimsy-surface-segment"),
   ];
   Assert.deepEqual(
-    extSegButtons.map(b => b.textContent.trim()),
+    extSegButtons.map(b => b.querySelector(".whimsy-surface-segment-label").textContent.trim()),
     ["Firefox", "WebKit"],
     "Extensions panel Engine row reads 'Firefox | WebKit'"
   );
@@ -818,7 +818,7 @@ add_task(async function test_both_engine_panels_and_contrast_with_screenshots() 
     );
 
     for (const btn of extPanel.querySelectorAll(
-      "#whimsy-extensions-panel-engine-seg .whimsy-surface-seg-button"
+      "#whimsy-extensions-panel-engine-seg .whimsy-surface-segment"
     )) {
       const fg = parseRGBA(getComputedStyle(btn).color);
       const bg = effectiveBackground(btn);
@@ -841,7 +841,7 @@ add_task(async function test_both_engine_panels_and_contrast_with_screenshots() 
 
   // Switch back to Firefox from the Puzzle Button's Panel.
   const firefoxBtn = extPanel.querySelector(
-    '#whimsy-extensions-panel-engine-seg .whimsy-surface-seg-button[value="firefox"]'
+    '#whimsy-extensions-panel-engine-seg .whimsy-surface-segment[data-value="firefox"]'
   );
   firefoxBtn.click();
   await TestUtils.waitForCondition(

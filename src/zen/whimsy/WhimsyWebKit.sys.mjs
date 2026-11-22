@@ -1257,18 +1257,20 @@ export const WhimsyWebKit = {
     const alwaysUse = this.isSiteInWebKit(host, userContextId);
 
     const engineLabelId = `${idPrefix}-engine-label`;
-    const seg = lazy.WhimsySurface.seg(doc, {
-      id: `${idPrefix}-engine-seg`,
-      value: isWebKit ? "webkit" : "firefox",
+    // seg() returns { group, select }: the group is the element.
+    const { group: seg, select } = lazy.WhimsySurface.seg(doc, {
+      name: `${idPrefix}-engine`,
       options: [
         { value: "firefox", l10nId: "whimsy-webkit-engine-firefox" },
         { value: "webkit", l10nId: "whimsy-webkit-engine-webkit" },
       ],
-      onChange: value => {
+      onPick: value => {
         this.setTabEngine(tab, value);
       },
     });
+    seg.id = `${idPrefix}-engine-seg`;
     seg.setAttribute("aria-labelledby", engineLabelId);
+    select(isWebKit ? "webkit" : "firefox");
 
     const { row: engineRow, label: engineLabel } = lazy.WhimsySurface.row(doc, {
       l10nId: "whimsy-webkit-engine-label",
