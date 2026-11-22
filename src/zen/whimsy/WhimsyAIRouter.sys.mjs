@@ -253,7 +253,7 @@ export const WhimsyAIRouter = {
     let guard = null;
     const hold = { count: 0 };
     if (request.tools.length && typeof req.confirmTool == "function" && !UNATTENDED_TASKS.has(request.task)) {
-      guard = lazy.WhimsyConnectors.guard(async ask => {
+      const confirm = async ask => {
         if (req.signal?.aborted) {
           return false;
         }
@@ -263,7 +263,13 @@ export const WhimsyAIRouter = {
         } finally {
           hold.count--;
         }
-      });
+      };
+      guard = lazy.WhimsyConnectors.guard(confirm);
+      // W30 extension builder: a run's own tool that asks first (changing
+      // a plugin another chat made) asks the same way, holding the run.
+      for (const tool of request.tools) {
+        tool.bindConfirm?.(confirm);
+      }
       request.tools = [...request.tools, guard.server];
     }
     const needs = { ...(req.needs ?? {}) };

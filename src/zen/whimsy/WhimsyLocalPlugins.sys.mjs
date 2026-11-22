@@ -27,6 +27,9 @@ const TOOL = "write_plugin";
 const SERVER = "whimsy_plugins";
 // Well inside the loader's limits (1MB manifest, 4096 entries, depth 16).
 const LIMITS = { files: 64, fileBytes: 512 * 1024, totalBytes: 2 * 1024 * 1024, pathChars: 200, depth: 8, folderChars: 48 };
+// "Make an extension that…", "change my Hide Shorts plugin". Finding or
+// installing someone else's extension stays the agent's.
+const BUILD_ASK = /\b(?:make|build|create|write|code|change|edit|update|fix|modify|tweak|improve)\b[\s\S]*\b(?:extensions?|plug-?ins?|add-?ons?)\b/i;
 // The add-on manager's id rule (gIDTest).
 const ID_TEST = /^(\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}|[a-z0-9-\._]*\@[a-z0-9-\._]+)$/i;
 
@@ -60,9 +63,14 @@ function refused(message) {
   return e;
 }
 
+// Whether `path` is itself a symbolic link (never followed). Synchronous on
+// purpose: IOUtils.getFile returns a promise (and creates parent folders),
+// so it can't answer this.
 function isLink(path) {
   try {
-    return IOUtils.getFile(path).isSymlink();
+    const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    file.initWithPath(path);
+    return file.isSymlink();
   } catch {
     return false;
   }
@@ -74,6 +82,14 @@ export const WhimsyLocalPlugins = {
 
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, false);
+  },
+
+  /**
+   * A chat message asking to make or change an extension, which chat's own
+   * write_plugin answers (so the browsing agent leaves it alone).
+   */
+  takes(text) {
+    return this.canBuild && BUILD_ASK.test(String(text ?? ""));
   },
 
   /** Chat may write plugins: local plugins and AI are both switched on. */
@@ -104,7 +120,8 @@ export const WhimsyLocalPlugins = {
   /**
    * The chat run's write_plugin tool, as a per-run MCP server, or null when
    * local plugins or AI is off. `run`: { threadId, confirm(ask), onWritten(artifact) }.
-   * Returns { server, dispose }.
+   * Returns { server, dispose }. The router may hand the server its own
+   * confirm (server.bindConfirm), so a person deciding holds the run open.
    */
   async builder({ threadId, confirm = null, onWritten = null }) {
     if (!this.canBuild) {
@@ -114,12 +131,14 @@ export const WhimsyLocalPlugins = {
     // The plugins this chat made, so "change it" finds the same folder.
     const made = await this.madeInThread(threadId);
     const known = made.length ? ` Plugins made in this chat (folder: name): ${made.map(a => `${a.folder}: ${JSON.stringify(a.name ?? "")}`).join(", ")}.` : "";
-    return lazy.WhimsyConnectors.runTools(
+    const tools = lazy.WhimsyConnectors.runTools(
       SERVER,
       [{ name: TOOL, description: DESCRIPTION + known, inputSchema: INPUT_SCHEMA, run: args => this._call(args, run) }],
       // Pre-approved: writing files runs nothing, and the person's Run is the approval.
       { readOnly: true }
     );
+    tools.server.bindConfirm = fn => (run.confirm = fn);
+    return tools;
   },
 
   async _call(args, run) {
@@ -143,6 +162,8 @@ export const WhimsyLocalPlugins = {
   folderName(raw) {
     return String(raw ?? "")
       .normalize("NFKD")
+      // NFKD splits "É" into "E" and a combining accent; drop the accent.
+      .replace(/\p{M}+/gu, "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+/, "")

@@ -1723,10 +1723,10 @@ class ChatPanel {
       const provider = opts.provider ?? (choice.provider != "auto" ? choice.provider : undefined);
       // W30 extension builder: "Make an extension that…" writes a plugin
       // folder through this run's write_plugin tool (only while local
-      // plugins and AI are on).
+      // plugins and AI are on). Asking before changing a plugin another
+      // chat made goes through the run's confirmTool (the router binds it).
       builder = await lazy.WhimsyLocalPlugins.builder({
         threadId: thread.id,
-        confirm: ask => live.confirmTool(ask),
         onWritten: artifact => live.onPlugin(artifact),
       });
       result = await lazy.WhimsyAIRouter.run({

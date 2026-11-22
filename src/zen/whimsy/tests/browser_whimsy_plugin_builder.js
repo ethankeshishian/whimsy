@@ -52,11 +52,17 @@ function hideShorts({ version = "1.0", extraHosts = [] } = {}) {
   };
 }
 
-// The stub model: each answer takes the next planned write_plugin call and
-// makes it through the run's own server, like Claude Code with --mcp-config.
+// The stub model: each chat answer takes the next planned write_plugin call
+// and makes it through the run's own server, like Claude Code with
+// --mcp-config. Other tasks (memory after an answer that says "my") get a
+// plain reply and never take a plan or count as an answer.
 let plans = [];
 let runs = [];
 async function* builderModel(provider, request) {
+  if (request.task != "chat") {
+    yield { type: "text", delta: "[]" };
+    return;
+  }
   const server = request.tools.find(t => t.name == "whimsy_plugins");
   const run = { names: request.tools.map(t => t.name), server, result: null, error: null };
   runs.push(run);
@@ -64,8 +70,8 @@ async function* builderModel(provider, request) {
     const { tools } = await WhimsyMCPClient.connect(server.url, { headers: server.headers });
     run.description = tools.find(t => t.name == "write_plugin")?.description ?? "";
   }
-  const plan = plans.shift();
-  if (plan && server) {
+  const plan = server ? plans.shift() : null;
+  if (plan) {
     try {
       run.result = await WhimsyMCPClient.callTool(server.url, "write_plugin", plan, { headers: server.headers });
     } catch (e) {
@@ -87,6 +93,29 @@ async function ask(text) {
   await TestUtils.waitForCondition(() => runs.length > count, "The model answers");
   await TestUtils.waitForCondition(() => !el().querySelector(".whimsy-chat-msg[data-role='ai'][busy]"), "The answer finishes");
   return runs.at(-1);
+}
+
+// Back to the test's tab. Closing a tab opened from it usually selects it
+// already, and switchTab waits for a switch that then never comes.
+async function backTo(tab) {
+  if (gBrowser.selectedTab != tab) {
+    await BrowserTestUtils.switchTab(gBrowser, tab);
+  }
+}
+
+// Each chat task runs in its own tab (its own chat thread), which is closed
+// even when the task fails, so no tab outlives the file.
+async function inNewTab(task) {
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  try {
+    await task(tab);
+  } finally {
+    if (chat().isOpen) {
+      chat().close({ reason: "key" });
+    }
+    await closeAddonsTabs();
+    BrowserTestUtils.removeTab(tab);
+  }
 }
 
 async function ln(target, link) {
@@ -181,8 +210,22 @@ add_setup(async function () {
   await IOUtils.remove(PLUGINS, { recursive: true, ignoreAbsent: true });
 });
 
+add_task(async function a_build_request_is_chat_s_not_the_agent_s() {
+  ok(WhimsyLocalPlugins.takes("Make an extension that hides YouTube Shorts"), "Making an extension is chat's");
+  ok(WhimsyLocalPlugins.takes("Change my Hide Shorts plugin"), "and so is changing one");
+  ok(!WhimsyLocalPlugins.takes("Find an extension that blocks ads"), "Finding one isn't");
+  const { WhimsyChatAgent } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatAgent.sys.mjs");
+  ok(!WhimsyChatAgent.looksLikeTask("Make an extension that hides YouTube Shorts"), "The agent leaves it to chat");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.local-plugins", false]] });
+  ok(!WhimsyLocalPlugins.takes("Make an extension that hides YouTube Shorts"), "With local plugins off, chat doesn't claim it");
+  await SpecialPowers.popPrefEnv();
+});
+
 add_task(async function tool_is_offered_only_with_local_plugins_and_ai() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await inNewTab(() => offeredOnlyWithLocalPluginsAndAI());
+});
+
+async function offeredOnlyWithLocalPluginsAndAI() {
   let run = await ask("make an extension");
   ok(run.names.includes("whimsy_plugins"), "Chat offers write_plugin");
   const { allowed } = WhimsyAIClaudeCode._mcpConfig([run.server]);
@@ -206,9 +249,7 @@ add_task(async function tool_is_offered_only_with_local_plugins_and_ai() {
   await SpecialPowers.popPrefEnv();
   builder.dispose();
   ok(!(await IOUtils.exists(PathUtils.join(PLUGINS, "hide-shorts"))), "and nothing was written");
-  chat().close({ reason: "key" });
-  BrowserTestUtils.removeTab(tab);
-});
+}
 
 add_task(async function bad_paths_and_manifests_are_refused() {
   const builder = await WhimsyLocalPlugins.builder({ threadId: null });
@@ -244,9 +285,12 @@ add_task(async function bad_paths_and_manifests_are_refused() {
   await IOUtils.makeDirectory(OUTSIDE, { createAncestors: true });
   await IOUtils.makeDirectory(PLUGINS, { createAncestors: true });
   await ln(OUTSIDE, PathUtils.join(PLUGINS, "linked"));
-  await Assert.rejects(write({ ...good, folder: "linked" }), /isn't a plugin folder/, "a linked folder is refused");
-  Assert.deepEqual(await IOUtils.getChildren(OUTSIDE), [], "and nothing reached the folder it points to");
-  await IOUtils.remove(PathUtils.join(PLUGINS, "linked"));
+  try {
+    await Assert.rejects(write({ ...good, folder: "linked" }), /isn't a plugin folder/, "a linked folder is refused, before anyone is asked");
+    Assert.deepEqual(await IOUtils.getChildren(OUTSIDE), [], "and nothing reached the folder it points to");
+  } finally {
+    await IOUtils.remove(PathUtils.join(PLUGINS, "linked"));
+  }
 
   builder.dispose();
   await Assert.rejects(write(good), e => e.code == "auth", "A finished run's tool stops answering");
@@ -255,10 +299,13 @@ add_task(async function bad_paths_and_manifests_are_refused() {
 });
 
 add_task(async function chat_writes_a_plugin_that_stays_off_until_run() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await inNewTab(tab => writesAPluginThatStaysOff(tab));
+});
+
+async function writesAPluginThatStaysOff(tab) {
   plans = [hideShorts()];
   const run = await ask("Make an extension that hides YouTube Shorts");
-  ok(run.result?.includes("stays off until"), "The tool reports the write");
+  ok(run.result?.includes("stays off until"), `The tool reports the write (${run.error ?? "no error"})`);
   const dir = PathUtils.join(PLUGINS, "hide-shorts");
   const manifest = JSON.parse(await IOUtils.readUTF8(PathUtils.join(dir, "manifest.json")));
   is(manifest.browser_specific_settings.gecko.id, "hide-shorts@whimsy-plugins", "Whimsy sets the id");
@@ -292,7 +339,7 @@ add_task(async function chat_writes_a_plugin_that_stays_off_until_run() {
   const opened = BrowserTestUtils.waitForNewTab(gBrowser, url => url.startsWith("view-source:file:") && url.endsWith("/whimsy-plugins/hide-shorts/hide.css"), true);
   EventUtils.synthesizeMouseAtCenter(list.querySelectorAll("li button")[1], {});
   BrowserTestUtils.removeTab(await opened);
-  await BrowserTestUtils.switchTab(gBrowser, tab);
+  await backTo(tab);
 
   // Don't Run: still off.
   let strings = await reviewAndRun(false);
@@ -300,14 +347,14 @@ add_task(async function chat_writes_a_plugin_that_stays_off_until_run() {
   ok((await AddonManager.getAddonByID(id)).userDisabled, "Don’t Run keeps it off");
   ok(!WebExtensionPolicy.getByID(id), "nothing runs");
   await closeAddonsTabs();
-  await BrowserTestUtils.switchTab(gBrowser, tab);
+  await backTo(tab);
 
   // Run: it runs, and the card says so.
   await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-chat-pill-btn.primary"), "The card is back");
   strings = await reviewAndRun(true);
   await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, "Run starts the plugin");
   await closeAddonsTabs();
-  await BrowserTestUtils.switchTab(gBrowser, tab);
+  await backTo(tab);
   await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-chat-report-detail")?.textContent == "Local plugin · running", "Local plugin · running");
   ok(!card().querySelector(".whimsy-chat-pill-btn"), "with nothing left to review");
 
@@ -327,14 +374,13 @@ add_task(async function chat_writes_a_plugin_that_stays_off_until_run() {
   strings = await reviewAndRun(true);
   ok(strings.msgs.some(text => text.includes("example.com")), "The prompt asks about the new site");
   await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, "Run starts it again");
-  await closeAddonsTabs();
-  await BrowserTestUtils.switchTab(gBrowser, tab);
-  chat().close({ reason: "key" });
-  BrowserTestUtils.removeTab(tab);
-});
+}
 
 add_task(async function a_plugin_this_chat_did_not_make_asks_first() {
-  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await inNewTab(() => anotherChatsPluginAsksFirst());
+});
+
+async function anotherChatsPluginAsksFirst() {
   const dir = PathUtils.join(PLUGINS, "hide-shorts");
   const original = await IOUtils.readUTF8(PathUtils.join(dir, "manifest.json"));
   plans = [hideShorts({ version: "9.0" })];
@@ -356,6 +402,4 @@ add_task(async function a_plugin_this_chat_did_not_make_asks_first() {
   is(await IOUtils.readUTF8(PathUtils.join(dir, "manifest.json")), original, "and the plugin is untouched");
   await TestUtils.waitForCondition(() => !el().querySelector(".whimsy-chat-msg[data-role='ai'][busy]"), "The answer finishes");
   ok(!el().querySelector(".whimsy-chat-plugin"), "No card for a write that didn't happen");
-  chat().close({ reason: "key" });
-  BrowserTestUtils.removeTab(tab);
-});
+}
