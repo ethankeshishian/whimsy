@@ -174,6 +174,59 @@ add_task(async function slash_commands_mode_stays() {
   }
 });
 
+// The revert Zen 1.24.3a runs a frame after the bar closes skips a bar that
+// has opened again by then (the race that cleared "/" commands mode above).
+// Zen 1.24.3b and later revert at once, so the guard never arms there. Delete
+// this task with the guard (whimsy-UrlbarInputBase-mjs.patch) once dev is on
+// Zen 1.24.3b or later.
+add_task(async function deferred_revert_spares_a_reopened_bar() {
+  const deferred = typeof gZenUIManager.revertUrlbar != "function";
+  for (const reopened of [true, false]) {
+    await openBar();
+    ok(!gURLBar._zenHandleUrlbarClose, "Opened without a ⌘T session");
+    let armed = 0;
+    let armedValue = false;
+    Object.defineProperty(gURLBar, "_whimsySkipRevertIfReopened", {
+      configurable: true,
+      get: () => armedValue,
+      set: value => {
+        armed += value ? 1 : 0;
+        armedValue = value;
+      },
+    });
+    let reverts = 0;
+    const setURI = gURLBar.setURI;
+    gURLBar.setURI = function (...args) {
+      reverts++;
+      return setURI.apply(this, args);
+    };
+    try {
+      gURLBar.value = "";
+      gBrowser.selectedBrowser.focus();
+      const before = reverts;
+      if (reopened) {
+        // The bar is open again before the next frame.
+        Object.defineProperty(gURLBar.view, "isOpen", { configurable: true, get: () => true });
+      }
+      await frame();
+      await frame();
+      if (deferred) {
+        is(armed, 1, `Zen's deferred revert is guarded (reopened: ${reopened})`);
+        is(reverts - before, reopened ? 0 : 1,
+          reopened ? "A bar open again is not reverted" : "A bar that stays closed is reverted a frame later");
+      } else {
+        is(armed, 0, "Zen reverts at once, so the guard never arms");
+      }
+    } finally {
+      delete gURLBar.view.isOpen;
+      delete gURLBar.setURI;
+      delete gURLBar._whimsySkipRevertIfReopened;
+    }
+    gURLBar.handleRevert();
+    await waitClosed();
+  }
+});
+
 add_task(async function reduced_motion_is_a_fade() {
   gReduceMotionOverride = true;
   const open = await openBar();
