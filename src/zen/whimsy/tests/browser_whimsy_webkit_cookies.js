@@ -257,6 +257,11 @@ add_task(async function test_containers_stay_apart() {
     "briefcase",
     "blue"
   ).userContextId;
+  // A container tab lives in its profile's space (Zen moves it there), so
+  // open it from one, as the other container tests do.
+  const home = gZenWorkspaces.getActiveWorkspace();
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Whimsy cookie copy", undefined, true, workId);
+  await gZenWorkspaces.changeWorkspace(space);
   try {
     addGeckoCookie("example.com", "default_session");
     addGeckoCookie("example.com", "work_session", { oa: { userContextId: workId } });
@@ -318,6 +323,8 @@ add_task(async function test_containers_stay_apart() {
     );
     BrowserTestUtils.removeTab(tab);
   } finally {
+    await gZenWorkspaces.changeWorkspace(home);
+    await gZenWorkspaces.removeWorkspace(space.uuid);
     ContextualIdentityService.remove(workId);
     WhimsyWebKitCookies._store = null;
     cleanupCookies();
