@@ -221,7 +221,7 @@ export const WhimsyAIRouter = {
    * off before the answer starts.
    *
    * @param {object} req AIRequest: { task, messages, system?, needs?,
-   *   provider?, model?, thinking?, tools?, userStarted?, signal?, onEvent? }
+   *   provider?, model?, thinking?, tools?, extraTools?, userStarted?, signal?, onEvent? }
    * @returns {Promise<{ text, provider, model, thinkingMs?, handoffs, tried, partial? }>}
    */
   async run(req = {}) {
@@ -241,6 +241,11 @@ export const WhimsyAIRouter = {
       if (!P.enabled) {
         throw error("blocked");
       }
+    }
+    // W30 extension builder: a caller's own tools for this run (chat's
+    // plugin writer) ride along with the connectors.
+    if (Array.isArray(req.extraTools) && req.extraTools.length) {
+      request.tools = [...request.tools, ...req.extraTools];
     }
     // H1: a tool that may change something (any tool its server doesn't
     // mark read-only) runs only after the person presses Allow once. Runs

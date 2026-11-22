@@ -9086,7 +9086,16 @@ whimsy-local-plugins-open-folder-button =
 whimsy-local-plugins-run-header = Run the plugin “<>”?
 whimsy-local-plugins-can = It can:
 whimsy-local-plugins-run = Run
-whimsy-local-plugins-dont-run = Don't Run
+whimsy-local-plugins-dont-run = Don’t Run
+# W30 extension builder: the chat card for a plugin chat wrote. Its list
+# reuses whimsy-local-plugins-can and Firefox's permission descriptions.
+whimsy-local-plugins-card-stopped = Local plugin · not running yet
+whimsy-local-plugins-card-running = Local plugin · running
+whimsy-local-plugins-card-files = { $count ->
+    [one] 1 file
+   *[other] { $count } files
+}
+whimsy-local-plugins-card-review = Review and run
 # Direct Google search modes in the command bar.
 whimsy-google-search-mail = Search Mail
 whimsy-google-search-drive = Search Drive

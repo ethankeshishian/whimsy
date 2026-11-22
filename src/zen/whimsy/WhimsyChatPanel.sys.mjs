@@ -24,6 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIReports: "resource:///modules/whimsy/WhimsyAIReports.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
   WhimsyChatAnswer: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
+  WhimsyLocalPlugins: "resource:///modules/whimsy/WhimsyLocalPlugins.sys.mjs",
   WhimsyChatContextUI: "resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs",
   WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
@@ -1669,6 +1670,7 @@ class ChatPanel {
     let needs = {};
     let memories = [];
     let context = opts.context ?? null;
+    let builder = null;
     try {
       if (!context && thread.kind == "tab") {
         const last = (await lazy.WhimsyAIStore.messages(thread.id)).findLast(m => m.role == "user");
@@ -1719,6 +1721,14 @@ class ChatPanel {
       needs = opts.textOnly ? { chars: system.length } : { ...lazy.WhimsyChatContextUI.needsOf(context ?? {}, system), ...(opts.needs ?? {}) };
       const choice = lazy.WhimsyChatAnswer.choiceFor(thread);
       const provider = opts.provider ?? (choice.provider != "auto" ? choice.provider : undefined);
+      // W30 extension builder: "Make an extension that…" writes a plugin
+      // folder through this run's write_plugin tool (only while local
+      // plugins and AI are on).
+      builder = await lazy.WhimsyLocalPlugins.builder({
+        threadId: thread.id,
+        confirm: ask => live.confirmTool(ask),
+        onWritten: artifact => live.onPlugin(artifact),
+      });
       result = await lazy.WhimsyAIRouter.run({
         task: "chat",
         messages: history,
@@ -1730,6 +1740,7 @@ class ChatPanel {
         userStarted: true,
         signal: stream.controller.signal,
         confirmTool: ask => live.confirmTool(ask),
+        extraTools: builder ? [builder.server] : undefined,
         onEvent: event => {
           live.event(event);
           if (event.type == "text") {
@@ -1742,6 +1753,8 @@ class ChatPanel {
       });
     } catch (e) {
       failure = e;
+    } finally {
+      builder?.dispose();
     }
     this.streams.delete(thread.id);
     // W28 tab-state-indicators: back to the still, attached badge.
