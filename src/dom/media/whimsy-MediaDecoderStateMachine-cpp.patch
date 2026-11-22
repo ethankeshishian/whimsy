@@ -17,11 +17,11 @@ diff --git a/dom/media/MediaDecoderStateMachine.cpp b/dom/media/MediaDecoderStat
      mAudibleListener.DisconnectIfExists();
      mAudibleListener = stream->AudibleEvent().Connect(
          OwnerThread(), this, &MediaDecoderStateMachine::AudioAudibleChanged);
-@@ -3535,6 +3537,7 @@
-     MOZ_ASSERT(OnTaskQueue());
-     UniquePtr<AudioSink> audioSink{new AudioSink(
-         mTaskQueue, mAudioQueue, Info().mAudio, mShouldResistFingerprinting)};
-+    audioSink->WhimsySetEqualizer(mWhimsyEqualizer);
+@@ -3539,6 +3541,7 @@
      mAudibleListener.DisconnectIfExists();
      mAudibleListener = audioSink->AudibleEvent().Connect(
          mTaskQueue, this, &MediaDecoderStateMachine::AudioAudibleChanged);
++    audioSink->WhimsySetEqualizer(mWhimsyEqualizer);
+     return audioSink;
+   };
+   return MakeAndAddRef<AudioSinkWrapper>(

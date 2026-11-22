@@ -18,11 +18,10 @@ diff --git a/browser/components/urlbar/UrlbarParentController.sys.mjs b/browser/
      this.#actor = actor;
  
      /**
-@@ -160,8 +161,29 @@
-     this.engagementEvent = new TelemetryEvent(this);
+@@ -161,5 +162,26 @@
      lazy.UrlbarProviderTopSites.addTopSitesListener(this.#topSitesListener);
      Services.obs.addObserver(this, "intl:app-locales-changed", true);
-+  }
+   }
 +
 +  // Whimsy: whether the input serves private browsing. A normal window can
 +  // hold private tabs (WhimsyPrivate), and this controller outlives tab
@@ -39,12 +38,10 @@ diff --git a/browser/components/urlbar/UrlbarParentController.sys.mjs b/browser/
 +    }
 +    let browser = this.browserWindow?.gBrowser?.selectedBrowser;
 +    return !!browser && lazy.PrivateBrowsingUtils.isBrowserPrivate(browser);
-   }
- 
++  }
++
 +  set isPrivate(value) {
 +    this.#initialPrivate = !!value;
 +  }
-+
+ 
    /**
-    * The platform constant.
-    *

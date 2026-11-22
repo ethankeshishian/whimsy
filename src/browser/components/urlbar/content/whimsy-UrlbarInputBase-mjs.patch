@@ -15,44 +15,33 @@ index 3ca7b07..4857f97 100644
          this.handleRevert();
        });
      }
-@@ -5226,16 +5232,31 @@
-           tabs: "urlbar-placeholder-search-mode-other-tabs",
-         };
-         let sourceName = UrlbarShared.getResultSourceName(source);
--        if (this._searchModeIndicatorTitle) {
-+        // Whimsy: Zen's commands mode (zen_actions) had no placeholder here,
-+        // so the field got data-l10n-id="undefined", which threw in Fluent
-+        // and left the indicator an empty capsule. Commands get "Type a
-+        // command" and an Actions chip (an empty chip is still hidden,
-+        // whimsy-cmdbar-ai.css).
-+        if (sourceName == "zen_actions") {
-+          messageIDs.zen_actions = "whimsy-cmdk-type-command";
-+          if (this._searchModeIndicatorTitle) {
-+            this.document.l10n.setAttributes(
-+              this._searchModeIndicatorTitle,
-+              "whimsy-cmdk-mode-actions"
-+            );
-+          }
-+        } else if (this._searchModeIndicatorTitle) {
-           this.document.l10n.setAttributes(
-             this._searchModeIndicatorTitle,
-             `urlbar-search-mode-${sourceName}`
-           );
-         }
--        this.document.l10n.setAttributes(
--          this.inputField,
--          messageIDs[sourceName]
--        );
-+        if (messageIDs[sourceName]) {
-+          this.document.l10n.setAttributes(
-+            this.inputField,
-+            messageIDs[sourceName]
+@@ -5217,6 +5223,25 @@
+             : "urlbar-placeholder-search-mode-other-engine",
+           { name: engineName }
+         );
++      } else if (
++        source &&
++        UrlbarShared.getResultSourceName(source) == "zen_actions"
++      ) {
++        // Whimsy: Zen's commands mode (zen_actions) has no placeholder in
++        // Firefox's list below, so the field got data-l10n-id="undefined",
++        // which threw in Fluent and left the indicator an empty capsule.
++        // Commands get "Type a command" and an Actions chip (an empty chip is
++        // still hidden, whimsy-cmdbar-ai.css).
++        if (this._searchModeIndicatorTitle) {
++          document.l10n.setAttributes(
++            this._searchModeIndicatorTitle,
++            "whimsy-cmdk-mode-actions"
 +          );
 +        }
-       }
-     }
- 
-@@ -5708,7 +5729,15 @@
++        document.l10n.setAttributes(
++          this.inputField,
++          "whimsy-cmdk-type-command"
++        );
+       } else if (source) {
+         const messageIDs = {
+           actions: "urlbar-placeholder-search-mode-other-actions",
+@@ -5708,7 +5733,15 @@
      if (!this._hideFocus) {
        this.toggleAttribute("focused", true);
      }
@@ -61,7 +50,7 @@ index 3ca7b07..4857f97 100644
 +    // the focus handler, before autocomplete's asynchronous results arrive.
 +    // Use Zen's opener so geometry and open/close hooks stay paired; normal
 +    // view closure still closes the popover (even before results arrive).
-+    if (this.#isAddressbar && this.window._whimsyQuickWindow) {
++    if (this.#isAddressbar && window._whimsyQuickWindow) {
 +      this.#openPopover();
 +    } else {
 +      this.updatePopover();
