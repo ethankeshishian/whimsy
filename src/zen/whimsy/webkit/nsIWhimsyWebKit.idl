@@ -58,4 +58,20 @@ interface nsIWhimsyWebKit : nsISupports
   boolean acceptsFirstMouseAt(in uint32_t aId, in double aX, in double aY);
 
   void destroyTab(in uint32_t aId);
+
+  // W30: cookie copy on an engine switch. Both work on the persistent
+  // WKWebsiteDataStore named by aDataStoreId (a UUID; anything else, such as
+  // "ephemeral", is refused) and only touch cookies whose domain is
+  // aBaseDomain or one of its subdomains. Cookies travel as a JSON array of
+  // {name, value, domain, path, expires (ms, 0 = session), secure, httpOnly,
+  // sameSite ("lax", "strict", or "")}; domain keeps its leading dot for a
+  // domain cookie and has none for a host-only one.
+  [implicit_jscontext]
+  Promise getCookies(in AString aDataStoreId, in AString aBaseDomain);
+
+  // Resolves with the number of cookies the store accepted.
+  [implicit_jscontext]
+  Promise setCookies(in AString aDataStoreId,
+                     in AString aBaseDomain,
+                     in AString aCookiesJson);
 };
