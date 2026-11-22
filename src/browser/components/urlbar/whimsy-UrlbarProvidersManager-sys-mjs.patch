@@ -2,27 +2,27 @@ diff --git a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs b/browser/
 index e6be27e..91350f0 100644
 --- a/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
 +++ b/browser/components/urlbar/UrlbarProvidersManager.sys.mjs
-@@ -28,6 +28,7 @@
+@@ -25,6 +25,7 @@
+   UrlbarProvider: "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs",
+   UrlbarSearchUtils:
+     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
++  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
    UrlbarShared: "chrome://browser/content/urlbar/UrlbarShared.mjs",
    UrlbarTokenizer:
      "moz-src:///browser/components/urlbar/UrlbarTokenizer.sys.mjs",
-+  WhimsyPrivate: "resource:///modules/whimsy/WhimsyPrivate.sys.mjs",
- });
- 
- ChromeUtils.defineLazyGetter(lazy, "logger", () =>
-@@ -491,6 +492,12 @@
-       if (lazy.UrlbarShared.SEARCH_MODE_RESTRICT.has(restrictToken.value)) {
+@@ -492,6 +493,12 @@
          queryContext.restrictSource = queryContext.sources[0];
        }
-+    }
+     }
 +    // Whimsy (W14-9): a private query reads nothing from normal browsing.
 +    if (queryContext.isPrivate) {
 +      queryContext.sources = lazy.WhimsyPrivate.privateQuerySources(
 +        queryContext.sources
 +      );
-     }
++    }
      lazy.logger.debug(`Context sources ${queryContext.sources}`);
  
+     let query = new Query(queryContext, controller, muxer, providers);
 @@ -707,7 +714,11 @@
          "onSearchSessionEnd",
          queryContext,
