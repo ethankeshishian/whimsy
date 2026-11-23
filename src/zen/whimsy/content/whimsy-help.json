@@ -2609,6 +2609,16 @@
       "pane": null,
       "paneId": null,
       "command": null
+    },
+    {
+      "id": "svg-save",
+      "name": "Save SVG as Image",
+      "text": "Save SVG as image: Save Image As on an SVG image or an inline SVG saves it as SVG, PNG, or JPG, on a clear, white, or page-coloured background, at the size you pick",
+      "section": "Look and feel",
+      "pref": "whimsy.feature.svg-save",
+      "pane": null,
+      "paneId": null,
+      "command": null
     }
   ]
 }

@@ -449,6 +449,12 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyOpenInBrowser.sys.mjs",
 ]
 
+# W30 svg-save: Save Image As for SVGs (SVG, PNG or JPG).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsySvgSave.sys.mjs",
+    "WhimsySvgSaveChild.sys.mjs",
+]
+
 XPCOM_MANIFESTS += [
     "components.conf",
 ]

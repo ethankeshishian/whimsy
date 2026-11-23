@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Save SVG test page</title>
+<style>
+  body { margin: 0; padding: 16px; background: #FFFFFF; }
+  #card { background: #FDF1E7; padding: 10px; width: 140px; }
+  #nobg { padding: 10px; width: 140px; }
+  img, object, svg { display: block; margin: 4px 0; }
+</style>
+</head>
+<body>
+<img id="img" src="whimsy_svg_save_logo.svg" width="64" height="64" alt="Logo">
+<div id="card">
+  <svg id="inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="100" height="50" onclick="void 0"><title>Brand mark</title><script>void 0</script><rect x="90" y="40" width="20" height="20" fill="#1A73E8"/></svg>
+</div>
+<div id="nobg">
+  <svg id="untitled" xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#1A73E8"/></svg>
+</div>
+<object id="obj" data="whimsy_svg_save_logo.svg" type="image/svg+xml" width="80" height="80"></object>
+<img id="png" width="20" height="20" alt="Dot" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+<p id="text">Plain text</p>
+</body>
+</html>

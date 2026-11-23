@@ -2465,6 +2465,12 @@ FEATURES = [
     {"id": "webkit-tabs", "help_name": "WebKit Tabs", "section": "Tabs and spaces",
      "title": "WebKit tabs: open a tab or a site in macOS WebKit from ⌘K or the site panel, with a WebKit pill in the address bar",
      "detect": [("src/zen", r"(?i)zen[-_.]?webkit[-_.]?tabs|WKWebView")]},
+    # W30 svg-save: Save Image As on an SVG (an <img>, an inline <svg>, or
+    # one in <object>/<embed>) opens a dialog: SVG, PNG or JPG, a clear,
+    # white, or page-coloured background, and the size, proportions locked.
+    {"id": "svg-save", "help_name": "Save SVG as Image",
+     "title": "Save SVG as image: Save Image As on an SVG image or an inline SVG saves it as SVG, PNG, or JPG, on a clear, white, or page-coloured background, at the size you pick",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(save[-_.]?svg|svg[-_.]?save)")]},
 ]
 
 # W29/help: whimsy://help (WhimsyHelp.sys.mjs) reads one sentence and one

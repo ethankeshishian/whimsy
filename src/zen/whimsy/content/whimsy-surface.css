@@ -796,3 +796,97 @@ panel.whimsy-surface.whimsy-surface-listbox-panel {
     background-color: transparent;
   }
 }
+
+/* W30 svg-save: the Save image dialog (WhimsySvgSave). Sections of a
+   caption and its control, like the Focus session sheet's; the size
+   fields are the search pill with a number in it. While SVG is picked,
+   Background and Size dim in place (never hidden, so nothing moves). */
+.whimsy-svg-save-section {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 6px;
+  transition: opacity 150ms ease-out;
+
+  &.whimsy-svg-save-off {
+    opacity: 0.45;
+
+    /* The section is already dimmed; its seg doesn't dim again. */
+    & .whimsy-surface-seg[disabled] {
+      opacity: 1;
+    }
+  }
+}
+/* One disabled choice (Clear while JPG is picked). */
+.whimsy-svg-save .whimsy-surface-segment:disabled {
+  opacity: 0.4;
+}
+.whimsy-svg-save .whimsy-svg-save-off .whimsy-surface-segment:disabled {
+  opacity: 1;
+}
+.whimsy-svg-save-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 0.5px color-mix(in srgb, currentColor 35%, transparent);
+}
+.whimsy-svg-save .whimsy-surface-caption-detail {
+  white-space: nowrap;
+}
+.whimsy-svg-save-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+}
+.whimsy-svg-save-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: text;
+
+  & > input {
+    width: 0;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+}
+.whimsy-svg-save-field-label,
+.whimsy-svg-save-field-unit {
+  color: var(--whimsy-surface-muted);
+  font-size: 12px;
+}
+/* The locked-proportions mark: status, not a toggle. */
+.whimsy-svg-save-link {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 30px;
+  color: var(--whimsy-surface-muted);
+
+  & > svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+.whimsy-svg-save-note {
+  padding-inline: 2px;
+  font-size: 11px;
+  color: var(--whimsy-surface-muted);
+
+  &:empty {
+    display: none;
+  }
+  /* Reduced to Firefox's largest size: amber, darkened from the mockup's
+     rgb(176, 110, 0) so 11px text meets WCAG AA on the light panel. */
+  &.whimsy-svg-save-warn {
+    color: light-dark(rgb(150, 93, 0), rgb(240, 177, 60));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .whimsy-svg-save-section {
+    transition: none;
+  }
+}

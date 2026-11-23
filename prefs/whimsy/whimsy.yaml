@@ -1079,3 +1079,8 @@
   value: "{ }"
 
 
+
+# W30 svg-save: the Save image dialog's last Background choice: "clear",
+# "white" or "page" (the solid colour behind the SVG).
+- name: whimsy.svg-save.background
+  value: "clear"

@@ -521,3 +521,5 @@ whimsy-help-search-with-name = Search With
 whimsy-help-search-with-text = Search With: a submenu after the selection's search row listing your other engines, each opening the selection like the row above
 whimsy-help-webkit-tabs-name = WebKit Tabs
 whimsy-help-webkit-tabs-text = WebKit tabs: open a tab or a site in macOS WebKit from ⌘K or the site panel, with a WebKit pill in the address bar
+whimsy-help-svg-save-name = Save SVG as Image
+whimsy-help-svg-save-text = Save SVG as image: Save Image As on an SVG image or an inline SVG saves it as SVG, PNG, or JPG, on a clear, white, or page-coloured background, at the size you pick
