@@ -246,10 +246,8 @@ export const WhimsyScripting = {
   },
 
   // The checks throw straight away; the window's id comes once it has
-  // started, Zen's startup (spaces and window sync) included. Before then
-  // the window is only half there: closing it then (a script's `make`
-  // then `close`) broke window sync's hand-over of its tab and left a
-  // blank tab in the other window that never finished closing.
+  // started, Zen's startup (spaces and window sync) included, so a script
+  // can use it straight away: list its spaces, make tabs in it, close it.
   makeWindow(url) {
     this.check();
     let args = null;

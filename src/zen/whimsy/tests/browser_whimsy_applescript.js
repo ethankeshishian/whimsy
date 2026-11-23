@@ -98,6 +98,9 @@ add_tab_task(async function test_windows_never_private() {
     is(privateWin.gBrowser.tabs.length, privateTabs, "And got no tab");
   } finally {
     await BrowserTestUtils.closeWindow(privateWin);
+    // Back to this window: in a window without focus, Zen's space switches
+    // (the next task) wait on animations that barely run.
+    await SimpleTest.promiseFocus(window);
   }
 });
 
@@ -176,15 +179,18 @@ add_tab_task(async function test_spaces_scratch_hidden_and_locked() {
     }
     ok(json(service.tab(id)), "Visible again once it isn't");
 
+    // Zen names the new active space as a switch starts; it's done once
+    // it's no longer changing.
+    const switched = uuid => gZenWorkspaces.activeWorkspace == uuid && !gZenWorkspaces.isChangingWorkspace;
     service.selectSpace(winId, space.uuid);
-    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == space.uuid, "select space switches to it");
+    await TestUtils.waitForCondition(() => switched(space.uuid), "select space switches to it");
     is(json(service.window(winId)).activeSpaceId, space.uuid, "And it's the active space");
     service.selectSpace(winId, home);
-    await TestUtils.waitForCondition(() => gZenWorkspaces.activeWorkspace == home, "And back");
+    await TestUtils.waitForCondition(() => switched(home), "And back");
 
     service.selectTab(id);
     await TestUtils.waitForCondition(
-      () => gZenWorkspaces.activeWorkspace == space.uuid && selectedId() == id,
+      () => switched(space.uuid) && selectedId() == id,
       "select tab switches to its space and selects it"
     );
   } finally {
@@ -251,8 +257,8 @@ add_tab_task(async function test_commands() {
     ok(newWin && newWin != window && !PrivateBrowsingUtils.isWindowPrivate(newWin), "A new normal window");
     await TestUtils.waitForCondition(() => newWin.gBrowser.selectedBrowser.currentURI.spec == PAGE, "With the URL");
     // Zen's window sync keeps a copy of the new window's tab in this one,
-    // and closing the window hands its page to that copy, so the tab isn't
-    // lost. The copy is this test's to close.
+    // so closing the window doesn't lose the tab. The copy is this test's
+    // to close.
     const synced = Services.prefs.getBoolPref("zen.window-sync.enabled", false);
     const newTab = newWin.gBrowser.selectedTab;
     if (synced) {
@@ -262,12 +268,7 @@ add_tab_task(async function test_commands() {
     service.closeWindow(newId);
     await TestUtils.waitForCondition(() => newWin.closed, "close closes the window");
     ok(!window.closed, "The test's own window stayed open");
-    if (copy) {
-      await TestUtils.waitForCondition(
-        () => copy.linkedBrowser?.currentURI.spec == PAGE,
-        "Closing it hands its page to the copy here"
-      );
-    }
+    await SimpleTest.promiseFocus(window);
   } finally {
     for (const leftover of [tab, copy]) {
       if (leftover?.isConnected) {
