@@ -178,6 +178,7 @@ struct TabEntry {
   bool mBelow = false;
   bool mVisible = true;
   NSRect mHoleInChild = NSZeroRect;
+  CGFloat mHoleRadius = 0;
   std::vector<NSRect> mExclusionsInChild;
   std::vector<ReservedShortcut> mReservedShortcuts;
   NSView* mChildView = nil;      // weak; owned by widget
@@ -520,16 +521,72 @@ static std::vector<NSRect> SubtractRect(const std::vector<NSRect>& aRects,
 // Rebuild the associated array of hit-test hole rects on a ChildView from
 // all visible "below"-mode tabs attached to it, subtracting each tab's open
 // in-window overlay exclusion rects.
+// The WKWebView sits below Gecko's view, and Gecko paints the window's
+// backdrop (the space's theme gradient, the translucent dark default, grain,
+// the inactive-window grey) across the whole window, page rect included. With
+// nothing else done that paint lands on top of the page and dims or tints it.
+// So while a WebKit page is showing, Gecko's view is masked: inside the page's
+// rounded rect only the overlays Whimsy keeps above the page (the same
+// exclusions the hit-test honours) are drawn, and everywhere else, or with no
+// WebKit page showing, Gecko draws exactly as before.
+static void UpdateHoleMask(NSView* aChildView,
+                           const std::vector<const TabEntry*>& aShown) {
+  CALayer* layer = aChildView.layer;
+  if (!layer) {
+    return;
+  }
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  if (aShown.empty()) {
+    layer.mask = nil;
+  } else {
+    CAShapeLayer* mask = [CAShapeLayer layer];
+    mask.frame = layer.bounds;
+    mask.fillRule = kCAFillRuleEvenOdd;
+    CGMutablePathRef path = CGPathCreateMutable();
+    // Reach well past the view's edges so a window that grows before the
+    // next layout pass never has its new edge masked away.
+    CGPathAddRect(
+        path, nullptr,
+        CGRectInset(NSRectToCGRect(
+                        [aChildView convertRectToLayer:aChildView.bounds]),
+                    -16384, -16384));
+    for (const TabEntry* entry : aShown) {
+      CGRect hole =
+          NSRectToCGRect([aChildView convertRectToLayer:entry->mHoleInChild]);
+      CGFloat radius = std::min({entry->mHoleRadius, hole.size.width / 2,
+                                 hole.size.height / 2});
+      if (radius > 0) {
+        CGPathAddRoundedRect(path, nullptr, hole, radius, radius);
+      } else {
+        CGPathAddRect(path, nullptr, hole);
+      }
+      for (const NSRect& excl : entry->mExclusionsInChild) {
+        CALayer* keep = [CALayer layer];
+        keep.frame = [aChildView convertRectToLayer:excl];
+        keep.backgroundColor = CGColorGetConstantColor(kCGColorBlack);
+        [mask addSublayer:keep];
+      }
+    }
+    mask.path = path;
+    CGPathRelease(path);
+    layer.mask = mask;
+  }
+  [CATransaction commit];
+}
+
 static void UpdateHoles(NSView* aChildView) {
   if (!aChildView) {
     return;
   }
   EnsureChildViewHitTestInstalled(aChildView);
   NSMutableArray<NSValue*>* holes = [NSMutableArray array];
+  std::vector<const TabEntry*> shown;
   if (gTabs) {
     for (const auto& entry : *gTabs) {
       if (entry.mChildView == aChildView && entry.mBelow && entry.mVisible &&
           !NSIsEmptyRect(entry.mHoleInChild)) {
+        shown.push_back(&entry);
         std::vector<NSRect> pieces = {entry.mHoleInChild};
         for (const NSRect& excl : entry.mExclusionsInChild) {
           pieces = SubtractRect(pieces, excl);
@@ -545,6 +602,7 @@ static void UpdateHoles(NSView* aChildView) {
   objc_setAssociatedObject(aChildView, @selector(whimsyNativeHoles),
                            holes.count ? holes : nil,
                            OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  UpdateHoleMask(aChildView, shown);
 }
 
 static bool MatchesReservedShortcut(const TabEntry& aEntry, NSEvent* aEvent) {
@@ -994,6 +1052,7 @@ nsWhimsyWebKit::SetFrame(uint32_t aId, double aX, double aY, double aWidth,
   }
   [entry->mHost setFrame:frameInParent];
   [entry->mHost setCornerRadius:std::max(0.0, aRadius)];
+  entry->mHoleRadius = std::max(0.0, aRadius);
   if (entry->mBelow) {
     UpdateHoles(entry->mChildView);
   }

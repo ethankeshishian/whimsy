@@ -915,9 +915,11 @@ function compositeRegions(browser) {
   const { radius } = WhimsyWebKit.measureBrowserRect(window, browser);
   const inset = Math.ceil(radius) + 4;
   const regions = {
-    // Thin strips just inside the top and bottom edges catch a hole that is
-    // misplaced vertically, the centre block catches any tint at all.
-    top: { x: r.left + inset, y: r.top + 12, width: r.width - 2 * inset, height: 6 },
+    // Strips across the upper and lower parts of the page catch a hole that
+    // is misplaced vertically, the centre block catches any tint at all.
+    // (The very top of the page is left out: Whimsy's own hints can sit
+    // there, above the page, in either engine.)
+    top: { x: r.left + inset, y: Math.round(r.top + r.height / 4), width: r.width - 2 * inset, height: 6 },
     centre: {
       x: Math.round(r.left + r.width / 2 - 40),
       y: Math.round(r.top + r.height / 2 - 40),
