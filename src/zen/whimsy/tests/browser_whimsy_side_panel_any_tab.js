@@ -176,13 +176,13 @@ addPanelTask(async function closing_the_window_keeps_it() {
     await win.gZenStartup.promiseInitialized;
     const panel = WhimsySidePanel.forWindow(win);
     const maps = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "https://example.org/?maps-window");
-    // Zen's window sync names the tab (its id in every window) from a queue.
-    await TestUtils.waitForCondition(() => maps.id, "Window sync gives the tab its id");
     const page = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "https://example.net/?page-window");
     await TabStateFlusher.flush(maps.linkedBrowser);
     const saved = () => SessionStore.getWindowState(win).windows[0].tabs.map(t => t.entries.at(-1)?.url);
     const order = saved();
-    const index = maps._tPos;
+    const url = maps.linkedBrowser.currentURI.spec;
+    const index = order.indexOf(url);
+    Assert.greater(index, -1, "Session restore has the tab before it floats");
 
     panel.float(maps);
     await TestUtils.waitForCondition(() => panel.tab == maps, "It floats");
@@ -190,16 +190,23 @@ addPanelTask(async function closing_the_window_keeps_it() {
     await TabStateFlusher.flush(maps.linkedBrowser);
     Assert.deepEqual(saved(), order, "Session restore sees the same tabs in the same order while it floats");
 
+    // Zen's window sync ids the tab from an async queue, and only once the
+    // window takes part in sync; it may have none yet. Don't depend on it.
     const id = maps.id;
-    const url = maps.linkedBrowser.currentURI.spec;
     await BrowserTestUtils.closeWindow(win);
-    // With Zen's window sync the tab lives on here; without it, the closed
-    // window keeps it, in its place.
-    const copy = document.getElementById(id);
-    const closed = SessionStore.getClosedWindowData()[0];
-    ok(copy?.isConnected || closed?.tabs[index]?.entries.at(-1)?.url == url, "Closing the window while it floats loses nothing");
-    if (copy?.isConnected) {
-      BrowserTestUtils.removeTab(copy);
+    // What closing must not lose, in product terms: either Zen's window sync
+    // kept the tab here (a copy with its id), or session restore kept the
+    // closed window with the tab in its place, for Reopen Closed Window.
+    // Session restore records the closed window once its tabs are flushed.
+    const copy = () => (id ? document.getElementById(id) : null);
+    const closedWith = () => SessionStore.getClosedWindowData().find(w => w.tabs[index]?.entries.at(-1)?.url == url);
+    await TestUtils.waitForCondition(() => copy()?.isConnected || closedWith(), "Closing the window while it floats loses nothing");
+    if (copy()?.isConnected) {
+      BrowserTestUtils.removeTab(copy());
+    }
+    const closed = closedWith();
+    if (closed) {
+      SessionStore.forgetClosedWindowById(closed.closedId);
     }
   } finally {
     if (!win.closed) {
