@@ -189,13 +189,6 @@ add_task(async function journey1_trip_group_row_chip_used_line_and_leave_out() {
       ok(fits(shown.querySelector(".whimsy-chat-option-label")), "The row's name isn't clipped");
     });
     await TestUtils.waitForCondition(() => part(".whimsy-chat-add-menu [data-group]"), "Menu open for the click");
-    // The light scheme comes back as the shots end: click once the row is
-    // what the pointer would hit at its center, not mid-restyle.
-    await TestUtils.waitForCondition(() => {
-      const target = part(".whimsy-chat-add-menu [data-group]");
-      const box = target?.getBoundingClientRect();
-      return box?.width && target.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
-    }, "The group row takes the click");
     EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-add-menu [data-group]"), {});
     const chip = await TestUtils.waitForCondition(() => groupChip(), "A group chip joins the composer");
     ok(!part(".whimsy-chat-add-menu"), "The menu closed");
