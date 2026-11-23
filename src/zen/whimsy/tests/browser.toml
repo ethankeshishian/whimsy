@@ -1503,3 +1503,8 @@ skip-if = ["headless"]
 # native cookie store and tab service are stood in for, so it runs headless.
 ["browser_whimsy_webkit_cookies.js"]
 
+
+# W30 svg-save: Save Image As on SVGs (menu rows, the dialog, PNG/JPG output
+# decoded, the original SVG bytes, Esc and Enter).
+["browser_whimsy_svg_save.js"]
+support-files = ["whimsy_svg_save.html", "whimsy_svg_save_logo.svg"]
