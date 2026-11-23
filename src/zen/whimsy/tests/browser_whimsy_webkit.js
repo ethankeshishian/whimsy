@@ -231,18 +231,30 @@ add_setup(async function setup() {
   });
 });
 
-add_task(async function test_availability_and_profile_datastore() {
+// This file needs a real WKWebView, so browser.toml tags it whimsy-headed
+// and the runners run it headed. If WebKit is unavailable anyway, every task
+// fails here: a quiet early return would count as green while testing
+// nothing.
+function requireWebKit() {
+  if (WhimsyWebKit.available(window)) {
+    return true;
+  }
   const isHeadless =
     Services.env.get("MOZ_HEADLESS") == "1" ||
     Cc["@mozilla.org/gfx/info;1"].getService(Ci.nsIGfxInfo).isHeadless;
-  if (isHeadless) {
-    Assert.ok(
-      !WhimsyWebKit.available(window),
-      "WebKit tabs report unavailable in headless mode"
-    );
+  Assert.ok(
+    false,
+    isHeadless
+      ? "WebKit tabs can't run headless: run this file headed (browser.toml tags it whimsy-headed)"
+      : "WebKit tabs are unavailable in this headed window (whimsy.feature.webkit-tabs off, macOS older than 14, or no nsIWhimsyWebKit service), so these tests can't run"
+  );
+  return false;
+}
+
+add_task(async function test_availability_and_profile_datastore() {
+  if (!requireWebKit()) {
     return;
   }
-
   Assert.ok(
     WhimsyWebKit.available(window),
     "WebKit tabs are available in a headed macOS 14+ window"
@@ -273,7 +285,7 @@ add_task(async function test_availability_and_profile_datastore() {
 });
 
 add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_history() {
-  if (!WhimsyWebKit.available(window)) {
+  if (!requireWebKit()) {
     return;
   }
 
@@ -412,7 +424,7 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
 });
 
 add_task(async function test_site_list_and_cmdk_verbs() {
-  if (!WhimsyWebKit.available(window)) {
+  if (!requireWebKit()) {
     return;
   }
 
@@ -521,7 +533,7 @@ add_task(async function test_site_list_and_cmdk_verbs() {
 });
 
 add_task(async function test_overlays_first_mouse_shortcuts_and_focus_handoffs() {
-  if (!WhimsyWebKit.available(window)) {
+  if (!requireWebKit()) {
     return;
   }
 
@@ -674,7 +686,7 @@ add_task(async function test_overlays_first_mouse_shortcuts_and_focus_handoffs()
 });
 
 add_task(async function test_both_engine_panels_and_contrast_with_screenshots() {
-  if (!WhimsyWebKit.available(window)) {
+  if (!requireWebKit()) {
     return;
   }
 
@@ -972,7 +984,7 @@ async function setTranslucentTheme(colour) {
 }
 
 add_task(async function test_webkit_page_is_not_dimmed() {
-  if (!WhimsyWebKit.available(window)) {
+  if (!requireWebKit()) {
     return;
   }
   for (const { scheme, name } of [

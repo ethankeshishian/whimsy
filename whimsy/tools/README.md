@@ -42,7 +42,8 @@ npm run lane -- land w25-foo --message "Merge W25 foo: ..."
    changed components.conf or a C++ patch the next lane builds that back out;
 6. eslint on the lane's JS (Prettier-only errors ignored);
 7. the lane's tests: every `browser_whimsy_*.js` it changed or added, plus
-   `--test` files, in three parallel harness runs (`test.sh`);
+   `--test` files, in three parallel harness runs (`test.sh`), plus one
+   headed run after them for files browser.toml tags `whimsy-headed`;
 8. on green, `dev` fast-forwards to that commit and a full verify is queued
    at low priority (`verify-dev.sh`, one per branch at a time). On red,
    `dev` is untouched and the merge commit stays at `refs/tested/<lane>`.
@@ -78,6 +79,13 @@ and test file, timeout, assertion count, missing file, harness error) and,
 after a crash, the native stack from `crash-stack.sh` (lldb in batch mode;
 the dev build has no crash reporter). `crash-stack.sh FILE` runs one file
 under lldb by itself.
+
+A test that needs a real window (WebKit tabs, native key events, window
+levels) gets `tags = "whimsy-headed"` and `skip-if = ["headless"]` in
+browser.toml. `test.sh`, `verify.sh`, `verify-parallel.sh`, and `vrerun.sh`
+run those files headed (`headed.py` lists them), and a file skipped headless
+without the tag (or `whimsy-manual`, for one the owner runs by hand) turns
+the run red, so a headless run never quietly drops it.
 
 ## Verify dev
 

@@ -73,6 +73,7 @@ support-files = ["whimsy_media.html", "whimsy_audio.ogg"]
 
 ["browser_whimsy_ctrl_tab_native.js"]
 run-if = ["os == 'mac'"]
+tags = "whimsy-headed"
 skip-if = ["headless"] # native key events need a real window; verify.sh runs it headed
 
 ["browser_whimsy_dark_pdf.js"]
@@ -294,6 +295,7 @@ support-files = ["whimsy_feed_page.html", "whimsy_no_feed_page.html", "whimsy_di
 # whimsy-native suite runs it.
 ["browser_whimsy_window_on_top_native.js"]
 run-if = ["os == 'mac'"]
+tags = "whimsy-headed"
 skip-if = ["headless"] # real window-level floating needs a real window; verify.sh runs it headed
 
 ["browser_whimsy_full_url_click.js"]
@@ -326,6 +328,7 @@ run-if = ["os == 'mac'"]
 # Automation permission, so not in the headless runs).
 ["browser_whimsy_applescript_osascript.js"]
 run-if = ["os == 'mac'"]
+tags = "whimsy-manual"
 skip-if = ["headless"] # a real Apple event round trip; run it headed
 
 ["browser_whimsy_upload_clipboard.js"]
@@ -722,6 +725,7 @@ support-files = ["whimsy_page_actions.html"]
 # wave10 (W10-47, W10-61): the menu keys with real key events (headed, verify.sh's whimsy-native).
 ["browser_whimsy_arc_menu_keys_native.js"]
 run-if = ["os == 'mac'"]
+tags = "whimsy-headed"
 skip-if = ["headless"] # native key events need a real window; verify.sh runs it headed
 
 # wave6/parity: Arc's menu keys (Library, Downloads/Console, Save Page, Blank Window, Copy URL as Quote, Paste and Match Style).
@@ -872,6 +876,7 @@ run-if = ["os == 'mac'"]
 # real calendar writes); verify.sh's whimsy-native run.
 ["browser_whimsy_native_services.js"]
 run-if = ["os == 'mac'"]
+tags = "whimsy-headed"
 skip-if = ["headless"] # runs in verify.sh's whimsy-native suite
 # w7native: live captions from speech (stand-ins for the recognizer, capture and tap; the real tap on a Web Audio track).
 ["browser_whimsy_video_speech_captions.js"]
@@ -1518,7 +1523,8 @@ support-files = ["whimsy_reader_rich.html"]
 # Engine rows in both panels, private windows, light/dark shots and contrast).
 ["browser_whimsy_webkit.js"]
 run-if = ["os == 'mac'"]
-skip-if = ["headless"]
+tags = "whimsy-headed"
+skip-if = ["headless"] # needs a real WKWebView; the runners run whimsy-headed files headed
 
 # W30: WebKit cookie copy on an engine switch (site selection, attribute
 # mapping, container and private isolation, copy-before-load ordering). The

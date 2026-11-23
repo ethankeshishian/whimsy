@@ -1,5 +1,6 @@
 #!/bin/sh
-# Run only failed.txt, twice per file, in separate headless harness processes.
+# Run only failed.txt, twice per file, in separate headless harness processes
+# (headed for files browser.toml tags whimsy-headed).
 cd "$(dirname "$0")/.." || exit 2
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH" _ZO_DOCTOR=0
 list=.surfer/verify/failed.txt
@@ -40,7 +41,10 @@ while IFS= read -r file || [ -n "$file" ]; do
   for attempt in 1 2; do
     raw="$out/$index-$attempt.raw"
     log="$out/$index-$attempt.log"
-    (cd engine && ./mach test --headless \
+    # whimsy-headed files (browser.toml) are skipped headless; rerun them headed.
+    mode=--headless
+    [ -n "$(python3 whimsy/tools/headed.py --engine engine files "$file")" ] && mode=
+    (cd engine && ./mach test $mode \
       "--setpref=security.sandbox.content.mac.testing_read_path2=$ROOT/src" \
       "--log-raw=$raw" "$file") > "$log" 2>&1
     harness=$?
