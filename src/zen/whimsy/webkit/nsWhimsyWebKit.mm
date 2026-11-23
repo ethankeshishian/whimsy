@@ -660,6 +660,122 @@ static void DestroyEntry(TabEntry& aEntry) {
   }
 }
 
+// W30 cookie copy: the WKHTTPCookieStore of one persistent per-profile data
+// store. Only a UUID names one; the ephemeral store (and so anything private)
+// is never read or written.
+static id CookieStoreForDataStoreId(const nsAString& aDataStoreId) {
+  if (!EnsureWebKitLoaded() || !HasPersistentDataStoreAPI()) {
+    return nil;
+  }
+  NSString* uuidStr = nsCocoaUtils::ToNSString(aDataStoreId);
+  NSUUID* uuid = [[[NSUUID alloc] initWithUUIDString:uuidStr] autorelease];
+  if (!uuid) {
+    return nil;
+  }
+  Class storeClass = NSClassFromString(@"WKWebsiteDataStore");
+  id store = ((id (*)(id, SEL, NSUUID*))objc_msgSend)(
+      storeClass, @selector(dataStoreForIdentifier:), uuid);
+  if (!store || ![store respondsToSelector:@selector(httpCookieStore)]) {
+    return nil;
+  }
+  return [store performSelector:@selector(httpCookieStore)];
+}
+
+// A cookie belongs to the site when its domain (leading dot dropped) is the
+// site's registrable domain or a subdomain of it.
+static bool CookieDomainInSite(NSString* aDomain, NSString* aBaseDomain) {
+  if (!aDomain.length || !aBaseDomain.length) {
+    return false;
+  }
+  NSString* domain = [aDomain lowercaseString];
+  if ([domain hasPrefix:@"."]) {
+    domain = [domain substringFromIndex:1];
+  }
+  NSString* base = [aBaseDomain lowercaseString];
+  return [domain isEqualToString:base] ||
+         [domain hasSuffix:[@"." stringByAppendingString:base]];
+}
+
+// CHIPS cookies carry a storage partition; they belong to an embedding site,
+// so they never travel.
+static bool IsPartitionedCookie(NSHTTPCookie* aCookie) {
+  SEL sel = NSSelectorFromString(@"_storagePartition");
+  if (![aCookie respondsToSelector:sel]) {
+    return false;
+  }
+  id partition = [aCookie performSelector:sel];
+  return [partition isKindOfClass:[NSString class]] &&
+         [(NSString*)partition length] > 0;
+}
+
+static NSDictionary* CookieToDict(NSHTTPCookie* aCookie) {
+  NSDate* expires = aCookie.sessionOnly ? nil : aCookie.expiresDate;
+  NSString* sameSite = @"";
+  if (@available(macOS 10.15, *)) {
+    NSString* policy = aCookie.sameSitePolicy;
+    if ([policy isEqualToString:NSHTTPCookieSameSiteLax]) {
+      sameSite = @"lax";
+    } else if ([policy isEqualToString:NSHTTPCookieSameSiteStrict]) {
+      sameSite = @"strict";
+    }
+  }
+  return @{
+    @"name" : aCookie.name ?: @"",
+    @"value" : aCookie.value ?: @"",
+    @"domain" : aCookie.domain ?: @"",
+    @"path" : aCookie.path.length ? aCookie.path : @"/",
+    @"expires" : @(expires ? llround([expires timeIntervalSince1970] * 1000.0)
+                           : 0),
+    @"secure" : @(aCookie.secure),
+    @"httpOnly" : @(aCookie.HTTPOnly),
+    @"sameSite" : sameSite,
+  };
+}
+
+static NSHTTPCookie* CookieFromDict(NSDictionary* aDict) {
+  NSString* name = aDict[@"name"];
+  NSString* value = aDict[@"value"];
+  NSString* domain = aDict[@"domain"];
+  NSString* path = aDict[@"path"];
+  if (![name isKindOfClass:[NSString class]] || !name.length ||
+      ![value isKindOfClass:[NSString class]] ||
+      ![domain isKindOfClass:[NSString class]] || !domain.length) {
+    return nil;
+  }
+  NSMutableDictionary* props = [NSMutableDictionary dictionary];
+  props[NSHTTPCookieName] = name;
+  props[NSHTTPCookieValue] = value;
+  // A leading dot makes a domain cookie; without one NSHTTPCookie is
+  // host-only, matching Gecko's host/isDomain split.
+  props[NSHTTPCookieDomain] = domain;
+  props[NSHTTPCookiePath] =
+      [path isKindOfClass:[NSString class]] && path.length ? path : @"/";
+  NSNumber* expires = aDict[@"expires"];
+  if ([expires isKindOfClass:[NSNumber class]] && expires.doubleValue > 0) {
+    props[NSHTTPCookieExpires] =
+        [NSDate dateWithTimeIntervalSince1970:expires.doubleValue / 1000.0];
+  } else {
+    props[NSHTTPCookieDiscard] = @"TRUE";
+  }
+  if ([aDict[@"secure"] boolValue]) {
+    props[NSHTTPCookieSecure] = @"TRUE";
+  }
+  if ([aDict[@"httpOnly"] boolValue]) {
+    // Foundation has no public constant for this key; "HttpOnly" is the one
+    // NSHTTPCookie reads.
+    props[@"HttpOnly"] = @"TRUE";
+  }
+  if (@available(macOS 10.15, *)) {
+    NSString* sameSite = aDict[@"sameSite"];
+    if ([sameSite isEqual:@"lax"]) {
+      props[NSHTTPCookieSameSitePolicy] = NSHTTPCookieSameSiteLax;
+    } else if ([sameSite isEqual:@"strict"]) {
+      props[NSHTTPCookieSameSitePolicy] = NSHTTPCookieSameSiteStrict;
+    }
+  }
+  return [NSHTTPCookie cookieWithProperties:props];
+}
+
 }  // namespace
 
 namespace whimsy {
@@ -1187,6 +1303,145 @@ nsWhimsyWebKit::Evaluate(uint32_t aId, const nsAString& aScript, JSContext* aCx,
         entry->mWebView, sel, script, handler);
   } else {
     promise->MaybeRejectWithNotSupportedError("evaluateJavaScript unavailable");
+  }
+
+  promise.forget(aOutPromise);
+  return NS_OK;
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
+}
+
+NS_IMETHODIMP
+nsWhimsyWebKit::GetCookies(const nsAString& aDataStoreId,
+                           const nsAString& aBaseDomain, JSContext* aCx,
+                           Promise** aOutPromise) {
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
+  NS_ENSURE_ARG_POINTER(aOutPromise);
+  *aOutPromise = nullptr;
+  if (!XRE_IsParentProcess() || aBaseDomain.IsEmpty()) {
+    return NS_ERROR_INVALID_ARG;
+  }
+  id cookieStore = CookieStoreForDataStoreId(aDataStoreId);
+  SEL sel = @selector(getAllCookies:);
+  if (!cookieStore || ![cookieStore respondsToSelector:sel]) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  nsIGlobalObject* global = xpc::CurrentNativeGlobal(aCx);
+  if (!global) {
+    return NS_ERROR_UNEXPECTED;
+  }
+  ErrorResult rv;
+  RefPtr<Promise> promise = Promise::Create(global, rv);
+  if (rv.Failed()) {
+    return rv.StealNSResult();
+  }
+
+  RefPtr<Promise> held = promise;
+  NSString* base = [nsCocoaUtils::ToNSString(aBaseDomain) retain];
+  void (^handler)(NSArray*) = ^(NSArray* aCookies) {
+    NSMutableArray* out = [NSMutableArray array];
+    for (id cookie in aCookies) {
+      if (![cookie isKindOfClass:[NSHTTPCookie class]]) {
+        continue;
+      }
+      NSHTTPCookie* httpCookie = (NSHTTPCookie*)cookie;
+      if (!CookieDomainInSite(httpCookie.domain, base) ||
+          IsPartitionedCookie(httpCookie)) {
+        continue;
+      }
+      [out addObject:CookieToDict(httpCookie)];
+    }
+    [base release];
+    NSData* data = [NSJSONSerialization dataWithJSONObject:out
+                                                   options:0
+                                                     error:nil];
+    nsAutoString json;
+    if (data) {
+      NSString* str = [[[NSString alloc] initWithData:data
+                                             encoding:NSUTF8StringEncoding]
+          autorelease];
+      nsCocoaUtils::GetStringForNSString(str, json);
+    }
+    if (json.IsEmpty()) {
+      json.AssignLiteral("[]");
+    }
+    held->MaybeResolve(json);
+  };
+  ((void (*)(id, SEL, void (^)(NSArray*)))objc_msgSend)(cookieStore, sel,
+                                                        handler);
+
+  promise.forget(aOutPromise);
+  return NS_OK;
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
+}
+
+NS_IMETHODIMP
+nsWhimsyWebKit::SetCookies(const nsAString& aDataStoreId,
+                           const nsAString& aBaseDomain,
+                           const nsAString& aCookiesJson, JSContext* aCx,
+                           Promise** aOutPromise) {
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
+  NS_ENSURE_ARG_POINTER(aOutPromise);
+  *aOutPromise = nullptr;
+  if (!XRE_IsParentProcess() || aBaseDomain.IsEmpty()) {
+    return NS_ERROR_INVALID_ARG;
+  }
+  id cookieStore = CookieStoreForDataStoreId(aDataStoreId);
+  SEL sel = @selector(setCookie:completionHandler:);
+  if (!cookieStore || ![cookieStore respondsToSelector:sel]) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  NSData* data = [nsCocoaUtils::ToNSString(aCookiesJson)
+      dataUsingEncoding:NSUTF8StringEncoding];
+  id parsed = data ? [NSJSONSerialization JSONObjectWithData:data
+                                                     options:0
+                                                       error:nil]
+                   : nil;
+  if (![parsed isKindOfClass:[NSArray class]]) {
+    return NS_ERROR_INVALID_ARG;
+  }
+  // The store only ever receives this site's cookies, whatever JS passes.
+  NSString* base = nsCocoaUtils::ToNSString(aBaseDomain);
+  NSMutableArray* cookies = [NSMutableArray array];
+  for (id item in (NSArray*)parsed) {
+    if (![item isKindOfClass:[NSDictionary class]]) {
+      continue;
+    }
+    NSHTTPCookie* cookie = CookieFromDict(item);
+    if (cookie && CookieDomainInSite(cookie.domain, base)) {
+      [cookies addObject:cookie];
+    }
+  }
+
+  nsIGlobalObject* global = xpc::CurrentNativeGlobal(aCx);
+  if (!global) {
+    return NS_ERROR_UNEXPECTED;
+  }
+  ErrorResult rv;
+  RefPtr<Promise> promise = Promise::Create(global, rv);
+  if (rv.Failed()) {
+    return rv.StealNSResult();
+  }
+  if (!cookies.count) {
+    promise->MaybeResolve(0);
+    promise.forget(aOutPromise);
+    return NS_OK;
+  }
+
+  // WKHTTPCookieStore calls each completion handler on the main thread, so
+  // the shared counter needs no lock; the promise settles after the last.
+  RefPtr<Promise> held = promise;
+  uint32_t total = static_cast<uint32_t>(cookies.count);
+  __block uint32_t remaining = total;
+  for (NSHTTPCookie* cookie in cookies) {
+    void (^done)(void) = ^{
+      if (--remaining == 0) {
+        held->MaybeResolve(total);
+      }
+    };
+    ((void (*)(id, SEL, NSHTTPCookie*, void (^)(void)))objc_msgSend)(
+        cookieStore, sel, cookie, done);
   }
 
   promise.forget(aOutPromise);

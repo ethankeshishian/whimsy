@@ -18,6 +18,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySiteSettings: "resource:///modules/whimsy/WhimsySiteSettings.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
   WhimsyVerbs: "resource:///modules/whimsy/WhimsyVerbs.sys.mjs",
+  WhimsyWebKitCookies: "resource:///modules/whimsy/WhimsyWebKitCookies.sys.mjs",
 });
 
 const FEATURE_PREF = "whimsy.feature.webkit-tabs";
@@ -526,6 +527,15 @@ export const WhimsyWebKit = {
     svc.setVisible(state.id, isSelected);
     this.syncLayout(win);
 
+    // W30: bring the site's Firefox cookies along before WebKit loads it, so
+    // you stay signed in. The tab is already a WebKit tab, so a second
+    // switch can't race this one.
+    await lazy.WhimsyWebKitCookies.copyToWebKit(tab, targetURI);
+    if (tab._whimsyWebKitState != state) {
+      // Closed or switched back while the cookies were copying.
+      return false;
+    }
+
     const loadPromise = this._waitForNextLoad(state);
     try {
       svc.loadURL(state.id, targetURI.spec);
@@ -548,11 +558,24 @@ export const WhimsyWebKit = {
 
   async _detachWebKitFromTab(tab, { url = null, waitForLoad = true } = {}) {
     const state = tab?._whimsyWebKitState;
-    if (!state) {
+    if (!state || state.detaching) {
       return true;
     }
     const { win, browser } = state;
     const reloadSpec = url || state.url || "about:blank";
+
+    // W30: bring the site's WebKit cookies back before Gecko loads it.
+    // Read while the WKWebView still exists, so nothing it just set is
+    // missed.
+    state.detaching = true;
+    const reloadURI = safeNewURI(reloadSpec);
+    if (isWebURI(reloadURI)) {
+      await lazy.WhimsyWebKitCookies.copyToFirefox(tab, reloadURI);
+      if (tab._whimsyWebKitState != state) {
+        // Closed while the cookies were copying.
+        return true;
+      }
+    }
 
     this._destroyTabState(tab);
 

@@ -1479,6 +1479,8 @@ support-files = ["whimsy_totp_page.html"]
 ["browser_whimsy_totp_settings.js"]
 # W28 local plugins: unsigned extensions from the profile's whimsy-plugins folder only.
 ["browser_whimsy_local_plugins.js"]
+# W30/extbuilder: chat writes a local plugin through write_plugin; one card with Review and run, which opens the Run prompt.
+["browser_whimsy_plugin_builder.js"]
 # W29/newtabopts: New Private Tab in the sidebar foot's + button (Zen's Create New menu), right after New Tab; the same command as the File menu's own row and Cmd+Option+T.
 ["browser_whimsy_private_create_new.js"]
 # W29 safety-check: WhimsySafetyCheck.sys.mjs itself (updates/passwords/extensions/permissions checks).
@@ -1511,3 +1513,13 @@ support-files = ["whimsy_reader_rich.html"]
 run-if = ["os == 'mac'"]
 skip-if = ["headless"]
 
+# W30: WebKit cookie copy on an engine switch (site selection, attribute
+# mapping, container and private isolation, copy-before-load ordering). The
+# native cookie store and tab service are stood in for, so it runs headless.
+["browser_whimsy_webkit_cookies.js"]
+
+
+# W30 svg-save: Save Image As on SVGs (menu rows, the dialog, PNG/JPG output
+# decoded, the original SVG bytes, Esc and Enter).
+["browser_whimsy_svg_save.js"]
+support-files = ["whimsy_svg_save.html", "whimsy_svg_save_logo.svg"]

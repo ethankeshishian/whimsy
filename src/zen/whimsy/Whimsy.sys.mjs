@@ -191,6 +191,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
 // wave5/quick: QR code for any page (Firefox's QR dialog, exposed).
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyQRCode: "resource:///modules/whimsy/WhimsyQRCode.sys.mjs",
+  WhimsySvgSave: "resource:///modules/whimsy/WhimsySvgSave.sys.mjs",
 });
 
 // wave5/quick: Copy page as Markdown.
@@ -667,6 +668,24 @@ export const Whimsy = {
       matches: ["https://*/*", "http://*/*", "file:///*"],
       allFrames: true,
       messageManagerGroups: ["browsers"],
+      safeForUntrustedWebProcess: true,
+    });
+
+    // W30 svg-save: Save Image As for SVGs. The child tells the parent,
+    // before Firefox's menu opens, whether the right-click is on an SVG
+    // (an <img>, an inline <svg>, or an SVG document in <object>/<embed>),
+    // and draws it on Save.
+    ChromeUtils.registerWindowActor("WhimsySvgSave", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsySvgSave.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsySvgSaveChild.sys.mjs",
+        events: { contextmenu: { capture: true } },
+      },
+      matches: ["https://*/*", "http://*/*", "file:///*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      // The child only reads its own page, and the parent checks what it
+      // sends back.
       safeForUntrustedWebProcess: true,
     });
 
@@ -1186,6 +1205,10 @@ export const Whimsy = {
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.
     run("qr-code", () => lazy.WhimsyQRCode.initWindow(win));
+
+    // W30 svg-save: Save Image As for SVGs (after QR Code, so its page row
+    // sits right below Save Page As); checks its switch on use.
+    run("svg-save", () => lazy.WhimsySvgSave.initWindow(win));
 
     // wave5/quick: Copy page as Markdown (page menu and command bar); checks
     // its switch on use.

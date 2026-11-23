@@ -221,7 +221,7 @@ export const WhimsyAIRouter = {
    * off before the answer starts.
    *
    * @param {object} req AIRequest: { task, messages, system?, needs?,
-   *   provider?, model?, thinking?, tools?, userStarted?, signal?, onEvent? }
+   *   provider?, model?, thinking?, tools?, extraTools?, userStarted?, signal?, onEvent? }
    * @returns {Promise<{ text, provider, model, thinkingMs?, handoffs, tried, partial? }>}
    */
   async run(req = {}) {
@@ -242,13 +242,18 @@ export const WhimsyAIRouter = {
         throw error("blocked");
       }
     }
+    // W30 extension builder: a caller's own tools for this run (chat's
+    // plugin writer) ride along with the connectors.
+    if (Array.isArray(req.extraTools) && req.extraTools.length) {
+      request.tools = [...request.tools, ...req.extraTools];
+    }
     // H1: a tool that may change something (any tool its server doesn't
     // mark read-only) runs only after the person presses Allow once. Runs
     // with nobody to ask (routines, callers with no confirm) never get one.
     let guard = null;
     const hold = { count: 0 };
     if (request.tools.length && typeof req.confirmTool == "function" && !UNATTENDED_TASKS.has(request.task)) {
-      guard = lazy.WhimsyConnectors.guard(async ask => {
+      const confirm = async ask => {
         if (req.signal?.aborted) {
           return false;
         }
@@ -258,7 +263,13 @@ export const WhimsyAIRouter = {
         } finally {
           hold.count--;
         }
-      });
+      };
+      guard = lazy.WhimsyConnectors.guard(confirm);
+      // W30 extension builder: a run's own tool that asks first (changing
+      // a plugin another chat made) asks the same way, holding the run.
+      for (const tool of request.tools) {
+        tool.bindConfirm?.(confirm);
+      }
       request.tools = [...request.tools, guard.server];
     }
     const needs = { ...(req.needs ?? {}) };

@@ -26,6 +26,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyChatContextUI: "resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs",
   WhimsyChatPanel: "resource:///modules/whimsy/WhimsyChatPanel.sys.mjs",
   WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
+  WhimsyLocalPlugins: "resource:///modules/whimsy/WhimsyLocalPlugins.sys.mjs",
 });
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
@@ -541,6 +542,19 @@ class Live {
   }
 
   /** What the saved message keeps besides text and provider. */
+  /**
+   * W30 extension builder: a plugin write_plugin wrote this run. Writing
+   * the same folder again in one answer keeps one card, the latest.
+   */
+  onPlugin(artifact) {
+    const i = this.artifacts.findIndex(a => a.kind == "plugin" && a.folder == artifact.folder);
+    if (i < 0) {
+      this.artifacts.push(artifact);
+    } else {
+      this.artifacts[i] = { ...artifact, ...(this.artifacts[i].revision ? { revision: true } : {}) };
+    }
+  }
+
   fields() {
     const out = {};
     if (this.thinking) {
@@ -701,7 +715,82 @@ function artifactCard(doc, win, msg, artifact) {
       h(doc, "button", { class: "whimsy-chat-pill-btn", l10n: "whimsy-chat-report-export", onclick: e => WhimsyChatAnswer.exportMenu(win, e.currentTarget, artifact.reportId) })
     );
   }
+  if (artifact.kind == "plugin") {
+    // A change to a plugin this chat made updates its first card instead.
+    return artifact.revision ? null : pluginCard(doc, win, artifact);
+  }
   return null;
+}
+
+// W30 extension builder: the card for a plugin chat wrote (mockup e1). It's
+// the report card's frame, with Firefox's own permission wording under the
+// Run prompt's "It can:", the files behind the chat's disclosure, and one
+// button that opens the existing Run / Don't Run prompt. It reads the
+// plugin fresh each time, so a change asked for later updates it in place.
+function pluginCard(doc, win, artifact) {
+  const card = h(doc, "div", { class: "whimsy-chat-report whimsy-chat-plugin", "data-folder": artifact.folder, "data-plugin-id": artifact.id });
+  fillPluginCard(doc, win, card, { name: artifact.name ?? "", running: false, permissions: artifact.permissions ?? [], files: artifact.files ?? [] });
+  refreshPluginCard(win, card);
+  return card;
+}
+
+async function refreshPluginCard(win, card) {
+  const state = await lazy.WhimsyLocalPlugins.describe({ folder: card.dataset.folder, id: card.dataset.pluginId }).catch(() => null);
+  if (state) {
+    fillPluginCard(card.ownerDocument, win, card, state);
+  }
+}
+
+function fillPluginCard(doc, win, card, { name, running, permissions, files }) {
+  const folder = card.dataset.folder;
+  const open = card.querySelector(".whimsy-chat-disclosure")?.getAttribute("aria-expanded") == "true";
+  const list = h(doc, "ul", { class: "whimsy-chat-plugin-files", hidden: !open },
+    files.map(path => h(doc, "li", {}, h(doc, "button", { class: "whimsy-chat-link", onclick: () => lazy.WhimsyLocalPlugins.viewSource(win, folder, path) }, path))));
+  card.toggleAttribute("running", running);
+  card.replaceChildren(
+    h(
+      doc,
+      "div",
+      { class: "whimsy-chat-report-head" },
+      h(doc, "img", { class: "whimsy-chat-report-icon", src: "chrome://browser/skin/zen-icons/extension.svg", alt: "" }),
+      h(
+        doc,
+        "div",
+        { class: "whimsy-chat-report-text" },
+        h(doc, "div", { class: "whimsy-chat-report-title" }, name),
+        h(doc, "div", { class: "whimsy-chat-report-detail", l10n: running ? "whimsy-local-plugins-card-running" : "whimsy-local-plugins-card-stopped" })
+      )
+    ),
+    permissions.length ? h(doc, "div", { class: "whimsy-chat-plugin-can", l10n: "whimsy-local-plugins-can" }) : null,
+    permissions.length ? h(doc, "ul", { class: "whimsy-chat-plugin-permissions" }, permissions.map(text => h(doc, "li", {}, text))) : null,
+    h(doc, "button", {
+      class: "whimsy-chat-disclosure",
+      "aria-expanded": String(open),
+      l10n: ["whimsy-local-plugins-card-files", { count: files.length }],
+      // Opens like "Looked at {n} pages" (WhimsyChatAgent renderDone).
+      onclick: e => {
+        const opening = e.currentTarget.getAttribute("aria-expanded") != "true";
+        e.currentTarget.setAttribute("aria-expanded", String(opening));
+        list.hidden = !opening;
+        if (opening && !reducedMotion(win)) {
+          list.animate({ opacity: [0, 1], translate: ["0 -4px", "0 0"] }, { duration: FOLD_MS, easing: EXPAND });
+        }
+      },
+    }),
+    list,
+    // Nothing to review once it runs.
+    running ? null : h(doc, "button", {
+      class: "whimsy-chat-pill-btn primary",
+      l10n: "whimsy-local-plugins-card-review",
+      onclick: async () => {
+        await lazy.WhimsyLocalPlugins.review(win, { folder, id: card.dataset.pluginId });
+        await refreshPluginCard(win, card);
+      },
+    })
+  );
+  if (card.isConnected) {
+    doc.l10n.translateFragment(card);
+  }
 }
 
 function renderSaved(doc, msg, ctx) {
@@ -1311,6 +1400,13 @@ export const WhimsyChatAnswer = {
   /** Research and generated docs become local report files. */
   async saveArtifacts(win, thread, artifacts) {
     for (const a of artifacts ?? []) {
+      // W30 extension builder: a plugin this chat changed again; its card
+      // (on the answer that first made it) reads the new files.
+      if (a.kind == "plugin" && a.revision) {
+        for (const card of win.document.querySelectorAll(`.whimsy-chat-plugin[data-folder="${win.CSS.escape(a.folder)}"]`)) {
+          await refreshPluginCard(win, card);
+        }
+      }
       if ((a.kind == "report" || a.kind == "doc") && !a.reportId && a.markdown) {
         const saved = await lazy.WhimsyAIReports.save(thread.id, { title: a.title ?? "", markdown: a.markdown, kind: a.kind });
         a.reportId = saved.id;

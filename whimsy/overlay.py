@@ -53,6 +53,14 @@ HOOKS = [
      r"^(\s*)this\.#pages = pages;\s*$",
      '{indent}this.#pages = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.extendPages(window, pages, { createOption, kNextButton }); // Whimsy hook',
      "after"),
+    # W13-R1 v2 §7: an upgraded profile's old plaintext typing (formdata,
+    # and the pre-draft R1 snapshot) is dropped as the session file is read,
+    # so it never auto-fills. Zen hands every read through onFileRead, which
+    # keeps this off Firefox's SessionStartup (private fields from 160 on).
+    ("session-strip", "src/zen/sessionstore/ZenSessionManager.sys.mjs",
+     r"^(\s*)onFileRead\(initialState\) \{\s*$",
+     '{indent}  ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs").WhimsyFormDrafts.stripSessionState(initialState); // Whimsy hook',
+     "after"),
     # batch hover: History hover cards read the row's own visit.
     ("library-history-visit", "src/zen/library/sections/ZenLibraryHistorySection.mjs",
      r'^(\s*)@click=\$\{event => this\.#openVisit\(visit, event\)\}\s*$',
@@ -2437,9 +2445,10 @@ FEATURES = [
     # unpacked WebExtension that loads unsigned (signing stays required
     # everywhere else), turned off until approved. Engine patches on
     # XPIProvider and XPIDatabase. Superseded if Zen ships its own folder of
-    # unsigned add-ons.
+    # unsigned add-ons. W30: chat's write_plugin tool writes a folder
+    # (extension builder); the same approval gates it.
     {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
-     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
+     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions)|(extension|plugin)[-_.]?builder)"),
                 ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
     # W29: Safety Check card (Settings → Privacy & Security): updates,
     # breached passwords, risky extensions and unused site permissions, all
@@ -2461,6 +2470,12 @@ FEATURES = [
      "title": "AppleScript: scripts can list windows, tabs, and spaces, and open, close, reload, and select tabs, like Chrome's dictionary, never in private windows or tabs (macOS)",
      "detect": [("src/zen", r"OSAScriptingDefinition|NSScriptCommand|\.sdef\b"),
                 ("src/browser/app", r"OSAScriptingDefinition")]},
+    # W30 svg-save: Save Image As on an SVG (an <img>, an inline <svg>, or
+    # one in <object>/<embed>) opens a dialog: SVG, PNG or JPG, a clear,
+    # white, or page-coloured background, and the size, proportions locked.
+    {"id": "svg-save", "help_name": "Save SVG as Image",
+     "title": "Save SVG as image: Save Image As on an SVG image or an inline SVG saves it as SVG, PNG, or JPG, on a clear, white, or page-coloured background, at the size you pick",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(save[-_.]?svg|svg[-_.]?save)")]},
 ]
 
 # W29/help: whimsy://help (WhimsyHelp.sys.mjs) reads one sentence and one

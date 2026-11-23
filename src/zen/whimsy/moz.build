@@ -241,6 +241,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNCallParent.sys.mjs",
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWebKit.sys.mjs",
+    "WhimsyWebKitCookies.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
     "WhimsyWindowOnTop.sys.mjs",
@@ -451,6 +452,12 @@ EXTRA_JS_MODULES.whimsy += [
 # W30 AppleScript: the windows, tabs, and spaces scripts see (applescript/).
 EXTRA_JS_MODULES.whimsy += [
     "WhimsyScripting.sys.mjs",
+]
+
+# W30 svg-save: Save Image As for SVGs (SVG, PNG or JPG).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsySvgSave.sys.mjs",
+    "WhimsySvgSaveChild.sys.mjs",
 ]
 
 XPCOM_MANIFESTS += [

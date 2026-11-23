@@ -571,6 +571,21 @@ add_task(async function test_upgrade_strips_old_plaintext() {
   ok("scroll" in update.data, "other fields are untouched");
 });
 
+// The strip runs where the session file is read: Zen's onFileRead (the
+// overlay's session-strip hook), which every Firefox version calls.
+add_task(async function test_session_file_read_strips_old_plaintext() {
+  const { ZenSessionStore } = ChromeUtils.importESModule("resource:///modules/zen/ZenSessionManager.sys.mjs");
+  const state = {
+    windows: [{ tabs: [{ formdata: { id: { x: MARKER } }, extData: { "whimsy-formdata": "{}" } }] }],
+    _closedWindows: [],
+  };
+  const read = ZenSessionStore.onFileRead(state);
+  const tab = read.windows.flatMap(win => win.tabs ?? []).find(t => t.extData);
+  ok(tab, "the tab survives the read");
+  ok(!("formdata" in tab), "its formdata is stripped as the file is read");
+  ok(!("whimsy-formdata" in tab.extData), "and the old R1 snapshot");
+});
+
 // R1 v2 §7, §11: typed text never reaches disk in plaintext, whatever
 // SessionStore does with it. A real keystroke, a forced flush and a forced
 // SessionStore write, then every session file and the draft file itself are
