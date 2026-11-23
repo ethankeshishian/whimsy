@@ -196,8 +196,17 @@ add_task(async function journey1_trip_group_row_chip_used_line_and_leave_out() {
       const box = target?.getBoundingClientRect();
       return box?.width && target.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
     }, "The group row takes the click");
-    EventUtils.synthesizeMouseAtCenter(part(".whimsy-chat-add-menu [data-group]"), {});
-    const chip = await TestUtils.waitForCondition(() => groupChip(), "A group chip joins the composer");
+    const target = part(".whimsy-chat-add-menu [data-group]");
+    let clicked = false;
+    target.addEventListener("click", () => (clicked = true), { once: true });
+    EventUtils.synthesizeMouseAtCenter(target, {});
+    const token = chat()._chipToken;
+    const chip = await TestUtils.waitForCondition(() => groupChip(), "A group chip joins the composer").catch(e => {
+      const { WhimsyChatContextUI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs");
+      const added = WhimsyChatContextUI.stateOf(chat().thread).added.map(d => d.id).join(",");
+      ok(false, `No group chip (clicked ${clicked}, added [${added}], chip renders ${token} → ${chat()._chipToken}, chips ${parts(".whimsy-chat-chip").map(c => c.dataset.kind).join(",")})`);
+      throw e;
+    });
     ok(!part(".whimsy-chat-add-menu"), "The menu closed");
     is(chip.querySelector(".whimsy-chat-chip-label").textContent, "Flights to Lisbon", "The chip names the first page");
     await TestUtils.waitForCondition(() => chip.querySelector(".whimsy-chat-chip-count[data-kind='tabs']")?.textContent == "5 tabs", "and says 5 tabs");

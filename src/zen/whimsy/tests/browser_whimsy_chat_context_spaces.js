@@ -123,8 +123,16 @@ add_task(async function space_and_folder_rows_chips_and_what_they_read() {
     is(options.indexOf(spaceRow) + 1, options.indexOf(folderRow), "Space, then folder");
     is(options.indexOf(folderRow) + 1, options.indexOf(allTabsRow(menu)), "then All my tabs");
 
+    let clicked = false;
+    spaceRow.addEventListener("click", () => (clicked = true), { once: true });
     EventUtils.synthesizeMouseAtCenter(spaceRow, {});
-    const spaceChip = await TestUtils.waitForCondition(() => chipOf("space"), "A space chip joins the composer");
+    const token = chat()._chipToken;
+    const spaceChip = await TestUtils.waitForCondition(() => chipOf("space"), "A space chip joins the composer").catch(e => {
+      const { WhimsyChatContextUI } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs");
+      const added = WhimsyChatContextUI.stateOf(chat().thread).added.map(d => d.id).join(",");
+      ok(false, `No space chip (clicked ${clicked}, connected ${spaceRow.isConnected}, added [${added}], chip renders ${token} → ${chat()._chipToken})`);
+      throw e;
+    });
     is(spaceChip.querySelector(".whimsy-chat-chip-label").textContent, "Weekend", "named for the space");
     await TestUtils.waitForCondition(() => spaceChip.querySelector(".whimsy-chat-chip-count[data-kind='tabs']")?.textContent == "4 tabs", "and says 4 tabs");
     await TestUtils.waitForCondition(() => spaceChip.querySelector(".whimsy-chat-chip-body").getAttribute("title") == "Every tab in Weekend · 4 tabs. Show what AI sees", "Its tooltip");
