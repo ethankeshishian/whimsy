@@ -431,6 +431,9 @@ support-files = ["whimsy_call.html"]
 # W29: expanding a Glance from a pinned tab or Essential gives a normal tab.
 ["browser_whimsy_glance_expand_from_pinned.js"]
 
+# W30: after a Glance expands into its own tab (from any parent), Ctrl+Tab and selecting tabs leave it.
+["browser_whimsy_glance_expand_switch.js"]
+
 # batch3glance: Cmd+T in a split opens into the focused pane.
 ["browser_whimsy_split_new_tab.js"]
 

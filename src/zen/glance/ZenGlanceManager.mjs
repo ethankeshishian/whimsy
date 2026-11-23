@@ -1806,7 +1806,7 @@ class nsZenGlanceManager extends nsZenDOMOperatedFeature {
       if (first) {
         gBrowser.moveTabBefore(this.#currentTab, first);
       } else {
-        strip.append(this.#currentTab);
+        strip.insertBefore(this.#currentTab, strip.lastElementChild);
         gBrowser.tabContainer._invalidateCachedTabs();
       }
     } else {
