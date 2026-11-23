@@ -1,0 +1,72 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+// W30 AppleScript: the boundary between nsWhimsyScripting.mm (Cocoa
+// scripting: the dictionary in Whimsy.sdef, its object classes and
+// commands) and WhimsyScripting.sys.mjs (the windows, tabs, and spaces a
+// script may see, and what it may do to them). Records cross as JSON. Ids
+// are text, like Chrome's: a window's outer window id, a tab's number for
+// this session, and a space's uuid.
+//
+// Every method throws NS_ERROR_NOT_AVAILABLE while
+// whimsy.feature.applescript is off, NS_ERROR_INVALID_ARG for a window,
+// tab, or space that doesn't exist or that scripts may not see (private
+// windows and tabs, Scratch, hidden spaces, and locked spaces), and
+// NS_ERROR_MALFORMED_URI for an address other than http(s) or about:blank.
+
+[scriptable, uuid(9e4ea407-533b-4154-a3ba-c2d9be28140f)]
+interface nsIWhimsyScriptingCallback : nsISupports
+{
+  // makeWindow's window is open and started: its id.
+  void onWindow(in AUTF8String aId);
+
+  void onError(in nsresult aError);
+};
+
+[scriptable, uuid(512f4cb6-1fac-409e-988c-85b313e8ed0e)]
+interface nsIWhimsyScripting : nsISupports
+{
+  // The ids of the windows scripts can see, front to back.
+  AUTF8String windows();
+
+  // { id, name, mode, activeTabId, activeTabIndex, activeSpaceId }. The
+  // index is 1-based, among tabs(aId, ""); a missing tab or space is null.
+  AUTF8String window(in AUTF8String aId);
+
+  // Tab ids: the window's current tabs (Essentials and the active space),
+  // or one space's when aSpaceId isn't empty.
+  AUTF8String tabs(in AUTF8String aWindowId, in AUTF8String aSpaceId);
+
+  // { id, windowId, url, title, loading, pinned, spaceId }.
+  AUTF8String tab(in AUTF8String aId);
+
+  // [{ id, name }], in the window's order.
+  AUTF8String spaces(in AUTF8String aWindowId);
+
+  // A new tab (about:blank when aUrl is empty) in the window's active
+  // space, or in aSpaceId. Returns its id.
+  AUTF8String makeTab(in AUTF8String aWindowId, in AUTF8String aSpaceId,
+                      in AUTF8String aUrl);
+
+  // A new window (the home page when aUrl is empty). Answers once it has
+  // started, so the id can be used straight away.
+  void makeWindow(in AUTF8String aUrl, in nsIWhimsyScriptingCallback aCallback);
+
+  void closeWindow(in AUTF8String aId);
+  void closeTab(in AUTF8String aId);
+  void setURL(in AUTF8String aTabId, in AUTF8String aUrl);
+  void reload(in AUTF8String aTabId);
+  void goBack(in AUTF8String aTabId);
+  void goForward(in AUTF8String aTabId);
+
+  // Selects the tab, switching to its space first when needed.
+  void selectTab(in AUTF8String aTabId);
+
+  // aIndex is 1-based, as window() gives it.
+  void setActiveTabIndex(in AUTF8String aWindowId, in long aIndex);
+
+  void selectSpace(in AUTF8String aWindowId, in AUTF8String aSpaceId);
+};

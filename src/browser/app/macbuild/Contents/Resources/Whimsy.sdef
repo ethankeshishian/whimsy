@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!-- W30 AppleScript: Whimsy's scripting dictionary, Chrome's model
+   - (application, windows, tabs) plus spaces. Named by OSAScriptingDefinition
+   - in Info.plist (whimsy-Info-plist-in.patch); the classes are in
+   - src/zen/whimsy/applescript/nsWhimsyScripting.mm and the rules in
+   - WhimsyScripting.sys.mjs. Private windows and tabs, Scratch, hidden
+   - spaces, and locked spaces never appear. No `execute javascript`, and
+   - nothing that reads a page. -->
+<dictionary title="Whimsy Terminology">
+
+  <suite name="Standard Suite" code="core" description="Common classes and commands for all applications.">
+
+    <command name="count" code="corecnte" description="Return the number of elements of a particular class within an object.">
+      <cocoa class="NSCountCommand"/>
+      <direct-parameter type="specifier" description="The objects to be counted."/>
+      <parameter name="each" code="kocl" type="type" optional="yes" description="The class of objects to be counted.">
+        <cocoa key="ObjectClass"/>
+      </parameter>
+      <result type="integer" description="The count."/>
+    </command>
+
+    <command name="exists" code="coredoex" description="Verify that an object exists.">
+      <cocoa class="NSExistsCommand"/>
+      <direct-parameter type="any" description="The object(s) to check."/>
+      <result type="boolean" description="Did the object(s) exist?"/>
+    </command>
+
+    <command name="make" code="corecrel" description="Make a new tab or window.">
+      <cocoa class="WhimsyScriptMakeCommand"/>
+      <parameter name="new" code="kocl" type="type" description="The class of the new object: tab or window.">
+        <cocoa key="ObjectClass"/>
+      </parameter>
+      <parameter name="at" code="insh" type="location specifier" optional="yes" description="Where to put a new tab: a window or a space.">
+        <cocoa key="Location"/>
+      </parameter>
+      <parameter name="with properties" code="prdt" type="record" optional="yes" description="The new tab's URL (http, https, or about:blank).">
+        <cocoa key="KeyDictionary"/>
+      </parameter>
+      <result type="specifier" description="The new object."/>
+    </command>
+
+    <command name="close" code="coreclos" description="Close a window or tab.">
+      <cocoa class="NSCloseCommand"/>
+      <direct-parameter type="specifier" description="The window or tab to close."/>
+    </command>
+
+    <class name="application" code="capp" description="Whimsy.">
+      <cocoa class="NSApplication"/>
+      <element type="window" description="Whimsy's windows, front to back. Private windows are never included.">
+        <cocoa key="appleScriptWindows"/>
+      </element>
+      <property name="name" code="pnam" type="text" access="r" description="The name of the application."/>
+      <property name="frontmost" code="pisf" type="boolean" access="r" description="Is this the active application?">
+        <cocoa key="isActive"/>
+      </property>
+      <property name="version" code="vers" type="text" access="r" description="The version number of the application."/>
+    </class>
+
+    <class name="window" code="cwin" description="A browser window.">
+      <cocoa class="WhimsyScriptWindow"/>
+      <element type="tab" description="The window's current tabs: Essentials and the active space's.">
+        <cocoa key="tabs"/>
+      </element>
+      <element type="space" access="r" description="The window's spaces.">
+        <cocoa key="spaces"/>
+      </element>
+      <property name="id" code="ID  " type="text" access="r" description="The unique identifier of the window.">
+        <cocoa key="uniqueID"/>
+      </property>
+      <property name="name" code="pnam" type="text" access="r" description="The title of the window's active tab."/>
+      <property name="active tab" code="acTa" type="tab" access="r" description="The tab currently selected in the window.">
+        <cocoa key="activeTab"/>
+      </property>
+      <property name="active tab index" code="acTI" type="integer" description="The index of the selected tab, among the window's tabs.">
+        <cocoa key="activeTabIndex"/>
+      </property>
+      <property name="mode" code="mode" type="text" access="r" description="Always &quot;normal&quot;: scripts never see private windows.">
+        <cocoa key="mode"/>
+      </property>
+      <property name="active space" code="WhAS" type="space" access="r" description="The space the window shows.">
+        <cocoa key="activeSpace"/>
+      </property>
+      <responds-to command="close">
+        <cocoa method="handleCloseScriptCommand:"/>
+      </responds-to>
+    </class>
+
+  </suite>
+
+  <suite name="Whimsy Suite" code="WhSu" description="Whimsy's tabs and spaces.">
+
+    <command name="reload" code="CrSuRlod" description="Reload a tab.">
+      <direct-parameter type="specifier" description="The tab to reload."/>
+    </command>
+
+    <command name="go back" code="CrSuGoBk" description="Go back in a tab's history.">
+      <direct-parameter type="specifier" description="The tab to go back in."/>
+    </command>
+
+    <command name="go forward" code="CrSuGoFw" description="Go forward in a tab's history.">
+      <direct-parameter type="specifier" description="The tab to go forward in."/>
+    </command>
+
+    <command name="select" code="miscslct" description="Select a tab (switching to its space), or switch to a space.">
+      <direct-parameter type="specifier" description="The tab or space."/>
+    </command>
+
+    <class name="tab" code="CrTb" description="A browser tab.">
+      <cocoa class="WhimsyScriptTab"/>
+      <property name="id" code="ID  " type="text" access="r" description="The unique identifier of the tab.">
+        <cocoa key="uniqueID"/>
+      </property>
+      <property name="title" code="Titl" type="text" access="r" description="The title of the tab.">
+        <cocoa key="title"/>
+      </property>
+      <property name="URL" code="URL " type="text" description="The address of the tab. Setting it loads an http, https, or about:blank address.">
+        <cocoa key="URL"/>
+      </property>
+      <property name="loading" code="ldng" type="boolean" access="r" description="Is the tab loading?">
+        <cocoa key="loading"/>
+      </property>
+      <property name="pinned" code="WhPn" type="boolean" access="r" description="Is the tab pinned?">
+        <cocoa key="pinned"/>
+      </property>
+      <property name="space" code="WhSp" type="space" access="r" description="The tab's space (missing value for an Essential).">
+        <cocoa key="space"/>
+      </property>
+      <responds-to command="close">
+        <cocoa method="handleCloseScriptCommand:"/>
+      </responds-to>
+      <responds-to command="reload">
+        <cocoa method="handleReloadScriptCommand:"/>
+      </responds-to>
+      <responds-to command="go back">
+        <cocoa method="handleGoBackScriptCommand:"/>
+      </responds-to>
+      <responds-to command="go forward">
+        <cocoa method="handleGoForwardScriptCommand:"/>
+      </responds-to>
+      <responds-to command="select">
+        <cocoa method="handleSelectScriptCommand:"/>
+      </responds-to>
+    </class>
+
+    <class name="space" code="WhSp" description="A space in a window.">
+      <cocoa class="WhimsyScriptSpace"/>
+      <element type="tab" description="The space's tabs.">
+        <cocoa key="tabs"/>
+      </element>
+      <property name="id" code="ID  " type="text" access="r" description="The unique identifier of the space.">
+        <cocoa key="uniqueID"/>
+      </property>
+      <property name="name" code="pnam" type="text" access="r" description="The name of the space."/>
+      <responds-to command="select">
+        <cocoa method="handleSelectScriptCommand:"/>
+      </responds-to>
+    </class>
+
+  </suite>
+
+</dictionary>

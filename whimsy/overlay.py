@@ -2465,6 +2465,11 @@ FEATURES = [
     {"id": "webkit-tabs", "help_name": "WebKit Tabs", "section": "Tabs and spaces",
      "title": "WebKit tabs: open a tab or a site in macOS WebKit from ⌘K or the site panel, with a WebKit pill in the address bar",
      "detect": [("src/zen", r"(?i)zen[-_.]?webkit[-_.]?tabs|WKWebView")]},
+    # W30: AppleScript (research/macos-integration.md option B).
+    {"id": "applescript", "help_name": "AppleScript", "section": "Tabs and spaces",
+     "title": "AppleScript: scripts can list windows, tabs, and spaces, and open, close, reload, and select tabs, like Chrome's dictionary, never in private windows or tabs (macOS)",
+     "detect": [("src/zen", r"OSAScriptingDefinition|NSScriptCommand|\.sdef\b"),
+                ("src/browser/app", r"OSAScriptingDefinition")]},
     # W30 svg-save: Save Image As on an SVG (an <img>, an inline <svg>, or
     # one in <object>/<embed>) opens a dialog: SVG, PNG or JPG, a clear,
     # white, or page-coloured background, and the size, proportions locked.

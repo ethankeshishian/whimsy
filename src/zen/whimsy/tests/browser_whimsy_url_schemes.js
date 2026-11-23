@@ -113,6 +113,15 @@ add_task(function test_link_routes_are_strict() {
     "whimsy://command?id=__proto__",
     "whimsy://command?id=new-easel&id=new-note",
     "whimsy://command?id=new-easel&space=Work",
+    // W30: ask.
+    "whimsy://ask",
+    "whimsy://ask?q=",
+    "whimsy://ask?q=%20",
+    "whimsy://ask?q=a&q=b",
+    `whimsy://ask?q=${"a".repeat(2049)}`,
+    "whimsy://ask?q=hi&url=https://example.com/",
+    "whimsy://ask?q=hi&space=Work",
+    "whimsy://ask?q=hi&send=1",
   ]) {
     is(WhimsyProtocol.linkRoute(uri), null, `Rejected: ${uri}`);
   }
@@ -236,6 +245,41 @@ add_task(async function test_open_in_space_and_pages() {
     ok(!(await WhimsyProtocol.openExternal("whimsy://settings")), "Feature off: nothing opens");
   } finally {
     Services.prefs.clearUserPref("whimsy.feature.url-schemes");
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// W30: whimsy://ask only fills the composer: never sent, nothing attached.
+add_task(async function test_ask_fills_the_composer_only() {
+  const ask = WhimsyProtocol.linkRoute("whimsy://ask?q=%20what%27s%20new%3F%20");
+  Assert.deepEqual(ask, { action: "ask", prompt: "what's new?" }, "Prompt trimmed and decoded, nothing else");
+
+  const { WhimsyChat } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyChat.sys.mjs");
+  const calls = [];
+  const original = WhimsyChat.open;
+  WhimsyChat.open = (win, opts) => {
+    calls.push({ win, opts });
+    return true;
+  };
+  try {
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", false]] });
+    ok(!(await WhimsyProtocol.openExternal("whimsy://ask?q=hello")), "Not with AI off");
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.ai.enabled", true], ["whimsy.feature.ai-chat", false]] });
+    ok(!(await WhimsyProtocol.openExternal("whimsy://ask?q=hello")), "Not with chat off");
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-chat", true], ["whimsy.feature.url-schemes", false]] });
+    ok(!(await WhimsyProtocol.openExternal("whimsy://ask?q=hello")), "Not with whimsy:// links off");
+    is(calls.length, 0, "Chat never opened");
+
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.url-schemes", true]] });
+    ok(await WhimsyProtocol.openExternal("whimsy://ask?q=summarize%20my%20day"), "An ask link opens chat");
+    is(calls.length, 1, "Once");
+    is(calls[0].win, window, "In the main window");
+    Assert.deepEqual(calls[0].opts, { prompt: "summarize my day", send: false }, "Composer only: no send, tab, chips, or thread");
+  } finally {
+    WhimsyChat.open = original;
+    await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
+    await SpecialPowers.popPrefEnv();
     await SpecialPowers.popPrefEnv();
   }
 });

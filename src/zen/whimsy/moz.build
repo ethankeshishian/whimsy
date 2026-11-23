@@ -451,6 +451,11 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyOpenInBrowser.sys.mjs",
 ]
 
+# W30 AppleScript: the windows, tabs, and spaces scripts see (applescript/).
+EXTRA_JS_MODULES.whimsy += [
+    "WhimsyScripting.sys.mjs",
+]
+
 # W30 svg-save: Save Image As for SVGs (SVG, PNG or JPG).
 EXTRA_JS_MODULES.whimsy += [
     "WhimsySvgSave.sys.mjs",
@@ -468,6 +473,7 @@ BROWSER_CHROME_MANIFESTS += [
 # Native components. audiotap/ is plain C++ over MediaTrackGraph (live
 # captions' audio, in the content process). The rest are Objective-C++ for
 # macOS: airplay/ (Cast to AirPlay's native player and route picker),
+# applescript/ (W30: Whimsy.sdef's Cocoa scripting classes),
 # calendar/ (Next meeting's EventKit reader, and Add to Calendar's writer;
 # dropped from here by a moz.build re-sort, 1545592, so it wasn't built),
 # bonjour/ (Local servers' LAN services, dns_sd), share/ (the Share
@@ -482,6 +488,7 @@ DIRS += ["audiotap", "equalizer"]
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     DIRS += [
         "airplay",
+        "applescript",
         "bonjour",
         "calendar",
         "embedding",

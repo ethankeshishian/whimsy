@@ -21,6 +21,8 @@
 //   whimsy://search?q=<text>             a new tab searching with the
 //   whimsy://search?q=<text>&space=<S>   default engine (in space S)
 //   whimsy://command?id=<id>             one of COMMANDS below
+//   whimsy://ask?q=<text>                chat, with <text> in the composer
+//                                        (never sent, nothing attached)
 // Only http(s) targets; anything else is swallowed, never handed back to
 // macOS (which would send it straight back here).
 // whimsy.feature.url-schemes.
@@ -30,6 +32,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
+  WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
+  WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
   WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
 });
@@ -79,6 +84,7 @@ const LINK_PARAMS = {
   space: [["name"], []],
   search: [["q"], ["space"]],
   command: [["id"], []],
+  ask: [["q"], []],
 };
 
 const MAX_QUERY = 2048;
@@ -95,8 +101,8 @@ export const WhimsyProtocol = {
     return match ? ROUTES[match[1].toLowerCase()] ?? null : null;
   },
 
-  // whimsy://open, new-tab, space, search and command links from other
-  // apps: { action, url, space, query, command } or null. Strict: each
+  // whimsy://open, new-tab, space, search, command, and ask links from
+  // other apps: { action, url, space, query, command, prompt } or null. Strict: each
   // key the action takes at most once, the required ones present and
   // non-empty, and nothing else.
   linkRoute(value) {
@@ -137,6 +143,10 @@ export const WhimsyProtocol = {
     if (action == "search") {
       const query = params.get("q").trim();
       return query.length > MAX_QUERY ? null : { action, query, space };
+    }
+    if (action == "ask") {
+      const prompt = params.get("q").trim();
+      return prompt.length > MAX_QUERY ? null : { action, prompt };
     }
     if (action == "command") {
       const id = params.get("id");
@@ -234,6 +244,9 @@ export const WhimsyProtocol = {
       command.doCommand();
       return true;
     }
+    if (link.action == "ask") {
+      return this.ask(win, link.prompt);
+    }
     let userContextId = 0;
     let zenWorkspaceId;
     if (link.space) {
@@ -273,6 +286,23 @@ export const WhimsyProtocol = {
     });
     win.focus();
     return true;
+  },
+
+  // W30: whimsy://ask. Any app can open a link, so the text only lands in
+  // the composer: never sent, and nothing from the page is attached (the
+  // user's own Send does what it always does). Not over a private, locked,
+  // or hidden tab, and only when chat is on (the panel never attaches
+  // otherwise, and open() would wait for it forever).
+  async ask(win, prompt) {
+    if (
+      !lazy.WhimsyAI.enabled ||
+      !Services.prefs.getBoolPref("whimsy.feature.ai-chat", true) ||
+      lazy.WhimsyAIContext.isOffLimits(win.gBrowser.selectedTab)
+    ) {
+      return false;
+    }
+    win.focus();
+    return !!(await lazy.WhimsyChat.open(win, { prompt, send: false }));
   },
 
   // The newest normal browser window (not Mini Whimsy, not private), once

@@ -126,7 +126,16 @@ index 32f717f..94e7bcd 100644
  			<key>CFBundleURLIconFile</key>
  			<string>document.icns</string>
  			<key>CFBundleURLName</key>
-@@ -273,11 +380,20 @@
+@@ -243,6 +350,8 @@
+ 	</array>
+ 	<key>NSAppleScriptEnabled</key>
+ 	<true/>
++	<key>OSAScriptingDefinition</key>
++	<string>Whimsy.sdef</string>
+ 	<key>LSApplicationCategoryType</key>
+ 	<string>public.app-category.productivity</string>
+ 	<key>LSEnvironment</key>
+@@ -273,11 +382,20 @@
    <key>MozillaDeveloperObjPath</key>
    <string>@MOZ_DEVELOPER_OBJ_PATH@</string>
  
@@ -148,7 +157,7 @@ index 32f717f..94e7bcd 100644
  
    <key>NSCameraReactionEffectGesturesEnabledDefault</key>
    <false/>
-@@ -312,6 +428,16 @@
+@@ -312,6 +430,16 @@
    <key>NSLocalNetworkUsageDescription</key>
    <string>@MAC_APP_NAME@ needs this access to open websites and services on your network.</string>
  
