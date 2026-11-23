@@ -353,7 +353,7 @@ export const WhimsyWebKit = {
   // -------------------------------------------------------------------------
   // Switching a tab between Firefox (Gecko) and WebKit in place.
 
-  async setTabEngine(tab, engine, { persistSite = null } = {}) {
+  async setTabEngine(tab, engine, { persistSite = null, waitForLoad = true } = {}) {
     if (!tab || !this.availableForTab(tab)) {
       return false;
     }
@@ -368,11 +368,11 @@ export const WhimsyWebKit = {
     if (engine == "webkit") {
       tab._whimsyWebKitOverride = "webkit";
       tab._whimsyWebKitOverrideHost = host;
-      return this.switchTab(tab, "webkit");
+      return this.switchTab(tab, "webkit", { waitForLoad });
     }
     tab._whimsyWebKitOverride = "firefox";
     tab._whimsyWebKitOverrideHost = host;
-    return this.switchTab(tab, "firefox");
+    return this.switchTab(tab, "firefox", { waitForLoad });
   },
 
   async setAlwaysUseForTab(tab, alwaysUse) {

@@ -1512,6 +1512,12 @@ skip-if = ["headless"]
 # native cookie store and tab service are stood in for, so it runs headless.
 ["browser_whimsy_webkit_cookies.js"]
 
+# W30 drm-webkit: a page asking for Widevine switches its tab to WebKit with
+# one toast; ClearKey, a WebKit tab, a tab you put back in Firefox, and the
+# switches being off don't. The native tab service is stood in for, so it
+# runs headless.
+["browser_whimsy_webkit_drm.js"]
+
 
 # W30 svg-save: Save Image As on SVGs (menu rows, the dialog, PNG/JPG output
 # decoded, the original SVG bytes, Esc and Enter).

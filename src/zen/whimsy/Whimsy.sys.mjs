@@ -671,6 +671,22 @@ export const Whimsy = {
       safeForUntrustedWebProcess: true,
     });
 
+    // W30 drm-webkit: a page asking for Widevine (Gecko's "mediakeys-request",
+    // the notice Firefox's EncryptedMedia actor also hears) switches its tab
+    // to WebKit. The child only passes on Widevine; the parent decides.
+    ChromeUtils.registerWindowActor("WhimsyWebKitDRM", {
+      parent: { esModuleURI: "resource:///modules/whimsy/WhimsyWebKitDRM.sys.mjs" },
+      child: {
+        esModuleURI: "resource:///modules/whimsy/WhimsyWebKitDRMChild.sys.mjs",
+        observers: ["mediakeys-request"],
+      },
+      matches: ["https://*/*", "http://*/*"],
+      allFrames: true,
+      messageManagerGroups: ["browsers"],
+      // The child sends only the key system's name; the parent checks it.
+      safeForUntrustedWebProcess: true,
+    });
+
     // W30 svg-save: Save Image As for SVGs. The child tells the parent,
     // before Firefox's menu opens, whether the right-click is on an SVG
     // (an <img>, an inline <svg>, or an SVG document in <object>/<embed>),
