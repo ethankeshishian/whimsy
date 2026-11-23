@@ -51,9 +51,17 @@ async function quickCtrlTab() {
   await onSelect;
 }
 
-async function checkSwitching(makeParent, cleanupParent, label) {
+async function checkSwitching(makeParent, cleanupParent, label, { onlyPinned = false } = {}) {
   await SpecialPowers.pushPrefEnv({ set: [["browser.ctrlTab.sortByRecentlyUsed", true]] });
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, "data:text/plain,other");
+  // A space with only pinned tabs (Arc-style): no normal tab to sit above.
+  const pinnedHere = [];
+  if (onlyPinned) {
+    for (const t of gBrowser.tabs.filter(t => !t.pinned && !t.hasAttribute("zen-empty-tab"))) {
+      gBrowser.pinTab(t);
+      pinnedHere.push(t);
+    }
+  }
   const parent = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/");
   await makeParent(parent);
 
@@ -84,6 +92,11 @@ async function checkSwitching(makeParent, cleanupParent, label) {
 
   BrowserTestUtils.removeTab(tab);
   await cleanupParent(parent);
+  for (const t of pinnedHere) {
+    if (t != other) {
+      gBrowser.unpinTab(t);
+    }
+  }
   BrowserTestUtils.removeTab(other);
   await SpecialPowers.popPrefEnv();
 }
@@ -93,6 +106,27 @@ add_task(async function from_pinned_tab() {
     p => gBrowser.pinTab(p),
     p => BrowserTestUtils.removeTab(p),
     "pinned"
+  );
+});
+
+add_task(async function from_pinned_tab_in_a_space_of_pinned_tabs() {
+  await checkSwitching(
+    p => gBrowser.pinTab(p),
+    p => BrowserTestUtils.removeTab(p),
+    "only pinned",
+    { onlyPinned: true }
+  );
+});
+
+add_task(async function from_essential_in_a_space_of_pinned_tabs() {
+  await checkSwitching(
+    p => gZenPinnedTabManager.addToEssentials(p),
+    p => {
+      gZenPinnedTabManager.removeEssentials(p);
+      BrowserTestUtils.removeTab(p);
+    },
+    "essential, only pinned",
+    { onlyPinned: true }
   );
 });
 
