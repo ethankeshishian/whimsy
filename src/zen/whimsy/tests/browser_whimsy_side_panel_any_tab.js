@@ -3,6 +3,8 @@
 
 "use strict";
 
+Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_side_panel.js", this);
+
 // W30 Mini Window (ideas-inventory 6a, mockup 9.1-9.2): Open as Popover on
 // any tab. On a tab that isn't an Essential it floats once: the tab keeps
 // its window, space, folder, and place in the sidebar, and unchecking it,

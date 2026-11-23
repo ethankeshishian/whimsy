@@ -147,7 +147,10 @@ add_task(async function space_and_folder_rows_chips_and_what_they_read() {
     ok(!system.includes("?Locked%20away"), "The locked tab isn't");
     is(system.split("?Folder%20one").length - 1, 1, "This tab is read once");
     is(system.split("?Folder%20two").length - 1, 1, "A tab in both the space and the folder is read once");
-    await TestUtils.waitForCondition(() => parts(".whimsy-chat-used").some(u => u.textContent == "Used Weekend · 4 tabs"), "The used line names the space and its count");
+    // One used line under the message, one item per chip that widened it.
+    const usedItems = () => parts(".whimsy-chat-used").flatMap(u => [...u.children].map(item => item.textContent));
+    await TestUtils.waitForCondition(() => usedItems().includes("Used Weekend · 4 tabs"), "The used line names the space and its count");
+    await TestUtils.waitForCondition(() => usedItems().includes("Used Trip planning · 2 tabs"), "and the folder and its count");
 
     // A private window's tabs are never read.
     privateWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
