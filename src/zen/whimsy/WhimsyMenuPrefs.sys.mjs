@@ -623,6 +623,12 @@ const MENUS = [
   },
 ];
 
+const lazy = {};
+ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsyMenuIcons: "resource:///modules/whimsy/WhimsyMenuIcons.sys.mjs",
+  hasIcon: "resource:///modules/whimsy/WhimsyMenuIcons.sys.mjs",
+});
+
 function isSeparator(node) {
   return node.localName == "menuseparator";
 }
@@ -923,6 +929,7 @@ export const WhimsyMenuPrefs = {
     }
     const spare = [...popup.querySelectorAll(`:scope > menuseparator.${ORDER_SEP_CLASS}`)];
     let first = true;
+    const iconsOn = lazy.WhimsyMenuIcons.enabled;
     for (const group of groups) {
       if (!group.length) {
         continue;
@@ -948,7 +955,14 @@ export const WhimsyMenuPrefs = {
         }
         first = false;
       }
-      for (const node of group) {
+      // Menu icons on: this runs after WhimsyMenuIcons.arrange(), so keep
+      // its rule within each group (rows showing an icon first, then the
+      // rest, each in registry order), or a checkbox row such as Open as
+      // Popover would sit between Pin and Move Tab's icons.
+      const ordered = iconsOn
+        ? [...group.filter(node => this.visible(win, node) && lazy.hasIcon(node)), ...group.filter(node => !this.visible(win, node) || !lazy.hasIcon(node))]
+        : group;
+      for (const node of ordered) {
         move(node);
       }
     }
