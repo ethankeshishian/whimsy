@@ -68,6 +68,7 @@ async function checkSwitching(makeParent, cleanupParent, label, { onlyPinned = f
   const tab = await expandFrom(parent);
   await assertShown(tab, `${label}: expanded`);
   ok(!tab.hasAttribute("glance-id") && !parent.hasAttribute("glance-id"), `${label}: no Glance link is left`);
+  ok(gBrowser.tabs.includes(tab), `${label}: it is one of the window's tabs`);
 
   // Selecting a tab: the command bar's switch-to-tab, the sidebar, and
   // every other picker go through this.

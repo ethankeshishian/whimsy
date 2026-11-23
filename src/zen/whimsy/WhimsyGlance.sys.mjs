@@ -48,6 +48,29 @@ export const WhimsyGlance = {
     }
   },
 
+  // W30 (owner: "I can't Ctrl+Tab out of a tab when I opened a Glance from a
+  // link in a pinned tab"). The W29 hotfix in fullyOpenGlance puts a Glance
+  // expanded from a pinned tab or Essential at the top of the space's normal
+  // tabs; with no normal tab there yet it appends it to the strip, after the
+  // new-tab periphery. tabContainer.allTabs always drops a strip's last
+  // child, so the tab fell out of gBrowser.tabs: selecting it again (Ctrl+Tab,
+  // the command bar, the sidebar) was ignored, and the window was stuck. Zen
+  // moves the tab before its first await, so this runs right after.
+  keepExpandedTabsSelectable(win, manager) {
+    const fullyOpen = manager.fullyOpenGlance;
+    manager.fullyOpenGlance = function (...args) {
+      const result = fullyOpen.apply(this, args);
+      const tab = win.gBrowser.selectedTab;
+      const strip = tab?.parentNode;
+      const periphery = strip?.querySelector(":scope > #tabbrowser-arrowscrollbox-periphery");
+      if (periphery && strip.lastElementChild == tab) {
+        strip.insertBefore(tab, periphery);
+        win.gBrowser.tabContainer._invalidateCachedTabs();
+      }
+      return result;
+    };
+  },
+
   initWindow(win) {
     const manager = win.gZenGlanceManager;
     if (!manager || installed.has(win)) {
@@ -63,6 +86,7 @@ export const WhimsyGlance = {
         return width === null ? undefined : width / 100;
       },
     });
+    this.keepExpandedTabsSelectable(win, manager);
     this.apply(win);
     const observer = () => this.apply(win);
     Services.prefs.addObserver(SIZE_PREF, observer);
