@@ -147,7 +147,18 @@ function parseRGBA(str) {
     str || ""
   );
   if (!m) {
-    return null;
+    // Computed colours from relative-colour syntax (the accent fill is
+    // oklch(from ...)) serialize as oklch()/color(): let a canvas resolve them.
+    if (!str || str == "transparent" || !/^(oklch|oklab|lab|lch|color|hsl|hwb)\(/.test(str)) {
+      return null;
+    }
+    const canvas = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = str;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    return { r, g, b, a: a / 255 };
   }
   return {
     r: Number(m[1]),
@@ -878,7 +889,8 @@ function sampleWindow(rect) {
 }
 
 function describeSample(s) {
-  return `rgb(${s.r.toFixed(1)}, ${s.g.toFixed(1)}, ${s.b.toFixed(1)}) a=${s.a.toFixed(1)} [${s.min}..${s.max}]`;
+  const rgb = `rgb(${s.r.toFixed(1)}, ${s.g.toFixed(1)}, ${s.b.toFixed(1)})`;
+  return "a" in s ? `${rgb} a=${s.a.toFixed(1)} [${s.min}..${s.max}]` : rgb;
 }
 
 // Samples until two reads in a row agree, so the window has finished
@@ -905,14 +917,14 @@ function compositeRegions(browser) {
   const regions = {
     // Thin strips just inside the top and bottom edges catch a hole that is
     // misplaced vertically, the centre block catches any tint at all.
-    top: { x: r.left + inset, y: r.top + 2, width: r.width - 2 * inset, height: 6 },
+    top: { x: r.left + inset, y: r.top + 12, width: r.width - 2 * inset, height: 6 },
     centre: {
       x: Math.round(r.left + r.width / 2 - 40),
       y: Math.round(r.top + r.height / 2 - 40),
       width: 80,
       height: 80,
     },
-    bottom: { x: r.left + inset, y: r.bottom - 8, width: r.width - 2 * inset, height: 6 },
+    bottom: { x: r.left + inset, y: r.bottom - 18, width: r.width - 2 * inset, height: 6 },
   };
   // The gap between the sidebar and the page card: chrome that must look the
   // same whichever engine the tab uses.
@@ -972,6 +984,19 @@ add_task(async function test_webkit_page_is_not_dimmed() {
       gBrowser,
       gServer.url("/solid/808080")
     );
+    try {
+      await checkEngineComposite(tab, name);
+    } finally {
+      if (tab.isConnected) {
+        BrowserTestUtils.removeTab(tab);
+      }
+      await SpecialPowers.popPrefEnv();
+    }
+  }
+});
+
+async function checkEngineComposite(tab, name) {
+  {
     const browser = tab.linkedBrowser;
     const { regions, gap } = compositeRegions(browser);
 
@@ -1027,11 +1052,8 @@ add_task(async function test_webkit_page_is_not_dimmed() {
       assertSameColour(backGap, ffGap, 2,
         `${name}: the chrome beside a Firefox tab is unchanged after the switch`);
     }
-
-    BrowserTestUtils.removeTab(tab);
-    await SpecialPowers.popPrefEnv();
   }
-});
+}
 
 add_task(async function test_private_windows_hide_all_webkit_ui() {
   const privWin = await BrowserTestUtils.openNewBrowserWindow({
