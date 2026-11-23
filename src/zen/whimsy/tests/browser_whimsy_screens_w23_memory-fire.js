@@ -209,6 +209,72 @@ add_task(async function shots_related_row() {
   }
 });
 
+// W30 (owner screenshot): a Related row's URL floated mid-row after a wide
+// gap past the "—", and a long one ran over the title and the Related tag.
+// A Related row lays out like a plain history row: title, tag, "—", then
+// the URL right after it, cut with an ellipsis; nothing overlaps.
+add_task(async function shots_related_row_layout() {
+  const { UrlbarTestUtils } = ChromeUtils.importESModule("resource://testing-common/UrlbarTestUtils.sys.mjs");
+  const { PlacesTestUtils } = ChromeUtils.importESModule("resource://testing-common/PlacesTestUtils.sys.mjs");
+  UrlbarTestUtils.init(this);
+  WhimsyAIIndex._setTestEmbedder(text => /coffee|caffeine/i.test(text) ? [1, 1, 0, 0] : [0, 0, 1, 0]);
+  await WhimsyAIIndex.clear({});
+  await WhimsyAIIndex.add({ url: "https://examine.com/caffeine/",
+    title: "Caffeine guide", text: "caffeine" });
+  await WhimsyAIIndex.add({ url: "https://cloud.example.org/namespaces/production.a1b2c3d4e5f6a7b8/schedules/ProcessIncomingCaffeineOrdersEveryFiveMinutes/history/2026-11-23",
+    title: "Caffeine orders, the schedule that runs every five minutes in production", text: "caffeine" });
+  // A plain history row to compare with.
+  await PlacesTestUtils.addVisits({ uri: "https://www.example.net/caffeine-and-sleep-study", title: "Caffeine and sleep: a study" });
+  WhimsyAIIndex.initWindow(window);
+  const rect = el => el.getBoundingClientRect();
+  const meets = (a, b) => a.width && b.width && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom && b.top < a.bottom;
+  const parts = row => ({
+    title: row.querySelector(".urlbarView-title"),
+    tags: row.querySelector(".urlbarView-tags"),
+    separator: row.querySelector(".urlbarView-title-separator"),
+    url: row.querySelector(".urlbarView-url"),
+  });
+  function check(row, label) {
+    const { title, tags, separator, url } = parts(row);
+    const [t, g, sep, u] = [title, tags, separator, url].map(rect);
+    info(`${label}: title ${t.left.toFixed(0)}-${t.right.toFixed(0)}, tags ${g.left.toFixed(0)}-${g.right.toFixed(0)}, ` +
+      `separator ${sep.left.toFixed(0)}-${sep.right.toFixed(0)}, url ${u.left.toFixed(0)}-${u.right.toFixed(0)} ` +
+      `(url text ${url.scrollWidth}px in ${url.clientWidth}px), row ${rect(row).width.toFixed(0)}px`);
+    Assert.greater(sep.width, 0, `${label}: the "—" separator shows`);
+    Assert.greater(u.width, 0, `${label}: the URL shows`);
+    Assert.lessOrEqual(Math.abs(u.left - sep.right), 1, `${label}: the URL starts right after the separator`);
+    ok(!meets(t, u), `${label}: the URL doesn't cover the title`);
+    ok(!meets(g, u), `${label}: the URL doesn't cover the tag`);
+    ok(!meets(sep, u), `${label}: the URL doesn't cover the separator`);
+    if (url.scrollWidth > url.clientWidth + 1) {
+      is(getComputedStyle(url).textOverflow, "ellipsis", `${label}: a long URL ends in an ellipsis`);
+    }
+    const tag = row.querySelector(".urlbarView-tag");
+    if (tag) {
+      Assert.lessOrEqual(tag.scrollWidth, tag.clientWidth + 1, `${label}: the Related tag shows in full`);
+    }
+  }
+  try {
+    await whimsyBothSchemes("w30-related-row-layout", async dark => {
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, value: "caffeine" });
+      const rows = await TestUtils.waitForCondition(() => {
+        const all = [...gURLBar.view.panel.querySelectorAll(".urlbarView-row")].filter(r => !r.hidden);
+        const related = all.filter(r => r.querySelector(".urlbarView-tag")?.textContent == "Related");
+        const plain = all.find(r => r.querySelector(".urlbarView-url")?.textContent.includes("caffeine-and-sleep-study") && !related.includes(r));
+        return related.length == 2 && plain && { related, plain };
+      }, "Two Related rows and the plain history row");
+      const scheme = dark ? "dark" : "light";
+      check(rows.plain, `Plain history row (${scheme})`);
+      rows.related.forEach((row, i) => check(row, `Related row ${i + 1} (${scheme})`));
+      return () => UrlbarTestUtils.promisePopupClose(window);
+    });
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(null);
+    await WhimsyAIIndex.clear({});
+    await PlacesUtils.history.clear();
+  }
+});
+
 // fu-chat 4.5 / chat-4.4: the memory-saved note with Undo after a real
 // answer in the chat panel, then the "Used 1 memory" action on the next.
 add_task(async function shots_memory_note_and_used_line() {

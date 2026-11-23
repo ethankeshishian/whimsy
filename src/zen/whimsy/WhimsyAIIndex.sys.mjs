@@ -31,6 +31,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
 const SIGNED_IN_TEXT = /\b(?:sign|log)\s?out\b|\bswitch accounts?\b/i;
 const ACCOUNT_TITLE = /\b(?:inbox|my account|your account|account settings|dashboard|statements?|billing)\b|[^\s@]+@[^\s@]+\.[a-z]{2,}/i;
 const AUTH_COOKIE = /sess|^sid$|auth|token|login|logged|jwt|remember|user_?id|account|^__Host-|^__Secure-/i;
+// W30: a sign-in step (a login form, an OAuth or SSO hop, a callback that
+// only redirects) is never "about" anything: it's never indexed, a stored
+// one is dropped on load, and none is ever offered. By path segment, host,
+// or title.
+const AUTH_PATH = /(?:^|[\/_])(?:log[-_]?(?:in|on|out)|sign[-_]?(?:in|on|up|out)|sso|oauth2?|openid|saml2?|callback|authori[sz]e|auth|2fa|mfa)(?:$|[\/._])/i;
+const AUTH_HOST = /^(?:login|logon|signin|auth|sso|accounts?|id|idp|oauth)\./i;
+const AUTH_TITLE = /^\s*(?:log\s?in|sign\s?(?:in|on|up)|single sign-on|authoriz(?:e|ation)|redirecting)\s*(?:$|[|·–—:.…-])|\b(?:log|sign)\s?in (?:to|with)\b|[|·–—-]\s*(?:log\s?in|sign\s?(?:in|up))\s*$/i;
 const RELATED_ICON = "chrome://browser/skin/zen-icons/search-page.svg";
 const MAX_RESULTS = 3;
 // Below this cosine similarity a page isn't "about" the query. Apple's
@@ -38,6 +45,23 @@ const MAX_RESULTS = 3;
 // 0.39-0.51 (browser_whimsy_ai_index.js logs them), so > 0 alone offered a
 // Related row for nearly every query; 0.45 keeps only clear matches.
 const MIN_SCORE = 0.45;
+// W30: the sentence model gives a word outside its vocabulary (a product
+// name like "opencode", a half-typed word like "artif") no meaning: such a
+// query lands on the same generic vector as gibberish, which sits closest
+// to pages with little or no text (a title-only "Temporal Cloud" login
+// page scored 0.56 for "opencode artif", 0.46-0.49 for "github" and
+// "netflix", while the real OpenCode page scored 0.25; logged by
+// browser_whimsy_ai_index.js). So a query is embedded from its known words
+// only, and needs at least one that says something.
+const MIN_QUERY_CHARS = 3;
+const MIN_WORD_CHARS = 3;
+const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "that", "this", "what", "how", "why", "who", "are", "was", "you", "your"]);
+// ...and a page whose reader text is this short (a login form, a redirect,
+// an app shell still loading) is mostly its title, which is that same kind
+// of catch-all vector: it isn't indexed. An entry stored before W30 carries
+// no `chars`; one whose vector is its title's alone is skipped at query time.
+const MIN_TEXT_CHARS = 200;
+const TITLE_ONLY = 0.999;
 
 const FOLDER_KIND = "index";
 const FILE_NAME = "index.bin";
@@ -55,6 +79,7 @@ let embedderChecked = false;
 let state = null; // { entries: [{url, title, vector, date}] }
 let loading = null;
 let testEmbedder = null;
+let testKnows = null;
 
 function service() {
   if (!embedderChecked) {
@@ -92,6 +117,45 @@ function embed(input) {
   }
 }
 
+// Whether the on-device word list knows `word`; with no word list for this
+// language it can't tell, so every word counts.
+function knows(word) {
+  if (testKnows) {
+    return testKnows(word);
+  }
+  try {
+    return service()?.knowsWord(word, locale()) ?? true;
+  } catch {
+    return true;
+  }
+}
+
+/** The words of `text` the model gives a meaning, or null when none says anything. */
+function meaningfulText(text) {
+  const words = (String(text ?? "").toLowerCase().match(/[\p{L}\p{N}]+(?:'[\p{L}]+)?/gu) ?? []).filter(knows);
+  return words.some(w => w.length >= MIN_WORD_CHARS && !STOP_WORDS.has(w)) ? words.join(" ") : null;
+}
+
+function isAuthPage(url, title = "") {
+  if (AUTH_TITLE.test(String(title ?? ""))) {
+    return true;
+  }
+  try {
+    const uri = Services.io.newURI(String(url));
+    return AUTH_HOST.test(uri.host) || AUTH_PATH.test(uri.filePath);
+  } catch {
+    return false;
+  }
+}
+
+function siteOf(url) {
+  try {
+    return Services.io.newURI(String(url)).host.replace(/^www\./, "");
+  } catch {
+    return String(url);
+  }
+}
+
 function cosine(a, b) {
   const n = Math.min(a.length, b.length);
   let dot = 0, na = 0, nb = 0;
@@ -117,8 +181,12 @@ async function load() {
   }
   loading ??= (async () => {
     const saved = await IOUtils.readJSON(await path()).catch(() => null);
-    state = { entries: Array.isArray(saved?.entries) ? saved.entries : [] };
+    const entries = Array.isArray(saved?.entries) ? saved.entries : [];
+    state = { entries: entries.filter(e => !isAuthPage(e.url, e.title)) };
     loading = null;
+    if (state.entries.length != entries.length) {
+      await save().catch(() => {});
+    }
     return state;
   })();
   return loading;
@@ -130,6 +198,7 @@ async function save() {
 
 export const WhimsyAIIndex = {
   MIN_SCORE,
+  MIN_TEXT_CHARS,
   FEATURE,
   MAX_ENTRIES,
 
@@ -154,7 +223,7 @@ export const WhimsyAIIndex = {
   /** @param {{url, title, text}} page. Never for a private tab (callers check). */
   async add({ url, title = "", text = "", date = Date.now() } = {}) {
     // W24: never an adult site's page (WhimsyAdultHistory).
-    if (!this.on || !url || !lazy.WhimsyAdultHistory.keeps(url)) {
+    if (!this.on || !url || !lazy.WhimsyAdultHistory.keeps(url) || isAuthPage(url, title)) {
       return false;
     }
     const vector = embed(`${String(title ?? "").slice(0, TITLE_CHARS)}\n${String(text).slice(0, TEXT_CHARS)}`.trim());
@@ -164,7 +233,7 @@ export const WhimsyAIIndex = {
     this.init();
     const s = await load();
     s.entries = s.entries.filter(e => e.url != url);
-    s.entries.push({ url, title, vector, date });
+    s.entries.push({ url, title, vector, date, chars: String(text ?? "").trim().length });
     if (s.entries.length > MAX_ENTRIES) {
       s.entries.splice(0, s.entries.length - MAX_ENTRIES);
     }
@@ -189,22 +258,52 @@ export const WhimsyAIIndex = {
     }
   },
 
-  /** @returns {Promise<{url, title, score}[]>} best `k` matches, newest ties first. */
+  /**
+   * @returns {Promise<{url, title, score}[]>} best `k` matches, newest ties
+   * first: one per site, never a sign-in page or a title-only entry.
+   */
   async query(text, k = 3) {
-    if (!this.on || !String(text ?? "").trim()) {
+    if (!this.on || String(text ?? "").trim().length < MIN_QUERY_CHARS) {
       return [];
     }
-    const vector = embed(text);
+    const words = meaningfulText(text);
+    const vector = words && embed(words);
     if (!vector) {
       return [];
     }
     const s = await load();
-    return s.entries
-      .map(e => ({ url: e.url, title: e.title, score: cosine(vector, e.vector), date: e.date }))
-      .filter(e => e.score >= MIN_SCORE)
-      .sort((a, b) => b.score - a.score || b.date - a.date)
-      .slice(0, k)
-      .map(({ url, title, score }) => ({ url, title, score }));
+    const candidates = s.entries
+      .map(e => ({ entry: e, score: cosine(vector, e.vector) }))
+      .filter(c => c.score >= MIN_SCORE)
+      .sort((a, b) => b.score - a.score || (b.entry.date ?? 0) - (a.entry.date ?? 0));
+    const results = [];
+    const sites = new Set();
+    const titles = new Set();
+    for (const { entry, score } of candidates) {
+      if (results.length >= k) {
+        break;
+      }
+      const site = siteOf(entry.url);
+      const title = String(entry.title ?? "").trim().toLowerCase();
+      if (sites.has(site) || (title && titles.has(title)) || isAuthPage(entry.url, entry.title) || this._titleOnly(entry)) {
+        continue;
+      }
+      sites.add(site);
+      if (title) {
+        titles.add(title);
+      }
+      results.push({ url: entry.url, title: entry.title, score });
+    }
+    return results;
+  },
+
+  // A pre-W30 entry (no `chars`) whose vector is just its title's.
+  _titleOnly(entry) {
+    if (entry.chars != null) {
+      return false; // Stored since W30: capture already turned away short pages.
+    }
+    const titleVector = embed(String(entry.title ?? "").slice(0, TITLE_CHARS).trim());
+    return !titleVector || cosine(titleVector, entry.vector) >= TITLE_ONLY;
   },
 
   _clears: 0,
@@ -228,9 +327,27 @@ export const WhimsyAIIndex = {
     return s.entries.map(({ url, title, date }) => ({ url, title, date }));
   },
 
-  _setTestEmbedder(fn) {
+  /** Tests: a stub embedder, and optionally a stub word list (default: every word known). */
+  _setTestEmbedder(fn, { knows: knowsFn = null } = {}) {
     testEmbedder = fn;
+    testKnows = fn ? (knowsFn ?? (() => true)) : null;
   },
+
+  // Tests: what query() embeds for `text` (null: nothing to match on).
+  _meaningfulTextForTesting(text) {
+    return meaningfulText(text);
+  },
+
+  // Tests: whether the real word list knows `word` (null with no model).
+  _knowsWordForTesting(word) {
+    try {
+      return service()?.knowsWord(word, locale()) ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  _isAuthPageForTesting: isAuthPage,
 
   // Tests: how alike two texts are to the real (or test) embedder.
   _similarityForTesting(a, b) {
@@ -319,7 +436,7 @@ export const WhimsyAIIndex = {
     // fragment (reset tokens, search terms, message ids): the page's address
     // is kept as origin and path only.
     const uri = browser.currentURI;
-    if (this._signedIn(browser, uri, title, text) || cleared != this._clears) {
+    if (String(text ?? "").trim().length < MIN_TEXT_CHARS || this._signedIn(browser, uri, title, text) || cleared != this._clears) {
       return;
     }
     await this.add({ url: uri.prePath + uri.filePath, title, text });
@@ -364,7 +481,7 @@ class WhimsyRelatedProvider extends UrlbarProvider {
   async isActive(context) {
     const win = topWindow();
     const text = (context.searchString ?? "").trim();
-    if (!win || context.searchMode || context.restrictSource || text.length < 2) {
+    if (!win || context.searchMode || context.restrictSource || text.length < MIN_QUERY_CHARS) {
       return false;
     }
     if (context.isPrivate || lazy.WhimsyAIContext.isPrivate(win.gBrowser?.selectedTab)) {

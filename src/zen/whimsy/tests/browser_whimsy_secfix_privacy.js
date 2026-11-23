@@ -36,9 +36,10 @@ async function capture(url) {
 
 add_task(async function index_keeps_no_query_or_fragment() {
   await WhimsyAIIndex.clear({});
-  const entries = await capture(ROOT + "whimsy_secfix_inject.html?token=reset-1234&q=private#msg-99");
+  // W30: an article, since a page under WhimsyAIIndex.MIN_TEXT_CHARS of text isn't indexed at all.
+  const entries = await capture(ROOT + "whimsy_chat_article.html?token=reset-1234&q=private#msg-99");
   is(entries.length, 1, "A public page is indexed");
-  is(entries[0].url, ROOT + "whimsy_secfix_inject.html", "as origin and path only: no query, no fragment");
+  is(entries[0].url, ROOT + "whimsy_chat_article.html", "as origin and path only: no query, no fragment");
 });
 
 add_task(async function index_skips_signed_in_pages() {
@@ -52,7 +53,7 @@ add_task(async function index_skips_signed_in_pages() {
       content.document.cookie = "sessionid=abc; Secure; path=/";
     })
   );
-  is((await capture(ROOT + "whimsy_secfix_inject.html")).length, 0, "Nor a page whose site has a sign-in cookie");
+  is((await capture(ROOT + "whimsy_chat_article.html")).length, 0, "Nor a page whose site has a sign-in cookie");
   Services.cookies.removeAll();
 });
 

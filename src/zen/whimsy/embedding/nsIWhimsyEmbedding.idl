@@ -10,7 +10,7 @@
  * Whimsy's meaning index (WhimsyAIIndex) uses it to turn a page's title and
  * text, and a command-bar query, into comparable vectors. Main thread only.
  */
-[scriptable, uuid(7b6a2f3e-9c3a-4e2a-9d7a-6f1c2b4a9e10)]
+[scriptable, uuid(517b383d-72b9-4b3a-ac8d-04d5922867ab)]
 interface nsIWhimsyEmbedding : nsISupports {
   /**
    * @brief Whether an embedding model is available for `locale` ("en-US",
@@ -24,4 +24,13 @@ interface nsIWhimsyEmbedding : nsISupports {
    * when no model exists for that locale.
    */
   Array<float> embed(in AUTF8String text, in AUTF8String locale);
+
+  /**
+   * @brief Whether `word` (one lowercase word) is in the language model's
+   * vocabulary for `locale`. The sentence model gives a word it doesn't know
+   * (a product name, a half-typed word) no meaning, so a query of only such
+   * words matches nothing by meaning. Throws NS_ERROR_NOT_AVAILABLE when no
+   * word list exists for that locale.
+   */
+  boolean knowsWord(in AUTF8String word, in AUTF8String locale);
 };

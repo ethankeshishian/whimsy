@@ -232,3 +232,176 @@ add_task(async function real_model_scores_unrelated_below_cutoff() {
     WhimsyAIIndex._setTestEmbedder(vectorFor);
   }
 });
+
+// W30 (owner screenshot, "opencode artif"): three "Temporal Cloud" rows
+// (/login/callback, /login, and a schedules page) for a query with nothing
+// to do with Temporal. The stub below reproduces the real model's numbers
+// (measured with Apple's sentence embedding, logged by the real-model task
+// below): a query of words the model doesn't know gets a generic vector,
+// and a page stored with its title and no text sits closest to it.
+const HUB = [1, 0, 0, 0];
+const W30_VECTORS = {
+  "Temporal Cloud": [0.56, 0.83, 0, 0], // title only: 0.56 to the generic vector
+  "Temporal Cloud\nWorkflows": [0.3, 0.95, 0, 0],
+  "OpenCode | The AI coding agent": [0.25, 0, 0, 0.97],
+  "temporal schedules": [0.56, 0.83, 0, 0], // closest to the title-only page
+  "artifacts": [0.1, 0, 0.3, 0.95],
+};
+const W30_KNOWN = new Set(["temporal", "schedules", "artifacts", "the", "and", "how", "bread"]);
+const w30Embedded = [];
+function w30Vector(text) {
+  w30Embedded.push(text);
+  return W30_VECTORS[text] ?? HUB;
+}
+const W30_STORED = [
+  // Stored before W30 (no `chars`): two sign-in hops and a title-only app page.
+  { url: "https://cloud.temporal.io/login/callback", title: "Temporal Cloud", vector: W30_VECTORS["Temporal Cloud"], date: 1 },
+  { url: "https://cloud.temporal.io/login", title: "Temporal Cloud", vector: W30_VECTORS["Temporal Cloud"], date: 2 },
+  { url: "https://cloud.temporal.io/namespaces/production.a1b2/schedules/ProcessIncomingEmails", title: "Temporal Cloud", vector: W30_VECTORS["Temporal Cloud"], date: 3 },
+  // Pages with real text.
+  { url: "https://cloud.temporal.io/namespaces/production.a1b2/workflows", title: "Temporal Cloud", vector: W30_VECTORS["Temporal Cloud\nWorkflows"], date: 4, chars: 900 },
+  { url: "https://cloud.temporal.io/namespaces/production.a1b2/workflows/run-1", title: "Temporal Cloud", vector: W30_VECTORS["Temporal Cloud\nWorkflows"], date: 5, chars: 900 },
+  { url: "https://docs.temporal.io/schedules", title: "Schedules | Temporal Platform Documentation", vector: [0.2, 0.98, 0, 0], date: 6, chars: 3000 },
+  { url: "https://opencode.ai/", title: "OpenCode | The AI coding agent", vector: W30_VECTORS["OpenCode | The AI coding agent"], date: 7, chars: 1200 },
+];
+
+async function w30Index() {
+  const file = PathUtils.join(await WhimsyAIStore.folder("index"), "index.bin");
+  await IOUtils.writeJSON(file, { entries: W30_STORED });
+  WhimsyAIIndex._resetForTesting();
+  WhimsyAIIndex._setTestEmbedder(w30Vector, { knows: w => W30_KNOWN.has(w) });
+  return file;
+}
+
+add_task(async function related_drops_sign_in_pages_on_load() {
+  const file = await w30Index();
+  try {
+    const urls = (await WhimsyAIIndex._entriesForTesting()).map(e => e.url);
+    ok(!urls.some(u => /\/login/.test(u)), `Stored login and OAuth callback pages leave the index on load (${urls.length} left)`);
+    is(urls.length, W30_STORED.length - 2, "...and nothing else does");
+    const onDisk = (await IOUtils.readJSON(file)).entries.map(e => e.url);
+    ok(!onDisk.some(u => /\/login/.test(u)), "...on disk too");
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+add_task(async function related_none_for_words_the_model_does_not_know() {
+  await w30Index();
+  try {
+    w30Embedded.length = 0;
+    const raw = W30_STORED.map(e => [e.url, cosineForTest(HUB, e.vector).toFixed(2)]);
+    info(`Scores "opencode artif" would have had against each page (cut-off ${WhimsyAIIndex.MIN_SCORE}): ${JSON.stringify(raw)}`);
+    Assert.greaterOrEqual(cosineForTest(HUB, W30_VECTORS["Temporal Cloud"]), WhimsyAIIndex.MIN_SCORE,
+      "Sanity: the title-only page clears the cut-off for a generic vector, as in the screenshot");
+    Assert.deepEqual(await WhimsyAIIndex.query("opencode artif", 3), [], "No Related rows for \"opencode artif\"");
+    ok(!w30Embedded.includes("opencode artif"), "...the unknown words never even reach the embedder");
+    is(WhimsyAIIndex._meaningfulTextForTesting("opencode artif"), null, "Neither word means anything to the model");
+    is(WhimsyAIIndex._meaningfulTextForTesting("the and"), null, "Nor do words that say nothing");
+    is(WhimsyAIIndex._meaningfulTextForTesting("opencode artifacts"), "artifacts", "Only the known words are embedded");
+    Assert.deepEqual(await WhimsyAIIndex.query("op", 3), [], "Nor for a query under three characters");
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+add_task(async function related_one_row_per_site_never_title_only() {
+  await w30Index();
+  try {
+    const results = await WhimsyAIIndex.query("temporal schedules", 3);
+    info(`"temporal schedules": ${JSON.stringify(results.map(r => [r.url, r.score.toFixed(2)]))}`);
+    const sites = results.map(r => new URL(r.url).host);
+    is(new Set(sites).size, sites.length, "At most one row per site");
+    ok(results.some(r => r.url == "https://docs.temporal.io/schedules"), "The docs page about schedules is offered");
+    ok(results.some(r => r.url.includes("/workflows")), "...and one Temporal Cloud page with real text");
+    ok(!results.some(r => r.url.includes("/schedules/ProcessIncomingEmails")), "A stored title-only page isn't offered");
+    ok(!results.some(r => /login|callback/.test(r.url)), "Nor a sign-in page");
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+add_task(async function related_never_indexes_sign_in_or_empty_pages() {
+  const auth = [
+    ["https://cloud.temporal.io/login/callback", "Temporal Cloud"],
+    ["https://cloud.temporal.io/login", "Temporal Cloud"],
+    ["https://example.com/oauth2/authorize", "Example"],
+    ["https://example.com/sso/start", "Example"],
+    ["https://example.com/u/signin/identifier", "Example"],
+    ["https://accounts.example.com/", "Example"],
+    ["https://example.com/", "Sign in to GitHub · GitHub"],
+    ["https://example.com/", "Log in | Example"],
+  ];
+  for (const [url, title] of auth) {
+    ok(WhimsyAIIndex._isAuthPageForTesting(url, title), `A sign-in page: ${url} "${title}"`);
+  }
+  const fine = [
+    ["https://example.com/blog/oauth-explained", "OAuth explained"],
+    ["https://example.com/authors/jane", "Jane's posts"],
+    ["https://cloud.temporal.io/namespaces/p/workflows", "Temporal Cloud"],
+    ["https://example.com/", "Login Required: why sites ask"],
+  ];
+  for (const [url, title] of fine) {
+    ok(!WhimsyAIIndex._isAuthPageForTesting(url, title), `Not a sign-in page: ${url} "${title}"`);
+  }
+  await WhimsyAIIndex.clear({});
+  ok(!(await WhimsyAIIndex.add({ url: "https://cloud.temporal.io/login/callback", title: "Temporal Cloud", text: "coffee ".repeat(100) })),
+    "add() refuses a sign-in page");
+
+  // Capture: a page with almost no text (a login form, a redirect) isn't indexed.
+  const original = { readTab: WhimsyAIReader.readTab, isOffLimits: WhimsyAIContext.isOffLimits };
+  const fakeBrowser = { currentURI: Services.io.newURI("https://example.com/app/loading"), contentTitle: "Coffee app" };
+  const fakeWin = { gBrowser: { getTabForBrowser: () => ({}) } };
+  WhimsyAIContext.isOffLimits = () => false;
+  try {
+    WhimsyAIReader.readTab = async () => "Loading…";
+    await WhimsyAIIndex._captureVisit(fakeWin, fakeBrowser);
+    is(await WhimsyAIIndex.count(), 0, `A page under ${WhimsyAIIndex.MIN_TEXT_CHARS} characters of text isn't indexed`);
+    WhimsyAIReader.readTab = async () => "Coffee beans and espresso. ".repeat(20);
+    await WhimsyAIIndex._captureVisit(fakeWin, fakeBrowser);
+    is(await WhimsyAIIndex.count(), 1, "...one with real text is");
+  } finally {
+    WhimsyAIReader.readTab = original.readTab;
+    WhimsyAIContext.isOffLimits = original.isOffLimits;
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+// The real model, when this Mac has it: the numbers behind the stub above.
+add_task(async function real_model_unknown_words_and_title_only_pages() {
+  WhimsyAIIndex._setTestEmbedder(null);
+  try {
+    const known = ["opencode", "artif", "artifacts", "temporal", "schedules", "github"].map(w => [w, WhimsyAIIndex._knowsWordForTesting(w)]);
+    info(`real word list: ${JSON.stringify(known)}`);
+    const pairs = [
+      ["opencode artif", "Temporal Cloud"],
+      ["opencode artif", "OpenCode | The AI coding agent built for the terminal\nOpenCode is an open source AI coding agent. Install it in your terminal, IDE, or desktop app and use any model."],
+      ["github", "Temporal Cloud"],
+      ["temporal schedules", "Temporal Cloud"],
+    ];
+    info(`real model scores: ${JSON.stringify(pairs.map(([a, b]) => [a, b.slice(0, 30), WhimsyAIIndex._similarityForTesting(a, b)]))}`);
+    if (known.some(([, k]) => k == null)) {
+      ok(true, "No on-device word list here; nothing to check");
+      return;
+    }
+    is(WhimsyAIIndex._knowsWordForTesting("opencode"), false, "The model doesn't know \"opencode\"");
+    is(WhimsyAIIndex._knowsWordForTesting("artif"), false, "...nor a half-typed \"artif\"");
+    is(WhimsyAIIndex._knowsWordForTesting("artifacts"), true, "...but knows \"artifacts\"");
+    is(WhimsyAIIndex._meaningfulTextForTesting("opencode artif"), null, "So \"opencode artif\" offers no Related rows");
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+  }
+});
+
+function cosineForTest(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return dot / Math.sqrt(na * nb);
+}
