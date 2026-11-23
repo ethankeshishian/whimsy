@@ -357,6 +357,7 @@ export class nsZenSessionManager {
    *        The initial session state read from the session file.
    */
   onFileRead(initialState) {
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs").WhimsyFormDrafts.stripSessionState(initialState); // Whimsy hook
     // For the first time after migration, we restore the tabs
     // That where going to be restored by SessionStore. The sidebar
     // object will always be empty after migration because we haven't

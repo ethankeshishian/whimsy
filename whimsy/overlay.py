@@ -53,6 +53,14 @@ HOOKS = [
      r"^(\s*)this\.#pages = pages;\s*$",
      '{indent}this.#pages = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyWelcome.sys.mjs").WhimsyWelcome.extendPages(window, pages, { createOption, kNextButton }); // Whimsy hook',
      "after"),
+    # W13-R1 v2 §7: an upgraded profile's old plaintext typing (formdata,
+    # and the pre-draft R1 snapshot) is dropped as the session file is read,
+    # so it never auto-fills. Zen hands every read through onFileRead, which
+    # keeps this off Firefox's SessionStartup (private fields from 160 on).
+    ("session-strip", "src/zen/sessionstore/ZenSessionManager.sys.mjs",
+     r"^(\s*)onFileRead\(initialState\) \{\s*$",
+     '{indent}  ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyFormProtection.sys.mjs").WhimsyFormDrafts.stripSessionState(initialState); // Whimsy hook',
+     "after"),
     # batch hover: History hover cards read the row's own visit.
     ("library-history-visit", "src/zen/library/sections/ZenLibraryHistorySection.mjs",
      r'^(\s*)@click=\$\{event => this\.#openVisit\(visit, event\)\}\s*$',

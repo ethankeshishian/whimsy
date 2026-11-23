@@ -241,6 +241,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyVPNCallParent.sys.mjs",
     "WhimsyVPNScope.sys.mjs",
     "WhimsyWebKit.sys.mjs",
+    "WhimsyWebKitCookies.sys.mjs",
     "WhimsyWelcome.sys.mjs",
     "WhimsyWindowClose.sys.mjs",
     "WhimsyWindowOnTop.sys.mjs",
