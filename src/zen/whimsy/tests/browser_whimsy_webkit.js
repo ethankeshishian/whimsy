@@ -345,8 +345,9 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
   await TestUtils.waitForCondition(
     () =>
       WhimsyWebKit.currentURIOf(tab)?.spec == gServer.url("/page1") &&
-      tab.label == "WebKit Test Page One",
-    "Browser:Back navigates the WKWebView back to page 1"
+      tab.label == "WebKit Test Page One" &&
+      !tab.hasAttribute("busy"),
+    "Browser:Back navigates the WKWebView back to page 1 and finishes loading"
   );
   await TestUtils.waitForCondition(
     () => !document.getElementById("Browser:Forward")?.hasAttribute("disabled"),
