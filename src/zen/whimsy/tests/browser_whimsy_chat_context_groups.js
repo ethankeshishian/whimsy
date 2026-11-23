@@ -174,7 +174,11 @@ add_task(async function journey1_trip_group_row_chip_used_line_and_leave_out() {
     is(row.querySelector("img.whimsy-chat-brand")?.localName, "img", "led by the first page's favicon");
     const options = [...menu.querySelectorAll(".whimsy-chat-option")];
     const allTabs = options.find(o => o.querySelector("[data-l10n-id='whimsy-chat-add-all-tabs']"));
-    is(options.indexOf(row) + 1, options.indexOf(allTabs), "It sits just before All my tabs");
+    // W30 scoped chats: the space and folder rows come between it and All
+    // my tabs (browser_whimsy_chat_context_spaces.js checks their order).
+    const scopes = options.filter(o => o.hasAttribute("data-space") || o.hasAttribute("data-folder"));
+    is(options.indexOf(row) + 1, options.indexOf(scopes[0] ?? allTabs), "It sits just before the space and folder rows");
+    is(options.indexOf(row) + 1 + scopes.length, options.indexOf(allTabs), "and those sit just before All my tabs");
     ok(row.previousElementSibling?.classList.contains("whimsy-chat-menu-rule"), "after the single tabs and their rule");
     ok(fits(row.querySelector(".whimsy-chat-option-label")), "The row's name isn't clipped");
     await whimsyBothSchemes("w29-ctxgroups-add-menu", async dark => {
