@@ -2123,6 +2123,41 @@ whimsy-replay-tool =
 whimsy-context-qrcode =
     .label = QR Code for Page
     .accesskey = Q
+
+## W30 svg-save: Save Image As for SVGs (the page menu row, and the dialog
+## that Save Image As opens on an SVG)
+
+whimsy-context-save-svg =
+    .label = Save Image As…
+whimsy-svg-save-title = Save image
+whimsy-svg-save-format = Format
+whimsy-svg-save-format-svg = SVG
+whimsy-svg-save-format-png = PNG
+whimsy-svg-save-format-jpg = JPG
+whimsy-svg-save-background = Background
+whimsy-svg-save-background-clear = Clear
+whimsy-svg-save-background-white = White
+whimsy-svg-save-background-page = Page
+# Shown on the disabled Clear choice while JPG is picked.
+whimsy-svg-save-clear-jpg =
+    .title = JPG can’t be transparent
+# $color (String) - the page colour behind the SVG, like #FDF1E7
+whimsy-svg-save-page-color = { $color }, behind the SVG
+whimsy-svg-save-size = Size
+whimsy-svg-save-width = Width
+whimsy-svg-save-height = Height
+whimsy-svg-save-px = px
+# The mark between Width and Height (not a button: the proportions are always kept).
+whimsy-svg-save-locked =
+    .aria-label = Proportions locked to the original
+    .title = Proportions locked to the original
+# $width, $height (Number) - the size the entry was reduced to
+whimsy-svg-save-reduced = Reduced to { $width } × { $height }, Firefox’s largest size.
+whimsy-svg-save-cancel =
+    .label = Cancel
+whimsy-svg-save-save =
+    .label = Save
+whimsy-svg-save-failed-toast = This image couldn’t be saved
 whimsy-action-qrcode = Show QR Code for Page
 
 ## wave5/quick: Copy page as Markdown (Zen's "Copy current URL as Markdown" stays as is)
@@ -3780,6 +3815,8 @@ whimsy-menus-page-bookmark =
     .label = Bookmark Page
 whimsy-menus-page-save =
     .label = Save Page As…
+whimsy-menus-page-save-image =
+    .label = Save Image As…
 whimsy-menus-page-qr-code =
     .label = QR Code for Page
 whimsy-menus-page-copy-markdown =

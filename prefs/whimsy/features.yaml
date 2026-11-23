@@ -780,6 +780,9 @@
 - name: whimsy.feature.webkit-tabs
   value: true
 
+- name: whimsy.feature.svg-save
+  value: true
+
 # Arc-style Ctrl+Tab: recently used order.
 - name: browser.ctrlTab.sortByRecentlyUsed
   value: true

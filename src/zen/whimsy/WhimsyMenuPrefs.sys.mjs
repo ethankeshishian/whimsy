@@ -319,6 +319,8 @@ const MENUS = [
       SEPARATOR,
       // Save.
       item("save", "whimsy-menus-page-save", ["context-savepage"]),
+      // W30 svg-save: shows only on an inline SVG, or one in <object>/<embed>.
+      item("save-image", "whimsy-menus-page-save-image", ["context-whimsy-save-svg"]),
       item("select-all", "whimsy-menus-select-all", ["context-selectall"]),
       // wave9/menus (W9-09): shows only on pages that block copying.
       item("allow-copy", "whimsy-menus-page-allow-copy", ["context-whimsy-allow-copy"]),

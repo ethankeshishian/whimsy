@@ -1104,20 +1104,45 @@ export const WhimsyCaptureCard = {
 
   // Firefox Screenshots' download (its file name, its folder or "Always
   // ask"), for an image that has no Screenshots session behind it.
-  async download(win, blob, capture) {
+  // W30 svg-save: `options.filename` (with `options.contentType`) saves
+  // under that name instead, through Firefox's download setting (ask
+  // where, or straight to the Downloads folder) as Save Image As does.
+  async download(win, blob, capture, options = {}) {
     const browser = capture.browser ?? win.gBrowser.selectedBrowser;
     const isPrivate = capture.private;
     const title = capture.browser ? capture.browser.contentTitle ?? "" : "";
     const url = URL.createObjectURL(blob);
     try {
-      const { filename, accepted } = await lazy.getFilename(title, browser);
-      if (!accepted) {
-        return false;
+      let target = null;
+      if (options.filename) {
+        const dot = options.filename.lastIndexOf(".");
+        const params = {
+          fpTitleKey: "SaveImageTitle",
+          fileInfo: new win.FileInfo(
+            options.filename,
+            options.filename,
+            dot > 0 ? options.filename.slice(0, dot) : options.filename,
+            dot > 0 ? options.filename.slice(dot + 1) : ""
+          ),
+          contentType: options.contentType ?? blob.type,
+          saveMode: 0, // SAVEMODE_FILEONLY
+          file: null,
+        };
+        if (!(await win.promiseTargetFile(params, true, browser?.currentURI ?? null))) {
+          return false;
+        }
+        target = params.file;
+      } else {
+        const { filename, accepted } = await lazy.getFilename(title, browser);
+        if (!accepted) {
+          return false;
+        }
+        target = new lazy.FileUtils.File(filename);
       }
       const { Downloads } = lazy;
       const download = await Downloads.createDownload({
         source: { url, isPrivate },
-        target: new lazy.FileUtils.File(filename),
+        target,
       });
       const list = await Downloads.getList(isPrivate ? Downloads.PRIVATE : Downloads.PUBLIC);
       list.add(download);

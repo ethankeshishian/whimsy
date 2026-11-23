@@ -110,6 +110,7 @@ const ICONS = {
       ? ZEN("bookmark")
       : ZEN("bookmark-hollow"),
   "context-savepage": ZEN("save"),
+  "context-whimsy-save-svg": ZEN("save"),
   "context-whimsy-qrcode": "chrome://browser/content/sharing/qr-code.svg",
   "context-whimsy-copy-markdown": ZEN("edit-copy"),
   "context-whimsy-new-note": ZEN("reader-mode"),
