@@ -43,6 +43,9 @@ const BRIDGE_PATH = "/mcp";
 const GUARD_PATH = "/guard";
 export const GUARD_SERVER = "whimsy_guard";
 export const GUARD_TOOL = "confirm";
+// W30 extension builder: one run's own tools (the plugin writer), one
+// token per run, like the guard.
+const RUN_PATH = "/run";
 // A tool may run without a press only when its server says it only reads
 // AND reaches nothing outside the server (P2-M1: a read-only fetch or web
 // search can still carry data out in its arguments). Everything else needs
@@ -132,6 +135,7 @@ export const WhimsyConnectors = {
   _users: new Set(),
   _bridge: null,
   _guards: new Map(),
+  _runs: new Map(),
   _windows: new Set(),
   _timer: null,
   // Tests replace these: the Linear and Jira sign-in checks, and the poll.
@@ -897,6 +901,23 @@ export const WhimsyConnectors = {
     return JSON.stringify((await this._api("microsoft", path)).value ?? []);
   },
 
+  /**
+   * One run's own tools as a loopback MCP server (W30 extension builder):
+   * `tools` are { name, description, inputSchema, run(args) }, and only
+   * this run's token reaches them. A tool's run() may return
+   * { isError, text } to report a refusal to the model. Returns
+   * { server, dispose }; nothing answers once disposed.
+   */
+  runTools(name, tools, { readOnly = false } = {}) {
+    const bridge = this._startBridge();
+    const token = ChromeUtils.base64URLEncode(crypto.getRandomValues(new Uint8Array(32)), { pad: false });
+    this._runs.set(token, tools);
+    return {
+      server: { name, url: bridge.url.replace(BRIDGE_PATH, RUN_PATH), readOnly, headers: { Authorization: `Bearer ${token}` } },
+      dispose: () => this._runs.delete(token),
+    };
+  },
+
   async _jira(jql) {
     const site = (await this._read()).connectors.jira?.site;
     const response = await fetch(`${site}/rest/api/2/search?maxResults=30&fields=summary,status&jql=${encodeURIComponent(jql)}`, { credentials: "include", headers: { Accept: "application/json" } });
@@ -911,9 +932,9 @@ export const WhimsyConnectors = {
     }
     const server = new lazy.HttpServer();
     const token = ChromeUtils.base64URLEncode(crypto.getRandomValues(new Uint8Array(32)), { pad: false });
-    server.registerPathHandler(BRIDGE_PATH, (request, response) => {
+    const handle = reply => (request, response) => {
       response.processAsync();
-      this._bridgeReply(request, token)
+      reply(request)
         .catch(() => ({ status: 500, body: { jsonrpc: "2.0", id: null, error: { code: -32603, message: "Internal error" } } }))
         .then(({ status, body }) => {
           response.setStatusLine(request.httpVersion, status, status == 200 ? "OK" : "Error");
@@ -924,21 +945,10 @@ export const WhimsyConnectors = {
           }
           response.finish();
         });
-    });
-    server.registerPathHandler(GUARD_PATH, (request, response) => {
-      response.processAsync();
-      this._guardReply(request)
-        .catch(() => ({ status: 500, body: { jsonrpc: "2.0", id: null, error: { code: -32603, message: "Internal error" } } }))
-        .then(({ status, body }) => {
-          response.setStatusLine(request.httpVersion, status, status == 200 ? "OK" : "Error");
-          response.setHeader("Cache-Control", "no-store", false);
-          if (body !== undefined) {
-            response.setHeader("Content-Type", "application/json; charset=utf-8", false);
-            response.write(utf8(JSON.stringify(body)));
-          }
-          response.finish();
-        });
-    });
+    };
+    server.registerPathHandler(BRIDGE_PATH, handle(request => this._bridgeReply(request, token)));
+    server.registerPathHandler(GUARD_PATH, handle(request => this._guardReply(request)));
+    server.registerPathHandler(RUN_PATH, handle(request => this._runReply(request)));
     server._start(-1, "127.0.0.1");
     const port = server.identity.primaryPort;
     server.identity.add("http", "127.0.0.1", port);
@@ -1000,11 +1010,29 @@ export const WhimsyConnectors = {
   },
 
   async _bridgeReply(request, token) {
-    const header = name => (request.hasHeader(name) ? request.getHeader(name) : "");
-    if (header("Origin")) {
+    const given = request.hasHeader("Authorization") ? request.getHeader("Authorization") : "";
+    const ok = sameSecret(given.replace(/^Bearer\s+/i, ""), token);
+    return this._toolsReply(request, ok, async () => (this.enabled ? this._builtinTools(await this._read()) : []), {
+      server: "whimsy-connectors",
+      failed: e => `Couldn't read it: ${e.code ?? e.message}`,
+    });
+  },
+
+  // A run's own tools (runTools): the same checks, keyed by the run's token.
+  async _runReply(request) {
+    const given = (request.hasHeader("Authorization") ? request.getHeader("Authorization") : "").replace(/^Bearer\s+/i, "");
+    const token = [...this._runs.keys()].find(t => sameSecret(given, t));
+    return this._toolsReply(request, !!token, async () => this._runs.get(token) ?? [], {
+      server: "whimsy-run",
+      failed: e => `Failed: ${e.message}`,
+    });
+  },
+
+  async _toolsReply(request, authorized, toolsOf, { server, failed }) {
+    if (request.hasHeader("Origin") && request.getHeader("Origin")) {
       return { status: 403, body: undefined };
     }
-    if (!sameSecret(header("Authorization").replace(/^Bearer\s+/i, ""), token)) {
+    if (!authorized) {
       return { status: 401, body: undefined };
     }
     if (request.method != "POST") {
@@ -1022,10 +1050,10 @@ export const WhimsyConnectors = {
       return { status: 202, body: undefined };
     }
     const reply = result => ({ status: 200, body: { jsonrpc: "2.0", id, result } });
-    const tools = this.enabled ? this._builtinTools(await this._read()) : [];
+    const tools = await toolsOf();
     switch (method) {
       case "initialize":
-        return reply({ protocolVersion: params.protocolVersion ?? "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "whimsy-connectors", version: "1" } });
+        return reply({ protocolVersion: params.protocolVersion ?? "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: server, version: "1" } });
       case "ping":
         return reply({});
       case "tools/list":
@@ -1037,9 +1065,12 @@ export const WhimsyConnectors = {
         }
         try {
           const out = await tool.run(params.arguments ?? {});
+          if (out && typeof out == "object" && typeof out.text == "string" && "isError" in out) {
+            return reply({ content: [{ type: "text", text: out.text }], ...(out.isError ? { isError: true } : {}) });
+          }
           return reply({ content: [{ type: "text", text: typeof out == "string" ? out : JSON.stringify(out) }] });
         } catch (e) {
-          return reply({ content: [{ type: "text", text: `Couldn't read it: ${e.code ?? e.message}` }], isError: true });
+          return reply({ content: [{ type: "text", text: failed(e) }], isError: true });
         }
       }
       default:

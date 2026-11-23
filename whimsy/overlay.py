@@ -2445,9 +2445,10 @@ FEATURES = [
     # unpacked WebExtension that loads unsigned (signing stays required
     # everywhere else), turned off until approved. Engine patches on
     # XPIProvider and XPIDatabase. Superseded if Zen ships its own folder of
-    # unsigned add-ons.
+    # unsigned add-ons. W30: chat's write_plugin tool writes a folder
+    # (extension builder); the same approval gates it.
     {"id": "local-plugins", "title": "Local plugins: your own unsigned extensions, one folder each in the profile's whimsy-plugins folder, approved before they run",
-     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions))"),
+     "detect": [("src/zen", r"(?i)zen[-_.]?(local[-_.]?plugins|unsigned[-_.]?(addons|extensions)|(extension|plugin)[-_.]?builder)"),
                 ("src/toolkit/mozapps/extensions", r"(?i)local[-_.]?plugins")]},
     # W29: Safety Check card (Settings → Privacy & Security): updates,
     # breached passwords, risky extensions and unused site permissions, all

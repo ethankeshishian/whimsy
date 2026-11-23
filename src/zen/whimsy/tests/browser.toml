@@ -1466,6 +1466,8 @@ support-files = ["whimsy_totp_page.html"]
 ["browser_whimsy_totp_settings.js"]
 # W28 local plugins: unsigned extensions from the profile's whimsy-plugins folder only.
 ["browser_whimsy_local_plugins.js"]
+# W30/extbuilder: chat writes a local plugin through write_plugin; one card with Review and run, which opens the Run prompt.
+["browser_whimsy_plugin_builder.js"]
 # W29/newtabopts: New Private Tab in the sidebar foot's + button (Zen's Create New menu), right after New Tab; the same command as the File menu's own row and Cmd+Option+T.
 ["browser_whimsy_private_create_new.js"]
 # W29 safety-check: WhimsySafetyCheck.sys.mjs itself (updates/passwords/extensions/permissions checks).

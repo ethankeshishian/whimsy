@@ -37,6 +37,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyClaude: "resource:///modules/whimsy/WhimsyClaude.sys.mjs",
   WhimsyClaudeReplay: "resource:///modules/whimsy/WhimsyClaudeReplay.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  WhimsyLocalPlugins: "resource:///modules/whimsy/WhimsyLocalPlugins.sys.mjs",
   WhimsyTaskFolder: "resource:///modules/whimsy/WhimsyTaskFolder.sys.mjs",
   WhimsySpaceLock: "resource:///modules/whimsy/WhimsySpaceLock.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -669,8 +670,9 @@ export const WhimsyChatAgent = {
 
   looksLikeTask(text) {
     const t = String(text ?? "").trim();
-    // W23 page-act: tab requests and page edits aren't agent tasks either.
-    return ACT_VERBS.test(t) && !NOT_TASKS.test(t) && !lazy.WhimsyAITabRequests.takes(t) && !lazy.WhimsyAIPageEdits.takes(t);
+    // W23 page-act: tab requests and page edits aren't agent tasks either,
+    // nor (W30) making or changing an extension, which chat writes itself.
+    return ACT_VERBS.test(t) && !NOT_TASKS.test(t) && !lazy.WhimsyAITabRequests.takes(t) && !lazy.WhimsyAIPageEdits.takes(t) && !lazy.WhimsyLocalPlugins.takes(t);
   },
 
   async onSend(panel, thread, text, context) {

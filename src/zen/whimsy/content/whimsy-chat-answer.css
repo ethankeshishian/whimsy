@@ -464,6 +464,50 @@
   min-width: 140px;
 }
 
+/* W30 extension builder: a plugin chat wrote. The report card's frame,
+   stacked: head, "It can:" and Firefox's permission wording (as the Run
+   prompt lists it), the files disclosure, and one button. */
+.whimsy-chat-plugin {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 6px;
+  & > .whimsy-chat-report-head {
+    flex: none;
+    margin-bottom: 0;
+  }
+  & > .whimsy-chat-pill-btn {
+    align-self: flex-start;
+    margin-top: 2px;
+  }
+}
+.whimsy-chat-plugin-can {
+  font-size: 12px;
+  font-weight: 600;
+}
+.whimsy-chat-plugin-permissions,
+.whimsy-chat-plugin-files {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  font-size: 12px;
+}
+.whimsy-chat-plugin-permissions {
+  padding-inline-start: 18px;
+}
+.whimsy-chat-plugin-files {
+  padding: 0 0 0 16px;
+  list-style: none;
+  & .whimsy-chat-link {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    text-align: start;
+    font-weight: 500;
+  }
+}
+
 /* ---- Buttons shared by blocks, sheets, and cards ---- */
 .whimsy-chat-pill-btn {
   height: 26px;

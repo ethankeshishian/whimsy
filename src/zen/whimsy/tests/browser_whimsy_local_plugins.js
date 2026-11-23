@@ -91,7 +91,7 @@ async function answerPrompt(addon, run, fromAddons = false) {
   is(strings.addonName, addon.name, "Firefox safely substitutes the plugin name");
   is(strings.listIntro, "It can:", "permissions introduction");
   is(notification.button.label, "Run", "affirmative label");
-  is(notification.secondaryButton.label, "Don't Run", "refusal label");
+  is(notification.secondaryButton.label, "Don’t Run", "refusal label");
   const button = run ? notification.button : notification.secondaryButton;
   await TestUtils.waitForCondition(() => !button.disabled, "permission prompt safety delay has ended");
   await Promise.all(PopupNotifications.panel.getAnimations({ subtree: true }).map(a => a.finished.catch(() => {})));
