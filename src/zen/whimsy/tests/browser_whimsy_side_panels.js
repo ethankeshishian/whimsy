@@ -138,8 +138,10 @@ addPanelTask(async function menu_checkbox_and_open_in_tab() {
   ok(!ess.hasAttribute(WhimsySidePanel.OFF_ATTR), "Checked");
   ok(!SessionStore.getCustomTabValue(ess, WhimsySidePanel.OFF_KEY), "Nothing saved when on");
 
+  // W30: a normal tab has it too, unchecked (browser_whimsy_side_panel_any_tab.js).
   menu = await openTabMenu(home);
-  ok(!item.checkVisibility(), "A normal tab has no Open in Side Panel");
+  ok(item.checkVisibility(), "A normal tab has Open as Popover too");
+  ok(!item.hasAttribute("checked"), "unchecked while it isn't floating");
   await closeMenu(menu);
 
   // Open in Tab, from the command bar's command.

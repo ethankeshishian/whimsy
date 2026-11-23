@@ -1166,6 +1166,9 @@ support-files = ["whimsy_chat_article.html"]
 # W29 context groups: the group row in chat's Add menu, its chip, and the
 # journeys (closing the first page, a tab moving space, a restart).
 ["browser_whimsy_chat_context_groups.js"]
+# W30 scoped chats: the space and folder rows in chat's Add menu.
+["browser_whimsy_chat_context_spaces.js"]
+support-files = ["whimsy_chat_article.html"]
 # W28 tab-state-indicators: the sparkle badge ([whimsy-chat-reads] /
 # [whimsy-chat-reading]) tracks chat attachment, option A (the sparkle).
 ["browser_whimsy_chat_reads_marks.js"]
@@ -1465,6 +1468,10 @@ support-files = ["head_side_panel.js"]
 support-files = ["head_side_panel.js"]
 
 ["browser_whimsy_side_panel_pip_resize.js"]
+support-files = ["head_side_panel.js"]
+
+# W30 Mini Window: Open as Popover on any tab, a one-time float in place.
+["browser_whimsy_side_panel_any_tab.js"]
 support-files = ["head_side_panel.js"]
 
 # W28 verification codes (WhimsyTOTP.sys.mjs).
