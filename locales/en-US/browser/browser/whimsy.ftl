@@ -3727,7 +3727,6 @@ whimsy-menus-tab-unread-badge =
     .description = On Essentials
 whimsy-menus-tab-side-panel =
     .label = Open as Popover
-    .description = On Essentials
 whimsy-menus-tab-rename =
     .label = Change Label…
 whimsy-menus-tab-change-icon =
@@ -5989,6 +5988,8 @@ whimsy-chat-chip-words =
         [tab] This tab
         [tabs] All my tabs
         [group] { $label } and the tabs opened from it
+        [space] Every tab in { $label }
+        [folder] Every tab in { $label }
        *[other] { $label }
     }{ $text ->
         [0] {""}
@@ -6014,6 +6015,8 @@ whimsy-chat-chip-words =
         [tab] This tab
         [tabs] All my tabs
         [group] { $label } and the tabs opened from it
+        [space] Every tab in { $label }
+        [folder] Every tab in { $label }
        *[other] { $label }
     }{ $text ->
         [0] {""}

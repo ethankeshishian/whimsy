@@ -15,6 +15,13 @@
 // Floats across page clicks and tab switches. Minimize keeps the live page;
 // Expand selects it once without changing its Essential routing preference.
 // Width, height, and position are remembered per host.
+//
+// W30 Mini Window (ideas-inventory 6a): the same checkmark row shows on any
+// tab. On a tab that isn't an Essential it's a one-time float, not a
+// routing preference. The tab never leaves its window, space, folder, or
+// place in the sidebar (only its panel floats), so unchecking it, Expand,
+// selecting it, or anything else taking the popover leaves it where it
+// was, and session restore never sees it moved.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
@@ -223,7 +230,8 @@ class SidePanel {
     await animation.finished.catch(() => {});
     if (this.tab == tab && this.expanding == expansion) {
       this.hide({ animate: false });
-      this.expanded = expansion;
+      // A floated tab's Expand just makes it the page again.
+      this.expanded = tab.hasAttribute("zen-essential") ? expansion : null;
       this.win.gBrowser.selectedTab = tab;
       this.clearPhone(tab);
       tab.linkedBrowser.focus();
@@ -253,16 +261,41 @@ class SidePanel {
     if (!this.isExpanded(tab)) {
       return null;
     }
+    return this.pageBeside(tab, this.expanded.page);
+  }
+
+  // The page to show while `tab` floats: `remembered`, else the most
+  // recently used tab in this space.
+  pageBeside(tab, remembered = null) {
     const space = this.win.gZenWorkspaces?.activeWorkspace;
     const eligible = candidate => candidate && candidate != tab && candidate.isConnected &&
       !candidate.closing && !candidate.hasAttribute("zen-glance-tab") &&
       (!candidate.getAttribute("zen-workspace-id") || candidate.getAttribute("zen-workspace-id") == space);
-    const remembered = this.expanded.page;
     if (eligible(remembered)) {
       return remembered;
     }
     return [...this.win.gBrowser.tabs].filter(eligible)
       .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))[0];
+  }
+
+  // ---- A tab that isn't an Essential, floated once ----
+
+  // Not a pane of a split, a Glance, Zen's empty tab, or a page another
+  // window holds; and, when it's the page, there's another one to show.
+  canFloat(tab) {
+    return !!tab && !tab.hasAttribute("zen-essential") && !tab.closing && !tab.splitView &&
+      !tab.hasAttribute("zen-glance-tab") && !tab.hasAttribute("zen-empty-tab") &&
+      !this.pageElsewhere(tab) && (!tab.selected || !!this.pageBeside(tab, this.lastPage));
+  }
+
+  float(tab) {
+    if (!this.canFloat(tab)) {
+      return;
+    }
+    if (tab.selected) {
+      this.win.gBrowser.selectedTab = this.pageBeside(tab, this.lastPage);
+    }
+    this.show(tab);
   }
 
   // Expand is temporary. Restore the underlying page before floating its
@@ -429,11 +462,18 @@ class SidePanel {
       browser.docShellIsActive = tab.selected;
     }
     if (!box) {
+      if (!tab.hasAttribute("zen-essential") && !tab.closing) {
+        this.letGo(tab);
+      }
       return;
     }
     const done = () => {
       if (this.tab == tab) {
         return;
+      }
+      if (!tab.hasAttribute("zen-essential") && !tab.closing) {
+        // Desktop again, and discardable: it was only floated once.
+        this.letGo(tab);
       }
       box.removeAttribute(SHOW_ATTR);
       box.removeAttribute("role");
@@ -844,11 +884,14 @@ class SidePanel {
     return featureOn() && tab?.hasAttribute("zen-essential") ? tab : null;
   }
 
+  // On an Essential it's the routing preference; on any other tab, whether
+  // it floats now.
   updateMenu() {
     const { doc, win } = this;
     const tab = win.TabContextMenu?.contextTab;
     let item = doc.getElementById(MENU_ID);
-    const show = featureOn() && !!tab?.hasAttribute("zen-essential") && !tab.multiselected;
+    const show = featureOn() && !!tab && !tab.multiselected &&
+      (tab.hasAttribute("zen-essential") || this.tab == tab || this.canFloat(tab));
     if (!show) {
       if (item) {
         item.hidden = true;
@@ -868,6 +911,10 @@ class SidePanel {
           } else {
             this.setOn(contextTab, !this.isOn(contextTab));
           }
+        } else if (contextTab && this.tab == contextTab) {
+          this.hide();
+        } else if (contextTab) {
+          this.float(contextTab);
         }
       });
       // Directly under Show Unread Badge (design section 1).
@@ -881,7 +928,7 @@ class SidePanel {
       doc.getElementById("context_whimsyUnreadBadge")?.after(item);
     }
     item.hidden = false;
-    if (this.isOn(tab)) {
+    if (tab.hasAttribute("zen-essential") ? this.isOn(tab) : this.tab == tab) {
       item.setAttribute("checked", "true");
     } else {
       item.removeAttribute("checked");

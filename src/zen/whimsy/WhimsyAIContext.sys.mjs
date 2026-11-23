@@ -537,6 +537,83 @@ export const WhimsyAIContext = {
     };
   },
 
+  /**
+   * W30 scoped chats: the Zen folder `tab` is in (through a split view),
+   * or null.
+   */
+  folderOf(tab) {
+    let group = tab?.group;
+    if (group?.hasAttribute?.("split-view-group")) {
+      group = group.group;
+    }
+    return group?.isZenFolder ? group : null;
+  },
+
+  /**
+   * W30 scoped chats: the web tabs of a space (`kind` "space", `id` its
+   * uuid; Essentials aren't in one) or of a Zen folder and its subfolders
+   * (`kind` "folder", `id` the folder's), in `win`, less what's off
+   * limits, capped like All my tabs. A hidden space's tabs stay off limits
+   * here: only naming it in a message opens it.
+   */
+  scopeTabs(win, kind, id) {
+    const leftOut = emptyLeftOut();
+    let label = "";
+    let found = [];
+    if (kind == "space") {
+      const space = this.spaces(win).find(s => s.uuid == id);
+      label = space?.name ?? "";
+      found = space ? [...(win.gZenWorkspaces?.allStoredTabs ?? win.gBrowser.tabs)]
+        .filter(t => this.spaceOf(t) == id && !t.hasAttribute("zen-essential")) : [];
+    } else if (kind == "folder") {
+      const folder = win?.gBrowser?.tabGroups?.find(g => g.isZenFolder && g.id == id);
+      label = folder?.label ?? "";
+      for (const item of folder?.allItemsRecursive ?? []) {
+        if (item.localName == "tab") {
+          found.push(item);
+        } else if (!item.isZenFolder) {
+          // A split view inside the folder.
+          found.push(...(item.tabs ?? []));
+        }
+      }
+    }
+    const tabs = [];
+    for (const tab of found) {
+      if (!isWebTab(tab)) {
+        continue;
+      }
+      const off = this.isOffLimits(tab);
+      if (off) {
+        leftOut[off]++;
+      } else {
+        tabs.push(tab);
+      }
+    }
+    return { label, tabs: tabs.slice(0, MAX_WIDE_TABS), leftOut };
+  },
+
+  /** What a space or folder chip reads: read when the message is sent. */
+  async forScope(win, desc) {
+    const scope = this.scopeTabs(win, desc.kind, desc.kind == "space" ? desc.spaceId : desc.folderId);
+    const pages = await this.readPages(scope.tabs, desc.id);
+    const label = scope.label || desc.label || "";
+    return {
+      chips: [{
+        id: desc.id,
+        kind: desc.kind,
+        label,
+        icon: desc.kind == "folder" ? "chrome://browser/skin/zen-icons/folder.svg" : "chrome://browser/content/whimsy/icons/tabs-all.svg",
+        counts: { pages: pages.length },
+        sourceId: desc.id,
+      }],
+      parts: pages,
+      leftOut: scope.leftOut,
+      destination: null,
+      // The "Used …" line words it like a group's: "Used Home · 9 tabs".
+      widened: [{ kind: "group", chipId: desc.id, count: pages.length, label }],
+    };
+  },
+
   // Overridable in tests.
   async downloadList() {
     const list = await lazy.Downloads.getList(lazy.Downloads.ALL);
