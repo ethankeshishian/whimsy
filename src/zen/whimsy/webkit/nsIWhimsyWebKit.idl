@@ -59,6 +59,17 @@ interface nsIWhimsyWebKit : nsISupports
 
   void destroyTab(in uint32_t aId);
 
+  // Reads back what the window server actually shows for a rect of aWindow
+  // (CSS pixels, relative to the window's content), so a test can check the
+  // composited colour of a WebKit tab. Returns JSON {r, g, b, a, min, max}:
+  // sRGB channel averages (0-255) plus the lowest and highest channel value
+  // seen. Throws when the window can't be read.
+  AString sampleWindowColor(in mozIDOMWindowProxy aWindow,
+                            in double aX,
+                            in double aY,
+                            in double aWidth,
+                            in double aHeight);
+
   // W30: cookie copy on an engine switch. Both work on the persistent
   // WKWebsiteDataStore named by aDataStoreId (a UUID; anything else, such as
   // "ephemeral", is refused) and only touch cookies whose domain is

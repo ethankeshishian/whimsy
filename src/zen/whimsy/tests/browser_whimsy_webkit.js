@@ -89,6 +89,11 @@ function startLocalTestServer() {
                   "Second Page",
                   "/page1"
                 );
+              } else if (path.startsWith("/solid/")) {
+                // A page that is one flat colour edge to edge (the colour is
+                // the six hex digits after /solid/).
+                const hex = /^\/solid\/([0-9a-f]{6})/i.exec(path)?.[1] || "ffffff";
+                body = `<!doctype html><html><head><meta charset="utf-8"><title>Solid ${hex}</title><meta name="color-scheme" content="light"></head><body style="margin:0;height:100vh;background:#${hex};"></body></html>`;
               } else if (path.startsWith("/popup")) {
                 body = pageHtml("WebKit Popup Page", "Popup Page", "/page1");
               } else {
@@ -851,6 +856,181 @@ add_task(async function test_both_engine_panels_and_contrast_with_screenshots() 
 
   await WhimsyWebKit.hideExtensionsPanel(window);
   BrowserTestUtils.removeTab(tab);
+});
+
+// Owner report (W30): "WebKit pages are dimmer than Firefox." The WKWebView
+// sits below Gecko's view, so anything Gecko paints in the browser's rect (the
+// window's theme gradient, its translucent dark default, grain) lands on top
+// of the page. These read back what the window server really shows and check
+// that a WebKit page looks exactly like the same page in a Firefox tab: white
+// stays white and grey stays grey, in dark and light windows and under a
+// translucent coloured theme, while the chrome around the page is unchanged.
+function sampleWindow(rect) {
+  return JSON.parse(
+    WhimsyWebKit.service.sampleWindowColor(
+      window,
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height
+    )
+  );
+}
+
+function describeSample(s) {
+  return `rgb(${s.r.toFixed(1)}, ${s.g.toFixed(1)}, ${s.b.toFixed(1)}) a=${s.a.toFixed(1)} [${s.min}..${s.max}]`;
+}
+
+// Samples until two reads in a row agree, so the window has finished
+// painting (Gecko's frame and the WKWebView's) before anything is compared.
+async function settledSample(rect, what) {
+  let prev = null;
+  let cur = null;
+  await TestUtils.waitForCondition(() => {
+    cur = sampleWindow(rect);
+    const same =
+      prev &&
+      ["r", "g", "b", "a"].every(k => Math.abs(prev[k] - cur[k]) < 0.5);
+    prev = cur;
+    return same && cur.a >= 254.5;
+  }, `${what} has settled`);
+  info(`${what}: ${describeSample(cur)}`);
+  return cur;
+}
+
+function compositeRegions(browser) {
+  const r = browser.getBoundingClientRect();
+  const { radius } = WhimsyWebKit.measureBrowserRect(window, browser);
+  const inset = Math.ceil(radius) + 4;
+  const regions = {
+    // Thin strips just inside the top and bottom edges catch a hole that is
+    // misplaced vertically, the centre block catches any tint at all.
+    top: { x: r.left + inset, y: r.top + 2, width: r.width - 2 * inset, height: 6 },
+    centre: {
+      x: Math.round(r.left + r.width / 2 - 40),
+      y: Math.round(r.top + r.height / 2 - 40),
+      width: 80,
+      height: 80,
+    },
+    bottom: { x: r.left + inset, y: r.bottom - 8, width: r.width - 2 * inset, height: 6 },
+  };
+  // The gap between the sidebar and the page card: chrome that must look the
+  // same whichever engine the tab uses.
+  const gap = r.left >= 6
+    ? { x: r.left - 4, y: Math.round(r.top + r.height / 2 - 40), width: 2, height: 80 }
+    : null;
+  return { regions, gap };
+}
+
+function assertSameColour(actual, expected, tolerance, what) {
+  const worst = Math.max(
+    ...["r", "g", "b"].map(k => Math.abs(actual[k] - expected[k]))
+  );
+  Assert.lessOrEqual(
+    worst,
+    tolerance,
+    `${what}: ${describeSample(actual)} matches ${describeSample(expected)} (off by ${worst.toFixed(1)})`
+  );
+}
+
+async function setTranslucentTheme(colour) {
+  const bg = document.getElementById("zen-browser-background");
+  const old = {};
+  for (const name of [
+    "--zen-main-browser-background",
+    "--zen-main-browser-background-old",
+  ]) {
+    old[name] = bg.style.getPropertyValue(name);
+    if (colour) {
+      bg.style.setProperty(name, colour);
+    }
+  }
+  return () => {
+    for (const [name, value] of Object.entries(old)) {
+      if (value) {
+        bg.style.setProperty(name, value);
+      } else {
+        bg.style.removeProperty(name);
+      }
+    }
+  };
+}
+
+add_task(async function test_webkit_page_is_not_dimmed() {
+  if (!WhimsyWebKit.available(window)) {
+    return;
+  }
+  for (const { scheme, name } of [
+    { scheme: 0, name: "dark" },
+    { scheme: 1, name: "light" },
+  ]) {
+    await SpecialPowers.pushPrefEnv({
+      set: [["zen.view.window.scheme", scheme]],
+    });
+
+    const tab = await BrowserTestUtils.openNewForegroundTab(
+      gBrowser,
+      gServer.url("/solid/808080")
+    );
+    const browser = tab.linkedBrowser;
+    const { regions, gap } = compositeRegions(browser);
+
+    // The same pages in a Firefox tab are the reference.
+    const ffGrey = await settledSample(regions.centre, `${name}: Firefox grey page`);
+    BrowserTestUtils.startLoadingURIString(browser, gServer.url("/solid/ffffff"));
+    await BrowserTestUtils.browserLoaded(browser);
+    const ffWhite = {};
+    for (const [key, rect] of Object.entries(regions)) {
+      ffWhite[key] = await settledSample(rect, `${name}: Firefox white page, ${key}`);
+      assertSameColour(ffWhite[key], { r: 255, g: 255, b: 255 }, 2,
+        `${name}: a white page in a Firefox tab is white (${key})`);
+    }
+    const ffGap = gap && (await settledSample(gap, `${name}: chrome beside a Firefox tab`));
+
+    await WhimsyWebKit.setTabEngine(tab, "webkit");
+    Assert.ok(WhimsyWebKit.isWebKitTab(tab), `${name}: the tab is a WebKit tab`);
+    for (const [key, rect] of Object.entries(regions)) {
+      const wk = await settledSample(rect, `${name}: WebKit white page, ${key}`);
+      assertSameColour(wk, { r: 255, g: 255, b: 255 }, 2,
+        `${name}: a white page in a WebKit tab composites to white (${key})`);
+    }
+    if (gap) {
+      const wkGap = await settledSample(gap, `${name}: chrome beside a WebKit tab`);
+      assertSameColour(wkGap, ffGap, 2,
+        `${name}: the chrome beside the page looks the same for both engines`);
+    }
+
+    await WhimsyWebKit.loadURLInTab(tab, gServer.url("/solid/808080"));
+    const wkGrey = await settledSample(regions.centre, `${name}: WebKit grey page`);
+    assertSameColour(wkGrey, ffGrey, 3,
+      `${name}: a grey page in a WebKit tab matches the Firefox tab`);
+
+    // A translucent coloured theme (what a space gradient with transparency
+    // gives) must not tint the page either.
+    const restoreTheme = await setTranslucentTheme("rgba(90, 40, 160, 0.55)");
+    try {
+      const tinted = await settledSample(regions.centre, `${name}: WebKit grey page, coloured theme`);
+      assertSameColour(tinted, ffGrey, 3,
+        `${name}: a coloured theme doesn't tint a WebKit page`);
+    } finally {
+      restoreTheme();
+    }
+
+    // Back in Firefox, nothing of the WebKit tab's treatment is left.
+    await WhimsyWebKit.setTabEngine(tab, "firefox");
+    Assert.ok(!WhimsyWebKit.isWebKitTab(tab), `${name}: the tab is back in Firefox`);
+    const backGrey = await settledSample(regions.centre, `${name}: Firefox grey page again`);
+    assertSameColour(backGrey, ffGrey, 2,
+      `${name}: the Firefox tab looks as it did before the switch`);
+    if (gap) {
+      const backGap = await settledSample(gap, `${name}: chrome beside the Firefox tab again`);
+      assertSameColour(backGap, ffGap, 2,
+        `${name}: the chrome beside a Firefox tab is unchanged after the switch`);
+    }
+
+    BrowserTestUtils.removeTab(tab);
+    await SpecialPowers.popPrefEnv();
+  }
 });
 
 add_task(async function test_private_windows_hide_all_webkit_ui() {

@@ -9,6 +9,7 @@
 #include <dlfcn.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -1505,6 +1506,85 @@ nsWhimsyWebKit::AcceptsFirstMouseAt(uint32_t aId, double aX, double aY,
   if (hit && (hit == entry->mWebView || [hit isDescendantOf:entry->mHost])) {
     *aOut = [hit acceptsFirstMouse:nil];
   }
+  return NS_OK;
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
+}
+
+NS_IMETHODIMP
+nsWhimsyWebKit::SampleWindowColor(mozIDOMWindowProxy* aWindow, double aX,
+                                  double aY, double aWidth, double aHeight,
+                                  nsAString& aOut) {
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
+  aOut.Truncate();
+  NSView* childView = ChildViewForWindow(aWindow);
+  NSWindow* window = [childView window];
+  if (!childView || !window || aWidth < 1 || aHeight < 1 ||
+      ![NSScreen screens].count) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  // CGWindowListCreateImage is marked unavailable in newer SDKs but still
+  // reads back the app's own windows without a Screen Recording grant.
+  using CreateImageFn = CGImageRef (*)(CGRect, uint32_t, uint32_t, uint32_t);
+  static CreateImageFn sCreateImage =
+      (CreateImageFn)dlsym(RTLD_DEFAULT, "CGWindowListCreateImage");
+  if (!sCreateImage) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  NSRect inWindow =
+      [childView convertRect:NSMakeRect(aX, aY, aWidth, aHeight) toView:nil];
+  NSRect onScreen = [window convertRectToScreen:inWindow];
+  CGFloat primaryTop = NSMaxY([[NSScreen screens][0] frame]);
+  CGRect cgRect = CGRectMake(onScreen.origin.x, primaryTop - NSMaxY(onScreen),
+                             onScreen.size.width, onScreen.size.height);
+  const uint32_t kIncludingWindow = 1 << 3;    // kCGWindowListOptionIncludingWindow
+  const uint32_t kIgnoreFraming = 1 << 0;      // kCGWindowImageBoundsIgnoreFraming
+  const uint32_t kNominalResolution = 1 << 4;  // kCGWindowImageNominalResolution
+  CGImageRef image =
+      sCreateImage(cgRect, kIncludingWindow, (uint32_t)[window windowNumber],
+                   kIgnoreFraming | kNominalResolution);
+  if (!image) {
+    return NS_ERROR_FAILURE;
+  }
+  size_t w = CGImageGetWidth(image);
+  size_t h = CGImageGetHeight(image);
+  if (!w || !h) {
+    CGImageRelease(image);
+    return NS_ERROR_FAILURE;
+  }
+  std::vector<uint8_t> pixels(w * h * 4, 0);
+  CGColorSpaceRef srgb = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+  CGContextRef ctx = CGBitmapContextCreate(
+      pixels.data(), w, h, 8, w * 4, srgb,
+      kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+  CGColorSpaceRelease(srgb);
+  if (!ctx) {
+    CGImageRelease(image);
+    return NS_ERROR_FAILURE;
+  }
+  CGContextDrawImage(ctx, CGRectMake(0, 0, w, h), image);
+  CGContextRelease(ctx);
+  CGImageRelease(image);
+
+  double sum[4] = {0, 0, 0, 0};
+  int lo = 255;
+  int hi = 0;
+  for (size_t i = 0; i < w * h; i++) {
+    const uint8_t* px = &pixels[i * 4];
+    double a = px[3];
+    sum[3] += a;
+    for (int c = 0; c < 3; c++) {
+      int v = a > 0 ? (int)std::lround(std::min(255.0, px[c] * 255.0 / a)) : 0;
+      sum[c] += v;
+      lo = std::min(lo, v);
+      hi = std::max(hi, v);
+    }
+  }
+  double n = (double)(w * h);
+  NSString* json = [NSString
+      stringWithFormat:@"{\"r\":%.2f,\"g\":%.2f,\"b\":%.2f,\"a\":%.2f,"
+                       @"\"min\":%d,\"max\":%d}",
+                       sum[0] / n, sum[1] / n, sum[2] / n, sum[3] / n, lo, hi];
+  nsCocoaUtils::GetStringForNSString(json, aOut);
   return NS_OK;
   NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
 }
