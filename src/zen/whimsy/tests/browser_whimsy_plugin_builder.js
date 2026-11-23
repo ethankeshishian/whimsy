@@ -123,8 +123,12 @@ async function ln(target, link) {
   is(await proc.wait().then(r => r.exitCode), 0, `ln -s ${link}`);
 }
 
-async function closeAddonsTabs() {
-  for (const tab of [...gBrowser.tabs].filter(t => t.linkedBrowser?.currentURI?.spec?.startsWith("about:addons"))) {
+// Firefox opens Add-ons in the selected tab when that tab is empty
+// (switchToTabHavingURI), so from the test's about:blank tab the prompt
+// loads into the chat's own tab, and the chat stays with it. `keep` is that
+// tab: closing it would close the chat thread under test.
+async function closeAddonsTabs(keep = null) {
+  for (const tab of [...gBrowser.tabs].filter(t => t != keep && t.linkedBrowser?.currentURI?.spec?.startsWith("about:addons"))) {
     await BrowserTestUtils.removeTab(tab);
   }
 }
@@ -347,14 +351,14 @@ async function writesAPluginThatStaysOff(tab) {
   ok(strings.msgs.some(text => text.includes("youtube.com")), "The prompt lists what it can do");
   ok((await AddonManager.getAddonByID(id)).userDisabled, "Don’t Run keeps it off");
   ok(!WebExtensionPolicy.getByID(id), "nothing runs");
-  await closeAddonsTabs();
+  await closeAddonsTabs(tab);
   await backTo(tab);
 
   // Run: it runs, and the card says so.
   await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-chat-pill-btn.primary"), "The card is back");
   strings = await reviewAndRun(true);
   await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, "Run starts the plugin");
-  await closeAddonsTabs();
+  await closeAddonsTabs(tab);
   await backTo(tab);
   await TestUtils.waitForCondition(() => card()?.querySelector(".whimsy-chat-report-detail")?.textContent == "Local plugin · running", "Local plugin · running");
   ok(!card().querySelector(".whimsy-chat-pill-btn"), "with nothing left to review");
