@@ -762,7 +762,7 @@ function fillPluginCard(doc, win, card, { name, running, permissions, files }) {
       )
     ),
     permissions.length ? h(doc, "div", { class: "whimsy-chat-plugin-can", l10n: "whimsy-local-plugins-can" }) : null,
-    permissions.length ? h(doc, "ul", { class: "whimsy-chat-plugin-permissions" }, permissions.map(text => h(doc, "li", {}, text))) : null,
+    permissions.length ? h(doc, "ul", { class: "whimsy-chat-plugin-permissions" }, permissions.map(permissionItem.bind(null, doc))) : null,
     h(doc, "button", {
       class: "whimsy-chat-disclosure",
       "aria-expanded": String(open),
@@ -791,6 +791,12 @@ function fillPluginCard(doc, win, card, { name, running, permissions, files }) {
   if (card.isConnected) {
     doc.l10n.translateFragment(card);
   }
+}
+
+// One "It can:" line; "sites in N domains" lists them, as the Run prompt does.
+function permissionItem(doc, entry) {
+  const { text, domains } = typeof entry == "string" ? { text: entry } : entry ?? {};
+  return h(doc, "li", {}, h(doc, "span", {}, text ?? ""), domains?.length ? h(doc, "ul", { class: "whimsy-chat-plugin-domains" }, domains.map(d => h(doc, "li", {}, d))) : null);
 }
 
 function renderSaved(doc, msg, ctx) {

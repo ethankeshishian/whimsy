@@ -113,7 +113,7 @@ async function inNewTab(task) {
     if (chat().isOpen) {
       chat().close({ reason: "key" });
     }
-    await closeAddonsTabs();
+    await closeAddonsTabs(tab);
     BrowserTestUtils.removeTab(tab);
   }
 }
@@ -325,9 +325,9 @@ async function writesAPluginThatStaysOff(tab) {
   is(el().querySelectorAll(".whimsy-chat-plugin").length, 1, "one card");
   await TestUtils.waitForCondition(() => card().querySelector(".whimsy-chat-report-detail").textContent == "Local plugin · not running yet", "not running yet");
   is(card().querySelector(".whimsy-chat-plugin-can").textContent, "It can:", "It can: as in the prompt");
-  const permissions = [...card().querySelectorAll(".whimsy-chat-plugin-permissions li")].map(li => li.textContent);
+  const permissions = [...card().querySelectorAll(".whimsy-chat-plugin-permissions > li")].map(li => li.textContent);
   ok(permissions.some(text => text.includes("youtube.com")), "Firefox's permission wording names the site");
-  Assert.deepEqual(permissions, WhimsyLocalPlugins.permissions(addon), "the same descriptions the Run prompt uses");
+  Assert.deepEqual(permissions, WhimsyLocalPlugins.permissions(addon).map(p => p.text), "the same descriptions the Run prompt uses");
   is(card().querySelectorAll("button:not(.whimsy-chat-plugin-files button)").length, 2, "Two controls: the files row and one button");
 
   const disclosure = card().querySelector(".whimsy-chat-disclosure");
@@ -375,9 +375,13 @@ async function writesAPluginThatStaysOff(tab) {
   ok(changed.userDisabled && !changed.seen, "and waits for approval again");
   is(el().querySelectorAll(".whimsy-chat-plugin").length, 1, "Still one card");
   await TestUtils.waitForCondition(() => card().querySelector(".whimsy-chat-report-detail")?.textContent == "Local plugin · not running yet", "It shows the plugin is off");
-  await TestUtils.waitForCondition(() => [...card().querySelectorAll(".whimsy-chat-plugin-permissions li")].some(li => li.textContent.includes("example.com")), "and what it can do now");
+  // Two sites: Firefox says "sites in 2 domains" and lists them under it,
+  // in the prompt and on the card alike.
+  const domains = () => [...(card().querySelector(".whimsy-chat-plugin-domains")?.querySelectorAll("li") ?? [])].map(li => li.textContent);
+  await TestUtils.waitForCondition(() => domains().includes("example.com"), "and what it can do now");
+  Assert.deepEqual(domains(), WhimsyLocalPlugins.permissions(changed).find(p => p.domains)?.domains, "the domains the Run prompt lists");
   strings = await reviewAndRun(true);
-  ok(strings.msgs.some(text => text.includes("example.com")), "The prompt asks about the new site");
+  ok(strings.fullDomainsList?.domainsSet?.has("example.com"), "The prompt asks about the new site");
   await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, "Run starts it again");
 }
 
