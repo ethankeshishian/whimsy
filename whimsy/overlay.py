@@ -2471,6 +2471,12 @@ FEATURES = [
     {"id": "svg-save", "help_name": "Save SVG as Image",
      "title": "Save SVG as image: Save Image As on an SVG image or an inline SVG saves it as SVG, PNG, or JPG, on a clear, white, or page-coloured background, at the size you pick",
      "detect": [("src/zen", r"(?i)zen[-_.]?(save[-_.]?svg|svg[-_.]?save)")]},
+    # W30 drm-webkit: a page asking for Widevine (which Whimsy can't play:
+    # no VMP signature) switches its tab to WebKit, which plays it with
+    # FairPlay. Needs webkit-tabs.
+    {"id": "webkit-drm", "help_name": "WebKit for Protected Video", "section": "Media",
+     "title": "WebKit for protected video: a site that asks for Widevine switches its tab to WebKit, which plays it with FairPlay, and keeps you signed in",
+     "detect": [("src/zen", r"(?i)zen[-_.]?(drm|widevine)[-_.]?(webkit|switch)")]},
 ]
 
 # W29/help: whimsy://help (WhimsyHelp.sys.mjs) reads one sentence and one

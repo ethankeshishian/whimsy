@@ -9209,3 +9209,7 @@ whimsy-webkit-always-use-tooltip =
 whimsy-webkit-engine-note = Some Whimsy features don’t work in WebKit tabs, like extensions, Dark Pages, and annotations.
 whimsy-webkit-protections-off = Off in WebKit
 whimsy-webkit-other-sites-firefox = Every other site uses Firefox.
+
+# W30 drm-webkit: the toast when a site asking for Widevine switched its tab
+# to WebKit (WhimsyWebKitDRM.sys.mjs).
+whimsy-webkit-drm-toast = Switched to WebKit for this site
