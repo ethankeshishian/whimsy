@@ -46,6 +46,15 @@ function loaded(tab, url) {
   return BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, url);
 }
 
+// Back and forward may come out of the back-forward cache, which fires no
+// load event, so these wait for the address and for the tab to settle.
+function settledAt(tab, url, message) {
+  return TestUtils.waitForCondition(
+    () => tab.linkedBrowser.currentURI.spec == url && !tab.hasAttribute("busy"),
+    message
+  );
+}
+
 add_task(async function test_windows_never_private() {
   ok(json(service.windows()).includes(winId), "This window is listed");
   const record = json(service.window(winId));
@@ -55,6 +64,7 @@ add_task(async function test_windows_never_private() {
 
   const privateWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
   const privateId = String(privateWin.docShell.outerWindowID);
+  const privateTabs = privateWin.gBrowser.tabs.length;
   try {
     ok(!json(service.windows()).includes(privateId), "A private window isn't listed");
     for (const [name, fn] of [
@@ -68,7 +78,7 @@ add_task(async function test_windows_never_private() {
       throwsResult(fn, Cr.NS_ERROR_INVALID_ARG, `A private window: ${name} refused`);
     }
     ok(!privateWin.closed, "It stayed open");
-    is(privateWin.gBrowser.tabs.length, 1, "And got no tab");
+    is(privateWin.gBrowser.tabs.length, privateTabs, "And got no tab");
   } finally {
     await BrowserTestUtils.closeWindow(privateWin);
   }
@@ -76,6 +86,8 @@ add_task(async function test_windows_never_private() {
 
 add_task(async function test_tabs_never_private() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
+  // The load event can come before the tab stops being busy.
+  await settledAt(tab, PAGE, "The tab finished loading");
   const id = selectedId();
   ok(json(service.tabs(winId, "")).includes(id), "The tab is listed");
   const record = json(service.tab(id));
@@ -106,7 +118,9 @@ add_task(async function test_tabs_never_private() {
 
 add_task(async function test_spaces_scratch_hidden_and_locked() {
   const home = gZenWorkspaces.activeWorkspace;
-  const space = await gZenWorkspaces.createAndSaveWorkspace("Scripting test space");
+  // Made without switching to it: the user stays in their space.
+  const space = await gZenWorkspaces.createAndSaveWorkspace("Scripting test space", undefined, true);
+  is(gZenWorkspaces.activeWorkspace, home, "Still in the home space");
   try {
     const listed = json(service.spaces(winId)).find(s => s.id == space.uuid);
     is(listed?.name, "Scripting test space", "The space is listed with its name");
@@ -167,75 +181,93 @@ add_task(async function test_spaces_scratch_hidden_and_locked() {
 add_task(async function test_commands() {
   const id = service.makeTab(winId, "", PAGE);
   const tab = gBrowser.selectedTab;
-  is(selectedId(), id, "make tab selects the new tab in the active space");
-  await loaded(tab, PAGE);
+  let newWin = null;
+  try {
+    is(selectedId(), id, "make tab selects the new tab in the active space");
+    await settledAt(tab, PAGE, "make tab loads its URL");
 
-  service.setURL(id, OTHER);
-  await loaded(tab, OTHER);
-  is(json(service.tab(id)).url, OTHER, "set URL loads it");
+    service.setURL(id, OTHER);
+    await settledAt(tab, OTHER, "set URL loads it");
+    is(json(service.tab(id)).url, OTHER, "set URL: the tab reports the new URL");
 
-  service.goBack(id);
-  await loaded(tab, PAGE);
-  ok(true, "go back");
-  service.goForward(id);
-  await loaded(tab, OTHER);
-  ok(true, "go forward");
+    service.goBack(id);
+    await settledAt(tab, PAGE, "go back");
+    service.goForward(id);
+    await settledAt(tab, OTHER, "go forward");
 
-  const reloaded = loaded(tab, OTHER);
-  service.reload(id);
-  await reloaded;
-  ok(true, "reload");
+    const reloaded = loaded(tab, OTHER);
+    service.reload(id);
+    await reloaded;
+    ok(true, "reload");
 
-  const ids = json(service.tabs(winId, ""));
-  gBrowser.selectedTab = gBrowser.tabs.find(t => t != tab && !t.hasAttribute("zen-empty-tab")) ?? gBrowser.selectedTab;
-  service.setActiveTabIndex(winId, ids.indexOf(id) + 1);
-  is(gBrowser.selectedTab, tab, "active tab index selects by position");
-  throwsResult(() => service.setActiveTabIndex(winId, 0), Cr.NS_ERROR_INVALID_ARG, "Index 0 refused");
-  throwsResult(() => service.setActiveTabIndex(winId, ids.length + 1), Cr.NS_ERROR_INVALID_ARG, "Past the end refused");
+    const ids = json(service.tabs(winId, ""));
+    gBrowser.selectedTab = gBrowser.tabs.find(t => t != tab && !t.hasAttribute("zen-empty-tab")) ?? gBrowser.selectedTab;
+    service.setActiveTabIndex(winId, ids.indexOf(id) + 1);
+    is(gBrowser.selectedTab, tab, "active tab index selects by position");
+    throwsResult(() => service.setActiveTabIndex(winId, 0), Cr.NS_ERROR_INVALID_ARG, "Index 0 refused");
+    throwsResult(() => service.setActiveTabIndex(winId, ids.length + 1), Cr.NS_ERROR_INVALID_ARG, "Past the end refused");
 
-  const blankId = service.makeTab(winId, "", "");
-  is(gBrowser.selectedTab.linkedBrowser.currentURI.spec, "about:blank", "make tab without a URL is about:blank");
-  service.closeTab(blankId);
+    const blankId = service.makeTab(winId, "", "");
+    const blank = gBrowser.selectedTab;
+    is(blank.linkedBrowser.currentURI.spec, "about:blank", "make tab without a URL is about:blank");
+    service.closeTab(blankId);
+    await TestUtils.waitForCondition(() => !blank.isConnected, "close closes the blank tab");
 
-  service.closeTab(id);
-  await TestUtils.waitForCondition(() => !tab.isConnected, "close closes the tab");
-  throwsResult(() => service.tab(id), Cr.NS_ERROR_INVALID_ARG, "And it's gone");
+    service.closeTab(id);
+    await TestUtils.waitForCondition(() => !tab.isConnected, "close closes the tab");
+    throwsResult(() => service.tab(id), Cr.NS_ERROR_INVALID_ARG, "And it's gone");
 
-  const newId = await new Promise((resolve, reject) =>
-    service.makeWindow(PAGE, { onWindow: resolve, onError: reject })
-  );
-  ok(json(service.windows()).includes(newId), "make window answers with the new window, already listed");
-  const newWin = [...Services.wm.getEnumerator("navigator:browser")].find(w => String(w.docShell.outerWindowID) == newId);
-  ok(newWin && !PrivateBrowsingUtils.isWindowPrivate(newWin), "A normal window");
-  await TestUtils.waitForCondition(() => newWin.gBrowser.selectedBrowser.currentURI.spec == PAGE, "With the URL");
-  service.closeWindow(newId);
-  await TestUtils.waitForCondition(() => newWin.closed, "close closes the window");
+    const newId = await new Promise((resolve, reject) =>
+      service.makeWindow(PAGE, { onWindow: resolve, onError: reject })
+    );
+    newWin = [...Services.wm.getEnumerator("navigator:browser")].find(w => String(w.docShell.outerWindowID) == newId);
+    ok(json(service.windows()).includes(newId), "make window answers with the new window, already listed");
+    ok(newWin && newWin != window && !PrivateBrowsingUtils.isWindowPrivate(newWin), "A new normal window");
+    await TestUtils.waitForCondition(() => newWin.gBrowser.selectedBrowser.currentURI.spec == PAGE, "With the URL");
+    service.closeWindow(newId);
+    await TestUtils.waitForCondition(() => newWin.closed, "close closes the window");
+    ok(!window.closed, "The test's own window stayed open");
+  } finally {
+    if (tab.isConnected) {
+      BrowserTestUtils.removeTab(tab);
+    }
+    if (newWin && !newWin.closed) {
+      await BrowserTestUtils.closeWindow(newWin);
+    }
+  }
 });
 
 add_task(async function test_addresses_refused() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
-  const id = selectedId();
-  const count = gBrowser.tabs.length;
-  const windows = json(service.windows()).length;
-  for (const bad of [
-    "javascript:alert(1)",
-    "file:///etc/passwd",
-    "data:text/html,hi",
-    "about:config",
-    "about:blank#x",
-    "chrome://browser/content/browser.xhtml",
-    "view-source:https://example.com/",
-    "https://user:pw@example.com/",
-    "not a url",
-  ]) {
-    throwsResult(() => service.makeTab(winId, "", bad), Cr.NS_ERROR_MALFORMED_URI, `make tab refuses ${bad}`);
-    throwsResult(() => service.setURL(id, bad), Cr.NS_ERROR_MALFORMED_URI, `set URL refuses ${bad}`);
-    throwsResult(() => service.makeWindow(bad, { onWindow() {}, onError() {} }), Cr.NS_ERROR_MALFORMED_URI, `make window refuses ${bad}`);
+  try {
+    const id = selectedId();
+    const count = gBrowser.tabs.length;
+    const windows = json(service.windows()).length;
+    for (const bad of [
+      "javascript:alert(1)",
+      "file:///etc/passwd",
+      "data:text/html,hi",
+      "about:config",
+      "about:blank#x",
+      "chrome://browser/content/browser.xhtml",
+      "view-source:https://example.com/",
+      "https://user:pw@example.com/",
+      "not a url",
+    ]) {
+      throwsResult(() => service.makeTab(winId, "", bad), Cr.NS_ERROR_MALFORMED_URI, `make tab refuses ${bad}`);
+      throwsResult(() => service.setURL(id, bad), Cr.NS_ERROR_MALFORMED_URI, `set URL refuses ${bad}`);
+      throwsResult(
+        () => service.makeWindow(bad, { onWindow() {}, onError() {} }),
+        Cr.NS_ERROR_MALFORMED_URI,
+        `make window refuses ${bad}`
+      );
+    }
+    is(gBrowser.tabs.length, count, "No tab was made");
+    is(json(service.windows()).length, windows, "No window was made");
+    is(tab.linkedBrowser.currentURI.spec, PAGE, "The tab didn't navigate");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
   }
-  is(gBrowser.tabs.length, count, "No tab was made");
-  is(json(service.windows()).length, windows, "No window was made");
-  is(tab.linkedBrowser.currentURI.spec, PAGE, "The tab didn't navigate");
-  BrowserTestUtils.removeTab(tab);
 });
 
 add_task(async function test_switch_off() {
