@@ -170,8 +170,14 @@ addPanelTask(async function essentials_unchanged() {
 addPanelTask(async function closing_the_window_keeps_it() {
   const win = await BrowserTestUtils.openNewBrowserWindow();
   try {
+    // Until Zen's startup finishes, its window sync ignores new tabs (no sync
+    // id, no copy in other windows) and Whimsy hasn't set the window up, so
+    // a panel made here first would never get its listeners.
+    await win.gZenStartup.promiseInitialized;
     const panel = WhimsySidePanel.forWindow(win);
     const maps = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "https://example.org/?maps-window");
+    // Zen's window sync names the tab (its id in every window) from a queue.
+    await TestUtils.waitForCondition(() => maps.id, "Window sync gives the tab its id");
     const page = await BrowserTestUtils.openNewForegroundTab(win.gBrowser, "https://example.net/?page-window");
     await TabStateFlusher.flush(maps.linkedBrowser);
     const saved = () => SessionStore.getWindowState(win).windows[0].tabs.map(t => t.entries.at(-1)?.url);
