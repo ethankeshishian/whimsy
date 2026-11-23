@@ -285,11 +285,16 @@ export const WhimsyScripting = {
     tab.documentGlobal.gBrowser.reloadTab(tab);
   },
 
+  // One step through the tab's history. The toolbar's Back skips pages
+  // nobody clicked or typed in (browser.navigation.requireUserInteraction),
+  // and a page a script loaded never has that, so with the toolbar's rule
+  // "go back" after "set URL" would do nothing. A script's command is the
+  // user's, so it steps one entry, like history.back().
   goBack(id) {
     this.check();
     const browser = this.findTab(id).linkedBrowser;
-    if (browser?.canGoBack) {
-      browser.goBack();
+    if (browser?.canGoBackIgnoringUserInteraction) {
+      browser.goBack(false);
     }
   },
 
@@ -297,7 +302,7 @@ export const WhimsyScripting = {
     this.check();
     const browser = this.findTab(id).linkedBrowser;
     if (browser?.canGoForward) {
-      browser.goForward();
+      browser.goForward(false);
     }
   },
 

@@ -185,15 +185,23 @@ add_task(async function test_commands() {
   try {
     is(selectedId(), id, "make tab selects the new tab in the active space");
     await settledAt(tab, PAGE, "make tab loads its URL");
+    const history = () => tab.linkedBrowser.browsingContext.sessionHistory;
+    const first = history().index;
 
     service.setURL(id, OTHER);
     await settledAt(tab, OTHER, "set URL loads it");
     is(json(service.tab(id)).url, OTHER, "set URL: the tab reports the new URL");
 
+    // Nobody interacts with either page, so this is the case the toolbar's
+    // Back skips; the script's command still steps back. The parent's
+    // history can trail the address by a moment, so wait for its entry.
+    await TestUtils.waitForCondition(() => history()?.index == first + 1, "set URL adds a history entry");
     service.goBack(id);
     await settledAt(tab, PAGE, "go back");
+    await TestUtils.waitForCondition(() => history()?.index == first, "go back steps one entry");
     service.goForward(id);
     await settledAt(tab, OTHER, "go forward");
+    await TestUtils.waitForCondition(() => history()?.index == first + 1, "go forward steps one entry");
 
     const reloaded = loaded(tab, OTHER);
     service.reload(id);
