@@ -496,11 +496,6 @@
 .whimsy-chat-plugin-permissions {
   padding-inline-start: 18px;
 }
-.whimsy-chat-plugin-domains {
-  margin: 2px 0 0;
-  padding-inline-start: 16px;
-  list-style: circle;
-}
 .whimsy-chat-plugin-files {
   padding: 0 0 0 16px;
   list-style: none;

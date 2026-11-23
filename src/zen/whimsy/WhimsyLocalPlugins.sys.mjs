@@ -385,17 +385,10 @@ export const WhimsyLocalPlugins = {
     return addon.getResourceURI("manifest.json")?.spec == manifest ? addon : null;
   },
 
-  /**
-   * Firefox's own permission descriptions, exactly as the Run prompt words
-   * them: [{ text, domains? }]. With two or more sites the prompt says
-   * "Access your data for sites in N domains" and lists the domains under
-   * it (fullDomainsList); `domains` is that list, so the card names them too.
-   */
+  /** Firefox's own permission descriptions, exactly as the Run prompt words them. */
   permissions(addon) {
     try {
-      const strings = lazy.ExtensionsUI._buildStrings({ addon, permissions: addon.installPermissions, type: "sideload" });
-      const full = strings.fullDomainsList;
-      return (strings.msgs ?? []).map((text, i) => (full?.domainsSet?.size && full.msgIdIndex === i ? { text, domains: [...full.domainsSet] } : { text }));
+      return lazy.ExtensionsUI._buildStrings({ addon, permissions: addon.installPermissions, type: "sideload" }).msgs ?? [];
     } catch (e) {
       console.error("Whimsy: no permission descriptions for a plugin", e);
       return [];

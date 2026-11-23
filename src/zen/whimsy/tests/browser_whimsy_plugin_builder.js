@@ -325,9 +325,10 @@ async function writesAPluginThatStaysOff(tab) {
   is(el().querySelectorAll(".whimsy-chat-plugin").length, 1, "one card");
   await TestUtils.waitForCondition(() => card().querySelector(".whimsy-chat-report-detail").textContent == "Local plugin · not running yet", "not running yet");
   is(card().querySelector(".whimsy-chat-plugin-can").textContent, "It can:", "It can: as in the prompt");
-  const permissions = [...card().querySelectorAll(".whimsy-chat-plugin-permissions > li")].map(li => li.textContent);
+  const cardLines = () => [...card().querySelectorAll(".whimsy-chat-plugin-permissions li")].map(li => li.textContent);
+  const permissions = cardLines();
   ok(permissions.some(text => text.includes("youtube.com")), "Firefox's permission wording names the site");
-  Assert.deepEqual(permissions, WhimsyLocalPlugins.permissions(addon).map(p => p.text), "the same descriptions the Run prompt uses");
+  Assert.deepEqual(permissions, WhimsyLocalPlugins.permissions(addon), "the same descriptions the Run prompt uses");
   is(card().querySelectorAll("button:not(.whimsy-chat-plugin-files button)").length, 2, "Two controls: the files row and one button");
 
   const disclosure = card().querySelector(".whimsy-chat-disclosure");
@@ -375,11 +376,14 @@ async function writesAPluginThatStaysOff(tab) {
   ok(changed.userDisabled && !changed.seen, "and waits for approval again");
   is(el().querySelectorAll(".whimsy-chat-plugin").length, 1, "Still one card");
   await TestUtils.waitForCondition(() => card().querySelector(".whimsy-chat-report-detail")?.textContent == "Local plugin · not running yet", "It shows the plugin is off");
-  // Two sites: Firefox says "sites in 2 domains" and lists them under it,
-  // in the prompt and on the card alike.
-  const domains = () => [...(card().querySelector(".whimsy-chat-plugin-domains")?.querySelectorAll("li") ?? [])].map(li => li.textContent);
-  await TestUtils.waitForCondition(() => domains().includes("example.com"), "and what it can do now");
-  Assert.deepEqual(domains(), WhimsyLocalPlugins.permissions(changed).find(p => p.domains)?.domains, "the domains the Run prompt lists");
+  // Two sites: Firefox's wording becomes "sites in 2 domains" (its prompt
+  // lists the domains separately, in fullDomainsList), and the card follows.
+  const now = WhimsyLocalPlugins.permissions(changed);
+  // (Fluent may wrap the number in bidi isolation marks.)
+  ok(now.some(text => /^Access your data for sites in \u2068?2\u2069? domains$/.test(text)), "Firefox words two sites as 2 domains");
+  ok(!now.some(text => text.includes("youtube.com")), "instead of naming the one site");
+  await TestUtils.waitForCondition(() => JSON.stringify(cardLines()) == JSON.stringify(now), "and the card shows what it can do now");
+  Assert.notDeepEqual(cardLines(), permissions, "which changed with the rewrite");
   strings = await reviewAndRun(true);
   ok(strings.fullDomainsList?.domainsSet?.has("example.com"), "The prompt asks about the new site");
   await TestUtils.waitForCondition(() => WebExtensionPolicy.getByID(id)?.active, "Run starts it again");
