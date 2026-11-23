@@ -246,7 +246,10 @@ export const WhimsyScripting = {
   },
 
   // The checks throw straight away; the window's id comes once it has
-  // started.
+  // started, Zen's startup (spaces and window sync) included. Before then
+  // the window is only half there: closing it then (a script's `make`
+  // then `close`) broke window sync's hand-over of its tab and left a
+  // blank tab in the other window that never finished closing.
   makeWindow(url) {
     this.check();
     let args = null;
@@ -254,7 +257,10 @@ export const WhimsyScripting = {
       args = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
       args.data = this.address(url);
     }
-    return lazy.BrowserWindowTracker.promiseOpenWindow({ private: false, args }).then(windowId);
+    return lazy.BrowserWindowTracker.promiseOpenWindow({ private: false, args }).then(async win => {
+      await win.gZenStartup?.promiseInitialized;
+      return windowId(win);
+    });
   },
 
   closeWindow(id) {

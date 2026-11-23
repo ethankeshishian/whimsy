@@ -91,7 +91,8 @@ add_task(async function test_osascript_drives_whimsy() {
   is(probe.exitCode, 0, `count of windows ran: ${probe.stderr}`);
   is(Number(probe.stdout), WhimsyScripting.windows().length, "It counts the windows a script can see");
 
-  const count = gBrowser.tabs.length;
+  // The tabs a script sees: Zen's empty tab isn't one of them.
+  const count = WhimsyScripting.tabsOf(window).length;
   let tab = null;
   try {
     const made = await osascript([
@@ -103,8 +104,8 @@ add_task(async function test_osascript_drives_whimsy() {
     const [id, mode] = made.stdout.split("|");
     ok(id, "It answered with the tab's id");
     is(mode, "normal", "mode");
-    is(gBrowser.tabs.length, count + 1, "A tab was made");
-    tab = WhimsyScripting.findTab(id);
+    is(WhimsyScripting.tabsOf(window).length, count + 1, "A tab was made");
+    tab = id ? WhimsyScripting.findTab(id) : null;
     is(tab, gBrowser.selectedTab, "And selected");
     // The page may have finished loading while osascript was answering.
     await TestUtils.waitForCondition(

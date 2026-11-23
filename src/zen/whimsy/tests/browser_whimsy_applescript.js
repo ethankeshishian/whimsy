@@ -55,7 +55,24 @@ function settledAt(tab, url, message) {
   );
 }
 
-add_task(async function test_windows_never_private() {
+function describeTab(tab) {
+  const flags = ["zen-empty-tab", "zen-essential", "pinned", "hidden", "pending", "busy"].filter(a => tab.hasAttribute(a));
+  return `${tab.linkedBrowser?.currentURI?.spec} space=${tab.getAttribute("zen-workspace-id")} ${flags.join(",")}`;
+}
+
+// Each task leaves the window's tabs as it found them.
+function add_tab_task(fn) {
+  add_task(async function () {
+    const before = new Set(gBrowser.tabs);
+    info(`${fn.name} starts with: ${[...before].map(describeTab).join(" | ")}`);
+    await fn();
+    const left = gBrowser.tabs.filter(tab => !before.has(tab) && !tab.closing);
+    info(`${fn.name} ends with: ${gBrowser.tabs.map(describeTab).join(" | ")}`);
+    Assert.deepEqual(left.map(describeTab), [], `${fn.name} left no tab behind`);
+  });
+}
+
+add_tab_task(async function test_windows_never_private() {
   ok(json(service.windows()).includes(winId), "This window is listed");
   const record = json(service.window(winId));
   is(record.mode, "normal", "Normal mode");
@@ -84,7 +101,7 @@ add_task(async function test_windows_never_private() {
   }
 });
 
-add_task(async function test_tabs_never_private() {
+add_tab_task(async function test_tabs_never_private() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   // The load event can come before the tab stops being busy.
   await settledAt(tab, PAGE, "The tab finished loading");
@@ -116,7 +133,7 @@ add_task(async function test_tabs_never_private() {
   }
 });
 
-add_task(async function test_spaces_scratch_hidden_and_locked() {
+add_tab_task(async function test_spaces_scratch_hidden_and_locked() {
   const home = gZenWorkspaces.activeWorkspace;
   // Made without switching to it: the user stays in their space.
   const space = await gZenWorkspaces.createAndSaveWorkspace("Scripting test space", undefined, true);
@@ -178,10 +195,11 @@ add_task(async function test_spaces_scratch_hidden_and_locked() {
   }
 });
 
-add_task(async function test_commands() {
+add_tab_task(async function test_commands() {
   const id = service.makeTab(winId, "", PAGE);
   const tab = gBrowser.selectedTab;
   let newWin = null;
+  let copy = null;
   try {
     is(selectedId(), id, "make tab selects the new tab in the active space");
     await settledAt(tab, PAGE, "make tab loads its URL");
@@ -232,12 +250,29 @@ add_task(async function test_commands() {
     ok(json(service.windows()).includes(newId), "make window answers with the new window, already listed");
     ok(newWin && newWin != window && !PrivateBrowsingUtils.isWindowPrivate(newWin), "A new normal window");
     await TestUtils.waitForCondition(() => newWin.gBrowser.selectedBrowser.currentURI.spec == PAGE, "With the URL");
+    // Zen's window sync keeps a copy of the new window's tab in this one,
+    // and closing the window hands its page to that copy, so the tab isn't
+    // lost. The copy is this test's to close.
+    const synced = Services.prefs.getBoolPref("zen.window-sync.enabled", false);
+    const newTab = newWin.gBrowser.selectedTab;
+    if (synced) {
+      await TestUtils.waitForCondition(() => document.getElementById(newTab.id), "Window sync copies its tab here");
+      copy = document.getElementById(newTab.id);
+    }
     service.closeWindow(newId);
     await TestUtils.waitForCondition(() => newWin.closed, "close closes the window");
     ok(!window.closed, "The test's own window stayed open");
+    if (copy) {
+      await TestUtils.waitForCondition(
+        () => copy.linkedBrowser?.currentURI.spec == PAGE,
+        "Closing it hands its page to the copy here"
+      );
+    }
   } finally {
-    if (tab.isConnected) {
-      BrowserTestUtils.removeTab(tab);
+    for (const leftover of [tab, copy]) {
+      if (leftover?.isConnected) {
+        await BrowserTestUtils.removeTab(leftover);
+      }
     }
     if (newWin && !newWin.closed) {
       await BrowserTestUtils.closeWindow(newWin);
@@ -245,7 +280,7 @@ add_task(async function test_commands() {
   }
 });
 
-add_task(async function test_addresses_refused() {
+add_tab_task(async function test_addresses_refused() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   try {
     const id = selectedId();
@@ -278,7 +313,7 @@ add_task(async function test_addresses_refused() {
   }
 });
 
-add_task(async function test_switch_off() {
+add_tab_task(async function test_switch_off() {
   const id = selectedId();
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.applescript", false]] });
   try {

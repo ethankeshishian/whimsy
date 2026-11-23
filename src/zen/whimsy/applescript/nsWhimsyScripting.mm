@@ -106,6 +106,15 @@ void Do(Call&& aCall) {
   }
 }
 
+// The dictionary's description of a class, for object specifiers. Not
+// [object classDescription]: NSApp is GeckoNSApplication, which isn't named
+// in Whimsy.sdef, and NSObject's version doesn't look at superclasses, so
+// every specifier came back with no class and the script failed with
+// "Can't make «class    » id ... into type specifier" (-1700).
+NSScriptClassDescription* ClassDescription(Class aClass) {
+  return [NSScriptClassDescription classDescriptionForClass:aClass];
+}
+
 id Field(NSDictionary* aRecord, NSString* aKey) {
   id value = [aRecord isKindOfClass:[NSDictionary class]] ? aRecord[aKey] : nil;
   return value == [NSNull null] ? nil : value;
@@ -192,7 +201,7 @@ static NSArray* TabsOf(NSString* aWindowID, NSString* aSpaceID) {
 
 - (NSScriptObjectSpecifier*)objectSpecifier {
   return [[[NSUniqueIDSpecifier alloc]
-      initWithContainerClassDescription:(NSScriptClassDescription*)[NSApp classDescription]
+      initWithContainerClassDescription:ClassDescription([NSApplication class])
                      containerSpecifier:nil
                                     key:@"appleScriptWindows"
                                uniqueID:mID] autorelease];
@@ -243,6 +252,13 @@ static NSArray* TabsOf(NSString* aWindowID, NSString* aSpaceID) {
 // New tabs go where Whimsy puts them in the space; the index isn't kept.
 - (void)insertObject:(WhimsyScriptTab*)aTab inTabsAtIndex:(NSUInteger)aIndex {
   InsertTab(aTab, mID, @"");
+}
+
+// Key-value coding only treats `tabs` as an insertable list when it can
+// also remove from it; without this, `make new tab` failed before
+// inserting. Scripts close tabs with `close`, never by removing them.
+- (void)removeObjectFromTabsAtIndex:(NSUInteger)aIndex {
+  Fail(NS_ERROR_FAILURE);
 }
 
 - (NSArray*)spaces {
@@ -308,7 +324,7 @@ static NSArray* TabsOf(NSString* aWindowID, NSString* aSpaceID) {
   }
   WhimsyScriptWindow* window = [[[WhimsyScriptWindow alloc] initWithID:mWindowID] autorelease];
   return [[[NSUniqueIDSpecifier alloc]
-      initWithContainerClassDescription:(NSScriptClassDescription*)[window classDescription]
+      initWithContainerClassDescription:ClassDescription([WhimsyScriptWindow class])
                      containerSpecifier:[window objectSpecifier]
                                     key:@"tabs"
                                uniqueID:mID] autorelease];
@@ -408,7 +424,7 @@ static NSArray* TabsOf(NSString* aWindowID, NSString* aSpaceID) {
 - (NSScriptObjectSpecifier*)objectSpecifier {
   WhimsyScriptWindow* window = [[[WhimsyScriptWindow alloc] initWithID:mWindowID] autorelease];
   return [[[NSUniqueIDSpecifier alloc]
-      initWithContainerClassDescription:(NSScriptClassDescription*)[window classDescription]
+      initWithContainerClassDescription:ClassDescription([WhimsyScriptWindow class])
                      containerSpecifier:[window objectSpecifier]
                                     key:@"spaces"
                                uniqueID:mID] autorelease];
@@ -439,6 +455,11 @@ static NSArray* TabsOf(NSString* aWindowID, NSString* aSpaceID) {
 
 - (void)insertObject:(WhimsyScriptTab*)aTab inTabsAtIndex:(NSUInteger)aIndex {
   InsertTab(aTab, mWindowID, mID);
+}
+
+// As on the window: needed for `make`, never used to close a tab.
+- (void)removeObjectFromTabsAtIndex:(NSUInteger)aIndex {
+  Fail(NS_ERROR_FAILURE);
 }
 
 - (id)handleSelectScriptCommand:(NSScriptCommand*)aCommand {
