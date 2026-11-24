@@ -372,6 +372,14 @@ add_task(async function undo_toast() {
   const undo = await TestUtils.waitForCondition(() => document.querySelector(".zen-toast #whimsy-undo-toast-button"), "The toast offers Undo");
   await TestUtils.waitForCondition(() => undo.getBoundingClientRect().width > 0, "laid out");
   await TestUtils.waitForCondition(() => !WhimsyPageWatch._checking, "The first check is done");
+  // The toast slides up as an earlier one leaves: click it once it stays put.
+  let last = null;
+  await TestUtils.waitForCondition(() => {
+    const top = undo.getBoundingClientRect().top;
+    const still = top == last && document.getAnimations().every(a => a.playState != "running" || a.effect?.getComputedTiming().iterations == Infinity);
+    last = top;
+    return still;
+  }, "The toast is still");
   EventUtils.synthesizeMouseAtCenter(undo, {});
   await TestUtils.waitForCondition(async () => !(await WhimsyPageWatch.list()).some(w => w.id == watch.id), "Undo stops watching");
   BrowserTestUtils.removeTab(tab);
