@@ -200,7 +200,8 @@ add_task(async function plan_allowed_for_descriptions() {
       ["whimsy.ai.order", "claude"],
     ],
   });
-  WhimsyAIReader.setTestReader(() => "Public page text.");
+  // W30: enough text to describe (a near-empty page gets no description).
+  WhimsyAIReader.setTestReader(() => "Public page text about the plan. ".repeat(10));
   try {
     ok(WhimsyAIProviders._usesPlan("claude"), "Claude is connected through the plan");
     ok(await WhimsyAIPage.canDescribe(), "Hover cards get a description on the plan");

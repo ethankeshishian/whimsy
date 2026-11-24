@@ -125,7 +125,8 @@ add_task(async function fire_drops_preview_summaries() {
   const { WhimsyAIReader } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIReader.sys.mjs");
   const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
   let asked = 0;
-  WhimsyAIReader.setTestReader(() => "Signed-in statement text.");
+  // W30: enough text to describe (a near-empty page gets no description).
+  WhimsyAIReader.setTestReader(() => "Signed-in statement text with a balance. ".repeat(10));
   WhimsyAIProviders.setTestProvider(async () => {
     asked++;
     return JSON.stringify({ title: "Statement", description: "A balance." });
