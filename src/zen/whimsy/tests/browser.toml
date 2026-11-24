@@ -470,6 +470,10 @@ support-files = ["whimsy_ai_page.html", "whimsy_ai_links.html", "whimsy_test_ima
 ["browser_whimsy_hover_describe.js"]
 support-files = ["whimsy_ai_page.html"]
 
+# W30 hover card fixes: no card for a link within the page (its tab bar, role="tab", aria-controls, a hash); the link's words with their spaces and the page's own title; the picture only for a real preview image.
+["browser_whimsy_hover_card_fixes.js"]
+support-files = ["whimsy_hover_tabs.html", "whimsy_ai_page.html", "whimsy_test_image.png"]
+
 # batch hover: People cards (GitHub, LinkedIn, X profile links).
 ["browser_whimsy_people.js"]
 # fixB: Delete Space confirms inside the window.

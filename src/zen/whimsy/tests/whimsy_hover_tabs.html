@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A pull request</title>
+<meta property="og:image" content="https://example.com/browser/zen/whimsy/tests/whimsy_site_default.png">
+<style>
+  a { display: inline-block; margin: 6px 12px 6px 0; }
+  .counter { margin-left: 4px; padding: 0 6px; border-radius: 8px; background: #ddd; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body style="padding: 40px">
+<!-- The page's own tab bar (a pull request's Conversation, Checks, and Files tabs): each is a view of this page. -->
+<nav aria-label="Pull request tabs" id="tabs">
+  <a id="tab-here" href="whimsy_hover_tabs.html" aria-current="page">Conversation</a>
+  <a id="tab-checks" href="whimsy_hover_tabs.html/checks"><svg aria-hidden="true" width="10" height="10"></svg><span>Checks</span><span class="counter">86</span><span class="sr-only">(86)</span></a>
+  <a id="tab-files" href="whimsy_hover_tabs.html/files">Files changed</a>
+</nav>
+<div role="tablist"><a id="role-tab" role="tab" href="whimsy_ai_page.html?tab">A tab</a></div>
+<p><a id="controls" href="whimsy_ai_page.html?panel" aria-controls="panel">Show details</a></p>
+<div id="panel" hidden>Details</div>
+<p><a id="hash" href="#section">Jump down</a></p>
+<!-- The site's own navigation: other pages. -->
+<nav aria-label="Site"><a id="site-nav" href="whimsy_ai_page.html?site">Planning</a></nav>
+<p><a id="other" href="whimsy_ai_page.html?other">Quarterly planning notes</a></p>
+<p><a id="badge" href="whimsy_ai_page.html?badge"><svg aria-hidden="true" width="10" height="10"></svg><span>Checks</span><span class="counter">86</span><span class="sr-only">(86)</span></a></p>
+<p style="margin-top: 200px"><span id="away">Nothing here</span></p>
+<p id="section">Section</p>
+</body>
+</html>

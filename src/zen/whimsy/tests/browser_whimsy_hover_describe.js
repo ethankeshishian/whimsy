@@ -279,6 +279,64 @@ add_task(async function a_page_that_blocks_its_tags_too() {
   }
 });
 
+// ---- Pages with nothing to say (W30, owner: "this UI seems broken") ----
+
+// The card's summary place goes away: no text, no bullets, no note.
+async function saysNothing(card) {
+  await TestUtils.waitForCondition(
+    () => !card.querySelector(".whimsy-hc-desc, .whimsy-hc-points") && !card.hasAttribute("aria-busy"),
+    "The summary's place went away"
+  );
+}
+
+add_task(async function boilerplate_pages_get_no_summary() {
+  // A wall or an empty shell, with no summary of its own: nothing to send.
+  for (const [what, read, tags] of [
+    ["a sign-in wall", () => "Sign in to continue", "<html><head><title>Sign in to Example</title></head></html>"],
+    ["no text and no tags of its own", () => "", "<html><head><title>Checks</title></head></html>"],
+    ["a sign-in page that brings the site's own blurb", () => "Sign in", '<html><head><title>Sign in to Example</title><meta name="description" content="Example is where people build things."></head></html>'],
+  ]) {
+    reset();
+    readText = read;
+    tagsHtml = tags;
+    const { card } = linkCard("Checks 86");
+    await saysNothing(card);
+    is(asked.filter(described).length, 0, `${what}: nothing is asked`);
+  }
+
+  // Gone for a reader without sign-ins (a private repository's page): the
+  // page that loads is the site's error page and its navigation.
+  reset();
+  readText = () => "Skip to content Navigation Menu Product Solutions Resources Open Source Pricing Sign in Sign up. ".repeat(6);
+  WhimsyHoverCards.setTestFetcher(async () => {
+    throw Object.assign(new Error("Not available"), { status: 404 });
+  });
+  try {
+    const { card } = linkCard("Checks 86");
+    await saysNothing(card);
+    is(asked.filter(described).length, 0, "A page that isn't there: nothing is asked");
+  } finally {
+    WhimsyHoverCards.setTestFetcher(async (_url, { kind }) => {
+      if (kind == "image") {
+        throw new Error("No image");
+      }
+      return { text: tagsHtml };
+    });
+  }
+
+  // Only navigation chrome: the model says there's nothing about the page.
+  reset();
+  readText = () => "Skip to content Navigation Menu Product Solutions Resources Open Source Pricing Sign in Sign up. ".repeat(6);
+  tagsHtml = "<html><head><title>Checks</title></head></html>";
+  answer = () => '{"nothing": true}';
+  const { card } = linkCard("Checks 86");
+  await saysNothing(card);
+  is(asked.filter(described).length, 1, "Navigation only: asked once, not again");
+  const prompt = asked.find(described)?.prompt ?? "";
+  ok(/"nothing": true/.test(prompt), "The model is told how to say there's nothing about the page");
+  ok(!/describe the page from its address, title, and link text instead/.test(prompt), "...and never to make a summary up from the address");
+});
+
 // ---- Hovers that were let go ----
 
 add_task(async function a_cancelled_hover_is_not_a_failure() {
