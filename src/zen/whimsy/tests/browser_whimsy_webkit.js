@@ -231,18 +231,60 @@ add_setup(async function setup() {
   });
 });
 
-add_task(async function test_availability_and_profile_datastore() {
+// This file needs a real WKWebView, so browser.toml tags it whimsy-headed
+// and the runners run it headed. If WebKit is unavailable anyway, every task
+// fails here: a quiet early return would count as green while testing
+// nothing.
+function requireWebKit() {
+  if (WhimsyWebKit.available(window)) {
+    return true;
+  }
   const isHeadless =
     Services.env.get("MOZ_HEADLESS") == "1" ||
     Cc["@mozilla.org/gfx/info;1"].getService(Ci.nsIGfxInfo).isHeadless;
-  if (isHeadless) {
-    Assert.ok(
-      !WhimsyWebKit.available(window),
-      "WebKit tabs report unavailable in headless mode"
-    );
+  Assert.ok(
+    false,
+    isHeadless
+      ? "WebKit tabs can't run headless: run this file headed (browser.toml tags it whimsy-headed)"
+      : "WebKit tabs are unavailable in this headed window (whimsy.feature.webkit-tabs off, macOS older than 14, or no nsIWhimsyWebKit service), so these tests can't run"
+  );
+  return false;
+}
+
+// Each task runs through this: whatever tabs or windows it opened are closed
+// afterwards even when an assertion throws, so one failing task can't leave
+// a WebKit tab selected for the next task (or behind at the end of the run).
+function add_webkit_task(fn) {
+  const wrapped = async () => {
+    const tabsBefore = new Set(gBrowser.tabs);
+    const selectedBefore = gBrowser.selectedTab;
+    const windowsBefore = new Set(Services.wm.getEnumerator("navigator:browser"));
+    try {
+      await fn();
+    } finally {
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        if (!windowsBefore.has(win)) {
+          await BrowserTestUtils.closeWindow(win);
+        }
+      }
+      if (tabsBefore.has(selectedBefore) && selectedBefore.isConnected) {
+        gBrowser.selectedTab = selectedBefore;
+      }
+      for (const tab of [...gBrowser.tabs]) {
+        if (!tabsBefore.has(tab)) {
+          BrowserTestUtils.removeTab(tab);
+        }
+      }
+    }
+  };
+  Object.defineProperty(wrapped, "name", { value: fn.name });
+  add_task(wrapped);
+}
+
+add_webkit_task(async function test_availability_and_profile_datastore() {
+  if (!requireWebKit()) {
     return;
   }
-
   Assert.ok(
     WhimsyWebKit.available(window),
     "WebKit tabs are available in a headed macOS 14+ window"
@@ -272,8 +314,8 @@ add_task(async function test_availability_and_profile_datastore() {
   );
 });
 
-add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_history() {
-  if (!WhimsyWebKit.available(window)) {
+add_webkit_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_history() {
+  if (!requireWebKit()) {
     return;
   }
 
@@ -317,6 +359,46 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
   Assert.ok(
     gURLBar.value.includes(`127.0.0.1:${gServer.port}/page1`),
     "Address bar URL comes from the WKWebView"
+  );
+
+  // The parked Gecko <browser> can finish loading about:blank after WebKit
+  // has loaded the page (a process switch made it ~700 ms late, about 1 run
+  // in 10); tabbrowser then relabelled the tab from its URL and cleared its
+  // icon. Load about:blank in it again by hand and check WebKit's title and
+  // icon survive.
+  const geckoStopped = new Promise(resolve => {
+    const wpl = Ci.nsIWebProgressListener;
+    const listener = {
+      onStateChange(b, wp, r, flags) {
+        if (
+          b == tab.linkedBrowser &&
+          wp?.isTopLevel &&
+          flags & wpl.STATE_STOP &&
+          flags & wpl.STATE_IS_WINDOW
+        ) {
+          gBrowser.removeTabsProgressListener(listener);
+          resolve();
+        }
+      },
+    };
+    gBrowser.addTabsProgressListener(listener);
+  });
+  tab.linkedBrowser.fixupAndLoadURIString("about:blank", {
+    triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+  });
+  await geckoStopped;
+  Assert.equal(
+    tab.label,
+    "WebKit Test Page One",
+    "A late Gecko load in the parked browser leaves the WebKit page's title on the tab"
+  );
+  Assert.ok(
+    (tab.getAttribute("image") || "").includes("/favicon.svg"),
+    "A late Gecko load in the parked browser leaves the WebKit page's icon on the tab"
+  );
+  Assert.ok(
+    !tab.hasAttribute("busy"),
+    "A late Gecko load in the parked browser doesn't leave the tab busy"
   );
 
   const ua = await WhimsyWebKit.evaluateInTab(tab, "navigator.userAgent");
@@ -411,8 +493,8 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
   BrowserTestUtils.removeTab(spacerTab);
 });
 
-add_task(async function test_site_list_and_cmdk_verbs() {
-  if (!WhimsyWebKit.available(window)) {
+add_webkit_task(async function test_site_list_and_cmdk_verbs() {
+  if (!requireWebKit()) {
     return;
   }
 
@@ -520,8 +602,8 @@ add_task(async function test_site_list_and_cmdk_verbs() {
   BrowserTestUtils.removeTab(autoTab);
 });
 
-add_task(async function test_overlays_first_mouse_shortcuts_and_focus_handoffs() {
-  if (!WhimsyWebKit.available(window)) {
+add_webkit_task(async function test_overlays_first_mouse_shortcuts_and_focus_handoffs() {
+  if (!requireWebKit()) {
     return;
   }
 
@@ -673,8 +755,8 @@ add_task(async function test_overlays_first_mouse_shortcuts_and_focus_handoffs()
   );
 });
 
-add_task(async function test_both_engine_panels_and_contrast_with_screenshots() {
-  if (!WhimsyWebKit.available(window)) {
+add_webkit_task(async function test_both_engine_panels_and_contrast_with_screenshots() {
+  if (!requireWebKit()) {
     return;
   }
 
@@ -971,8 +1053,8 @@ async function setTranslucentTheme(colour) {
   };
 }
 
-add_task(async function test_webkit_page_is_not_dimmed() {
-  if (!WhimsyWebKit.available(window)) {
+add_webkit_task(async function test_webkit_page_is_not_dimmed() {
+  if (!requireWebKit()) {
     return;
   }
   for (const { scheme, name } of [
@@ -1058,7 +1140,7 @@ async function checkEngineComposite(tab, name) {
   }
 }
 
-add_task(async function test_private_windows_hide_all_webkit_ui() {
+add_webkit_task(async function test_private_windows_hide_all_webkit_ui() {
   const privWin = await BrowserTestUtils.openNewBrowserWindow({
     private: true,
   });

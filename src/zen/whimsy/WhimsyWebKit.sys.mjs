@@ -777,6 +777,32 @@ export const WhimsyWebKit = {
     return true;
   },
 
+  // Re-applies what WebKit owns on the tab (title, icon, busy) after the
+  // parked Gecko <browser>'s own load events overwrote it.
+  _restoreTabChrome(tab, state) {
+    const { win } = state;
+    if (!win || win.closed) {
+      return;
+    }
+    if (state.title && tab.label != state.title) {
+      tab._fullLabel = state.title;
+      tab.label = state.title;
+      tab.setAttribute("label", state.title);
+      if (tab.selected) {
+        win.gBrowser.updateTitlebar?.();
+      }
+    }
+    if (state.favicon && tab.getAttribute("image") != state.favicon) {
+      tab.setAttribute("image", state.favicon);
+    }
+    if (state.loading) {
+      tab.setAttribute("busy", "true");
+    } else if (tab.hasAttribute("busy")) {
+      tab.removeAttribute("busy");
+      tab.removeAttribute("progress");
+    }
+  },
+
   // -------------------------------------------------------------------------
   // Native event listener (title, URL, loading, favicon, history, newwindow).
 
@@ -1682,6 +1708,23 @@ export const WhimsyWebKit = {
     // Watch top-level navigations across tabs so opening a URL whose host is in
     // whimsy.webkit.sites automatically switches that tab to WebKit.
     const tabsProgressListener = {
+      onStateChange: (browser, webProgress, request, flags) => {
+        const wpl = Ci.nsIWebProgressListener;
+        if (
+          !webProgress?.isTopLevel ||
+          !(flags & wpl.STATE_STOP) ||
+          !(flags & wpl.STATE_IS_WINDOW)
+        ) {
+          return;
+        }
+        const tab = gBrowser.getTabForBrowser(browser);
+        const state = tab && this.stateOf(tab);
+        if (state) {
+          // tabbrowser clears the icon and busy state when the parked Gecko
+          // load stops (see onLocationChange below).
+          this._restoreTabChrome(tab, state);
+        }
+      },
       onLocationChange: (browser, webProgress, request, location, flags) => {
         if (
           !webProgress?.isTopLevel ||
@@ -1697,8 +1740,12 @@ export const WhimsyWebKit = {
         if (state) {
           if (state.parkingGecko) {
             state.parkingGecko = false;
-            return;
           }
+          // The parked Gecko <browser> can finish its about:blank load well
+          // after WebKit has loaded the page (a process switch took ~700 ms
+          // in tests); tabbrowser then relabels the tab from the URL and
+          // clears its icon. WebKit owns those, so put them back.
+          this._restoreTabChrome(tab, state);
           return;
         }
         if (!isWebURI(location)) {

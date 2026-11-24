@@ -9,6 +9,7 @@
 # on retry is listed in .surfer/verify/flaky.txt for the next wave to fix.
 # $WHIMSY_ROOT names the checkout to verify when this file runs from a
 # worktree (whimsy/tools/verify-dev.sh).
+HEADED_PY="$(cd "$(dirname "$0")" && pwd)/tools/headed.py"
 cd "${WHIMSY_ROOT:-$(dirname "$0")/..}"
 export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH" _ZO_DOCTOR=0
 export WHIMSY_SHOTS="${WHIMSY_SHOTS:-$PWD/.surfer/shots}"
@@ -122,9 +123,16 @@ if [ -n "$DOWNLOADS_DIR" ] && [ -d "$DOWNLOADS_DIR" ]; then
 fi
 
 run_with_retry whimsy zen/whimsy/tests || status=1
-# Native-event tests need a visible window; run just those headed.
+# Tests that need a real window (native events, WebKit tabs) carry
+# tags = "whimsy-headed" and skip-if headless in browser.toml: the run above
+# skips them, so run just those headed. A file skipped headless without the
+# tag would run nowhere, so that fails the verify.
+if ! python3 "$HEADED_PY" --engine engine check zen/whimsy/tests; then
+  echo "whimsy-native: browser.toml has a file skipped headless that no headed run picks up"
+  status=1
+fi
 wait_for_foreground whimsy-native &&
-(WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js zen/whimsy/tests/browser_whimsy_native_services.js zen/whimsy/tests/browser_whimsy_arc_menu_keys_native.js zen/whimsy/tests/browser_whimsy_window_on_top_native.js) || status=1
+(WHIMSY_HEADED=1; export WHIMSY_HEADED; run whimsy-native $(python3 "$HEADED_PY" --engine engine suite zen/whimsy/tests)) || status=1
 
 if [ -n "$DOWNLOADS_DIR" ] && [ -d "$DOWNLOADS_DIR" ] && [ -f .surfer/verify/downloads-before.txt ]; then
   LC_ALL=C ls -A "$DOWNLOADS_DIR" 2>/dev/null | LC_ALL=C sort > .surfer/verify/downloads-after.txt

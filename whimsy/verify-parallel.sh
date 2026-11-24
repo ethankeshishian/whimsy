@@ -189,10 +189,12 @@ if [ "$MODE" = "all" ]; then
 fi
 for name in $jobs; do check "$name"; done
 
-# Native-event tests need a visible window and focus; run them alone, headed.
+# Tests that need a real window and focus (native events, WebKit tabs) are
+# tagged whimsy-headed in browser.toml and skipped headless; run them alone,
+# headed. A file skipped headless without the tag fails the run.
+python3 whimsy/tools/headed.py --engine engine check zen/whimsy/tests || status=1
 (WHIMSY_HEADED=1; export WHIMSY_HEADED
- mochitest "$OUT/whimsy-native.log" zen/whimsy/tests/browser_whimsy_ctrl_tab_native.js \
-   zen/whimsy/tests/browser_whimsy_native_services.js zen/whimsy/tests/browser_whimsy_arc_menu_keys_native.js
+ mochitest "$OUT/whimsy-native.log" $(python3 whimsy/tools/headed.py --engine engine suite zen/whimsy/tests)
  echo $? > "$OUT/whimsy-native.exit")
 check whimsy-native
 

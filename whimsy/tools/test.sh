@@ -4,6 +4,10 @@
 # FILE is relative to src/zen/whimsy/tests (browser_whimsy_x.js), or a path
 # under the engine (zen/tests/...). Files are split round-robin into N
 # parallel harness runs (default 3, like W24's par3.sh), started 20 s apart.
+# Files browser.toml tags whimsy-headed (WebKit tabs, native events) are
+# skipped headless, so they run in one more harness run, headed, after the
+# headless chunks (chunk "h", test-ph.log); WHIMSY_HEADED=1 runs everything
+# headed. A manifest entry skipped headless with no tag turns the run red.
 # Logs: $WHIMSY_RUNS/NAME/test-pN.log. The summary's first lines are
 # RESULT green|red and one REASON per red chunk (reason.py), and a crash is
 # followed by its native stack (crash-stack.sh) unless --no-stack.
@@ -42,12 +46,26 @@ if [ ${#missing} -gt 0 ]; then
   echo "PASSED 0 FAILED 0"
   exit 1
 fi
-[ ${#files} -lt $jobs ] && jobs=${#files}
+# Manifest check: a file skipped headless that no headed run picks up.
+suites=(${(u)files:h})
+untagged=$(python3 $WHIMSY_TOOLS/headed.py check $suites)
+if [ -n "$untagged" ]; then
+  echo "RESULT red"
+  echo "$untagged" | sed 's/^/REASON /'
+  echo "PASSED 0 FAILED 0"
+  exit 1
+fi
+# Headed files: their own harness run, headed (see the top).
+headed=()
+[ -n "${WHIMSY_HEADED:-}" ] || headed=(${(f)"$(python3 $WHIMSY_TOOLS/headed.py files $files)"})
+rest=(${files:|headed})
+[ ${#rest} -lt $jobs ] && jobs=${#rest}
 
 # Round-robin chunks.
 typeset -A chunk
 i=0
-for f in $files; do n=$((i % jobs + 1)); chunk[$n]="${chunk[$n]} $f"; i=$((i+1)); done
+for f in $rest; do n=$((i % jobs + 1)); chunk[$n]="${chunk[$n]} $f"; i=$((i+1)); done
+chunks=(); [ $jobs -gt 0 ] && chunks=({1..$jobs})
 
 SP="--setpref=security.sandbox.content.mac.testing_read_path2=$ROOT/src"
 headless=$([ -n "${WHIMSY_HEADED:-}" ] || echo --headless)
@@ -55,17 +73,24 @@ headless=$([ -n "${WHIMSY_HEADED:-}" ] || echo --headless)
 # the harness writes it under _tests/testing/mochitest).
 mname=${name//[^A-Za-z0-9_.-]/-}
 pids=(); started=$(date +%s)
-for n in {1..$jobs}; do
+for n in $chunks; do
   [ $n -gt 1 ] && sleep 20
   log=$run/test-p$n.log
   ( ./mach test $headless $SP --testrun-manifest-file=tests-whimsy-$mname-p$n.json ${=WHIMSY_ARGS:-} ${=chunk[$n]} > $log 2>&1; echo $? > $run/test-p$n.exit ) &
   pids+=$!
 done
 for p in $pids; do wait $p; done
+# The headed run goes alone, after the headless ones, so its window keeps
+# focus for its native events and nothing else takes the screen meanwhile.
+if [ ${#headed} -gt 0 ]; then
+  chunk[h]="${(j: :)headed}"; chunks+=h
+  ./mach test $SP --testrun-manifest-file=tests-whimsy-$mname-ph.json ${=WHIMSY_ARGS:-} $headed > $run/test-ph.log 2>&1
+  echo $? > $run/test-ph.exit
+fi
 took=$(( $(date +%s) - started ))
 
 results=(); reasons=(); passed=0; failed=0; crashed=()
-for n in {1..$jobs}; do
+for n in $chunks; do
   rc=$(cat $run/test-p$n.exit 2>/dev/null || echo 1)
   out=$(python3 $WHIMSY_TOOLS/reason.py $run/test-p$n.log --exit $rc --file ${=chunk[$n]})
   echo "$out" > $run/test-p$n.reason
@@ -81,8 +106,8 @@ red=0; for r in $results; do [ "$r" = green ] || red=1; done
 {
   echo "RESULT $([ $red = 0 ] && echo green || echo red)"
   for r in $reasons; do echo "REASON $r"; done
-  echo "PASSED $passed FAILED $failed in ${took}s (${#files} files, $jobs chunks)"
-  for n in {1..$jobs}; do grep '^FAIL ' $run/test-p$n.reason | head -12; done
+  echo "PASSED $passed FAILED $failed in ${took}s (${#files} files, $jobs chunks$([ ${#headed} -gt 0 ] && echo " + ${#headed} headed"))"
+  for n in $chunks; do grep '^FAIL ' $run/test-p$n.reason | head -12; done
   echo "logs: $run"
 } | tee $run/summary.txt
 if [ $red = 1 ] && [ $stack = 1 ] && [ ${#crashed} -gt 0 ]; then
