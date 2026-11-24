@@ -437,6 +437,52 @@ add_task(async function stop_ends_task_and_says_what_changed() {
   await closeAll(tab);
 });
 
+// Its chat deleted mid-run (Fire, Delete, or pruning), a task still ends:
+// it used to throw writing the end card and stay "running" forever.
+add_task(async function chat_deleted_mid_run_still_ends() {
+  await fresh();
+  const tab = await openOn();
+  let release;
+  const hold = new Promise(r => (release = r));
+  actions = [async () => {
+    await hold;
+    return { done: "Done." };
+  }];
+  type("Order two more bags of the coffee I got last time");
+  await readyPlan();
+  const [task] = WhimsyAgentTasks.list();
+  click(part("[data-choice='start']"));
+  await TestUtils.waitForCondition(() => executorCalls().length, "The run asks the model");
+  await WhimsyAIStore.deleteThread(task.threadId);
+  release();
+  await TestUtils.waitForCondition(() => WhimsyAgentTasks.get(task.id).state == "done", "The task ends");
+  ok(!WhimsyAgentTasks.list().length, "Nothing is left running");
+  await closeAll(tab);
+});
+
+// A step that throws past its tool ends the task as unfinished, not running.
+add_task(async function step_that_throws_still_ends() {
+  await fresh();
+  const tab = await openOn();
+  actions = [{ step: 0, say: "Scrolling", tool: "key", args: { tabId: WhimsyClaude.tabId(tab), key: "End" } }, { done: "Done." }];
+  const real = WhimsyChatAgent.shoot;
+  WhimsyChatAgent.shoot = async () => {
+    throw new Error("snapshot failed");
+  };
+  try {
+    type("Order two more bags of the coffee I got last time");
+    await readyPlan();
+    const [task] = WhimsyAgentTasks.list();
+    click(part("[data-choice='start']"));
+    const end = await TestUtils.waitForCondition(() => part(".whimsy-agent-end"), "The task ends");
+    is(end.querySelector(".whimsy-agent-outcome [data-l10n-id]")?.getAttribute("data-l10n-id"), "whimsy-agent-chat-unmet-error", "It says it didn't finish");
+    is(WhimsyAgentTasks.get(task.id).state, "done", "Out of the running list");
+  } finally {
+    WhimsyChatAgent.shoot = real;
+  }
+  await closeAll(tab);
+});
+
 add_task(async function outside_thread_is_read_only_with_run_card() {
   await fresh();
   const tab = await openOn();

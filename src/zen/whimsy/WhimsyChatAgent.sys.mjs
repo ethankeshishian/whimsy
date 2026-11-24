@@ -914,7 +914,25 @@ export const WhimsyChatAgent = {
     }
     lazy.WhimsyAgentTasks.begin(taskId);
     await this.update(run.threadId, run.cardId, { state: "running", current: run.current, mode: task.mode });
-    run.loop = this.loop(win, task, run).catch(e => console.error("Whimsy agent: run", e));
+    run.loop = this.loop(win, task, run).catch(e => this.crashed(win, task, run, e));
+  },
+
+  /**
+   * A run that threw still ends: as unmet if its end card can be written,
+   * and always out of the active list, so it never sits "running" forever
+   * (its chat deleted mid-run, a tool that threw past its handler).
+   */
+  async crashed(win, task, run, error) {
+    console.error("Whimsy agent: run", error);
+    try {
+      if (!run.ending && lazy.WhimsyAgentTasks.isActive(task)) {
+        await this.finish(win, task, run, null, "error");
+      }
+    } catch (e) {
+      console.error("Whimsy agent: end", e);
+    } finally {
+      lazy.WhimsyAgentTasks.finish(task.id);
+    }
   },
 
   /**
@@ -1371,6 +1389,7 @@ export const WhimsyChatAgent = {
 
   async finish(win, task, run, summary, shortfall = null) {
     const Tasks = lazy.WhimsyAgentTasks;
+    run.ending = true;
     const keepIds = new Set((Array.isArray(summary?.keep) ? summary.keep : []).map(String));
     const kept = [];
     const ask = [];
