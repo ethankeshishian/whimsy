@@ -69,6 +69,26 @@
   white-space: nowrap;
 }
 
+/* W30: the query and "Ask AI" read like "query — Search with Google" in
+   the row above: the same "—", in the same size and tone, and the same
+   spacing. The search row measures 31px from the query to "Search with".
+   Here, 0.6em before the dash (the search separator's margin), 0.35em after
+   it, and the hint's own 6px gap put "Ask AI" at the same 31px. The
+   shared title rule (flex: 0 1 auto, below) had dropped the title's flex: 1,
+   so the hint sat flush against the query with nothing between. */
+.urlbarView-row[dynamicType="whimsy-ask"] .whimsy-ask-hint::before {
+  content: "\2014";
+  margin-inline: 0.6em 0.35em;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.6;
+  color: light-dark(#4f4f4f, #aaa);
+
+  .urlbarView-row[selected] & {
+    color: inherit;
+  }
+}
+
 .whimsy-ask-hint {
   display: inline-flex;
   flex: none;
@@ -1268,5 +1288,32 @@
     text-overflow: clip;
     white-space: nowrap;
     margin-inline-start: 8px;
+  }
+}
+
+/* W30: a row that shows its URL (history, bookmarks, Related). The rule
+   above lets the title part grow, and Firefox's .urlbarView-url grows too
+   (flex-grow: 1, view-proton.css), so the free space was split between them:
+   a wide gap after the "—" with the URL floating mid-row. And the tag box
+   (overflow: hidden) shrank with the title, cutting "Related" to "Relate".
+   Here the title part takes only its own width (capped like Firefox's 70%,
+   so the URL never disappears), the tag and "—" never shrink, and the URL
+   starts right after them and ends in an ellipsis. Tab rows (their action
+   sits at the end) and the narrow two-line layout keep their own rules. */
+#urlbar .urlbarView-results:not([wrap]) > .urlbarView-row[has-url]:not([type$="tab"], [rich-suggestion]) > .urlbarView-row-inner {
+  & > .urlbarView-no-wrap {
+    flex: 0 1 auto;
+    max-width: 70% !important;
+  }
+  & > .urlbarView-no-wrap > .urlbarView-tags,
+  & > .urlbarView-no-wrap > .urlbarView-title-separator {
+    flex-shrink: 0;
+  }
+  & > .urlbarView-url {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    mask-image: none;
   }
 }

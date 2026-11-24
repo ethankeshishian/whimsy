@@ -476,3 +476,35 @@ add_task(async function long_query_keeps_key_hints_whole() {
     });
   });
 });
+
+// W30 (owner screenshot): the Ask row read "how much fat to eat per dayAsk
+// AI ⌘↩", the hint flush against the query. It reads like the search row
+// above it, "query — Search with Google": the same "—", the same spacing.
+add_task(async function ask_row_separates_query_and_hint_like_search_row() {
+  await inSchemes(async scheme => {
+    await withPage(PAGE("empty"), async () => {
+      await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: "how much fat to eat per day" });
+      const rows = [...gURLBar.view.panel.querySelectorAll(".urlbarView-row")].filter(r => !r.hidden);
+      const ask = rows.find(r => r.getAttribute("dynamicType") == "whimsy-ask");
+      const search = rows.find(r => r.querySelector(".urlbarView-action")?.textContent.trim() && r.querySelector(".urlbarView-action").checkVisibility());
+      ok(ask && search, `${scheme}: the Ask row and a search row with its action both show`);
+      const searchTitle = search.querySelector(".urlbarView-title").getBoundingClientRect();
+      const searchSep = search.querySelector(".urlbarView-title-separator");
+      const searchGap = search.querySelector(".urlbarView-action").getBoundingClientRect().left - searchTitle.right;
+      const hint = ask.querySelector(".whimsy-ask-hint");
+      const askTitle = ask.querySelector(".urlbarView-title").getBoundingClientRect();
+      const first = [...hint.children].find(c => c.checkVisibility());
+      const askGap = first.getBoundingClientRect().left - askTitle.right;
+      const dash = getComputedStyle(hint, "::before");
+      const sepDash = getComputedStyle(searchSep, "::before");
+      info(`${scheme}: search row title→action ${searchGap.toFixed(1)}px, Ask row title→"${first.textContent}" ${askGap.toFixed(1)}px`);
+      is(dash.content, sepDash.content, `${scheme}: the Ask row has the search row's "—"`);
+      is(dash.fontSize, sepDash.fontSize, `${scheme}: ...at the same size`);
+      is(dash.opacity, sepDash.opacity, `${scheme}: ...and tone`);
+      Assert.lessOrEqual(Math.abs(askGap - searchGap), 3, `${scheme}: the query-to-hint spacing matches the search row's`);
+      Assert.greater(askGap, 10, `${scheme}: the hint isn't flush against the query`);
+      gURLBar.view.close();
+      gURLBar.handleRevert();
+    });
+  });
+});

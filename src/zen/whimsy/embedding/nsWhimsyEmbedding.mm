@@ -61,6 +61,23 @@ NLEmbedding* EmbeddingFor(NLLanguage aLanguage) {
   return embedding;
 }
 
+// The word list for a language (Apple's word embedding, its vocabulary),
+// cached like the sentence model; a word outside it carries no meaning
+// for the sentence model either.
+NLEmbedding* WordEmbeddingFor(NLLanguage aLanguage) {
+  static NSMutableDictionary<NLLanguage, NLEmbedding*>* cache;
+  if (!cache) {
+    cache = [[NSMutableDictionary alloc] init];
+  }
+  id cached = [cache objectForKey:aLanguage];
+  if (cached) {
+    return cached == [NSNull null] ? nil : (NLEmbedding*)cached;
+  }
+  NLEmbedding* embedding = [NLEmbedding wordEmbeddingForLanguage:aLanguage];
+  cache[aLanguage] = embedding ?: (NLEmbedding*)[NSNull null];
+  return embedding;
+}
+
 }  // namespace
 
 NS_IMPL_ISUPPORTS(nsWhimsyEmbedding, nsIWhimsyEmbedding)
@@ -104,6 +121,29 @@ nsWhimsyEmbedding::Embed(const nsACString& aText, const nsACString& aLocale, nsT
     for (NSNumber* value in vector) {
       aResult.AppendElement(value.floatValue);
     }
+  }
+  return NS_OK;
+
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
+}
+
+NS_IMETHODIMP
+nsWhimsyEmbedding::KnowsWord(const nsACString& aWord, const nsACString& aLocale, bool* aKnows) {
+  NS_ENSURE_ARG_POINTER(aKnows);
+  MOZ_ASSERT(NS_IsMainThread());
+
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
+
+  @autoreleasepool {
+    NLEmbedding* words = WordEmbeddingFor(LanguageFor(aLocale));
+    if (!words) {
+      return NS_ERROR_NOT_AVAILABLE;
+    }
+    NSString* word = [[NSString alloc] initWithBytes:aWord.BeginReading()
+                                                length:aWord.Length()
+                                              encoding:NSUTF8StringEncoding];
+    *aKnows = word.length && [words containsString:word];
+    [word release];
   }
   return NS_OK;
 
