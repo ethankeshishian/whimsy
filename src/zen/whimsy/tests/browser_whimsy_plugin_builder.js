@@ -167,10 +167,9 @@ add_setup(async function () {
       ["whimsy.ai.off", ""],
     ],
   });
-  // As in browser_whimsy_local_plugins.js: signing is required for
-  // extensions, the way a real build decides it, while this file runs.
-  const realMustSign = XPIDatabase.mustSign;
-  XPIDatabase.mustSign = type => type == "extension";
+  // Signing is required for extensions, the way a real build decides it,
+  // while this file runs (head.js).
+  const relaxSigning = await whimsyRequireSigning();
   const before = new Map(
     Services.prefs.getChildList("").filter(name => Services.prefs.prefHasUserValue(name)).map(name => {
       const type = Services.prefs.getPrefType(name);
@@ -194,7 +193,7 @@ add_setup(async function () {
     await IOUtils.remove(OUTSIDE, { recursive: true, ignoreAbsent: true });
     const { AddonManagerPrivate } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
     await AddonManagerPrivate.getNewSideloads();
-    XPIDatabase.mustSign = realMustSign;
+    relaxSigning();
     await WhimsyAIStore._resetForTesting(PathUtils.join(STORE, "done"));
     await IOUtils.remove(STORE, { recursive: true, ignoreAbsent: true });
     for (const name of new Set([...Services.prefs.getChildList(""), ...before.keys()])) {
@@ -212,6 +211,20 @@ add_setup(async function () {
     }
   });
   await IOUtils.remove(PLUGINS, { recursive: true, ignoreAbsent: true });
+});
+
+// The add-on manager's signature check (a timer, first about 30 s after
+// startup) can run while this file requires signing. It used to disable the
+// harness's unsigned special-powers, and the run hung after the last task.
+add_task(async function the_signature_check_leaves_the_harness_running() {
+  await XPIDatabase.verifySignatures();
+  for (const id of ["special-powers@mozilla.org", "mochikit@mozilla.org"]) {
+    const addon = await AddonManager.getAddonByID(id);
+    ok(addon?.isActive && !addon.appDisabled, `${id} still runs`);
+  }
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.local-plugins", false]] });
+  await SpecialPowers.popPrefEnv();
+  ok(true, "and SpecialPowers still reaches the parent");
 });
 
 add_task(async function a_build_request_is_chat_s_not_the_agent_s() {
