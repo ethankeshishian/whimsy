@@ -402,6 +402,46 @@ add_webkit_task(async function test_switch_tab_to_webkit_and_back_with_metadata_
     "Address bar URL comes from the WKWebView"
   );
 
+  // The parked Gecko <browser> can finish loading about:blank after WebKit
+  // has loaded the page (a process switch made it ~700 ms late, about 1 run
+  // in 10); tabbrowser then relabelled the tab from its URL and cleared its
+  // icon. Load about:blank in it again by hand and check WebKit's title and
+  // icon survive.
+  const geckoStopped = new Promise(resolve => {
+    const wpl = Ci.nsIWebProgressListener;
+    const listener = {
+      onStateChange(b, wp, r, flags) {
+        if (
+          b == tab.linkedBrowser &&
+          wp?.isTopLevel &&
+          flags & wpl.STATE_STOP &&
+          flags & wpl.STATE_IS_WINDOW
+        ) {
+          gBrowser.removeTabsProgressListener(listener);
+          resolve();
+        }
+      },
+    };
+    gBrowser.addTabsProgressListener(listener);
+  });
+  tab.linkedBrowser.fixupAndLoadURIString("about:blank", {
+    triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+  });
+  await geckoStopped;
+  Assert.equal(
+    tab.label,
+    "WebKit Test Page One",
+    "A late Gecko load in the parked browser leaves the WebKit page's title on the tab"
+  );
+  Assert.ok(
+    (tab.getAttribute("image") || "").includes("/favicon.svg"),
+    "A late Gecko load in the parked browser leaves the WebKit page's icon on the tab"
+  );
+  Assert.ok(
+    !tab.hasAttribute("busy"),
+    "A late Gecko load in the parked browser doesn't leave the tab busy"
+  );
+
   const ua = await WhimsyWebKit.evaluateInTab(tab, "navigator.userAgent");
   Assert.ok(
     ua.includes("AppleWebKit") && ua.includes("Version/") && ua.includes("Safari/"),
