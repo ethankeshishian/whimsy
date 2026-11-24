@@ -206,9 +206,12 @@ add_task(async function zoom_follows() {
       return [actor.els.bar.getBoundingClientRect().left - v.left, actor.els.right.getBoundingClientRect().right - v.right, s.bottom - v.bottom].map(n => Math.round(n));
     });
   const before = await measure();
-  const resized = SpecialPowers.spawn(context, [], () => new Promise(resolve => content.addEventListener("resize", () => content.requestAnimationFrame(() => resolve()), { once: true })));
+  const ratio = await SpecialPowers.spawn(context, [], () => content.devicePixelRatio);
   ZoomManager.setZoomForBrowser(browser, 1.5);
-  await resized;
+  await SpecialPowers.spawn(context, [ratio], async before => {
+    await ContentTaskUtils.waitForCondition(() => content.devicePixelRatio != before, "The page zoomed");
+    await new Promise(resolve => content.requestAnimationFrame(() => content.requestAnimationFrame(resolve)));
+  });
   Assert.deepEqual(await measure(), before, "Zooming keeps every piece on the video");
   FullZoom.reset(browser);
   await closeVideoTab(tab);

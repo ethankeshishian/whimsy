@@ -10,12 +10,26 @@
   display: contents;
 }
 
+/* W30: the overlay's pieces are placed in page coordinates. The anonymous
+   content layer sits in the page's scrolled canvas, so they move with the
+   page on the compositor and stay on their video through every scroll
+   frame (WhimsyVideoSpeedChild.sys.mjs, "Following the video"). #origin
+   marks the layer's top left, which place() measures from. */
+#origin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
 [hidden] {
   display: none !important;
 }
 
 #bar {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   display: flex;
@@ -186,7 +200,7 @@ button {
    bottom centre at the point WhimsyCaptionsChild places. Drag to move. */
 #captions {
   --size: 18px;
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   box-sizing: border-box;
@@ -309,7 +323,7 @@ button {
 /* W23 video: Summarize, then picture-in-picture in the corner, two plates
    at the top right that fade with the bar. */
 #right {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   /* place() sets left to the video's right edge; the plates grow leftwards. */
@@ -384,7 +398,7 @@ button {
    compact width (WhimsyVideoSpeedChild.sys.mjs's canSeek/render). It fades
    with the bar and the right-hand plates, on the same idle timer. */
 #seekplate {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   transform: translateX(-50%);
