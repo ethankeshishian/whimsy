@@ -35,7 +35,7 @@ const CORPUS = [
   ["Scroll down to the comments", true],
   ["scroll to the bottom", true],
   ["Toggle dark mode on this site", true],
-  ["Hide the sidebar", true],
+  ["Collapse the sidebar", true],
   ["show all the hidden comments", true],
   ["Select every checkbox in the list", true],
   ["Uncheck all the email notification boxes", true],
@@ -64,6 +64,7 @@ const CORPUS = [
   ["Write a reply to this review", false],
   ["Translate this paragraph into French", false],
   ["Fill this form for me", false],
+  ["Hide the sidebar", false], // a page edit: chat changes the page itself
   ["The second paragraph is confusing", false],
   ["Thanks, that helps!", false],
   ["what's the difference between these two approaches", false],
