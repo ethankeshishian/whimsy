@@ -238,7 +238,8 @@ add_task(async function no_show_in_field() {
   page.$("whimsyCommandAddress").focus();
   EventUtils.sendString("https://en.wikipedia.org/wiki/Special:Search", page.win);
   click(page, page.$("whimsyCommandSave"));
-  await TestUtils.waitForCondition(() => visible(page.$("whimsyCommandAddressError")), "The missing %s shows under the address");
+  // Fluent fills the message after the error is unhidden.
+  await TestUtils.waitForCondition(() => visible(page.$("whimsyCommandAddressError")) && page.$("whimsyCommandAddressError").textContent, "The missing %s shows under the address");
   is(page.$("whimsyCommandAddressError").textContent, "Add %s where the selected text goes.", "It says what to add");
   is(page.doc.activeElement, page.$("whimsyCommandAddress"), "and focus stays there");
   is(page.$("whimsyCommandAddress").getAttribute("aria-invalid"), "true", "The field is marked");
