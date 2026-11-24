@@ -208,7 +208,8 @@ export const WhimsyFindCard = {
       }
     }
     count.setAttribute("value", value);
-    findbar.getElement("findbar-textbox-wrapper").toggleAttribute(
+    // A count can land while the tab closes and its find bar comes apart.
+    findbar.getElement("findbar-textbox-wrapper")?.toggleAttribute(
       "notfound",
       !!text && !(result.total > 0) && !images && findbar._findField.getAttribute("status") == "notfound"
     );
