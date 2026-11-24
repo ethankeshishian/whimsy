@@ -59,6 +59,8 @@ const INSET = 8;
 // controls, and lingers this long after the pointer leaves the video.
 const IDLE_MS = 2500;
 const LEAVE_MS = 300;
+// Hidden pieces are parked once their fade (120ms) has finished.
+const PARK_MS = 250;
 // A player that puts the speed back to 1× this soon after Whimsy applied the
 // site's speed (YouTube does on load) gets it applied once more.
 const RESET_GRACE_MS = 1500;
@@ -83,6 +85,7 @@ const SVG_SEEK_FORWARD = `<svg viewBox="6 5 17 17" aria-hidden="true"><path clas
 const SVG_SEEK_END = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12 3v10"/><path d="M3.5 4l5.7 4-5.7 4"/></svg>`;
 const MARKUP = `<template>
   <link rel="stylesheet" href="${STYLESHEET}"/>
+  <div id="origin"></div>
   <div id="bar" hidden="">
     <button id="reset" type="button" hidden="">${SVG_UTURN}</button>
     <button id="value" type="button"></button>
@@ -210,6 +213,10 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
         if (!event.relatedTarget && !this.busy) {
           this.scheduleHide(LEAVE_MS);
         }
+        break;
+      case "scroll":
+      case "resize":
+        this.layoutChanged();
         break;
       case "fullscreenchange":
         this.hide();
@@ -535,6 +542,7 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
 
   didDestroy() {
     this.clearTimers();
+    this.stopTracking();
     this._captions?.stop();
     this._listener?.stop();
     this._notes?.stop();
@@ -852,8 +860,11 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
       this.cancelEdit();
       this.current = video;
     }
+    this.showing = true;
+    clearTimeout(this.parkTimer);
     this.place();
     this.render();
+    this.updateTracking();
     if (this.sheetReady) {
       // All three share one timer: they fade in and out together.
       this.els.bar.toggleAttribute("data-shown", true);
@@ -924,6 +935,9 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.els.bar.removeAttribute("data-shown");
     this.els.right.removeAttribute("data-shown");
     this.els.seekplate.removeAttribute("data-shown");
+    this.showing = false;
+    this.updateTracking();
+    this.schedulePark();
   }
 
   clearTimers() {
@@ -932,29 +946,158 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     this.stopHoldSeek();
   }
 
-  place() {
-    const r = this.current.getBoundingClientRect();
+  // --- Following the video ---
+  //
+  // Every piece of the overlay (the bar, the top-right plates, the seek
+  // plate, and the caption box) is placed through moveTo(), in page
+  // coordinates: the anonymous content layer lives in the root scroller's
+  // canvas, so between placements the pieces scroll with the page on the
+  // compositor, in the same frame as the video, with no main-thread work.
+  // While anything is shown, layoutChanged() places them all again on any
+  // scroll (a scrollable box, or the page), resize (zoom too), and change in
+  // the video's or the page's size (players resizing, layout shifts). The
+  // listeners exist only while something is shown.
+
+  // Where the overlay layer's top left is, in the viewport.
+  origin() {
+    const r = this.anon.root.getElementById("origin")?.getBoundingClientRect();
+    return r ? { x: r.left, y: r.top } : { x: -this.contentWindow.scrollX, y: -this.contentWindow.scrollY };
+  }
+
+  // The viewport less its scrollbars: pieces stay inside it, so a piece
+  // never makes the page scroll further.
+  viewport() {
     const win = this.contentWindow;
-    const left = Math.min(Math.max(r.left, 0) + INSET, Math.max(INSET, win.innerWidth - 160));
-    const top = Math.min(Math.max(r.top, 0) + INSET, Math.max(INSET, win.innerHeight - 34));
-    this.els.bar.style.left = `${Math.round(left)}px`;
-    this.els.bar.style.top = `${Math.round(top)}px`;
+    const w = {};
+    const h = {};
+    try {
+      win.windowUtils.getScrollbarSize(false, w, h);
+    } catch (e) {}
+    return { width: win.innerWidth - (w.value || 0), height: win.innerHeight - (h.value || 0) };
+  }
+
+  // Puts a piece at viewport point (x, y), as page coordinates.
+  moveTo(el, x, y, origin = this.origin()) {
+    el.style.left = `${Math.round(x - origin.x)}px`;
+    el.style.top = `${Math.round(y - origin.y)}px`;
+  }
+
+  inView(video) {
+    if (!video?.isConnected) {
+      return false;
+    }
+    const r = video.getBoundingClientRect();
+    const view = this.viewport();
+    return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < view.height && r.left < view.width;
+  }
+
+  // The one path that re-places every piece after the page changed.
+  layoutChanged() {
+    if (!this.anon) {
+      return;
+    }
+    if (this.showing && this.current) {
+      if (this.inView(this.current)) {
+        this.place();
+      } else {
+        this.hide();
+      }
+    }
+    this._captions?.place();
+  }
+
+  // Starts, retargets, or stops following the page, as the shown pieces
+  // need.
+  updateTracking() {
+    const win = this.contentWindow;
+    const videos = [];
+    if (this.showing && this.current) {
+      videos.push(this.current);
+    }
+    const captioned = this._captions?.placedVideo;
+    if (captioned && !videos.includes(captioned)) {
+      videos.push(captioned);
+    }
+    if (!videos.length || !win || !this.anon) {
+      this.stopTracking();
+      return;
+    }
+    if (!this.tracker) {
+      win.addEventListener("scroll", this, { capture: true, passive: true });
+      win.addEventListener("resize", this);
+      this.tracker = { win, observer: new win.ResizeObserver(() => this.layoutChanged()), videos: [] };
+    }
+    const tracker = this.tracker;
+    if (tracker.videos.length != videos.length || tracker.videos.some((v, i) => v != videos[i])) {
+      tracker.observer.disconnect();
+      const root = this.document.documentElement;
+      if (root) {
+        tracker.observer.observe(root);
+      }
+      for (const video of videos) {
+        tracker.observer.observe(video);
+      }
+      tracker.videos = videos;
+    }
+  }
+
+  stopTracking() {
+    const tracker = this.tracker;
+    if (!tracker) {
+      return;
+    }
+    this.tracker = null;
+    try {
+      tracker.win.removeEventListener("scroll", this, { capture: true });
+      tracker.win.removeEventListener("resize", this);
+      tracker.observer.disconnect();
+    } catch (e) {
+      // The page is going away.
+    }
+  }
+
+  // Hidden pieces go back to the layer's top left once they've faded, so
+  // one left far down a page that later gets shorter never keeps it
+  // scrollable.
+  schedulePark() {
+    clearTimeout(this.parkTimer);
+    this.parkTimer = setTimeout(() => {
+      if (!this.anon) {
+        return;
+      }
+      const { bar, right, seekplate, captions } = this.els;
+      for (const el of [bar, right, seekplate, captions]) {
+        if (!el.hasAttribute("data-shown")) {
+          el.style.left = el.style.top = "0px";
+        }
+      }
+    }, PARK_MS);
+  }
+
+  place() {
+    if (!this.current?.isConnected || !this.anon) {
+      return;
+    }
+    const r = this.current.getBoundingClientRect();
+    const view = this.viewport();
+    const origin = this.origin();
+    const left = Math.min(Math.max(r.left, 0) + INSET, Math.max(INSET, view.width - 160));
+    const top = Math.min(Math.max(r.top, 0) + INSET, Math.max(INSET, view.height - 34));
+    this.moveTo(this.els.bar, left, top, origin);
     // The right plates hug the video's top right corner (PiP in the corner).
     // Anchored by the video's right edge, so a viewport that narrows (chat
     // opening beside it) never drags them across the video.
-    const edge = Math.max(INSET, Math.min(r.right, win.innerWidth) - INSET);
-    this.els.right.style.left = `${Math.round(edge)}px`;
-    this.els.right.style.top = `${Math.round(top)}px`;
+    const edge = Math.max(INSET, Math.min(r.right, view.width) - INSET);
+    this.moveTo(this.els.right, edge, top, origin);
     const compact = r.width <= COMPACT_WIDTH;
     this.els.right.toggleAttribute("data-compact", compact);
     // W29 video: Start/End drop out of the seek group under the same width.
     this.compactVideo = compact;
     // The seek plate sits on its own, centred under the video, at its
     // bottom edge (owner: "Bottom center plate").
-    const plateLeft = Math.min(Math.max(r.left + r.width / 2, INSET), win.innerWidth - INSET);
-    const plateTop = Math.min(Math.max(r.bottom - 26 - INSET, INSET), win.innerHeight - 26 - INSET);
-    this.els.seekplate.style.left = `${Math.round(plateLeft)}px`;
-    this.els.seekplate.style.top = `${Math.round(plateTop)}px`;
+    const plateLeft = Math.min(Math.max(r.left + r.width / 2, INSET), view.width - INSET);
+    const plateTop = Math.min(Math.max(r.bottom - 26 - INSET, INSET), view.height - 26 - INSET);
+    this.moveTo(this.els.seekplate, plateLeft, plateTop, origin);
   }
 
   format(rate) {
@@ -1460,6 +1603,8 @@ export class WhimsyVideoSpeedChild extends JSWindowActorChild {
     return {
       built: true,
       shown: bar.hasAttribute("data-shown") && !bar.hidden,
+      // Whether the scroll, resize, and size listeners are on.
+      tracking: !!this.tracker,
       text: value.textContent,
       editing: !input.hidden,
       menuOpen: !menu.hidden,

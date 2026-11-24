@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Whimsy video scroll test</title>
+<style>
+  body { margin: 0; font: 14px system-ui; }
+  #video, #inner { display: block; width: 320px; height: 180px; background: #000; }
+  #video { margin: 120px 0 0 40px; }
+  #tall { height: 3000px; }
+  #scroller { margin: 40px 0 0 40px; width: 360px; height: 360px; overflow: auto; }
+  #scroller::before { content: ""; display: block; height: 60px; }
+  #scroller::after { content: ""; display: block; height: 1200px; }
+  iframe { display: block; margin: 40px 0 0 40px; border: 0; width: 420px; height: 360px; }
+</style>
+<script>
+  // Default: a video in a tall page. ?nested: in a scrollable box.
+  // ?frame: the default page in an iframe (its own scroller).
+  const params = new URLSearchParams(location.search);
+  if (params.has("nested")) {
+    document.write('<div id="scroller"><video id="inner" src="whimsy_video.mp4" loop muted preload="auto"></video></div><div id="tall"></div>');
+  } else if (params.has("frame")) {
+    document.write('<iframe src="whimsy_video_scroll.html"></iframe><div id="tall"></div>');
+  } else {
+    document.write('<video id="video" src="whimsy_video.mp4" loop muted preload="auto"></video><div id="tall"></div>');
+  }
+</script>

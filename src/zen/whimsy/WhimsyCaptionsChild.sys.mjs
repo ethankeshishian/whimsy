@@ -194,9 +194,6 @@ export class VideoCaptions {
       return false;
     }
     this.applyTypography();
-    this.win.addEventListener("scroll", this, { capture: true, passive: true });
-    this.win.addEventListener("resize", this);
-    this.listening = true;
     this.update();
     return true;
   }
@@ -223,14 +220,9 @@ export class VideoCaptions {
           source.button.click();
         }
       }
-      if (this.listening) {
-        this.win?.removeEventListener("scroll", this, { capture: true });
-        this.win?.removeEventListener("resize", this);
-      }
     } catch (e) {
       // The page is going away.
     }
-    this.listening = false;
     this.show("");
   }
 
@@ -238,10 +230,6 @@ export class VideoCaptions {
     switch (event.type) {
       case "cuechange":
         this.update();
-        break;
-      case "scroll":
-      case "resize":
-        this.schedulePlace();
         break;
     }
   }
@@ -746,6 +734,11 @@ export class VideoCaptions {
       this.place();
     }
     captions.toggleAttribute("data-shown", shown && this.actor.sheetReady);
+    // The actor follows the page while the box shows (scroll, resize, size).
+    this.actor.updateTracking();
+    if (!shown) {
+      this.actor.schedulePark();
+    }
   }
 
   // A short note in the caption box (no captions, couldn't translate).
@@ -797,8 +790,21 @@ export class VideoCaptions {
     const offset = this.offsets.get(video) ?? { x: 0, y: 0 };
     const x = r.left + r.width * (0.5 + offset.x);
     const y = r.bottom - r.height * (BOTTOM - offset.y);
-    captions.style.left = `${Math.round(clamp(x, 0, win.innerWidth))}px`;
-    captions.style.top = `${Math.round(clamp(y, size * 2, win.innerHeight))}px`;
+    // W30: kept inside the viewport and placed in page coordinates, through
+    // the overlay's one placement path (WhimsyVideoSpeedChild's moveTo), so
+    // it scrolls with the video like the rest of the overlay.
+    const view = this.actor.viewport();
+    const half = Math.min(captions.getBoundingClientRect().width / 2, view.width / 2);
+    this.actor.moveTo(captions, clamp(x, half, view.width - half), clamp(y, size * 2, view.height));
+  }
+
+  // The video the box is placed on, while it shows anything.
+  get placedVideo() {
+    if (!this.els) {
+      return null;
+    }
+    const { cue, note } = this.els;
+    return cue.textContent || note.textContent ? (this.video ?? this.noticeVideo ?? null) : null;
   }
 
   startDrag(event) {
