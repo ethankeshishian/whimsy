@@ -1405,6 +1405,10 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 # and emoji images on a generated page.
 ["browser_whimsy_dark_pages_detect.js"]
 
+# W30: every way a page shows an emoji keeps its colours on a generated dark page.
+["browser_whimsy_dark_pages_emoji.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages_emoji.html", "whimsy_dark_emoji/1f605.svg"]
+
 ["browser_whimsy_dark_pages_dynamic.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 

@@ -1,0 +1,97 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- Every way a page shows an emoji: colour-font text, <img> emoji (svg and
+     png, with emoji, shortcode, decorative, or class-only alt text), CSS
+     background sprites, inline SVG, editable text, and canvas. Each form is a
+     [data-form] box; [data-icon] boxes are dark icons that dark pages should
+     still lighten. The SVGs are a yellow Twemoji-style face. -->
+<style>
+  body { margin: 8px; font: 16px system-ui; background: #fff; color: #202124; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  [data-form], [data-icon] { width: 48px; height: 48px; box-sizing: border-box; overflow: hidden; }
+  .t { font: 36px/48px "Apple Color Emoji", system-ui; margin: 0; padding: 0; text-align: center; }
+  img, .bg, svg { width: 48px; height: 48px; display: block; }
+  .bg { background-size: 48px 48px; background-repeat: no-repeat; }
+  .sprite { background-size: 96px 48px; background-position: -48px 0; }
+  button.t, input.t, textarea.t { border: 0; background: #e8f0fe; color: #1a0dab; resize: none; }
+  a.t { display: block; color: #1a0dab; background: #fef7e0; text-decoration: none; }
+  mark.t { display: block; background: #ceead6; }
+</style>
+<svg width="0" height="0" style="position: absolute">
+  <symbol id="e-1f605" viewBox="0 0 36 36"><circle cx="18" cy="18" r="18" fill="#FFCC4D"/><ellipse cx="12" cy="15" rx="2.5" ry="3.5" fill="#664500"/><ellipse cx="24" cy="15" rx="2.5" ry="3.5" fill="#664500"/><path d="M30 4 Q34 10 30 13 Q26 10 30 4 Z" fill="#5DADEC"/></symbol>
+  <symbol id="i-search" viewBox="0 0 10 10"><rect width="10" height="10" fill="#202124"/></symbol>
+</svg>
+<div class="row">
+  <p class="t" data-form="text">&#x1F605;</p>
+  <button class="t" data-form="text in a button">&#x1F605;</button>
+  <span class="t" style="display: inline-block" data-form="text in an inline-block">&#x1F605;</span>
+  <a class="t" href="#" data-form="text in a recoloured link">&#x1F605;</a>
+  <mark class="t" data-form="text in a highlight">&#x1F605;</mark>
+  <div class="t" contenteditable="true" data-form="contenteditable">&#x1F605;</div>
+  <input class="t" value="&#x1F605;" data-form="input">
+  <textarea class="t" data-form="textarea">&#x1F605;</textarea>
+</div>
+<div class="row">
+  <img data-svg data-form="svg img, emoji alt" alt="&#x1F605;">
+  <img data-svg data-form="svg img, shortcode alt" alt=":sweat_smile:">
+  <img data-svg data-form="svg img, skin-tone shortcode alt" alt=":wave::skin-tone-2:">
+  <img data-svg class="emoji" data-form="svg img, emoji class" alt="sweat smile">
+  <img src="whimsy_dark_emoji/1f605.svg" data-form="svg img, codepoint file, empty alt" alt="">
+  <span class="c-emoji" data-form="svg img in an emoji wrapper"><img data-svg alt=""></span>
+  <img data-png data-form="png img, emoji alt" alt="&#x1F605;">
+  <img data-png data-form="png img, shortcode alt" alt=":sweat_smile:">
+</div>
+<div class="row">
+  <span class="bg" role="img" aria-label="&#x1F605;" data-bg="svg" data-form="svg background, emoji label"></span>
+  <i class="bg sprite emoji" data-bg="svg-sprite" data-form="svg sprite background, emoji class"></i>
+  <span class="bg" role="img" aria-label=":sweat_smile:" data-bg="svg" data-form="svg background, shortcode label"></span>
+  <i class="bg sprite emoji" data-bg="png-sprite" data-form="png sprite background"></i>
+  <svg class="emoji" data-form="svg use, emoji class"><use href="#e-1f605"/></svg>
+  <svg role="img" aria-label="&#x1F605;" data-form="svg use, emoji label"><use href="#e-1f605"/></svg>
+  <span class="emoji" data-form="inline svg in an emoji wrapper"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="18" fill="#FFCC4D"/></svg></span>
+  <svg viewBox="0 0 36 36" data-form="svg use, codepoint symbol"><use href="#e-1f605"/></svg>
+</div>
+<div class="row">
+  <canvas width="48" height="48" data-form="canvas text"></canvas>
+</div>
+<div class="row">
+  <img data-dark alt="Search" data-icon="svg icon img">
+  <span class="bg" data-bg="dark" data-icon="svg icon background"></span>
+  <svg class="icon" data-icon="inline svg icon"><use href="#i-search"/></svg>
+  <button class="emoji-button" style="border: 0; padding: 0; background: none" data-icon="emoji picker button"><img data-dark alt=""></button>
+  <svg class="emoji-picker" data-icon="emoji picker svg"><use href="#i-search"/></svg>
+</div>
+<script>
+  const face = `<circle cx="18" cy="18" r="18" fill="#FFCC4D"/><ellipse cx="12" cy="15" rx="2.5" ry="3.5" fill="#664500"/><ellipse cx="24" cy="15" rx="2.5" ry="3.5" fill="#664500"/><path d="M30 4 Q34 10 30 13 Q26 10 30 4 Z" fill="#5DADEC"/>`;
+  const svg = (body, w = 36) => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} 36">${body}</svg>`);
+  const urls = {
+    svg: svg(face),
+    "svg-sprite": svg(`<rect width="36" height="36" fill="#000"/><g transform="translate(36)">${face}</g>`, 72),
+    dark: svg(`<rect width="36" height="36" fill="#202124"/>`),
+  };
+  const png = sprite => {
+    const c = document.createElement("canvas");
+    c.width = sprite ? 72 : 36;
+    c.height = 36;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#FFCC4D";
+    ctx.beginPath();
+    ctx.arc(sprite ? 54 : 18, 18, 18, 0, Math.PI * 2);
+    ctx.fill();
+    return c.toDataURL("image/png");
+  };
+  urls.png = png(false);
+  urls["png-sprite"] = png(true);
+  for (const img of document.querySelectorAll("img[data-svg]")) img.src = urls.svg;
+  for (const img of document.querySelectorAll("img[data-png]")) img.src = urls.png;
+  for (const img of document.querySelectorAll("img[data-dark]")) img.src = urls.dark;
+  for (const el of document.querySelectorAll("[data-bg]")) el.style.backgroundImage = `url("${urls[el.dataset.bg]}")`;
+  const ctx = document.querySelector("canvas").getContext("2d");
+  ctx.font = '36px "Apple Color Emoji"';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("\u{1F605}", 24, 26);
+  Promise.all([...document.images].map(img => img.decode())).then(() => {
+    document.documentElement.dataset.emojiReady = "true";
+  });
+</script>
