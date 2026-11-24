@@ -322,10 +322,20 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
     () => tab.label == "WebKit Test Page One",
     "Tab title comes from the WKWebView"
   );
-  await TestUtils.waitForCondition(
-    () => (tab.getAttribute("image") || "").includes("/favicon.svg"),
-    "Tab favicon comes from the WKWebView"
+  const iconLog = [];
+  const iconObserver = new MutationObserver(() =>
+    iconLog.push(`${Math.round(performance.now())} image=${tab.getAttribute("image")}`)
   );
+  iconObserver.observe(tab, { attributes: true, attributeFilter: ["image"] });
+  try {
+    await TestUtils.waitForCondition(
+      () => (tab.getAttribute("image") || "").includes("/favicon.svg"),
+      "Tab favicon comes from the WKWebView"
+    );
+  } finally {
+    iconObserver.disconnect();
+    info(`DIAG favicon state=${tab._whimsyWebKitState?.favicon} parking=${tab._whimsyWebKitState?.parkingGecko} gecko=${Object.getOwnPropertyDescriptor(Object.getPrototypeOf(tab.linkedBrowser), "currentURI").get.call(tab.linkedBrowser)?.spec} log=${iconLog.join(" | ")}`);
+  }
   Assert.ok(
     gURLBar.value.includes(`127.0.0.1:${gServer.port}/page1`),
     "Address bar URL comes from the WKWebView"
