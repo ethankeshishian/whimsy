@@ -77,10 +77,23 @@ const EASE = "cubic-bezier(0.075, 0.82, 0.165, 1)";
 const EXPAND = "cubic-bezier(0.34, 1.2, 0.64, 1)";
 const THUMB_W = 360;
 
-// A request to act starts with one of these (after "please", "can you"…).
+// Errands that read as a request to act whatever follows them.
 const ACT_VERBS = /^(?:please\s+|can you\s+|could you\s+|would you\s+|go\s+(?:and\s+)?)*(order|re-?order|buy|purchase|book|reserve|schedule|add|remove|delete|cancel|unsubscribe|send|post|reply|email|e-mail|message|sign (?:up|in|out)|subscribe|download|install|find|open|go to|search|look up|check|make|set|set up|change|move|rename|archive|clean up|tidy|collect|gather|research|plan|get me|get|pay|apply|register|rsvp|accept|decline|follow|share|upload|save|copy|close|pin|star|like|mark)\b/i;
 // Not agent tasks: page-act's own (owner, 2026-11-08).
 const NOT_TASKS = /^(?:please\s+|can you\s+|could you\s+)*(?:fill(?:\s+(?:in|out))?\b|auto-?fill\b|draft\b|write a (?:reply|response)\b|translate\b|compare\b)|\b(?:fill (?:in |out )?(?:this|the|my) form|this form for me)\b/i;
+// W30 driveroute: whether a message asks Whimsy to do something goes by its
+// shape, not by its verb (owner: "can you expand all the diffs on this
+// page?" got no plan). An ask ("please", "can you", "I want you to") or an
+// imperative with an object ("expand all…", "hide the…", "scroll down")
+// goes to the planner, whose {"act": false} keeps it chat; a question, a
+// statement, or a job chat does in words (explain, summarize, write) never
+// costs a planner call.
+const LEAD_IN = /^(?:(?:hey|hi|ok(?:ay)?|so|and|also|then|just|whimsy)\b[\s,!.]*)+/i;
+const ASK = /^(?:(?:please|kindly)\b[\s,]*|(?:can|could|would|will) you(?: please)?\s+|(?:would|do) you mind\s+|i(?:'d| would) like you to\s+|i (?:want|need) you to\s+|go ahead and\s+|go and\s+|let's\s+|try (?:to|and)\s+)+/i;
+const ANSWERS = /^(?:explain|summari[sz]e|tell|describe|define|write|draft|rewrite|reword|rephrase|compose|translate|compare|list|outline|brainstorm|suggest|recommend|give me|help|answer|analy[sz]e|critique|proofread|review|calculate|solve|guess|imagine|think|elaborate|clarify|simplify|shorten|expand (?:on|upon)|continue|keep going|go on|say|repeat|teach|quiz|show me (?:how|what|why|where|when|which)|be|see|read|understand|remember|summary|tl;?dr|overview|sum up|recap|average|total|count|rank|put (?:these|them|those|it) side by side)\b/i;
+const QUESTION = /^(?:what|why|how|who|whom|whose|when|where|which|is|are|am|was|were|do|does|did|should|shall|would|could|can|may|might|must|has|have|had|will|isn't|aren't|doesn't|don't|didn't|won't|can't|couldn't|wouldn't|shouldn't)\b/i;
+const STATEMENT = /^(?:i|i'm|i've|i'd|i'll|me|my|mine|we|we're|our|us|you|you're|your|it|it's|its|this|that|that's|these|those|the|a|an|there|there's|here|here's|he|she|they|his|her|their|thanks|thank|thx|hello|yes|yeah|yep|no|nope|cool|nice|great|wow|lol|hmm|sure|good|awesome|perfect|if|but|or|because|in|on|at|for|of|with|about|from|by|to|as|than|vs)\b/i;
+const IMPERATIVE = /^[\p{L}][\p{L}'-]*\s+(?:all|every|each|any|both|the|this|that|these|those|my|its|their|it|them|everything|anything|something|everyone|down|up|out|off|back|over|through|away|around|to (?:the|my|this|that|top|bottom|end)\b|in$)|\b(?:on|in|from) this\b/iu;
 const PRIVATE_ASK = /\bprivate (?:tabs?|windows?|browsing)\b/i;
 // W25 ⌘K: what the planner adds for a request from the command bar.
 // Connectors only read (Google reads Calendar), so a plan that sends mail
@@ -672,7 +685,24 @@ export const WhimsyChatAgent = {
     const t = String(text ?? "").trim();
     // W23 page-act: tab requests and page edits aren't agent tasks either,
     // nor (W30) making or changing an extension, which chat writes itself.
-    return ACT_VERBS.test(t) && !NOT_TASKS.test(t) && !lazy.WhimsyAITabRequests.takes(t) && !lazy.WhimsyAIPageEdits.takes(t) && !lazy.WhimsyLocalPlugins.takes(t);
+    return this.asksToAct(t) && !NOT_TASKS.test(t) && !lazy.WhimsyAITabRequests.takes(t) && !lazy.WhimsyAIPageEdits.takes(t) && !lazy.WhimsyLocalPlugins.takes(t);
+  },
+
+  /** By its shape: does `text` ask Whimsy to do something? (W30 driveroute) */
+  asksToAct(text) {
+    const said = String(text ?? "").trim().replace(/[’‘]/g, "'").replace(LEAD_IN, "");
+    const ask = said.match(ASK)?.[0] ?? "";
+    const rest = said.slice(ask.length);
+    if (!rest || ANSWERS.test(rest) || NOT_TASKS.test(rest)) {
+      return false;
+    }
+    if (ACT_VERBS.test(rest)) {
+      return true;
+    }
+    if (QUESTION.test(rest) || STATEMENT.test(rest)) {
+      return false;
+    }
+    return !!ask || IMPERATIVE.test(rest);
   },
 
   async onSend(panel, thread, text, context) {
@@ -689,6 +719,11 @@ export const WhimsyChatAgent = {
       return true;
     }
     if (!this.looksLikeTask(text)) {
+      return false;
+    }
+    // A chat that's building a plugin keeps its follow-ups ("Also hide
+    // them on example.com") with the builder.
+    if (lazy.WhimsyLocalPlugins.canBuild && (await lazy.WhimsyLocalPlugins.madeInThread(thread.id)).length) {
       return false;
     }
     const named = lazy.WhimsyAIContext.spacesNamedIn(text, win);
