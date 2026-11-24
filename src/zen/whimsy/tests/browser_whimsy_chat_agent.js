@@ -43,6 +43,9 @@ async function fresh() {
   await WhimsyAIStore._resetForTesting(PathUtils.join(PathUtils.tempDir, "whimsy-chat-agent-" + Math.random().toString(16).slice(2)));
   WhimsyAgentTasks._resetForTesting();
   WhimsyChatAgent._resetForTesting();
+  // Each task starts in Drive: a task that set Background and then failed
+  // must not leave every later task in Background.
+  Services.prefs.clearUserPref(MODE);
   planReply = PLAN;
   actions = [{ done: "Done." }];
   calls = [];

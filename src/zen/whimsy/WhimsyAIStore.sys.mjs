@@ -40,6 +40,9 @@ let state = null;
 let loading = null;
 let dirOverride = null;
 let writes = Promise.resolve();
+// Bumped by _resetForTesting: a load that began before a reset read the old
+// folder, so it must not become the new folder's state.
+let generation = 0;
 const clearers = new Map();
 
 function dir() {
@@ -84,8 +87,12 @@ async function load() {
     return state;
   }
   loading ??= (async () => {
+    const at = generation;
     await ensureDir(dir());
     const saved = await readFile(PathUtils.join(dir(), THREADS_FILE), null);
+    if (at != generation) {
+      return load();
+    }
     state = { threads: Array.isArray(saved?.threads) ? saved.threads : [], messages: new Map(), sizes: new Map(saved?.sizes ?? []) };
     loading = null;
     return state;
@@ -116,6 +123,10 @@ function scheduleFlush() {
     flushQueued = null;
     const names = [...dirty];
     dirty.clear();
+    // Saves left over from before a reset belong to the old folder.
+    if (!state) {
+      return;
+    }
     for (const name of names) {
       if (name == THREADS_FILE) {
         await writeFile(PathUtils.join(dir(), THREADS_FILE), { version: 1, threads: state.threads, sizes: [...state.sizes] });
@@ -398,9 +409,16 @@ export const WhimsyAIStore = {
 
   // Tests: a scratch folder in place of the profile's, and a cold start.
   async _resetForTesting(path = null) {
-    await writes;
+    // Saves made while the queue drains go to the old folder too.
+    let drained;
+    do {
+      drained = writes;
+      await drained;
+    } while (drained != writes);
+    generation++;
     dirOverride = path;
     state = null;
     loading = null;
+    dirty.clear();
   },
 };

@@ -70,6 +70,10 @@ function restorePrefs() {
   }
 }
 
+// 32 tasks over the whole settings page take 43 to 49 s on every pass,
+// right at the default 45 s budget.
+requestLongerTimeout(2);
+
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-hints", false]] });
   OSKeyStoreTestUtils.setup();
