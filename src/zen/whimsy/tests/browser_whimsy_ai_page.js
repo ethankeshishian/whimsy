@@ -213,6 +213,8 @@ add_task(async function plan_allowed_for_descriptions() {
     await SpecialPowers.popPrefEnv();
     WhimsyAIProviders.setTestProvider(testProvider);
     WhimsyAIReader.setTestReader(null);
+    // Drop the description it cached, or the next run reads the cache and never asks.
+    Services.obs.notifyObservers(null, "whimsy-ai-store-cleared");
   }
 });
 
