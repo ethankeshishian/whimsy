@@ -262,10 +262,6 @@ function add_webkit_task(fn) {
     try {
       await fn();
     } finally {
-      if (gTrace) {
-        info(`TRACE ${gTrace.stop()}`);
-        gTrace = null;
-      }
       for (const win of Services.wm.getEnumerator("navigator:browser")) {
         if (!windowsBefore.has(win)) {
           await BrowserTestUtils.closeWindow(win);
@@ -283,41 +279,6 @@ function add_webkit_task(fn) {
   };
   Object.defineProperty(wrapped, "name", { value: fn.name });
   add_task(wrapped);
-}
-
-let gTrace = null;
-function traceTab(tab) {
-  const log = [];
-  const t0 = performance.now();
-  const note = text => log.push(`${Math.round(performance.now() - t0)} ${text}`);
-  const mo = new window.MutationObserver(muts => {
-    for (const m of muts) {
-      note(`${m.attributeName}=${tab.getAttribute(m.attributeName)}`);
-    }
-  });
-  mo.observe(tab, { attributes: true, attributeFilter: ["label", "image", "busy"] });
-  const wpl = Ci.nsIWebProgressListener;
-  const listener = {
-    onLocationChange(b, wp, r, loc) {
-      if (b == tab.linkedBrowser && wp?.isTopLevel) {
-        note(`gecko location ${loc.spec}`);
-      }
-    },
-    onStateChange(b, wp, r, flags) {
-      if (b == tab.linkedBrowser && wp?.isTopLevel && flags & wpl.STATE_IS_WINDOW) {
-        note(`gecko ${flags & wpl.STATE_START ? "start" : flags & wpl.STATE_STOP ? "stop" : flags}`);
-      }
-    },
-  };
-  gBrowser.addTabsProgressListener(listener);
-  return {
-    note,
-    stop() {
-      mo.disconnect();
-      gBrowser.removeTabsProgressListener(listener);
-      return `${log.join(" | ")} || final label=${tab.label} busy=${tab.hasAttribute("busy")} uri=${WhimsyWebKit.currentURIOf(tab)?.spec}`;
-    },
-  };
 }
 
 add_webkit_task(async function test_availability_and_profile_datastore() {
@@ -368,13 +329,11 @@ add_webkit_task(async function test_switch_tab_to_webkit_and_back_with_metadata_
   );
   const originalIndex = gBrowser.tabs.indexOf(tab);
   const pill = document.getElementById("whimsy-webkit-pill");
-  gTrace = traceTab(tab);
 
   Assert.ok(!WhimsyWebKit.isWebKitTab(tab), "Tab starts in Firefox (Gecko)");
   Assert.ok(pill.hidden, "WebKit pill is hidden on a Firefox tab");
 
   // Switch the tab to WebKit in place.
-  gTrace?.note("switch");
   await WhimsyWebKit.setTabEngine(tab, "webkit");
   Assert.ok(WhimsyWebKit.isWebKitTab(tab), "Tab is now a WebKit tab");
   Assert.equal(
@@ -464,7 +423,6 @@ add_webkit_task(async function test_switch_tab_to_webkit_and_back_with_metadata_
   );
 
   // Back button / Browser:Back command
-  gTrace?.note("Back");
   document.getElementById("Browser:Back").doCommand();
   await TestUtils.waitForCondition(
     () =>
