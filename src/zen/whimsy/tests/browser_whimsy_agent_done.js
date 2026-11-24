@@ -77,6 +77,20 @@ function fieldRef(request) {
 const executorCalls = () => calls.filter(c => c.request.system.includes("browser agent, carrying out"));
 const idOf = tab => WhimsyClaude.tabId(tab);
 
+// The run calls a search done once the tab's session history has the
+// results entry; the browser's address follows in its own message, a moment
+// later. Wait for the address, and say when it lagged.
+async function searchedOn(tab, query) {
+  const browser = tab.linkedBrowser;
+  const q = () => new URL(browser.currentURI.spec).searchParams.get("q");
+  if (q() != query) {
+    const history = browser.browsingContext.sessionHistory;
+    info(`The address lagged the run: ${browser.currentURI.spec}, history ${history?.count}:${history?.index}`);
+  }
+  await TestUtils.waitForCondition(() => q() == query, "The tab's address is the results page");
+  return true;
+}
+
 async function startPlan(text) {
   send(text);
   const start = await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-plan'] [data-choice='start']"), "The plan is ready");
@@ -131,7 +145,7 @@ add_task(async function type_only_plan_still_submits_the_search() {
   ]);
   const end = await startPlan('please search up "hello world"');
   await TestUtils.waitForCondition(() => end.getAttribute("data-outcome"), "The outcome is set");
-  ok(new URL(tab.linkedBrowser.currentURI.spec).searchParams.get("q") == "hello world", "The search ran: the page moved to its results");
+  ok(await searchedOn(tab, "hello world"), "The search ran: the page moved to its results");
   is(end.getAttribute("data-outcome"), "done", "and only then is it a success");
   ok(executorCalls().some(c => lastResult(c.request).startsWith("Not done yet: you typed")), "The first “done” was sent back: typed, never submitted");
   is(part(".whimsy-agent-step").textContent, "Type search query", "Step labels are sentence case");
@@ -200,7 +214,7 @@ add_task(async function named_tab_is_switched_to_not_reopened() {
   is(opened, 0, "No new tab was opened");
   is(gBrowser.tabs.length, before, "gBrowser.tabs.length didn't change");
   is(gBrowser.selectedTab, yahoo, "Drive switched to the existing Yahoo tab");
-  ok(new URL(yahoo.linkedBrowser.currentURI.spec).searchParams.get("q") == "hello world", "and searched there");
+  ok(await searchedOn(yahoo, "hello world"), "and searched there");
   is(end.getAttribute("data-outcome"), "done", "A goal that was met is a success");
   ok(yahoo.isConnected, "The person's Yahoo tab is never archived");
   const steps = [...part(".whimsy-agent-card[data-card='agent-plan']").querySelectorAll(".whimsy-agent-steptext")].map(s => s.textContent);

@@ -393,6 +393,50 @@ add_task(async function research_keeps_going_with_panel_closed() {
   await closeAll(tab);
 });
 
+// The panel reopening while a finished answer is still being saved (after
+// its report opened and posted to Updates, before the message is stored)
+// shows the answer once, in place of the progress card.
+add_task(async function reopening_while_the_answer_saves_shows_it_once() {
+  await fresh();
+  WhimsyAIUpdates._resetForTesting();
+  const tab = await openOn();
+  const g = gate();
+  script = async function* () {
+    yield { type: "artifact", artifact: { kind: "progress", title: "Deep research", lines: ["Reading 12 sources"] } };
+    await g.promise;
+    yield { type: "text", delta: "Done: rents ran lower." };
+    yield { type: "artifact", artifact: { kind: "report", title: "Reopened panel report", markdown: "Rents ran lower.", sources: 2 } };
+  };
+  type("Do deep research on parking reform");
+  await TestUtils.waitForCondition(() => part(".whimsy-chat-research[live]"), "The progress card shows");
+  chat().close({ reason: "key" });
+  await TestUtils.waitForCondition(() => el().hidden, "Chat closed");
+  const post = WhimsyAIUpdates.post;
+  let reopened = false;
+  WhimsyAIUpdates.post = async function (...args) {
+    const result = await post.apply(this, args);
+    EventUtils.synthesizeKey("e", { accelKey: true });
+    await TestUtils.waitForCondition(() => chat().isOpen && chat().ready, "Chat reopens while the answer saves");
+    reopened = true;
+    return result;
+  };
+  try {
+    g.open();
+    await TestUtils.waitForCondition(() => reopened, "The report posted to Updates");
+  } finally {
+    WhimsyAIUpdates.post = post;
+  }
+  await TestUtils.waitForCondition(() => part(".whimsy-chat-report"), "The report card shows");
+  await TestUtils.waitForCondition(() => !chat().streams.size, "The answer is saved");
+  is(parts(".whimsy-chat-report").length, 1, "once");
+  ok(!part(".whimsy-chat-research[live]"), "in place of the progress card");
+  is(parts(".whimsy-chat-msg[data-role='ai']").length, 1, "One answer in the thread");
+  const reportTab = await TestUtils.waitForCondition(() => gBrowser.tabs.find(t => t.linkedBrowser.currentURI.spec.endsWith(".md")), "The report's tab");
+  BrowserTestUtils.removeTab(reportTab);
+  await WhimsyAIStore.clear({ kinds: ["reports"] });
+  await closeAll(tab);
+});
+
 add_task(async function image_artifact_save_copy() {
   await fresh();
   const tab = await openOn();

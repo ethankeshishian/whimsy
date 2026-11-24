@@ -1771,9 +1771,6 @@ class ChatPanel {
     } finally {
       builder?.dispose();
     }
-    this.streams.delete(thread.id);
-    // W28 tab-state-indicators: back to the still, attached badge.
-    lazy.WhimsyChatContextUI.markReadTabs(this.win);
     for (const [i, note] of notes.entries()) {
       notes[i] = await lazy.WhimsyAIStore.append(thread.id, note);
     }
@@ -1818,6 +1815,13 @@ class ChatPanel {
     if (aborted) {
       await lazy.WhimsyAIStore.append(thread.id, { role: "note", kind: "stopped" });
     }
+    // The answer counts as streaming until it's in the store: a panel that
+    // (re)opens on this thread while the answer is being saved (its report
+    // opening, Updates) shows the live node, which becomes the saved
+    // message below, instead of a thread with neither.
+    this.streams.delete(thread.id);
+    // W28 tab-state-indicators: back to the still, attached badge.
+    lazy.WhimsyChatContextUI.markReadTabs(this.win);
     let language = null;
     if (saved?.role == "ai" && !opts.continueFrom && !opts.instruction) {
       language = await this.languageOffer(thread, context);
@@ -1838,7 +1842,7 @@ class ChatPanel {
         if (opts.continueFrom) {
           node.remove();
           this.body.querySelector(`[data-msg-id="${CSS.escape(opts.continueFrom.id)}"]`)?.replaceWith(replacement);
-        } else if (replacement) {
+        } else if (replacement && !this.body.querySelector(`[data-msg-id="${CSS.escape(saved.id)}"]`)) {
           node.replaceWith(replacement);
         } else {
           node.remove();
