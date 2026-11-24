@@ -100,15 +100,19 @@ add_task(async function hints_never_show_with_ai_off_unless_marked() {
   await SpecialPowers.pushPrefEnv({
     set: [["whimsy.ai.enabled", false], ["whimsy.ai.hints.seen", ""], ["whimsy.ai.hints.today", ""]],
   });
+  // A hint that came up while AI was still on goes first: the chat's ⌘E hint
+  // shows 3s after the last page load (watchForHint), so the previous file's
+  // or task's load can put it up just before AI goes off here.
+  WhimsyAIHints._settleForTesting();
+  closeToasts();
+  await TestUtils.waitForCondition(() => !WhimsyAIHints.current && !WhimsyAIHints.waiting, "No hint is up or waiting");
   const unregister = WhimsyAIHints.register({ id: "test-ai-off-hint", isVisible: () => true });
   const describe = t => `${t.key} ${t.element.getAttribute("whimsy-cmdk-status") ?? ""} ${t.element.textContent.replace(/\s+/g, " ").slice(0, 120)}`;
   try {
-    for (const t of window.gZenUIManager.toasts.getToasts({ includeClosing: true })) {
-      info(`Toast already up before the hint: ${describe(t)}`);
-    }
     const asked = WhimsyAIHints.request(window, "test-ai-off-hint");
     is(asked, false, "request() refuses outright (not even queued) for a plain hint with AI off");
-    await new Promise(r => setTimeout(r, 50));
+    is(WhimsyAIHints.waiting, null, "Nothing waits in line");
+    is(WhimsyAIHints.current, null, "and no hint is up");
     const shown = currentToast();
     is(shown, null, "...so nothing ever shows" + (shown ? ` (${describe(shown)})` : ""));
   } finally {
