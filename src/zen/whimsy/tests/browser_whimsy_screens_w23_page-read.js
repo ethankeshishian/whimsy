@@ -253,7 +253,12 @@ add_task(async function link_preview() {
   let release = null;
   WhimsyAIReader.setTestReader(async () => {
     await new Promise(r => (release = r));
-    return "The offsite is on March 14 in Lisbon. The espresso machine is out of stock. Budget owner: Priya.";
+    // W30: enough text to describe (a near-empty page gets no description).
+    return (
+      "The offsite is on March 14 in Lisbon. The espresso machine is out of stock. Budget owner: Priya. " +
+      "Day one covers the roadmap review and hiring plan; day two is customer interviews and a design sprint. " +
+      "Flights are booked through the travel desk, and the hotel block holds until February 20."
+    );
   });
   try {
     await whimsyBothSchemes(NAME("preview"), async dark => {
