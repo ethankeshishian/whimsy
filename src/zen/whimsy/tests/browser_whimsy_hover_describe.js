@@ -267,8 +267,10 @@ add_task(async function a_page_that_blocks_its_tags_too() {
   });
   try {
     const { card } = linkCard();
-    const result = await settled(card);
-    is(result.note, "failed", "No page, no tags, no answer: it couldn't be described");
+    // W30: no page and no tags leave only the address and the link's words,
+    // which the card shows already: nothing is asked, and nothing is said.
+    await saysNothing(card);
+    is(asked.filter(described).length, 0, "No page, no tags: nothing is asked");
   } finally {
     WhimsyHoverCards.setTestFetcher(async (_url, { kind }) => {
       if (kind == "image") {

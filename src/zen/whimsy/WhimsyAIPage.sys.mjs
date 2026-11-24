@@ -69,6 +69,9 @@ const THIN_TEXT_CHARS = 200;
 // provider that's briefly down, an answer that couldn't be read).
 const RETRY_CODES = new Set(["network", "unavailable", "timeout", "failed", "all-failed", "bad-response"]);
 const RETRY_DELAY_MS = 800;
+// W30: a link's page that isn't there for a reader without sign-ins (gone,
+// or shut to them): what loads is the site's error page or wall.
+const GONE_STATUS = new Set([401, 403, 404, 410]);
 // W26: a description in progress keeps going this long after the pointer
 // leaves, so coming back to the same tab or link picks it up instead of
 // asking again (Apple's on-device model refuses for a while after a burst).
@@ -813,6 +816,11 @@ export const WhimsyAIPage = {
       return cached.data;
     }
     return this._shared(cacheKey, signal, async shared => {
+      // The page's tags, read alongside the page: whether it's there at all,
+      // and its own summary for when its text is thin.
+      const tags = pageMeta
+        ? Promise.resolve().then(pageMeta).then(found => ({ found }), error => ({ error }))
+        : Promise.resolve({ found: null });
       let page = null;
       try {
         page = await lazy.WhimsyAIReader.readUrl(url, {
@@ -826,14 +834,25 @@ export const WhimsyAIPage = {
         throwIfAborted(shared);
         console.debug("Whimsy: hover card page not read", url, error);
       }
-      let metaRead = null;
-      const meta = () => (metaRead ??= pageMeta ? Promise.resolve().then(pageMeta).catch(() => null) : Promise.resolve(null));
-      page = { url, title: "", text: "", ...page, linkText: String(linkText ?? "").trim(), meta };
+      const { found, error } = await tags;
+      throwIfAborted(shared);
+      // W30 (owner: a pull request's tab got "A technical page showing a
+      // pull request status and related GitHub features"): a page that isn't
+      // there for this reader, or a sign-in page, has nothing of its own to
+      // say. The card says nothing rather than a guess from the address.
+      if (GONE_STATUS.has(error?.status) || found?.wall) {
+        throw nothingToSay();
+      }
+      page = { url, title: "", text: "", ...page, linkText: String(linkText ?? "").trim(), meta: () => Promise.resolve(found ?? null) };
       if (isThin(page.text)) {
-        const found = await meta();
-        throwIfAborted(shared);
         page.title ||= String(found?.title ?? "").trim();
         page.metaDescription = String(found?.description ?? "").trim();
+        // Next to no text and no summary of its own (a wall, an app shell):
+        // only the address and the link's words, which the card shows
+        // already. Nothing is asked.
+        if (!page.metaDescription) {
+          throw nothingToSay();
+        }
       }
       return this.describeText(cacheKey, page, { signal: shared, userStarted: false });
     });
@@ -958,7 +977,9 @@ export const WhimsyAIPage = {
       "Describe this page in one or two short sentences (40 words at most) so someone can decide whether to open it. " +
       "Say what it is about, not that it is a web page. " +
       "Then give exactly 3 short bullet points (at most 12 words each) with the page's key facts, not repeating the description. " +
-      "If the page text is only a sign-in form, a cookie notice, or a bot check, describe the page from its address, title, and link text instead. " +
+      // W30: boilerplate gets no summary, never a guess from the address.
+      "If the page text is only a sign-in form, a cookie notice, a bot check, an error page, or the site's navigation and menus, " +
+      "with nothing about this page itself, reply with exactly {\"nothing\": true} instead. " +
       (thin
         ? "The page itself couldn't be read, so describe it from its address, title, link text, and summary: say what it most likely is " +
           "(the site and the kind of page) without inventing details, and give fewer bullets if there's less to say. "
@@ -972,7 +993,7 @@ export const WhimsyAIPage = {
       found = await this._askDescription(prompt, { signal, userStarted });
     } catch (error) {
       throwIfAborted(signal);
-      if (error?.code == "aborted") {
+      if (error?.code == "aborted" || error?.code == "no-content") {
         throw error;
       }
       const summary = clean(page.metaDescription || (await page.meta?.())?.description);
@@ -1007,6 +1028,9 @@ export const WhimsyAIPage = {
           signal,
           userStarted,
         });
+        if (saysNothing(reply)) {
+          throw nothingToSay();
+        }
         const found = parseDescriptionReply(reply);
         if (!found) {
           throw new WhimsyAIError("bad-response", "No description in the answer");
@@ -1035,6 +1059,24 @@ export const WhimsyAIPage = {
 
 function abortedError() {
   return new WhimsyAIError("aborted");
+}
+
+// W30: the page has nothing of its own to describe (a wall, an error page,
+// navigation only). Not a failure: the card's summary place goes away.
+function nothingToSay() {
+  return Object.assign(new WhimsyAIError("no-content", "Nothing to describe"), { transient: false });
+}
+
+// The model's answer for a page with nothing about itself: {"nothing": true}.
+function saysNothing(reply) {
+  const text = String(reply ?? "").replace(/```[a-z]*/gi, "");
+  for (const candidate of jsonObjects(text)) {
+    const object = parseLoose(candidate);
+    if (object && typeof object == "object" && object.nothing === true) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function throwIfAborted(signal) {

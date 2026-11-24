@@ -27,6 +27,9 @@ const LINKS = ROOT + "whimsy_ai_links.html";
 const IMAGE = ROOT + "whimsy_test_image.png";
 const DESCRIPTION = "Planning notes for the Lisbon offsite on March 14, with the budget and the espresso machine.";
 const POINTS = ["The offsite is in Lisbon on March 14.", "The espresso machine costs $129.", "The budget is still open."];
+// A linked page with enough text to describe (W30: thin text with no
+// summary of its own gets no description at all).
+const PAGE_TEXT = "The offsite is on March 14 in Lisbon. The espresso machine costs $129. ".repeat(4);
 
 const linkPanel = () => document.getElementById(WhimsyLinkHover.PANEL_ID);
 const tabPanel = () => document.getElementById(WhimsyHoverCards.TAB_PANEL_ID);
@@ -71,7 +74,7 @@ add_setup(async () => {
   });
   WhimsyAIReader.setTestReader((url, options) => {
     reads.push({ url, ...options });
-    return "The offsite is on March 14 in Lisbon. The espresso machine costs $129.";
+    return PAGE_TEXT;
   });
   WhimsyHoverCards.setTestFetcher(async (url, { kind }) => {
     fetches.push({ url, kind });
@@ -366,11 +369,12 @@ add_task(async function link_card() {
     const moved = Date.now();
     await BrowserTestUtils.synthesizeMouseAtCenter("#link2", { type: "mousemove" }, browser);
     await TestUtils.waitForCondition(
-      () => linkPanel()?.state == "open" && linkPanel().querySelector(".whimsy-hc-title")?.textContent == "Second link",
+      () => linkPanel()?.state == "open" && linkPanel().querySelector(".whimsy-hc-host")?.textContent == "example.org",
       "The card swapped to the next link"
     );
+    // W30: its title is the page's own once its tags are read.
+    is(linkPanel().querySelector(".whimsy-hc-title").textContent, "Quarterly planning notes", "...titled by the page it opens");
     Assert.less(Date.now() - moved, WhimsyLinkHover.ENTER_DELAY_MS, "...without waiting the delay again");
-    is(linkPanel().querySelector(".whimsy-hc-host").textContent, "example.org", "...and its address");
 
     // Again: the description comes from the cache, with no second read.
     await BrowserTestUtils.synthesizeMouseAtCenter("#away", { type: "mousemove" }, browser);
@@ -384,7 +388,7 @@ add_task(async function link_card() {
   await closeAll();
 });
 
-// H.4: a page with no preview image gets the site tile in the same space.
+// H.4, W30: a page with no preview image gets no picture space.
 // H.7: a description that can't be made says so in one muted line.
 add_task(async function link_without_image_and_failed_description() {
   reset();
@@ -398,8 +402,10 @@ add_task(async function link_without_image_and_failed_description() {
     host.enter({ source: "link", browser: gBrowser.selectedBrowser, url, title: "No image", x: 200, y: 200, width: 80, height: 18 });
     const card = await openLinkCard();
     await TestUtils.waitForCondition(() => fetches.length, "The page's tags were read");
-    is(card.querySelector(".whimsy-hc-picture").dataset.kind, "site", "No image: the site tile");
-    ok(card.querySelector(".whimsy-hc-site-icon"), "...with the site's icon");
+    // W30: no site tile filling a big empty box; the card is compact.
+    is(card.querySelector(".whimsy-hc-picture").dataset.kind, "none", "No image: no picture space");
+    is(card.querySelector(".whimsy-hc-picture").getBoundingClientRect().height, 0, "...it takes no room");
+    ok(!card.querySelector(".whimsy-hc-site-icon"), "...and no site tile");
     const note = await TestUtils.waitForCondition(() => card.querySelector(".whimsy-hc-desc.is-note"), "A muted note");
     is(note.dataset.note, "failed", "It couldn't be described");
     ok(!card.querySelector(".whimsy-hc-points"), "...and has no bullets");
@@ -502,7 +508,7 @@ add_task(async function private_tabs() {
     is(link.dataset.private, "true", "A link in a private tab");
     is(link.querySelector(".whimsy-hc-title").textContent, "Quarterly planning notes", "...shows its text");
     is(link.querySelector(".whimsy-hc-host").textContent, "example.com", "...and its address");
-    is(link.querySelector(".whimsy-hc-picture").dataset.kind, "site", "...with the site tile, no picture");
+    is(link.querySelector(".whimsy-hc-picture").dataset.kind, "none", "...with no picture space");
     is(link.querySelector(".whimsy-hc-desc.is-note")?.dataset.note, "private-link", "...and says why");
     ok(!link.querySelector(".whimsy-hc-points"), "...with no bullets");
     is(fetches.length, 0, "The linked page isn't loaded");
@@ -872,7 +878,7 @@ add_task(async function descriptions_are_cached_per_container() {
   reset();
   WhimsyAIReader.setTestReader((_url, { userContextId }) => {
     reads.push(userContextId);
-    return `Account ${userContextId} private dashboard`;
+    return `Account ${userContextId} private dashboard. `.repeat(10);
   });
   answer = ({ prompt }) => JSON.stringify({
     title: "Dashboard",
@@ -889,7 +895,7 @@ add_task(async function descriptions_are_cached_per_container() {
   } finally {
     WhimsyAIReader.setTestReader((url, options) => {
       reads.push({ url, ...options });
-      return "The offsite is on March 14 in Lisbon. The espresso machine costs $129.";
+      return PAGE_TEXT;
     });
   }
 });

@@ -4,8 +4,9 @@
 
 // W25 hover cards: one card, the same for a tab and for a link (owner
 // approved, intake-w25 hover-summary.html). A picture on top (the tab
-// itself, or the link's own preview image; with no image, a tile with the
-// site's icon in the same space, so nothing below moves), then the title,
+// itself, or the link's own preview image; a tab with no picture gets a
+// tile with the site's icon in the same space, and a link with no real
+// preview image gets no picture space at all, W30), then the title,
 // the address, and the AI summary: a one- or two-sentence description and
 // three bullets, from one request. It opens after
 // resting 500ms and swaps with no delay as you move along. No buttons, no
@@ -60,6 +61,11 @@ const FETCH_TIMEOUT_MS = 8000;
 const META_CACHE_MAX = 60;
 const META_CACHE_MS = 30 * 60 * 1000;
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"];
+// W30: a link's preview image smaller than this on either side is an icon
+// or a tracking pixel, not a picture of the page (icons are 16 to 64px).
+const PREVIEW_MIN_PX = 100;
+// W30: an image named like the site's mark is its logo or a placeholder.
+const LOGO_NAME = /(?:^|[\/_.-])(?:logo|logos|favicon|apple-touch-icon|touch-icon|icon|icons|placeholder|default-?(?:og|share|social)?-?image)(?:[\/_.@-]|$)/i;
 // W29: a mail tab's Inbox block gives up and falls back to the count line
 // after this long, so the card never sits empty-but-loading for long.
 const INBOX_TIMEOUT_MS = 2000;
@@ -251,7 +257,15 @@ export const WhimsyHoverCards = {
     address.append(this.icon(win, url, icon, "whimsy-hc-favicon", host), el("whimsy-hc-host", host));
     card.append(address);
     card.whimsyHover = { url, host, icon };
-    this.fillSiteTile(win, card);
+    if (kind == "link") {
+      // W30 (owner: "this UI seems broken"): a link's picture space shows
+      // only once a real preview image has loaded. The site's icon on a
+      // tile filled a big box with nothing to see; without a picture the
+      // card is compact.
+      picture.dataset.kind = "none";
+    } else {
+      this.fillSiteTile(win, card);
+    }
     return card;
   },
 
@@ -516,6 +530,12 @@ export const WhimsyHoverCards = {
     if (signal?.aborted || error?.code == "aborted" || error?.name == "AbortError") {
       return;
     }
+    // W30: a page with nothing of its own to describe (a wall, an error
+    // page, navigation only) gets no summary at all, not a guess or a note.
+    if (error?.code == "no-content") {
+      this.fillDescription(win, card, {});
+      return;
+    }
     console.debug("Whimsy: hover card not described", error?.code ?? "", error?.message ?? error);
     // W30 S5: a signed-in page isn't sent to a cloud model; the card says so.
     this.fillDescription(win, card, { note: error?.code == "signed-in" ? "signed-in" : "failed" });
@@ -548,22 +568,28 @@ export const WhimsyHoverCards = {
     const metaRead = this.linkMeta(win, url, { signal });
     metaRead.catch(() => {});
     metaRead
-      .then(meta => {
+      .then(async meta => {
         if (signal.aborted || !meta) {
           return;
         }
-        if (!target.title) {
-          this.fillTitle(card, meta.title);
+        // W30: the page's own title, once it's known, over the link's words
+        // (a tab's "Checks 86" says less than the page it opens).
+        this.fillTitle(card, meta.title);
+        const image = this.previewImageUrl(meta, url, target.pageImage);
+        const img = image && (await this.loadImage(win, image, signal));
+        if (signal.aborted) {
+          return;
         }
-        if (meta.image) {
-          this.loadImage(win, meta.image, signal).then(img => {
-            if (img && !signal.aborted) {
-              this.fillPicture(card, img);
-            }
-          });
+        if (img && this.isPreviewSize(img)) {
+          this.fillPicture(card, img);
+          card.dataset.picture = "image";
+        } else {
+          card.dataset.picture = "none";
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        card.dataset.picture = "none";
+      });
     if (target.ai) {
       this.fillDescription(win, card, { loading: true });
       lazy.WhimsyAIPage.describe(url, {
@@ -592,6 +618,43 @@ export const WhimsyHoverCards = {
 
   // ---- A link's own title and preview image ----
 
+  /**
+   * W30: the address of the link's real preview image, or null. Not the
+   * site's icon or logo (one of its icon links, or named like one), not
+   * the image the page you're on uses too (a site-wide default says
+   * nothing about the page), and not from a sign-in page.
+   */
+  previewImageUrl(meta, url, pageImage = null) {
+    if (!meta?.image || meta.wall) {
+      return null;
+    }
+    let image;
+    try {
+      image = new URL(meta.image, url);
+    } catch {
+      return null;
+    }
+    if (LOGO_NAME.test(image.pathname)) {
+      return null;
+    }
+    const icons = (meta.icons ?? []).map(href => {
+      try {
+        return new URL(href, url).href;
+      } catch {
+        return null;
+      }
+    });
+    if (icons.includes(image.href) || (typeof pageImage == "string" && pageImage == image.href)) {
+      return null;
+    }
+    return image.href;
+  },
+
+  /** W30: an image big enough on both sides to be a picture of the page. */
+  isPreviewSize(img) {
+    return img.naturalWidth >= PREVIEW_MIN_PX && img.naturalHeight >= PREVIEW_MIN_PX;
+  },
+
   async linkMeta(win, url, { signal } = {}) {
     const cached = metaCache.get(url);
     if (cached && Date.now() - cached.at < META_CACHE_MS) {
@@ -599,7 +662,14 @@ export const WhimsyHoverCards = {
     }
     const { text } = await this.fetch(url, { kind: "page", signal });
     const found = lazy.WhimsyPeople.parseMeta(win, text);
-    const data = { title: found.title || null, image: found.image || null, description: found.description || null };
+    // A sign-in page's summary and picture are the site's, not this page's.
+    const data = {
+      title: found.title || null,
+      image: found.wall ? null : found.image || null,
+      description: found.wall ? null : found.description || null,
+      icons: found.icons ?? [],
+      wall: !!found.wall,
+    };
     metaCache.set(url, { at: Date.now(), data });
     if (metaCache.size > META_CACHE_MAX) {
       metaCache.delete(metaCache.keys().next().value);
@@ -722,7 +792,13 @@ export const WhimsyHoverCards = {
             ok = false;
           }
           if (!ok) {
-            reject(new Error("Not available"));
+            let httpStatus = 0;
+            try {
+              httpStatus = channel.responseStatus;
+            } catch {}
+            // W30: the status says whether the page is there at all for a
+            // reader without sign-ins (404, 410) or shut to one (401, 403).
+            reject(Object.assign(new Error("Not available"), { status: httpStatus }));
             return;
           }
           const bytes = finish();
