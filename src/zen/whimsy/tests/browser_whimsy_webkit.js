@@ -251,7 +251,76 @@ function requireWebKit() {
   return false;
 }
 
-add_task(async function test_availability_and_profile_datastore() {
+// Each task runs through this: whatever tabs or windows it opened are closed
+// afterwards even when an assertion throws, so one failing task can't leave
+// a WebKit tab selected for the next task (or behind at the end of the run).
+function add_webkit_task(fn) {
+  const wrapped = async () => {
+    const tabsBefore = new Set(gBrowser.tabs);
+    const selectedBefore = gBrowser.selectedTab;
+    const windowsBefore = new Set(Services.wm.getEnumerator("navigator:browser"));
+    try {
+      await fn();
+    } finally {
+      if (gTrace) {
+        info(`TRACE ${gTrace.stop()}`);
+        gTrace = null;
+      }
+      for (const win of Services.wm.getEnumerator("navigator:browser")) {
+        if (!windowsBefore.has(win)) {
+          await BrowserTestUtils.closeWindow(win);
+        }
+      }
+      if (tabsBefore.has(selectedBefore) && selectedBefore.isConnected) {
+        gBrowser.selectedTab = selectedBefore;
+      }
+      for (const tab of [...gBrowser.tabs]) {
+        if (!tabsBefore.has(tab)) {
+          BrowserTestUtils.removeTab(tab);
+        }
+      }
+    }
+  };
+  Object.defineProperty(wrapped, "name", { value: fn.name });
+  add_task(wrapped);
+}
+
+let gTrace = null;
+function traceTab(tab) {
+  const log = [];
+  const t0 = performance.now();
+  const note = text => log.push(`${Math.round(performance.now() - t0)} ${text}`);
+  const mo = new window.MutationObserver(muts => {
+    for (const m of muts) {
+      note(`${m.attributeName}=${tab.getAttribute(m.attributeName)}`);
+    }
+  });
+  mo.observe(tab, { attributes: true, attributeFilter: ["label", "image", "busy"] });
+  const wpl = Ci.nsIWebProgressListener;
+  const listener = {
+    onLocationChange(b, wp, r, loc) {
+      if (b == tab.linkedBrowser && wp?.isTopLevel) {
+        note(`gecko location ${loc.spec}`);
+      }
+    },
+    onStateChange(b, wp, r, flags) {
+      if (b == tab.linkedBrowser && wp?.isTopLevel && flags & wpl.STATE_IS_WINDOW) {
+        note(`gecko ${flags & wpl.STATE_START ? "start" : flags & wpl.STATE_STOP ? "stop" : flags}`);
+      }
+    },
+  };
+  gBrowser.addTabsProgressListener(listener);
+  return {
+    note,
+    stop() {
+      mo.disconnect();
+      gBrowser.removeTabsProgressListener(listener);
+      return `${log.join(" | ")} || final label=${tab.label} busy=${tab.hasAttribute("busy")} uri=${WhimsyWebKit.currentURIOf(tab)?.spec}`;
+    },
+  };
+}
+
+add_webkit_task(async function test_availability_and_profile_datastore() {
   if (!requireWebKit()) {
     return;
   }
@@ -284,7 +353,7 @@ add_task(async function test_availability_and_profile_datastore() {
   );
 });
 
-add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_history() {
+add_webkit_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_history() {
   if (!requireWebKit()) {
     return;
   }
@@ -299,11 +368,13 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
   );
   const originalIndex = gBrowser.tabs.indexOf(tab);
   const pill = document.getElementById("whimsy-webkit-pill");
+  gTrace = traceTab(tab);
 
   Assert.ok(!WhimsyWebKit.isWebKitTab(tab), "Tab starts in Firefox (Gecko)");
   Assert.ok(pill.hidden, "WebKit pill is hidden on a Firefox tab");
 
   // Switch the tab to WebKit in place.
+  gTrace?.note("switch");
   await WhimsyWebKit.setTabEngine(tab, "webkit");
   Assert.ok(WhimsyWebKit.isWebKitTab(tab), "Tab is now a WebKit tab");
   Assert.equal(
@@ -322,20 +393,10 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
     () => tab.label == "WebKit Test Page One",
     "Tab title comes from the WKWebView"
   );
-  const iconLog = [];
-  const iconObserver = new MutationObserver(() =>
-    iconLog.push(`${Math.round(performance.now())} image=${tab.getAttribute("image")}`)
+  await TestUtils.waitForCondition(
+    () => (tab.getAttribute("image") || "").includes("/favicon.svg"),
+    "Tab favicon comes from the WKWebView"
   );
-  iconObserver.observe(tab, { attributes: true, attributeFilter: ["image"] });
-  try {
-    await TestUtils.waitForCondition(
-      () => (tab.getAttribute("image") || "").includes("/favicon.svg"),
-      "Tab favicon comes from the WKWebView"
-    );
-  } finally {
-    iconObserver.disconnect();
-    info(`DIAG favicon state=${tab._whimsyWebKitState?.favicon} parking=${tab._whimsyWebKitState?.parkingGecko} gecko=${Object.getOwnPropertyDescriptor(Object.getPrototypeOf(tab.linkedBrowser), "currentURI").get.call(tab.linkedBrowser)?.spec} log=${iconLog.join(" | ")}`);
-  }
   Assert.ok(
     gURLBar.value.includes(`127.0.0.1:${gServer.port}/page1`),
     "Address bar URL comes from the WKWebView"
@@ -363,6 +424,7 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
   );
 
   // Back button / Browser:Back command
+  gTrace?.note("Back");
   document.getElementById("Browser:Back").doCommand();
   await TestUtils.waitForCondition(
     () =>
@@ -433,7 +495,7 @@ add_task(async function test_switch_tab_to_webkit_and_back_with_metadata_and_his
   BrowserTestUtils.removeTab(spacerTab);
 });
 
-add_task(async function test_site_list_and_cmdk_verbs() {
+add_webkit_task(async function test_site_list_and_cmdk_verbs() {
   if (!requireWebKit()) {
     return;
   }
@@ -542,7 +604,7 @@ add_task(async function test_site_list_and_cmdk_verbs() {
   BrowserTestUtils.removeTab(autoTab);
 });
 
-add_task(async function test_overlays_first_mouse_shortcuts_and_focus_handoffs() {
+add_webkit_task(async function test_overlays_first_mouse_shortcuts_and_focus_handoffs() {
   if (!requireWebKit()) {
     return;
   }
@@ -695,7 +757,7 @@ add_task(async function test_overlays_first_mouse_shortcuts_and_focus_handoffs()
   );
 });
 
-add_task(async function test_both_engine_panels_and_contrast_with_screenshots() {
+add_webkit_task(async function test_both_engine_panels_and_contrast_with_screenshots() {
   if (!requireWebKit()) {
     return;
   }
@@ -993,7 +1055,7 @@ async function setTranslucentTheme(colour) {
   };
 }
 
-add_task(async function test_webkit_page_is_not_dimmed() {
+add_webkit_task(async function test_webkit_page_is_not_dimmed() {
   if (!requireWebKit()) {
     return;
   }
@@ -1080,7 +1142,7 @@ async function checkEngineComposite(tab, name) {
   }
 }
 
-add_task(async function test_private_windows_hide_all_webkit_ui() {
+add_webkit_task(async function test_private_windows_hide_all_webkit_ui() {
   const privWin = await BrowserTestUtils.openNewBrowserWindow({
     private: true,
   });
