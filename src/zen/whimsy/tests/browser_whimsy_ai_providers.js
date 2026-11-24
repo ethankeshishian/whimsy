@@ -573,7 +573,8 @@ add_task(async function test_settings_card() {
     reject = false;
     click($("whimsyAIKeyConnect"));
     await TestUtils.waitForCondition(() => !S.sheet, "A good key closes the sheet");
-    await TestUtils.waitForCondition(() => row("gemini"), "Gemini is listed, connected");
+    // The row comes first; its switch and details button once its status is read.
+    await TestUtils.waitForCondition(() => row("gemini")?.querySelector('[data-action="details"]'), "Gemini is listed, connected");
     is(WhimsyAIProviders.modelOf("gemini"), "gemini-first", "The default model is the first one listed");
 
     // The model picker, in the row's details.
