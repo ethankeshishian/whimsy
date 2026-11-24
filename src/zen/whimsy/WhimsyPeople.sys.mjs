@@ -311,7 +311,10 @@ export const WhimsyPeople = {
     };
     let title = cleanTitle(meta("og:title", "twitter:title")) || cleanTitle(person?.name) ||
       cleanTitle(doc.title);
-    if (title && LOGIN_TITLE.test(title)) {
+    // W30: a sign-in page's own title, summary, and picture are the site's,
+    // not the page's that was asked for (the hover card's "wall").
+    const wall = !!title && LOGIN_TITLE.test(title);
+    if (wall) {
       title = null;
     }
     const https = value => (typeof value == "string" && value.startsWith("https://") ? value : null);
@@ -322,6 +325,13 @@ export const WhimsyPeople = {
       image: https(meta("og:image", "twitter:image", "twitter:image:src")) || https(person?.image) ||
         https(doc.querySelector('link[rel="image_src"]')?.getAttribute("href")),
       oembed: https(oembed),
+      wall,
+      // The site's icons, as written (relative or not): a preview image
+      // that's one of them is the site's logo, not a picture of the page.
+      icons: [...doc.querySelectorAll('link[rel~="icon"], link[rel~="apple-touch-icon"], link[rel~="apple-touch-icon-precomposed"], link[rel~="mask-icon"]')]
+        .map(link => link.getAttribute("href"))
+        .filter(Boolean)
+        .slice(0, 20),
     };
   },
 

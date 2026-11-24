@@ -347,7 +347,7 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     if (this.link) {
       this.leave();
     }
-    if (!link || !/^https?:/i.test(link.href) || !this.enabled || this.isSamePage(link)) {
+    if (!link || !/^https?:/i.test(link.href) || !this.enabled || this.isInPage(link)) {
       return;
     }
     this.link = link;
@@ -413,11 +413,35 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     this.rearm = { win, link, onMove };
   }
 
-  // In-page links (href="#", a table of contents) point at the page that's
-  // already open: a card about it says nothing new.
-  isSamePage(link) {
+  // W30: links that stay on the page you're on get no card; a card about
+  // them says nothing new. Owner's screenshot: a pull request's own
+  // "Checks 86" tab (a link to /pull/N/checks, in the page's tab bar with
+  // the current tab marked aria-current) showed a card about the same pull
+  // request. In-page means:
+  //   - the same document (href="#", a table of contents);
+  //   - a tab (role="tab", or inside role="tablist");
+  //   - a control for part of this page (aria-controls);
+  //   - the current item (aria-current, aria-selected), which is here;
+  //   - in a tab bar of this page: a nav whose current item is this very
+  //     page, going to a view of it (the same origin, a path that's this
+  //     page's own, one of its sub-paths, or a sibling of it).
+  // A site's own navigation to other pages (its current item isn't this
+  // page, or the address is elsewhere on the site) still gets a card.
+  isInPage(link) {
+    const here = this.document?.documentURI ?? "";
     const strip = url => url.split("#")[0];
-    return strip(link.href) == strip(this.document?.documentURI ?? "");
+    if (strip(link.href) == strip(here)) {
+      return true;
+    }
+    if (link.closest('[role="tab"], [role="tablist"]') || link.hasAttribute("aria-controls") || isCurrent(link)) {
+      return true;
+    }
+    const bar = link.closest('nav, [role="navigation"], [role="menubar"]');
+    if (!bar) {
+      return false;
+    }
+    const current = [...bar.querySelectorAll("a[href]")].find(a => a != link && isCurrent(a));
+    return !!current && samePath(current.href, here) && viewOf(link.href, here);
   }
 
   show() {
@@ -430,11 +454,12 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
     this.shown = true;
     this.sendAsyncMessage("WhimsyAIPreview:Show", {
       url: link.href,
-      // The link's own words: its text, else its image's alt text.
-      title: (link.textContent.trim() ? link.textContent : link.querySelector("img[alt]")?.alt || link.title || "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 200),
+      // The link's own words, as a screen reader says them (its label, else
+      // its text with a space between its parts), else its title.
+      title: (linkText(link, win) || link.title || "").replace(/\s+/g, " ").trim().slice(0, 200),
+      // The page you're on's own preview image: a link whose image is the
+      // same one shows the site's default, not a picture of that page.
+      pageImage: pageImage(this.document),
       x: win.mozInnerScreenX + rect.left,
       y: win.mozInnerScreenY + rect.top,
       width: rect.width,
@@ -450,5 +475,122 @@ export class WhimsyAIPreviewChild extends JSWindowActorChild {
       this.shown = false;
       this.sendAsyncMessage("WhimsyAIPreview:Leave", { url: link.href });
     }
+  }
+}
+
+function isCurrent(link) {
+  const current = link.getAttribute("aria-current");
+  return (!!current && current != "false") || link.getAttribute("aria-selected") == "true";
+}
+
+function parts(href) {
+  try {
+    const url = new URL(href);
+    return { origin: url.origin, path: url.pathname.split("/").filter(Boolean) };
+  } catch {
+    return null;
+  }
+}
+
+function samePath(a, b) {
+  const [x, y] = [parts(a), parts(b)];
+  return !!x && !!y && x.origin == y.origin && x.path.join("/") == y.path.join("/");
+}
+
+// `href` is a view of the page at `here`: the same origin, and its path is
+// this one's, a sub-path of it, or a sibling of it (/pull/1, /pull/1/checks,
+// and /pull/1/files are all views of one pull request).
+function viewOf(href, here) {
+  const [x, y] = [parts(href), parts(here)];
+  if (!x || !y || x.origin != y.origin) {
+    return false;
+  }
+  let common = 0;
+  while (common < x.path.length && common < y.path.length && x.path[common] == y.path[common]) {
+    common++;
+  }
+  return common >= 1 && common >= Math.min(x.path.length, y.path.length) - 1;
+}
+
+// Formatting inside a word ("<b>Sum</b>mary") joins with no space; any other
+// element (a span for a label, another for its counter) is its own part.
+const INLINE = new Set(["a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "del", "dfn", "em", "i", "ins", "kbd", "mark", "q", "s", "samp", "small", "strong", "sub", "sup", "time", "u", "var", "wbr"]);
+const SKIP = new Set(["script", "style", "template", "noscript", "svg", "math", "button", "select", "textarea"]);
+
+/**
+ * The link's words as assistive technology names it: aria-labelledby,
+ * aria-label, else its text with a space between its parts (GitHub's
+ * "Checks" and its counter "86" read "Checks 86", not "Checks86"), images
+ * by their alt text, hidden parts left out, and a count said twice (a
+ * visible counter and its screen-reader copy, "86 (86)") said once.
+ */
+export function linkText(link, win) {
+  const doc = link.ownerDocument;
+  const labelledBy = (link.getAttribute("aria-labelledby") || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(id => doc.getElementById(id)?.textContent ?? "")
+    .join(" ")
+    .trim();
+  const label = labelledBy || link.getAttribute("aria-label")?.trim();
+  if (label) {
+    return tidy(label);
+  }
+  const out = [];
+  const walk = node => {
+    for (const child of node.childNodes) {
+      if (child.nodeType == 3) {
+        out.push(child.data);
+        continue;
+      }
+      if (child.nodeType != 1) {
+        continue;
+      }
+      const tag = child.localName;
+      if (SKIP.has(tag) || child.hidden || child.getAttribute("aria-hidden") == "true") {
+        continue;
+      }
+      const style = win?.getComputedStyle(child);
+      if (style && (style.display == "none" || style.visibility == "hidden")) {
+        continue;
+      }
+      if (tag == "img") {
+        out.push(" ", child.getAttribute("alt") || "", " ");
+        continue;
+      }
+      const spaced = !INLINE.has(tag);
+      if (spaced) {
+        out.push(" ");
+      }
+      walk(child);
+      if (spaced) {
+        out.push(" ");
+      }
+    }
+  };
+  walk(link);
+  return tidy(out.join(""));
+}
+
+// Spaces collapsed, and a count said twice in a row ("86 (86)": a visible
+// counter, then its screen-reader copy) said once.
+function tidy(text) {
+  const count = word => /^\(?(\d[\d,.]*[kKmM+]?)\)?$/.exec(word)?.[1] ?? null;
+  const words = String(text).replace(/\s+/g, " ").trim().split(" ");
+  return words.filter((word, i) => !i || !count(word) || count(word) != count(words[i - 1])).join(" ");
+}
+
+function pageImage(doc) {
+  const value = doc
+    ?.querySelector('meta[property="og:image"], meta[name="og:image"], meta[name="twitter:image"], meta[property="twitter:image"]')
+    ?.getAttribute("content")
+    ?.trim();
+  if (!value) {
+    return null;
+  }
+  try {
+    return new URL(value, doc.baseURI).href;
+  } catch {
+    return null;
   }
 }

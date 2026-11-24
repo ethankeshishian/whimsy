@@ -418,6 +418,11 @@ findbar .whimsy-ask-button {
   &[data-kind="site"] {
     background: color-mix(in srgb, var(--zen-primary-color, AccentColor) 10%, var(--whimsy-surface-track));
   }
+
+  /* W30: a link with no real preview image gets no picture space. */
+  &[data-kind="none"] {
+    display: none;
+  }
 }
 
 .whimsy-hc-image {
