@@ -249,9 +249,8 @@ add_task(async function shots_related_row_layout() {
     if (url.scrollWidth > url.clientWidth + 1) {
       is(getComputedStyle(url).textOverflow, "ellipsis", `${label}: a long URL ends in an ellipsis`);
     }
-    const tag = row.querySelector(".urlbarView-tag");
-    if (tag) {
-      Assert.lessOrEqual(tag.scrollWidth, tag.clientWidth + 1, `${label}: the Related tag shows in full`);
+    if (row.querySelector(".urlbarView-tag")) {
+      Assert.lessOrEqual(tags.scrollWidth, tags.clientWidth + 1, `${label}: the Related tag shows in full`);
     }
   }
   try {
