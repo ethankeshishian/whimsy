@@ -40,6 +40,9 @@ async function openScrollPage(query, selector, framed = false) {
       const actor = content.windowGlobalChild.getExistingActor("WhimsyVideoSpeed");
       return video.readyState >= 1 && actor?.videos.has(video) && actor.siteRate !== null;
     }, "The control knows the video");
+    // The test video is a fraction of a second long, too short for the seek
+    // plate; a longer duration (as browser_whimsy_video_speed.js does) shows it.
+    Object.defineProperty(video, "duration", { value: 120, configurable: true });
   });
   browser.focus();
   return { tab, browser, context };
