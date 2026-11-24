@@ -1268,6 +1268,10 @@ support-files = ["whimsy_ai_selection.html"]
 ["browser_whimsy_video_overlay.js"]
 support-files = ["head_video_w23.js", "whimsy_video_vtt.html", "whimsy_video_vtt.vtt", "whimsy_video.mp4"]
 
+# W30: every overlay piece stays on its video while the page scrolls.
+["browser_whimsy_video_overlay_scroll.js"]
+support-files = ["head_video_w23.js", "whimsy_video_scroll.html", "whimsy_video.mp4"]
+
 ["browser_whimsy_video_summary.js"]
 support-files = ["head_video_w23.js", "whimsy_video_vtt.html", "whimsy_video_vtt.vtt", "whimsy_video_vtt.ttml", "whimsy_video.mp4"]
 
