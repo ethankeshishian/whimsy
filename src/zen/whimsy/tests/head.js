@@ -164,6 +164,39 @@ function whimsyWritePref(name, type, value) {
   }
 }
 
+// Whimsy's builds require signing for extensions; the test profile doesn't.
+// This makes the add-on manager judge extensions the way a real build does
+// until the returned function is called, except the add-ons installed
+// before it: the harness's own unsigned mochikit and special-powers. The
+// add-on manager re-judges every add-on at times a file doesn't choose (the
+// signature check timer first fires about 30 s after startup), and judged
+// strictly they're disabled: SpecialPowers can't reach the parent any more,
+// and the harness hangs after the file's last task. (Turning on
+// xpinstall.signatures.required would do the same at once.)
+async function whimsyRequireSigning() {
+  const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
+  const { XPIDatabase } = ChromeUtils.importESModule("resource://gre/modules/addons/XPIDatabase.sys.mjs");
+  const before = new Set((await AddonManager.getAllAddons()).map(addon => addon.id));
+  const { mustSign, isUsableAddon } = XPIDatabase;
+  const strict = type => type == "extension";
+  XPIDatabase.mustSign = strict;
+  XPIDatabase.isUsableAddon = function (addon) {
+    if (!before.has(addon.id)) {
+      return isUsableAddon.call(this, addon);
+    }
+    this.mustSign = mustSign;
+    try {
+      return isUsableAddon.call(this, addon);
+    } finally {
+      this.mustSign = strict;
+    }
+  };
+  return () => {
+    XPIDatabase.mustSign = mustSign;
+    XPIDatabase.isUsableAddon = isUsableAddon;
+  };
+}
+
 add_setup(function whimsySnapshotLeakedPrefs() {
   const snapshot = WHIMSY_SHARED_LEAK_PREFS.map(name => {
     const hadUserValue = Services.prefs.prefHasUserValue(name);

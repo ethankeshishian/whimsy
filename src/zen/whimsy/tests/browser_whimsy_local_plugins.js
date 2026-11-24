@@ -124,12 +124,9 @@ async function removeEverything() {
 }
 
 add_setup(async function () {
-  // Whimsy's builds require signing (xpinstall.signatures.required), the
-  // test profile doesn't. Turning the pref on here would disable the test
-  // harness's own unsigned extensions, so signing is required the way a
-  // real build decides it, for extensions only, while this file runs.
-  const realMustSign = XPIDatabase.mustSign;
-  XPIDatabase.mustSign = type => type == "extension";
+  // Signing is required for extensions, the way a real build decides it,
+  // while this file runs (head.js).
+  const relaxSigning = await whimsyRequireSigning();
   // Installing, approving, and removing extensions writes add-on manager
   // prefs; every pref this file changes is put back.
   const before = new Map(
@@ -141,7 +138,7 @@ add_setup(async function () {
   registerCleanupFunction(async () => {
     await removeEverything();
     await closeAddonsTabs();
-    XPIDatabase.mustSign = realMustSign;
+    relaxSigning();
     for (const name of new Set([...Services.prefs.getChildList(""), ...before.keys()])) {
       const old = before.get(name);
       const type = Services.prefs.getPrefType(name);
