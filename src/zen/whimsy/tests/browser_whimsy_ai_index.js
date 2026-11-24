@@ -405,3 +405,84 @@ function cosineForTest(a, b) {
   }
   return dot / Math.sqrt(na * nb);
 }
+
+// W30 (owner screenshot 2): "how much fat to eat per day", a clear question
+// in plain words, showed two "HOW TO BATTLESTATION" rows (one site's thin
+// /lander page and a page stored with little more than its title). The
+// real model scores the title alone 0.46 for that question, on "how to"
+// (logged below); the site's real guide scores 0.04. The stub keeps those
+// numbers: Q is the question, T the title alone, T2 a thin page that's
+// mostly its title (0.86 to T), F a real article on dietary fat.
+const FAT_Q = [1, 0, 0, 0];
+const FAT_T = [0.46, 0.888, 0, 0];
+const FAT_T2 = [0.5, 0.7, 0.5, 0];
+const FAT_F = [0.55, 0, 0.835, 0];
+const FAT_KNOWN = new Set(["how", "much", "fat", "to", "eat", "per", "day"]);
+function fatVector(text) {
+  return {
+    "how much fat to eat per day": FAT_Q,
+    "HOW TO BATTLESTATION": FAT_T,
+    "How much fat should you eat per day?": [0.2, 0, 0.98, 0],
+  }[text] ?? (text.startsWith("HOW TO BATTLESTATION\n") ? FAT_T2 : text.startsWith("How much fat") ? FAT_F : [0, 0, 0, 1]);
+}
+
+add_task(async function related_none_for_a_question_matching_only_a_thin_title() {
+  const file = PathUtils.join(await WhimsyAIStore.folder("index"), "index.bin");
+  await IOUtils.writeJSON(file, { entries: [
+    { url: "https://pcbattlestations.com/lander", title: "HOW TO BATTLESTATION", vector: FAT_T, date: 1 },
+    { url: "https://pcbattlestations.com/how-to-battlestation/", title: "HOW TO BATTLESTATION", vector: FAT_T2, date: 2 },
+  ] });
+  WhimsyAIIndex._resetForTesting();
+  WhimsyAIIndex._setTestEmbedder(fatVector, { knows: w => FAT_KNOWN.has(w) });
+  try {
+    info(`"how much fat to eat per day" vs /lander ${cosineForTest(FAT_Q, FAT_T).toFixed(2)}, vs /how-to-battlestation/ ` +
+      `${cosineForTest(FAT_Q, FAT_T2).toFixed(2)}; title share of the second ${cosineForTest(FAT_T, FAT_T2).toFixed(2)} (cut-off ${WhimsyAIIndex.MIN_SCORE})`);
+    Assert.greaterOrEqual(Math.min(cosineForTest(FAT_Q, FAT_T), cosineForTest(FAT_Q, FAT_T2)), WhimsyAIIndex.MIN_SCORE,
+      "Sanity: both pages clear the cut-off, as in the screenshot");
+    Assert.deepEqual(await WhimsyAIIndex.query("how much fat to eat per day", 3), [], "No Related rows for the fat question");
+
+    // Capture: a page that's mostly its title isn't indexed, even with enough text.
+    const original = { readTab: WhimsyAIReader.readTab, isOffLimits: WhimsyAIContext.isOffLimits };
+    const fakeWin = { gBrowser: { getTabForBrowser: () => ({}) } };
+    WhimsyAIContext.isOffLimits = () => false;
+    WhimsyAIReader.readTab = async () => "Get started. ".repeat(20);
+    try {
+      await WhimsyAIIndex._captureVisit(fakeWin, { currentURI: Services.io.newURI("https://pcbattlestations.com/lander"), contentTitle: "HOW TO BATTLESTATION" });
+      ok(!(await WhimsyAIIndex._entriesForTesting()).some(e => e.date > 2), "A thin landing page isn't indexed");
+    } finally {
+      WhimsyAIReader.readTab = original.readTab;
+      WhimsyAIContext.isOffLimits = original.isOffLimits;
+    }
+
+    // A real article on the question still is offered.
+    ok(await WhimsyAIIndex.add({ url: "https://example.org/dietary-fat", title: "How much fat should you eat per day?",
+      text: "Dietary guidelines recommend 20 to 35 percent of daily calories from fat. ".repeat(4) }), "A real article is indexed");
+    const results = await WhimsyAIIndex.query("how much fat to eat per day", 3);
+    Assert.deepEqual(results.map(r => r.url), ["https://example.org/dietary-fat"], "...and it's the only Related row");
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+add_task(async function real_model_question_vs_thin_title() {
+  WhimsyAIIndex._setTestEmbedder(null);
+  try {
+    const q = "how much fat to eat per day";
+    const scores = [
+      ["HOW TO BATTLESTATION", WhimsyAIIndex._similarityForTesting(q, "HOW TO BATTLESTATION")],
+      ["HOW TO BATTLESTATION + guide text", WhimsyAIIndex._similarityForTesting(q, "HOW TO BATTLESTATION\nBuild the PC battlestation of your dreams. Our guide covers desks, monitors, lighting, cable management, and chairs for gaming setups.")],
+      ["title vs thin page", WhimsyAIIndex._similarityForTesting("HOW TO BATTLESTATION", "HOW TO BATTLESTATION\nGet started")],
+      ["title vs real page", WhimsyAIIndex._similarityForTesting("Sourdough bread recipe", "Sourdough bread recipe\nFeed your starter, mix flour and water, rest the dough, shape the loaf, and bake at 450 degrees.")],
+    ];
+    info(`real model scores: ${JSON.stringify(scores)}`);
+    if (scores.some(([, x]) => x == null)) {
+      ok(true, "No on-device sentence model here; nothing to calibrate");
+      return;
+    }
+    Assert.greaterOrEqual(scores[2][1], 0.75, "A thin page is mostly its title");
+    Assert.less(scores[3][1], 0.75, "A real page isn't");
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+  }
+});

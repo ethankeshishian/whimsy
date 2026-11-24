@@ -56,12 +56,17 @@ const MIN_SCORE = 0.45;
 const MIN_QUERY_CHARS = 3;
 const MIN_WORD_CHARS = 3;
 const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "that", "this", "what", "how", "why", "who", "are", "was", "you", "your"]);
-// ...and a page whose reader text is this short (a login form, a redirect,
-// an app shell still loading) is mostly its title, which is that same kind
-// of catch-all vector: it isn't indexed. An entry stored before W30 carries
-// no `chars`; one whose vector is its title's alone is skipped at query time.
+// ...and a page that is mostly its title (a login form, a redirect, a
+// landing page, an app shell still loading) is that same kind of catch-all
+// vector, keyed on the title's form words: "HOW TO BATTLESTATION", a thin
+// /lander page, scored 0.46 for "how much fat to eat per day" (and 0.60 for
+// "how to bake bread") while the site's real guide scored 0.04. So a page
+// with under MIN_TEXT_CHARS of text isn't indexed, nor one whose vector is
+// within TITLE_HEAVY of its title's alone (thin pages measure 0.80-0.81,
+// real articles 0.07-0.62). An entry stored before W30 (no `chars`) gets the
+// same title check at query time.
 const MIN_TEXT_CHARS = 200;
-const TITLE_ONLY = 0.999;
+const TITLE_HEAVY = 0.75;
 
 const FOLDER_KIND = "index";
 const FILE_NAME = "index.bin";
@@ -148,6 +153,12 @@ function isAuthPage(url, title = "") {
   }
 }
 
+// Whether `vector` is mostly what the title alone says.
+function titleHeavy(title, vector) {
+  const titleVector = embed(String(title ?? "").slice(0, TITLE_CHARS).trim());
+  return !titleVector || cosine(titleVector, vector) >= TITLE_HEAVY;
+}
+
 function siteOf(url) {
   try {
     return Services.io.newURI(String(url)).host.replace(/^www\./, "");
@@ -221,13 +232,13 @@ export const WhimsyAIIndex = {
   },
 
   /** @param {{url, title, text}} page. Never for a private tab (callers check). */
-  async add({ url, title = "", text = "", date = Date.now() } = {}) {
+  async add({ url, title = "", text = "", date = Date.now(), thin = false } = {}) {
     // W24: never an adult site's page (WhimsyAdultHistory).
     if (!this.on || !url || !lazy.WhimsyAdultHistory.keeps(url) || isAuthPage(url, title)) {
       return false;
     }
     const vector = embed(`${String(title ?? "").slice(0, TITLE_CHARS)}\n${String(text).slice(0, TEXT_CHARS)}`.trim());
-    if (!vector) {
+    if (!vector || (thin && titleHeavy(title, vector))) {
       return false;
     }
     this.init();
@@ -297,13 +308,12 @@ export const WhimsyAIIndex = {
     return results;
   },
 
-  // A pre-W30 entry (no `chars`) whose vector is just its title's.
+  // A pre-W30 entry (no `chars`) whose vector is mostly its title's.
   _titleOnly(entry) {
     if (entry.chars != null) {
-      return false; // Stored since W30: capture already turned away short pages.
+      return false; // Stored since W30: capture already turned away thin pages.
     }
-    const titleVector = embed(String(entry.title ?? "").slice(0, TITLE_CHARS).trim());
-    return !titleVector || cosine(titleVector, entry.vector) >= TITLE_ONLY;
+    return titleHeavy(entry.title, entry.vector);
   },
 
   _clears: 0,
@@ -439,7 +449,8 @@ export const WhimsyAIIndex = {
     if (String(text ?? "").trim().length < MIN_TEXT_CHARS || this._signedIn(browser, uri, title, text) || cleared != this._clears) {
       return;
     }
-    await this.add({ url: uri.prePath + uri.filePath, title, text });
+    // `thin`: a page that's mostly its title isn't kept either.
+    await this.add({ url: uri.prePath + uri.filePath, title, text, thin: true });
   },
 
   /**

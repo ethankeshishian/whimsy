@@ -69,6 +69,24 @@
   white-space: nowrap;
 }
 
+/* W30: the query and "Ask AI" read like "query — Search with Google" in
+   the row above: the same "—", in the same size and tone, with the same
+   0.4em on its start side (the hint's own gap gives the end side). The
+   shared title rule (flex: 0 1 auto, below) had dropped the title's flex: 1,
+   so the hint sat flush against the query with nothing between. */
+.urlbarView-row[dynamicType="whimsy-ask"] .whimsy-ask-hint::before {
+  content: "\2014";
+  margin-inline-start: 0.4em;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.6;
+  color: light-dark(#4f4f4f, #aaa);
+
+  .urlbarView-row[selected] & {
+    color: inherit;
+  }
+}
+
 .whimsy-ask-hint {
   display: inline-flex;
   flex: none;
