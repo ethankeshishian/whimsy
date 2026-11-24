@@ -1,0 +1,39 @@
+diff --git a/layout/style/StyleColor.cpp b/layout/style/StyleColor.cpp
+--- a/layout/style/StyleColor.cpp
++++ b/layout/style/StyleColor.cpp
+@@ -9,6 +9,7 @@
+ #include "nsIFrame.h"
+ #include "nsStyleStruct.h"
+ #include "mozilla/nsZenBoostsBackend.h"
++#include "mozilla/whimsy/WhimsyEmoji.h"
+ #include "nsStyleUtil.h"
+ 
+ namespace mozilla {
+@@ -166,13 +167,21 @@ nscolor StyleAbsoluteColor::ToColor(const nsIFrame* aFrame) const {
+     }
+   }
+ 
+-  return zen::nsZenBoostsBackend::ResolveStyleColor(
+-      NS_RGBA(
+-          nsStyleUtil::FloatToColorComponent(translatedColor.components._0),
+-          nsStyleUtil::FloatToColorComponent(translatedColor.components._1),
+-          nsStyleUtil::FloatToColorComponent(translatedColor.components._2),
+-          nsStyleUtil::FloatToColorComponent(translatedColor.alpha)),
+-      aFrame);
++  const nscolor color =
++      NS_RGBA(nsStyleUtil::FloatToColorComponent(translatedColor.components._0),
++              nsStyleUtil::FloatToColorComponent(translatedColor.components._1),
++              nsStyleUtil::FloatToColorComponent(translatedColor.components._2),
++              nsStyleUtil::FloatToColorComponent(translatedColor.alpha));
++  const nscolor boosted =
++      zen::nsZenBoostsBackend::ResolveStyleColor(color, aFrame);
++  // Whimsy: an inline SVG emoji (an <svg> or <use> that says it's one, like
++  // Twemoji's sprites) keeps its colours under Automatic Dark Mode and
++  // Boosts, as emoji text and emoji images do.
++  if (boosted != color && whimsy::IsInSvgEmoji(aFrame)) {
++    return color;
++  }
++  return boosted;
+ }
+ 
+ }  // namespace mozilla

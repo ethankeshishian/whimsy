@@ -68,7 +68,11 @@ add_task(async function every_emoji_form_keeps_its_colours() {
       const after = dark[form];
       info(`${form}: light ${before.yellow} yellow px, mean ${before.mean}; dark ${after.yellow} yellow px, mean ${after.mean}, centre ${after.center}`);
     }
-    for (const form of Object.keys(light).filter(form => !form.includes("icon") && !form.includes("emoji picker"))) {
+    // Canvas pixels are the page's own (dark pages filter the whole <canvas>
+    // so canvas-drawn text documents turn dark); the canvas form is only
+    // logged above.
+    const asserted = form => !form.includes("icon") && !form.includes("emoji picker") && form != "canvas text";
+    for (const form of Object.keys(light).filter(asserted)) {
       ok(light[form].yellow > 150, `${form}: the light page shows a yellow face`);
       ok(dark[form].yellow >= light[form].yellow * 0.9,
         `${form}: the dark page keeps the face yellow (${dark[form].yellow} of ${light[form].yellow} px)`);
