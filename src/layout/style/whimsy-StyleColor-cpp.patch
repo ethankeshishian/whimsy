@@ -9,7 +9,7 @@ diff --git a/layout/style/StyleColor.cpp b/layout/style/StyleColor.cpp
  #include "nsStyleUtil.h"
  
  namespace mozilla {
-@@ -166,13 +167,21 @@ nscolor StyleAbsoluteColor::ToColor(const nsIFrame* aFrame) const {
+@@ -166,13 +167,20 @@
      }
    }
  

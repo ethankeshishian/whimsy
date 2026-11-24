@@ -9,7 +9,7 @@ diff --git a/layout/svg/SVGImageContext.cpp b/layout/svg/SVGImageContext.cpp
  #include "nsIFrame.h"
  #include "nsISVGPaintContext.h"
  #include "nsPresContext.h"
-@@ -36,8 +37,14 @@
+@@ -36,8 +37,15 @@
  void SVGImageContext::MaybeStoreContextPaint(SVGImageContext& aContext,
                                               nsIFrame* aFromFrame,
                                               imgIContainer* aImgContainer) {
