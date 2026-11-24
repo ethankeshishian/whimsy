@@ -23,6 +23,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
   WhimsyAIReports: "resource:///modules/whimsy/WhimsyAIReports.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyChatAgent: "resource:///modules/whimsy/WhimsyChatAgent.sys.mjs",
   WhimsyChatAnswer: "resource:///modules/whimsy/WhimsyChatAnswer.sys.mjs",
   WhimsyLocalPlugins: "resource:///modules/whimsy/WhimsyLocalPlugins.sys.mjs",
   WhimsyChatContextUI: "resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs",
@@ -1549,6 +1550,15 @@ class ChatPanel {
     const lines = [
       "You are the chat in Whimsy, a web browser. Answer plainly and briefly, in the language the person writes in.",
     ];
+    // W30 driveroute: with the agent on, Whimsy can act on pages, so chat
+    // never says it can't; a request to act gets a plan when asked for.
+    if (lazy.WhimsyChatAgent.enabled) {
+      lines.push(
+        "",
+        "Whimsy has a browser agent that acts on web pages for the person: it clicks, types, scrolls, expands, and fills things in, in Drive (their current tab, where they watch) or Background (its own tabs). Never tell them you're unable to act on the page.",
+        "When they want something done on a page, say Whimsy's agent can do it and that they can ask for it directly in this chat, like “Expand all the diffs on this page”, and it will show a plan to start."
+      );
+    }
     if (memory) {
       const saved = memory.saved ?? [];
       lines.push(
