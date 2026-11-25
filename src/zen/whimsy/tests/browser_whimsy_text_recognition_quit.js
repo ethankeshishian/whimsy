@@ -8,7 +8,8 @@
 // one was in flight hung shutdown (XPCOMShutdownThreads) until the browser
 // crashed. This starts a real recognition and leaves it running (that
 // first compile takes longer than a test may wait), so the test browser
-// quits with it in flight; a hang there turns the run red.
+// quits with it in flight; a hang there turns the run red, and so does a
+// crash or assertion from a read that finishes after shutdown has begun.
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const PAGE = `${ROOT}whimsy_image_text.html?img=en`;

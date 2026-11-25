@@ -1,20 +1,121 @@
 diff --git a/widget/cocoa/TextRecognition.mm b/widget/cocoa/TextRecognition.mm
 --- a/widget/cocoa/TextRecognition.mm
 +++ b/widget/cocoa/TextRecognition.mm
-@@ -38,7 +38,20 @@
+@@ -5,9 +5,13 @@
+ #import <Vision/Vision.h>
+ 
+ #include "ErrorList.h"
++#include "mozilla/AppShutdown.h"
++#include "mozilla/ClearOnShutdown.h"
+ #include "mozilla/ErrorResult.h"
+ #include "mozilla/MacStringHelpers.h"
+ #include "mozilla/ScopeExit.h"
++#include "mozilla/StaticMutex.h"
++#include "mozilla/StaticPtr.h"
+ #include "mozilla/dom/PContent.h"
+ #include "mozilla/dom/Promise.h"
+ #include "mozilla/gfx/2D.h"
+@@ -17,6 +21,77 @@
+ 
+ namespace mozilla::widget {
+ 
++// Whimsy: recognitions run on a GCD queue that shutdown never joins, so a
++// read can outlive the browser's teardown. Each pending promise is tracked
++// here. Early in shutdown, while the main thread still runs, every pending
++// promise is rejected and the shutdown flag is set. A queue block that
++// finishes after that drops its result instead of settling the promise or
++// building Gecko objects.
++namespace {
++using PendingPromise = TextRecognition::NativePromise::Private;
++
++StaticMutex sPendingMutex;
++StaticAutoPtr<nsTArray<RefPtr<PendingPromise>>> sPending
++    MOZ_GUARDED_BY(sPendingMutex);
++bool sPendingShutDown MOZ_GUARDED_BY(sPendingMutex) = false;
++
++void RejectPendingAtShutdown() {
++  nsTArray<RefPtr<PendingPromise>> pending;
++  {
++    StaticMutexAutoLock lock(sPendingMutex);
++    sPendingShutDown = true;
++    if (sPending) {
++      pending = std::move(*sPending);
++      sPending = nullptr;
++    }
++  }
++  for (auto& promise : pending) {
++    promise->Reject("Shutting down"_ns, __func__);
++  }
++}
++
++// Main thread. False once shutdown has begun.
++bool TrackPending(PendingPromise* aPromise) {
++  if (!NS_IsMainThread() ||
++      AppShutdown::IsInOrBeyond(ShutdownPhase::XPCOMWillShutdown)) {
++    return false;
++  }
++  static bool sRegistered = false;
++  if (!sRegistered) {
++    sRegistered = true;
++    RunOnShutdown(RejectPendingAtShutdown, ShutdownPhase::XPCOMWillShutdown);
++  }
++  StaticMutexAutoLock lock(sPendingMutex);
++  if (sPendingShutDown) {
++    return false;
++  }
++  if (!sPending) {
++    sPending = new nsTArray<RefPtr<PendingPromise>>();
++  }
++  sPending->AppendElement(aPromise);
++  return true;
++}
++
++// Any thread. False if shutdown has already settled the promise.
++bool IsShuttingDown() {
++  StaticMutexAutoLock lock(sPendingMutex);
++  return sPendingShutDown;
++}
++
++// Queue thread. False if shutdown has already settled the promise; the
++// caller must then leave it alone.
++bool UntrackPending(PendingPromise* aPromise) {
++  StaticMutexAutoLock lock(sPendingMutex);
++  if (sPendingShutDown) {
++    return false;
++  }
++  if (sPending) {
++    sPending->RemoveElement(aPromise);
++  }
++  return true;
++}
++}  // namespace
++
+ auto TextRecognition::DoFindText(gfx::DataSourceSurface& aSurface,
+                                  const nsTArray<nsCString>& aLanguages)
+     -> RefPtr<NativePromise> {
+@@ -32,13 +107,29 @@
+   }
+ 
+   auto promise = MakeRefPtr<NativePromise::Private>(__func__);
++  if (!TrackPending(promise)) {
++    ::CGImageRelease(imageRef);
++    promise->Reject("Shutting down"_ns, __func__);
++    return promise;
++  }
+ 
+   NSMutableArray* recognitionLanguages = [[NSMutableArray alloc] init];
+   for (const auto& locale : aLanguages) {
      [recognitionLanguages addObject:nsCocoaUtils::ToNSString(locale)];
    }
  
 -  NS_DispatchBackgroundTask(
 +  // Whimsy: Vision runs on its own GCD queue, not Gecko's background-IO
-+  // pool. A first request compiles the text model on the Neural Engine
-+  // through a synchronous call to aned that can outlast quitting, and XPCOM
-+  // shutdown joins the background pool, so a request in flight hung quit
-+  // until the shutdown terminator crashed the browser. Nothing joins a GCD
-+  // queue; the promise still settles on the caller's thread, and a result
-+  // that arrives after shutdown is dropped. The queue is serial: Vision
-+  // creates its detector under one lock anyway, and a blocked request would
-+  // otherwise make GCD start a thread for every image waiting behind it.
++  // pool. The first recognition in a process waits on the macOS text model
++  // compile, which can take over a minute, and shutdown joins that pool, so
++  // quitting with a read in flight hung XPCOMShutdownThreads. Shutdown never
++  // joins this queue. The block holds strong refs to the task, which owns
++  // the promise, and checks the shutdown flag above before it does any work
++  // or settles the promise. The queue is serial, so reads don't pile up.
 +  static dispatch_queue_t sQueue = dispatch_queue_create(
 +      "whimsy.text-recognition",
 +      dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL,
@@ -23,7 +124,27 @@ diff --git a/widget/cocoa/TextRecognition.mm b/widget/cocoa/TextRecognition.mm
        NS_NewRunnableFunction(
            __func__,
            [promise, imageRef, recognitionLanguages] {
-@@ -111,8 +124,12 @@
+@@ -46,6 +137,9 @@
+               ::CGImageRelease(imageRef);
+               [recognitionLanguages release];
+             });
++            if (IsShuttingDown()) {
++              return;
++            }
+ 
+             dom::TextRecognitionResult result;
+             dom::TextRecognitionResult* pResult = &result;
+@@ -102,6 +196,9 @@
+ 
+             [requestHandler performRequests:@[ textRecognitionRequest ]
+                                       error:&error];
++            if (!UntrackPending(promise)) {
++              return;
++            }
+             if (error != nil) {
+               promise->Reject(
+                   nsPrintfCString(
+@@ -111,8 +208,12 @@
              } else {
                promise->Resolve(std::move(result), __func__);
              }

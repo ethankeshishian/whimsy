@@ -1343,6 +1343,10 @@ support-files = ["whimsy_dictation.html", "whimsy_chat_article.html", "head_imag
 ["browser_whimsy_image_text.js"]
 support-files = ["head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
 
+# W30: real (unmocked) text recognition still reads an image's words on the new queue.
+["browser_whimsy_text_recognition.js"]
+support-files = ["whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
+
 # W30: text recognition runs off the background-IO pool, so quitting mid-read doesn't hang.
 ["browser_whimsy_text_recognition_quit.js"]
 support-files = ["whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
