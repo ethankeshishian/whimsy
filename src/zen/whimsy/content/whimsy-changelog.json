@@ -1,6 +1,36 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1377",
+      "date": "2026-11-24",
+      "title": "AppleScript, an extension builder, and protected video in WebKit",
+      "new": [
+        "Whimsy has an AppleScript dictionary for its windows, tabs, and spaces, and it never shows private windows or tabs.",
+        "Chat can write a local extension for you, with a card to review it and run it.",
+        "Open as Popover floats any tab in place as a Mini Window.",
+        "Save Image As on an SVG saves it as SVG, PNG, or JPG.",
+        "A page that asks for protected video switches its tab to WebKit, so streaming sites can play.",
+        "Chat's Add menu can attach a space or a folder."
+      ],
+      "improved": [
+        "Moving a tab between Firefox and WebKit brings the site's cookies along, so you stay signed in.",
+        "WebKit tabs are no longer dimmed or tinted by the window's backdrop.",
+        "Hover cards skip in-page links, show a picture only when a page has a real preview image, and skip summaries of boilerplate pages.",
+        "Related rows in \u2318K leave out thin landing pages, and the Ask row is spaced like the search row.",
+        "With the agent on, chat hands requests to act to the agent and answers everything else itself.",
+        "Plugin cards list every site a plugin asks for."
+      ],
+      "fixed": [
+        "Video controls stay on their video while the page scrolls.",
+        "A tab expanded from Glance in a space with no other tabs stays a regular tab, so Ctrl+Tab and switching spaces can return to it.",
+        "WebKit tabs keep their title, icon, and loading state after switching engines.",
+        "Rows with icons come first in each section of the tab menu.",
+        "An answer still streaming when you close chat is saved, so reopening chat shows it.",
+        "An agent task that hits an error ends instead of staying in progress.",
+        "Whimsy works with Zen 1.24.3b."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1283",
       "date": "2026-11-21",
       "title": "Site Settings shows every row again",
