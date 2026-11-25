@@ -11,15 +11,9 @@ Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_aievals.
 
 requestLongerTimeout(6);
 
-const { PromiseTestUtils } = ChromeUtils.importESModule("resource://testing-common/PromiseTestUtils.sys.mjs");
-
 const AIEVALS_FEATURES = ["selection", "translate"];
 
 add_setup(async () => {
-  // Whimsy hands a page to Firefox's translator when no provider can go on;
-  // the eval browser cannot download its models (network narrowed), and
-  // that fetch rejects outside anything the product awaits.
-  PromiseTestUtils.allowMatchingRejectionsGlobally(/Unable to retrieve the translation models/);
   await aievalsSetup({ features: AIEVALS_FEATURES, tag: "text" });
 });
 

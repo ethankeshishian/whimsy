@@ -213,8 +213,15 @@ export const WhimsyAITranslate = {
   },
 
   // Firefox's own engine, for the rest when no provider can go on.
+  // Rejects when it could not start, such as when its models can't be fetched.
   async _firefoxTranslate(browser, from, to) {
-    lazy.TranslationsParent.getTranslationsActor(browser).translate({ sourceLanguage: from, targetLanguage: to }, false);
+    const actor = lazy.TranslationsParent.getTranslationsActor(browser);
+    const started = () => !!actor.languageState?.requestedLanguagePair;
+    const before = started();
+    await actor.translate({ sourceLanguage: from, targetLanguage: to }, false);
+    if (!before && !started()) {
+      throw new Error("Firefox's translation did not start");
+    }
   },
 
   async translateSection(items, from, to, signal) {
@@ -244,6 +251,7 @@ export const WhimsyAITranslate = {
   /**
    * Translates the page top down in sections. Resolves when done, stopped,
    * or handed to Firefox's engine: {done, total, by: provider|"firefox"|null, stopped}.
+   * by is null when Firefox's engine could not start either.
    */
   async translate(win, tab, { from, to }) {
     const browser = tab.linkedBrowser;
@@ -268,6 +276,7 @@ export const WhimsyAITranslate = {
       });
     progress();
     let by = run.provider;
+    let failed = false;
     for (const section of sections) {
       if (abort.signal.aborted) {
         break;
@@ -279,9 +288,18 @@ export const WhimsyAITranslate = {
         if (abort.signal.aborted) {
           break;
         }
-        // Nobody left who can: Firefox's engine does the rest.
-        by = "firefox";
-        await this._firefoxTranslate(browser, from, to).catch(err => console.error("Whimsy translate: Firefox engine", err));
+        // Nobody left who can: Firefox's engine does the rest. The toast
+        // says why the provider stopped; if Firefox can't start either, the
+        // run ends as stopped (or the bar goes) instead of claiming a finish.
+        lazy.WhimsyAIProviders.showError(win, e);
+        try {
+          await this._firefoxTranslate(browser, from, to);
+          by = "firefox";
+        } catch (err) {
+          console.error("Whimsy translate: Firefox engine", err);
+          by = null;
+          failed = true;
+        }
         break;
       }
       if (out.provider != run.provider) {
@@ -293,12 +311,16 @@ export const WhimsyAITranslate = {
       run.done++;
       progress();
     }
-    const stopped = abort.signal.aborted;
-    this.showDone(win, run, by, stopped);
+    if (failed && !run.done) {
+      lazy.WhimsyPageBar.hide(win, "translate");
+      return { done: 0, total: run.total, by: null, stopped: true };
+    }
+    const stopped = abort.signal.aborted || failed;
+    this.showDone(win, run, by, stopped, { firefox: !failed });
     return { done: run.done, total: run.total, by, stopped };
   },
 
-  showDone(win, run, by, stopped) {
+  showDone(win, run, by, stopped, { firefox = true } = {}) {
     const { browser, from, to } = run;
     if (by == "firefox") {
       lazy.WhimsyPageBar.show(win, browser, {
@@ -318,7 +340,7 @@ export const WhimsyAITranslate = {
       title: { l10n: [stopped ? "whimsy-translate-stopped" : "whimsy-translate-by", { provider: this.providerName(run.provider), done: run.done, total: run.total }] },
       sub: { l10n: ["whimsy-translate-from", { language: shownLanguage(from, to), provider: this.providerName(run.provider) }] },
       buttons: [
-        { id: "firefox", l10n: "whimsy-translate-use-firefox" },
+        ...(firefox ? [{ id: "firefox", l10n: "whimsy-translate-use-firefox" }] : []),
         { id: "original", l10n: "whimsy-translate-original" },
         { id: "done", l10n: "whimsy-translate-done", primary: true },
       ],
@@ -327,7 +349,7 @@ export const WhimsyAITranslate = {
           await this.actorFor(browser)?.sendQuery("WhimsyAIPageEdits:Original").catch(() => {});
         }
         if (id == "firefox") {
-          await this._firefoxTranslate(browser, from, run.to).catch(() => {});
+          await this._firefoxTranslate(browser, from, run.to).catch(e => console.error("Whimsy translate: Firefox engine", e));
         }
         lazy.WhimsyPageBar.hide(win, "translate");
       },

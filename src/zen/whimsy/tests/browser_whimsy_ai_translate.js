@@ -122,3 +122,48 @@ add_task(async function quota_falls_to_firefox_engine() {
     WhimsyAIProviders.clearResting("openai");
   }
 });
+
+// W31 (aievals translate): when no provider can go on and Firefox's engine
+// can't start either (its models can't be fetched), the run says why with
+// the provider's error and never claims Firefox finished the page.
+add_task(async function firefox_failing_too_is_not_a_finish() {
+  const firefox = WhimsyAITranslate._firefoxTranslate;
+  const showError = WhimsyAIProviders.showError;
+  const errors = [];
+  let firefoxCalls = 0;
+  WhimsyAITranslate._firefoxTranslate = async () => {
+    firefoxCalls++;
+    throw new Error("Unable to retrieve the translation models.");
+  };
+  WhimsyAIProviders.showError = (win, e) => errors.push(e?.code);
+  try {
+    await BrowserTestUtils.withNewTab(PAGE, async browser => {
+      outOf = new Set(["claude", "openai"]);
+      const result = await WhimsyAITranslate.translate(window, gBrowser.selectedTab, { from: "fr", to: "en" });
+      is(firefoxCalls, 1, "Firefox's engine was tried");
+      is(result.by, null, "Nobody translated the page");
+      is(result.done, 0, "No section was translated");
+      ok(result.stopped, "The run reports stopped");
+      is(errors.length, 1, "The provider's error is shown");
+      ok(!WhimsyPageBar.current(window), "No bar claims a translation");
+      const text = await SpecialPowers.spawn(browser, [], () => content.document.querySelector("article p").textContent);
+      ok(!text.startsWith("["), "The page is untouched");
+
+      // Part way through, the stopped bar stays with Show original, but
+      // doesn't offer Firefox's translation again.
+      const run = { browser, from: "fr", to: "en", done: 1, total: 2, provider: "claude" };
+      WhimsyAITranslate.showDone(window, run, null, true, { firefox: false });
+      const bar = WhimsyPageBar.current(window);
+      ok(bar, "The stopped bar shows");
+      ok(bar.el.querySelector("[data-button=original]"), "With Show original");
+      ok(!bar.el.querySelector("[data-button=firefox]"), "Without Use Firefox's translation");
+      WhimsyPageBar.hide(window);
+    });
+  } finally {
+    WhimsyAITranslate._firefoxTranslate = firefox;
+    WhimsyAIProviders.showError = showError;
+    outOf = new Set();
+    WhimsyAIProviders.clearResting("claude");
+    WhimsyAIProviders.clearResting("openai");
+  }
+});
