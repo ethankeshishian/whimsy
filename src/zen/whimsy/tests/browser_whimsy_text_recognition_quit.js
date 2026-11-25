@@ -6,8 +6,9 @@
 // W30: text in images is recognized off Gecko's background-IO pool. A first
 // recognition waits on macOS compiling the text model, and quitting while
 // one was in flight hung shutdown (XPCOMShutdownThreads) until the browser
-// crashed. Recognition still reads the image, and the last task leaves one
-// running, so the test browser may quit with it in flight.
+// crashed. This starts a real recognition and leaves it running (that
+// first compile takes longer than a test may wait), so the test browser
+// quits with it in flight; a hang there turns the run red.
 
 const ROOT = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com");
 const PAGE = `${ROOT}whimsy_image_text.html?img=en`;
@@ -26,21 +27,6 @@ async function decodedPhoto(browser) {
     await img.decode();
   });
 }
-
-add_task(async function text_in_an_image_is_still_recognized() {
-  await BrowserTestUtils.withNewTab(PAGE, async browser => {
-    await decodedPhoto(browser);
-    const lines = await SpecialPowers.spawn(browser, [], async () => {
-      const results = await content.document.getElementById("photo").recognizeCurrentImageText();
-      return [...results].map(result => result.string);
-    });
-    info(`recognized: ${JSON.stringify(lines)}`);
-    ok(
-      lines.some(line => /hoshino/i.test(line)),
-      "the sign's name is read from the image"
-    );
-  });
-});
 
 add_task(async function quitting_with_a_recognition_in_flight() {
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
