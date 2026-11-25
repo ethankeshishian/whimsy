@@ -40,7 +40,7 @@ export WHIMSY_AIEVALS=1 WHIMSY_AIEVALS_OUT=$out WHIMSY_AIEVALS_BUDGET_USD=$budge
 # hosts, localhost, and api.anthropic.com resolve; every other host goes to a
 # dead proxy (cases net-01 and net-02 prove it each run). --setenv is applied
 # after mozrunner's default, and test.sh passes WHIMSY_ARGS through to mach.
-export WHIMSY_ARGS="${WHIMSY_ARGS:+$WHIMSY_ARGS }--setenv MOZ_DISABLE_NONLOCAL_CONNECTIONS=0"
+export WHIMSY_ARGS="${WHIMSY_ARGS:+$WHIMSY_ARGS }--setenv=MOZ_DISABLE_NONLOCAL_CONNECTIONS=0"
 echo "aievals: run $ts, budget \$$budget, results in $out"
 if [ -n "$lane" ]; then
   # lane.sh queues itself; the ticket carries every WHIMSY_* variable.
