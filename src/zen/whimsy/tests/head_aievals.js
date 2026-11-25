@@ -962,6 +962,7 @@ async function aievalsRunCase(c) {
   }
   const started = Date.now();
   const firstPost = AIEVALS.posts.length;
+  const tabsBefore = new Set(window.gBrowser.tabs);
   AIEVALS.current = c;
   try {
     const out = await AIEVALS_DRIVERS[c.feature](c, ctx);
@@ -982,6 +983,12 @@ async function aievalsRunCase(c) {
       await fn().catch(e => info(`aievals: cleanup failed: ${e.message}`));
     }
     await aievalsCloseTabs(ctx).catch(e => info(`aievals: closing tabs failed: ${e.message}`));
+    // A tab the feature opened and nobody closed (Zen adds a blank one when a
+    // folder or pinned section empties) must not reach the next case.
+    for (const tab of window.gBrowser.tabs.filter(t => !tabsBefore.has(t) && t.isConnected && !t.closing)) {
+      info(`aievals: ${c.id} left an extra tab (${tab.linkedBrowser.currentURI.spec}); closed`);
+      window.gBrowser.removeTab(tab, { skipPermitUnload: true, animate: false });
+    }
     AIEVALS.current = null;
   }
   const posts = AIEVALS.posts.slice(firstPost);

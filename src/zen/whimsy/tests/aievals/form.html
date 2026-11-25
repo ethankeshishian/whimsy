@@ -8,7 +8,7 @@
 <body>
 <main>
   <h1>Contact the Northline team</h1>
-  <form id="contact" action="#" onsubmit="return send(event)">
+  <form id="contact" action="#" onsubmit="return sendMessage(event)">
     <label for="name">Full name</label>
     <input id="name" name="name" type="text" autocomplete="off">
     <label for="email">Email address</label>
@@ -28,7 +28,7 @@
   <p id="done" hidden></p>
 </main>
 <script>
-  function send(event) {
+  function sendMessage(event) {
     event.preventDefault();
     const name = document.getElementById("name").value.trim();
     const done = document.getElementById("done");
