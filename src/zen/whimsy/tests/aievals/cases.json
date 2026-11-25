@@ -3,6 +3,43 @@
   "notes": "Real-model quality evals for Whimsy's AI features. Fixtures are the local pages beside this file, served from https://example.com/browser/zen/whimsy/tests/aievals/. Each case names a feature, its setup, its input, and its checks. Deterministic checks decide wherever they can; a judge check (the cheapest adequate Claude model) decides only where text quality is the question. The fake field is what the scripted provider answers when the suite runs without WHIMSY_AIEVALS=1, so the harness itself is tested on every lane without touching a real model. Never tune a case so the model passes: a failing case is a product finding.",
   "cases": [
     {
+      "id": "net-01",
+      "feature": "network",
+      "title": "An unrelated web host is unreachable from the eval browser",
+      "url": "https://www.wikipedia.org/",
+      "checks": [
+        {
+          "type": "regex",
+          "field": "fixture",
+          "pattern": "^reached 200"
+        },
+        {
+          "type": "regex",
+          "field": "other",
+          "pattern": "^blocked"
+        }
+      ],
+      "notes": "Runs in both modes. The real run turns off the runner's non-local-connection crash, so the PAC allowlist (api.anthropic.com, localhost, fixtures) is what the check proves."
+    },
+    {
+      "id": "net-02",
+      "feature": "network",
+      "title": "Another model vendor's API is unreachable too",
+      "url": "https://api.openai.com/v1/models",
+      "checks": [
+        {
+          "type": "regex",
+          "field": "fixture",
+          "pattern": "^reached 200"
+        },
+        {
+          "type": "regex",
+          "field": "other",
+          "pattern": "^blocked"
+        }
+      ]
+    },
+    {
       "id": "chat-01",
       "feature": "chat",
       "title": "Which laptop is the lightest",

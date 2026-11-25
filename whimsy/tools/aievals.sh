@@ -34,8 +34,11 @@ mkdir -p $out
 export WHIMSY_AIEVALS=1 WHIMSY_AIEVALS_OUT=$out WHIMSY_AIEVALS_BUDGET_USD=$budget WHIMSY_AIEVALS_ONLY=$only
 # The mochitest runner makes any non-local connection a fatal crash
 # (MOZ_DISABLE_NONLOCAL_CONNECTIONS=1 via mozrunner). Only this script turns
-# it off, for the browser under test, so a plain lane or verify run keeps the
-# crash as its backstop against ever reaching the model. --setenv is applied
+# it off, for the browser under test; lane.sh and verify.sh never set it, so
+# their runs keep the crash as the backstop against ever reaching the model.
+# In its place head_aievals.js wraps the harness proxy PAC so only the fixture
+# hosts, localhost, and api.anthropic.com resolve; every other host goes to a
+# dead proxy (cases net-01 and net-02 prove it each run). --setenv is applied
 # after mozrunner's default, and test.sh passes WHIMSY_ARGS through to mach.
 export WHIMSY_ARGS="${WHIMSY_ARGS:+$WHIMSY_ARGS }--setenv MOZ_DISABLE_NONLOCAL_CONNECTIONS=0"
 echo "aievals: run $ts, budget \$$budget, results in $out"

@@ -3,7 +3,7 @@
 
 "use strict";
 
-// W31 aievals: chat answers (page and tab context, private wall, injection) and hover-card summaries.
+// W31 aievals: the network guard, chat answers (page and tab context, private wall, injection), and hover-card summaries.
 // Set WHIMSY_AIEVALS=1 (whimsy/tools/aievals.sh) to run against the real
 // model; otherwise a scripted provider answers from each case's `fake`.
 
@@ -11,7 +11,7 @@ Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_aievals.
 
 requestLongerTimeout(6);
 
-const AIEVALS_FEATURES = ["chat", "hover"];
+const AIEVALS_FEATURES = ["network", "chat", "hover"];
 
 add_setup(async () => {
   await aievalsSetup({ features: AIEVALS_FEATURES });

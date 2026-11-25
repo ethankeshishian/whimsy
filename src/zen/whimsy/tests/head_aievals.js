@@ -104,6 +104,39 @@ function aievalsCases(features) {
 // ---------------------------------------------------------------------------
 // Setup
 
+// Hosts a real run may reach besides the fixture server: the model's API only.
+const AIEVALS_NETWORK_ALLOWED = ["api.anthropic.com"];
+
+/**
+ * Narrows the browser's network to the mochitest fixture hosts (through the
+ * harness proxy, as before), the Mac itself, and, in a real run, the model's
+ * API. Every other host is sent to a proxy nothing listens on, so a request
+ * there fails with a refused connection. The harness's own PAC is kept and
+ * wrapped: its decision wins whenever it names a proxy. aievals.sh turns off
+ * the runner's crash-on-non-local-connection guard for real runs, so this is
+ * what keeps the test browser off the open internet there; scripted runs
+ * keep both.
+ */
+async function aievalsNarrowNetwork() {
+  const prefix = "data:text/plain,";
+  const current = Services.prefs.getStringPref("network.proxy.autoconfig_url", "");
+  if (Services.prefs.getIntPref("network.proxy.type", 0) != 2 || !current.startsWith(prefix) || !current.includes("function FindProxyForURL(")) {
+    throw new Error("aievals: the mochitest proxy PAC is not in place; refusing to run");
+  }
+  const harness = current.slice(prefix.length).replace("function FindProxyForURL(", "function aievalsHarnessProxy(");
+  const allowed = JSON.stringify(AIEVALS.real ? AIEVALS_NETWORK_ALLOWED : []);
+  const wrapper = [
+    "function FindProxyForURL(url, host) {",
+    "  var viaHarness = aievalsHarnessProxy(url, host);",
+    "  if (viaHarness != 'DIRECT') { return viaHarness; }",
+    `  if (host == 'localhost' || host == '127.0.0.1' || host == '::1' || ${allowed}.indexOf(host) >= 0) { return 'DIRECT'; }`,
+    "  return 'PROXY 127.0.0.1:1';",
+    "}",
+  ].join(" ");
+  await SpecialPowers.pushPrefEnv({ set: [["network.proxy.autoconfig_url", `${prefix}${harness} ${wrapper}`]] });
+  info(`aievals: network narrowed to fixtures, localhost, and ${allowed}`);
+}
+
 async function aievalsSetup({ features }) {
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -125,6 +158,7 @@ async function aievalsSetup({ features }) {
       ["browser.tabs.warnOnCloseOtherTabs", false],
     ],
   });
+  await aievalsNarrowNetwork();
   if (AIEVALS.real) {
     const home = Services.dirsvc.get("Home", Ci.nsIFile).path;
     const file = PathUtils.join(home, ".config", "whimsy", "anthropic-api-key");
@@ -934,7 +968,23 @@ async function aievalsDriveAgent(c, ctx) {
   return { text: end.text ?? "", outcome: end.outcome ?? "done", shortfall: end.shortfall ?? "", pauses: pauses.join(","), turns };
 }
 
+/** Network guard: the fixture server answers, any other host is refused. */
+async function aievalsDriveNetwork(c) {
+  const probe = async url => {
+    try {
+      const response = await fetch(url, { cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(15000) });
+      return `reached ${response.status || response.type}`;
+    } catch (e) {
+      return `blocked: ${e.name}`;
+    }
+  };
+  const fixture = await probe(`${AIEVALS_BASE}laptops.html`);
+  const other = await probe(c.url);
+  return { text: `${c.url} -> ${other}; fixture -> ${fixture}`, fixture, other };
+}
+
 const AIEVALS_DRIVERS = {
+  network: aievalsDriveNetwork,
   chat: aievalsDriveChat,
   hover: aievalsDriveHover,
   related: aievalsDriveRelated,
