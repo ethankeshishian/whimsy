@@ -757,10 +757,14 @@ async function aievalsDriveRelated(c) {
   }
   const results = await WhimsyAIIndex.query(c.query, 3);
   const words = c.query.toLowerCase().match(/\p{L}+/gu) ?? [];
+  // Every indexed page's score, so a miss says how far below MIN_SCORE
+  // the right page landed.
+  const scores = (await WhimsyAIIndex._scoresForTesting(c.query)).map(r => `${r.url.split("/").pop()} ${r.score.toFixed(2)}`).join(", ");
   return {
     text: results.map(r => `${r.url} ${r.score.toFixed(2)}`).join("\n"),
     urls: results.map(r => r.url),
     top: results[0]?.url ?? "",
+    scores: `min ${WhimsyAIIndex.MIN_SCORE}: ${scores}`,
     embedder: AIEVALS.relatedOnDevice ? "on-device" : "test-vocabulary",
     meaningful: WhimsyAIIndex._meaningfulTextForTesting(c.query),
     unknownWords: AIEVALS.relatedOnDevice ? words.filter(w => WhimsyAIIndex._knowsWordForTesting(w) === false) : [],

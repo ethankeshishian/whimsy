@@ -343,6 +343,18 @@ export const WhimsyAIIndex = {
     testKnows = fn ? (knowsFn ?? (() => true)) : null;
   },
 
+  // Tests: every stored page's cosine score for `text`, threshold ignored,
+  // best first: what query() saw before MIN_SCORE and the per-site filter.
+  async _scoresForTesting(text) {
+    const words = meaningfulText(text);
+    const vector = words && embed(words);
+    if (!vector) {
+      return [];
+    }
+    const s = await load();
+    return s.entries.map(e => ({ url: e.url, score: cosine(vector, e.vector) })).sort((a, b) => b.score - a.score);
+  },
+
   // Tests: what query() embeds for `text` (null: nothing to match on).
   _meaningfulTextForTesting(text) {
     return meaningfulText(text);
