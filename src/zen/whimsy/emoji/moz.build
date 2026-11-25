@@ -8,9 +8,9 @@
 # src/layout/svg/whimsy-SVGImageContext-cpp.patch (images) and
 # src/layout/style/whimsy-StyleColor-cpp.patch (inline SVG).
 # WhimsyDarkCanvas: 2D canvases recolour as they draw on a recoloured page
-# (src/dom/canvas/whimsy-CanvasRenderingContext2D-*.patch), and canvases
-# that can't keep a display-time filter (src/layout/generic/
-# whimsy-nsHTMLCanvasFrame-cpp.patch).
+# (src/dom/canvas/whimsy-CanvasRenderingContext2D-*.patch); canvases that
+# can't (WebGL, offscreen, or drawn before the switch) get a display-time
+# flip (src/layout/generic/whimsy-nsHTMLCanvasFrame-cpp.patch).
 
 EXPORTS.mozilla.whimsy += [
     "WhimsyDarkCanvas.h",
@@ -21,5 +21,8 @@ SOURCES += [
     "WhimsyDarkCanvas.cpp",
     "WhimsyEmoji.cpp",
 ]
+
+# The canvas headers reach the IPC chromium headers.
+include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"
