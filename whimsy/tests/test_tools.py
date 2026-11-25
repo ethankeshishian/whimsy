@@ -23,6 +23,7 @@ TOOLS = WHIMSY / "tools"
 ROOT = WHIMSY.parent
 FIXTURES = HERE / "fixtures" / "logs"
 sys.path.insert(0, str(TOOLS))
+import aievals_report  # noqa: E402
 import buildkind  # noqa: E402
 import buildstate  # noqa: E402
 import merge_features  # noqa: E402
@@ -831,6 +832,50 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(r.returncode, 5)
         self.assertEqual(r.stdout.strip(), "inner")
         self.assertFalse((Path(self.tmp) / "queue" / "worker.pid").exists(), "no worker was started")
+
+
+class AievalsReportTests(unittest.TestCase):
+    """aievals_report.py: pass rates per feature, failures with output, and
+    the diff against the previous run folder."""
+
+    def write_run(self, runs, name, results, cost=1.0):
+        folder = runs / name
+        folder.mkdir()
+        (folder / "chat.json").write_text(json.dumps({
+            "version": 1, "file": "chat", "mode": "real", "model": "claude-opus-5-5", "judgeModel": "claude-haiku-4-5",
+            "totals": {"requests": len(results), "input": 100, "output": 20, "cost": cost},
+            "results": [dict({"feature": "chat", "title": r["id"], "reason": "", "checks": [], "requests": 1,
+                              "tokens": {"input": 50, "output": 10}, "cost": cost / len(results), "ms": 1000}, **r)
+                        for r in results],
+        }))
+        return folder
+
+    def test_rates_failures_and_regressions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runs = Path(tmp)
+            self.write_run(runs, "20260101-000000", [
+                {"id": "chat-01", "status": "pass"}, {"id": "chat-02", "status": "fail", "reason": "contains: x"},
+            ])
+            now = self.write_run(runs, "20260102-000000", [
+                {"id": "chat-01", "status": "fail", "reason": "max_words: 80 words, cap 60", "output": {"text": "long " * 80}},
+                {"id": "chat-02", "status": "pass"},
+                {"id": "chat-03", "status": "skipped-budget", "reason": "budget"},
+            ], cost=2.5)
+            self.assertEqual(aievals_report.main(["x", str(now)]), 0)
+            report = (now / "report.md").read_text()
+            self.assertIn("| chat | 1 | 1 | 0 | 1 | 50% of 2 |", report)
+            self.assertIn("**Regressions**", report)
+            self.assertIn("- chat-01: now fail. max_words: 80 words, cap 60", report)
+            self.assertIn("Fixed: chat-02", report)
+            self.assertIn("New cases: chat-03", report)
+            self.assertIn("Cost $2.50 vs $1.00 (+$1.50)", report)
+            self.assertIn("### chat-01: chat-01 (fail)", report)
+            self.assertIn("…", report, "long output is cut")
+            self.assertIn("chat-03", report.split("## Skipped for budget")[1])
+
+    def test_empty_folder_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(aievals_report.main(["x", tmp]), 1)
 
 
 if __name__ == "__main__":
