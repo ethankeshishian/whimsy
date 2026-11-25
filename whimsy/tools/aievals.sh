@@ -32,15 +32,23 @@ runs=$WHIMSY_MAIN/.surfer/aievals/runs
 out=$runs/$ts
 mkdir -p $out
 export WHIMSY_AIEVALS=1 WHIMSY_AIEVALS_OUT=$out WHIMSY_AIEVALS_BUDGET_USD=$budget WHIMSY_AIEVALS_ONLY=$only
-# The mochitest runner makes any non-local connection a fatal crash
-# (MOZ_DISABLE_NONLOCAL_CONNECTIONS=1 via mozrunner). Only this script turns
-# it off, for the browser under test; lane.sh and verify.sh never set it, so
-# their runs keep the crash as the backstop against ever reaching the model.
-# In its place head_aievals.js wraps the harness proxy PAC so only the fixture
-# hosts, localhost, and api.anthropic.com resolve; every other host goes to a
-# dead proxy (cases net-01 and net-02 prove it each run). --setenv is applied
-# after mozrunner's default, and test.sh passes WHIMSY_ARGS through to mach.
-export WHIMSY_ARGS="${WHIMSY_ARGS:+$WHIMSY_ARGS }--setenv=MOZ_DISABLE_NONLOCAL_CONNECTIONS=0"
+# The mochitest runner makes any socket to a non-local address a fatal crash,
+# and the browser release-asserts that guard whenever it runs in automation,
+# so it cannot be lifted for a real run. Instead a CONNECT-only tunnel on
+# 127.0.0.1 (aievals_proxy.py) is the one way out: head_aievals.js wraps the
+# harness PAC so https://api.anthropic.com goes to the tunnel, the fixture
+# hosts and localhost stay as they were, and every other host goes to a proxy
+# nothing listens on (cases net-01 and net-02 prove it each run). The tunnel
+# only accepts that one host:port. Only this script starts it and exports
+# WHIMSY_AIEVALS_PROXY; lane.sh and verify.sh never do, and a scripted run
+# sends even the API host to the dead proxy.
+portfile=$out/proxy.port
+python3 $WHIMSY_TOOLS/aievals_proxy.py --allow api.anthropic.com:443 --port-file $portfile > $out/proxy.log 2>&1 &
+proxypid=$!
+trap 'kill $proxypid 2>/dev/null' EXIT
+for i in {1..50}; do [ -s $portfile ] && break; sleep 0.1; done
+[ -s $portfile ] || { echo "aievals.sh: the tunnel did not start; see $out/proxy.log" >&2; exit 2; }
+export WHIMSY_AIEVALS_PROXY=127.0.0.1:$(cat $portfile)
 echo "aievals: run $ts, budget \$$budget, results in $out"
 if [ -n "$lane" ]; then
   # lane.sh queues itself; the ticket carries every WHIMSY_* variable.

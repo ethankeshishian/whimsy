@@ -10,7 +10,9 @@
 //
 //   WHIMSY_AIEVALS=1   The real provider (the model Whimsy ships with), the
 //                      key read from ~/.config/whimsy/anthropic-api-key at
-//                      run time, results written to WHIMSY_AIEVALS_OUT. A
+//                      run time, results written to WHIMSY_AIEVALS_OUT, the
+//                      API reached only through the CONNECT tunnel named by
+//                      WHIMSY_AIEVALS_PROXY (all set by aievals.sh). A
 //                      failing case is a product finding, recorded, never a
 //                      test failure; only harness errors fail the run.
 //   (unset)            A scripted provider answers from each case's `fake`
@@ -61,6 +63,8 @@ const AIEVALS = {
   out: Services.env.get("WHIMSY_AIEVALS_OUT") || "",
   budget: Number(Services.env.get("WHIMSY_AIEVALS_BUDGET_USD") || "12"),
   only: (Services.env.get("WHIMSY_AIEVALS_ONLY") || "").split(",").map(s => s.trim()).filter(Boolean),
+  // host:port of the CONNECT tunnel aievals.sh starts for a real run.
+  proxy: Services.env.get("WHIMSY_AIEVALS_PROXY") || "",
   judgeModel: "claude-haiku-4-5",
   cases: null,
   results: [],
@@ -104,18 +108,21 @@ function aievalsCases(features) {
 // ---------------------------------------------------------------------------
 // Setup
 
-// Hosts a real run may reach besides the fixture server: the model's API only.
+// Hosts a real run may reach besides the fixture server: the model's API only,
+// and only over https, through the tunnel aievals.sh starts.
 const AIEVALS_NETWORK_ALLOWED = ["api.anthropic.com"];
 
 /**
  * Narrows the browser's network to the mochitest fixture hosts (through the
  * harness proxy, as before), the Mac itself, and, in a real run, the model's
  * API. Every other host is sent to a proxy nothing listens on, so a request
- * there fails with a refused connection. The harness's own PAC is kept and
- * wrapped: its decision wins whenever it names a proxy. aievals.sh turns off
- * the runner's crash-on-non-local-connection guard for real runs, so this is
- * what keeps the test browser off the open internet there; scripted runs
- * keep both.
+ * there fails with a refused connection, and failover to a direct connection
+ * is off. The harness's own PAC is kept and wrapped: its decision wins
+ * whenever it names a proxy. The API is reached through the CONNECT tunnel
+ * on 127.0.0.1 named by WHIMSY_AIEVALS_PROXY (aievals_proxy.py), which is a
+ * local socket to the browser, so the runner's crash-on-non-local-connection
+ * guard stays on in every mode and is the backstop should the PAC ever be
+ * bypassed.
  */
 async function aievalsNarrowNetwork() {
   const prefix = "data:text/plain,";
@@ -123,18 +130,28 @@ async function aievalsNarrowNetwork() {
   if (Services.prefs.getIntPref("network.proxy.type", 0) != 2 || !current.startsWith(prefix) || !current.includes("function FindProxyForURL(")) {
     throw new Error("aievals: the mochitest proxy PAC is not in place; refusing to run");
   }
+  if (AIEVALS.real && !/^127\.0\.0\.1:\d+$/.test(AIEVALS.proxy)) {
+    throw new Error("aievals: a real run needs the tunnel from aievals.sh (WHIMSY_AIEVALS_PROXY); refusing to run");
+  }
   const harness = current.slice(prefix.length).replace("function FindProxyForURL(", "function aievalsHarnessProxy(");
   const allowed = JSON.stringify(AIEVALS.real ? AIEVALS_NETWORK_ALLOWED : []);
   const wrapper = [
     "function FindProxyForURL(url, host) {",
     "  var viaHarness = aievalsHarnessProxy(url, host);",
     "  if (viaHarness != 'DIRECT') { return viaHarness; }",
-    `  if (host == 'localhost' || host == '127.0.0.1' || host == '::1' || ${allowed}.indexOf(host) >= 0) { return 'DIRECT'; }`,
+    "  if (host == 'localhost' || host == '127.0.0.1' || host == '::1') { return 'DIRECT'; }",
+    `  if (url.substring(0, 8) == 'https://' && ${allowed}.indexOf(host) >= 0) { return 'PROXY ${AIEVALS.real ? AIEVALS.proxy : "127.0.0.1:1"}'; }`,
     "  return 'PROXY 127.0.0.1:1';",
     "}",
   ].join(" ");
-  await SpecialPowers.pushPrefEnv({ set: [["network.proxy.autoconfig_url", `${prefix}${harness} ${wrapper}`]] });
-  info(`aievals: network narrowed to fixtures, localhost, and ${allowed}`);
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["network.proxy.autoconfig_url", `${prefix}${harness} ${wrapper}`],
+      ["network.proxy.failover_direct", false],
+      ["network.proxy.allow_bypass", false],
+    ],
+  });
+  info(`aievals: network narrowed to fixtures, localhost, and ${allowed}${AIEVALS.real ? ` via ${AIEVALS.proxy}` : ""}`);
 }
 
 async function aievalsSetup({ features }) {

@@ -878,5 +878,69 @@ class AievalsReportTests(unittest.TestCase):
             self.assertEqual(aievals_report.main(["x", tmp]), 1)
 
 
+
+class AievalsProxyTests(unittest.TestCase):
+    """aievals_proxy.py: tunnels only the allowed host:port, refuses the rest,
+    and serves nothing but CONNECT."""
+
+    def setUp(self):
+        import socket
+        self.echo = socket.socket()
+        self.echo.bind(("127.0.0.1", 0))
+        self.echo.listen(1)
+        self.echo_port = self.echo.getsockname()[1]
+        self.tmp = tempfile.TemporaryDirectory()
+        portfile = Path(self.tmp.name) / "port"
+        self.proc = subprocess.Popen([sys.executable, str(TOOLS / "aievals_proxy.py"), "--quiet",
+                                      "--allow", f"127.0.0.1:{self.echo_port}", "--port-file", str(portfile)])
+        for _ in range(100):
+            if portfile.exists() and portfile.read_text().strip():
+                break
+            time.sleep(0.05)
+        self.port = int(portfile.read_text())
+
+    def tearDown(self):
+        self.proc.terminate()
+        self.proc.wait(timeout=10)
+        self.echo.close()
+        self.tmp.cleanup()
+
+    def connect(self, request):
+        import socket
+        s = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        s.sendall(request)
+        head = b""
+        while b"\r\n\r\n" not in head:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            head += chunk
+        return s, head.split(b"\r\n", 1)[0].decode()
+
+    def test_allowed_target_is_tunnelled_both_ways(self):
+        s, status = self.connect(f"CONNECT 127.0.0.1:{self.echo_port} HTTP/1.1\r\nHost: x\r\n\r\n".encode())
+        self.assertEqual(status, "HTTP/1.1 200 Connection Established")
+        peer, _ = self.echo.accept()
+        s.sendall(b"ping")
+        self.assertEqual(peer.recv(4), b"ping")
+        peer.sendall(b"pong")
+        self.assertEqual(s.recv(4), b"pong")
+        peer.close()
+        s.close()
+
+    def test_other_targets_and_methods_are_refused(self):
+        s, status = self.connect(b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n")
+        self.assertEqual(status, "HTTP/1.1 403 Forbidden")
+        s.close()
+        s, status = self.connect(f"CONNECT 127.0.0.1:{self.echo_port + 1} HTTP/1.1\r\n\r\n".encode())
+        self.assertEqual(status, "HTTP/1.1 403 Forbidden", "a different port on an allowed host is a different target")
+        s.close()
+        s, status = self.connect(b"GET http://example.com/ HTTP/1.1\r\nHost: example.com\r\n\r\n")
+        self.assertEqual(status, "HTTP/1.1 405 Method Not Allowed")
+        s.close()
+        self.echo.settimeout(0.2)
+        with self.assertRaises(OSError, msg="nothing reached the upstream for refused requests"):
+            self.echo.accept()
+
 if __name__ == "__main__":
     unittest.main()
