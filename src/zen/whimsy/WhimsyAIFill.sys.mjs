@@ -29,6 +29,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIPageActUI: "resource:///modules/whimsy/WhimsyAIPageActUI.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyChatAgent: "resource:///modules/whimsy/WhimsyChatAgent.sys.mjs",
   WhimsyChatThreads: "resource:///modules/whimsy/WhimsyChatThreads.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyUndo: "resource:///modules/whimsy/WhimsyUndo.sys.mjs",
@@ -434,6 +435,11 @@ export const WhimsyAIFill = {
     const draft = this.draftOn && this.isDraftAsk(text);
     const fill = !draft && this.fillOn && this.isFillAsk(text);
     if (!draft && !fill) {
+      return false;
+    }
+    // W31: "fill in this form…, then send it" is the agent's (it can
+    // submit); form fill would fill and drop the send.
+    if (fill && lazy.WhimsyChatAgent.enabled && lazy.WhimsyChatAgent.fillsAndSubmits(text)) {
       return false;
     }
     const tab = lazy.WhimsyChatThreads.tabOf(thread) ?? panel.win.gBrowser.selectedTab;

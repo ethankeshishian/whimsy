@@ -81,6 +81,11 @@ const THUMB_W = 360;
 const ACT_VERBS = /^(?:please\s+|can you\s+|could you\s+|would you\s+|go\s+(?:and\s+)?)*(order|re-?order|buy|purchase|book|reserve|schedule|add|remove|delete|cancel|unsubscribe|send|post|reply|email|e-mail|message|sign (?:up|in|out)|subscribe|download|install|find|open|go to|search|look up|check|make|set|set up|change|move|rename|archive|clean up|tidy|collect|gather|research|plan|get me|get|pay|apply|register|rsvp|accept|decline|follow|share|upload|save|copy|close|pin|star|like|mark)\b/i;
 // Not agent tasks: page-act's own (owner, 2026-11-08).
 const NOT_TASKS = /^(?:please\s+|can you\s+|could you\s+)*(?:fill(?:\s+(?:in|out))?\b|auto-?fill\b|draft\b|write a (?:reply|response)\b|translate\b|compare\b)|\b(?:fill (?:in |out )?(?:this|the|my) form|this form for me)\b/i;
+// W31 (aievals agent-06, was chat-14): ...except a fill that's also asked to go out ("fill
+// in this form with my details, then send it"). Form fill only fills, so
+// the send was dropped; the agent can do both.
+const FILL = /^(?:please\s+|can you\s+|could you\s+|would you\s+)*(?:fill|auto-?fill|complete)\b|\bfill (?:in |out )?(?:this|the|my) form\b/i;
+const THEN_SUBMIT = /\b(?:and|then)\s+(?:then\s+)?(?:submit|send|post)\b|\b(?:submit|send|post)\s+(?:it|this|that|them|the form)\b/i;
 // W30 driveroute: whether a message asks Whimsy to do something goes by its
 // shape, not by its verb (owner: "can you expand all the diffs on this
 // page?" got no plan). An ask ("please", "can you", "I want you to") or an
@@ -685,7 +690,14 @@ export const WhimsyChatAgent = {
     const t = String(text ?? "").trim();
     // W23 page-act: tab requests and page edits aren't agent tasks either,
     // nor (W30) making or changing an extension, which chat writes itself.
-    return this.asksToAct(t) && !NOT_TASKS.test(t) && !lazy.WhimsyAITabRequests.takes(t) && !lazy.WhimsyAIPageEdits.takes(t) && !lazy.WhimsyLocalPlugins.takes(t);
+    return (this.fillsAndSubmits(t) || (this.asksToAct(t) && !NOT_TASKS.test(t))) &&
+      !lazy.WhimsyAITabRequests.takes(t) && !lazy.WhimsyAIPageEdits.takes(t) && !lazy.WhimsyLocalPlugins.takes(t);
+  },
+
+  /** Whether `text` asks to fill a form and then send it (an agent task, not form fill's). */
+  fillsAndSubmits(text) {
+    const t = String(text ?? "").trim().replace(/[’‘]/g, "'").replace(LEAD_IN, "");
+    return FILL.test(t) && THEN_SUBMIT.test(t);
   },
 
   /** By its shape: does `text` ask Whimsy to do something? (W30 driveroute) */
