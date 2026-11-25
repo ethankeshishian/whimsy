@@ -1588,3 +1588,6 @@ support-files = ["head_aievals.js", "aievals/cases.json", "aievals/article_fr.ht
 
 ["browser_whimsy_aievals_agent.js"]
 support-files = ["head_aievals.js", "aievals/cases.json", "aievals/article_fr.html", "aievals/boilerplate.html", "aievals/form.html", "aievals/form_injection.html", "aievals/injection.html", "aievals/laptops.html", "aievals/private_secret.html", "aievals/recipe_en.html", "aievals/shop_about.html", "aievals/shop_features.html", "aievals/shop_home.html", "aievals/shop_pricing.html", "aievals/tab_injection.html"]
+
+# W31 foldertab: an unloaded folder tab comes back on its latest page, not its folder page.
+["browser_whimsy_folder_tab_latest.js"]
