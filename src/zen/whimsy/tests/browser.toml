@@ -1421,6 +1421,16 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages_canvas2d.html"]
 ["browser_whimsy_dark_pages_emoji.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages_emoji.html", "whimsy_dark_emoji/1f605.svg"]
 
+# W31: multicolour logos keep their colours, shadows stay dark shadows, an already-dark page is left alone.
+["browser_whimsy_dark_pages_logo.js"]
+support-files = [
+  "head_whimsy_dark_pages.js",
+  "whimsy_dark_pages_logo.html",
+  "whimsy_dark_pages_logo_dark.html",
+  "whimsy_dark_logo/wordmark.svg",
+  "whimsy_dark_logo/icon.svg",
+]
+
 ["browser_whimsy_dark_pages_dynamic.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]
 
