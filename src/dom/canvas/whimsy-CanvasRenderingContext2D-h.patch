@@ -1,0 +1,32 @@
+diff --git a/dom/canvas/CanvasRenderingContext2D.h b/dom/canvas/CanvasRenderingContext2D.h
+--- a/dom/canvas/CanvasRenderingContext2D.h
++++ b/dom/canvas/CanvasRenderingContext2D.h
+@@ -478,6 +478,16 @@
+     return mContextProperties;
+   }
+ 
++  // Whimsy (W30): on a page adaptive dark recolours, colours are recoloured
++  // as they draw (mozilla/whimsy/WhimsyDarkCanvas.h).
++  nscolor WhimsyMapColor(nscolor aColor) const;
++  already_AddRefed<gfx::GradientStops> WhimsyGradientStops(
++      CanvasGradient* aGradient, gfx::DrawTarget* aRT) const;
++  // Records whether what's drawn now is recoloured; nothing if the canvas
++  // has been empty since it was last cleared.
++  void WhimsyNoteDraw();
++  Maybe<bool> WhimsyContentMapped() const { return mWhimsyMapped; }
++
+   void SetContextProperties(const CanvasContextProperties& aValue) {
+     mContextProperties = aValue;
+   }
+@@ -893,6 +903,11 @@
+ 
+   bool mHasPendingStableStateCallback;
+ 
++  // Whimsy (W30): see WhimsyNoteDraw, and whether drawImage's source is an
++  // emoji picture (its SVG keeps its colours).
++  Maybe<bool> mWhimsyMapped;
++  bool mWhimsyEmojiSource = false;
++
+   // If mCanvasElement is not provided, then a docshell is
+   nsCOMPtr<nsIDocShell> mDocShell;
+ 

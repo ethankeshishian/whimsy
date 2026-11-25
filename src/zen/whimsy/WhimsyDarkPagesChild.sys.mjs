@@ -9,11 +9,10 @@ import {
 } from "resource:///modules/whimsy/WhimsyDarkPagesConfig.sys.mjs";
 
 const GATE = "@media screen { html { background: #1c1b22 !important; } body { opacity: 0 !important; } }";
-// Canvas pixels never pass through CSS colors, so the paint-time inversion
-// leaves canvas-drawn text (editors, charts, maps) dark on the dark page.
-// Give canvases the same lightness flip, keeping hue, so text stays light
-// and highlights and selections keep their color.
-const CANVAS = "@media screen { canvas { filter: invert(1) hue-rotate(180deg) !important; } }";
+// Canvases follow the same inversion in the engine: a 2D canvas recolours
+// its colours as it draws (emoji glyphs and images keep theirs), and WebGL
+// and other canvases keep a display-time lightness flip
+// (src/zen/whimsy/emoji/WhimsyDarkCanvas.h).
 const FADE = "::view-transition-old(root), ::view-transition-new(root) { animation-duration: 240ms !important; }";
 
 function luminance(value) {
@@ -46,7 +45,6 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
         this._observer?.disconnect();
         setAdaptiveDarkPage(this._record, false);
         this.sheet("dim", null);
-        this.sheet("canvas", null);
       } else if (event.type == "afterprint") {
         this._printing = false;
         this.configure();
@@ -216,7 +214,6 @@ export class WhimsyDarkPagesChild extends JSWindowActorChild {
     const forced = this.contentWindow.matchMedia("(forced-colors: active)").matches;
     const state = !this._active || forced ? "original" : this.isDark() ? "native" : "generated";
     setAdaptiveDarkPage(this._record, state == "generated");
-    this.sheet("canvas", state == "generated" ? CANVAS : null);
     this.sheet("dim", this._dim && state != "original" ? "@media screen { img, video { filter: brightness(.8) !important; } }" : null);
     this.document.documentElement.setAttribute("data-whimsy-dark-page", state);
     this._theme = this.theme();

@@ -1,0 +1,33 @@
+diff --git a/dom/canvas/CanvasGradient.h b/dom/canvas/CanvasGradient.h
+--- a/dom/canvas/CanvasGradient.h
++++ b/dom/canvas/CanvasGradient.h
+@@ -9,6 +9,7 @@
+ #include "mozilla/RefPtr.h"
+ #include "mozilla/dom/CanvasRenderingContext2DBinding.h"
+ #include "mozilla/gfx/2D.h"
++#include "nsColor.h"
+ #include "nsTArray.h"
+ #include "nsWrapperCache.h"
+ 
+@@ -31,6 +32,13 @@
+         aRT, mRawStops, gfx::ExtendMode::CLAMP);
+   }
+ 
++  // Whimsy (W30): the stops, and their colours before device conversion, so
++  // adaptive dark can recolour them as they draw.
++  const nsTArray<mozilla::gfx::GradientStop>& WhimsyRawStops() const {
++    return mRawStops;
++  }
++  const nsTArray<nscolor>& WhimsyColors() const { return mWhimsyColors; }
++
+   // WebIDL
+   void AddColorStop(float offset, const nsACString& colorstr, ErrorResult& rv);
+ 
+@@ -50,6 +58,7 @@
+ 
+   RefPtr<CanvasRenderingContext2D> mContext;
+   nsTArray<mozilla::gfx::GradientStop> mRawStops;
++  nsTArray<nscolor> mWhimsyColors;
+   Type mType;
+ };
+ 

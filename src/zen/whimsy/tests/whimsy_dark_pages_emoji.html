@@ -86,11 +86,16 @@
   for (const img of document.querySelectorAll("img[data-png]")) img.src = urls.png;
   for (const img of document.querySelectorAll("img[data-dark]")) img.src = urls.dark;
   for (const el of document.querySelectorAll("[data-bg]")) el.style.backgroundImage = `url("${urls[el.dataset.bg]}")`;
-  const ctx = document.querySelector("canvas").getContext("2d");
-  ctx.font = '36px "Apple Color Emoji"';
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("\u{1F605}", 24, 26);
+  // Drawn at load and again on request, as an app redraws its canvas.
+  window.drawCanvas = () => {
+    const ctx = document.querySelector("canvas").getContext("2d");
+    ctx.clearRect(0, 0, 48, 48);
+    ctx.font = '36px "Apple Color Emoji"';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("\u{1F605}", 24, 26);
+  };
+  window.drawCanvas();
   Promise.all([...document.images].map(img => img.decode())).then(() => {
     document.documentElement.dataset.emojiReady = "true";
   });

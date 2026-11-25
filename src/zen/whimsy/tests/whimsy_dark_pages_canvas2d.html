@@ -1,0 +1,85 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Canvas drawing — Dark pages</title>
+<!-- Canvases an app draws after load: a text editor (a white sheet, black
+     text, a yellow highlight, a blue selection), a chart (gridlines, bars,
+     a gradient bar, a shadow, labels), images drawn with drawImage (a
+     photo, a dark SVG icon, an SVG emoji), and a WebGL canvas. -->
+<style>
+  body { margin: 8px; background: #fff; color: #202124; font: 14px system-ui; }
+  canvas { display: block; margin-bottom: 6px; }
+</style>
+<canvas id="text" width="200" height="60"></canvas>
+<canvas id="chart" width="240" height="120"></canvas>
+<canvas id="images" width="160" height="48"></canvas>
+<canvas id="webgl" width="48" height="48"></canvas>
+<img id="emoji" alt="&#x1F605;" hidden>
+<img id="icon" alt="Search" hidden>
+<script>
+  const svg = body => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">${body}</svg>`);
+  document.getElementById("emoji").src = svg(`<circle cx="18" cy="18" r="18" fill="#FFCC4D"/><ellipse cx="12" cy="15" rx="2.5" ry="3.5" fill="#664500"/><ellipse cx="24" cy="15" rx="2.5" ry="3.5" fill="#664500"/>`);
+  document.getElementById("icon").src = svg(`<rect width="36" height="36" fill="#202124"/>`);
+  // A photo: pixels from a canvas the page never shows.
+  const photo = new Image();
+  const scratch = document.createElement("canvas");
+  scratch.width = scratch.height = 36;
+  const sctx = scratch.getContext("2d");
+  sctx.fillStyle = "#3366cc";
+  sctx.fillRect(0, 0, 36, 36);
+  photo.src = scratch.toDataURL("image/png");
+
+  // Each canvas is drawn at load and again on request, as an app redraws.
+  window.drawCanvases = () => {
+    let ctx = document.getElementById("text").getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 200, 60);
+    ctx.fillStyle = "#fff2cc";
+    ctx.fillRect(100, 10, 90, 40);
+    ctx.fillStyle = "#000000";
+    ctx.font = "bold 28px system-ui";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Hello", 10, 30);
+
+    ctx = document.getElementById("chart").getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 240, 120);
+    ctx.strokeStyle = "#dadce0";
+    for (let y = 20; y < 120; y += 20) {
+      ctx.beginPath();
+      ctx.moveTo(0, y + 0.5);
+      ctx.lineTo(240, y + 0.5);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#1a73e8";
+    ctx.fillRect(20, 30, 40, 80);
+    ctx.fillStyle = "#f9ab00";
+    ctx.fillRect(80, 50, 40, 60);
+    const gradient = ctx.createLinearGradient(140, 0, 220, 0);
+    gradient.addColorStop(0, "#34a853");
+    gradient.addColorStop(1, "#ea4335");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(140, 40, 80, 30);
+    ctx.shadowColor = "#000000";
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(140, 80, 80, 20);
+    ctx.shadowColor = "transparent";
+    ctx.fillStyle = "#000000";
+    ctx.font = "bold 14px system-ui";
+    ctx.fillText("Sales", 4, 14);
+
+    ctx = document.getElementById("images").getContext("2d");
+    ctx.clearRect(0, 0, 160, 48);
+    ctx.drawImage(photo, 0, 0, 48, 48);
+    ctx.drawImage(document.getElementById("icon"), 56, 0, 48, 48);
+    ctx.drawImage(document.getElementById("emoji"), 112, 0, 48, 48);
+
+    const gl = document.getElementById("webgl").getContext("webgl", { preserveDrawingBuffer: true });
+    gl.clearColor(1, 1, 1, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  };
+  Promise.all([...document.images, photo].map(img => img.decode())).then(() => {
+    window.drawCanvases();
+    document.documentElement.dataset.ready = "true";
+  });
+</script>

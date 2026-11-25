@@ -18,6 +18,8 @@ const EMOJI_PAGE = ROOT + "whimsy_dark_pages_emoji.html";
 async function shoot(browser, name) {
   const { boxes, png } = await SpecialPowers.spawn(browser, [], () => {
     const doc = content.document;
+    // The page redraws its canvas, as apps do after the theme changes.
+    content.wrappedJSObject.drawCanvas();
     const canvas = doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
     canvas.width = content.innerWidth;
     canvas.height = content.innerHeight;
@@ -68,10 +70,9 @@ add_task(async function every_emoji_form_keeps_its_colours() {
       const after = dark[form];
       info(`${form}: light ${before.yellow} yellow px, mean ${before.mean}; dark ${after.yellow} yellow px, mean ${after.mean}, centre ${after.center}`);
     }
-    // Canvas pixels are the page's own (dark pages filter the whole <canvas>
-    // so canvas-drawn text documents turn dark); the canvas form is only
-    // logged above.
-    const asserted = form => !form.includes("icon") && !form.includes("emoji picker") && form != "canvas text";
+    // A canvas recolours its colours as it draws, so the emoji drawn into
+    // it keeps its own (browser_whimsy_dark_pages_canvas.js covers the rest).
+    const asserted = form => !form.includes("icon") && !form.includes("emoji picker");
     for (const form of Object.keys(light).filter(asserted)) {
       ok(light[form].yellow > 150, `${form}: the light page shows a yellow face`);
       ok(dark[form].yellow >= light[form].yellow * 0.9,

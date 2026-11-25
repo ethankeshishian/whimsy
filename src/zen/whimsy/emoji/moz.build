@@ -7,12 +7,18 @@
 # colours alone, as they do for colour-font emoji text. Called from
 # src/layout/svg/whimsy-SVGImageContext-cpp.patch (images) and
 # src/layout/style/whimsy-StyleColor-cpp.patch (inline SVG).
+# WhimsyDarkCanvas: 2D canvases recolour as they draw on a recoloured page
+# (src/dom/canvas/whimsy-CanvasRenderingContext2D-*.patch), and canvases
+# that can't keep a display-time filter (src/layout/generic/
+# whimsy-nsHTMLCanvasFrame-cpp.patch).
 
 EXPORTS.mozilla.whimsy += [
+    "WhimsyDarkCanvas.h",
     "WhimsyEmoji.h",
 ]
 
 SOURCES += [
+    "WhimsyDarkCanvas.cpp",
     "WhimsyEmoji.cpp",
 ]
 
