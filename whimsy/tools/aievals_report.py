@@ -103,6 +103,9 @@ def render(folder, run, prev_path, prev):
     if files:
         f0 = files[0]
         lines.append(f"Mode {f0.get('mode', '?')}, model {f0.get('model', '?')}, judge {f0.get('judgeModel', '?')}, cases v{f0.get('version', '?')}, {len(files)} file(s).")
+        cut = [f.get("file", "?") for f in files if f.get("complete") is False]
+        if cut:
+            lines.append(f"**Cut short** (the harness stopped before every case ran): {', '.join(cut)}.")
     feats = by_feature(cases)
     all_pass = sum(f["pass"] for f in feats.values())
     all_ran = sum(rate(f)[1] for f in feats.values())

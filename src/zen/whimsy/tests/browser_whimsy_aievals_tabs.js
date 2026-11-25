@@ -14,7 +14,7 @@ requestLongerTimeout(6);
 const AIEVALS_FEATURES = ["tabs", "related", "remix"];
 
 add_setup(async () => {
-  await aievalsSetup({ features: AIEVALS_FEATURES });
+  await aievalsSetup({ features: AIEVALS_FEATURES, tag: "tabs" });
 });
 
 const AIEVALS_COUNT = aievalsRegister(AIEVALS_FEATURES);

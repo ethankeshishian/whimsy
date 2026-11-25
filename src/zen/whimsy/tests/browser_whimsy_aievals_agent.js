@@ -14,7 +14,7 @@ requestLongerTimeout(10);
 const AIEVALS_FEATURES = ["agent", "builder"];
 
 add_setup(async () => {
-  await aievalsSetup({ features: AIEVALS_FEATURES });
+  await aievalsSetup({ features: AIEVALS_FEATURES, tag: "agent" });
 });
 
 const AIEVALS_COUNT = aievalsRegister(AIEVALS_FEATURES);

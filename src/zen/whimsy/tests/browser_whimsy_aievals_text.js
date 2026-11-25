@@ -14,7 +14,11 @@ requestLongerTimeout(6);
 const AIEVALS_FEATURES = ["selection", "translate"];
 
 add_setup(async () => {
-  await aievalsSetup({ features: AIEVALS_FEATURES });
+  // Whimsy hands a page to Firefox's translator when no provider can go on;
+  // the eval browser cannot download its models (network narrowed), and
+  // that fetch rejects outside anything the product awaits.
+  PromiseTestUtils.allowMatchingRejectionsGlobally(/Unable to retrieve the translation models/);
+  await aievalsSetup({ features: AIEVALS_FEATURES, tag: "text" });
 });
 
 const AIEVALS_COUNT = aievalsRegister(AIEVALS_FEATURES);

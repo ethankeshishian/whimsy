@@ -154,7 +154,8 @@ async function aievalsNarrowNetwork() {
   info(`aievals: network narrowed to fixtures, localhost, and ${allowed}${AIEVALS.real ? ` via ${AIEVALS.proxy}` : ""}`);
 }
 
-async function aievalsSetup({ features }) {
+async function aievalsSetup({ features, tag = features[0] }) {
+  AIEVALS.tag = tag;
   await SpecialPowers.pushPrefEnv({
     set: [
       ["whimsy.ai.enabled", true],
@@ -956,12 +957,18 @@ async function aievalsDriveAgent(c, ctx) {
   const messages = async () => (aievalsChat().thread?.id ? WhimsyAIStore.messages(aievalsChat().thread.id) : []);
   const cardOf = async kind => (await messages()).find(m => m.card == kind);
   const start = () => aievalsPart(".whimsy-agent-card[data-card='agent-plan'] [data-choice='start']");
+  // A provider failure while planning falls through to a plain answer, which
+  // then shows the chat's error; the case ends there instead of waiting.
+  const chatError = () => aievalsPart(".whimsy-chat-error[data-code]");
   await TestUtils.waitForCondition(
-    async () => start() || (await cardOf("agent-refused")) || (aievalsAnswers().length && !aievalsAnswers().at(-1).hasAttribute("busy")),
-    "A plan, a refusal, or an answer",
+    async () => chatError() || start() || (await cardOf("agent-refused")) || (aievalsAnswers().length && !aievalsAnswers().at(-1).hasAttribute("busy")),
+    "A plan, a refusal, an answer, or an error",
     500,
-    360
+    240
   );
+  if (chatError()) {
+    throw new Error(`agent planning failed: chat error ${chatError().dataset.code}`);
+  }
   if (await cardOf("agent-refused")) {
     return { text: "", outcome: "refused", pauses: "", turns: 0 };
   }
@@ -970,14 +977,19 @@ async function aievalsDriveAgent(c, ctx) {
     return { text: aievalsAnswers().at(-1)?.textContent.trim() ?? "", outcome: "chat", pauses: "", turns: 0 };
   }
   EventUtils.synthesizeMouseAtCenter(button, {});
-  await TestUtils.waitForCondition(
+  // Bounded well under the task timeout so a stalled run is a recorded
+  // outcome, not a harness timeout that takes the rest of the file with it.
+  const ended = await TestUtils.waitForCondition(
     async () => (await cardOf("agent-end")) || (await cardOf("agent-stopped")),
     "The run ends",
     1000,
-    420
-  );
+    240
+  ).then(() => true, () => false);
   const end = await cardOf("agent-end");
   const turns = aievalsRequestsFor(c).filter(p => p.system.includes("carrying out")).length;
+  if (!ended) {
+    return { text: "", outcome: "stalled", pauses: pauses.join(","), turns };
+  }
   if (!end) {
     const stopped = await cardOf("agent-stopped");
     return { text: stopped?.text ?? "", outcome: "stopped", pauses: pauses.join(","), turns };
@@ -1044,7 +1056,7 @@ async function aievalsRunCase(c) {
     }
   } catch (e) {
     result.status = "error";
-    result.reason = `${e.message}\n${e.stack ?? ""}`.trim();
+    result.reason = `${e?.message ?? e}\n${e?.stack ?? ""}`.trim();
   } finally {
     for (const fn of ctx.cleanups.reverse()) {
       await fn().catch(e => info(`aievals: cleanup failed: ${e.message}`));
@@ -1065,9 +1077,14 @@ async function aievalsRunCase(c) {
   result.tokens = { input, output };
   result.cost = cost;
   result.ms = Date.now() - started;
+  const failed = posts.map(p => p.status).filter(status => status && (status < 200 || status >= 300));
+  if (failed.length) {
+    result.http = failed;
+  }
   AIEVALS.spent += cost;
   AIEVALS.results.push(result);
-  const summary = `aievals: ${c.id} ${result.status} (${result.requests} req, ${input}+${output} tok, $${cost.toFixed(4)}, ${result.ms} ms)${result.reason ? ": " + result.reason.split("\n")[0] : ""}`;
+  await aievalsWriteResults().catch(e => info(`aievals: writing results failed: ${e.message}`));
+  const summary = `aievals: ${c.id} ${result.status} (${result.requests} req, ${input}+${output} tok, $${cost.toFixed(4)}, ${result.ms} ms${failed.length ? `, HTTP ${failed.join("/")}` : ""})${result.reason ? ": " + result.reason.split("\n")[0] : ""}`;
   if (AIEVALS.real) {
     info(summary);
     if (result.status != "pass") {
@@ -1097,7 +1114,33 @@ function aievalsRegister(features) {
   return cases.length;
 }
 
+/** Writes this file's results so far; a file the harness cuts short still reports. */
+async function aievalsWriteResults() {
+  if (!AIEVALS.out) {
+    return;
+  }
+  const { input, output, cost } = aievalsCostOf(AIEVALS.posts);
+  const byStatus = {};
+  for (const r of AIEVALS.results) {
+    byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+  }
+  await IOUtils.makeDirectory(AIEVALS.out, { ignoreExisting: true, createAncestors: true });
+  const data = {
+    version: aievalsLoadCases().version,
+    file: AIEVALS.tag,
+    mode: AIEVALS.real ? "real" : "scripted",
+    model: WhimsyAIProviders.claudeModel,
+    judgeModel: AIEVALS.judgeModel,
+    at: new Date().toISOString(),
+    complete: AIEVALS.complete ?? false,
+    totals: { requests: AIEVALS.posts.length, input, output, cost, byStatus },
+    results: AIEVALS.results,
+  };
+  await IOUtils.writeJSON(PathUtils.join(AIEVALS.out, `${AIEVALS.tag}.json`), data);
+}
+
 async function aievalsFinish(tag) {
+  is(tag, AIEVALS.tag, "The file finishes under the tag it set up with");
   const { input, output, cost } = aievalsCostOf(AIEVALS.posts);
   const byStatus = {};
   for (const r of AIEVALS.results) {
@@ -1110,17 +1153,7 @@ async function aievalsFinish(tag) {
   if (!AIEVALS.out) {
     return;
   }
-  await IOUtils.makeDirectory(AIEVALS.out, { ignoreExisting: true, createAncestors: true });
-  const data = {
-    version: aievalsLoadCases().version,
-    file: tag,
-    mode: AIEVALS.real ? "real" : "scripted",
-    model: WhimsyAIProviders.claudeModel,
-    judgeModel: AIEVALS.judgeModel,
-    at: new Date().toISOString(),
-    totals: { requests: AIEVALS.posts.length, input, output, cost, byStatus },
-    results: AIEVALS.results,
-  };
-  await IOUtils.writeJSON(PathUtils.join(AIEVALS.out, `${tag}.json`), data);
+  AIEVALS.complete = true;
+  await aievalsWriteResults();
   ok(true, `aievals: wrote ${tag}.json`);
 }
