@@ -134,17 +134,34 @@ diff --git a/widget/cocoa/TextRecognition.mm b/widget/cocoa/TextRecognition.mm
  
              dom::TextRecognitionResult result;
              dom::TextRecognitionResult* pResult = &result;
-@@ -102,6 +196,9 @@
+@@ -102,6 +196,26 @@
  
              [requestHandler performRequests:@[ textRecognitionRequest ]
                                        error:&error];
++            // Whimsy: the accurate model can fail outright on some macOS
++            // releases (macOS 27.0.1 fails every accurate read with an e5rt
++            // error), which left image text unreadable. Read again at the
++            // fast level once before giving up.
++            if (error != nil && !IsShuttingDown()) {
++              pResult->quads().Clear();
++              error = nil;
++              VNRecognizeTextRequest* fastRequest =
++                  [[[VNRecognizeTextRequest alloc]
++                      initWithCompletionHandler:textRecognitionRequest
++                                                    .completionHandler]
++                      autorelease];
++              fastRequest.recognitionLevel = VNRequestTextRecognitionLevelFast;
++              fastRequest.recognitionLanguages = recognitionLanguages;
++              fastRequest.usesLanguageCorrection = true;
++              [requestHandler performRequests:@[ fastRequest ] error:&error];
++            }
 +            if (!UntrackPending(promise)) {
 +              return;
 +            }
              if (error != nil) {
                promise->Reject(
                    nsPrintfCString(
-@@ -111,8 +208,12 @@
+@@ -111,8 +225,12 @@
              } else {
                promise->Resolve(std::move(result), __func__);
              }

@@ -7,7 +7,9 @@
 // Gecko's background-IO pool. This runs the real macOS recognizer (no
 // stand-in) on a sign with known words and checks the words come back.
 // The first recognition in a fresh browser waits on macOS compiling the
-// text model, which can take over a minute, hence the longer timeout.
+// text model, which can take over a minute, hence the longer timeout. Where
+// the accurate model fails outright (macOS 27.0.1), the read falls back to
+// the fast level, and this checks that path returns the words too.
 
 requestLongerTimeout(10);
 
@@ -30,14 +32,17 @@ add_task(async function text_in_an_image_is_recognized() {
   });
   info("sign decoded; recognizing (the first read waits on the model compile)");
   const started = Date.now();
-  const lines = await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
-    const quads = await content.document.getElementById("photo").recognizeCurrentImageText();
-    return quads.map(q => q.string);
-  });
-  info(`recognized in ${Date.now() - started} ms: ${JSON.stringify(lines)}`);
-  const text = lines.join(" ");
-  ok(/hoshino/i.test(text), "the sign's name is read");
-  ok(/tea\s*house/i.test(text), "the rest of the name is read");
-  ok(/1887/.test(text), "the year is read");
-  BrowserTestUtils.removeTab(tab);
+  try {
+    const lines = await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
+      const quads = await content.document.getElementById("photo").recognizeCurrentImageText();
+      return quads.map(q => q.string);
+    });
+    info(`recognized in ${Date.now() - started} ms: ${JSON.stringify(lines)}`);
+    const text = lines.join(" ");
+    ok(/hoshino/i.test(text), "the sign's name is read");
+    ok(/tea\s*house/i.test(text), "the rest of the name is read");
+    ok(/1887/.test(text), "the year is read");
+  } finally {
+    BrowserTestUtils.removeTab(tab);
+  }
 });
