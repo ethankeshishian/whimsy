@@ -65,6 +65,9 @@ const AIEVALS = {
   cases: null,
   results: [],
   posts: [],
+  // Scripted mode: one record per fake-provider call, so request counts and
+  // "never sent to the model" checks mean the same thing in both modes.
+  fakes: [],
   spent: 0,
   current: null,
   relatedReady: false,
@@ -282,20 +285,41 @@ function aievalsFakeAgentReply(c, request) {
   }
   const next = fake.actions?.length ? fake.actions.shift() : { done: "Done." };
   const tab = window.gBrowser.selectedTab;
-  const last = aievalsTextOf(request.messages?.at(-1)?.content ?? "");
+  // Refs come from the newest tool result that listed them (a read_page a
+  // few turns back, once form_input results sit in between).
+  const seen = (request.messages ?? []).map(m => aievalsTextOf(m.content)).reverse();
   const resolve = value => {
     if (value == "$tab") {
       return WhimsyClaude.tabId(tab);
     }
     if (typeof value == "string" && value.startsWith("$ref:")) {
       const label = value.slice(5).toLowerCase();
-      const line = last.split("\n").find(l => l.toLowerCase().includes(label) && /ref_\d+/.test(l));
-      return line?.match(/ref_\d+/)?.[0] ?? value;
+      for (const text of seen) {
+        const line = text.split("\n").find(l => l.toLowerCase().includes(label) && /ref_\d+/.test(l));
+        if (line) {
+          return line.match(/ref_\d+/)[0];
+        }
+      }
+      return value;
     }
     return value;
   };
   const args = Object.fromEntries(Object.entries(next.args ?? {}).map(([k, v]) => [k, resolve(v)]));
   return JSON.stringify(next.args ? { ...next, args } : next);
+}
+
+/** Form fill: case.fake.fields maps a label fragment to a value; ids come from the "Fields:" list. */
+function aievalsFakeFillReply(c, request) {
+  const wanted = Object.entries(c.fake?.fields ?? {});
+  const listed = [...String(request.lastUserText ?? "").matchAll(/^- ([^:]+): "((?:[^"\\]|\\.)*)"/gm)].map(m => ({ id: m[1], label: m[2].toLowerCase() }));
+  const fields = [];
+  for (const [fragment, value] of wanted) {
+    const field = listed.find(f => f.label.includes(fragment.toLowerCase()));
+    if (field) {
+      fields.push({ id: field.id, value, from: "message" });
+    }
+  }
+  return JSON.stringify({ fields });
 }
 
 function aievalsFakeTranslateReply(c, request) {
@@ -317,6 +341,12 @@ function aievalsFakeTranslateReply(c, request) {
 async function* aievalsFakeProvider(provider, request) {
   const c = AIEVALS.current;
   const system = String(request.system ?? "");
+  AIEVALS.fakes.push({
+    case: c?.id ?? "",
+    model: "fake",
+    system,
+    messages: (request.messages ?? []).map(m => ({ role: m.role, text: aievalsTextOf(m.content) })),
+  });
   let text;
   if (system.includes("You plan tasks") || system.includes("browser agent, carrying out")) {
     text = aievalsFakeAgentReply(c, request);
@@ -326,6 +356,8 @@ async function* aievalsFakeProvider(provider, request) {
     text = aievalsFakeTabsReply(c, request);
   } else if (system.includes("You grade one AI output")) {
     text = JSON.stringify({ pass: true, reason: "scripted" });
+  } else if (system.includes("You help fill a web form")) {
+    text = aievalsFakeFillReply(c, request);
   } else {
     text = aievalsFakeText(c);
   }
@@ -389,9 +421,16 @@ async function aievalsJudge(rubric, text) {
   }
 }
 
+/** The model requests a case made: real `_post` calls, or fake-provider calls in scripted mode. */
+function aievalsRequestsFor(c) {
+  return (AIEVALS.real ? AIEVALS.posts : AIEVALS.fakes).filter(p => p.case == c.id);
+}
+
+// Titles as they were once each page loaded: Zen renames tabs it pins or
+// folders, so a live `tab.label` can stop matching the case's pattern.
 function aievalsTabsMatching(ctx, title) {
   const rx = new RegExp(title, "i");
-  return ctx.tabs.filter(t => rx.test(t.label));
+  return ctx.tabs.filter(t => rx.test(ctx.labels.get(t) ?? t.label));
 }
 
 async function aievalsInPage(browser, fn, arg) {
@@ -402,7 +441,7 @@ async function aievalsInPage(browser, fn, arg) {
 async function aievalsCheck(check, out, c, ctx) {
   const value = aievalsField(out, check.field);
   const r = (pass, detail = "") => ({ type: check.type, field: check.field ?? "text", pass, detail });
-  const posts = AIEVALS.posts.filter(p => p.case == c.id);
+  const posts = aievalsRequestsFor(c);
   switch (check.type) {
     case "contains":
       return r(value.includes(check.value), `expected "${check.value}"`);
@@ -461,10 +500,11 @@ async function aievalsCheck(check, out, c, ctx) {
     // Tab commands
     case "plan": {
       const expect = c.expect;
-      const wanted = new Set(ctx.tabs.filter(t => expect.tabs.some(p => new RegExp(p, "i").test(t.label))));
-      const got = new Set(out.tabObjects ?? []);
+      const wanted = new Set(expect.tabs.flatMap(p => aievalsTabsMatching(ctx, p)));
+      const got = new Set(ctx.planTabs ?? []);
       const same = wanted.size == got.size && [...wanted].every(t => got.has(t));
-      return r(out.action == expect.action && same, `got ${out.action || "nothing"} on ${JSON.stringify(out.titles ?? [])}; expected ${expect.action} on ${JSON.stringify([...wanted].map(t => t.label))}`);
+      const labels = tabs => JSON.stringify([...tabs].map(t => ctx.labels.get(t) ?? t.label));
+      return r(out.action == expect.action && same, `got ${out.action || "nothing"} on ${labels(got)}; expected ${expect.action} on ${labels(wanted)}; live labels now ${JSON.stringify(ctx.tabs.map(t => t.label))}`);
     }
     case "tab_gone": {
       const left = aievalsTabsMatching(ctx, check.title).filter(t => t.isConnected && !t.closing);
@@ -500,7 +540,7 @@ async function aievalsCheck(check, out, c, ctx) {
       const got = browser
         ? await aievalsInPage(browser, ([sel, attr]) => content.document.querySelector(sel)?.getAttribute(attr) ?? null, [check.selector, check.attr])
         : null;
-      return r(got == check.equals, `${check.selector}[${check.attr}] = ${JSON.stringify(got)}`);
+      return r(check.absent ? got == null : got == check.equals, `${check.selector}[${check.attr}] = ${JSON.stringify(got)}`);
     }
     case "active_url_contains": {
       const url = window.gBrowser.selectedBrowser.currentURI.spec;
@@ -560,6 +600,7 @@ async function aievalsOpenTabs(c, ctx) {
       tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, url);
     }
     ctx.tabs.push(tab);
+    ctx.labels.set(tab, tab.label);
   }
   const active = ctx.tabs[c.active ?? 0];
   if (active) {
@@ -623,24 +664,29 @@ async function aievalsDriveHover(c, ctx) {
 }
 
 const AIEVALS_RELATED_PAGES = ["laptops.html", "recipe_en.html", "article_fr.html", "shop_pricing.html", "shop_about.html"];
+const AIEVALS_RELATED_VOCAB = ["laptop", "battery", "thin", "screen", "pasta", "recipe", "dinner", "price", "month", "notes", "subscription", "team", "northline", "lisbon", "founded"];
 
 async function aievalsIndexFixtures() {
   await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.ai-related", true]] });
   WhimsyAIIndex._resetForTesting();
-  if (!WhimsyAIIndex.available()) {
-    // No on-device embedder here: a bag-of-words stand-in keeps the harness honest.
-    info("aievals: no on-device embedder, using a word-bag embedder");
+  // Related runs on the Mac, not in the cloud, so the real run uses the
+  // on-device model when there is one. Scripted runs use a fixed-vocabulary
+  // embedder: deterministic, and enough to prove the harness end to end.
+  AIEVALS.relatedOnDevice = AIEVALS.real && WhimsyAIIndex.available();
+  if (!AIEVALS.relatedOnDevice) {
+    info("aievals: Related uses the fixed-vocabulary test embedder");
+    const stem = w => (AIEVALS_RELATED_VOCAB.includes(w) ? w : w == "pricing" ? "price" : w.endsWith("s") && AIEVALS_RELATED_VOCAB.includes(w.slice(0, -1)) ? w.slice(0, -1) : w);
+    const knows = w => AIEVALS_RELATED_VOCAB.includes(stem(w));
     WhimsyAIIndex._setTestEmbedder(text => {
-      const v = new Float32Array(256);
-      for (const w of String(text).toLowerCase().match(/\p{L}{3,}/gu) ?? []) {
-        let h = 0;
-        for (const ch of w) {
-          h = (h * 31 + ch.charCodeAt(0)) % 256;
+      const v = new Float32Array(AIEVALS_RELATED_VOCAB.length);
+      for (const w of String(text).toLowerCase().match(/\p{L}+/gu) ?? []) {
+        const i = AIEVALS_RELATED_VOCAB.indexOf(stem(w));
+        if (i >= 0) {
+          v[i] += 1;
         }
-        v[h] += 1;
       }
       return v;
-    }, { knows: () => true });
+    }, { knows });
   }
   for (const page of AIEVALS_RELATED_PAGES) {
     const url = `${AIEVALS_BASE}${page}`;
@@ -658,26 +704,32 @@ async function aievalsDriveRelated(c) {
     await aievalsIndexFixtures();
   }
   const results = await WhimsyAIIndex.query(c.query, 3);
+  const words = c.query.toLowerCase().match(/\p{L}+/gu) ?? [];
   return {
     text: results.map(r => `${r.url} ${r.score.toFixed(2)}`).join("\n"),
     urls: results.map(r => r.url),
     top: results[0]?.url ?? "",
+    embedder: AIEVALS.relatedOnDevice ? "on-device" : "test-vocabulary",
+    meaningful: WhimsyAIIndex._meaningfulTextForTesting(c.query),
+    unknownWords: AIEVALS.relatedOnDevice ? words.filter(w => WhimsyAIIndex._knowsWordForTesting(w) === false) : [],
   };
 }
 
 async function aievalsDriveTabs(c, ctx) {
   await aievalsOpenTabs(c, ctx);
   const plan = await WhimsyAITabRequests.understand(window, c.input);
+  ctx.planTabs = [];
   if (!plan) {
-    return { text: "no plan", action: "", titles: [], tabObjects: [], name: "" };
+    return { text: "no plan", action: "", titles: [], name: "" };
   }
   if (plan.ask) {
-    return { text: "ask: " + plan.ask.map(o => o.label).join(" / "), action: "ask", titles: [], tabObjects: [], name: "" };
+    return { text: "ask: " + plan.ask.map(o => o.label).join(" / "), action: "ask", titles: [], name: "" };
   }
   const titles = plan.tabs.map(t => t.label);
+  ctx.planTabs = plan.tabs;
   WhimsyAITabRequests.apply(window, plan);
   await aievalsSleep(300);
-  return { text: plan.label ?? "", action: plan.action, titles, tabObjects: plan.tabs, name: plan.name ?? "" };
+  return { text: plan.label ?? "", action: plan.action, titles, name: plan.name ?? "" };
 }
 
 async function aievalsDriveTranslate(c, ctx) {
@@ -874,7 +926,7 @@ async function aievalsDriveAgent(c, ctx) {
     420
   );
   const end = await cardOf("agent-end");
-  const turns = AIEVALS.posts.filter(p => p.case == c.id && p.system.includes("carrying out")).length;
+  const turns = aievalsRequestsFor(c).filter(p => p.system.includes("carrying out")).length;
   if (!end) {
     const stopped = await cardOf("agent-stopped");
     return { text: stopped?.text ?? "", outcome: "stopped", pauses: pauses.join(","), turns };
@@ -898,7 +950,7 @@ const AIEVALS_DRIVERS = {
 // Running
 
 async function aievalsRunCase(c) {
-  const ctx = { tabs: [], cleanups: [] };
+  const ctx = { tabs: [], labels: new Map(), cleanups: [] };
   const result = { id: c.id, feature: c.feature, title: c.title, status: "pass", reason: "", output: null, checks: [], requests: 0, tokens: { input: 0, output: 0 }, cost: 0, ms: 0 };
   const share = AIEVALS.budget / AIEVALS_FILES;
   if (AIEVALS.real && AIEVALS.spent >= share) {

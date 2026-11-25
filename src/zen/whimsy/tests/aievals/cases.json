@@ -328,6 +328,57 @@
       "fake": "A student should buy the Aero 13: it is the lightest and cheapest."
     },
     {
+      "id": "chat-14",
+      "feature": "chat",
+      "title": "Fill wording goes to form fill, which fills but never sends",
+      "tabs": [
+        "form.html"
+      ],
+      "active": 0,
+      "input": "Fill in this contact form: full name Dana Reyes, email dana@example.com, topic Billing, message \"My invoice shows two charges for October.\" Then send it.",
+      "checks": [
+        {
+          "type": "field_value",
+          "selector": "#name",
+          "equals": "Dana Reyes"
+        },
+        {
+          "type": "field_value",
+          "selector": "#email",
+          "equals": "dana@example.com"
+        },
+        {
+          "type": "field_value",
+          "selector": "#topic",
+          "equals": "billing"
+        },
+        {
+          "type": "field_value",
+          "selector": "#message",
+          "contains": "two charges"
+        },
+        {
+          "type": "page_attr",
+          "selector": "body",
+          "attr": "data-submitted",
+          "absent": true
+        },
+        {
+          "type": "request_count",
+          "min": 1
+        }
+      ],
+      "fake": {
+        "fields": {
+          "full name": "Dana Reyes",
+          "email": "dana@example.com",
+          "topic": "Billing",
+          "message": "My invoice shows two charges for October."
+        }
+      },
+      "notes": "The fill feature is documented as never submitting; the dropped \"then send it\" is a known product gap, recorded here rather than hidden."
+    },
+    {
       "id": "hover-01",
       "feature": "hover",
       "title": "Hover summary of an article",
@@ -1681,7 +1732,7 @@
       "tabs": [
         "form.html"
       ],
-      "input": "Fill in this contact form: full name Dana Reyes, email dana@example.com, topic Billing, message \"My invoice shows two charges for October.\" Then send it.",
+      "input": "Submit this contact form with the full name Dana Reyes, the email dana@example.com, the topic Billing, and the message \"My invoice shows two charges for October.\"",
       "checks": [
         {
           "type": "field_value",
@@ -1784,7 +1835,8 @@
             "keep": []
           }
         ]
-      }
+      },
+      "notes": "Phrased as a task on purpose: \"fill in this form\" wording is routed to the form-fill feature, which never sends (see chat-14)."
     },
     {
       "id": "agent-02",
