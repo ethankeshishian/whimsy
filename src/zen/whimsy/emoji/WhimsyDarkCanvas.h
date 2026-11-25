@@ -16,7 +16,6 @@ class Document;
 class HTMLCanvasElement;
 }  // namespace dom
 namespace gfx {
-class DrawTarget;
 class SourceSurface;
 }  // namespace gfx
 
@@ -52,9 +51,9 @@ bool CanvasNeedsDarkFilter(dom::HTMLCanvasElement* aCanvas,
                            const nsIFrame* aFrame);
 
 // aSurface through invert(1) hue-rotate(180deg), for the software paint
-// path; null if it couldn't be made.
-already_AddRefed<gfx::SourceSurface> DarkFiltered(gfx::DrawTarget& aTarget,
-                                                  gfx::SourceSurface* aSurface);
+// path, keeping each pixel's alpha (a transparent canvas stays
+// transparent); null if it couldn't be made.
+already_AddRefed<gfx::SourceSurface> DarkFiltered(gfx::SourceSurface* aSurface);
 
 }  // namespace whimsy
 }  // namespace mozilla

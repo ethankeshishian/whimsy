@@ -56,7 +56,7 @@ diff --git a/layout/generic/nsHTMLCanvasFrame.cpp b/layout/generic/nsHTMLCanvasF
        }
 +      if (whimsy::CanvasNeedsDarkFilter(canvas, f)) {
 +        if (RefPtr<gfx::SourceSurface> filtered =
-+                whimsy::DarkFiltered(*aCtx->GetDrawTarget(), surface)) {
++                whimsy::DarkFiltered(surface)) {
 +          surface = filtered;
 +        }
 +      }
@@ -73,7 +73,7 @@ diff --git a/layout/generic/nsHTMLCanvasFrame.cpp b/layout/generic/nsHTMLCanvasF
 +    const bool whimsyFiltered = whimsy::CanvasNeedsDarkFilter(canvas, f);
 +    if (whimsyFiltered) {
 +      if (RefPtr<gfx::SourceSurface> filtered =
-+              whimsy::DarkFiltered(dt, surface)) {
++              whimsy::DarkFiltered(surface)) {
 +        surface = filtered;
 +      }
 +    }

@@ -4,13 +4,13 @@
 
 #include "mozilla/whimsy/WhimsyDarkCanvas.h"
 
+#include <algorithm>
+
 #include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/CanvasRenderingContext2D.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
 #include "mozilla/gfx/2D.h"
-#include "mozilla/gfx/Filters.h"
-#include "mozilla/gfx/Matrix.h"
 #include "mozilla/nsZenBoostsBackend.h"
 #include "nsIFrame.h"
 #include "nsPresContext.h"
@@ -61,38 +61,57 @@ bool CanvasNeedsDarkFilter(dom::HTMLCanvasElement* aCanvas,
   }
 }
 
-already_AddRefed<gfx::SourceSurface> DarkFiltered(gfx::DrawTarget& aTarget,
-                                                  gfx::SourceSurface* aSurface) {
+already_AddRefed<gfx::SourceSurface> DarkFiltered(gfx::SourceSurface* aSurface) {
   if (!aSurface) {
     return nullptr;
   }
-  const gfx::IntSize size = aSurface->GetSize();
-  RefPtr<gfx::DrawTarget> target =
-      aTarget.CreateSimilarDrawTarget(size, gfx::SurfaceFormat::B8G8R8A8);
-  if (!target) {
+  RefPtr<gfx::DataSourceSurface> source = aSurface->GetDataSurface();
+  if (!source || (source->GetFormat() != gfx::SurfaceFormat::B8G8R8A8 &&
+                  source->GetFormat() != gfx::SurfaceFormat::B8G8R8X8)) {
     return nullptr;
   }
-  RefPtr<gfx::FilterNode> filter =
-      target->CreateFilter(gfx::FilterType::COLOR_MATRIX);
-  if (!filter) {
+  const bool opaque = source->GetFormat() == gfx::SurfaceFormat::B8G8R8X8;
+  const gfx::IntSize size = source->GetSize();
+  RefPtr<gfx::DataSourceSurface> result =
+      gfx::Factory::CreateDataSourceSurface(size, source->GetFormat());
+  if (!result) {
     return nullptr;
   }
-  // invert(1) then hue-rotate(180deg) (the CSS filter functions' matrices):
-  // each channel is 1 - (hue-rotate row . colour). Rows are inputs, columns
-  // outputs, the last row the offsets.
-  const gfx::Matrix5x4 matrix(0.574f, -0.426f, -0.426f, 0.0f,   //
-                              -1.430f, -0.430f, -1.430f, 0.0f,  //
-                              -0.144f, -0.144f, 0.856f, 0.0f,   //
-                              0.0f, 0.0f, 0.0f, 1.0f,           //
-                              1.0f, 1.0f, 1.0f, 0.0f);
-  filter->SetAttribute(gfx::ATT_COLOR_MATRIX_MATRIX, matrix);
-  filter->SetAttribute(gfx::ATT_COLOR_MATRIX_ALPHA_MODE,
-                       (uint32_t)gfx::ALPHA_MODE_STRAIGHT);
-  filter->SetInput(gfx::IN_COLOR_MATRIX_IN, aSurface);
-  target->DrawFilter(filter,
-                     gfx::Rect(0, 0, float(size.width), float(size.height)),
-                     gfx::Point(0, 0));
-  return target->Snapshot();
+  gfx::DataSourceSurface::ScopedMap in(source, gfx::DataSourceSurface::READ);
+  gfx::DataSourceSurface::ScopedMap out(result, gfx::DataSourceSurface::WRITE);
+  if (!in.IsMapped() || !out.IsMapped()) {
+    return nullptr;
+  }
+  // invert(1) then hue-rotate(180deg), on unpremultiplied colour: the same
+  // lightness flip the WebRender path applies as filters.
+  auto channel = [](float aValue) -> uint8_t {
+    return uint8_t(std::clamp(aValue, 0.0f, 1.0f) * 255.0f + 0.5f);
+  };
+  for (int32_t y = 0; y < size.height; y++) {
+    const uint8_t* from = in.GetData() + y * in.GetStride();
+    uint8_t* to = out.GetData() + y * out.GetStride();
+    for (int32_t x = 0; x < size.width; x++, from += 4, to += 4) {
+      // B8G8R8A8 is premultiplied, stored B, G, R, A; X8's fourth byte is
+      // unused.
+      const uint8_t alpha = opaque ? 255 : from[3];
+      if (alpha == 0) {
+        to[0] = to[1] = to[2] = to[3] = 0;
+        continue;
+      }
+      const float a = alpha / 255.0f;
+      const float b = std::min(from[0] / 255.0f / a, 1.0f);
+      const float g = std::min(from[1] / 255.0f / a, 1.0f);
+      const float r = std::min(from[2] / 255.0f / a, 1.0f);
+      const float outR = 1.0f + 0.574f * r - 1.430f * g - 0.144f * b;
+      const float outG = 1.0f - 0.426f * r - 0.430f * g - 0.144f * b;
+      const float outB = 1.0f - 0.426f * r - 1.430f * g + 0.856f * b;
+      to[0] = channel(std::clamp(outB, 0.0f, 1.0f) * a);
+      to[1] = channel(std::clamp(outG, 0.0f, 1.0f) * a);
+      to[2] = channel(std::clamp(outR, 0.0f, 1.0f) * a);
+      to[3] = alpha;
+    }
+  }
+  return result.forget();
 }
 
 }  // namespace mozilla::whimsy
