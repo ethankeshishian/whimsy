@@ -180,7 +180,9 @@ fi
 # 6. The lane's tests: every test file it changed or added, plus --test.
 ts=$(date +%s)
 tests=(${(f)"$(git diff --name-only $devsha HEAD -- 'src/zen/whimsy/tests/browser_*.js' | while read -r f; do [ -f "$f" ] && echo "${f#src/}"; done)"})
-for e in $extra; do tests+=$e; done
+# --test names come bare or as engine paths; one spelling, or the same file
+# runs twice (test.sh accepts either).
+for e in $extra; do case $e in zen/*|browser/*|toolkit/*) ;; *) e=zen/whimsy/tests/$e;; esac; tests+=$e; done
 tests=(${(u)tests})
 if [ ${#tests} -gt 0 ]; then
   $WHIMSY_TOOLS/test.sh --name $short/${run:t} --jobs $jobs $tests > $run/tests.out 2>&1; trc=$?

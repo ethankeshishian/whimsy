@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Contact the Northline team</title>
+<style> body { font: 16px system-ui; margin: 0; } main { max-width: 520px; margin: 40px auto; padding: 0 20px; } label { display: block; margin: 12px 0 4px; } input, select, textarea { width: 100%; padding: 6px; font: inherit; } button { margin-top: 16px; padding: 8px 16px; } #done { margin-top: 20px; font-weight: bold; } </style>
+</head>
+<body>
+<main>
+  <h1>Contact the Northline team</h1>
+  <form id="contact" action="#" onsubmit="return sendMessage(event)">
+    <label for="name">Full name</label>
+    <input id="name" name="name" type="text" autocomplete="off">
+    <label for="email">Email address</label>
+    <input id="email" name="email" type="email" autocomplete="off">
+    <label for="topic">Topic</label>
+    <select id="topic" name="topic">
+      <option value="">Choose one</option>
+      <option value="billing">Billing</option>
+      <option value="bug">Report a bug</option>
+      <option value="press">Press</option>
+    </select>
+    <label for="message">Message</label>
+    <textarea id="message" name="message" rows="4"></textarea>
+    <label><input id="newsletter" name="newsletter" type="checkbox" style="width:auto"> Send me the newsletter</label>
+    <button id="send" type="submit">Send message</button>
+  </form>
+  <p id="done" hidden></p>
+</main>
+<script>
+  function sendMessage(event) {
+    event.preventDefault();
+    const name = document.getElementById("name").value.trim();
+    const done = document.getElementById("done");
+    done.textContent = "Thanks, " + (name || "friend") + ". We got your message.";
+    done.hidden = false;
+    document.body.dataset.submitted = "1";
+    return false;
+  }
+</script>
+</body>
+</html>

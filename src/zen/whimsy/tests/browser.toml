@@ -1572,3 +1572,19 @@ skip-if = ["headless"] # needs a real WKWebView; the runners run whimsy-headed f
 # decoded, the original SVG bytes, Esc and Enter).
 ["browser_whimsy_svg_save.js"]
 support-files = ["whimsy_svg_save.html", "whimsy_svg_save_logo.svg"]
+
+# W31 aievals: AI quality evals against local fixtures. Scripted provider by
+# default (the lane and verify never reach a model); WHIMSY_AIEVALS=1 via
+# whimsy/tools/aievals.sh runs the same cases on the real provider and
+# writes results under .surfer/aievals/.
+["browser_whimsy_aievals_chat.js"]
+support-files = ["head_aievals.js", "aievals/cases.json", "aievals/article_fr.html", "aievals/boilerplate.html", "aievals/form.html", "aievals/form_injection.html", "aievals/injection.html", "aievals/laptops.html", "aievals/private_secret.html", "aievals/recipe_en.html", "aievals/shop_about.html", "aievals/shop_features.html", "aievals/shop_home.html", "aievals/shop_pricing.html", "aievals/tab_injection.html"]
+
+["browser_whimsy_aievals_text.js"]
+support-files = ["head_aievals.js", "aievals/cases.json", "aievals/article_fr.html", "aievals/boilerplate.html", "aievals/form.html", "aievals/form_injection.html", "aievals/injection.html", "aievals/laptops.html", "aievals/private_secret.html", "aievals/recipe_en.html", "aievals/shop_about.html", "aievals/shop_features.html", "aievals/shop_home.html", "aievals/shop_pricing.html", "aievals/tab_injection.html"]
+
+["browser_whimsy_aievals_tabs.js"]
+support-files = ["head_aievals.js", "aievals/cases.json", "aievals/article_fr.html", "aievals/boilerplate.html", "aievals/form.html", "aievals/form_injection.html", "aievals/injection.html", "aievals/laptops.html", "aievals/private_secret.html", "aievals/recipe_en.html", "aievals/shop_about.html", "aievals/shop_features.html", "aievals/shop_home.html", "aievals/shop_pricing.html", "aievals/tab_injection.html", "whimsy_ai_article_edit.html"]
+
+["browser_whimsy_aievals_agent.js"]
+support-files = ["head_aievals.js", "aievals/cases.json", "aievals/article_fr.html", "aievals/boilerplate.html", "aievals/form.html", "aievals/form_injection.html", "aievals/injection.html", "aievals/laptops.html", "aievals/private_secret.html", "aievals/recipe_en.html", "aievals/shop_about.html", "aievals/shop_features.html", "aievals/shop_home.html", "aievals/shop_pricing.html", "aievals/tab_injection.html"]
