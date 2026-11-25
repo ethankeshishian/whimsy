@@ -1,6 +1,20 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1390",
+      "date": "2026-11-25",
+      "title": "Emoji keep their colors in dark pages",
+      "new": [],
+      "improved": [
+        "Adaptive dark recolors canvases as they draw, so charts and canvas text go dark while photos keep their colors."
+      ],
+      "fixed": [
+        "Emoji keep their colors in adaptive dark, whether a page draws them as text, images, backgrounds, SVG, or on a canvas.",
+        "Quitting while Whimsy is reading text in an image no longer makes it hang.",
+        "Reading text in images works on macOS 27.0.1."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1377",
       "date": "2026-11-24",
       "title": "AppleScript, an extension builder, and protected video in WebKit",
