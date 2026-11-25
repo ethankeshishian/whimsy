@@ -1,0 +1,28 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# W30 dark emoji: which elements draw an emoji as a picture (an <img>, a CSS
+# background or an inline SVG), so Automatic Dark Mode and Boosts leave its
+# colours alone, as they do for colour-font emoji text. Called from
+# src/layout/svg/whimsy-SVGImageContext-cpp.patch (images) and
+# src/layout/style/whimsy-StyleColor-cpp.patch (inline SVG).
+# WhimsyDarkCanvas: 2D canvases recolour as they draw on a recoloured page
+# (src/dom/canvas/whimsy-CanvasRenderingContext2D-*.patch); canvases that
+# can't (WebGL, offscreen, or drawn before the switch) get a display-time
+# flip (src/layout/generic/whimsy-nsHTMLCanvasFrame-cpp.patch).
+
+EXPORTS.mozilla.whimsy += [
+    "WhimsyDarkCanvas.h",
+    "WhimsyEmoji.h",
+]
+
+SOURCES += [
+    "WhimsyDarkCanvas.cpp",
+    "WhimsyEmoji.cpp",
+]
+
+# The canvas headers reach the IPC chromium headers.
+include("/ipc/chromium/chromium-config.mozbuild")
+
+FINAL_LIBRARY = "xul"

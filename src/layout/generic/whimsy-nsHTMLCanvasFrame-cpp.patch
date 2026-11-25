@@ -1,0 +1,91 @@
+diff --git a/layout/generic/nsHTMLCanvasFrame.cpp b/layout/generic/nsHTMLCanvasFrame.cpp
+--- a/layout/generic/nsHTMLCanvasFrame.cpp
++++ b/layout/generic/nsHTMLCanvasFrame.cpp
+@@ -14,9 +14,11 @@
+ #include "mozilla/dom/PerformanceContainerTiming.h"
+ #include "mozilla/layers/ImageDataSerializer.h"
+ #include "mozilla/layers/RenderRootStateManager.h"
++#include "mozilla/layers/StackingContextHelper.h"
+ #include "mozilla/layers/WebRenderBridgeChild.h"
+ #include "mozilla/layers/WebRenderCanvasRenderer.h"
+ #include "mozilla/webgpu/CanvasContext.h"
++#include "mozilla/whimsy/WhimsyDarkCanvas.h"
+ #include "nsDisplayList.h"
+ #include "nsLayoutUtils.h"
+ #include "nsStyleUtil.h"
+@@ -85,11 +87,36 @@
+     return Frame()->InkOverflowRectRelativeToSelf() + ToReferenceFrame();
+   }
+ 
++  // Whimsy (W30): a canvas adaptive dark can't recolour as it draws (WebGL,
++  // WebGPU, a bitmap renderer, a worker's canvas, or 2D pixels drawn in the
++  // other mode) gets the lightness flip, invert(1) hue-rotate(180deg), as a
++  // filter (mozilla/whimsy/WhimsyDarkCanvas.h).
+   WebRenderCommandsResult CreateWebRenderCommands(
+       mozilla::wr::DisplayListBuilder& aBuilder,
+       wr::IpcResourceUpdateQueue& aResources, const StackingContextHelper& aSc,
+       mozilla::layers::RenderRootStateManager* aManager,
+       nsDisplayListBuilder* aDisplayListBuilder) override {
++    auto* element = static_cast<HTMLCanvasElement*>(mFrame->GetContent());
++    if (!whimsy::CanvasNeedsDarkFilter(element, mFrame)) {
++      return WhimsyCreateWebRenderCommands(aBuilder, aResources, aSc, aManager,
++                                           aDisplayListBuilder);
++    }
++    wr::StackingContextParams params;
++    params.mFilters.AppendElement(wr::FilterOp::Invert(1.0f));
++    params.mFilters.AppendElement(wr::FilterOp::HueRotate(180.0f));
++    params.clip =
++        wr::WrStackingContextClip::ClipChain(aBuilder.CurrentClipChainId());
++    StackingContextHelper sc(aSc, GetActiveScrolledRoot(), mFrame, this,
++                             aBuilder, params);
++    return WhimsyCreateWebRenderCommands(aBuilder, aResources, sc, aManager,
++                                         aDisplayListBuilder);
++  }
++
++  WebRenderCommandsResult WhimsyCreateWebRenderCommands(
++      mozilla::wr::DisplayListBuilder& aBuilder,
++      wr::IpcResourceUpdateQueue& aResources, const StackingContextHelper& aSc,
++      mozilla::layers::RenderRootStateManager* aManager,
++      nsDisplayListBuilder* aDisplayListBuilder) {
+     HTMLCanvasElement* element =
+         static_cast<HTMLCanvasElement*>(mFrame->GetContent());
+     element->HandlePrintCallback(mFrame->PresContext());
+@@ -252,6 +279,12 @@
+       if (!surface || !surface->IsValid()) {
+         return;
+       }
++      if (whimsy::CanvasNeedsDarkFilter(canvas, f)) {
++        if (RefPtr<gfx::SourceSurface> filtered =
++                whimsy::DarkFiltered(surface)) {
++          surface = filtered;
++        }
++      }
+ 
+       transform = gfxUtils::SnapTransform(
+           transform, gfxRect(0, 0, canvasSizeInPx.width, canvasSizeInPx.height),
+@@ -281,8 +314,15 @@
+     if (!snapshot) {
+       return;
+     }
+-    const auto& surface = snapshot->mSurf;
++    RefPtr<gfx::SourceSurface> surface = snapshot->mSurf;
+     DrawTarget& dt = *aCtx->GetDrawTarget();
++    const bool whimsyFiltered = whimsy::CanvasNeedsDarkFilter(canvas, f);
++    if (whimsyFiltered) {
++      if (RefPtr<gfx::SourceSurface> filtered =
++              whimsy::DarkFiltered(surface)) {
++        surface = filtered;
++      }
++    }
+     gfx::Rect destRect =
+         NSRectToSnappedRect(dest, presContext->AppUnitsPerDevPixel(), dt);
+ 
+@@ -295,7 +335,7 @@
+     }
+ 
+     const Rect srcRect(surface->GetRect());
+-    if (!presContext->IsPrintingOrPrintPreview() ||
++    if (whimsyFiltered || !presContext->IsPrintingOrPrintPreview() ||
+         !canvas->GetMozPrintCallback() ||
+         !dt.TryToReplaySurface(surface, destRect, srcRect)) {
+       dt.DrawSurface(

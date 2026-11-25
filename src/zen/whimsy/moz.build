@@ -483,7 +483,9 @@ BROWSER_CHROME_MANIFESTS += [
 # shortcut that opens Mini Whimsy from any app, Carbon) and passkeys/ (W26:
 # Whimsy's Touch ID passkeys, C++ over a Swift Secure Enclave helper).
 # equalizer/ is W29's per-site equalizer DSP (plain C++, every platform).
-DIRS += ["audiotap", "equalizer"]
+# emoji/ (W30) tells dark pages and Boosts which pictures are emoji, so their
+# colours are left alone.
+DIRS += ["audiotap", "emoji", "equalizer"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     DIRS += [

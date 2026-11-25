@@ -1343,6 +1343,14 @@ support-files = ["whimsy_dictation.html", "whimsy_chat_article.html", "head_imag
 ["browser_whimsy_image_text.js"]
 support-files = ["head_image_text_w23.js", "whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
 
+# W30: real (unmocked) text recognition still reads an image's words on the new queue.
+["browser_whimsy_text_recognition.js"]
+support-files = ["whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
+
+# W30: text recognition runs off the background-IO pool, so quitting mid-read doesn't hang.
+["browser_whimsy_text_recognition_quit.js"]
+support-files = ["whimsy_image_text.html", "whimsy_image_text_sign_en.svg", "whimsy_image_text_sign_jp.svg", "whimsy_image_text_scene.svg"]
+
 # W23 voice-image: ra (read aloud)
 ["browser_whimsy_read_aloud.js"]
 support-files = ["head_read_aloud.js", "whimsy_read_aloud.html", "whimsy_read_aloud_app.html"]
@@ -1404,6 +1412,14 @@ support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_
 # W29: a light popup over a dark page, a page dark only through color-scheme,
 # and emoji images on a generated page.
 ["browser_whimsy_dark_pages_detect.js"]
+
+# W30: a 2D canvas recolours as it draws on a generated dark page; emoji, photos keep theirs.
+["browser_whimsy_dark_pages_canvas.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages_canvas2d.html"]
+
+# W30: every way a page shows an emoji keeps its colours on a generated dark page.
+["browser_whimsy_dark_pages_emoji.js"]
+support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages_emoji.html", "whimsy_dark_emoji/1f605.svg"]
 
 ["browser_whimsy_dark_pages_dynamic.js"]
 support-files = ["head_whimsy_dark_pages.js", "whimsy_dark_pages.html", "whimsy_test_image.png"]

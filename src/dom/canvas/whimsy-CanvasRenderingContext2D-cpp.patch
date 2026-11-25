@@ -1,0 +1,235 @@
+diff --git a/dom/canvas/CanvasRenderingContext2D.cpp b/dom/canvas/CanvasRenderingContext2D.cpp
+--- a/dom/canvas/CanvasRenderingContext2D.cpp
++++ b/dom/canvas/CanvasRenderingContext2D.cpp
+@@ -89,6 +89,8 @@
+ #include "mozilla/layers/PersistentBufferProvider.h"
+ #include "mozilla/layers/WebRenderCanvasRenderer.h"
+ #include "mozilla/layers/WebRenderUserData.h"
++#include "mozilla/whimsy/WhimsyDarkCanvas.h"
++#include "mozilla/whimsy/WhimsyEmoji.h"
+ #include "nsBidiPresUtils.h"
+ #include "nsCCUncollectableMarker.h"
+ #include "nsCSSValue.h"
+@@ -269,7 +271,8 @@
+     const ContextState& state = aCtx->CurrentState();
+ 
+     if (state.StyleIsColor(aStyle)) {
+-      mPattern.InitColorPattern(ToDeviceColor(state.colorStyles[aStyle]));
++      mPattern.InitColorPattern(
++          ToDeviceColor(aCtx->WhimsyMapColor(state.colorStyles[aStyle])));
+     } else if (state.gradientStyles[aStyle] &&
+                state.gradientStyles[aStyle]->GetType() ==
+                    CanvasGradient::Type::LINEAR) {
+@@ -278,7 +281,7 @@
+ 
+       mPattern.InitLinearGradientPattern(
+           gradient->mBegin, gradient->mEnd,
+-          gradient->GetGradientStopsForTarget(aRT));
++          aCtx->WhimsyGradientStops(gradient, aRT));
+     } else if (state.gradientStyles[aStyle] &&
+                state.gradientStyles[aStyle]->GetType() ==
+                    CanvasGradient::Type::RADIAL) {
+@@ -287,7 +290,7 @@
+ 
+       mPattern.InitRadialGradientPattern(
+           gradient->mCenter1, gradient->mCenter2, gradient->mRadius1,
+-          gradient->mRadius2, gradient->GetGradientStopsForTarget(aRT));
++          gradient->mRadius2, aCtx->WhimsyGradientStops(gradient, aRT));
+     } else if (state.gradientStyles[aStyle] &&
+                state.gradientStyles[aStyle]->GetType() ==
+                    CanvasGradient::Type::CONIC) {
+@@ -296,7 +299,7 @@
+ 
+       mPattern.InitConicGradientPattern(
+           gradient->mCenter, gradient->mAngle, 0, 1,
+-          gradient->GetGradientStopsForTarget(aRT));
++          aCtx->WhimsyGradientStops(gradient, aRT));
+     } else if (state.patternStyles[aStyle]) {
+       aCtx->DoSecurityCheck(state.patternStyles[aStyle]->mPrincipal,
+                             state.patternStyles[aStyle]->mForceWriteOnly,
+@@ -659,7 +662,8 @@
+ 
+     mFinalTarget->DrawSurfaceWithShadow(
+         snapshot, mTempRect.TopLeft(),
+-        ShadowOptions(ToDeviceColor(mCtx->CurrentState().shadowColor),
++        ShadowOptions(ToDeviceColor(mCtx->WhimsyMapColor(
++                          mCtx->CurrentState().shadowColor)),
+                       mCtx->CurrentState().shadowOffset, mSigma),
+         mCompositionOp);
+   }
+@@ -705,6 +709,7 @@
+                           const gfx::Rect* aBounds = nullptr,
+                           bool aAllowOptimization = false)
+       : mCtx(aCtx), mUsedOperation(aCtx->CurrentState().op) {
++    aCtx->WhimsyNoteDraw();
+     const bool needShadow = aCtx->NeedToDrawShadow();
+     const bool needFilter = aCtx->NeedToApplyFilter();
+ 
+@@ -808,7 +813,8 @@
+ 
+   ShadowOptions ShadowParams() const {
+     const ContextState& state = mCtx->CurrentState();
+-    return ShadowOptions(ToDeviceColor(state.shadowColor), state.shadowOffset,
++    return ShadowOptions(ToDeviceColor(mCtx->WhimsyMapColor(state.shadowColor)),
++                         state.shadowOffset,
+                          state.ShadowBlurSigma());
+   }
+ 
+@@ -1016,6 +1022,7 @@
+   newStop.color = ToDeviceColor(*color);
+ 
+   mRawStops.AppendElement(newStop);
++  mWhimsyColors.AppendElement(*color);
+ }
+ 
+ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(CanvasGradient, mContext)
+@@ -1338,17 +1345,55 @@
+     RefPtr<const ComputedStyle> canvasStyle =
+         nsComputedDOMStyle::GetComputedStyle(mCanvasElement);
+     if (canvasStyle) {
++      // Whimsy (W30): on a recoloured page the colour is recoloured where
++      // it's drawn, so it's resolved as authored here.
+       return Some(canvasStyle->StyleText()->mColor.ToColor(
+-          mCanvasElement->GetPrimaryFrame()));
++          whimsy::DarkMappingFrame(mCanvasElement)
++              ? nullptr
++              : mCanvasElement->GetPrimaryFrame()));
+     }
+   }
+   return data.mColor;
+ }
+ 
++nscolor CanvasRenderingContext2D::WhimsyMapColor(nscolor aColor) const {
++  return whimsy::MapDarkColor(aColor, whimsy::DarkMappingFrame(mCanvasElement));
++}
++
++already_AddRefed<GradientStops> CanvasRenderingContext2D::WhimsyGradientStops(
++    CanvasGradient* aGradient, DrawTarget* aRT) const {
++  nsIFrame* frame = whimsy::DarkMappingFrame(mCanvasElement);
++  if (!frame) {
++    return aGradient->GetGradientStopsForTarget(aRT);
++  }
++  nsTArray<GradientStop> stops = aGradient->WhimsyRawStops().Clone();
++  const nsTArray<nscolor>& colors = aGradient->WhimsyColors();
++  for (size_t i = 0; i < stops.Length() && i < colors.Length(); i++) {
++    stops[i].color = ToDeviceColor(whimsy::MapDarkColor(colors[i], frame));
++  }
++  return gfx::gfxGradientCache::GetOrCreateGradientStops(aRT, stops,
++                                                         ExtendMode::CLAMP);
++}
++
++void CanvasRenderingContext2D::WhimsyNoteDraw() {
++  const bool mapped = !!whimsy::DarkMappingFrame(mCanvasElement);
++  if (mWhimsyMapped == Some(mapped)) {
++    return;
++  }
++  mWhimsyMapped = Some(mapped);
++  // Whether the canvas needs a display-time filter may have changed.
++  if (mCanvasElement) {
++    if (nsIFrame* frame = mCanvasElement->GetPrimaryFrame()) {
++      frame->InvalidateFrame();
++    }
++  }
++}
++
+ void CanvasRenderingContext2D::ResetBitmap(bool aFreeBuffer) {
+   if (mCanvasElement) {
+     mCanvasElement->InvalidateCanvas();
+   }
++  mWhimsyMapped = Nothing();
+ 
+   // only do this for non-docshell created contexts,
+   // since those are the ones that we created a surface for
+@@ -4964,7 +5009,12 @@
+         return nullptr;
+     }
+ 
+-    for (auto stop : gradient->mRawStops) {
++    const nsTArray<nscolor>& whimsyColors = gradient->WhimsyColors();
++    for (size_t i = 0; i < gradient->mRawStops.Length(); i++) {
++      auto stop = gradient->mRawStops[i];
++      if (i < whimsyColors.Length()) {
++        stop.color = ToDeviceColor(mCtx->WhimsyMapColor(whimsyColors[i]));
++      }
+       pattern->AddColorStop(stop.offset, stop.color);
+     }
+ 
+@@ -5059,7 +5109,7 @@
+     params.allowGDI = false;
+ 
+     if (state.StyleIsColor(style)) {  // Color
+-      nscolor fontColor = state.colorStyles[style];
++      nscolor fontColor = mCtx->WhimsyMapColor(state.colorStyles[style]);
+       if (style == Style::FILL) {
+         params.context->SetColor(sRGBColor::FromABGR(fontColor));
+       } else {
+@@ -6043,6 +6093,7 @@
+   Element* element = nullptr;
+   OffscreenCanvas* offscreenCanvas = nullptr;
+   VideoFrame* videoFrame = nullptr;
++  bool whimsySourceMapped = false;
+ 
+   if (!EnsureTarget(aError)) {
+     return;
+@@ -6060,6 +6111,14 @@
+ 
+     if (canvas->IsWriteOnly()) {
+       SetWriteOnly();
++    }
++    // Whimsy (W30): recoloured pixels copied in stay recoloured (a print
++    // copy of a canvas on a recoloured page).
++    if (canvas->GetCurrentContextType() == CanvasContextType::Canvas2D) {
++      auto* source =
++          static_cast<CanvasRenderingContext2D*>(canvas->GetCurrentContext());
++      whimsySourceMapped =
++          source && source->WhimsyContentMapped() == Some(true);
+     }
+   } else if (aImage.IsOffscreenCanvas()) {
+     offscreenCanvas = &aImage.GetAsOffscreenCanvas();
+@@ -6382,8 +6441,19 @@
+     }
+ 
+   } else {
++    mWhimsyEmojiSource = element && whimsy::IsEmojiPicture(element);
+     DrawDirectlyToCanvas(drawInfo, &bounds, gfx::Rect(aDx, aDy, aDw, aDh),
+                          gfx::Rect(aSx, aSy, aSw, aSh), imgSize);
++    mWhimsyEmojiSource = false;
++  }
++
++  if (whimsySourceMapped && mWhimsyMapped != Some(true)) {
++    mWhimsyMapped = Some(true);
++    if (mCanvasElement) {
++      if (nsIFrame* frame = mCanvasElement->GetPrimaryFrame()) {
++        frame->InvalidateFrame();
++      }
++    }
+   }
+ 
+   RedrawUser(gfxRect(aDx, aDy, aDw, aDh));
+@@ -6436,6 +6506,16 @@
+   // XXX hmm is scaledImageSize really in CSS pixels?
+   SVGImageContext svgContext(
+       Some(CSSSize(scaledImageSize.width, scaledImageSize.height)));
++
++  // Whimsy (W30): an SVG image drawn on a recoloured page is recoloured, as
++  // an SVG <img> is; an emoji picture keeps its colours. Raster images keep
++  // their pixels, as an <img> does.
++  if (!mWhimsyEmojiSource &&
++      aImage.mImgContainer->GetType() == imgIContainer::TYPE_VECTOR) {
++    if (nsIFrame* frame = whimsy::DarkMappingFrame(mCanvasElement)) {
++      SVGImageContext::MaybeStoreZenBoosts(svgContext, *frame->PresContext());
++    }
++  }
+ 
+   if (mContextProperties != CanvasContextProperties::None &&
+       aImage.mImgContainer->GetType() == imgIContainer::TYPE_VECTOR) {
+@@ -7035,6 +7115,9 @@
+ 
+   MOZ_ASSERT(IsTargetValid());
+ 
++  // Whimsy (W30): put pixels show as given, as an image's do.
++  WhimsyNoteDraw();
++
+   DataSourceSurface::MappedSurface map;
+   uint8_t* dstData;
+   IntSize dstSize;
