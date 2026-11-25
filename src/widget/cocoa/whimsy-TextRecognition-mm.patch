@@ -1,0 +1,40 @@
+diff --git a/widget/cocoa/TextRecognition.mm b/widget/cocoa/TextRecognition.mm
+--- a/widget/cocoa/TextRecognition.mm
++++ b/widget/cocoa/TextRecognition.mm
+@@ -38,7 +38,20 @@
+     [recognitionLanguages addObject:nsCocoaUtils::ToNSString(locale)];
+   }
+ 
+-  NS_DispatchBackgroundTask(
++  // Whimsy: Vision runs on its own GCD queue, not Gecko's background-IO
++  // pool. A first request compiles the text model on the Neural Engine
++  // through a synchronous call to aned that can outlast quitting, and XPCOM
++  // shutdown joins the background pool, so a request in flight hung quit
++  // until the shutdown terminator crashed the browser. Nothing joins a GCD
++  // queue; the promise still settles on the caller's thread, and a result
++  // that arrives after shutdown is dropped. The queue is serial: Vision
++  // creates its detector under one lock anyway, and a blocked request would
++  // otherwise make GCD start a thread for every image waiting behind it.
++  static dispatch_queue_t sQueue = dispatch_queue_create(
++      "whimsy.text-recognition",
++      dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL,
++                                              QOS_CLASS_UTILITY, 0));
++  RefPtr<nsIRunnable> task =
+       NS_NewRunnableFunction(
+           __func__,
+           [promise, imageRef, recognitionLanguages] {
+@@ -111,8 +124,12 @@
+             } else {
+               promise->Resolve(std::move(result), __func__);
+             }
+-          }),
+-      NS_DISPATCH_EVENT_MAY_BLOCK);
++          });
++  dispatch_async(sQueue, ^{
++    @autoreleasepool {
++      task->Run();
++    }
++  });
+   return promise;
+ 
+   NS_OBJC_END_TRY_IGNORE_BLOCK
