@@ -47,7 +47,6 @@ const { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/Addo
 const AIEVALS_BASE = "https://example.com/browser/zen/whimsy/tests/aievals/";
 const AIEVALS_EDIT_PAGE = "https://example.com/browser/zen/whimsy/tests/whimsy_ai_article_edit.html";
 const AIEVALS_FILES = 4; // eval files sharing the budget
-const CLAUDE_MESSAGES = "https://api.anthropic.com/v1/messages";
 
 // USD per million tokens: input, output, cache read, cache write.
 const AIEVALS_PRICES = [
@@ -829,43 +828,19 @@ async function aievalsDriveRemix(c, ctx) {
   };
 }
 
-async function aievalsBuilderLoop(input, tool, server) {
-  const key = await WhimsyAIProviders.getClaudeKey();
-  const body = {
-    model: WhimsyAIProviders.claudeModel,
-    max_tokens: 8192,
-    system: "You are the chat in Whimsy, a web browser. Answer plainly and briefly. When the person asks for an extension or plugin, write it with the write_plugin tool, then say in a sentence what it does.",
-    tools: [{ name: tool.name, description: tool.description, input_schema: tool.inputSchema }],
+// W31: the product's own path (the chat's prompt, the router, the provider's
+// tool loop), not a hand-made request that offered write_plugin itself.
+async function aievalsBuilderLoop(input, server) {
+  const result = await WhimsyAIRouter.run({
+    task: "chat",
+    provider: "claude",
+    tools: [],
+    extraTools: [server],
+    system: aievalsChat().systemPrompt(null),
     messages: [{ role: "user", content: input }],
-  };
-  let reply = "";
-  for (let turn = 0; turn < 6; turn++) {
-    const response = await WhimsyAIProviders._post(CLAUDE_MESSAGES, { "x-api-key": key, "anthropic-version": "2023-06-01" }, body, new AbortController().signal);
-    if (!response.ok) {
-      throw new Error(`builder request failed with HTTP ${response.status}`);
-    }
-    const message = await response.json();
-    body.messages.push({ role: "assistant", content: message.content });
-    reply = message.content.filter(b => b.type == "text").map(b => b.text).join("\n");
-    const uses = message.content.filter(b => b.type == "tool_use");
-    if (message.stop_reason != "tool_use" || !uses.length) {
-      break;
-    }
-    const results = [];
-    for (const use of uses) {
-      let text;
-      let isError = false;
-      try {
-        text = await WhimsyMCPClient.callTool(server.url, use.name, use.input, { headers: server.headers });
-      } catch (e) {
-        text = e.message;
-        isError = true;
-      }
-      results.push({ type: "tool_result", tool_use_id: use.id, content: String(text), is_error: isError });
-    }
-    body.messages.push({ role: "user", content: results });
-  }
-  return reply;
+    userStarted: true,
+  });
+  return result.text;
 }
 
 async function aievalsDriveBuilder(c, ctx) {
@@ -883,7 +858,7 @@ async function aievalsDriveBuilder(c, ctx) {
       throw new Error("write_plugin is not offered");
     }
     if (AIEVALS.real) {
-      reply = await aievalsBuilderLoop(c.input, tool, server);
+      reply = await aievalsBuilderLoop(c.input, server);
     } else if (c.fake) {
       reply = await WhimsyMCPClient.callTool(server.url, "write_plugin", c.fake, { headers: server.headers });
     }
