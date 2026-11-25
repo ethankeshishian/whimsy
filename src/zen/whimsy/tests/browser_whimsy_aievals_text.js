@@ -11,6 +11,8 @@ Services.scriptloader.loadSubScript(getRootDirectory(gTestPath) + "head_aievals.
 
 requestLongerTimeout(6);
 
+const { PromiseTestUtils } = ChromeUtils.importESModule("resource://testing-common/PromiseTestUtils.sys.mjs");
+
 const AIEVALS_FEATURES = ["selection", "translate"];
 
 add_setup(async () => {
