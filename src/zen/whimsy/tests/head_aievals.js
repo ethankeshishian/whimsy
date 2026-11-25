@@ -77,12 +77,16 @@ const aievalsChatEl = () => document.getElementById("whimsy-chat");
 const aievalsPart = sel => aievalsChatEl()?.querySelector(sel) ?? null;
 const aievalsParts = sel => [...(aievalsChatEl()?.querySelectorAll(sel) ?? [])];
 
+// Read synchronously: the cases decide which add_tasks exist, so they are
+// needed while the test script is still being evaluated.
 function aievalsLoadCases() {
   if (!AIEVALS.cases) {
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", getRootDirectory(gTestPath) + "aievals/cases.json", false);
-    xhr.send();
-    AIEVALS.cases = JSON.parse(xhr.responseText);
+    const { NetUtil } = ChromeUtils.importESModule("resource://gre/modules/NetUtil.sys.mjs");
+    const channel = NetUtil.newChannel({ uri: getRootDirectory(gTestPath) + "aievals/cases.json", loadUsingSystemPrincipal: true });
+    const stream = channel.open();
+    const text = NetUtil.readInputStreamToString(stream, stream.available(), { charset: "UTF-8" });
+    stream.close();
+    AIEVALS.cases = JSON.parse(text);
   }
   return AIEVALS.cases;
 }
@@ -264,7 +268,7 @@ function aievalsFakeText(c) {
 
 function aievalsFakeTabsReply(c, request) {
   const fake = c.fake ?? {};
-  const listed = [...String(request.prompt ?? "").matchAll(/^(t\d+): (.*) \(([^()]*)\)$/gm)].map(m => ({ id: m[1], title: m[2] }));
+  const listed = [...String(request.lastUserText ?? request.prompt ?? "").matchAll(/^(t\d+): (.*) \(([^()]*)\)$/gm)].map(m => ({ id: m[1], title: m[2] }));
   const patterns = (fake.tabs ?? []).map(p => new RegExp(p, "i"));
   const tabs = listed.filter(t => patterns.some(rx => rx.test(t.title))).map(t => t.id);
   return JSON.stringify({ ...fake, tabs });
@@ -296,7 +300,7 @@ function aievalsFakeAgentReply(c, request) {
 
 function aievalsFakeTranslateReply(c, request) {
   const sentence = aievalsFakeText(c) || "This is the translated line.";
-  return String(request.prompt ?? "")
+  return String(request.lastUserText ?? request.prompt ?? "")
     .split("\n")
     .map(line => {
       const m = line.match(/^\s*(\d+)[.)]\s?(.*)$/);
