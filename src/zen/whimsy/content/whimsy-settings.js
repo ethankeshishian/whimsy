@@ -2849,7 +2849,6 @@ Object.assign(gWhimsySettings, {
       return;
     }
     search.whimsyHooked = true;
-    this.deferPaneSetup(search);
     const settle = async () => {
       this.insertAllForSearch();
       this.hideHiddenHomeFromSearch();
@@ -2881,43 +2880,10 @@ Object.assign(gWhimsySettings, {
   },
 });
 
-// perf (I6): Firefox sets up every pane in an idle callback right after
-// Settings opens, so search can find settings on any of them; with Whimsy's
-// groups that's most of Settings, built while the first pane is still
-// settling. Each pane is built when it's first shown instead, and the first
-// search (a key in the search field, Back from the results, or anything
-// else that asks for the panes) builds them all first, as before.
+// perf (I6): each pane is built when it's first shown, not all at idle
+// right after Settings opens (whimsy-findInPage-js.patch); the first search
+// builds the rest, as before.
 Object.assign(gWhimsySettings, {
-  deferPaneSetup(search) {
-    if (search.whimsyDeferred || typeof window.requestIdleCallback != "function") {
-      return;
-    }
-    search.whimsyDeferred = true;
-    let idle = 0;
-    const request = window.requestIdleCallback;
-    window.requestIdleCallback = function (callback, options) {
-      return request.call(
-        window,
-        deadline => {
-          idle++;
-          try {
-            return callback(deadline);
-          } finally {
-            idle--;
-          }
-        },
-        options
-      );
-    };
-    const initialize = search.initializeCategories;
-    search.initializeCategories = function (...args) {
-      if (idle && !this._categoriesInitialized) {
-        return Promise.resolve();
-      }
-      return initialize.apply(this, args);
-    };
-  },
-
   // A link to a setting (#privacy-vpn) is spotlit before the pane's Whimsy
   // groups go in (they go in when the pane is shown), so once they're in,
   // the spotlight takes in the ones it missed.
