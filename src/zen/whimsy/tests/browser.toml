@@ -387,7 +387,8 @@ support-files = ["whimsy_calendar.sjs"]
 # batch hist: visit metadata and the Library History space filter.
 ["browser_whimsy_space_history.js"]
 
-# home: homepage + changelog (about:whimsy).
+# home: homepage + changelog (about:whimsy). The preload task needs the
+# whimsy-NewTabPagePreloading-sys-mjs engine patch.
 ["browser_whimsy_home.js"]
 
 # W11-07: Home and startup: Whimsy Home and Firefox Home for new windows and

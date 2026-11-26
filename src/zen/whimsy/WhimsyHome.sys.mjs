@@ -28,7 +28,8 @@
 // perf (W32 P7): Firefox keeps its new tab page loaded in a hidden browser
 // (NewTabPagePreloading) so a new tab is a swap, not a load, but only while
 // nothing has replaced the page (AboutNewTab.newTabURLOverridden). Whimsy
-// Home isn't an add-on's page, so it gets the same warm start. A preloaded
+// Home isn't an add-on's page, so it gets the same warm start
+// (whimsy-NewTabPagePreloading-sys-mjs.patch). A preloaded
 // page that no longer matches the choice is dropped (and rebuilt when idle),
 // so a new tab never shows the previous choice.
 
@@ -64,11 +65,6 @@ export const WhimsyHome = {
     } catch (e) {
       console.error("Whimsy: homepage switch migration", e);
     }
-    try {
-      this.allowPreloading();
-    } catch (e) {
-      console.error("Whimsy: new tab preloading", e);
-    }
     this.update = () => {
       try {
         this.apply();
@@ -97,10 +93,6 @@ export const WhimsyHome = {
       Services.prefs.removeObserver(pref, this.update);
     }
     Services.obs.removeObserver(this.update, NEWTAB_URL_CHANGED);
-    if (this._preloadEnabled) {
-      Object.defineProperty(lazy.NewTabPagePreloading, "enabled", this._preloadEnabled);
-      this._preloadEnabled = null;
-    }
     this.initialized = false;
   },
 
@@ -179,27 +171,6 @@ export const WhimsyHome = {
     } else if (ours) {
       newTab.resetNewTabURL();
     }
-  },
-
-  // Firefox's rule, plus Whimsy Home: preload while the new tab page is
-  // Firefox's own or Whimsy Home, never an add-on's or a policy's page.
-  allowPreloading() {
-    const preloading = lazy.NewTabPagePreloading;
-    const original = Object.getOwnPropertyDescriptor(preloading, "enabled");
-    if (this._preloadEnabled || !original?.get || !original.configurable) {
-      return;
-    }
-    this._preloadEnabled = original;
-    Object.defineProperty(preloading, "enabled", {
-      configurable: true,
-      enumerable: original.enumerable,
-      get() {
-        return (
-          original.get.call(this) ||
-          (this.prefEnabled && this.newTabEnabled && lazy.AboutNewTab.newTabURL == WHIMSY_HOME_URL)
-        );
-      },
-    });
   },
 
   // A window's preloaded new tab page is only good for the page new tabs
