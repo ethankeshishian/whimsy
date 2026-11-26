@@ -69,11 +69,14 @@ function fromQuad(result) {
   return { text: String(result.string ?? ""), quad: [flip(q.p2), flip(q.p3), flip(q.p4), flip(q.p1)] };
 }
 
+// A line with no letter or number is a shape Vision misread, like a dot
+// read as "•": text over it would turn a logo or icon into an I-beam and
+// take its right-click.
 function validLine(line) {
   return (
     line &&
     typeof line.text == "string" &&
-    line.text.trim() &&
+    /[\p{L}\p{N}]/u.test(line.text) &&
     Array.isArray(line.quad) &&
     line.quad.length == 4 &&
     line.quad.every(p => Array.isArray(p) && p.length == 2 && p.every(Number.isFinite))
