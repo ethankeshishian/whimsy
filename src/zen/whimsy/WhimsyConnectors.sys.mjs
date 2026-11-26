@@ -25,7 +25,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   HttpServer: "chrome://remote/content/server/httpd.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
+  WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyChatContextUI: "resource:///modules/whimsy/WhimsyChatContextUI.sys.mjs",
   WhimsyMeetingNotes: "resource:///modules/whimsy/WhimsyMeetingNotes.sys.mjs",
   WhimsyNextMeeting: "resource:///modules/whimsy/WhimsyNextMeeting.sys.mjs",
@@ -1140,8 +1142,7 @@ export const WhimsyConnectors = {
 
   // Once a minute per window: the Granola chip and the calendars.
   initWindow(win) {
-    const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
-    const { WhimsyAIProviders } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIProviders.sys.mjs");
+    const { WhimsyCommands, WhimsyAIProviders } = lazy;
     WhimsyCommands.register(win, {
       id: "cmd_whimsyConnectors",
       l10nId: "whimsy-action-connectors",

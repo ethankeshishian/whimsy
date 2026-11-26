@@ -83,6 +83,12 @@ import {
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
+  nsGithubLiveFolderProvider: "resource:///modules/zen/GithubLiveFolder.sys.mjs",
+  nsRssLiveFolderProvider: "resource:///modules/zen/RssLiveFolder.sys.mjs",
+  nsZenLiveFolderProvider: "resource:///modules/zen/ZenLiveFolder.sys.mjs",
+  ZenLiveFoldersManager: "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs",
+  ZenLiveFoldersUI: "resource:///modules/zen/ZenLiveFoldersUI.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
 });
 
@@ -159,9 +165,7 @@ export const WhimsyLiveFolders = {
     this._initialized = true;
 
     try {
-      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-      );
+      const { ZenLiveFoldersManager } = lazy;
       this.installManagerHooks();
       // wave7/folders: a provider switched on later registers right away and
       // picks up any folder held for it since startup.
@@ -174,27 +178,21 @@ export const WhimsyLiveFolders = {
     }
 
     try {
-      const { ZenLiveFoldersUI } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFoldersUI.sys.mjs"
-      );
+      const { ZenLiveFoldersUI } = lazy;
       this.wrapBuildContextMenu(ZenLiveFoldersUI.prototype);
     } catch (e) {
       console.error("Whimsy: live folders push menu hook failed", e);
     }
 
     try {
-      const { nsZenLiveFolderProvider } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFolder.sys.mjs"
-      );
+      const { nsZenLiveFolderProvider } = lazy;
       this.wrapOnOptionTrigger(nsZenLiveFolderProvider.prototype);
     } catch (e) {
       console.error("Whimsy: live folders push option hook failed", e);
     }
 
     try {
-      const { nsGithubLiveFolderProvider } = ChromeUtils.importESModule(
-        "resource:///modules/zen/GithubLiveFolder.sys.mjs"
-      );
+      const { nsGithubLiveFolderProvider } = lazy;
       // No probe for GitHub: the folder's items come from search URLs
       // (?q=assignee:@me, review-requested:@me, ...), and the bare page
       // it would probe is a different list, so its 304 said "nothing
@@ -206,9 +204,7 @@ export const WhimsyLiveFolders = {
     }
 
     try {
-      const { nsRssLiveFolderProvider } = ChromeUtils.importESModule(
-        "resource:///modules/zen/RssLiveFolder.sys.mjs"
-      );
+      const { nsRssLiveFolderProvider } = lazy;
       this.wrapPushableFetchItems(nsRssLiveFolderProvider.prototype, provider => provider.state.url);
       this.wrapRssAutodiscovery(nsRssLiveFolderProvider);
     } catch (e) {
@@ -296,9 +292,7 @@ export const WhimsyLiveFolders = {
       let hides = false;
       // wave5/lan: providers that schedule themselves hide Zen's interval menu.
       try {
-        const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-          "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-        );
+        const { ZenLiveFoldersManager } = lazy;
         hides = folder.isLiveFolder && ZenLiveFoldersManager.getFolder(folder.id)?.constructor.hidesIntervalMenu;
         const intervalMenu = this.document
           .getElementById("context_zenLiveFolderOptions")
@@ -342,9 +336,7 @@ export const WhimsyLiveFolders = {
   },
 
   addPushMenuItem(ui, folder) {
-    const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-      "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-    );
+    const { ZenLiveFoldersManager } = lazy;
     const liveFolder = ZenLiveFoldersManager.getFolder(folder.id);
     if (!liveFolder) {
       return;
@@ -554,9 +546,7 @@ export const WhimsyLiveFolders = {
   // starts), catch up once its restore is done: hold the saved folders it
   // skipped, then register, which re-attaches them.
   installManagerHooks() {
-    const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-      "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-    );
+    const { ZenLiveFoldersManager } = lazy;
     const proto = Object.getPrototypeOf(ZenLiveFoldersManager);
     const alreadyWrapped = proto.init?.whimsyWrapped;
     this.wrapManagerInit(ZenLiveFoldersManager);
@@ -694,9 +684,7 @@ export const WhimsyLiveFolders = {
       return false;
     }
     try {
-      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-      );
+      const { ZenLiveFoldersManager } = lazy;
       return ZenLiveFoldersManager.liveFolders?.size > 0;
     } catch {
       return false;
@@ -705,9 +693,7 @@ export const WhimsyLiveFolders = {
 
   resyncFromCommand(win) {
     try {
-      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-      );
+      const { ZenLiveFoldersManager } = lazy;
       const activeTab = win.gBrowser?.selectedTab;
       const activeGroupId = activeTab?.group?.id;
       if (activeGroupId && ZenLiveFoldersManager.liveFolders.has(activeGroupId)) {
@@ -737,9 +723,7 @@ export const WhimsyLiveFolders = {
 
   initCommands(win) {
     try {
-      const { WhimsyCommands } = ChromeUtils.importESModule(
-        "resource:///modules/whimsy/WhimsyCommands.sys.mjs"
-      );
+      const { WhimsyCommands } = lazy;
       WhimsyCommands.register(win, {
         id: "cmd_whimsyResyncLiveFolder",
         l10nId: "whimsy-action-resync-live-folder",
@@ -828,9 +812,7 @@ export const WhimsyLiveFolders = {
         return;
       }
 
-      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-      );
+      const { ZenLiveFoldersManager } = lazy;
 
       const folder = win.gZenFolders.createFolder([], {
         label: "Jira",
@@ -868,9 +850,7 @@ export const WhimsyLiveFolders = {
   // folder shows "Sign in to Linear".
   async createLinearFolder(win) {
     try {
-      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-      );
+      const { ZenLiveFoldersManager } = lazy;
 
       const folder = win.gZenFolders.createFolder([], {
         label: "Linear",
@@ -904,9 +884,7 @@ export const WhimsyLiveFolders = {
   // shows what's running; collapsing it stops all polling.
   async createLocalServersFolder(win) {
     try {
-      const { ZenLiveFoldersManager } = ChromeUtils.importESModule(
-        "resource:///modules/zen/ZenLiveFoldersManager.sys.mjs"
-      );
+      const { ZenLiveFoldersManager } = lazy;
       const [label] = await win.document.l10n.formatValues(["whimsy-live-folder-local-servers-name"]);
       const folder = win.gZenFolders.createFolder([], {
         label: label || "Local Servers",

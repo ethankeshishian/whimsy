@@ -26,6 +26,7 @@
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyTidyTitles: "resource:///modules/whimsy/WhimsyTidyTitles.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
@@ -75,7 +76,7 @@ export const WhimsyAITabs = {
     const state = { renderQueued: false, titleRequests: new WeakMap(), waitingTitles: new WeakSet() };
     windows.set(win, state);
     // wave5: the broom on the Today line, as a command for the current space.
-    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.register(win, {
+    lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyTidyTabs",
       l10nId: "whimsy-action-tidy-tabs",
       run: w => this.tidy(w),
