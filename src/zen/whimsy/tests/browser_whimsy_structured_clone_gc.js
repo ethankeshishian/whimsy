@@ -17,6 +17,8 @@ const SIZE = 32 * 1024 * 1024;
 add_task(async function a_holders_buffer_counts_toward_its_zone() {
   // The counter is behind a pref read when a window's Performance is set up.
   await SpecialPowers.pushPrefEnv({ set: [["dom.enable_memory_stats", true]] });
+  // Zen syncs tabs between windows: tidy up what the test window adds here.
+  const mainTabs = new Set(window.gBrowser.tabs);
   const win = await BrowserTestUtils.openNewBrowserWindow();
   try {
     const zoneMalloc = () => win.performance.mozMemory.gc.zone.mallocBytes;
@@ -41,5 +43,8 @@ add_task(async function a_holders_buffer_counts_toward_its_zone() {
     ok(Number.isFinite(zoneMalloc()), "Dropped and collected holders keep the counts consistent");
   } finally {
     await BrowserTestUtils.closeWindow(win);
+    for (const tab of window.gBrowser.tabs.filter(t => !mainTabs.has(t))) {
+      BrowserTestUtils.removeTab(tab);
+    }
   }
 });

@@ -258,11 +258,11 @@ class WordMean {
 function idleSlicer() {
   let end = 0;
   return {
-    spent: () => Cu.now() >= end,
+    spent: () => Date.now() >= end,
     async next() {
       const deadline = await (idleScheduler ?? (() => new Promise(resolve =>
         ChromeUtils.idleDispatch(resolve, { timeout: IDLE_TIMEOUT_MS }))))();
-      end = Cu.now() + (deadline.didTimeout ? FORCED_SLICE_MS : Math.min(deadline.timeRemaining(), MAX_SLICE_MS));
+      end = Date.now() + (deadline.didTimeout ? FORCED_SLICE_MS : Math.min(deadline.timeRemaining(), MAX_SLICE_MS));
     },
   };
 }
