@@ -49,6 +49,7 @@ registerCleanupFunction(async () => {
     "whimsy.ai.order",
     "whimsy.ai.off",
     "whimsy.ai.resting",
+    "whimsy.ai.usage",
     "whimsy.ai.auto-enabled",
     "whimsy.ai.ollama.model",
     "whimsy.feature.ai-providers",
