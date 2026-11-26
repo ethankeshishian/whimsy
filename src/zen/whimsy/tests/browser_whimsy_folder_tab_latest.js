@@ -75,15 +75,16 @@ async function navigateByPushState(tab, tag) {
   return ORIGIN + path;
 }
 
+// An unloaded tab's lazy browser reports its saved URL before it loads, so
+// wait for SessionStore to finish restoring it, then for the page itself.
 async function selectAndWait(tab, url, message) {
+  const restored = tab.hasAttribute("pending") ? BrowserTestUtils.waitForEvent(tab, "SSTabRestored") : null;
   gBrowser.selectedTab = tab;
+  await restored;
   await TestUtils.waitForCondition(
-    () => !tab.hasAttribute("pending") && tab.linkedBrowser.currentURI.spec != "about:blank",
-    "The tab loads"
-  );
-  // A reset restores the tab's state asynchronously; give it time to land.
-  await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == url, message).catch(() => {});
-  await TabStateFlusher.flush(tab.linkedBrowser);
+    () => !tab.hasAttribute("busy") && tab.linkedBrowser.currentURI.spec == url,
+    message
+  ).catch(() => {});
   is(tab.linkedBrowser.currentURI.spec, url, message);
 }
 
@@ -103,25 +104,6 @@ async function cleanUp({ keep, tab, folder }, extra = []) {
   }
 }
 
-// Zen's folder Unload and ⌘W run through gZenPinnedTabManager.onCloseTabShortcut,
-// which keeps working (unload, then the reset if any) after the tab turns
-// pending; wait for the whole call before selecting the tab again.
-async function settled(action) {
-  const original = gZenPinnedTabManager.onCloseTabShortcut;
-  let running = null;
-  gZenPinnedTabManager.onCloseTabShortcut = function (...args) {
-    running = original.apply(this, args);
-    return running;
-  };
-  try {
-    await action();
-    await TestUtils.waitForCondition(() => running, "The pinned-tab close runs");
-    await running;
-  } finally {
-    gZenPinnedTabManager.onCloseTabShortcut = original;
-  }
-}
-
 const UNLOADS = {
   // Unload Tab, from the tab's context menu.
   async tab({ keep, tab }) {
@@ -130,8 +112,13 @@ const UNLOADS = {
   },
   // The folder's Unload button (and its context menu's Unload All Tabs).
   async folder({ tab, folder }) {
-    await settled(() => folder.unloadAllTabs(new CustomEvent("command")));
-    ok(!tab.selected, "The folder's unload moves off its tab");
+    // The folder collapses once Zen's unload has finished.
+    folder.collapsed = false;
+    folder.unloadAllTabs(new CustomEvent("command"));
+    await TestUtils.waitForCondition(
+      () => folder.collapsed && !tab.selected && tab.hasAttribute("pending"),
+      "The folder's unload finishes and moves off its tab"
+    );
   },
 };
 
@@ -199,11 +186,13 @@ add_task(async function restored_folder_tab_shows_its_latest_page() {
   const win = await BrowserTestUtils.openNewBrowserWindow();
   await win.gZenWorkspaces.promiseInitialized;
   const copy = await TestUtils.waitForCondition(() => win.document.getElementById(tab.id), "The new window has the folder tab");
+  const copyRestored = copy.hasAttribute("pending") ? BrowserTestUtils.waitForEvent(copy, "SSTabRestored") : null;
   win.gBrowser.selectedTab = copy;
+  await copyRestored;
   await TestUtils.waitForCondition(
-    () => copy.linkedBrowser.currentURI.spec != "about:blank" && !copy.hasAttribute("pending"),
+    () => !copy.hasAttribute("busy") && copy.linkedBrowser.currentURI.spec == latest,
     "The other window's copy loads"
-  );
+  ).catch(() => {});
   is(copy.linkedBrowser.currentURI.spec, latest, "The new window opens the folder tab on its latest page");
   await BrowserTestUtils.closeWindow(win);
   await cleanUp(setup);
