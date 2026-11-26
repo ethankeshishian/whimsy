@@ -8,6 +8,12 @@
 // "What's new", whimsy://changelog and the About dialog's Privacy Notice
 // land straight on their tab. A build's anchor (#v1-24b-w2) opens the
 // Changelog scrolled to that build.
+//
+// perf (W32 P7): nothing the first frame doesn't show runs before it. The
+// hidden Changelog renders when idle (or at once when it's the tab asked
+// for), the tab indicator is placed after layout instead of forcing one, and
+// a page preloaded as the new tab page (WhimsyHome.sys.mjs) keeps its
+// entrance for the moment it's shown.
 
 "use strict";
 
@@ -59,13 +65,27 @@ function currentTabFromLocation() {
 
 let selectedTab = null;
 let panelFade = null;
+// The entrance waits for a page that loads hidden (a preloaded new tab).
+let entrancePending = false;
+let indicatorPlaced = false;
 
-function positionTabIndicator() {
+// Reading the tabs' boxes forces a layout, so it happens only once there is
+// one: the ResizeObserver places the indicator after the first layout, and
+// a user's tab change moves it.
+function positionTabIndicator({ first = false } = {}) {
   const button = document.getElementById(`whimsy-tab-${selectedTab}`);
   if (!button) {
     return;
   }
   const indicator = document.getElementById("whimsy-tab-indicator");
+  if (first) {
+    // Being placed isn't a move: it doesn't slide in from the corner.
+    indicator.style.transition = "none";
+    window.requestAnimationFrame(() => indicator.style.removeProperty("transition"));
+  } else {
+    indicator.style.removeProperty("transition");
+  }
+  indicatorPlaced = true;
   indicator.style.width = `${button.offsetWidth}px`;
   indicator.style.height = `${button.offsetHeight}px`;
   indicator.style.transform = `translate(${button.offsetLeft}px, ${button.offsetTop}px)`;
@@ -126,9 +146,14 @@ function selectTab(tab, { fromUser = false } = {}) {
     : null;
   if (changed) {
     // First-load decoration must never restart when display:none is removed.
+    entrancePending = false;
     document.documentElement.classList.remove("wh-home-entrance");
   } else if (selectedTab == null && tab == "home") {
-    document.documentElement.classList.add("wh-home-entrance");
+    if (document.hidden) {
+      entrancePending = true;
+    } else {
+      document.documentElement.classList.add("wh-home-entrance");
+    }
   }
   selectedTab = tab;
   for (const name of TABS) {
@@ -137,7 +162,12 @@ function selectTab(tab, { fromUser = false } = {}) {
     button.tabIndex = name == tab ? 0 : -1;
     document.getElementById(`whimsy-panel-${name}`).hidden = name != tab;
   }
-  positionTabIndicator();
+  if (tab == "changelog") {
+    ensureChangelog();
+  }
+  if (changed) {
+    positionTabIndicator();
+  }
   if (outgoing) {
     const incoming = document.getElementById(`whimsy-panel-${tab}`).animate(
       [{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" }
@@ -200,7 +230,7 @@ function initTabs() {
   window.addEventListener("hashchange", follow);
   selectTab(currentTabFromLocation());
   // Localization, font loading, zoom, and resizing can all change tab widths.
-  const observer = new ResizeObserver(positionTabIndicator);
+  const observer = new ResizeObserver(() => positionTabIndicator({ first: !indicatorPlaced }));
   for (const button of document.querySelectorAll(".whimsy-home-tab")) {
     observer.observe(button);
   }
@@ -374,6 +404,24 @@ function revealAnchoredBuild() {
   }
 }
 
+let changelogLoad = null;
+
+function ensureChangelog() {
+  changelogLoad ??= loadChangelog();
+  return changelogLoad;
+}
+
+// After the first frame, when the page is idle. A hidden (preloaded) page
+// paints no frames to wait for.
+function whenIdle(callback) {
+  const idle = () => window.requestIdleCallback(() => callback(), { timeout: 2000 });
+  if (document.hidden) {
+    idle();
+  } else {
+    window.requestAnimationFrame(idle);
+  }
+}
+
 async function loadChangelog() {
   try {
     const response = await fetch(CHANGELOG_URL);
@@ -426,13 +474,15 @@ function initBalloon() {
 // boundary or the seasonal switch catches up without a timer.
 // whimsy-season-decor (an occasion, or the season) picks the changelog's
 // header art and accents.
+let seasons = null;
+
 function applySeason() {
   let look = null;
   try {
-    const { WhimsySeasons } = ChromeUtils.importESModule(
+    seasons ??= ChromeUtils.importESModule(
       "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
-    );
-    look = WhimsySeasons.look();
+    ).WhimsySeasons;
+    look = seasons.look();
   } catch {
     // No calendar: the balloon simply stays undressed.
   }
@@ -451,10 +501,16 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState == "visible") {
       applySeason();
+      if (entrancePending) {
+        entrancePending = false;
+        document.documentElement.classList.add("wh-home-entrance");
+      }
     }
   });
   initTabs();
   initImportFromArc();
   initBalloon();
-  loadChangelog();
+  // The Changelog is a hidden panel unless it's the tab asked for (then
+  // selectTab has already started it).
+  whenIdle(ensureChangelog);
 });

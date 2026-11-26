@@ -1,0 +1,19 @@
+diff --git a/browser/components/tabbrowser/NewTabPagePreloading.sys.mjs b/browser/components/tabbrowser/NewTabPagePreloading.sys.mjs
+--- a/browser/components/tabbrowser/NewTabPagePreloading.sys.mjs
++++ b/browser/components/tabbrowser/NewTabPagePreloading.sys.mjs
+@@ -31,10 +31,14 @@
+   },
+ 
+   get enabled() {
++    // Whimsy: Whimsy Home (about:whimsy) is a built-in new tab page, so it
++    // preloads like Firefox Home. An add-on's or a policy's page still
++    // doesn't.
+     return (
+       this.prefEnabled &&
+       this.newTabEnabled &&
+-      !lazy.AboutNewTab.newTabURLOverridden
++      (!lazy.AboutNewTab.newTabURLOverridden ||
++        lazy.AboutNewTab.newTabURL == "about:whimsy")
+     );
+   },
+ 
