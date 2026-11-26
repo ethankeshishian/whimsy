@@ -49,6 +49,8 @@ const states = new WeakMap();
 // win -> { inSidebar } - tracked from the target of the last real pointer
 // move (W24 smallbugs #13), not re-derived from live :hover each time.
 const hoverStates = new WeakMap();
+// Windows whose Zen swipe edge actions are wrapped (on their first swipe).
+const edgeSwipeWindows = new WeakSet();
 
 function featureOn() {
   return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -108,10 +110,18 @@ export const WhimsySpaceSwitchQueue = {
     this.wrapShortcut(win, state);
     this.initEdges(win, state);
     this.initSwitcherArrows(win, state);
-    this.wrapEdgeSwipes(win);
     this.initSidebarHoverTracking(win);
     this.initAppCommandFallback(win);
-    const onGesture = event => this.handleGesture(win, state, event);
+    const onGesture = event => {
+      // W32 perf: Zen's swipe edge actions (and the ZenLibrary module they
+      // need) are wrapped when the window's first swipe begins, not at
+      // window start. This window-capture listener runs before Zen's own
+      // swipe handler on the toolbox, so the wrap is in place in time.
+      if (event.type == "MozSwipeGestureMayStart" || event.type == "MozSwipeGestureStart") {
+        this.ensureEdgeSwipes(win);
+      }
+      this.handleGesture(win, state, event);
+    };
     for (const type of GESTURE_EVENTS) {
       win.addEventListener(type, onGesture, true);
     }
@@ -476,6 +486,19 @@ export const WhimsySpaceSwitchQueue = {
   // window (ChromeUtils.importESModule with global "current"), so the
   // window's own instances are the ones wrapped: importing them from here
   // would give this module's separate copies.
+  ensureEdgeSwipes(win) {
+    if (!featureOn() || edgeSwipeWindows.has(win)) {
+      return;
+    }
+    edgeSwipeWindows.add(win);
+    this.wrapEdgeSwipes(win);
+  },
+
+  /** Test hook: whether this window's swipe edge actions are wrapped yet. */
+  edgeSwipesWrapped(win) {
+    return edgeSwipeWindows.has(win);
+  },
+
   wrapEdgeSwipes(win) {
     const visibleIndex = ws => {
       const visible = ws.getWorkspaces().filter(space => !space.whimsyHidden);

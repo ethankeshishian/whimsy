@@ -475,3 +475,55 @@ add_task(async function test_favicon_fallback_colour() {
   is(await WhimsyPageTint.faviconColor(window, { image: null }), null, "No icon: no colour");
   is(await WhimsyPageTint.faviconColor(window, {}), null, "No icon at all: no colour");
 });
+
+// W32 perf: a window doesn't build the row until its space colour editor
+// first opens, and never while the feature is off.
+add_task(async function test_row_built_on_first_use_and_only_when_on() {
+  const opened = async win => {
+    const editor = win.gZenThemePicker.panel;
+    const shown = BrowserTestUtils.waitForPopupEvent(editor, "shown");
+    win.gZenThemePicker.openThemePicker(new win.MouseEvent("click"));
+    await shown;
+    const hidden = BrowserTestUtils.waitForPopupEvent(editor, "hidden");
+    editor.hidePopup();
+    await hidden;
+  };
+  const ready = async win => {
+    await win.gZenWorkspaces.promiseInitialized;
+    await win.gZenThemePicker.promiseInitialized;
+    await TestUtils.waitForCondition(() => win._whimsyPageTint, "Match the page set up the window");
+  };
+
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  try {
+    await ready(win);
+    ok(!win.document.getElementById("whimsy-match-page-row"), "A new window has no row yet");
+    await opened(win);
+    ok(win.document.getElementById("whimsy-match-page-row"), "Opening the space colour editor builds it");
+    ok(!win.document.getElementById("whimsy-match-page-row").hidden, "and shows it");
+
+    // Switched off later: the built row goes, and comes back when on.
+    Services.prefs.setBoolPref(FEATURE, false);
+    await opened(win);
+    ok(win.document.getElementById("whimsy-match-page-row").hidden, "Off: the row is hidden");
+    ok(win.document.getElementById("whimsy-match-page-style-row").hidden, "with its style row");
+    Services.prefs.clearUserPref(FEATURE);
+    await opened(win);
+    ok(!win.document.getElementById("whimsy-match-page-row").hidden, "On again: it's back");
+  } finally {
+    Services.prefs.clearUserPref(FEATURE);
+    await BrowserTestUtils.closeWindow(win);
+  }
+
+  Services.prefs.setBoolPref(FEATURE, false);
+  const off = await BrowserTestUtils.openNewBrowserWindow();
+  try {
+    await ready(off);
+    await opened(off);
+    ok(!off.document.getElementById("whimsy-match-page-row"), "With the feature off, opening the editor builds no row");
+    ok(!off.document.getElementById("whimsy-match-page-style-row"), "nor a style row");
+  } finally {
+    Services.prefs.clearUserPref(FEATURE);
+    await BrowserTestUtils.closeWindow(off);
+  }
+});

@@ -778,6 +778,10 @@ zen-workspace:has(> arrowscrollbox[overflowing]) > .whimsy-newtab-dock {
   margin-block: 2px;
   border-radius: var(--border-radius-medium);
   background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
+
+  &[hidden] {
+    display: none;
+  }
 }
 
 /* The style row reuses WhimsySpaceLook's own segmented control

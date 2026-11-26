@@ -264,3 +264,82 @@ add_task(async function translate_decides_privacy_for_the_images_tab() {
     }
   }
 });
+
+// W32 perf: reading an image's text is the costly part, so it happens only
+// for images worth it. This counts the reads (the stand-in recognizer's
+// calls) by image.
+function countReads() {
+  const reads = [];
+  WhimsyImageText.testRecognizer = src => {
+    reads.push(src);
+    return imageTextRecognizer(src);
+  };
+  return {
+    of: name => reads.filter(src => src.includes(name)).length,
+    all: reads,
+    done() {
+      WhimsyImageText.testRecognizer = imageTextRecognizer;
+    },
+  };
+}
+
+const imageTextState = browser =>
+  SpecialPowers.spawn(browser, [], () => {
+    const actor = content.windowGlobalChild.getExistingActor("WhimsyImageText");
+    return { images: actor?.images.size ?? 0, queued: actor?.queue.size ?? 0, timers: actor?.timers.size ?? 0, pending: actor?.pending.size ?? 0 };
+  });
+
+add_task(async function an_image_is_read_once_across_tabs() {
+  const reads = countReads();
+  try {
+    await withImageText("en", async () => {
+      is(reads.of("sign_en.svg"), 1, "The sign is read once");
+    });
+    await withImageText("en", async browser => {
+      is(reads.of("sign_en.svg"), 1, "Another tab with the same image doesn't read it again");
+      const { lines } = await imageTextLayer(browser);
+      Assert.deepEqual(lines.map(l => l.text), ["SINCE 1887", "Hoshino Tea House", "Open daily 9:00 to 17:00"], "and still gets its lines, where they were");
+    });
+    Services.obs.notifyObservers(null, "whimsy-ai-store-cleared");
+    await withImageText("en", async () => {
+      is(reads.of("sign_en.svg"), 2, "Once what was read is cleared, the image is read again");
+    });
+  } finally {
+    reads.done();
+  }
+});
+
+add_task(async function tiny_and_icon_images_are_never_read() {
+  const reads = countReads();
+  try {
+    await BrowserTestUtils.withNewTab(`${IMAGE_TEXT_PAGE("en")}&small=1`, async browser => {
+      await TestUtils.waitForCondition(async () => (await imageTextState(browser)).images > 0, "The sign in view was read");
+      // Long past the dwell and an idle slot for the others.
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const state = await imageTextState(browser);
+      is(state.images, 1, "Only the sign has an entry");
+      is(state.queued + state.timers + state.pending, 0, "Nothing else waits to be read");
+      Assert.deepEqual(reads.all.map(src => src.replace(IMAGE_TEXT_ROOT, "")), ["whimsy_image_text_sign_en.svg"], "Neither the spacer pixel nor the icon-sized sign was read");
+    });
+  } finally {
+    reads.done();
+  }
+});
+
+add_task(async function an_image_below_the_fold_waits_until_it_is_in_view() {
+  const reads = countReads();
+  try {
+    await BrowserTestUtils.withNewTab(`${IMAGE_TEXT_PAGE("en")}&far=1`, async browser => {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      is(reads.of("sign_en.svg"), 0, "A sign out of view isn't read");
+      is((await imageTextState(browser)).queued, 0, "nor queued");
+      await SpecialPowers.spawn(browser, [], () => content.document.getElementById("photo").scrollIntoView({ block: "center" }));
+      await TestUtils.waitForCondition(async () => (await imageTextState(browser)).images > 0, "Scrolled into view, it's read");
+      is(reads.of("sign_en.svg"), 1, "once");
+      const { lines } = await imageTextLayer(browser);
+      is(lines.length, 3, "and its lines are laid over it");
+    });
+  } finally {
+    reads.done();
+  }
+});

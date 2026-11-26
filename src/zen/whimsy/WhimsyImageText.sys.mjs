@@ -37,9 +37,20 @@ const TRANSLATE_SYSTEM =
 
 // src -> {count, text, lang}; newest last, bounded.
 const known = new Map();
+// W32 perf: what each image held, so no image is read twice. Keyed by the
+// image's address and size, within one site (the top page's) and one kind
+// of window (private or not): a page can't time a cache hit to learn which
+// images were seen on other sites. key -> [{text, quad}]; newest last.
+const MAX_READ = 300;
+const MAX_READ_LINES = 200;
+const MAX_READ_TEXT = 500;
+const read = new Map();
 // W23 secfix L5: recognized image text goes with Fire (any AI data
 // cleared), Clear History, and the last private window closing.
-const forget = () => known.clear();
+const forget = () => {
+  known.clear();
+  read.clear();
+};
 Services.obs.addObserver(forget, "browser:purge-session-history");
 Services.obs.addObserver(forget, "whimsy-ai-store-cleared");
 Services.obs.addObserver(forget, "last-pb-context-exited");
@@ -71,6 +82,53 @@ function shownLanguage(tag, other = null) {
 
 const primary = tag => String(tag ?? "").split("-")[0].toLowerCase();
 
+function readKey(actor, data) {
+  const src = String(data?.src ?? "");
+  const width = Math.trunc(Number(data?.width)) || 0;
+  const height = Math.trunc(Number(data?.height)) || 0;
+  if (!src || src.length > 4096 || !width || !height) {
+    return null;
+  }
+  const context = actor.browsingContext;
+  let site = "";
+  try {
+    site = context?.top?.currentWindowGlobal?.documentPrincipal?.siteOrigin ?? "";
+  } catch {}
+  return `${context?.usePrivateBrowsing ? "p" : "n"} ${site} ${width}x${height} ${src}`;
+}
+
+// Web content is untrusted: only well-formed lines, within the child's limits.
+function cleanLines(texts, quads) {
+  if (!Array.isArray(texts) || !Array.isArray(quads) || texts.length != quads.length) {
+    return null;
+  }
+  const out = [];
+  for (let i = 0; i < Math.min(texts.length, MAX_READ_LINES); i++) {
+    const quad = quads[i];
+    if (
+      typeof texts[i] != "string" ||
+      !Array.isArray(quad) ||
+      quad.length != 4 ||
+      !quad.every(p => Array.isArray(p) && p.length == 2 && p.every(Number.isFinite))
+    ) {
+      return null;
+    }
+    out.push({ text: texts[i].slice(0, MAX_READ_TEXT), quad: quad.map(([x, y]) => [x, y]) });
+  }
+  return out;
+}
+
+function rememberRead(key, lines) {
+  if (!key || !lines) {
+    return;
+  }
+  read.delete(key);
+  read.set(key, lines);
+  while (read.size > MAX_READ) {
+    read.delete(read.keys().next().value);
+  }
+}
+
 export class WhimsyImageTextParent extends JSWindowActorParent {
   receiveMessage(message) {
     return WhimsyImageText.receive(this, message);
@@ -82,9 +140,19 @@ export const WhimsyImageText = {
   // (normalized, top left, top right, bottom right, bottom left) or null;
   // a stand-in translation engine, (lines, {from, to}) -> lines; and the
   // language to translate into.
-  testRecognizer: null,
+  _testRecognizer: null,
   testTranslate: null,
   testTargetLanguage: null,
+
+  get testRecognizer() {
+    return this._testRecognizer;
+  },
+
+  // A new stand-in recognizer starts with nothing remembered.
+  set testRecognizer(fn) {
+    this._testRecognizer = fn;
+    read.clear();
+  },
 
   get enabled() {
     return Services.prefs.getBoolPref(`whimsy.feature.${FEATURE}`, true);
@@ -201,13 +269,34 @@ export const WhimsyImageText = {
         if (!this.enabled || !this.supported) {
           return { enabled: false };
         }
-        const lines = this.testRecognizer ? (this.testRecognizer(String(data?.src ?? "")) ?? []) : null;
+        // Read before (here, another tab, a revisit): no need to read it again.
+        const key = readKey(actor, data);
+        const cached = key && read.get(key);
+        if (cached) {
+          read.delete(key);
+          read.set(key, cached);
+          return { enabled: true, lines: cached };
+        }
+        if (!this.testRecognizer) {
+          return { enabled: true, lines: null };
+        }
+        const lines = this.testRecognizer(String(data?.src ?? "")) ?? [];
+        rememberRead(key, cleanLines(lines.map(l => l?.text), lines.map(l => l?.quad)));
         return { enabled: true, lines };
       }
+      case "Whimsy:ImageText:Read":
+        // Read, but the image changed before it could be shown.
+        if (this.enabled) {
+          rememberRead(readKey(actor, data), cleanLines(data?.lines?.map?.(l => l?.text), data?.lines?.map?.(l => l?.quad)));
+        }
+        return null;
       case "Whimsy:ImageText:Found": {
         // Web content is untrusted: keep to what the child itself would send.
         const src = String(data?.src ?? "").slice(0, 4096);
         const lines = Array.isArray(data?.lines) ? data.lines.slice(0, 200).map(line => String(line).slice(0, 500)) : [];
+        if (data?.read && this.enabled) {
+          rememberRead(readKey(actor, { src, ...data.read }), cleanLines(lines, data.read.quads));
+        }
         this.remember(src, lines);
         if (browser && lines.length && actor.browsingContext == actor.browsingContext.top) {
           if (!pages.has(browser)) {

@@ -369,6 +369,13 @@ function buildRow(win) {
   });
 
   const sync = () => {
+    // Switched off after the row was built: it goes until switched back on.
+    row.hidden = !WhimsyPageTint.enabled;
+    if (row.hidden) {
+      styleRow.hidden = true;
+      panel.removeAttribute("whimsy-match-page-dim");
+      return;
+    }
     const workspace = win.gZenThemePicker.workspaceBeingEdited;
     const matchPage = !!workspace?.theme?.matchPage;
     toggle.pressed = matchPage;
@@ -379,7 +386,11 @@ function buildRow(win) {
   panel.addEventListener("popupshowing", sync);
   win.addEventListener("unload", () => panel.removeEventListener("popupshowing", sync), { once: true });
   sync();
+}
 
+// Kept from the window's start, whether or not the row is ever built: a
+// space's saved Match the page settings survive Zen's own theme writes.
+function installWorkspaceGuard(win) {
   // ZenGradientGenerator's updateCurrentWorkspace() unconditionally
   // replaces workspaceBeingEdited.theme with a freshly-built, gradient-
   // only object - whether or not it also saves it (skipSave only gates
@@ -434,7 +445,16 @@ export const WhimsyPageTint = {
     }
     win._whimsyPageTint = true;
 
-    buildRow(win);
+    installWorkspaceGuard(win);
+    // W32 perf: the row is built the first time the space colour editor
+    // opens, and only while the feature is on.
+    const editor = win.document.getElementById("PanelUI-zen-gradient-generator");
+    const onEditorShowing = () => {
+      if (this.enabled) {
+        buildRow(win);
+      }
+    };
+    editor?.addEventListener("popupshowing", onEditorShowing);
 
     const onTabSelect = event => {
       if (event.target?.hasAttribute?.("glance-id")) {
@@ -455,6 +475,7 @@ export const WhimsyPageTint = {
       "unload",
       () => {
         win.removeEventListener("TabSelect", onTabSelect);
+        editor?.removeEventListener("popupshowing", onEditorShowing);
         opacitySlider?.removeEventListener("input", onOpacityInput);
         Services.obs.removeObserver(onGradientUpdate, "zen-space-gradient-update");
       },
