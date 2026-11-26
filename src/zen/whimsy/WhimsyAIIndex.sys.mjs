@@ -9,12 +9,22 @@
 // one file, <profile>/whimsy-ai/index/index.bin (WhimsyAIStore, 0600),
 // capped at 20,000 entries (oldest dropped first), cleared by Fire. Never
 // indexes or answers for a private tab, and nothing happens with AI off.
+//
+// W32 perf: a page load never embeds or writes. A finished load is read
+// (the reader actor, async) and queued; its words are embedded in idle
+// slices (embedIdle, the same arithmetic as embed), and the index is saved
+// at most every SAVE_DELAY_MS and at shutdown. A clear or a forget still
+// writes at once. The file is binary (encode/decode below): one header, the
+// entries' fields as JSON, then every vector as float64, so a save no longer
+// stringifies 20,000 vectors. The JSON file older builds wrote is read once
+// and rewritten in the new format.
 
 import { UrlbarProvider } from "moz-src:///browser/components/urlbar/UrlbarUtils.sys.mjs";
 import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
@@ -25,6 +35,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyAIReader: "resource:///modules/whimsy/WhimsyAIReader.sys.mjs",
   WhimsyAIStore: "resource:///modules/whimsy/WhimsyAIStore.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 // W23 secfix M4: what a signed-in page shows or carries.
@@ -104,6 +116,21 @@ const TEXT_CHARS = 2000;
 const TITLE_CHARS = 512;
 const EMBED_CHARS = TITLE_CHARS + 1 + TEXT_CHARS;
 const VECTOR_DIM_GUARD = 4; // Below this a "vector" is treated as unusable.
+// W32: an add is saved within this long (and at shutdown), not on its own.
+const SAVE_DELAY_MS = 30000;
+// Pages read but not yet embedded; past this the oldest waits for its next visit.
+const MAX_PENDING = 32;
+// Idle slices for embedding: at most this long each, this long when the
+// idle callback timed out (a browser that never idles still gets there).
+const IDLE_TIMEOUT_MS = 10000;
+const MAX_SLICE_MS = 40;
+const FORCED_SLICE_MS = 8;
+// The file: "WAIX", the format, the fields' byte length, the vector count
+// (uint32 each, little-endian), the fields (UTF-8 JSON, space-padded to 8
+// bytes), then the vectors (float64, little-endian, end to end).
+const MAGIC = [0x57, 0x41, 0x49, 0x58];
+const FORMAT = 2;
+const HEADER_BYTES = 16;
 
 let embedder = null;
 let embedderChecked = false;
@@ -112,7 +139,13 @@ let loading = null;
 let testEmbedder = null;
 let testKnows = null;
 let testWordVector = null;
-let wordCache = new Map();
+let wordCache = new Map(); // word -> { vector, unit } (both null: unknown)
+let saveTimer = null;
+let dirty = false;
+let pending = []; // [{ page, cleared, resolve }]
+let draining = false;
+let idleScheduler = null; // Tests: stands in for ChromeUtils.idleDispatch.
+let saveDelayMs = SAVE_DELAY_MS;
 let centerVector; // undefined: not yet worked out; null: none (no word list)
 
 function service() {
@@ -146,8 +179,19 @@ function embed(input) {
   return centerVector?.length == mean.length ? mean.map((x, i) => x - centerVector[i]) : mean;
 }
 
+// What a page is embedded from: its title and text, each capped (P2-L3).
+function embedInput({ title = "", text = "" }) {
+  return `${String(title ?? "").slice(0, TITLE_CHARS)}\n${String(text).slice(0, TEXT_CHARS)}`.trim();
+}
+
 // One word's vector from the on-device word list, or null.
 function wordVector(word) {
+  return cachedWord(word).vector;
+}
+
+// One word's vector and its unit vector (the vector over its length, worked
+// out once rather than at every occurrence), both null for an unknown word.
+function cachedWord(word) {
   if (wordCache.has(word)) {
     return wordCache.get(word);
   }
@@ -165,8 +209,10 @@ function wordVector(word) {
   if (wordCache.size >= WORD_CACHE_MAX) {
     wordCache.clear();
   }
-  wordCache.set(word, vector);
-  return vector;
+  const len = vector && Math.hypot(...vector);
+  const entry = { vector, unit: len ? vector.map(x => x / len) : null };
+  wordCache.set(word, entry);
+  return entry;
 }
 
 // The words of `text` that can say what it's about (lowercase, three
@@ -178,21 +224,79 @@ function contentWords(text) {
 
 // The mean of the unit vectors of the known `words`, or null.
 function wordMean(words) {
-  let sum = null;
-  let n = 0;
+  const mean = new WordMean();
   for (const word of words) {
-    const v = wordVector(word);
-    const len = v && Math.hypot(...v);
-    if (!len || (sum && v.length != sum.length)) {
-      continue;
-    }
-    sum ??= new Array(v.length).fill(0);
-    for (let i = 0; i < v.length; i++) {
-      sum[i] += v[i] / len;
-    }
-    n++;
+    mean.add(word);
   }
-  return n ? sum.map(x => x / n) : null;
+  return mean.result();
+}
+
+// The same, a word at a time, so embedIdle can stop between words.
+class WordMean {
+  sum = null;
+  n = 0;
+
+  add(word) {
+    const u = cachedWord(word).unit;
+    if (!u || (this.sum && u.length != this.sum.length)) {
+      return;
+    }
+    this.sum ??= new Array(u.length).fill(0);
+    for (let i = 0; i < u.length; i++) {
+      this.sum[i] += u[i];
+    }
+    this.n++;
+  }
+
+  result() {
+    return this.n ? this.sum.map(x => x / this.n) : null;
+  }
+}
+
+// Idle time in slices: next() waits for an idle callback, spent() says the
+// slice is used up. At least one step runs per slice.
+function idleSlicer() {
+  let end = 0;
+  return {
+    spent: () => Cu.now() >= end,
+    async next() {
+      const deadline = await (idleScheduler ?? (() => new Promise(resolve =>
+        ChromeUtils.idleDispatch(resolve, { timeout: IDLE_TIMEOUT_MS }))))();
+      end = Cu.now() + (deadline.didTimeout ? FORCED_SLICE_MS : Math.min(deadline.timeRemaining(), MAX_SLICE_MS));
+    },
+  };
+}
+
+async function idleWordMean(words, slicer) {
+  const mean = new WordMean();
+  for (const word of words) {
+    if (slicer.spent()) {
+      await slicer.next();
+    }
+    mean.add(word);
+  }
+  return mean.result();
+}
+
+// embed(), in idle slices between words: what a captured visit uses, so a
+// page load never waits on the native word list. Same arithmetic, same vector.
+async function embedIdle(input, slicer = idleSlicer()) {
+  const text = String(input ?? "").slice(0, EMBED_CHARS);
+  if (slicer.spent()) {
+    await slicer.next();
+  }
+  if (testEmbedder) {
+    return testEmbedder(text);
+  }
+  const mean = await idleWordMean(contentWords(text), slicer);
+  if (!mean) {
+    return null;
+  }
+  if (centerVector === undefined) {
+    const center = await idleWordMean(contentWords(CENTER_WORDS), slicer);
+    centerVector === undefined && (centerVector = center);
+  }
+  return centerVector?.length == mean.length ? mean.map((x, i) => x - centerVector[i]) : mean;
 }
 
 // Whether the on-device word list knows `word`; with no word list for this
@@ -275,16 +379,82 @@ async function path() {
   return PathUtils.join(dir, FILE_NAME);
 }
 
+// The file's bytes for `entries`.
+function encode(entries) {
+  const fields = [];
+  const lengths = [];
+  let floats = 0;
+  for (const { vector, ...rest } of entries) {
+    fields.push(rest);
+    const n = vector?.length ?? 0;
+    lengths.push(n);
+    floats += n;
+  }
+  const json = new TextEncoder().encode(JSON.stringify({ entries: fields, lengths }));
+  const jsonBytes = Math.ceil(json.length / 8) * 8;
+  const bytes = new Uint8Array(HEADER_BYTES + jsonBytes + floats * 8);
+  bytes.set(MAGIC, 0);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(4, FORMAT, true);
+  view.setUint32(8, jsonBytes, true);
+  view.setUint32(12, floats, true);
+  bytes.set(json, HEADER_BYTES);
+  bytes.fill(0x20, HEADER_BYTES + json.length, HEADER_BYTES + jsonBytes);
+  const out = new Float64Array(bytes.buffer, HEADER_BYTES + jsonBytes, floats);
+  let at = 0;
+  for (const { vector } of entries) {
+    if (vector?.length) {
+      out.set(vector, at);
+      at += vector.length;
+    }
+  }
+  return bytes;
+}
+
+// The entries in a file's bytes: this format, or the JSON one before W32
+// ({ entries: [{ url, title, vector, date, chars }] }). Null when neither.
+function decode(bytes) {
+  if (bytes.length >= HEADER_BYTES && MAGIC.every((b, i) => bytes[i] == b)) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const jsonBytes = view.getUint32(8, true);
+    const floats = view.getUint32(12, true);
+    if (view.getUint32(4, true) != FORMAT || bytes.length != HEADER_BYTES + jsonBytes + floats * 8) {
+      return null;
+    }
+    const { entries, lengths } = JSON.parse(new TextDecoder().decode(bytes.subarray(HEADER_BYTES, HEADER_BYTES + jsonBytes)));
+    const start = HEADER_BYTES + jsonBytes;
+    const all = (bytes.byteOffset + start) % 8 == 0
+      ? new Float64Array(bytes.buffer, bytes.byteOffset + start, floats)
+      : new Float64Array(bytes.slice(start).buffer);
+    let at = 0;
+    return entries.map((fields, i) => {
+      const n = lengths[i] ?? 0;
+      const vector = Array.from(all.subarray(at, at + n));
+      at += n;
+      return { ...fields, vector };
+    });
+  }
+  const saved = JSON.parse(new TextDecoder().decode(bytes));
+  return Array.isArray(saved?.entries) ? saved.entries : null;
+}
+
 async function load() {
   if (state) {
     return state;
   }
   loading ??= (async () => {
-    const saved = await IOUtils.readJSON(await path()).catch(() => null);
-    const entries = Array.isArray(saved?.entries) ? saved.entries : [];
+    let entries = [];
+    let migrate = false;
+    try {
+      const bytes = await IOUtils.read(await path());
+      entries = decode(bytes) ?? [];
+      migrate = bytes[0] != MAGIC[0];
+    } catch {
+      // No index yet, or one that can't be read: start empty.
+    }
     state = { entries: entries.filter(e => !isAuthPage(e.url, e.title)) };
     loading = null;
-    if (state.entries.length != entries.length) {
+    if (migrate || state.entries.length != entries.length) {
       await save().catch(() => {});
     }
     return state;
@@ -305,8 +475,37 @@ async function current(vector) {
   return s;
 }
 
+// Writes the index now (a clear, a forget, a migration, shutdown).
 async function save() {
-  await lazy.WhimsyAIStore.writeFile(await path(), state);
+  cancelSave();
+  if (!state) {
+    return;
+  }
+  await lazy.WhimsyAIStore.writeBytes(await path(), encode(state.entries));
+}
+
+function cancelSave() {
+  dirty = false;
+  if (saveTimer) {
+    lazy.clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+}
+
+// An add: written with whatever else comes in the next SAVE_DELAY_MS.
+function scheduleSave() {
+  dirty = true;
+  saveTimer ??= lazy.setTimeout(() => {
+    saveTimer = null;
+    save().catch(e => console.error("Whimsy: saving the Related index", e));
+  }, saveDelayMs);
+}
+
+// A finished page load's page, read and waiting for idle time to embed.
+function dropPending() {
+  for (const item of pending.splice(0)) {
+    item.resolve(false);
+  }
 }
 
 export const WhimsyAIIndex = {
@@ -325,21 +524,54 @@ export const WhimsyAIIndex = {
   },
 
   init() {
+    if (this._initialized) {
+      return;
+    }
+    this._initialized = true;
     // N1: Fire's range applies here too ("Last hour" clears the last hour).
     lazy.WhimsyAIStore.registerClearer("index", async ({ since = null } = {}) => {
+      this._clears++;
+      dropPending();
       const s = since == null ? (state = { entries: [] }) : await load();
       s.entries = since == null ? [] : s.entries.filter(e => (e.date ?? 0) < since);
       await save().catch(() => {});
     });
+    // Adds since the last save are written before the profile goes away.
+    try {
+      lazy.AsyncShutdown.profileBeforeChange.addBlocker("WhimsyAIIndex: save the Related index", this._saveAtShutdown, {
+        fetchState: () => ({ dirty, pending: pending.length }),
+      });
+    } catch {
+      // Already shutting down: nothing new is added from here on.
+    }
   },
 
+  /** Writes any add not yet on disk; resolves once it is. */
+  async flush() {
+    if (dirty) {
+      await save();
+    }
+    await lazy.WhimsyAIStore.flush();
+  },
+
+  // The shutdown blocker (one function, so a test can find it).
+  _saveAtShutdown: () => WhimsyAIIndex.flush().catch(e => console.error("Whimsy: saving the Related index", e)),
+
   /** @param {{url, title, text}} page. Never for a private tab (callers check). */
-  async add({ url, title = "", text = "", date = Date.now(), thin = false } = {}) {
-    // W24: never an adult site's page (WhimsyAdultHistory).
-    if (!this.on || !url || !lazy.WhimsyAdultHistory.keeps(url) || isAuthPage(url, title)) {
+  async add(page = {}) {
+    if (!this._accepts(page)) {
       return false;
     }
-    const vector = embed(`${String(title ?? "").slice(0, TITLE_CHARS)}\n${String(text).slice(0, TEXT_CHARS)}`.trim());
+    return this._insert(page, embed(embedInput(page)));
+  },
+
+  // What add() turns away before any embedding.
+  _accepts({ url, title = "" } = {}) {
+    // W24: never an adult site's page (WhimsyAdultHistory).
+    return !!(this.on && url && lazy.WhimsyAdultHistory.keeps(url) && !isAuthPage(url, title));
+  },
+
+  async _insert({ url, title = "", text = "", date = Date.now(), thin = false }, vector) {
     if (!vector || (thin && thinText(title, text))) {
       return false;
     }
@@ -350,8 +582,61 @@ export const WhimsyAIIndex = {
     if (s.entries.length > MAX_ENTRIES) {
       s.entries.splice(0, s.entries.length - MAX_ENTRIES);
     }
-    await save();
+    scheduleSave();
     return true;
+  },
+
+  // A captured visit: queued, then embedded in idle time. Resolves to
+  // whether it was added.
+  _queue(page, cleared) {
+    return new Promise(resolve => {
+      const dropped = pending.filter(item => item.page.url == page.url);
+      pending = pending.filter(item => item.page.url != page.url);
+      dropped.forEach(item => item.resolve(false));
+      pending.push({ page, cleared, resolve });
+      if (pending.length > MAX_PENDING) {
+        pending.shift().resolve(false);
+      }
+      this._drain();
+    });
+  },
+
+  async _drain() {
+    if (draining) {
+      return;
+    }
+    draining = true;
+    try {
+      while (pending.length) {
+        const item = pending.shift();
+        let added = false;
+        try {
+          added = await this._addIdle(item);
+        } catch (e) {
+          console.error("Whimsy: indexing a page", e);
+        }
+        item.resolve(added);
+      }
+    } finally {
+      draining = false;
+    }
+  },
+
+  async _addIdle({ page, cleared }) {
+    const slicer = idleSlicer();
+    await slicer.next();
+    if (cleared != this._clears || !this._accepts(page)) {
+      return false;
+    }
+    const vector = await embedIdle(embedInput(page), slicer);
+    if (slicer.spent()) {
+      await slicer.next();
+    }
+    // A clear or forget while this page was being embedded wins.
+    if (cleared != this._clears || !this._accepts(page)) {
+      return false;
+    }
+    return this._insert(page, vector);
   },
 
   /** W24: drops a page (origin and path, as stored) a site labelled adult after it was read. */
@@ -362,6 +647,10 @@ export const WhimsyAIIndex = {
       key = uri.prePath + uri.filePath;
     } catch {
       // Not a URL: compare it as given.
+    }
+    for (const item of pending.filter(i => i.page.url == key || i.page.url == url)) {
+      pending.splice(pending.indexOf(item), 1);
+      item.resolve(false);
     }
     const s = await load();
     const before = s.entries.length;
@@ -422,6 +711,7 @@ export const WhimsyAIIndex = {
 
   async clear({ since = null } = {}) {
     this._clears++;
+    dropPending();
     this.init();
     const s = await load();
     s.entries = since == null ? [] : s.entries.filter(e => (e.date ?? 0) < since);
@@ -490,9 +780,31 @@ export const WhimsyAIIndex = {
   // Tests: a scratch state (the folder itself is reset through
   // WhimsyAIStore._resetForTesting).
   _resetForTesting() {
+    cancelSave();
+    dropPending();
     state = null;
     loading = null;
   },
+
+  // Tests: what's on disk now (entries as stored, vectors included).
+  async _readFileForTesting() {
+    return decode(await IOUtils.read(await path()));
+  },
+
+  /** Tests: idle callbacks (fn() -> Promise<IdleDeadline-like>), the save delay; null puts back the real ones. */
+  _setIdleSchedulerForTesting(fn) {
+    idleScheduler = fn;
+  },
+  _setSaveDelayForTesting(ms) {
+    saveDelayMs = ms ?? SAVE_DELAY_MS;
+  },
+  get _savePendingForTesting() {
+    return dirty;
+  },
+
+  // Tests: both embedders on the same text.
+  _embedForTesting: text => embed(text),
+  _embedIdleForTesting: (text, slicer) => embedIdle(text, slicer),
 
   provider: null,
   _captureWindows: new Set(),
@@ -570,8 +882,12 @@ export const WhimsyAIIndex = {
     if (String(text ?? "").trim().length < MIN_TEXT_CHARS || this._signedIn(browser, uri, title, text) || cleared != this._clears) {
       return;
     }
-    // `thin`: a page that's mostly its title isn't kept either.
-    await this.add({ url: uri.prePath + uri.filePath, title, text, thin: true });
+    // `thin`: a page that's mostly its title isn't kept either. Embedded
+    // later, in idle time (W32): nothing here runs the word list.
+    if (!this._accepts({ url: uri.prePath + uri.filePath, title })) {
+      return false;
+    }
+    return this._queue({ url: uri.prePath + uri.filePath, title, text, date: Date.now(), thin: true }, cleared);
   },
 
   /**

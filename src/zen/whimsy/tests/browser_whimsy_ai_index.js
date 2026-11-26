@@ -279,7 +279,7 @@ add_task(async function related_drops_sign_in_pages_on_load() {
     const urls = (await WhimsyAIIndex._entriesForTesting()).map(e => e.url);
     ok(!urls.some(u => /\/login/.test(u)), `Stored login and OAuth callback pages leave the index on load (${urls.length} left)`);
     is(urls.length, W30_STORED.length - 2, "...and nothing else does");
-    const onDisk = (await IOUtils.readJSON(file)).entries.map(e => e.url);
+    const onDisk = (await WhimsyAIIndex._readFileForTesting()).map(e => e.url);
     ok(!onDisk.some(u => /\/login/.test(u)), "...on disk too");
   } finally {
     WhimsyAIIndex._setTestEmbedder(vectorFor);
@@ -600,7 +600,155 @@ add_task(async function related_drops_vectors_from_the_old_model() {
   WhimsyAIIndex._resetForTesting();
   try {
     Assert.deepEqual((await WhimsyAIIndex.query("coffee", 3)).map(r => r.url), ["https://new.example/coffee"], "Only the comparable entry answers");
-    Assert.deepEqual((await IOUtils.readJSON(file)).entries.map(e => e.url), ["https://new.example/coffee"], "...and the old one is gone from disk");
+    Assert.deepEqual((await WhimsyAIIndex._readFileForTesting()).map(e => e.url), ["https://new.example/coffee"], "...and the old one is gone from disk");
+  } finally {
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+// W32 perf: a finished page load is read, then embedded in idle time; the
+// load itself never runs the embedder.
+add_task(async function w32_capture_embeds_in_idle_time_not_during_the_load() {
+  await WhimsyAIIndex.clear({});
+  const original = { readTab: WhimsyAIReader.readTab, isOffLimits: WhimsyAIContext.isOffLimits };
+  const fakeBrowser = { currentURI: Services.io.newURI("https://example.com/w32/idle"), contentTitle: "Coffee notes" };
+  const fakeWin = { gBrowser: { getTabForBrowser: () => ({}) } };
+  const waiting = [];
+  let embeds = 0;
+  WhimsyAIContext.isOffLimits = () => false;
+  WhimsyAIReader.readTab = async () => "Coffee beans from Ethiopia and Colombia, roasted light for espresso, ground fine, and brewed hot. ".repeat(3);
+  WhimsyAIIndex._setTestEmbedder(text => (embeds++, vectorFor(text)));
+  WhimsyAIIndex._setIdleSchedulerForTesting(() => new Promise(resolve => waiting.push(resolve)));
+  try {
+    const captured = WhimsyAIIndex._captureVisit(fakeWin, fakeBrowser);
+    await TestUtils.waitForCondition(() => waiting.length, "The capture asks for idle time");
+    is(embeds, 0, "Nothing is embedded until the browser is idle");
+    is(await WhimsyAIIndex.count(), 0, "...and nothing is indexed yet");
+    WhimsyAIIndex._setIdleSchedulerForTesting(async () => ({ didTimeout: false, timeRemaining: () => 50 }));
+    waiting.shift()({ didTimeout: false, timeRemaining: () => 50 });
+    ok(await captured, "Once idle, the page is added");
+    is(embeds, 1, "...embedded once");
+    is(await WhimsyAIIndex.count(), 1, "...and indexed");
+  } finally {
+    WhimsyAIIndex._setIdleSchedulerForTesting(null);
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+    WhimsyAIReader.readTab = original.readTab;
+    WhimsyAIContext.isOffLimits = original.isOffLimits;
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+// A clear while a captured page waits for idle time wins: it never comes back.
+add_task(async function w32_a_clear_drops_pages_waiting_for_idle_time() {
+  await WhimsyAIIndex.clear({});
+  const original = { readTab: WhimsyAIReader.readTab, isOffLimits: WhimsyAIContext.isOffLimits };
+  const fakeBrowser = { currentURI: Services.io.newURI("https://example.com/w32/cleared"), contentTitle: "Coffee notes" };
+  const fakeWin = { gBrowser: { getTabForBrowser: () => ({}) } };
+  const waiting = [];
+  WhimsyAIContext.isOffLimits = () => false;
+  WhimsyAIReader.readTab = async () => "Coffee beans from Ethiopia and Colombia, roasted light for espresso, ground fine, and brewed hot. ".repeat(3);
+  WhimsyAIIndex._setIdleSchedulerForTesting(() => new Promise(resolve => waiting.push(resolve)));
+  try {
+    const captured = WhimsyAIIndex._captureVisit(fakeWin, fakeBrowser);
+    await TestUtils.waitForCondition(() => waiting.length, "The capture asks for idle time");
+    await WhimsyAIStore.clear({ kinds: ["index"] });
+    waiting.shift()({ didTimeout: false, timeRemaining: () => 50 });
+    ok(!(await captured), "A page read before Fire isn't added after it");
+    is(await WhimsyAIIndex.count(), 0, "...the index stays empty");
+  } finally {
+    WhimsyAIIndex._setIdleSchedulerForTesting(null);
+    WhimsyAIReader.readTab = original.readTab;
+    WhimsyAIContext.isOffLimits = original.isOffLimits;
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+// The idle embedder is the same arithmetic as the direct one, word for word,
+// however often it stops for idle time.
+add_task(async function w32_idle_embedding_gives_the_same_vectors() {
+  WhimsyAIIndex._setTestEmbedder(null);
+  WhimsyAIIndex._setTestWordVectors(stubWordVector);
+  try {
+    let yields = 0;
+    const everyWord = { spent: () => true, next: async () => { yields++; } };
+    for (const text of [LAPTOPS_TEXT, RECIPE_TEXT, "thin laptop battery life", "pasta recipe for dinner"]) {
+      // A fresh word list each time, so the idle path also works out the center.
+      WhimsyAIIndex._setTestWordVectors(stubWordVector);
+      const idle = await WhimsyAIIndex._embedIdleForTesting(text, everyWord);
+      const direct = WhimsyAIIndex._embedForTesting(text);
+      ok(direct?.length, `"${text.slice(0, 24)}…" embeds`);
+      Assert.deepEqual(idle, direct, "...to the very same vector in idle slices");
+    }
+    Assert.greater(yields, 100, "The idle path stopped between words");
+  } finally {
+    WhimsyAIIndex._setTestWordVectors(null);
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+  }
+});
+
+// Adds are written together, not one file write per page.
+add_task(async function w32_saves_are_batched() {
+  await WhimsyAIIndex.clear({});
+  try {
+    is((await WhimsyAIIndex._readFileForTesting()).length, 0, "A clear writes at once");
+    for (const name of ["coffee", "espresso", "python"]) {
+      ok(await WhimsyAIIndex.add({ url: `https://example.com/w32/${name}`, title: name, text: name }), `${name} added`);
+    }
+    is((await WhimsyAIIndex._readFileForTesting()).length, 0, "Three adds: nothing written yet");
+    ok(WhimsyAIIndex._savePendingForTesting, "...a save is waiting");
+    await WhimsyAIIndex.flush();
+    is((await WhimsyAIIndex._readFileForTesting()).length, 3, "One flush writes all three");
+    ok(!WhimsyAIIndex._savePendingForTesting, "...and nothing waits after it");
+
+    WhimsyAIIndex._setSaveDelayForTesting(50);
+    ok(await WhimsyAIIndex.add({ url: "https://example.com/w32/snake", title: "snake", text: "snake" }), "A fourth add");
+    await TestUtils.waitForCondition(async () => (await WhimsyAIIndex._readFileForTesting()).length == 4,
+      "...is written by itself once the save delay passes");
+  } finally {
+    WhimsyAIIndex._setSaveDelayForTesting(null);
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+// What's added survives a restart: the shutdown blocker writes it.
+add_task(async function w32_index_survives_a_restart() {
+  const { AsyncShutdown } = ChromeUtils.importESModule("resource://gre/modules/AsyncShutdown.sys.mjs");
+  await WhimsyAIIndex.clear({});
+  try {
+    ok(AsyncShutdown.profileBeforeChange.removeBlocker(WhimsyAIIndex._saveAtShutdown), "The index has a shutdown blocker");
+    AsyncShutdown.profileBeforeChange.addBlocker("WhimsyAIIndex: save the Related index", WhimsyAIIndex._saveAtShutdown);
+    ok(await WhimsyAIIndex.add({ url: "https://example.com/w32/kept", title: "Coffee", text: "coffee espresso" }), "A page added");
+    is((await WhimsyAIIndex._readFileForTesting()).length, 0, "...not on disk yet");
+    await WhimsyAIIndex._saveAtShutdown();
+    WhimsyAIIndex._resetForTesting(); // As at the next start: nothing in memory.
+    Assert.deepEqual((await WhimsyAIIndex._entriesForTesting()).map(e => e.url), ["https://example.com/w32/kept"],
+      "After the shutdown save and a restart, the page is still there");
+    Assert.deepEqual((await WhimsyAIIndex.query("coffee", 3)).map(r => r.url), ["https://example.com/w32/kept"], "...and answers");
+  } finally {
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+// The JSON index older builds wrote is read, then rewritten in the binary
+// format, with the same entries and the same answers.
+add_task(async function w32_the_old_index_file_migrates() {
+  const file = PathUtils.join(await WhimsyAIStore.folder("index"), "index.bin");
+  const old = [
+    { url: "https://example.com/w32/coffee", title: "Coffee", vector: [0.1, 1 / 3, 0, Math.PI, 0, 1e-12], date: 1, chars: 900 },
+    { url: "https://example.com/w32/espresso", title: "Espresso", vector: [0.7, 0.2, 0, 0, 0, 0.5], date: 2, chars: 1200 },
+    { url: "https://example.com/w32/python", title: "Python", vector: vectorFor("python"), date: 3, chars: 600 },
+  ];
+  await IOUtils.writeJSON(file, { entries: old });
+  WhimsyAIIndex._resetForTesting();
+  try {
+    const before = await WhimsyAIIndex._scoresForTesting("coffee espresso");
+    is(await WhimsyAIIndex.count(), 3, "The old file loads");
+    const bytes = await IOUtils.read(file);
+    is(new TextDecoder().decode(bytes.subarray(0, 4)), "WAIX", "...and is rewritten in the new format at once");
+    Assert.deepEqual(await WhimsyAIIndex._readFileForTesting(), old.map(({ vector, ...rest }) => ({ ...rest, vector })),
+      "...with every entry and every vector bit for bit");
+    WhimsyAIIndex._resetForTesting();
+    Assert.deepEqual(await WhimsyAIIndex._scoresForTesting("coffee espresso"), before, "Read back from the new file, the scores are the same");
   } finally {
     await WhimsyAIIndex.clear({});
   }

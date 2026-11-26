@@ -70,6 +70,13 @@ async function writeFile(path, value) {
   await IOUtils.setPermissions(path, FILE_MODE);
 }
 
+// The same for raw bytes (a lane's own binary format).
+async function writeBytes(path, bytes) {
+  await ensureDir(PathUtils.parent(path));
+  await IOUtils.write(path, bytes, { tmpPath: path + ".tmp" });
+  await IOUtils.setPermissions(path, FILE_MODE);
+}
+
 async function readFile(path, fallback) {
   try {
     return await IOUtils.readJSON(path);
@@ -332,6 +339,14 @@ export const WhimsyAIStore = {
       throw new Error("Outside the AI store");
     }
     await queue(() => writeFile(path, value));
+  },
+
+  /** Writes a lane's binary file (a Uint8Array) into the store with the store's modes. */
+  async writeBytes(path, bytes) {
+    if (!path.startsWith(dir() + "/")) {
+      throw new Error("Outside the AI store");
+    }
+    await queue(() => writeBytes(path, bytes));
   },
 
   /**
