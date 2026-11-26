@@ -113,7 +113,8 @@ add_task(async function no_captions_starts_speech_silently() {
   const state = await videoControl(browser);
   ok(!state.cc.pressed, "CC stays off");
   ok(!state.captions?.shown, "Nothing is drawn on the video");
-  ok(chatPanel().body.querySelector(".whimsy-video-heard"), "What's said so far waits in chat");
+  // Summarize adds the card after the answer and its source note.
+  await TestUtils.waitForCondition(() => chatPanel().body.querySelector(".whimsy-video-heard"), "What's said so far waits in chat");
   sessions[0].listener.onText("He likes the new hinge, and says the battery swap took under two minutes. ".repeat(10), true);
   await TestUtils.waitForCondition(() => chatPanel().body.querySelector(".whimsy-video-heard-text")?.textContent.includes("hinge"), "and grows as it plays");
   await SpecialPowers.spawn(browser, [], () => {
@@ -136,8 +137,10 @@ add_task(async function plan_text_only_video_note() {
   await pressSummarize(browser);
   await summaryAnswered();
   ok(!hasImage(providerCalls[0]), "No frames for a text-only model");
-  const note = chatPanel().body.querySelector(".whimsy-chat-note[data-kind='video-source'] span");
-  await TestUtils.waitForCondition(() => note.textContent.includes("can’t look at frames"), "The note says it can't see frames");
+  await TestUtils.waitForCondition(
+    () => chatPanel().body.querySelector(".whimsy-chat-note[data-kind='video-source'] span")?.textContent.includes("can’t look at frames"),
+    "The note says it can't see frames"
+  );
   WhimsyAIProviders._usesPlan = usesPlan;
   await closeChat();
   await closeVideoTab(tab);
@@ -285,6 +288,36 @@ add_task(async function live_chapter_pill_reads_ago_and_cant_seek_when_not_seeka
   // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
   await new Promise(r => setTimeout(r, 200));
   is(await SpecialPowers.spawn(browser, [], () => content.document.body.dataset.seeks), "0", "A disabled pill never seeks");
+  await closeChat();
+  await closeVideoTab(tab);
+});
+
+// Chat keeps an earlier summary drawn until a new thread renders over it:
+// that answer never counts as the new summary being in.
+add_task(async function an_earlier_summary_never_counts_as_the_new_one() {
+  await freshChatStore();
+  stubProvider();
+  const { tab, browser } = await openVideo();
+  await pressSummarize(browser);
+  await summaryAnswered();
+  const oldId = chatPanel().thread.id;
+  await closeChat();
+  // Forget it as a summary, then show it again: answered, with its note.
+  WhimsyVideoSummary._resetForTesting();
+  await chatPanel().open({ threadId: oldId });
+  ok(chatPanel().body.querySelector(".whimsy-chat-msg[data-role='ai']:not([busy])"), "The earlier summary is drawn");
+  let answered = false;
+  const waiting = summaryAnswered().then(() => (answered = true));
+  await TestUtils.waitForCondition(() => chatPanel().ready, "Chat shows the earlier summary");
+  ok(!answered, "The earlier summary isn't the new one");
+
+  stubProvider();
+  const actor = browser.browsingContext.currentWindowGlobal.getActor("WhimsyVideoSpeed");
+  const videoId = await actor.sendQuery("WhimsyVideoSpeed:MainVideo");
+  await WhimsyVideoSummary.summarize(window, tab, { actor, videoId });
+  await waiting;
+  is(providerCalls.length, 1, "The new summary was asked for");
+  isnot(chatPanel().thread.id, oldId, "and chat shows it");
   await closeChat();
   await closeVideoTab(tab);
 });
