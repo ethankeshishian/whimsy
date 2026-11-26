@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- W31: multicolour brand logos (a four-colour wordmark, like Google's) in
+     every form a page shows one, monochrome icons that adaptive dark should
+     still lighten, and a card with a soft box-shadow on a light page. -->
+<style>
+  html, body { margin: 0; background: #f1f3f4; color: #202124; font: 16px system-ui; }
+  .row { display: flex; gap: 12px; padding: 8px; }
+  [data-logo] { display: block; width: 160px; height: 40px; }
+  [data-icon] { display: block; width: 40px; height: 40px; }
+  .bg { background: url(whimsy_dark_logo/wordmark.svg) no-repeat center / contain; }
+  .before::before { content: ""; display: block; width: 160px; height: 40px;
+    background: url(whimsy_dark_logo/wordmark.svg) no-repeat center / contain; }
+  .current { color: #202124; }
+  #card { margin: 48px; width: 240px; height: 120px; background: #fff; border: 1px solid #dadce0;
+    border-radius: 8px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45); }
+  #ring { margin: 48px; width: 240px; height: 40px; background: #fff;
+    box-shadow: 0 0 0 6px #dadce0; }
+</style>
+<div class="row">
+  <svg data-logo="inline svg" viewBox="0 0 160 40" aria-label="Logo"><rect x="0" width="36" height="40" fill="#4285F4"/><rect x="40" width="36" height="40" fill="#EA4335"/><rect x="80" width="36" height="40" fill="#FBBC05"/><rect x="120" width="36" height="40" fill="#34A853"/></svg>
+  <img data-logo="svg img" src="whimsy_dark_logo/wordmark.svg" alt="Logo">
+  <span data-logo="svg background" class="bg" role="img" aria-label="Logo"></span>
+  <a data-logo="svg ::before background" class="before" aria-label="Logo" href="#"></a>
+</div>
+<div class="row">
+  <svg data-icon="inline svg icon" viewBox="0 0 40 40"><rect width="40" height="40" fill="#202124"/></svg>
+  <svg data-icon="currentColor svg icon" class="current" viewBox="0 0 40 40"><rect width="40" height="40" fill="currentColor"/></svg>
+  <img data-icon="svg icon img" src="whimsy_dark_logo/icon.svg" alt="">
+  <span data-icon="svg icon background" style="background: url(whimsy_dark_logo/icon.svg) center / contain"></span>
+</div>
+<div id="card"></div>
+<div id="ring"></div>
