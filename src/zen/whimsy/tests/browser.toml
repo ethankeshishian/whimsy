@@ -1612,3 +1612,7 @@ support-files = ["head_aievals.js", "aievals/cases.json", "aievals/article_fr.ht
 # W32 perf: a StructuredCloneHolder's buffer counts toward its zone's GC
 # heuristics (extension messaging grew ~45 MB/min of uncollected holders).
 ["browser_whimsy_structured_clone_gc.js"]
+
+# W32 P2: panel sheets load on first open (ambient, emoji, find card, minimap, read aloud, dictation, trail, Cook mode), each applied before its panel shows; a new window has none; the mic's rules apply at rest.
+["browser_whimsy_lazy_sheets.js"]
+support-files = ["whimsy_minimap_long.html"]
