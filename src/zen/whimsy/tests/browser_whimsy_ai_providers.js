@@ -28,6 +28,19 @@ const DEVICE_NAME_PREF = "identity.fxaccounts.account.device.name";
 const deviceNameHadUserValue = Services.prefs.prefHasUserValue(DEVICE_NAME_PREF);
 const deviceNameValue = deviceNameHadUserValue ? Services.prefs.getStringPref(DEVICE_NAME_PREF) : null;
 
+// The cached usage may be set before this file runs; put it back as it was
+// after every other cleanup (removing a key rewrites it).
+const USAGE_PREF = "whimsy.ai.usage";
+const usageValue = Services.prefs.prefHasUserValue(USAGE_PREF) ? Services.prefs.getStringPref(USAGE_PREF) : null;
+
+function restoreUsage() {
+  if (usageValue === null) {
+    Services.prefs.clearUserPref(USAGE_PREF);
+  } else {
+    Services.prefs.setStringPref(USAGE_PREF, usageValue);
+  }
+}
+
 registerCleanupFunction(async () => {
   WhimsyAIProviders.setTestProvider(null);
   for (const provider of ["claude", "openai", "gemini"]) {
@@ -49,7 +62,6 @@ registerCleanupFunction(async () => {
     "whimsy.ai.order",
     "whimsy.ai.off",
     "whimsy.ai.resting",
-    "whimsy.ai.usage",
     "whimsy.ai.auto-enabled",
     "whimsy.ai.ollama.model",
     "whimsy.feature.ai-providers",
@@ -1582,4 +1594,6 @@ add_task(async function test_api_providers_run_mcp_tools() {
   for (const pref of ["whimsy.ai.order", "whimsy.ai.openai.model", "whimsy.ai.gemini.model", "whimsy.ai.ollama.endpoint", "whimsy.ai.ollama.model"]) {
     Services.prefs.clearUserPref(pref);
   }
+  // Cleanups run in order, so this one runs last.
+  registerCleanupFunction(restoreUsage);
 });
