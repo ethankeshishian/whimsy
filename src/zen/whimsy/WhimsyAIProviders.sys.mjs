@@ -91,9 +91,12 @@ const MODEL_PREFS = { claude: CLAUDE_MODEL_PREF, openai: OPENAI_MODEL_PREF, gemi
 const NOT_TEXT_MODEL = /embed|tts|whisper|dall-e|moderation|image|audio|realtime|transcribe|search|computer-use|davinci|babbage|aqa/i;
 // Latest Claude (user: "Default model: latest Claude").
 const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
-// The most tool rounds one Claude API answer may take.
-const CLAUDE_TOOL_TURNS = 8;
-const CLAUDE_TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
+// The most tool rounds one API answer may take (every API-key provider).
+const TOOL_TURNS = 8;
+// The tool names each API takes (Claude's, OpenAI's and Ollama's are alike;
+// Gemini's must start with a letter or underscore).
+const TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
+const GEMINI_TOOL_NAME = /^[a-zA-Z_][a-zA-Z0-9_.:-]{0,63}$/;
 // Tests point these at a local server.
 export const ENDPOINTS = {
   claude: "https://api.anthropic.com/v1",
@@ -1298,7 +1301,7 @@ export const WhimsyAIProviders = {
       const out = { content: [], stop: null };
       yield* this._claudeTurn(response, out, turn);
       const uses = out.content.filter(block => block.type == "tool_use");
-      if (out.stop != "tool_use" || !uses.length || !body.tools || round >= CLAUDE_TOOL_TURNS) {
+      if (out.stop != "tool_use" || !uses.length || !body.tools || round >= TOOL_TURNS) {
         return;
       }
       body.messages.push({ role: "assistant", content: out.content });
@@ -1403,11 +1406,28 @@ export const WhimsyAIProviders = {
 
   /**
    * The request's MCP servers as Messages API tools: { tools, run(uses, signal) }.
+   */
+  async _claudeToolbox(servers, signal) {
+    const toolbox = await this._toolbox(servers, signal);
+    return {
+      tools: toolbox.tools.map(tool => ({ name: tool.name, description: tool.description, input_schema: tool.schema })),
+      run: async uses => {
+        const results = await toolbox.run(uses.map(use => ({ id: use.id, name: use.name, input: use.input && typeof use.input == "object" ? use.input : {} })));
+        return results.map(result => ({ type: "tool_result", tool_use_id: result.id, content: result.content, ...(result.isError ? { is_error: true } : {}) }));
+      },
+    };
+  },
+
+  /**
+   * The request's MCP servers as tools any API can offer: { tools: [{ name,
+   * description, schema }], run(calls) }. run takes [{ id, name, input }]
+   * (input null: the model's arguments weren't valid JSON) and answers each
+   * in order with { id, content, isError }.
    * A tool runs without asking only when Claude Code would allow it
    * (a read-only server or tool); any other asks the run's guard, and is
    * refused when the run has none. The guard itself isn't offered.
    */
-  async _claudeToolbox(servers, signal) {
+  async _toolbox(servers, signal, valid = TOOL_NAME) {
     const { config, allowed, permissionTool } = lazy.WhimsyAIClaudeCode._mcpConfig(servers);
     const guardName = permissionTool ? permissionTool.slice("mcp__".length, -"__confirm".length) : null;
     const guard = guardName ? config.mcpServers[guardName] : null;
@@ -1439,7 +1459,10 @@ export const WhimsyAIProviders = {
     }
     const byName = new Map();
     for (const item of found) {
-      let name = count.get(item.tool) == 1 && CLAUDE_TOOL_NAME.test(item.tool) ? item.tool : item.full.slice("mcp__".length, "mcp__".length + 64);
+      let name = count.get(item.tool) == 1 && valid.test(item.tool) ? item.tool : item.full.slice("mcp__".length, "mcp__".length + 64);
+      if (!valid.test(name)) {
+        name = `_${name}`.slice(0, 64);
+      }
       while (byName.has(name)) {
         name = name.slice(0, 63) + "_";
       }
@@ -1460,23 +1483,25 @@ export const WhimsyAIProviders = {
       tools: [...byName].map(([name, item]) => ({
         name,
         description: item.description.slice(0, 10000),
-        input_schema: item.schema && typeof item.schema == "object" && item.schema.type == "object" ? item.schema : { type: "object", properties: {} },
+        schema: item.schema && typeof item.schema == "object" && item.schema.type == "object" ? item.schema : { type: "object", properties: {} },
       })),
-      run: async uses => {
+      run: async calls => {
         const results = [];
-        for (const use of uses) {
-          const item = byName.get(use.name);
-          const input = use.input && typeof use.input == "object" ? use.input : {};
+        for (const call of calls) {
+          const item = byName.get(call.name);
           let content;
           let isError = false;
           try {
             if (!item) {
-              throw new Error(`There is no tool named ${use.name}.`);
+              throw new Error(`There is no tool named ${call.name}.`);
             }
-            if (!item.allowed && !(await ask(item, input))) {
+            if (!call.input || typeof call.input != "object" || Array.isArray(call.input)) {
+              throw new Error("The arguments weren't a JSON object, so the tool didn't run.");
+            }
+            if (!item.allowed && !(await ask(item, call.input))) {
               throw new Error("The person didn't allow this. Don't try it another way; say what you would have done.");
             }
-            content = await lazy.WhimsyMCPClient.callTool(item.server.url, item.tool, input, { headers: item.server.headers ?? {}, signal });
+            content = await lazy.WhimsyMCPClient.callTool(item.server.url, item.tool, call.input, { headers: item.server.headers ?? {}, signal });
           } catch (e) {
             if (signal?.aborted) {
               throw new WhimsyAIError("aborted");
@@ -1484,7 +1509,7 @@ export const WhimsyAIProviders = {
             content = String(e?.message || e || "The tool failed.");
             isError = true;
           }
-          results.push({ type: "tool_result", tool_use_id: use.id, content: String(content ?? "") || "(no output)", ...(isError ? { is_error: true } : {}) });
+          results.push({ id: call.id, content: String(content ?? "") || "(no output)", isError });
         }
         return results;
       },
@@ -1558,7 +1583,9 @@ export const WhimsyAIProviders = {
 
   // ---- OpenAI (API key; the Responses API) ----
 
-  async *_openaiStream({ messages, system, maxTokens, signal, thinking, model: chosen }) {
+  // W31: request.tools reach OpenAI as function tools, run by the same
+  // bounded loop and permission rules as the Claude API path (_toolbox).
+  async *_openaiStream({ messages, system, maxTokens, signal, thinking, model: chosen, tools: servers = [] }) {
     const key = await this.getKey("openai");
     if (!key) {
       throw new WhimsyAIError("no-key");
@@ -1581,26 +1608,51 @@ export const WhimsyAIProviders = {
     if (this.capabilities("openai", model).thinking) {
       body.reasoning = { effort: OPENAI_EFFORT[thinking] ?? "low", summary: "auto" };
     }
-    const response = await this._post(`${ENDPOINTS.openai}/responses`, { authorization: `Bearer ${key}` }, body, signal);
-    this.observeUsage("openai", response.headers);
-    if (!response.ok) {
-      throw await this._httpError("openai", response);
+    const toolbox = servers?.length ? await this._toolbox(servers, signal) : null;
+    if (toolbox?.tools.length) {
+      body.tools = toolbox.tools.map(tool => ({ type: "function", name: tool.name, description: tool.description, parameters: tool.schema, strict: false }));
+      if (typeof body.input == "string") {
+        body.input = [{ role: "user", content: body.input }];
+      }
+      // Nothing is stored, so a tool round sends the reasoning back itself.
+      if (body.reasoning) {
+        body.include = ["reasoning.encrypted_content"];
+      }
     }
-    if (!isStream(response)) {
-      const text = responsesText((await response.json())?.output);
-      yield { type: "text", delta: text };
-      return;
-    }
-    try {
-      yield* responsesEvents(response.body);
-    } catch (failure) {
-      throw this._withReportedReset(failure, "openai", response.headers);
+    const turn = { wrote: false };
+    for (let round = 0; ; round++) {
+      const response = await this._post(`${ENDPOINTS.openai}/responses`, { authorization: `Bearer ${key}` }, body, signal);
+      this.observeUsage("openai", response.headers);
+      if (!response.ok) {
+        throw await this._httpError("openai", response);
+      }
+      const out = { output: null };
+      if (!isStream(response)) {
+        out.output = (await response.json())?.output ?? [];
+        yield* roundText([{ type: "text", delta: responsesText(out.output) }], turn);
+      } else {
+        try {
+          yield* roundText(responsesEvents(response.body, null, out), turn);
+        } catch (failure) {
+          throw this._withReportedReset(failure, "openai", response.headers);
+        }
+      }
+      const output = Array.isArray(out.output) ? out.output : [];
+      const calls = output.filter(item => item?.type == "function_call");
+      if (!calls.length || !body.tools || round >= TOOL_TURNS) {
+        return;
+      }
+      body.input.push(...output);
+      const results = await toolbox.run(calls.map(call => ({ id: call.call_id, name: call.name, input: toolInput(call.arguments) })));
+      body.input.push(...results.map(result => ({ type: "function_call_output", call_id: result.id, output: result.content })));
     }
   },
 
   // ---- Gemini (API key; the Generative Language API) ----
 
-  async *_geminiStream({ messages, system, maxTokens, signal, thinking, model: chosen }) {
+  // W31: request.tools reach Gemini as function declarations, run by the
+  // same bounded loop and permission rules as the Claude API path.
+  async *_geminiStream({ messages, system, maxTokens, signal, thinking, model: chosen, tools: servers = [] }) {
     const key = await this.getKey("gemini");
     if (!key) {
       throw new WhimsyAIError("no-key");
@@ -1624,13 +1676,48 @@ export const WhimsyAIProviders = {
     if (system) {
       body.systemInstruction = { parts: [{ text: system }] };
     }
+    const toolbox = servers?.length ? await this._toolbox(servers, signal, GEMINI_TOOL_NAME) : null;
+    if (toolbox?.tools.length) {
+      body.tools = [{ functionDeclarations: toolbox.tools.map(tool => ({ name: tool.name, description: tool.description, parametersJsonSchema: tool.schema })) }];
+    }
     // The key goes in a header, never the address (logs, history).
     const url = `${ENDPOINTS.gemini}/models/${encodeURIComponent(model.replace(/^models\//, ""))}:streamGenerateContent?alt=sse`;
-    const response = await this._post(url, { "x-goog-api-key": key }, body, signal);
-    this.observeUsage("gemini", response.headers);
-    if (!response.ok) {
-      throw await this._httpError("gemini", response);
+    const turn = { wrote: false };
+    for (let round = 0; ; round++) {
+      const response = await this._post(url, { "x-goog-api-key": key }, body, signal);
+      this.observeUsage("gemini", response.headers);
+      if (!response.ok) {
+        throw await this._httpError("gemini", response);
+      }
+      const out = { parts: [], malformed: false };
+      yield* roundText(this._geminiTurn(response, out), turn);
+      const calls = out.parts.filter(part => part.functionCall);
+      if (!calls.length || !body.tools || round >= TOOL_TURNS) {
+        // A call Gemini couldn't form ends the answer; with nothing said,
+        // that's a failed answer, not an empty one.
+        if (out.malformed && !turn.wrote) {
+          throw new WhimsyAIError("bad-response", "Gemini's tool call was malformed");
+        }
+        return;
+      }
+      body.contents.push({ role: "model", parts: out.parts });
+      const results = await toolbox.run(calls.map(({ functionCall: call }) => ({ id: call.id, name: call.name, input: toolInput(call.args) })));
+      body.contents.push({
+        role: "user",
+        parts: results.map((result, i) => ({
+          functionResponse: {
+            ...(calls[i].functionCall.id ? { id: calls[i].functionCall.id } : {}),
+            name: String(calls[i].functionCall.name ?? ""),
+            response: result.isError ? { error: result.content } : { result: result.content },
+          },
+        })),
+      });
     }
+  },
+
+  // One generateContent answer as AIEvents; out gets its parts (sent back,
+  // thought signatures included, after a tool round).
+  async *_geminiTurn(response, out) {
     const chunks = isStream(response) ? lazy.sseJSON(response.body) : oneChunk(response);
     for await (const { json } of chunks) {
       if (json.error) {
@@ -1649,10 +1736,16 @@ export const WhimsyAIProviders = {
       if (candidate.finishReason == "SAFETY") {
         throw new WhimsyAIError("refused");
       }
+      if (/MALFORMED_FUNCTION_CALL/.test(candidate.finishReason ?? "")) {
+        out.malformed = true;
+      }
       for (const part of candidate.content?.parts || []) {
-        if (part.thought && part.text) {
+        if (part && typeof part == "object") {
+          out.parts.push(part);
+        }
+        if (part?.thought && part.text) {
           yield { type: "thinking", text: part.text };
-        } else if (part.text) {
+        } else if (part?.text) {
           yield { type: "text", delta: part.text };
         }
       }
@@ -1776,7 +1869,12 @@ export const WhimsyAIProviders = {
     return (Services.prefs.getStringPref(OLLAMA_ENDPOINT_PREF, "") || "http://127.0.0.1:11434").replace(/\/+$/, "");
   },
 
-  async *_ollamaStream({ messages, system, signal, thinking, model: chosen }) {
+  // W31: request.tools reach Ollama as function tools, run by the same
+  // bounded loop and permission rules as the Claude API path. A model that
+  // can't call tools (Ollama refuses it by name, "does not support tools")
+  // is asked once more without them, as before tools were sent, so chat
+  // with connectors on still works on it.
+  async *_ollamaStream({ messages, system, signal, thinking, model: chosen, tools: servers = [] }) {
     const model = chosen || Services.prefs.getStringPref(OLLAMA_MODEL_PREF, "");
     if (!model) {
       throw new WhimsyAIError("no-model");
@@ -1798,24 +1896,61 @@ export const WhimsyAIProviders = {
     if (this.capabilities("ollama", model).thinking) {
       body.think = OLLAMA_THINK[thinking] ?? false;
     }
-    let response;
-    try {
-      response = await fetch(`${this.ollamaEndpoint}/api/chat`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-        credentials: "omit",
-        signal,
-      });
-    } catch (error) {
-      if (signal.aborted) {
-        throw error;
+    const toolbox = servers?.length ? await this._toolbox(servers, signal) : null;
+    if (toolbox?.tools.length) {
+      body.tools = toolbox.tools.map(tool => ({ type: "function", function: { name: tool.name, description: tool.description, parameters: tool.schema } }));
+    }
+    const turn = { wrote: false };
+    for (let round = 0; ; round++) {
+      let response;
+      try {
+        response = await fetch(`${this.ollamaEndpoint}/api/chat`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+          credentials: "omit",
+          signal,
+        });
+      } catch (error) {
+        if (signal.aborted) {
+          throw error;
+        }
+        throw new WhimsyAIError("unavailable");
       }
-      throw new WhimsyAIError("unavailable");
+      if (!response.ok) {
+        if (response.status == 400 && body.tools && !round) {
+          let said = "";
+          try {
+            said = String((await response.clone().json())?.error ?? "");
+          } catch {}
+          if (/does not support tools/i.test(said)) {
+            delete body.tools;
+            round--;
+            continue;
+          }
+        }
+        throw await this._httpError("ollama", response);
+      }
+      const out = { content: "", calls: [] };
+      yield* roundText(this._ollamaTurn(response, out), turn);
+      if (!out.calls.length || !body.tools || round >= TOOL_TURNS) {
+        return;
+      }
+      chat.push({ role: "assistant", content: out.content, tool_calls: out.calls });
+      const results = await toolbox.run(out.calls.map((call, i) => ({ id: call.id ?? i, name: call.function?.name, input: toolInput(call.function?.arguments) })));
+      chat.push(
+        ...results.map((result, i) => ({
+          role: "tool",
+          content: result.content,
+          tool_name: String(out.calls[i].function?.name ?? ""),
+          ...(out.calls[i].id ? { tool_call_id: out.calls[i].id } : {}),
+        }))
+      );
     }
-    if (!response.ok) {
-      throw await this._httpError("ollama", response);
-    }
+  },
+
+  // One /api/chat answer as AIEvents; out gets its words and tool calls.
+  async *_ollamaTurn(response, out) {
     const lines = isStream(response) ? lazy.ndjson(response.body) : oneObject(response);
     for await (const line of lines) {
       if (line.error) {
@@ -1825,7 +1960,11 @@ export const WhimsyAIProviders = {
         yield { type: "thinking", text: line.message.thinking };
       }
       if (line.message?.content) {
+        out.content += line.message.content;
         yield { type: "text", delta: line.message.content };
+      }
+      if (Array.isArray(line.message?.tool_calls)) {
+        out.calls.push(...line.message.tool_calls.filter(call => call && typeof call == "object"));
       }
       if (line.done) {
         return;
@@ -2270,6 +2409,41 @@ function partsOf(content) {
   return (Array.isArray(content) ? content : []).filter(part => part?.type == "text" || part?.type == "image");
 }
 
+// A model's tool arguments (an object or its JSON) as an object; null when
+// they aren't one.
+function toolInput(args) {
+  if (args == null || args === "") {
+    return {};
+  }
+  let value = args;
+  if (typeof args == "string") {
+    try {
+      value = JSON.parse(args);
+    } catch {
+      return null;
+    }
+  }
+  return value && typeof value == "object" && !Array.isArray(value) ? value : null;
+}
+
+// One tool round's AIEvents; its first words start a new paragraph when an
+// earlier round of the same answer already wrote some.
+async function* roundText(events, turn) {
+  let wrote = false;
+  for await (const event of events) {
+    if (event?.type == "text") {
+      if (!event.delta) {
+        continue;
+      }
+      const lead = turn.wrote && !wrote ? "\n\n" : "";
+      turn.wrote = wrote = true;
+      yield { ...event, delta: lead + event.delta };
+    } else {
+      yield event;
+    }
+  }
+}
+
 function isStream(response) {
   return /event-stream|ndjson/i.test(response.headers.get("content-type") ?? "");
 }
@@ -2409,7 +2583,9 @@ export function responsesText(output) {
 
 // A Responses API stream as AIEvents. mapCode turns OpenAI's error codes
 // into Whimsy's (the ChatGPT plan has its own).
-export async function* responsesEvents(body, mapCode = null) {
+// out.output gets the finished response's output items (a tool round sends
+// them back).
+export async function* responsesEvents(body, mapCode = null, out = null) {
   let streamed = false;
   let refused = false;
   let citations = 0;
@@ -2445,6 +2621,9 @@ export async function* responsesEvents(body, mapCode = null) {
       case "response.completed": {
         if (refused) {
           throw new WhimsyAIError("refused");
+        }
+        if (out) {
+          out.output = json.response?.output ?? [];
         }
         if (!streamed) {
           const text = responsesText(json.response?.output);
