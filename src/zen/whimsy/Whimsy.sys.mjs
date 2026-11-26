@@ -106,6 +106,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
   WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
   WhimsyStats: "resource:///modules/whimsy/WhimsyStats.sys.mjs",
+  // W32 perf: dev-only init timing.
+  WhimsyPerfMarks: "resource:///modules/whimsy/WhimsyPerfMarks.sys.mjs",
 });
 
 // Outside agents (local MCP server for Claude Code and other apps).
@@ -802,12 +804,19 @@ export const Whimsy = {
     ChromeUtils.defineESModuleGetters(win, {
       WhimsyNetProbe: "resource:///modules/whimsy/WhimsyNetErrorParent.sys.mjs",
     });
-    const run = (name, fn) => {
+    const initStart = Cu.now();
+    // W32 perf: each step is timed when whimsy.perf.marks is on.
+    const exec = (name, tier, fn) => {
       try {
-        fn();
+        lazy.WhimsyPerfMarks.step(win, name, tier, fn);
       } catch (e) {
         console.error(`Whimsy: ${name} failed`, e);
       }
+    };
+    let eagerCount = 0;
+    const run = (name, fn) => {
+      eagerCount++;
+      exec(name, "window", fn);
     };
     // wave7/small: lazy init. Parts nobody can see or reach in the first
     // moments of a window (command-bar-only actions, network refreshers,
@@ -1438,7 +1447,8 @@ export const Whimsy = {
       lazy.WhimsyAnnotations.initWindow(win);
     });
 
-    this.runDeferred(win, deferred, run);
+    lazy.WhimsyPerfMarks.planned(win, { window: eagerCount, idle: deferred.length, "first-use": 0 }, initStart);
+    this.runDeferred(win, deferred, (name, fn) => exec(name, "idle", fn));
   },
 
   // wave7/small: runs a window's deferred init when it's first idle (at

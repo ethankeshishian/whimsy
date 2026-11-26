@@ -741,6 +741,10 @@
 - name: whimsy.startup.lazy-init
   value: true
 
+# W32 perf: dev-only init timing marks (WhimsyPerfMarks); no UI.
+- name: whimsy.perf.marks
+  value: false
+
 # wave9: Battery saver (threshold, auto-off, throttles).
 - name: whimsy.battery-saver.enabled
   value: true
