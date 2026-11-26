@@ -1,6 +1,24 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1423",
+      "date": "2026-11-26",
+      "title": "Folder tabs come back where you left them",
+      "new": [],
+      "improved": [
+        "The Extension Builder and chat can use your connectors' tools with OpenAI, Gemini, and Ollama, not only Claude. Tools that change something still ask you first.",
+        "Related finds pages that belong together more reliably, including long pages."
+      ],
+      "fixed": [
+        "Unloading a folder keeps each tab on the page you were last on, instead of resetting it to the page it was pinned on.",
+        "Shadows stay dark in adaptive dark instead of turning into light halos around cards.",
+        "The Extension Builder can write its plugin when you use Claude with an API key.",
+        "Asking chat to fill a form and then send it submits the form.",
+        "When translating with AI fails, Firefox's own translation takes over, and if that also fails you see why.",
+        "Ollama models that can't use tools keep answering when connectors are on."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1390",
       "date": "2026-11-25",
       "title": "Emoji keep their colors in dark pages",
