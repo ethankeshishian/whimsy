@@ -440,7 +440,19 @@ export const WhimsyCommands = {
     if (!wanted) {
       return null;
     }
-    for (const keyEl of document.querySelectorAll("key")) {
+    // W32 perf: a window's init asks this about every default shortcut it
+    // registers. Most keys differ in their key, so that's compared first,
+    // and only a key on the same one has its modifiers normalised.
+    const what = wanted.slice(wanted.indexOf("|") + 1);
+    for (const keyEl of document.getElementsByTagName("key")) {
+      const keycode = keyEl.getAttribute("keycode");
+      const key = keycode ? null : keyEl.getAttribute("key");
+      if (!keycode && !key) {
+        continue;
+      }
+      if ((keycode ? `code:${keycode.toUpperCase()}` : `key:${key.toUpperCase()}`) != what) {
+        continue;
+      }
       if (keyEl.id && keyEl.id == exceptId) {
         continue;
       }
