@@ -591,6 +591,26 @@ HOTFIXES = [
                "          });",
     },
     {
+        "id": "folder-unload-keeps-latest-page",
+        "file": "src/zen/tabs/ZenPinnedTabManager.mjs",
+        "why": "W31 foldertab: a folder's Unload (its button and Unload All "
+               "Tabs) went through the close shortcut's behavior, which by "
+               "default also resets, so every tab in the folder lost the page "
+               "it had got to and opened on its pinned page again. Unloading "
+               "only unloads; resetting stays with Cmd+W and Reset Pinned Tab.",
+        "old": "      if (\n"
+               "        alwaysUnload &&\n"
+               "        [\"close\", \"reset\", \"switch\", \"reset-switch\"].includes(behavior)\n"
+               "      ) {\n"
+               "        behavior = behavior.includes(\"reset\")\n"
+               "          ? \"reset-unload-switch\"\n"
+               "          : \"unload-switch\";\n"
+               "      }",
+        "new": "      if (alwaysUnload) {\n"
+               "        behavior = \"unload-switch\"; // Whimsy hotfix: unloading never resets\n"
+               "      }",
+    },
+    {
         "id": "pinned-tab-essentials-private-window",
         "file": "src/zen/tabs/ZenPinnedTabManager.mjs",
         "why": "canEssentialBeAdded() dereferences getActiveWorkspaceFromCache() "

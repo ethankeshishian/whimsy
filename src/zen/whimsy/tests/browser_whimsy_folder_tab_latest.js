@@ -22,6 +22,20 @@ function uniquePath(tag) {
   return `/browser/whimsy-foldertab-${tag}-${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Unloading the selected folder tab moves to another tab, and Zen may open
+// its blank tab for that; leave the window with the tabs it started with.
+const startingTabs = new Set(gBrowser.tabs);
+registerCleanupFunction(async () => {
+  for (const tab of [...gBrowser.tabs]) {
+    if (!startingTabs.has(tab) && tab.isConnected && !tab.closing) {
+      if (tab.pinned) {
+        gBrowser.unpinTab(tab);
+      }
+      await BrowserTestUtils.removeTab(tab);
+    }
+  }
+});
+
 add_setup(async () => {
   await SpecialPowers.pushPrefEnv({
     set: [
@@ -67,7 +81,8 @@ async function selectAndWait(tab, url, message) {
     () => !tab.hasAttribute("pending") && tab.linkedBrowser.currentURI.spec != "about:blank",
     "The tab loads"
   );
-  // Give a reset a chance to swap the page in.
+  // A reset restores the tab's state asynchronously; give it time to land.
+  await TestUtils.waitForCondition(() => tab.linkedBrowser.currentURI.spec == url, message).catch(() => {});
   await TabStateFlusher.flush(tab.linkedBrowser);
   is(tab.linkedBrowser.currentURI.spec, url, message);
 }

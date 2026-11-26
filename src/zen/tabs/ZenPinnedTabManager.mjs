@@ -349,13 +349,8 @@ class nsZenPinnedTabManager extends nsZenDOMOperatedFeature {
         behavior = "unload-switch";
       }
 
-      if (
-        alwaysUnload &&
-        ["close", "reset", "switch", "reset-switch"].includes(behavior)
-      ) {
-        behavior = behavior.includes("reset")
-          ? "reset-unload-switch"
-          : "unload-switch";
+      if (alwaysUnload) {
+        behavior = "unload-switch"; // Whimsy hotfix: unloading never resets
       }
 
       switch (behavior) {
