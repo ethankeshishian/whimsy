@@ -32,7 +32,20 @@
 </main>
 <script>
   const kind = new URLSearchParams(location.search).get("img") || "en";
-  document.getElementById("photo").src = kind == "scene" ? "whimsy_image_text_scene.svg" : `whimsy_image_text_sign_${kind}.svg`;
+  const params = new URLSearchParams(location.search);
+  const photo = document.getElementById("photo");
+  // W32 perf: ?far=1 puts the photo well below the fold.
+  if (params.get("far")) {
+    photo.parentNode.before(Object.assign(document.createElement("div"), { id: "spacer", style: "height: 3000px" }));
+  }
+  // W32 perf: ?small=1 adds images no one reads: a spacer pixel shown large,
+  // and a sign shown as a small icon.
+  if (params.get("small")) {
+    const add = (src, style) => photo.parentNode.after(Object.assign(document.createElement("img"), { src, style }));
+    add("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'/%3E", "");
+    add("whimsy_image_text_sign_en.svg?icon", "width: 40px; height: 22px");
+  }
+  photo.src = kind == "scene" ? "whimsy_image_text_scene.svg" : `whimsy_image_text_sign_${kind}.svg`;
 </script>
 </body>
 </html>

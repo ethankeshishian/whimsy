@@ -13,6 +13,11 @@ const FEATURE_PREF = "whimsy.feature.image-text";
 const DWELL_MS = 300;
 const MIN_WIDTH = 48;
 const MIN_HEIGHT = 24;
+// Smaller than this in either direction as a file, an image holds no
+// readable text however large it's shown (spacers, tracking pixels, icons).
+const MIN_NATURAL = 16;
+// Images read at once, per frame.
+const MAX_JOBS = 2;
 const MAX_LINES = 200;
 const MAX_TEXT = 500;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -86,9 +91,14 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
   pending = new Map();
   seen = new WeakSet();
   timers = new Map();
+  // Images that stayed in view, waiting for an idle moment to be read.
+  queue = new Set();
+  running = 0;
+  idle = null;
   nextId = 1;
   host = null;
   root = null;
+  started = false;
   observer = null;
   mutations = null;
   scheduled = false;
@@ -110,32 +120,32 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   }
 
+  // W32 perf: a frame costs nothing until it has an image. No observer
+  // watches the page's DOM: an image that arrives (or changes source)
+  // fires `load`, caught here in the capture phase, and only images ever
+  // go to the IntersectionObserver, which is made for the first one.
   start() {
     const doc = this.document;
-    if (this.observer || !this.enabled || !doc?.documentElement || doc.contentType?.startsWith("image/")) {
+    if (this.started || !this.enabled || !doc?.documentElement || doc.contentType?.startsWith("image/")) {
       return;
     }
-    const win = this.contentWindow;
-    this.observer = new win.IntersectionObserver(entries => this.onIntersect(entries), { threshold: 0.25 });
-    this.mutations = new win.MutationObserver(() => this.rescanSoon());
-    this.mutations.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcset"] });
-    this.onScroll = () => this.layoutSoon();
-    this.onCopyEvent = event => this.onCopy(event);
-    // In the system group: a page's own copy listeners are what Allow Copy
-    // looks for (WhimsyPageChild.pageBlocksCopy), so this one in the default
-    // group made every page read as blocking copying.
-    win.addEventListener("copy", this.onCopyEvent, { capture: true, mozSystemGroup: true });
-    win.addEventListener("scroll", this.onScroll, { capture: true, passive: true, mozSystemGroup: true });
-    win.addEventListener("resize", this.onScroll, { passive: true, mozSystemGroup: true });
-    this.resizes = new win.ResizeObserver(() => this.layoutSoon());
-    this.rescan();
+    this.started = true;
+    this.onImageLoad = event => this.imageLoaded(event.target);
+    doc.addEventListener("load", this.onImageLoad, { capture: true, mozSystemGroup: true });
+    for (const img of doc.images) {
+      this.watch(img);
+    }
   }
 
   stop() {
+    const win = this.contentWindow;
+    const doc = this.document;
+    if (doc && this.onImageLoad) {
+      doc.removeEventListener("load", this.onImageLoad, { capture: true, mozSystemGroup: true });
+    }
     this.observer?.disconnect();
     this.mutations?.disconnect();
     this.resizes?.disconnect();
-    const win = this.contentWindow;
     if (win && this.onScroll) {
       win.removeEventListener("scroll", this.onScroll, { capture: true, mozSystemGroup: true });
       win.removeEventListener("resize", this.onScroll, { mozSystemGroup: true });
@@ -144,8 +154,14 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     for (const timer of this.timers.values()) {
       win?.clearTimeout(timer);
     }
-    this.observer = this.mutations = this.resizes = null;
+    if (this.idle != null) {
+      win?.cancelIdleCallback(this.idle);
+    }
+    this.started = false;
+    this.observer = this.mutations = this.resizes = this.onScroll = this.onImageLoad = this.idle = null;
+    this.seen = new WeakSet();
     this.timers.clear();
+    this.queue.clear();
     this.pending.clear();
     this.images.clear();
     this.host?.remove();
@@ -159,50 +175,89 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     this.resizes?.disconnect();
   }
 
-  rescanSoon() {
-    if (this.rescanTimer || !this.contentWindow) {
-      return;
-    }
-    this.rescanTimer = this.contentWindow.setTimeout(() => {
-      this.rescanTimer = null;
-      this.rescan();
-    }, 250);
+  isImage(node) {
+    return node?.localName == "img" && node.namespaceURI == "http://www.w3.org/1999/xhtml" && node.ownerDocument == this.document;
   }
 
-  rescan() {
-    if (!this.observer) {
+  // Too small to hold readable text at any size it's shown: spacers,
+  // tracking pixels, and icons. Known only once the image has loaded.
+  tiny(img) {
+    return img.complete && img.naturalWidth > 0 && (img.naturalWidth < MIN_NATURAL || img.naturalHeight < MIN_NATURAL);
+  }
+
+  watch(img, fresh = false) {
+    if (!this.started || this.tiny(img)) {
       return;
     }
-    for (const img of this.document.images) {
-      if (!this.seen.has(img)) {
-        this.seen.add(img);
-        this.observer.observe(img);
-      }
+    if (!this.observer) {
+      this.observer = new this.contentWindow.IntersectionObserver(entries => this.onIntersect(entries), { threshold: 0.25 });
     }
-    for (const [img, info] of this.images) {
-      if (!img.isConnected) {
-        info.box.remove();
-        this.images.delete(img);
-      } else if ((img.currentSrc || img.src) != info.src) {
-        info.box.remove();
-        this.images.delete(img);
-        this.observer.unobserve(img);
-        this.observer.observe(img);
+    if (this.seen.has(img)) {
+      if (!fresh) {
+        return;
       }
+      // A fresh entry now that it has its real size (or a new source).
+      this.observer.unobserve(img);
     }
-    this.layoutSoon();
+    this.seen.add(img);
+    this.observer.observe(img);
+  }
+
+  imageLoaded(img) {
+    if (!this.started || !this.isImage(img)) {
+      return;
+    }
+    const info = this.images.get(img);
+    if (info) {
+      if ((img.currentSrc || img.src) == info.src) {
+        return;
+      }
+      // A new source (src, srcset, or <picture> picked another): read it afresh.
+      info.box?.remove();
+      this.images.delete(img);
+    }
+    if (this.tiny(img)) {
+      this.forget(img);
+      return;
+    }
+    this.watch(img, true);
+  }
+
+  forget(img) {
+    this.contentWindow?.clearTimeout(this.timers.get(img));
+    this.timers.delete(img);
+    this.queue.delete(img);
+    if (this.seen.has(img)) {
+      this.observer?.unobserve(img);
+      this.seen.delete(img);
+    }
+  }
+
+  // Only once some image has text: the page moving under it (content
+  // added above, a removed image) moves or drops its lines.
+  watchLayout() {
+    if (this.mutations || !this.contentWindow) {
+      return;
+    }
+    this.mutations = new this.contentWindow.MutationObserver(() => this.layoutSoon());
+    this.mutations.observe(this.document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcset"] });
   }
 
   onIntersect(entries) {
     const win = this.contentWindow;
     for (const entry of entries) {
       const img = entry.target;
-      if (!entry.isIntersecting) {
+      const rect = entry.boundingClientRect;
+      if (!entry.isIntersecting || rect.width < MIN_WIDTH || rect.height < MIN_HEIGHT) {
         win.clearTimeout(this.timers.get(img));
         this.timers.delete(img);
+        this.queue.delete(img);
+        if (!img.isConnected && this.images.get(img)?.box) {
+          this.layoutSoon();
+        }
         continue;
       }
-      if (this.images.has(img) || this.pending.has(img) || this.timers.has(img)) {
+      if (this.images.has(img) || this.pending.has(img) || this.timers.has(img) || this.queue.has(img)) {
         continue;
       }
       // Only images that stay in view: a fast scroll recognizes nothing.
@@ -210,9 +265,47 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
         img,
         win.setTimeout(() => {
           this.timers.delete(img);
-          this.recognize(img);
+          this.enqueue(img);
         }, DWELL_MS)
       );
+    }
+  }
+
+  // W32 perf: reading waits for the page to be idle, and at most
+  // MAX_JOBS images are read at once.
+  enqueue(img) {
+    if (this.images.has(img) || this.pending.has(img)) {
+      return;
+    }
+    this.queue.add(img);
+    this.pumpSoon();
+  }
+
+  pumpSoon() {
+    const win = this.contentWindow;
+    if (!win || this.idle != null || !this.queue.size || this.running >= MAX_JOBS) {
+      return;
+    }
+    this.idle = win.requestIdleCallback(() => {
+      this.idle = null;
+      this.pump();
+    });
+  }
+
+  pump() {
+    for (const img of this.queue) {
+      if (this.running >= MAX_JOBS) {
+        break;
+      }
+      this.queue.delete(img);
+      if (!img.isConnected || this.images.has(img) || this.pending.has(img)) {
+        continue;
+      }
+      this.running++;
+      this.recognize(img).finally(() => {
+        this.running--;
+        this.pumpSoon();
+      });
     }
   }
 
@@ -229,6 +322,7 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     if (this.pending.has(img)) {
       return this.pending.get(img);
     }
+    this.queue.delete(img);
     const promise = this.#recognize(img).finally(() => this.pending.delete(img));
     this.pending.set(img, promise);
     return promise;
@@ -247,33 +341,47 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
       }
     }
     const src = img.currentSrc || img.src;
-    if (!src) {
+    if (!src || this.tiny(img)) {
       return null;
     }
+    // The parent keeps what each image held (by address and size), so a
+    // revisit, another tab, or a second copy of it isn't read again.
+    const size = { width: img.naturalWidth, height: img.naturalHeight };
     let lines = null;
+    let fresh = false;
     try {
-      const begin = await this.sendQuery("Whimsy:ImageText:Begin", { src });
+      const begin = await this.sendQuery("Whimsy:ImageText:Begin", { src, ...size });
       if (!begin?.enabled) {
         return null;
       }
+      fresh = !begin.lines;
       lines = begin.lines ?? [...(await img.recognizeCurrentImageText())].map(fromQuad);
     } catch (e) {
       console.error("Whimsy: image text recognition", e);
-      return null;
-    }
-    if (!this.observer || !img.isConnected || (img.currentSrc || img.src) != src) {
       return null;
     }
     lines = (lines ?? [])
       .filter(validLine)
       .slice(0, MAX_LINES)
       .map(l => ({ text: l.text.trim().slice(0, MAX_TEXT), quad: l.quad }));
+    if (!this.started || !img.isConnected || (img.currentSrc || img.src) != src) {
+      if (fresh) {
+        this.sendAsyncMessage("Whimsy:ImageText:Read", { src, ...size, lines });
+      }
+      return null;
+    }
     const info = { id: this.nextId++, src, lines, els: [], translated: false, pill: null, box: null };
     if (lines.length) {
       this.build(img, info);
     }
     this.images.set(img, info);
-    this.sendAsyncMessage("Whimsy:ImageText:Found", { src, imageId: info.id, lines: lines.map(l => l.text), inView: this.inView(img) });
+    this.sendAsyncMessage("Whimsy:ImageText:Found", {
+      src,
+      imageId: info.id,
+      lines: lines.map(l => l.text),
+      inView: this.inView(img),
+      ...(fresh ? { read: { ...size, quads: lines.map(l => l.quad) } } : {}),
+    });
     return info;
   }
 
@@ -282,6 +390,7 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
       return;
     }
     const doc = this.document;
+    const win = this.contentWindow;
     this.host = doc.createElement("div");
     this.host.setAttribute(
       "style",
@@ -295,6 +404,19 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     this.root.addEventListener("click", event => this.onClick(event));
     // In the body: find (⌘F and its count) searches only the body.
     (doc.body ?? doc.documentElement).append(this.host);
+    if (!this.onScroll) {
+      // Only a page with text in an image listens to scrolling and copying.
+      this.onScroll = () => this.layoutSoon();
+      this.onCopyEvent = event => this.onCopy(event);
+      // In the system group: a page's own copy listeners are what Allow Copy
+      // looks for (WhimsyPageChild.pageBlocksCopy), so this one in the default
+      // group made every page read as blocking copying.
+      win.addEventListener("copy", this.onCopyEvent, { capture: true, mozSystemGroup: true });
+      win.addEventListener("scroll", this.onScroll, { capture: true, passive: true, mozSystemGroup: true });
+      win.addEventListener("resize", this.onScroll, { passive: true, mozSystemGroup: true });
+      this.resizes = new win.ResizeObserver(() => this.layoutSoon());
+    }
+    this.watchLayout();
   }
 
   build(img, info) {
@@ -322,7 +444,12 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     this.contentWindow.requestAnimationFrame(() => {
       this.scheduled = false;
       for (const [img, info] of this.images) {
-        if (info.box) {
+        if (!img.isConnected || (img.currentSrc || img.src) != info.src) {
+          // The page took the image out or changed it: its lines go with it
+          // (a new source is read again once it loads).
+          info.box?.remove();
+          this.images.delete(img);
+        } else if (info.box) {
           this.layout(img, info);
         }
       }

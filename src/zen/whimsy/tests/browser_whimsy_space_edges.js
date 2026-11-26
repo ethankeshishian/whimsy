@@ -227,12 +227,42 @@ add_task(async function test_switcher_arrows_skip_hidden_and_enforce_edges() {
   await settle();
 });
 
+// W32 perf: a new window doesn't wrap Zen's swipe edge actions (or load
+// the Library module for them) until its first swipe, nor at all while
+// the feature is off.
+add_task(async function test_edge_actions_wrapped_on_first_swipe() {
+  const tabsBefore = new Set(gBrowser.tabs);
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  try {
+    await win.gZenWorkspaces.promiseInitialized;
+    await TestUtils.waitForCondition(() => WhimsySpaceSwitchQueue.debugState(win), "The switch queue set up the window");
+    ok(!WhimsySpaceSwitchQueue.edgeSwipesWrapped(win), "A new window hasn't wrapped them");
+    await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.space-switch-queue", false]] });
+    win.dispatchEvent(new win.Event("MozSwipeGestureMayStart"));
+    ok(!WhimsySpaceSwitchQueue.edgeSwipesWrapped(win), "Off, a swipe doesn't wrap them either");
+    await SpecialPowers.popPrefEnv();
+    win.dispatchEvent(new win.Event("MozSwipeGestureMayStart"));
+    ok(WhimsySpaceSwitchQueue.edgeSwipesWrapped(win), "On, the first swipe wraps them");
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+    // A tab the synced window left in this one.
+    for (const tab of [...gBrowser.tabs]) {
+      if (!tabsBefore.has(tab)) {
+        await BrowserTestUtils.removeTab(tab);
+      }
+    }
+  }
+});
+
 // W11-16: Zen's swipe edge actions (New Space past the last space, the
 // Library past the first) count the visible spaces, so a hidden space at an
 // end doesn't take them away. They are the window's own module instances
 // (Zen loads them with global "current").
 add_task(async function test_edge_actions_count_visible_spaces() {
   await SpecialPowers.pushPrefEnv({ set: [["zen.library.enabled", true]] });
+  // The wrap happens as a swipe begins (W32 perf); a swipe's first event.
+  window.dispatchEvent(new Event("MozSwipeGestureMayStart"));
+  ok(WhimsySpaceSwitchQueue.edgeSwipesWrapped(window), "A swipe beginning wraps the edge actions");
   const { ZenLibrary } = window.ChromeUtils.importESModule("moz-src:///zen/library/ZenLibrary.mjs", { global: "current" });
   const { ZenSpaceAddSwipe } = window.ChromeUtils.importESModule("resource:///modules/zen/ZenSpaceAddSwipe.mjs", { global: "current" });
   ok(ZenLibrary.readySwipeOpenLibrary._whimsyVisible, "The window's ZenLibrary is wrapped");

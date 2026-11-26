@@ -117,3 +117,33 @@ add_task(async function test_never_backward_complete_and_fresh() {
   await next.finish();
   BrowserTestUtils.removeTab(tab);
 });
+
+// W32 perf: the line's 100 ms creep timer runs only while a load is under
+// way with the bar up; once it finishes, nothing wakes the browser.
+add_task(async function test_timer_stops_when_the_load_finishes() {
+  const { WhimsyTabs } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyTabs.sys.mjs");
+  const line = WhimsyTabs._loadingLines.get(window);
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
+  await TestUtils.waitForCondition(() => !line.ticking, "No load: no timer");
+  const { loaded } = await load(tab, 1500);
+  ok(line.ticking, "Mid-load, the line creeps");
+  await loaded;
+  await TestUtils.waitForCondition(() => !line.ticking, "The load finished: the timer is cleared");
+  is(progress(tab), 1, "with the line full");
+  await TestUtils.waitForCondition(() => !indicator(), "Zen hides the bar");
+  await TestUtils.waitForCondition(() => !line.states.size, "and nothing is tracked any more");
+  ok(!line.ticking, "The timer stays off");
+
+  // A load in a background tab shows no bar, so it needs no timer.
+  const url = `${SLOW_URL}?delay=800&r=${Math.random()}`;
+  let ticked = false;
+  const background = BrowserTestUtils.addTab(gBrowser, url);
+  const done = BrowserTestUtils.browserLoaded(background.linkedBrowser, false, url);
+  const watch = setInterval(() => (ticked ||= line.ticking), 20);
+  await done;
+  clearInterval(watch);
+  ok(!ticked, "A background load never starts the timer");
+  await TestUtils.waitForCondition(() => !line.states.size, "and it isn't tracked once done");
+  BrowserTestUtils.removeTab(background);
+  BrowserTestUtils.removeTab(tab);
+});

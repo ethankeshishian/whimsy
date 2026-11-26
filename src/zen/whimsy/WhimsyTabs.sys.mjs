@@ -890,7 +890,7 @@ export const WhimsyTabs = {
   initLoadingLine(win) {
     const { gBrowser } = win;
     const panelOf = browser => gBrowser.getPanel?.(browser);
-    const states = new Map(); // panel -> { real, startedAt, sawBar }
+    const states = new Map(); // panel -> { real, startedAt, sawBar, done }
     const barOf = panel => panel.querySelector(`:scope > #${BAR_ID}`);
     let timer = null;
     const paint = (panel, state) => {
@@ -901,33 +901,73 @@ export const WhimsyTabs = {
         panel.style.setProperty(PROGRESS_VAR, value);
       }
     };
-    const tick = () => {
+    // W32 perf: the line only creeps while a bar is up and its load isn't
+    // done, so a finished load (or an idle browser) gets no timer wakeups.
+    const sync = () => {
+      let creeping = false;
       for (const [panel, state] of states) {
         if (!panel.isConnected) {
           states.delete(panel);
-        } else if (barOf(panel)) {
-          state.sawBar = true;
-          paint(panel, state);
-        } else if (state.sawBar || Date.now() - state.startedAt > 60000) {
-          // Zen removed the bar: the next load starts over.
-          states.delete(panel);
-          panel.style.setProperty(PROGRESS_VAR, "0");
+        } else if (state.real < 1 && barOf(panel)) {
+          creeping = true;
         }
       }
-      if (!states.size && timer) {
+      if (creeping && !timer) {
+        timer = win.setInterval(tick, CREEP_TICK_MS);
+      } else if (!creeping && timer) {
         win.clearInterval(timer);
         timer = null;
       }
     };
+    const tick = () => {
+      for (const [panel, state] of states) {
+        if (panel.isConnected && barOf(panel)) {
+          state.sawBar = true;
+          paint(panel, state);
+        }
+      }
+      sync();
+    };
+    // Zen adds the bar to the panel when a load shows and removes it after
+    // the load: watch for that instead of polling.
+    const bars = new win.MutationObserver(records => {
+      for (const panel of new Set(records.map(r => r.target))) {
+        const state = states.get(panel);
+        if (!state) {
+          continue;
+        }
+        if (barOf(panel)) {
+          state.sawBar = true;
+          paint(panel, state);
+        } else if (state.sawBar && state.done) {
+          // Zen removed the bar after the load: the next one starts over.
+          // (Mid-load, as when a page replaces itself, Zen puts it back.)
+          states.delete(panel);
+          panel.style.setProperty(PROGRESS_VAR, "0");
+        }
+      }
+      sync();
+    });
+    const watched = new WeakSet();
+    win.addEventListener(
+      "unload",
+      () => {
+        win.clearInterval(timer);
+        timer = null;
+        bars.disconnect();
+        states.clear();
+      },
+      { once: true }
+    );
     const track = panel => {
       let state = states.get(panel);
       if (!state) {
-        state = { real: 0, startedAt: Date.now(), sawBar: false };
+        state = { real: 0, startedAt: Date.now(), sawBar: !!barOf(panel), done: false };
         states.set(panel, state);
       }
-      if (!timer) {
-        timer = win.setInterval(tick, CREEP_TICK_MS);
-        win.addEventListener("unload", () => win.clearInterval(timer), { once: true });
+      if (!watched.has(panel)) {
+        watched.add(panel);
+        bars.observe(panel, { childList: true });
       }
       return state;
     };
@@ -938,7 +978,13 @@ export const WhimsyTabs = {
       }
       const state = track(panel);
       state.real = Math.max(state.real, value);
+      state.done ||= value >= 1;
       paint(panel, state);
+      if (state.done && !barOf(panel)) {
+        // Done with no bar up (a background tab): nothing to wait for.
+        states.delete(panel);
+      }
+      sync();
     };
     const restart = browser => {
       const panel = panelOf(browser);
@@ -947,12 +993,21 @@ export const WhimsyTabs = {
       }
       // Progress never goes back while the bar is up; a fresh load starts at 0.
       if (barOf(panel) && states.has(panel)) {
+        states.get(panel).done = false;
         return;
       }
       states.delete(panel);
       panel.style.setProperty(PROGRESS_VAR, "0");
       track(panel);
+      sync();
     };
+    // For tests: what's tracked, and whether the creep timer runs.
+    (this._loadingLines ??= new WeakMap()).set(win, {
+      states,
+      get ticking() {
+        return !!timer;
+      },
+    });
     gBrowser.addTabsProgressListener({
       onStateChange: (browser, webProgress, request, flags, status) => {
         if (!webProgress?.isTopLevel || !this.loadingLine) {
@@ -964,8 +1019,16 @@ export const WhimsyTabs = {
         }
         if (flags & STATE_START) {
           restart(browser);
-        } else if (flags & STATE_STOP && Components.isSuccessCode(status) && !webProgress.isLoadingDocument) {
-          raise(browser, 1);
+        } else if (flags & STATE_STOP && !webProgress.isLoadingDocument) {
+          if (Components.isSuccessCode(status)) {
+            raise(browser, 1);
+          } else {
+            // Stopped or failed: no fill, but the load is over.
+            const state = states.get(panelOf(browser));
+            if (state) {
+              state.done = true;
+            }
+          }
         }
       },
       onProgressChange: (browser, webProgress, request, curSelf, maxSelf, curTotal, maxTotal) => {
