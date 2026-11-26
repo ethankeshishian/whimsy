@@ -156,8 +156,16 @@ add_task(async function command_w_still_resets_the_folder_tab() {
   await navigateByPushState(tab, "cmdw");
   gBrowser.selectedTab = tab;
   await SimpleTest.promiseFocus(window);
-  await settled(() => EventUtils.synthesizeKey("w", { accelKey: true }));
-  await TestUtils.waitForCondition(() => !tab.selected && tab.hasAttribute("pending"), "⌘W unloads and moves off");
+  // ⌘W reaches Zen through a handler bound at startup, so wait for the reset
+  // itself: the unloaded tab's saved state is back on its folder page.
+  EventUtils.synthesizeKey("w", { accelKey: true });
+  await TestUtils.waitForCondition(() => {
+    if (tab.selected || !tab.hasAttribute("pending")) {
+      return false;
+    }
+    const state = JSON.parse(SessionStore.getTabState(tab));
+    return state.entries?.[state.index - 1]?.url == home;
+  }, "⌘W resets, unloads, and moves off");
   await selectAndWait(tab, home, "⌘W reset the folder tab to its folder page");
   await cleanUp(setup);
 });
