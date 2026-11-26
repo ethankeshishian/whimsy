@@ -1608,3 +1608,7 @@ support-files = ["head_aievals.js", "aievals/cases.json", "aievals/article_fr.ht
 
 # W31 foldertab: an unloaded folder tab comes back on its latest page, not its folder page.
 ["browser_whimsy_folder_tab_latest.js"]
+
+# W32 perf: a StructuredCloneHolder's buffer counts toward its zone's GC
+# heuristics (extension messaging grew ~45 MB/min of uncollected holders).
+["browser_whimsy_structured_clone_gc.js"]

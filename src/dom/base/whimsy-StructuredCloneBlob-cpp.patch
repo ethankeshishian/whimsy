@@ -1,0 +1,13 @@
+diff --git a/dom/base/StructuredCloneBlob.cpp b/dom/base/StructuredCloneBlob.cpp
+--- a/dom/base/StructuredCloneBlob.cpp
++++ b/dom/base/StructuredCloneBlob.cpp
+@@ -252,4 +252,9 @@
+ 
+ NS_IMPL_ISUPPORTS(StructuredCloneBlob, nsIMemoryReporter)
+ 
++size_t BindingJSObjectMallocBytes(StructuredCloneBlob* aBlob) {
++  MOZ_ASSERT(aBlob);
++  return aBlob->MallocBytesForGC();
++}
++
+ }  // namespace mozilla::dom

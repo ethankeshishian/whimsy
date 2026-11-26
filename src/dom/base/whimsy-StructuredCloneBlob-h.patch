@@ -1,0 +1,43 @@
+diff --git a/dom/base/StructuredCloneBlob.h b/dom/base/StructuredCloneBlob.h
+--- a/dom/base/StructuredCloneBlob.h
++++ b/dom/base/StructuredCloneBlob.h
+@@ -51,6 +51,17 @@
+                                                   : 0;
+   }
+ 
++  // Whimsy: the clone's size, as told to the GC for each reflector. Fixed
++  // the first time it's asked (when the reflector is made, after the data is
++  // written), so the finalizer removes exactly what wrapping added even if
++  // Deserialize() has dropped the data since.
++  size_t MallocBytesForGC() {
++    if (mMallocBytesForGC.isNothing()) {
++      mMallocBytesForGC.emplace(size_t(DataSize()));
++    }
++    return *mMallocBytesForGC;
++  }
++
+   nsISupports* GetParentObject() const { return nullptr; }
+   JSObject* GetWrapper() const { return nullptr; }
+ 
+@@ -78,6 +89,7 @@
+   nsCString mName;
+   nsCString mAnonymizedName;
+   Maybe<Holder> mHolder;
++  Maybe<size_t> mMallocBytesForGC;
+ 
+   static already_AddRefed<StructuredCloneBlob> Create() {
+     RefPtr<StructuredCloneBlob> holder = new StructuredCloneBlob();
+@@ -86,6 +98,13 @@
+   }
+ };
+ 
++// Whimsy: tell the JS GC how much memory a StructuredCloneHolder keeps alive,
++// as Blob does. Without it a dropped holder costs the GC nothing but its tiny
++// reflector, so a quiet global that sends big messages (an extension's
++// background replying to every frame with tabs.sendMessage) piles up hundreds
++// of megabytes of garbage clones before anything else triggers a GC.
++size_t BindingJSObjectMallocBytes(StructuredCloneBlob* aBlob);
++
+ }  // namespace dom
+ }  // namespace mozilla
+ 
