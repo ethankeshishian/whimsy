@@ -378,8 +378,8 @@ add_webkit_task(async function test_switch_tab_to_webkit_and_back_with_metadata_
     () => (tab.getAttribute("image") || "").includes("/favicon.svg"),
     "Tab favicon comes from the WKWebView"
   );
-  Assert.ok(
-    gURLBar.value.includes(`127.0.0.1:${gServer.port}/page1`),
+  await TestUtils.waitForCondition(
+    () => gURLBar.value.includes(`127.0.0.1:${gServer.port}/page1`),
     "Address bar URL comes from the WKWebView"
   );
 
@@ -421,6 +421,10 @@ add_webkit_task(async function test_switch_tab_to_webkit_and_back_with_metadata_
   Assert.ok(
     !tab.hasAttribute("busy"),
     "A late Gecko load in the parked browser doesn't leave the tab busy"
+  );
+  Assert.ok(
+    gURLBar.value.includes(`127.0.0.1:${gServer.port}/page1`),
+    "A late Gecko load in the parked browser leaves the WebKit page's URL in the address bar"
   );
 
   const ua = await WhimsyWebKit.evaluateInTab(tab, "navigator.userAgent");

@@ -2672,8 +2672,13 @@ export const WhimsyWebKit = {
           // The parked Gecko <browser> can finish its about:blank load well
           // after WebKit has loaded the page (a process switch took ~700 ms
           // in tests); tabbrowser then relabels the tab from the URL and
-          // clears its icon. WebKit owns those, so put them back.
+          // clears its icon. WebKit owns those, so put them back. The
+          // address bar too: Gecko just showed about:blank's empty URL there.
           this._restoreTabChrome(tab, state);
+          if (tab.selected && state.id) {
+            this._syncAddressBar(state.win, tab);
+            this._syncNavigationCommands(state.win, tab);
+          }
           return;
         }
         if (!isWebURI(location)) {
