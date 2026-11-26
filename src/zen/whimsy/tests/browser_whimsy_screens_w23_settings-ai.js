@@ -159,10 +159,13 @@ async function resizeTo(width, height) {
 }
 
 async function openAI() {
+  const t0 = Date.now();
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:preferences#whimsyAI");
   const win = tab.linkedBrowser.contentWindow;
   const doc = win.document;
+  const t1 = Date.now();
   await TestUtils.waitForCondition(() => win.WhimsyAISettings?.root && doc.getElementById("whimsyAIPage")?.checkVisibility(), "Settings › AI shows");
+  info(`DIAG openAI tab ${t1 - t0}ms shows ${Date.now() - t1}ms`);
   const $ = id => doc.getElementById(id);
   const page = { tab, win, doc, $, S: win.WhimsyAISettings, unfolds: [] };
   const unfold = page.S.unfold;
@@ -186,10 +189,18 @@ const click = (page, node) => EventUtils.synthesizeMouseAtCenter(node, {}, page.
 
 async function settled(page) {
   for (let i = 0; i < 3; i++) {
+    let t = Date.now();
     const running = page.doc.getAnimations().filter(a => a.playState == "running" && a.effect?.getComputedTiming().iterations != Infinity);
+    const desc = running.map(a => `${a.constructor.name}:${a.animationName ?? a.transitionProperty ?? a.id}@${a.effect?.target?.id || a.effect?.target?.className || a.effect?.target?.localName} t=${a.currentTime} d=${a.effect?.getComputedTiming().endTime} rate=${a.playbackRate}`).join("; ");
     await Promise.all(running.map(a => a.finished.catch(() => {})));
+    const ta = Date.now() - t; t = Date.now();
     await page.doc.l10n.translateFragment(page.doc.documentElement);
+    const tl = Date.now() - t; t = Date.now();
     await new Promise(r => page.win.requestAnimationFrame(() => page.win.requestAnimationFrame(r)));
+    const tr = Date.now() - t;
+    if (ta + tl + tr > 500) {
+      info(`DIAG settled ${i}: anim ${ta}ms [${desc}] l10n ${tl}ms raf ${tr}ms hidden=${page.doc.hidden}`);
+    }
   }
 }
 
@@ -256,8 +267,11 @@ async function mid(state, ms, start, getAnimation) {
   await start(page);
   await whimsyShotMid(`w23-settings-ai-${state}`, () => getAnimation(page), ms);
   ok(true, `${state} at ${ms}ms`);
+  let t = Date.now();
   await settled(page);
+  info(`DIAG mid settled ${Date.now() - t}ms`); t = Date.now();
   await done(page);
+  info(`DIAG mid done ${Date.now() - t}ms`);
 }
 
 add_task(async function shots_off() {
