@@ -103,6 +103,25 @@ async function cleanUp({ keep, tab, folder }, extra = []) {
   }
 }
 
+// Zen's folder Unload and ⌘W run through gZenPinnedTabManager.onCloseTabShortcut,
+// which keeps working (unload, then the reset if any) after the tab turns
+// pending; wait for the whole call before selecting the tab again.
+async function settled(action) {
+  const original = gZenPinnedTabManager.onCloseTabShortcut;
+  let running = null;
+  gZenPinnedTabManager.onCloseTabShortcut = function (...args) {
+    running = original.apply(this, args);
+    return running;
+  };
+  try {
+    await action();
+    await TestUtils.waitForCondition(() => running, "The pinned-tab close runs");
+    await running;
+  } finally {
+    gZenPinnedTabManager.onCloseTabShortcut = original;
+  }
+}
+
 const UNLOADS = {
   // Unload Tab, from the tab's context menu.
   async tab({ keep, tab }) {
@@ -111,8 +130,8 @@ const UNLOADS = {
   },
   // The folder's Unload button (and its context menu's Unload All Tabs).
   async folder({ tab, folder }) {
-    folder.unloadAllTabs(new CustomEvent("command"));
-    await TestUtils.waitForCondition(() => !tab.selected, "The folder's unload moves off its tab");
+    await settled(() => folder.unloadAllTabs(new CustomEvent("command")));
+    ok(!tab.selected, "The folder's unload moves off its tab");
   },
 };
 
@@ -137,7 +156,7 @@ add_task(async function command_w_still_resets_the_folder_tab() {
   await navigateByPushState(tab, "cmdw");
   gBrowser.selectedTab = tab;
   await SimpleTest.promiseFocus(window);
-  EventUtils.synthesizeKey("w", { accelKey: true });
+  await settled(() => EventUtils.synthesizeKey("w", { accelKey: true }));
   await TestUtils.waitForCondition(() => !tab.selected && tab.hasAttribute("pending"), "⌘W unloads and moves off");
   await selectAndWait(tab, home, "⌘W reset the folder tab to its folder page");
   await cleanUp(setup);
