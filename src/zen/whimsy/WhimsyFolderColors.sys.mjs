@@ -31,6 +31,10 @@ export const FOLDER_COLORS = {
   pink: "#ec68ad",
 };
 
+// W32 perf: the sheet's data: URI, built once per colors value and shared
+// by every window (the same URI also lets Gecko reuse the parsed sheet).
+let sheetCache = { colors: null, uri: null };
+
 function cssString(text) {
   return `"${String(text).replace(/["\\\n]/g, c => `\\${c.charCodeAt(0).toString(16)} `)}"`;
 }
@@ -87,6 +91,16 @@ export const WhimsyFolderColors = {
     return rules.join("\n");
   },
 
+  // The sheet as a data: URI, or null with no colored folder.
+  sheetURI() {
+    const colors = Services.prefs.getStringPref(COLORS_PREF, "{}");
+    if (sheetCache.colors !== colors) {
+      const text = this.sheetText();
+      sheetCache = { colors, uri: text ? `data:text/css;charset=utf-8,${encodeURIComponent(text)}` : null };
+    }
+    return sheetCache.uri;
+  },
+
   initWindow(win) {
     let sheet = null;
     const apply = () => {
@@ -96,9 +110,8 @@ export const WhimsyFolderColors = {
         sheet = null;
       }
       win.document.documentElement.toggleAttribute("whimsy-folder-colors", this.enabled);
-      const text = this.enabled ? this.sheetText() : "";
-      if (text) {
-        sheet = `data:text/css;charset=utf-8,${encodeURIComponent(text)}`;
+      sheet = this.enabled ? this.sheetURI() : null;
+      if (sheet) {
         utils.loadSheetUsingURIString(sheet, utils.AUTHOR_SHEET);
       }
     };
