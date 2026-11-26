@@ -236,6 +236,60 @@ def check_icon_packs():
             )
 
 
+def check_init_manifest():
+    """W32 perf: Whimsy.sys.mjs's INIT_TIERS must match initWindow's run() steps."""
+    path = "src/zen/whimsy/Whimsy.sys.mjs"
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError:
+        return
+    table = re.search(r"\nconst INIT_TIERS = \{\n(.*?)\n\};", text, re.S)
+    body = re.search(r"\n  initWindow\(win\) \{\n(.*?)\n  \},\n", text, re.S)
+    if not table or not body:
+        problems.append(f"{path}: no INIT_TIERS table or initWindow to check")
+        return
+    lists = {m.group(1): re.findall(r'"([^"]*)"', m.group(2))
+             for m in re.finditer(r"\nconst (\w+) = \[([^\]]*)\];", text)}
+    steps = re.findall(r'\brun\("([\w-]+)"', body.group(1))
+    for name in sorted({n for n in steps if steps.count(n) > 1}):
+        problems.append(f"{path}: init step {name!r} is run more than once (INIT_TIERS keys on the name)")
+    if re.search(r"\blater\(", body.group(1)):
+        problems.append(f"{path}: initWindow uses later(); give the step an INIT_TIERS entry instead")
+    for line in table.group(1).splitlines():
+        line = line.strip()
+        if not line or line.startswith("//"):
+            continue
+        m = re.match(r'"?([\w-]+)"?:\s*(.*?),?$', line)
+        if not m:
+            problems.append(f"{path}: INIT_TIERS line not understood: {line}")
+            continue
+        name, value = m.groups()
+        if value.startswith('"'):
+            when, triggers = value.strip('"'), []
+        else:
+            w = re.search(r'when:\s*"([^"]*)"', value)
+            when = w.group(1) if w else None
+            t = re.search(r"triggers:\s*(\[[^\]]*\]|\w+)", value)
+            if not t:
+                triggers = []
+            elif t.group(1).startswith("["):
+                triggers = re.findall(r'"([^"]*)"', t.group(1))
+            elif t.group(1) in lists:
+                triggers = lists[t.group(1)]
+            else:
+                triggers = None
+                problems.append(f"{path}: INIT_TIERS {name!r}: triggers {t.group(1)} isn't a const list")
+        if name not in steps:
+            problems.append(f"{path}: INIT_TIERS {name!r} names no run() step in initWindow")
+        if when not in ("window", "idle", "first-use"):
+            problems.append(f"{path}: INIT_TIERS {name!r}: when must be window, idle or first-use")
+        for trigger in triggers or []:
+            if not re.fullmatch(r"event:[A-Za-z]+", trigger):
+                problems.append(f"{path}: INIT_TIERS {name!r}: trigger {trigger!r} isn't event:<type>")
+        if when == "first-use" and triggers == []:
+            problems.append(f"{path}: INIT_TIERS {name!r} is first-use with no trigger, so it never runs")
+
+
 files = changed_files()
 known = ftl_ids()
 check_js_syntax(files)
@@ -252,6 +306,7 @@ check_moved_modules()
 check_patches()
 check_urls()
 check_icon_packs()
+check_init_manifest()
 
 overlay = subprocess.run([sys.executable, "whimsy/overlay.py", "check"], capture_output=True, text=True)
 if overlay.returncode:

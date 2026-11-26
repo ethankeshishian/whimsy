@@ -440,6 +440,17 @@ export const WhimsyAIPage = {
       isAvailable: w => this.summaryEnabled && lazy.WhimsyCommands.hasPage(w) && !lazy.WhimsyAIContext.isOffLimits(w.gBrowser.selectedTab),
       run: w => this.summarizeInChat(w, w.gBrowser.selectedTab).catch(error => console.error("Whimsy: summary", error)),
     });
+    this.registerCards();
+  },
+
+  // The chat's summary and note cards, once. W32 perf: Whimsy runs this at
+  // once and the rest of initWindow when the window is idle, so a chat
+  // open from the start still draws these cards.
+  registerCards() {
+    if (this._cardsRegistered) {
+      return;
+    }
+    this._cardsRegistered = true;
     lazy.WhimsyChat.registerCard("summary", (doc, msg, ctx) => this.renderSummaryCard(doc, msg, ctx));
     lazy.WhimsyChat.registerCard("note:passage-gone", (doc, msg, ctx) => this.renderGoneNote(doc, msg, ctx));
     lazy.WhimsyChat.registerCard("note:ocr", doc => this.renderOcrNote(doc));

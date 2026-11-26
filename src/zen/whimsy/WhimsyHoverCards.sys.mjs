@@ -199,14 +199,17 @@ export const WhimsyHoverCards = {
     return lazy.WhimsyAIPage.descriptionsEnabled;
   },
 
+  // W32 perf: a window's tab card starts on its first tab hover (Whimsy's
+  // INIT_TIERS); forWindow starts it sooner when something asks.
   initWindow(win) {
-    if (tabHovers.has(win) || !win.gBrowser) {
+    if (tabHovers.has(win) || !win.gBrowser || win.closed) {
       return;
     }
     tabHovers.set(win, new TabHover(win));
   },
 
   forWindow(win) {
+    this.initWindow(win);
     return tabHovers.get(win) ?? null;
   },
 

@@ -106,6 +106,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsySpaceHistory: "resource:///modules/whimsy/WhimsySpaceHistory.sys.mjs",
   WhimsyDevMode: "resource:///modules/whimsy/WhimsyDevMode.sys.mjs",
   WhimsyStats: "resource:///modules/whimsy/WhimsyStats.sys.mjs",
+  WhimsyReadAloud: "resource:///modules/whimsy/WhimsyReadAloud.sys.mjs",
   // W32 perf: dev-only init timing.
   WhimsyPerfMarks: "resource:///modules/whimsy/WhimsyPerfMarks.sys.mjs",
 });
@@ -442,6 +443,58 @@ const UI_ZOOM_PREF = "whimsy.ui-zoom";
 // wave7/small: lazy init (see initWindow).
 const LAZY_INIT_PREF = "whimsy.startup.lazy-init";
 const DEFER_TIMEOUT_MS = 2000;
+
+// W32 perf: the init tier of each window step that doesn't run at once.
+// A step not listed here is "window": it runs in initWindow, in order,
+// because first paint, a shortcut, a menu, a page actor or a session
+// piece needs it. "idle" steps run in order once the window is first idle
+// (at most DEFER_TIMEOUT_MS later); "first-use" steps only when one of
+// their triggers fires. A trigger ("event:<type>", heard on the window,
+// capturing) runs its step early, once, with that event, so a feature
+// works the same however soon it is used. With whimsy.startup.lazy-init
+// off every step runs at once. whimsy/precheck.py checks this table
+// against initWindow.
+// Command-bar-only rows: a key or a click can open the command bar, so
+// the first one starts them.
+const COMMAND_BAR = ["event:keydown", "event:mousedown"];
+const INIT_TIERS = {
+  "app-icon": "idle",
+  "ai-draft-reply": { when: "idle", triggers: COMMAND_BAR },
+  "github-reviews": "idle",
+  "update-channel": "idle",
+  updates: "idle",
+  "menu-bar-extra": "idle",
+  "global-hotkey": "idle",
+  "print-clean": "idle",
+  "cookie-editor": "idle",
+  "history-preview": "idle",
+  // The tab card starts on the first tab hover.
+  "hover-cards": { when: "first-use", triggers: ["event:TabHoverStart"] },
+  "game-action": "idle",
+  "next-meeting": "idle",
+  "ai-connectors": "idle",
+  "meeting-notes": "idle",
+  // Ask on page lives in the find bar; the first find bar starts it.
+  "ask-on-page": { when: "idle", triggers: ["event:TabFindInitialized", ...COMMAND_BAR] },
+  "page-watch": "idle",
+  routines: "idle",
+  "routines-ui": "idle",
+  "copy-page-markdown": "idle",
+  "season-toast": "idle",
+  "settings-commands": { when: "idle", triggers: COMMAND_BAR },
+  "paste-guard": { when: "idle", triggers: COMMAND_BAR },
+  cast: "idle",
+  "email-alias-command": "idle",
+  "totp-command": "idle",
+  "field-editor-command": "idle",
+  "open-in-browser-commands": "idle",
+  "teach-hints": "idle",
+};
+
+function initTier(name) {
+  const entry = INIT_TIERS[name] ?? "window";
+  return typeof entry == "string" ? { when: entry, triggers: [] } : { when: entry.when, triggers: entry.triggers ?? [] };
+}
 
 export const Whimsy = {
   featureEnabled(id) {
@@ -813,10 +866,37 @@ export const Whimsy = {
         console.error(`Whimsy: ${name} failed`, e);
       }
     };
-    let eagerCount = 0;
+    // W32 perf: run(name, fn) is every step; INIT_TIERS says when it runs.
+    const lazyInit = Services.prefs.getBoolPref(LAZY_INIT_PREF, true) && typeof win.requestIdleCallback == "function";
+    const planned = { window: 0, idle: 0, "first-use": 0 };
+    const pending = new Map();
+    const idle = [];
+    const triggers = new Map();
+    const fire = (name, event) => {
+      const step = pending.get(name);
+      if (step) {
+        pending.delete(name);
+        exec(name, step.when, () => step.fn(event));
+      }
+    };
     const run = (name, fn) => {
-      eagerCount++;
-      exec(name, "window", fn);
+      const { when, triggers: on } = lazyInit ? initTier(name) : { when: "window", triggers: [] };
+      planned[when]++;
+      if (when == "window") {
+        exec(name, when, fn);
+        return;
+      }
+      pending.set(name, { when, fn });
+      if (when == "idle") {
+        idle.push(name);
+      }
+      for (const trigger of on) {
+        const type = trigger.slice("event:".length);
+        if (!triggers.has(type)) {
+          triggers.set(type, []);
+        }
+        triggers.get(type).push(name);
+      }
     };
     // wave7/small: lazy init. Parts nobody can see or reach in the first
     // moments of a window (command-bar-only actions, network refreshers,
@@ -824,9 +904,8 @@ export const Whimsy = {
     // is interactive sooner. Everything visible from first paint (sheets,
     // zoom, look, spaces, tabs), every shortcut, page actor and session
     // piece (undo, archive, private tabs, live folders, split restore)
-    // stays above. Deferred parts run in their original order.
-    const deferred = [];
-    const later = (name, fn) => deferred.push([name, fn]);
+    // stays above. Deferred parts run in their original order. W32 perf:
+    // which parts wait is INIT_TIERS above.
     run("stylesheet", () => {
       win.windowUtils.loadSheetUsingURIString(SURFACE_SHEET, win.windowUtils.AUTHOR_SHEET);
       win.windowUtils.loadSheetUsingURIString(BROWSER_SHEET, win.windowUtils.AUTHOR_SHEET);
@@ -946,7 +1025,7 @@ export const Whimsy = {
     // W23 voice-image: image text; works with AI off, checks its switch on use.
     run("image-text", () => lazy.WhimsyImageText.initWindow(win));
     // W23 voice-image: read aloud, plain commands that work with AI off; checks its switch.
-    run("read-aloud", () => ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyReadAloud.sys.mjs").WhimsyReadAloud.initWindow(win));
+    run("read-aloud", () => lazy.WhimsyReadAloud.initWindow(win));
     // W23 memory-fire: "Related" rows by meaning, from the on-device index.
     run("ai-related", () => lazy.WhimsyAIIndex.initWindow(win));
     // W24: keep adult sites out of history; checks its switches on each load.
@@ -956,7 +1035,7 @@ export const Whimsy = {
     run("cookie-banners", () => lazy.WhimsyCookieBanners.init());
     run("ai-kill-switch", () => lazy.WhimsyAI.init());
     if (this.featureEnabled("github-reviews")) {
-      later("github-reviews", () => lazy.WhimsyGithubReviews.init());
+      run("github-reviews", () => lazy.WhimsyGithubReviews.init());
     }
     // batch11: live folders (Jira + Push refresh + RSS autodiscovery).
     // Always installed: each part checks its own switch on use.
@@ -1018,11 +1097,11 @@ export const Whimsy = {
     );
     // batch13: page & reading. Once per session (each checks its own
     // switch and macOS gate on use).
-    later("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
+    run("menu-bar-extra", () => lazy.WhimsyMenuBarExtra.init());
     // W29: the shortcut that opens Mini Whimsy from any app (macOS).
-    later("global-hotkey", () => lazy.WhimsyGlobalHotKey.init());
+    run("global-hotkey", () => lazy.WhimsyGlobalHotKey.init());
     run("bionic-reading", () => lazy.WhimsyBionicReading.init());
-    later("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
+    run("print-clean", () => lazy.WhimsyPrintClean.initWindow(win));
     run("split-favorites", () => lazy.WhimsySplitFavorites.initWindow(win));
     // batch7: seasonal themes. Watches its own prefs, so it applies without
     // a restart.
@@ -1072,7 +1151,7 @@ export const Whimsy = {
       });
     });
     // batch7: cookie editor.
-    later("cookie-editor", () => {
+    run("cookie-editor", () => {
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-cookie-editor",
         l10nId: "whimsy-action-cookie-editor",
@@ -1085,10 +1164,16 @@ export const Whimsy = {
     // WhimsyProtocol.sys.mjs for why the external-link half is deferred).
     run("url-schemes", () => lazy.WhimsyProtocol.initWindow(win));
     // batch hover: History hover cards in Zen's Library.
-    later("history-preview", () => lazy.WhimsyHoverCard.initWindow(win));
+    run("history-preview", () => lazy.WhimsyHoverCard.initWindow(win));
     // W25: hover cards on tabs (links report through WhimsyAIPreview). It
     // checks its switch on each hover, so turning it on needs no restart.
-    run("hover-cards", () => lazy.WhimsyHoverCards.initWindow(win));
+    // W32 perf: first use. The hover that starts it opens its card too.
+    run("hover-cards", event => {
+      lazy.WhimsyHoverCards.initWindow(win);
+      if (event) {
+        lazy.WhimsyHoverCards.forWindow(win)?.onStart(event);
+      }
+    });
     // batch7: developer mode tabs (Arc parity).
     run("dev-mode", () => {
       lazy.WhimsyDevMode.initWindow(win);
@@ -1123,7 +1208,7 @@ export const Whimsy = {
     );
     // batch7b: offline game (whimsy://game). Always installed: the command
     // bar action and the net-error button both check the switch on use.
-    later("game-action", () => {
+    run("game-action", () => {
       lazy.WhimsyCommands.register(win, {
         id: "whimsy-game-open",
         l10nId: "whimsy-action-game",
@@ -1151,12 +1236,12 @@ export const Whimsy = {
     // meeting: Next meeting in the sidebar. Always installed: the service
     // checks its switch on each refresh, and never asks for calendar
     // access here (only when the person turns Apple Calendar on).
-    later("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
+    run("next-meeting", () => lazy.WhimsyNextMeeting.initWindow(win));
     // W23 connectors: the Granola chip and connected calendars, polled once a minute.
-    later("ai-connectors", () => lazy.WhimsyConnectors.initWindow(win));
+    run("ai-connectors", () => lazy.WhimsyConnectors.initWindow(win));
     // W25: Granola meeting notes, followed with each calendar meeting that
     // has a call tab. Checks its switch on each tick.
-    later("meeting-notes", () => lazy.WhimsyMeetingNotes.initWindow(win));
+    run("meeting-notes", () => lazy.WhimsyMeetingNotes.initWindow(win));
     // tierC-vpn: VPN (Firefox's built-in IP Protection). The toolbar button
     // and panel are Firefox's own (placed automatically once
     // browser.ipProtection.enabled is true); this only adds the command bar
@@ -1218,14 +1303,15 @@ export const Whimsy = {
     );
     run("ai-provider-commands", () => lazy.WhimsyAIProviders.initWindow(win));
     run("tidy-tabs", () => lazy.WhimsyAITabs.initWindow(win));
+    run("ai-page-cards", () => lazy.WhimsyAIPage.registerCards());
     run("ask-on-page", () => lazy.WhimsyAIPage.initWindow(win));
     // Watches are checked only while Whimsy runs (one timer, only while
     // there are watches and AI is on).
-    later("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
+    run("page-watch", () => lazy.WhimsyPageWatch.initWindow(win));
     // W23 routines: run only while Whimsy is open; missed ones catch up once.
-    later("routines", () => lazy.WhimsyRoutines.initWindow(win));
+    run("routines", () => lazy.WhimsyRoutines.initWindow(win));
     // W23 routines-ui: the form opener, chat's "make a routine", the badge.
-    later("routines-ui", () => lazy.WhimsyRoutinesUI.initWindow(win));
+    run("routines-ui", () => lazy.WhimsyRoutinesUI.initWindow(win));
 
     // wave5/quick: QR code for any page (page menu and command bar); checks
     // its switch on use.
@@ -1237,11 +1323,11 @@ export const Whimsy = {
 
     // wave5/quick: Copy page as Markdown (page menu and command bar); checks
     // its switch on use.
-    later("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
+    run("copy-page-markdown", () => lazy.WhimsyMarkdownCopy.initWindow(win));
 
     // wave5/quick: the first window in a new season says so once (after
     // the window settles; never under test automation).
-    later("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
+    run("season-toast", () => lazy.WhimsySeasonToast.initWindow(win));
 
     // wave5/verbs: Cmd+K verbs for the selection or page. Always installed;
     // checks its switch on each use (off: Cmd+K is Firefox's again).
@@ -1361,16 +1447,16 @@ export const Whimsy = {
 
     // wave7/small: Cast to AirPlay (View > Cast..., command bar). Each part
     // checks its switch and the native player on use.
-    later("cast", () => lazy.WhimsyCast.initWindow(win));
+    run("cast", () => lazy.WhimsyCast.initWindow(win));
     // wave7/small: Create Email Alias (command bar), at the focused email
     // field. Checks its switch on use.
-    later("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
-    later("totp", () => lazy.WhimsyTOTP.initWindow(win));
+    run("email-alias-command", () => lazy.WhimsyEmailAliases.initWindow(win));
+    run("totp-command", () => lazy.WhimsyTOTP.initWindow(win));
     // W27: Edit Field in Text Editor (command bar), at the focused field.
-    later("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
+    run("field-editor-command", () => lazy.WhimsyFieldEditor.initWindow(win));
     // W28: "Open in Safari" / "Open in Chrome" (command bar), one row per
     // installed browser.
-    later("open-in-browser-commands", () => lazy.WhimsyOpenInBrowser.initWindow(win));
+    run("open-in-browser-commands", () => lazy.WhimsyOpenInBrowser.initWindow(win));
     // wave7/small: Move to ▸ New Space… takes the tab (or its whole split)
     // into the space it makes. After Zen's spaces are ready.
     run("move-to-new-space", () =>
@@ -1380,7 +1466,7 @@ export const Whimsy = {
     );
     // wave7/small: Link hints and Instant result Teach once hints; they
     // register only in a build that has WhimsyTeach (once per session).
-    later("teach-hints", () => lazy.WhimsyTeachHints.init());
+    run("teach-hints", () => lazy.WhimsyTeachHints.init());
     // wave8/isolation: a tab never lives in a space of another profile
     // (container). Always on, no switch: after Zen's spaces are ready it
     // guards every move and repairs what an older session left crossed.
@@ -1447,24 +1533,38 @@ export const Whimsy = {
       lazy.WhimsyAnnotations.initWindow(win);
     });
 
-    lazy.WhimsyPerfMarks.planned(win, { window: eagerCount, idle: deferred.length, "first-use": 0 }, initStart);
-    this.runDeferred(win, deferred, (name, fn) => exec(name, "idle", fn));
+    // Triggers listen after every step, so the window's own capturing
+    // listeners (private lock's, for one) hear an event first.
+    for (const [type, names] of triggers) {
+      const listener = event => {
+        for (const name of names) {
+          fire(name, event);
+        }
+        win.removeEventListener(type, listener, true);
+      };
+      win.addEventListener(type, listener, true);
+    }
+    lazy.WhimsyPerfMarks.planned(win, planned, initStart);
+    this.runDeferred(win, idle, fire);
   },
 
-  // wave7/small: runs a window's deferred init when it's first idle (at
-  // most DEFER_TIMEOUT_MS later). win.whimsyDeferredInit resolves after.
-  runDeferred(win, deferred, run) {
+  // wave7/small: runs a window's idle steps (names, through fire, which
+  // skips any a trigger already ran) when it's first idle (at most
+  // DEFER_TIMEOUT_MS later). win.whimsyDeferredInit resolves after.
+  runDeferred(win, names, fire) {
     let resolve;
     win.whimsyDeferredInit = new Promise(r => (resolve = r));
     const flush = () => {
       if (!win.closed) {
-        for (const [name, fn] of deferred) {
-          run(name, fn);
-        }
+        lazy.WhimsyCommands.batchKeys(win, () => {
+          for (const name of names) {
+            fire(name);
+          }
+        });
       }
       resolve();
     };
-    if (!Services.prefs.getBoolPref(LAZY_INIT_PREF, true) || typeof win.requestIdleCallback != "function") {
+    if (!names.length) {
       flush();
       return;
     }

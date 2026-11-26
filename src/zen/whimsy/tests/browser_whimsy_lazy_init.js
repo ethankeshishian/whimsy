@@ -57,3 +57,64 @@ add_task(async function test_closing_before_idle_is_harmless() {
   await done;
   ok(true, "The deferred init settles even for a window that closed");
 });
+
+// W32 perf: tiers. Fewer steps run in initWindow; the idle ones' commands
+// still arrive, and the tab card starts on the first tab hover and works.
+const { WhimsyPerfMarks } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPerfMarks.sys.mjs");
+const { WhimsyHoverCards } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyHoverCards.sys.mjs");
+const IDLE = ["cmd_whimsyPasteGuard", "cmd_whimsyAIDraftReply", "cmd_whimsyOpenHomeSettings", "whimsy-ai-summarize-page"];
+
+function stepsOf(win) {
+  const record = WhimsyPerfMarks.forWindow(win);
+  ok(record, "The window's init was timed");
+  return record;
+}
+
+add_task(async function test_fewer_steps_run_at_once() {
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.perf.marks", true], ["whimsy.startup.lazy-init", false]] });
+  const eagerWin = await BrowserTestUtils.openNewBrowserWindow();
+  await initialized(eagerWin);
+  await eagerWin.whimsyDeferredInit;
+  const eager = stepsOf(eagerWin);
+  is(eager.planned.idle + eager.planned["first-use"], 0, "With lazy init off nothing waits");
+  is(eager.steps.find(s => s.name == "hover-cards")?.tier, "window", "and the tab card starts at once");
+  await BrowserTestUtils.closeWindow(eagerWin);
+  await SpecialPowers.popPrefEnv();
+
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.perf.marks", true]] });
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  await initialized(win);
+  const lazy = stepsOf(win);
+  Assert.less(lazy.planned.window, eager.planned.window, "Fewer steps run in initWindow");
+  is(lazy.planned.window + lazy.planned.idle + lazy.planned["first-use"], eager.planned.window, "and none is lost");
+  Assert.greaterOrEqual(lazy.planned["first-use"], 1, "Some wait for their first use");
+  ok(Number.isFinite(lazy.initMs), "initWindow's own time is measured");
+  await win.whimsyDeferredInit;
+  for (const id of [...IDLE, ...DEFERRED]) {
+    ok(win.document.getElementById(id), `${id} arrived once the window was idle`);
+  }
+  for (const name of ["settings-commands", "paste-guard", "ask-on-page", "hover-cards"]) {
+    ok(!stepsOf(win).steps.some(s => s.name == name && s.tier == "window"), `${name} didn't run in initWindow`);
+  }
+  ok(JSON.parse(JSON.stringify(WhimsyPerfMarks.snapshot())).windows.length, "The snapshot is plain JSON");
+
+  // The first hover starts the tab card, and that same hover reaches it.
+  const tab = win.gBrowser.selectedTab;
+  tab.dispatchEvent(new CustomEvent("TabHoverStart", { bubbles: true }));
+  is(stepsOf(win).steps.find(s => s.name == "hover-cards")?.tier, "first-use", "The tab card started on first use");
+  const card = WhimsyHoverCards.forWindow(win);
+  ok(card, "The window has its tab card");
+  is(card.tab, tab, "and it's on the hovered tab");
+  card.hide();
+  tab.dispatchEvent(new CustomEvent("TabHoverEnd", { bubbles: true }));
+  is(stepsOf(win).steps.filter(s => s.name == "hover-cards").length, 1, "It starts once");
+
+  // A find bar opened in the window gets Ask on Page.
+  const findbar = await win.gBrowser.getFindBar();
+  ok(findbar, "The find bar opened");
+  ok(win.document.getElementById("whimsy-find-options"), "with the find card's command");
+  is(stepsOf(win).steps.filter(s => s.name == "ask-on-page").length, 1, "Ask on Page started once");
+
+  await BrowserTestUtils.closeWindow(win);
+  await SpecialPowers.popPrefEnv();
+});
