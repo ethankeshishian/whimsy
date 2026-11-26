@@ -525,6 +525,11 @@ add_task(async function shots() {
   });
   for (const dark of [false, true]) {
     await whimsySetScheme(dark);
+    // Let the window finish turning dark before pointing: while its theme
+    // still animates, the chrome under the real mouse keeps changing, and
+    // the mouse moves Gecko sends the page for that land after the hover
+    // and move the control's pointer off the video.
+    await whimsySettled();
     // Re-hover right before the shot: the control's own idle timer (2.5s)
     // can hide it again while the scheme switch and the previous shot's
     // file write run.
