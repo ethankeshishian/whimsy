@@ -762,6 +762,9 @@ skip-if = ["headless"] # native key events need a real window; verify.sh runs it
 
 ["browser_whimsy_settings_search.js"]
 
+# perf (I6): panes are built on first visit; search and links still reach unbuilt ones.
+["browser_whimsy_settings_lazy_panes.js"]
+
 # wave10 (W10-12): every setting is found by Settings search and is a command.
 ["browser_whimsy_settings_audit.js"]
 

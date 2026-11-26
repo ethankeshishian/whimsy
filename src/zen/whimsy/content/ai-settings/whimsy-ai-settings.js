@@ -118,7 +118,29 @@ var WhimsyAISettings = {
 
   // ---- the page ----
 
+  // perf (I6): the sections' own files load when the page is first built
+  // (opening Settings › AI, or the first Settings search), not with
+  // Settings.
+  SECTION_SCRIPTS: ["providers", "connectors", "commands", "memory", "agent"].map(
+    name => `chrome://browser/content/whimsy/ai-settings/whimsy-ai-settings-${name}.js`
+  ),
+
+  loadSections() {
+    if (this._sectionsLoaded) {
+      return;
+    }
+    this._sectionsLoaded = true;
+    for (const url of this.SECTION_SCRIPTS) {
+      try {
+        Services.scriptloader.loadSubScript(url, window);
+      } catch (e) {
+        console.error(`Whimsy AI settings: loading ${url}`, e);
+      }
+    }
+  },
+
   mount(root) {
+    this.loadSections();
     this.root = root;
     root.replaceChildren();
     const top = this.el("div", "whimsy-ai-top", root);
