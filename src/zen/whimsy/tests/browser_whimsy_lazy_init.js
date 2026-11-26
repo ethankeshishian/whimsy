@@ -76,7 +76,9 @@ add_task(async function test_fewer_steps_run_at_once() {
   await initialized(eagerWin);
   await eagerWin.whimsyDeferredInit;
   const eager = stepsOf(eagerWin);
-  is(eager.planned.idle + eager.planned["first-use"], 0, "With lazy init off nothing waits");
+  is(eager.planned["first-use"], 0, "With lazy init off nothing waits for its first use");
+  const all = eager.planned.window + eager.planned.idle;
+  is(eager.ran.window + eager.ran.idle, all, "and every step ran within initWindow");
   is(eager.steps.find(s => s.name == "hover-cards")?.tier, "window", "and the tab card starts at once");
   await BrowserTestUtils.closeWindow(eagerWin);
   await SpecialPowers.popPrefEnv();
@@ -86,8 +88,11 @@ add_task(async function test_fewer_steps_run_at_once() {
   await initialized(win);
   const lazy = stepsOf(win);
   Assert.less(lazy.planned.window, eager.planned.window, "Fewer steps run in initWindow");
-  is(lazy.planned.window + lazy.planned.idle + lazy.planned["first-use"], eager.planned.window, "and none is lost");
+  is(lazy.planned.window + lazy.planned.idle + lazy.planned["first-use"], all, "and none is lost");
   Assert.greaterOrEqual(lazy.planned["first-use"], 1, "Some wait for their first use");
+  // W32 added the settings, paste guard, draft reply, Ask on Page and
+  // update steps to the 21 that waited before.
+  Assert.greater(lazy.planned.idle, 21, "More steps wait for idle than before");
   ok(Number.isFinite(lazy.initMs), "initWindow's own time is measured");
   await win.whimsyDeferredInit;
   for (const id of [...IDLE, ...DEFERRED]) {

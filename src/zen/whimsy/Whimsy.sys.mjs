@@ -452,7 +452,7 @@ const DEFER_TIMEOUT_MS = 2000;
 // their triggers fires. A trigger ("event:<type>", heard on the window,
 // capturing) runs its step early, once, with that event, so a feature
 // works the same however soon it is used. With whimsy.startup.lazy-init
-// off every step runs at once. whimsy/precheck.py checks this table
+// off every step runs within initWindow. whimsy/precheck.py checks this table
 // against initWindow.
 // Command-bar-only rows: a key or a click can open the command bar, so
 // the first one starts them.
@@ -880,7 +880,11 @@ export const Whimsy = {
       }
     };
     const run = (name, fn) => {
-      const { when, triggers: on } = lazyInit ? initTier(name) : { when: "window", triggers: [] };
+      // With lazy init off, idle steps still run at the end of initWindow
+      // (as later() steps always did) and first-use ones in place.
+      const tier = initTier(name);
+      const when = lazyInit || tier.when != "first-use" ? tier.when : "window";
+      const on = lazyInit ? tier.triggers : [];
       planned[when]++;
       if (when == "window") {
         exec(name, when, fn);
@@ -1545,13 +1549,13 @@ export const Whimsy = {
       win.addEventListener(type, listener, true);
     }
     lazy.WhimsyPerfMarks.planned(win, planned, initStart);
-    this.runDeferred(win, idle, fire);
+    this.runDeferred(win, idle, fire, lazyInit);
   },
 
   // wave7/small: runs a window's idle steps (names, through fire, which
   // skips any a trigger already ran) when it's first idle (at most
   // DEFER_TIMEOUT_MS later). win.whimsyDeferredInit resolves after.
-  runDeferred(win, names, fire) {
+  runDeferred(win, names, fire, lazyInit = true) {
     let resolve;
     win.whimsyDeferredInit = new Promise(r => (resolve = r));
     const flush = () => {
@@ -1564,7 +1568,7 @@ export const Whimsy = {
       }
       resolve();
     };
-    if (!names.length) {
+    if (!lazyInit || !names.length) {
       flush();
       return;
     }
