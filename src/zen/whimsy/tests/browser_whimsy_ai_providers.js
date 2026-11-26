@@ -1345,3 +1345,240 @@ add_task(async function test_claude_api_runs_mcp_tools() {
   Services.prefs.clearUserPref("whimsy.ai.order");
   Services.prefs.clearUserPref("whimsy.ai.claude.model");
 });
+
+// W31: the same tools reach OpenAI (function tools), Gemini (function
+// declarations) and Ollama (function tools), each in its own format, run
+// by the same bounded loop and permission rules as the Claude API path.
+// A model that can't call tools fails like any refused request.
+add_task(async function test_api_providers_run_mcp_tools() {
+  OSKeyStoreTestUtils.setup();
+  registerCleanupFunction(() => OSKeyStoreTestUtils.cleanup());
+  const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
+  const { NetUtil: Net } = ChromeUtils.importESModule("resource://gre/modules/NetUtil.sys.mjs");
+  const { WhimsyAIRouter } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIRouter.sys.mjs");
+  const { WhimsyConnectors } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectors.sys.mjs");
+  const server = new HttpServer();
+  server.start(-1);
+  const base = `http://localhost:${server.identity.primaryPort}`;
+  const saved = { ...ENDPOINTS };
+  ENDPOINTS.openai = `${base}/openai`;
+  ENDPOINTS.gemini = `${base}/gemini`;
+  const bodies = [];
+  // Each reply: { json } (one JSON answer), { sse } (events), { ndjson }
+  // (lines), with an optional status.
+  let replies = [];
+  let fallback = null;
+  server.registerPrefixHandler("/", (request, response) => {
+    const stream = request.bodyInputStream;
+    bodies.push(JSON.parse(Net.readInputStreamToString(stream, stream.available()) || "{}"));
+    const reply = replies.shift() ?? fallback?.() ?? { status: 500, json: { error: "none left" } };
+    response.setStatusLine(request.httpVersion, reply.status ?? 200, "x");
+    if (reply.sse) {
+      response.setHeader("content-type", "text/event-stream");
+      response.write(reply.sse.map(event => `${event.type ? `event: ${event.type}\n` : ""}data: ${JSON.stringify(event)}\n\n`).join(""));
+    } else if (reply.ndjson) {
+      response.setHeader("content-type", "application/x-ndjson");
+      response.write(reply.ndjson.map(line => JSON.stringify(line) + "\n").join(""));
+    } else {
+      response.setHeader("content-type", "application/json");
+      response.write(JSON.stringify(reply.json));
+    }
+  });
+  await WhimsyAIProviders.setKey("openai", "sk-test");
+  await WhimsyAIProviders.setKey("gemini", "AIza-test");
+  Services.prefs.setStringPref("whimsy.ai.openai.model", "gpt-5-test");
+  Services.prefs.setStringPref("whimsy.ai.gemini.model", "gemini-test");
+  Services.prefs.setStringPref("whimsy.ai.ollama.endpoint", `${base}/ollama`);
+  Services.prefs.setStringPref("whimsy.ai.ollama.model", "llama-test");
+  const wrote = [];
+  const changed = [];
+  const plugin = WhimsyConnectors.runTools(
+    "whimsy_plugins",
+    [{ name: "write_plugin", description: "Writes a plugin", inputSchema: { type: "object", properties: { name: { type: "string" } } }, run: args => (wrote.push(args), { isError: false, text: "Wrote it" }) }],
+    { readOnly: true }
+  );
+  const things = WhimsyConnectors.runTools("things", [{ name: "change_thing", description: "Changes a thing", inputSchema: { type: "object" }, run: args => (changed.push(args), "Changed") }]);
+  registerCleanupFunction(async () => {
+    plugin.dispose();
+    things.dispose();
+    Object.assign(ENDPOINTS, saved);
+    await WhimsyAIProviders.setKey("openai", "");
+    await WhimsyAIProviders.setKey("gemini", "");
+    await new Promise(r => server.stop(r));
+  });
+  const ask = (provider, extra = {}) => {
+    Services.prefs.setStringPref("whimsy.ai.order", provider);
+    return WhimsyAIRouter.run({ task: "chat", tools: [], extraTools: [plugin.server], messages: [{ role: "user", content: "Make an extension that hides cookie banners" }], userStarted: true, ...extra });
+  };
+  const start = (list, loop = null) => {
+    bodies.length = 0;
+    wrote.length = 0;
+    changed.length = 0;
+    replies = list;
+    fallback = loop;
+  };
+
+  // ---- OpenAI (Responses API) ----
+  const openaiText = text => ({ json: { output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text }] }] } });
+  const openaiCall = (args, id = "call_1", name = "write_plugin") => ({
+    sse: [
+      { type: "response.output_text.delta", delta: "Writing it." },
+      {
+        type: "response.completed",
+        response: {
+          output: [
+            { type: "reasoning", id: "rs_1", encrypted_content: "sealed", summary: [] },
+            { type: "message", id: "msg_1", role: "assistant", content: [{ type: "output_text", text: "Writing it." }] },
+            { type: "function_call", id: "fc_1", call_id: id, name, arguments: args },
+          ],
+        },
+      },
+    ],
+  });
+  start([openaiCall("{\"name\":\"No banners\"}"), openaiText("It hides cookie banners.")]);
+  let result = await ask("openai");
+  is(bodies.length, 2, "OpenAI: one round for the tool, one for the answer");
+  Assert.deepEqual(
+    bodies[0].tools,
+    [{ type: "function", name: "write_plugin", description: "Writes a plugin", parameters: { type: "object", properties: { name: { type: "string" } } }, strict: false }],
+    "OpenAI: write_plugin is offered as a function tool"
+  );
+  Assert.deepEqual(bodies[0].include, ["reasoning.encrypted_content"], "OpenAI: a reasoning model's reasoning comes back sealed (nothing is stored)");
+  Assert.deepEqual(wrote, [{ name: "No banners" }], "OpenAI: the read-only tool ran with the call's arguments");
+  let input = bodies[1].input;
+  Assert.deepEqual(input.slice(-4).map(item => item.type), ["reasoning", "message", "function_call", "function_call_output"], "OpenAI: its output goes back as it was, then the tool's answer");
+  is(input.at(-1).call_id, "call_1", "OpenAI: for that call");
+  is(input.at(-1).output, "Wrote it", "OpenAI: with the tool's text");
+  is(result.text, "Writing it.\n\nIt hides cookie banners.", "OpenAI: both rounds' words reach the chat");
+
+  // A tool that may change something, with nobody to ask: refused.
+  start([openaiCall("{\"id\":7}", "call_2", "change_thing"), openaiText("Done.")]);
+  await ask("openai", { extraTools: [things.server] });
+  is(changed.length, 0, "OpenAI: without a guard a changing tool doesn't run");
+  ok(/didn't allow/.test(bodies[1].input.at(-1).output), "OpenAI: and the model hears it was refused");
+
+  // Arguments that aren't JSON: the tool doesn't run, the model hears why.
+  start([openaiCall("{\"name\":"), openaiText("Sorry, let me stop there.")]);
+  result = await ask("openai");
+  is(bodies.length, 2, "OpenAI: a malformed call takes one more round");
+  is(wrote.length, 0, "OpenAI: the malformed call doesn't run");
+  ok(/JSON object/.test(bodies[1].input.at(-1).output), "OpenAI: the model hears its arguments were malformed");
+  is(result.text, "Writing it.\n\nSorry, let me stop there.", "OpenAI: and the answer ends cleanly");
+
+  // A model that keeps calling: eight tool rounds, then the answer ends.
+  start([], () => openaiCall("{\"name\":\"again\"}"));
+  result = await ask("openai");
+  is(bodies.length, 9, "OpenAI: eight tool rounds and no more");
+  is(wrote.length, 8, "OpenAI: the tool ran once a round");
+  ok(result.text.startsWith("Writing it."), "OpenAI: what it wrote is the answer");
+
+  // No tools: the request is as before.
+  start([openaiText("Plain.")]);
+  result = await ask("openai", { extraTools: [] });
+  ok(!("tools" in bodies[0]) && typeof bodies[0].input == "string", "OpenAI: no tools, the request is unchanged");
+  is(result.text, "Plain.", "OpenAI: a plain answer");
+
+  // ---- Gemini (generateContent) ----
+  const geminiText = text => ({ json: { candidates: [{ finishReason: "STOP", content: { role: "model", parts: [{ text }] } }] } });
+  const geminiCall = args => ({
+    sse: [
+      { candidates: [{ content: { role: "model", parts: [{ text: "Writing it." }] } }] },
+      { candidates: [{ finishReason: "STOP", content: { role: "model", parts: [{ functionCall: { id: "fc_1", name: "write_plugin", args }, thoughtSignature: "sig" }] } }] },
+    ],
+  });
+  start([geminiCall({ name: "No banners" }), geminiText("It hides cookie banners.")]);
+  result = await ask("gemini");
+  is(bodies.length, 2, "Gemini: one round for the tool, one for the answer");
+  Assert.deepEqual(
+    bodies[0].tools,
+    [{ functionDeclarations: [{ name: "write_plugin", description: "Writes a plugin", parametersJsonSchema: { type: "object", properties: { name: { type: "string" } } } }] }],
+    "Gemini: write_plugin is offered as a function declaration"
+  );
+  Assert.deepEqual(wrote, [{ name: "No banners" }], "Gemini: the read-only tool ran with the call's arguments");
+  let contents = bodies[1].contents;
+  is(contents.at(-2).role, "model", "Gemini: its turn goes back");
+  is(contents.at(-2).parts.at(-1).thoughtSignature, "sig", "Gemini: with its thought signature");
+  Assert.deepEqual(contents.at(-1).parts, [{ functionResponse: { id: "fc_1", name: "write_plugin", response: { result: "Wrote it" } } }], "Gemini: the tool's answer goes back for that call");
+  is(result.text, "Writing it.\n\nIt hides cookie banners.", "Gemini: both rounds' words reach the chat");
+
+  // A call Gemini couldn't form: nothing runs, the answer ends.
+  start([{ sse: [{ candidates: [{ content: { parts: [{ text: "Let me write it." }] } }] }, { candidates: [{ finishReason: "MALFORMED_FUNCTION_CALL" }] }] }]);
+  result = await ask("gemini");
+  is(bodies.length, 1, "Gemini: a malformed call takes no tool round");
+  is(wrote.length, 0, "Gemini: and runs nothing");
+  is(result.text, "Let me write it.", "Gemini: the answer ends with what it wrote");
+  start([{ json: { candidates: [{ finishReason: "MALFORMED_FUNCTION_CALL" }] } }]);
+  await rejectsWith(ask("gemini"), "bad-response", "Gemini: a malformed call with nothing said is a failed answer, not an empty one");
+
+  // Arguments that aren't an object: the model hears why.
+  start([geminiCall("not an object"), geminiText("Stopping.")]);
+  await ask("gemini");
+  is(wrote.length, 0, "Gemini: malformed arguments don't run");
+  ok(/JSON object/.test(bodies[1].contents.at(-1).parts[0].functionResponse.response.error), "Gemini: the model hears they were malformed");
+
+  start([], () => geminiCall({ name: "again" }));
+  await ask("gemini");
+  is(bodies.length, 9, "Gemini: eight tool rounds and no more");
+  is(wrote.length, 8, "Gemini: the tool ran once a round");
+
+  start([geminiText("Plain.")]);
+  await ask("gemini", { extraTools: [] });
+  ok(!("tools" in bodies[0]), "Gemini: no tools, no tools field");
+
+  // ---- Ollama (/api/chat) ----
+  const ollamaText = content => ({ ndjson: [{ message: { role: "assistant", content } }, { message: { role: "assistant", content: "" }, done: true }] });
+  const ollamaCall = args => ({
+    ndjson: [
+      { message: { role: "assistant", content: "Writing it." } },
+      { message: { role: "assistant", content: "", tool_calls: [{ function: { name: "write_plugin", arguments: args } }] } },
+      { message: { role: "assistant", content: "" }, done: true },
+    ],
+  });
+  start([ollamaCall({ name: "No banners" }), ollamaText("It hides cookie banners.")]);
+  result = await ask("ollama");
+  is(bodies.length, 2, "Ollama: one round for the tool, one for the answer");
+  Assert.deepEqual(
+    bodies[0].tools,
+    [{ type: "function", function: { name: "write_plugin", description: "Writes a plugin", parameters: { type: "object", properties: { name: { type: "string" } } } } }],
+    "Ollama: write_plugin is offered as a function tool"
+  );
+  Assert.deepEqual(wrote, [{ name: "No banners" }], "Ollama: the read-only tool ran with the call's arguments");
+  let chat = bodies[1].messages;
+  is(chat.at(-2).role, "assistant", "Ollama: its turn goes back");
+  is(chat.at(-2).content, "Writing it.", "Ollama: with its words");
+  is(chat.at(-2).tool_calls[0].function.name, "write_plugin", "Ollama: and its call");
+  Assert.deepEqual(chat.at(-1), { role: "tool", content: "Wrote it", tool_name: "write_plugin" }, "Ollama: the tool's answer goes back");
+  is(result.text, "Writing it.\n\nIt hides cookie banners.", "Ollama: both rounds' words reach the chat");
+
+  start([ollamaCall("{not json"), ollamaText("Stopping.")]);
+  result = await ask("ollama");
+  is(wrote.length, 0, "Ollama: malformed arguments don't run");
+  ok(/JSON object/.test(bodies[1].messages.at(-1).content), "Ollama: the model hears they were malformed");
+  is(result.text, "Writing it.\n\nStopping.", "Ollama: and the answer ends cleanly");
+
+  start([], () => ollamaCall({ name: "again" }));
+  await ask("ollama");
+  is(bodies.length, 9, "Ollama: eight tool rounds and no more");
+  is(wrote.length, 8, "Ollama: the tool ran once a round");
+
+  // A model that can't call tools: Ollama says so, and the answer fails
+  // with its words instead of quietly leaving the tools out.
+  start([{ status: 400, json: { error: "registry.ollama.ai/library/llama-test does not support tools" } }]);
+  try {
+    await ask("ollama");
+    ok(false, "Ollama: a model without tools should fail");
+  } catch (e) {
+    is(e.code, "failed", "Ollama: a model without tools fails");
+    ok(/does not support tools/.test(e.detail), "Ollama: with Ollama's reason");
+  }
+  ok("tools" in bodies[0], "Ollama: the tools were sent, not dropped");
+
+  start([ollamaText("Plain.")]);
+  result = await ask("ollama", { extraTools: [] });
+  ok(!("tools" in bodies[0]), "Ollama: no tools, no tools field");
+  is(result.text, "Plain.", "Ollama: a plain answer");
+
+  for (const pref of ["whimsy.ai.order", "whimsy.ai.openai.model", "whimsy.ai.gemini.model", "whimsy.ai.ollama.endpoint", "whimsy.ai.ollama.model"]) {
+    Services.prefs.clearUserPref(pref);
+  }
+});
