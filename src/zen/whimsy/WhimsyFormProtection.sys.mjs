@@ -976,8 +976,9 @@ export const WhimsyFormProtection = {
       if (noClose && behavior == "close") {
         behavior = "unload-switch";
       }
-      if (alwaysUnload && ["close", "reset", "switch", "reset-switch"].includes(behavior)) {
-        behavior = behavior.includes("reset") ? "reset-unload-switch" : "unload-switch";
+      // A folder's Unload only unloads (overlay hotfix folder-unload-keeps-latest-page).
+      if (alwaysUnload) {
+        behavior = "unload-switch";
       }
       if (!/unload|reset/.test(behavior ?? "") || pinned.some(tab => tab.hasAttribute("glance-id"))) {
         return [];
