@@ -1684,7 +1684,10 @@ add_webkit_task(async function test_w32_untrusted_certificate_uses_gecko_error_p
       "An untrusted certificate in WebKit shows Gecko's certificate error page"
     );
     Assert.equal(state.geckoPage, "certerror", "The tab shows the Gecko error page");
-    Assert.equal(gURLBar.value.includes(`127.0.0.1:${tls.port}`), true, "The address bar shows the failing site");
+    await TestUtils.waitForCondition(
+      () => gURLBar.value.includes(`127.0.0.1:${tls.port}`),
+      "The address bar shows the failing site"
+    );
 
     // Accepting the risk adds Gecko's exception; the page then loads in
     // WebKit, which trusts the certificate Gecko has an exception for.
