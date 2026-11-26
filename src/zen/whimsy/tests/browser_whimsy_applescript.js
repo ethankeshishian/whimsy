@@ -74,10 +74,21 @@ function add_tab_task(fn) {
 
 add_tab_task(async function test_windows_never_private() {
   ok(json(service.windows()).includes(winId), "This window is listed");
+  // The file may start on Zen's empty tab (the file before it closed its
+  // last tab), which scripts never see, so the window has no active tab.
+  if (gBrowser.selectedTab.hasAttribute("zen-empty-tab")) {
+    const empty = json(service.window(winId));
+    is(empty.activeTabId, null, "On the empty tab: no active tab");
+    is(empty.activeTabIndex, null, "Nor an active tab index");
+  }
+  // A real tab gives the index something to point at, whatever came before.
+  const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
   const record = json(service.window(winId));
   is(record.mode, "normal", "Normal mode");
   is(record.activeSpaceId, gZenWorkspaces.activeWorkspace, "Its active space");
+  ok(record.activeTabId, "The selected tab is the active tab");
   is(record.activeTabId, json(service.tabs(winId, ""))[record.activeTabIndex - 1], "Active tab index points at the active tab");
+  BrowserTestUtils.removeTab(tab);
 
   const privateWin = await BrowserTestUtils.openNewBrowserWindow({ private: true });
   const privateId = String(privateWin.docShell.outerWindowID);
