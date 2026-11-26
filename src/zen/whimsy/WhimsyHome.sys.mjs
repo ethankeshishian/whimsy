@@ -24,10 +24,18 @@
 // (whimsy.feature.home). It's gone; someone who had turned it off gets
 // Firefox Home in new windows, which is what that switch gave them. The pref
 // stays as the feature's off switch (about:whimsy then shows Firefox Home).
+//
+// perf (W32 P7): Firefox keeps its new tab page loaded in a hidden browser
+// (NewTabPagePreloading) so a new tab is a swap, not a load, but only while
+// nothing has replaced the page (AboutNewTab.newTabURLOverridden). Whimsy
+// Home isn't an add-on's page, so it gets the same warm start. A preloaded
+// page that no longer matches the choice is dropped (and rebuilt when idle),
+// so a new tab never shows the previous choice.
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AboutNewTab: "resource:///modules/AboutNewTab.sys.mjs",
+  NewTabPagePreloading: "moz-src:///browser/components/tabbrowser/NewTabPagePreloading.sys.mjs",
 });
 
 export const WHIMSY_HOME_URL = "about:whimsy";
@@ -39,7 +47,9 @@ const NEWTAB_PAGE_PREF = "whimsy.newtab.page";
 const NEWTAB_ENABLED_PREF = "browser.newtabpage.enabled";
 const EXTENSION_PREF = "browser.newtab.extensionControlled";
 const FEATURE_PREF = "whimsy.feature.home";
+const PRELOAD_PREF = "browser.newtab.preload";
 const NEWTAB_URL_CHANGED = "newtab-url-changed";
+const OBSERVED_PREFS = [NEWTAB_PAGE_PREF, NEWTAB_ENABLED_PREF, EXTENSION_PREF, FEATURE_PREF, PRELOAD_PREF];
 
 export const WhimsyHome = {
   initialized: false,
@@ -54,14 +64,24 @@ export const WhimsyHome = {
     } catch (e) {
       console.error("Whimsy: homepage switch migration", e);
     }
+    try {
+      this.allowPreloading();
+    } catch (e) {
+      console.error("Whimsy: new tab preloading", e);
+    }
     this.update = () => {
       try {
         this.apply();
       } catch (e) {
         console.error("Whimsy: new tab page", e);
       }
+      try {
+        this.dropStalePreloads();
+      } catch (e) {
+        console.error("Whimsy: new tab preloading", e);
+      }
     };
-    for (const pref of [NEWTAB_PAGE_PREF, NEWTAB_ENABLED_PREF, EXTENSION_PREF, FEATURE_PREF]) {
+    for (const pref of OBSERVED_PREFS) {
       Services.prefs.addObserver(pref, this.update);
     }
     Services.obs.addObserver(this.update, NEWTAB_URL_CHANGED);
@@ -73,10 +93,14 @@ export const WhimsyHome = {
     if (!this.initialized) {
       return;
     }
-    for (const pref of [NEWTAB_PAGE_PREF, NEWTAB_ENABLED_PREF, EXTENSION_PREF, FEATURE_PREF]) {
+    for (const pref of OBSERVED_PREFS) {
       Services.prefs.removeObserver(pref, this.update);
     }
     Services.obs.removeObserver(this.update, NEWTAB_URL_CHANGED);
+    if (this._preloadEnabled) {
+      Object.defineProperty(lazy.NewTabPagePreloading, "enabled", this._preloadEnabled);
+      this._preloadEnabled = null;
+    }
     this.initialized = false;
   },
 
@@ -154,6 +178,54 @@ export const WhimsyHome = {
       }
     } else if (ours) {
       newTab.resetNewTabURL();
+    }
+  },
+
+  // Firefox's rule, plus Whimsy Home: preload while the new tab page is
+  // Firefox's own or Whimsy Home, never an add-on's or a policy's page.
+  allowPreloading() {
+    const preloading = lazy.NewTabPagePreloading;
+    const original = Object.getOwnPropertyDescriptor(preloading, "enabled");
+    if (this._preloadEnabled || !original?.get || !original.configurable) {
+      return;
+    }
+    this._preloadEnabled = original;
+    Object.defineProperty(preloading, "enabled", {
+      configurable: true,
+      enumerable: original.enumerable,
+      get() {
+        return (
+          original.get.call(this) ||
+          (this.prefEnabled && this.newTabEnabled && lazy.AboutNewTab.newTabURL == WHIMSY_HOME_URL)
+        );
+      },
+    });
+  },
+
+  // A window's preloaded new tab page is only good for the page new tabs
+  // open now. Drop one that shows something else (the choice changed, or
+  // Whimsy Home was switched off), then preload the right page when idle.
+  dropStalePreloads() {
+    const preloading = lazy.NewTabPagePreloading;
+    if (!preloading.enabled) {
+      // Nothing is taken from a preload while preloading is off; the next
+      // change that turns it on comes back here.
+      return;
+    }
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      const browser = win.gBrowser?.preloadedBrowser;
+      if (!browser || win.closed) {
+        continue;
+      }
+      if (browser.currentURI?.spec == win.BROWSER_NEW_TAB_URL) {
+        continue;
+      }
+      preloading.removePreloadedBrowser(win);
+      ChromeUtils.idleDispatch(() => {
+        if (!win.closed && win.gBrowser) {
+          preloading.maybeCreatePreloadedBrowser(win);
+        }
+      });
     }
   },
 };
