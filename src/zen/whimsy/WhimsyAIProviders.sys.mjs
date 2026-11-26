@@ -1871,8 +1871,9 @@ export const WhimsyAIProviders = {
 
   // W31: request.tools reach Ollama as function tools, run by the same
   // bounded loop and permission rules as the Claude API path. A model that
-  // can't call tools gets them anyway: Ollama refuses it by name ("does not
-  // support tools"), a failed answer like any other, never a silent drop.
+  // can't call tools (Ollama refuses it by name, "does not support tools")
+  // is asked once more without them, as before tools were sent, so chat
+  // with connectors on still works on it.
   async *_ollamaStream({ messages, system, signal, thinking, model: chosen, tools: servers = [] }) {
     const model = chosen || Services.prefs.getStringPref(OLLAMA_MODEL_PREF, "");
     if (!model) {
@@ -1917,6 +1918,17 @@ export const WhimsyAIProviders = {
         throw new WhimsyAIError("unavailable");
       }
       if (!response.ok) {
+        if (response.status == 400 && body.tools && !round) {
+          let said = "";
+          try {
+            said = String((await response.clone().json())?.error ?? "");
+          } catch {}
+          if (/does not support tools/i.test(said)) {
+            delete body.tools;
+            round--;
+            continue;
+          }
+        }
         throw await this._httpError("ollama", response);
       }
       const out = { content: "", calls: [] };

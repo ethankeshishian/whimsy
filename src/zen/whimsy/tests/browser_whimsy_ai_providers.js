@@ -1574,17 +1574,26 @@ add_task(async function test_api_providers_run_mcp_tools() {
   is(bodies.length, 9, "Ollama: eight tool rounds and no more");
   is(wrote.length, 8, "Ollama: the tool ran once a round");
 
-  // A model that can't call tools: Ollama says so, and the answer fails
-  // with its words instead of quietly leaving the tools out.
-  start([{ status: 400, json: { error: "registry.ollama.ai/library/llama-test does not support tools" } }]);
+  // A model that can't call tools: Ollama says so, and the same request
+  // goes once more without them (as before tools were sent).
+  start([{ status: 400, json: { error: "registry.ollama.ai/library/llama-test does not support tools" } }, ollamaText("Without tools.")]);
+  result = await ask("ollama");
+  is(bodies.length, 2, "Ollama: a model without tools is asked twice");
+  ok("tools" in bodies[0], "Ollama: first with the tools");
+  ok(!("tools" in bodies[1]), "Ollama: then without them");
+  Assert.deepEqual(bodies[1].messages, bodies[0].messages, "Ollama: the same request otherwise");
+  is(result.text, "Without tools.", "Ollama: and the answer comes back");
+
+  // Any other 400 still fails, without a second try.
+  start([{ status: 400, json: { error: "invalid request" } }, ollamaText("Never sent.")]);
   try {
     await ask("ollama");
-    ok(false, "Ollama: a model without tools should fail");
+    ok(false, "Ollama: another 400 should fail");
   } catch (e) {
-    is(e.code, "failed", "Ollama: a model without tools fails");
-    ok(/does not support tools/.test(e.detail), "Ollama: with Ollama's reason");
+    is(e.code, "failed", "Ollama: another 400 fails");
+    ok(/invalid request/.test(e.detail), "Ollama: with Ollama's reason");
   }
-  ok("tools" in bodies[0], "Ollama: the tools were sent, not dropped");
+  is(bodies.length, 1, "Ollama: and isn't retried");
 
   start([ollamaText("Plain.")]);
   result = await ask("ollama", { extraTools: [] });
