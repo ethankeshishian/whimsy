@@ -41,6 +41,14 @@ nsIFrame* DarkMappingFrame(const dom::HTMLCanvasElement* aCanvas);
 // unchanged for a null frame.
 nscolor MapDarkColor(nscolor aColor, const nsIFrame* aFrame);
 
+// W31 box shadows on a recoloured page. A blurred shadow is a shadow, not a
+// colour the page shows: inverting a dark one turns it into a light halo
+// around its box. It stays a dark shadow of the same shape: the darker of
+// its authored colour (aAuthored) and its recoloured one (aMapped). Returns
+// aMapped unchanged when the page isn't recoloured.
+nscolor DarkShadowColor(nscolor aMapped, nscolor aAuthored,
+                        const nsIFrame* aFrame);
+
 // Display time: whether this canvas's pixels still need the lightness flip
 // as a filter. Contexts that can't recolour as they draw (WebGL, WebGPU,
 // bitmap renderer, a worker's canvas) keep the old filter on a recoloured

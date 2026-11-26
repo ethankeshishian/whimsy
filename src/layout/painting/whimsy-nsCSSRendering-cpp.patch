@@ -1,0 +1,25 @@
+diff --git a/layout/painting/nsCSSRendering.cpp b/layout/painting/nsCSSRendering.cpp
+--- a/layout/painting/nsCSSRendering.cpp
++++ b/layout/painting/nsCSSRendering.cpp
+@@ -34,6 +34,7 @@
+ #include "mozilla/gfx/Helpers.h"
+ #include "mozilla/gfx/Logging.h"
+ #include "mozilla/gfx/PathHelpers.h"
++#include "mozilla/whimsy/WhimsyDarkCanvas.h"
+ #include "nsBlockFrame.h"
+ #include "nsCSSColorUtils.h"
+ #include "nsCSSFrameConstructor.h"
+@@ -1369,6 +1370,13 @@
+                                               float aOpacity) {
+   // Get the shadow color; if not specified, use the foreground color
+   nscolor shadowColor = aShadow.color.CalcColor(aFrame);
++  // Whimsy: on a recoloured page a blurred shadow stays a dark shadow of the
++  // same shape instead of inverting into a light halo.
++  if (aShadow.blur.ToAppUnits() > 0) {
++    shadowColor = whimsy::DarkShadowColor(
++        shadowColor, aShadow.color.CalcColor(aFrame->StyleText()->mColor),
++        aFrame);
++  }
+   sRGBColor color = sRGBColor::FromABGR(shadowColor);
+   color.a *= aOpacity;
+   return color;

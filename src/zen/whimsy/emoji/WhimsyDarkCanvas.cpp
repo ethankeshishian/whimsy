@@ -37,6 +37,19 @@ nscolor MapDarkColor(nscolor aColor, const nsIFrame* aFrame) {
                 : aColor;
 }
 
+nscolor DarkShadowColor(nscolor aMapped, nscolor aAuthored,
+                        const nsIFrame* aFrame) {
+  if (aMapped == aAuthored || !aFrame ||
+      !IsDarkInverted(aFrame->PresContext()->Document())) {
+    return aMapped;
+  }
+  auto luma = [](nscolor aColor) {
+    return 54 * NS_GET_R(aColor) + 183 * NS_GET_G(aColor) +
+           19 * NS_GET_B(aColor);
+  };
+  return luma(aAuthored) < luma(aMapped) ? aAuthored : aMapped;
+}
+
 bool CanvasNeedsDarkFilter(dom::HTMLCanvasElement* aCanvas,
                            const nsIFrame* aFrame) {
   if (!aCanvas || !aFrame) {
