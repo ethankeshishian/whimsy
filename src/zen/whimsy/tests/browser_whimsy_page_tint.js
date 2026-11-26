@@ -494,8 +494,9 @@ add_task(async function test_row_built_on_first_use_and_only_when_on() {
     await TestUtils.waitForCondition(() => win._whimsyPageTint, "Match the page set up the window");
   };
 
-  // A window of its own, so no tab of it syncs into this one.
-  const newWindow = () => BrowserTestUtils.openNewBrowserWindow({ zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false) });
+  // A synced window (it has spaces, so a space colour editor); a tab it
+  // syncs into this window is closed after.
+  const newWindow = () => BrowserTestUtils.openNewBrowserWindow();
   const tabsBefore = new Set(gBrowser.tabs);
   registerCleanupFunction(async () => {
     for (const tab of [...gBrowser.tabs]) {

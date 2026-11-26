@@ -231,7 +231,8 @@ add_task(async function test_switcher_arrows_skip_hidden_and_enforce_edges() {
 // the Library module for them) until its first swipe, nor at all while
 // the feature is off.
 add_task(async function test_edge_actions_wrapped_on_first_swipe() {
-  const win = await BrowserTestUtils.openNewBrowserWindow({ zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false) });
+  const tabsBefore = new Set(gBrowser.tabs);
+  const win = await BrowserTestUtils.openNewBrowserWindow();
   try {
     await win.gZenWorkspaces.promiseInitialized;
     await TestUtils.waitForCondition(() => WhimsySpaceSwitchQueue.debugState(win), "The switch queue set up the window");
@@ -244,6 +245,12 @@ add_task(async function test_edge_actions_wrapped_on_first_swipe() {
     ok(WhimsySpaceSwitchQueue.edgeSwipesWrapped(win), "On, the first swipe wraps them");
   } finally {
     await BrowserTestUtils.closeWindow(win);
+    // A tab the synced window left in this one.
+    for (const tab of [...gBrowser.tabs]) {
+      if (!tabsBefore.has(tab)) {
+        await BrowserTestUtils.removeTab(tab);
+      }
+    }
   }
 });
 
