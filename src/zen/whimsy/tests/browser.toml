@@ -431,6 +431,9 @@ support-files = ["whimsy_call.html"]
 
 ["browser_whimsy_glance_size.js"]
 
+# W32 flaky: a Glance closed with its tab while its link preview is drawn.
+["browser_whimsy_glance_close_while_opening.js"]
+
 # W29: expanding a Glance from a pinned tab or Essential gives a normal tab.
 ["browser_whimsy_glance_expand_from_pinned.js"]
 

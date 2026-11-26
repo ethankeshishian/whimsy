@@ -89,6 +89,9 @@ export const WhimsyExternalLinks = {
     if (!win?.gZenGlanceManager) {
       return false;
     }
+    // A link from another app has no spot on the page to grow from: without
+    // this, the Glance grows out of (and snapshots) the last link clicked.
+    win.gZenGlanceManager.lastLinkClickData = { clientX: 0, clientY: 0, width: 0, height: 0 };
     win.gZenGlanceManager.openGlance({ url: uri.spec, triggeringPrincipal });
     win.focus();
     return true;

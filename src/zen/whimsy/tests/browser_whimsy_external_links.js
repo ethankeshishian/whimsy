@@ -42,8 +42,16 @@ registerCleanupFunction(() => {
 
 add_task(async function test_glance_target_opens_a_glance_and_returns_null() {
   Services.prefs.setStringPref("whimsy.external-links.target", "glance");
+  // A link clicked earlier (in this file or the one before) leaves its rect.
+  // W32 flaky: the Glance grew out of that rect, awaiting a snapshot of it.
+  gZenGlanceManager.lastLinkClickData = { clientX: 10, clientY: 10, width: 40, height: 20 };
   const context = openExternal("https://example.com/");
   is(context, null, "openURI returns null: the link was handled as a Glance, not a new browsing context");
+  Assert.deepEqual(
+    gZenGlanceManager.lastLinkClickData,
+    { clientX: 0, clientY: 0, width: 0, height: 0 },
+    "A link from another app doesn't grow out of the last link clicked"
+  );
   await TestUtils.waitForCondition(
     () => gBrowser.tabs.some(t => t.hasAttribute("glance-id")),
     "A Glance opens over the current tab"
