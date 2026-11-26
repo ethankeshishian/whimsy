@@ -616,7 +616,7 @@ add_task(async function w32_capture_embeds_in_idle_time_not_during_the_load() {
   const waiting = [];
   let embeds = 0;
   WhimsyAIContext.isOffLimits = () => false;
-  WhimsyAIReader.readTab = async () => "Coffee beans from Ethiopia and Colombia, roasted light for espresso, ground fine, and brewed hot. ".repeat(3);
+  WhimsyAIReader.readTab = async () => "Coffee beans from Ethiopia and Colombia, roasted light for espresso, ground fine, brewed hot, and served with steamed milk and sugar in small cups. ".repeat(3);
   WhimsyAIIndex._setTestEmbedder(text => (embeds++, vectorFor(text)));
   WhimsyAIIndex._setIdleSchedulerForTesting(() => new Promise(resolve => waiting.push(resolve)));
   try {
@@ -646,7 +646,7 @@ add_task(async function w32_a_clear_drops_pages_waiting_for_idle_time() {
   const fakeWin = { gBrowser: { getTabForBrowser: () => ({}) } };
   const waiting = [];
   WhimsyAIContext.isOffLimits = () => false;
-  WhimsyAIReader.readTab = async () => "Coffee beans from Ethiopia and Colombia, roasted light for espresso, ground fine, and brewed hot. ".repeat(3);
+  WhimsyAIReader.readTab = async () => "Coffee beans from Ethiopia and Colombia, roasted light for espresso, ground fine, brewed hot, and served with steamed milk and sugar in small cups. ".repeat(3);
   WhimsyAIIndex._setIdleSchedulerForTesting(() => new Promise(resolve => waiting.push(resolve)));
   try {
     const captured = WhimsyAIIndex._captureVisit(fakeWin, fakeBrowser);
