@@ -881,7 +881,7 @@ export const Whimsy = {
     };
     const run = (name, fn) => {
       // With lazy init off, idle steps still run at the end of initWindow
-      // (as later() steps always did) and first-use ones in place.
+      // (as deferred steps always did) and first-use ones in place.
       const tier = initTier(name);
       const when = lazyInit || tier.when != "first-use" ? tier.when : "window";
       const on = lazyInit ? tier.triggers : [];
