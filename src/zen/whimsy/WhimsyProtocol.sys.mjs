@@ -35,6 +35,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
   WhimsyAIContext: "resource:///modules/whimsy/WhimsyAIContext.sys.mjs",
   WhimsyChat: "resource:///modules/whimsy/WhimsyChat.sys.mjs",
+  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyExternalLinks: "resource:///modules/whimsy/WhimsyExternalLinks.sys.mjs",
   WhimsyQuickWindow: "resource:///modules/whimsy/WhimsyQuickWindow.sys.mjs",
 });
@@ -190,7 +191,7 @@ export const WhimsyProtocol = {
   go(win, route, where = "current") {
     win.gURLBar.blur();
     if (route.command) {
-      const command = win.document.getElementById(route.command);
+      const command = lazy.WhimsyCommands.command(win, route.command);
       if (command) {
         command.doCommand();
         return;
@@ -236,7 +237,7 @@ export const WhimsyProtocol = {
       return true;
     }
     if (link.action == "command") {
-      const command = win.document.getElementById(link.command);
+      const command = lazy.WhimsyCommands.command(win, link.command);
       if (!command || command.getAttribute("disabled") == "true") {
         return false;
       }

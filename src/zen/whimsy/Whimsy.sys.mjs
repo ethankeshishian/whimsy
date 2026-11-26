@@ -1554,11 +1554,19 @@ export const Whimsy = {
 
   // wave7/small: runs a window's idle steps (names, through fire, which
   // skips any a trigger already ran) when it's first idle (at most
-  // DEFER_TIMEOUT_MS later). win.whimsyDeferredInit resolves after.
+  // DEFER_TIMEOUT_MS later). win.whimsyDeferredInit resolves after. w32:
+  // sooner when the registry is used first (WhimsyCommands.ready()): a
+  // lookup or run of a command, the command bar, a whimsy:// command, or a
+  // menu opening (VoiceOver opens them with no key or click).
   runDeferred(win, names, fire, lazyInit = true) {
     let resolve;
     win.whimsyDeferredInit = new Promise(r => (resolve = r));
+    let done = false;
     const flush = () => {
+      if (done) {
+        return;
+      }
+      done = true;
       if (!win.closed) {
         lazy.WhimsyCommands.batchKeys(win, () => {
           for (const name of names) {
@@ -1574,7 +1582,9 @@ export const Whimsy = {
     }
     // A window closed before it was idle never runs its callback.
     win.addEventListener("unload", () => resolve(), { once: true });
-    win.requestIdleCallback(flush, { timeout: DEFER_TIMEOUT_MS });
+    lazy.WhimsyCommands.whenReady(win, flush);
+    win.addEventListener("popupshowing", () => lazy.WhimsyCommands.ready(win), { capture: true, once: true });
+    win.requestIdleCallback(() => lazy.WhimsyCommands.ready(win), { timeout: DEFER_TIMEOUT_MS });
   },
 
   // batch7b: from December 1, once a year, a toast points at Year in tabs.

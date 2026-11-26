@@ -123,3 +123,52 @@ add_task(async function test_fewer_steps_run_at_once() {
   await BrowserTestUtils.closeWindow(win);
   await SpecialPowers.popPrefEnv();
 });
+
+// w32: a command reached with no key or click (AppleScript, a whimsy://
+// command, the agent, a menu VoiceOver opens) still finds an idle-tier
+// command: the registry runs the window's idle steps first, once.
+add_task(async function test_registry_runs_idle_steps_first() {
+  const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs");
+  const { WhimsyPasteGuard } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyPasteGuard.sys.mjs");
+  registerCleanupFunction(() => Services.prefs.clearUserPref(WhimsyPasteGuard.ENABLED_PREF));
+  const id = "cmd_whimsyPasteGuard";
+  const wasOn = WhimsyPasteGuard.active;
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.perf.marks", true]] });
+  let seen = null;
+  // Runs the command right after the new window's initWindow returns (a
+  // microtask after it sets whimsyDeferredInit), before any idle callback.
+  const observer = (subject, topic) => {
+    if (topic != "domwindowopened") {
+      return;
+    }
+    Services.ww.unregisterNotification(observer);
+    let value;
+    Object.defineProperty(subject, "whimsyDeferredInit", {
+      configurable: true,
+      get: () => value,
+      set(promise) {
+        value = promise;
+        Promise.resolve().then(() => {
+          const before = !!subject.document.getElementById(id);
+          seen = { before, ran: WhimsyCommands.run(subject, id), after: !!subject.document.getElementById(id) };
+        });
+      },
+    });
+  };
+  Services.ww.registerNotification(observer);
+  const win = await BrowserTestUtils.openNewBrowserWindow();
+  await TestUtils.waitForCondition(() => !!seen, "The command ran in the new window");
+  ok(!seen.before, "The command was still waiting for the window to be idle");
+  ok(seen.ran, "Running it through the registry succeeded");
+  ok(seen.after, "and the window has the command");
+  is(WhimsyPasteGuard.active, !wasOn, "The command did what it does");
+  const steps = WhimsyPerfMarks.forWindow(win).steps;
+  is(steps.filter(s => s.name == "paste-guard").length, 1, "Its step ran once");
+  ok(!steps.some(s => s.name == "paste-guard" && s.tier == "window"), "and not in initWindow");
+  await win.whimsyDeferredInit;
+  is(steps.filter(s => s.name == "paste-guard").length, 1, "The idle callback didn't run it again");
+  WhimsyCommands.ready(win);
+  is(steps.filter(s => s.name == "settings-commands").length, 1, "Every idle step ran once");
+  await BrowserTestUtils.closeWindow(win);
+  await SpecialPowers.popPrefEnv();
+});
