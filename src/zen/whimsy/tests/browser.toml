@@ -1569,6 +1569,9 @@ support-files = ["whimsy_reader_rich.html"]
 # reserved shortcuts, overlay hole subtraction, focus hand-offs, pill and
 # Engine rows in both panels, private windows, light/dark shots and contrast).
 ["browser_whimsy_webkit.js"]
+# W32: whimsy_webkit_tls.p12 is netwerk/test/unit/client-cert.p12 (password
+# "password"), the untrusted certificate the TLS test server uses.
+support-files = ["whimsy_webkit_tls.p12"]
 run-if = ["os == 'mac'"]
 tags = "whimsy-headed"
 skip-if = ["headless"] # needs a real WKWebView; the runners run whimsy-headed files headed

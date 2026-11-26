@@ -80,6 +80,8 @@ function startLocalTestServer() {
 
               let contentType = "text/html; charset=utf-8";
               let body = "";
+              let status = "200 OK";
+              let extraHeaders = "";
               if (path.startsWith("/favicon.svg")) {
                 contentType = "image/svg+xml";
                 body = faviconSvg;
@@ -96,12 +98,32 @@ function startLocalTestServer() {
                 body = `<!doctype html><html><head><meta charset="utf-8"><title>Solid ${hex}</title><meta name="color-scheme" content="light"></head><body style="margin:0;height:100vh;background:#${hex};"></body></html>`;
               } else if (path.startsWith("/popup")) {
                 body = pageHtml("WebKit Popup Page", "Popup Page", "/page1");
+              } else if (path.startsWith("/tall")) {
+                // W32: a long page, for the scroll position a discard keeps.
+                body = `<!doctype html><html><head><meta charset="utf-8"><title>Tall Page</title></head><body style="margin:0"><div style="height:6000px;background:linear-gradient(#fff,#bbb)">Tall</div></body></html>`;
+              } else if (path.startsWith("/auth")) {
+                // W32: HTTP Basic auth (user "whimsy", password "secret").
+                if (/\r\nauthorization: basic d2hpbXN5OnNlY3JldA==\r\n/i.test(requestData)) {
+                  body = pageHtml("Auth OK", "Signed In", "/page1");
+                } else {
+                  status = "401 Unauthorized";
+                  extraHeaders = 'WWW-Authenticate: Basic realm="Whimsy Test Realm"\r\n';
+                  body = "<!doctype html><title>Denied</title>";
+                }
+              } else if (path.startsWith("/download")) {
+                contentType = "application/octet-stream";
+                extraHeaders =
+                  'Content-Disposition: attachment; filename="whimsy-webkit-test.bin"\r\n';
+                body = "whimsy webkit download\n";
+              } else if (path.startsWith("/file")) {
+                body = `<!doctype html><html><head><meta charset="utf-8"><title>File Page</title></head><body><input type="file" id="f"></body></html>`;
               } else {
                 body = pageHtml("WebKit Test Page One", "First Page", "/page2");
               }
 
               const response =
-                `HTTP/1.1 200 OK\r\n` +
+                `HTTP/1.1 ${status}\r\n` +
+                extraHeaders +
                 `Content-Type: ${contentType}\r\n` +
                 `Content-Length: ${body.length}\r\n` +
                 `Cache-Control: no-store\r\n` +
@@ -1183,4 +1205,527 @@ add_webkit_task(async function test_private_windows_hide_all_webkit_ui() {
   await WhimsySiteSettings.hidePanel(privWin);
 
   await BrowserTestUtils.closeWindow(privWin);
+});
+
+// ---------------------------------------------------------------------------
+// W32: WebKit parity (discards, crashes, delegate requests through Gecko's
+// prompts and services, and the epoch guard).
+
+const { PromptTestUtils } = ChromeUtils.importESModule(
+  "resource://testing-common/PromptTestUtils.sys.mjs"
+);
+const { Downloads } = ChromeUtils.importESModule(
+  "resource://gre/modules/Downloads.sys.mjs"
+);
+const { SitePermissions } = ChromeUtils.importESModule(
+  "resource:///modules/SitePermissions.sys.mjs"
+);
+
+// A WebKit tab, selected, showing aPath from the local server.
+async function openWebKitTab(path = "/page1", title = "WebKit Test Page One") {
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    gServer.url(path)
+  );
+  await WhimsyWebKit.setTabEngine(tab, "webkit");
+  Assert.ok(WhimsyWebKit.isWebKitTab(tab), "The tab is a WebKit tab");
+  await TestUtils.waitForCondition(
+    () => tab.label == title && !tab.hasAttribute("busy"),
+    `WebKit loaded ${path}`
+  );
+  return tab;
+}
+
+add_webkit_task(async function test_w32_discard_keeps_history_and_scroll() {
+  if (!requireWebKit()) {
+    return;
+  }
+  const tab = await openWebKitTab();
+  await WhimsyWebKit.loadURLInTab(tab, gServer.url("/tall"));
+  await TestUtils.waitForCondition(
+    () => tab.label == "Tall Page" && !tab.hasAttribute("busy"),
+    "The tall page loaded in WebKit"
+  );
+  await WhimsyWebKit.evaluateInTab(tab, "window.scrollTo(0, 1500), true");
+  await TestUtils.waitForCondition(
+    async () => (await WhimsyWebKit.evaluateInTab(tab, "window.scrollY")) >= 1400,
+    "The tall page scrolled"
+  );
+
+  const other = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    gServer.url("/page2")
+  );
+  const discarded = BrowserTestUtils.waitForEvent(tab, "TabBrowserDiscarded");
+  gBrowser.discardBrowser(tab, true);
+  await discarded;
+  const state = WhimsyWebKit.stateOf(tab);
+  Assert.ok(!tab.linkedPanel, "Gecko discarded the WebKit tab");
+  Assert.equal(state.id, 0, "Discarding the tab freed its WKWebView");
+  Assert.ok(WhimsyWebKit.isWebKitTab(tab), "A discarded WebKit tab stays a WebKit tab");
+  Assert.equal(
+    tab.linkedBrowser.currentURI.spec,
+    gServer.url("/tall"),
+    "The discarded tab keeps the WebKit page's address"
+  );
+
+  gBrowser.selectedTab = tab;
+  await TestUtils.waitForCondition(
+    () => state.id && tab.label == "Tall Page" && !tab.hasAttribute("busy"),
+    "Selecting the discarded tab brings its WebKit page back"
+  );
+  Assert.equal(
+    WhimsyWebKit.currentURIOf(tab)?.spec,
+    gServer.url("/tall"),
+    "The restored tab shows the page it was on"
+  );
+  await TestUtils.waitForCondition(
+    async () => (await WhimsyWebKit.evaluateInTab(tab, "window.scrollY")) >= 1400,
+    "The restored page keeps its scroll position"
+  );
+  Assert.ok(
+    !document.getElementById("Browser:Back").hasAttribute("disabled"),
+    "The restored tab can go back"
+  );
+  WhimsyWebKit.goBack(tab);
+  await TestUtils.waitForCondition(
+    () => tab.label == "WebKit Test Page One" && !tab.hasAttribute("busy"),
+    "Back goes to the page before the tall one: the history survived"
+  );
+  BrowserTestUtils.removeTab(other);
+});
+
+add_webkit_task(async function test_w32_crash_shows_tabcrashed_and_restores() {
+  if (!requireWebKit()) {
+    return;
+  }
+  const tab = await openWebKitTab();
+  const state = WhimsyWebKit.stateOf(tab);
+  const browser = tab.linkedBrowser;
+  WhimsyWebKit.service.killWebContentProcessForTesting(state.id);
+  await TestUtils.waitForCondition(
+    () => browser.contentDocument?.documentURI?.startsWith("about:tabcrashed"),
+    "A crashed WebKit tab shows Gecko's tab-crashed page"
+  );
+  Assert.equal(state.geckoPage, "tabcrashed", "The tab is on the tab-crashed page");
+  Assert.ok(tab.hasAttribute("crashed"), "The tab is marked crashed, as Gecko marks one");
+  Assert.ok(!tab.hasAttribute("busy"), "A crashed tab isn't left busy");
+
+  const restore = await TestUtils.waitForCondition(
+    () => browser.contentDocument?.getElementById("restoreTab"),
+    "The tab-crashed page has its Restore button"
+  );
+  restore.click();
+  await TestUtils.waitForCondition(
+    () => !state.geckoPage && !state.crashed && !tab.hasAttribute("crashed"),
+    "Restore puts the WebKit page back"
+  );
+  await TestUtils.waitForCondition(
+    () => tab.label == "WebKit Test Page One" && !tab.hasAttribute("busy"),
+    "The restored WebKit page reloads"
+  );
+  Assert.equal(
+    await WhimsyWebKit.evaluateInTab(tab, "document.getElementById('heading').textContent"),
+    "First Page",
+    "The restored page runs"
+  );
+
+  // A background tab whose page crashed reloads when it's selected.
+  const other = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    gServer.url("/page2")
+  );
+  WhimsyWebKit.service.killWebContentProcessForTesting(state.id);
+  await TestUtils.waitForCondition(() => state.crashed, "The background page crashed");
+  Assert.ok(!state.geckoPage, "A background crash waits for the tab to be selected");
+  gBrowser.selectedTab = tab;
+  await TestUtils.waitForCondition(
+    () => !state.crashed && tab.label == "WebKit Test Page One" && !tab.hasAttribute("busy"),
+    "Selecting a crashed background tab reloads its page"
+  );
+  Assert.equal(
+    await WhimsyWebKit.evaluateInTab(tab, "1 + 1"),
+    2,
+    "The reloaded page runs"
+  );
+  BrowserTestUtils.removeTab(other);
+});
+
+add_webkit_task(async function test_w32_alert_confirm_prompt_use_tab_prompts() {
+  if (!requireWebKit()) {
+    return;
+  }
+  const tab = await openWebKitTab();
+  const browser = tab.linkedBrowser;
+  const modalType = Services.prompt.MODAL_TYPE_TAB;
+  const host = `127.0.0.1:${gServer.port}`;
+
+  let result = WhimsyWebKit.evaluateInTab(tab, "alert('Hello from WebKit'), 'done'");
+  let dialog = await PromptTestUtils.waitForPrompt(browser, { modalType, promptType: "alert" });
+  Assert.equal(dialog.args.text, "Hello from WebKit", "alert() shows Gecko's tab prompt with its message");
+  Assert.equal(dialog.args.title, host, "The prompt is titled with the page's host");
+  await PromptTestUtils.handlePrompt(dialog);
+  Assert.equal(await result, "done", "alert() returns once the prompt closes");
+
+  result = WhimsyWebKit.evaluateInTab(tab, "confirm('Sure?')");
+  await PromptTestUtils.handleNextPrompt(browser, { modalType, promptType: "confirm" }, { buttonNumClick: 0 });
+  Assert.strictEqual(await result, true, "confirm() returns true for OK");
+  result = WhimsyWebKit.evaluateInTab(tab, "confirm('Sure?')");
+  await PromptTestUtils.handleNextPrompt(browser, { modalType, promptType: "confirm" }, { buttonNumClick: 1 });
+  Assert.strictEqual(await result, false, "confirm() returns false for Cancel");
+
+  result = WhimsyWebKit.evaluateInTab(tab, "prompt('Name?', 'default')");
+  dialog = await PromptTestUtils.waitForPrompt(browser, { modalType, promptType: "prompt" });
+  Assert.equal(dialog.ui.loginTextbox.value, "default", "prompt() fills in its default value");
+  await PromptTestUtils.handlePrompt(dialog, { loginInput: "Whimsy" });
+  Assert.equal(await result, "Whimsy", "prompt() returns what was typed");
+  result = WhimsyWebKit.evaluateInTab(tab, "prompt('Name?')");
+  await PromptTestUtils.handleNextPrompt(browser, { modalType, promptType: "prompt" }, { buttonNumClick: 1 });
+  Assert.strictEqual(await result, null, "prompt() returns null when cancelled");
+});
+
+add_webkit_task(async function test_w32_file_input_uses_firefox_file_picker() {
+  if (!requireWebKit()) {
+    return;
+  }
+  const tab = await openWebKitTab("/file", "File Page");
+  const path = PathUtils.join(PathUtils.tempDir, "whimsy-webkit-upload.txt");
+  await IOUtils.writeUTF8(path, "upload me");
+  const MockFilePicker = SpecialPowers.MockFilePicker;
+  MockFilePicker.init(window.browsingContext);
+  try {
+    let shownMode = null;
+    MockFilePicker.showCallback = fp => {
+      shownMode = fp.mode;
+    };
+    MockFilePicker.returnValue = MockFilePicker.returnOK;
+    MockFilePicker.setFiles([new FileUtils.File(path)]);
+    await WhimsyWebKit.evaluateInTab(tab, "document.getElementById('f').click(), true");
+    await TestUtils.waitForCondition(
+      async () =>
+        (await WhimsyWebKit.evaluateInTab(
+          tab,
+          "document.getElementById('f').files[0]?.name || ''"
+        )) == "whimsy-webkit-upload.txt",
+      "The file chosen in Firefox's file picker reaches the WebKit page"
+    );
+    Assert.equal(shownMode, Ci.nsIFilePicker.modeOpen, "A single-file input opens the picker for one file");
+  } finally {
+    MockFilePicker.cleanup();
+    await IOUtils.remove(path, { ignoreAbsent: true });
+  }
+});
+
+add_webkit_task(async function test_w32_http_auth_uses_firefox_auth_prompt() {
+  if (!requireWebKit()) {
+    return;
+  }
+  const tab = await openWebKitTab();
+  const browser = tab.linkedBrowser;
+  const modalType = Services.prefs.getIntPref(
+    "prompts.modalType.httpAuth",
+    Services.prompt.MODAL_TYPE_TAB
+  );
+  const prompted = PromptTestUtils.waitForPrompt(browser, {
+    modalType,
+    promptType: "promptUserAndPass",
+  });
+  WhimsyWebKit.loadURLInTab(tab, gServer.url("/auth"), { waitForLoad: false });
+  const dialog = await prompted;
+  Assert.ok(
+    dialog.args.text.includes("Whimsy Test Realm") || dialog.args.text.includes("127.0.0.1"),
+    "Firefox's auth prompt names the site asking"
+  );
+  await PromptTestUtils.handlePrompt(dialog, {
+    loginInput: "whimsy",
+    passwordInput: "secret",
+  });
+  await TestUtils.waitForCondition(
+    () => tab.label == "Auth OK" && !tab.hasAttribute("busy"),
+    "The credentials from Firefox's prompt signed WebKit in"
+  );
+  // The password manager offers to save the login; leave it unsaved.
+  try {
+    await TestUtils.waitForCondition(
+      () => PopupNotifications.getNotification("password", browser),
+      "The password manager offers to save the login",
+      100,
+      30
+    );
+  } catch {}
+  PopupNotifications.getNotification("password", browser)?.remove();
+  Assert.equal(
+    (await Services.logins.getAllLogins()).filter(l => l.httpRealm == "Whimsy Test Realm").length,
+    0,
+    "Nothing is saved without the password manager's own Save"
+  );
+});
+
+add_webkit_task(async function test_w32_camera_uses_firefox_doorhanger() {
+  if (!requireWebKit()) {
+    return;
+  }
+  await SpecialPowers.pushPrefEnv({ set: [["media.navigator.streams.fake", true]] });
+  const tab = await openWebKitTab();
+  const state = WhimsyWebKit.stateOf(tab);
+  const origin = `http://127.0.0.1:${gServer.port}`;
+  const principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin);
+  const responses = [];
+  const origRespond = WhimsyWebKit._respond;
+  const origDevices = WhimsyWebKit._captureDevices;
+  WhimsyWebKit._respond = (id, req, response) => responses.push({ req, ...response });
+  WhimsyWebKit._captureDevices = () => ({
+    camera: { name: "Whimsy Test Camera", id: "whimsy-test-camera" },
+  });
+  try {
+    // WebKit asks for the camera: Gecko's sharing doorhanger answers.
+    let shown = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
+    await WhimsyWebKit._onMedia(tab, state, state.id, { req: 41, origin, camera: true });
+    await shown;
+    let notification = PopupNotifications.getNotification("webRTC-shareDevices", tab.linkedBrowser);
+    Assert.ok(notification, "A WebKit camera request shows Firefox's camera doorhanger");
+    const panel = PopupNotifications.panel.firstElementChild;
+    if (panel.checkbox) {
+      panel.checkbox.checked = false;
+    }
+    panel.button.click();
+    await TestUtils.waitForCondition(() => responses.length == 1, "The doorhanger answered WebKit");
+    Assert.deepEqual(responses[0], { req: 41, allow: true }, "Allow lets WebKit use the camera");
+
+    // A blocked site is refused without asking.
+    SitePermissions.setForPrincipal(principal, "camera", SitePermissions.BLOCK);
+    await WhimsyWebKit._onMedia(tab, state, state.id, { req: 42, origin, camera: true });
+    Assert.deepEqual(responses[1], { req: 42, allow: false }, "A blocked camera is refused");
+    SitePermissions.removeFromPrincipal(principal, "camera");
+    SitePermissions.clearTemporaryBlockPermissions(tab.linkedBrowser);
+
+    // Leaving the page withdraws an open request.
+    shown = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popupshown");
+    await WhimsyWebKit._onMedia(tab, state, state.id, { req: 43, origin, camera: true });
+    await shown;
+    await WhimsyWebKit.loadURLInTab(tab, gServer.url("/page2"));
+    await TestUtils.waitForCondition(
+      () => responses.some(r => r.req == 43),
+      "Leaving the page answers the open request"
+    );
+    Assert.deepEqual(responses.find(r => r.req == 43), { req: 43, allow: false }, "A withdrawn request is refused");
+    await TestUtils.waitForCondition(
+      () => !PopupNotifications.getNotification("webRTC-shareDevices", tab.linkedBrowser),
+      "Its doorhanger goes away"
+    );
+  } finally {
+    WhimsyWebKit._respond = origRespond;
+    WhimsyWebKit._captureDevices = origDevices;
+    for (const perm of SitePermissions.getAllForBrowser(tab.linkedBrowser)) {
+      SitePermissions.removeFromPrincipal(principal, perm.id, tab.linkedBrowser);
+    }
+    Services.perms.removeFromPrincipal(principal, "MediaManagerVideo");
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+add_webkit_task(async function test_w32_downloads_join_firefox_downloads() {
+  if (!requireWebKit()) {
+    return;
+  }
+  const dir = PathUtils.join(PathUtils.tempDir, `whimsy-webkit-downloads-${Date.now()}`);
+  await IOUtils.makeDirectory(dir);
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.download.useDownloadDir", true],
+      ["browser.download.folderList", 2],
+      ["browser.download.dir", dir],
+      ["browser.download.alwaysOpenPanel", false],
+    ],
+  });
+  const list = await Downloads.getList(Downloads.ALL);
+  const added = [];
+  const view = { onDownloadAdded: d => added.push(d) };
+  await list.addView(view);
+  try {
+    const tab = await openWebKitTab();
+    WhimsyWebKit.loadURLInTab(tab, gServer.url("/download"), { waitForLoad: false });
+    await TestUtils.waitForCondition(
+      () => added.some(d => d.source.url == gServer.url("/download")),
+      "WebKit's download shows up in Firefox's downloads list"
+    );
+    const download = added.find(d => d.source.url == gServer.url("/download"));
+    await TestUtils.waitForCondition(() => download.stopped, "The download finished");
+    Assert.ok(download.succeeded, "The download succeeded");
+    Assert.equal(PathUtils.parent(download.target.path), dir, "It saved to Firefox's download folder");
+    Assert.equal(PathUtils.filename(download.target.path), "whimsy-webkit-test.bin", "It kept the site's file name");
+    Assert.equal(
+      await IOUtils.readUTF8(download.target.path),
+      "whimsy webkit download\n",
+      "The file holds what the site sent"
+    );
+    Assert.equal(
+      WhimsyWebKit.currentURIOf(tab)?.spec,
+      gServer.url("/page1"),
+      "The tab stays on its page"
+    );
+  } finally {
+    await list.removeView(view);
+    for (const d of added) {
+      await list.remove(d);
+      await d.finalize(true).catch(() => {});
+    }
+    await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
+// A TLS server on 127.0.0.1 with a certificate neither engine trusts.
+async function startUntrustedTLSServer() {
+  const certDB = Cc["@mozilla.org/security/x509certdb;1"].getService(Ci.nsIX509CertDB);
+  certDB.importPKCS12File(new FileUtils.File(getTestFilePath("whimsy_webkit_tls.p12")), "password");
+  const cert = (await certDB.getCerts()).find(c => c.commonName == "Test End-entity");
+  Assert.ok(cert, "The test server certificate is available");
+  const srv = Cc["@mozilla.org/network/tls-server-socket;1"].createInstance(Ci.nsITLSServerSocket);
+  srv.init(-1, true, -1);
+  srv.serverCert = cert;
+  srv.setSessionTickets(false);
+  srv.setRequestClientCertificate(Ci.nsITLSServerSocket.REQUEST_NEVER);
+  const transports = [];
+  const body =
+    '<!doctype html><html><head><meta charset="utf-8"><title>Secure Page</title></head><body><h1 id="heading">Secure</h1></body></html>';
+  srv.asyncListen({
+    onSocketAccepted(_socket, transport) {
+      transports.push(transport);
+      const input = transport.openInputStream(0, 0, 0).QueryInterface(Ci.nsIAsyncInputStream);
+      const output = transport.openOutputStream(0, 0, 0);
+      const scriptable = Cc["@mozilla.org/scriptableinputstream;1"].createInstance(
+        Ci.nsIScriptableInputStream
+      );
+      scriptable.init(input);
+      let request = "";
+      const read = () =>
+        input.asyncWait(
+          {
+            onInputStreamReady() {
+              try {
+                const avail = scriptable.available();
+                if (avail > 0) {
+                  request += scriptable.read(avail);
+                }
+              } catch {
+                return;
+              }
+              if (!request.includes("\r\n\r\n")) {
+                read();
+                return;
+              }
+              const response =
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n" +
+                `Content-Length: ${body.length}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n` +
+                body;
+              try {
+                output.write(response, response.length);
+                output.close();
+                input.close();
+              } catch {}
+            },
+          },
+          0,
+          0,
+          Services.tm.mainThread
+        );
+      transport.securityCallbacks
+        .getInterface(Ci.nsITLSServerConnectionInfo)
+        .setSecurityObserver({ onHandshakeDone: () => read() });
+    },
+    onStopListening() {},
+  });
+  return {
+    cert,
+    port: srv.port,
+    url: `https://127.0.0.1:${srv.port}/`,
+    close() {
+      for (const t of transports) {
+        try {
+          t.close(Cr.NS_OK);
+        } catch {}
+      }
+      srv.close();
+    },
+  };
+}
+
+add_webkit_task(async function test_w32_untrusted_certificate_uses_gecko_error_page() {
+  if (!requireWebKit()) {
+    return;
+  }
+  const tls = await startUntrustedTLSServer();
+  const overrides = Cc["@mozilla.org/security/certoverride;1"].getService(
+    Ci.nsICertOverrideService
+  );
+  try {
+    const tab = await openWebKitTab();
+    const state = WhimsyWebKit.stateOf(tab);
+    const browser = tab.linkedBrowser;
+    WhimsyWebKit.loadURLInTab(tab, tls.url, { waitForLoad: false });
+    await TestUtils.waitForCondition(
+      () =>
+        browser.browsingContext?.currentWindowGlobal?.documentURI?.spec.startsWith(
+          "about:certerror"
+        ),
+      "An untrusted certificate in WebKit shows Gecko's certificate error page"
+    );
+    Assert.equal(state.geckoPage, "certerror", "The tab shows the Gecko error page");
+    Assert.equal(gURLBar.value.includes(`127.0.0.1:${tls.port}`), true, "The address bar shows the failing site");
+
+    // Accepting the risk adds Gecko's exception; the page then loads in
+    // WebKit, which trusts the certificate Gecko has an exception for.
+    overrides.rememberValidityOverride("127.0.0.1", tls.port, {}, tls.cert, false);
+    browser.reload();
+    await TestUtils.waitForCondition(
+      () => !state.geckoPage && tab.label == "Secure Page" && !tab.hasAttribute("busy"),
+      "With Gecko's exception the site loads in WebKit"
+    );
+    Assert.ok(WhimsyWebKit.isWebKitTab(tab), "The tab is still a WebKit tab");
+    Assert.equal(WhimsyWebKit.currentURIOf(tab)?.spec, tls.url, "WebKit shows the site");
+    Assert.equal(
+      await WhimsyWebKit.evaluateInTab(tab, "document.getElementById('heading').textContent"),
+      "Secure",
+      "The WebKit page runs"
+    );
+  } finally {
+    overrides.clearValidityOverride("127.0.0.1", tls.port, {});
+    tls.close();
+  }
+});
+
+add_webkit_task(async function test_w32_epoch_guard_drops_stale_scripts() {
+  if (!requireWebKit()) {
+    return;
+  }
+  const tab = await openWebKitTab();
+  await TestUtils.waitForCondition(() => WhimsyWebKit.currentEpochOf(tab), "The page has an epoch");
+  const first = WhimsyWebKit.currentEpochOf(tab);
+  Assert.equal(
+    await WhimsyWebKit.evaluateGuardedInTab(tab, "return document.title;", first),
+    "WebKit Test Page One",
+    "A guarded script runs on the document it was made for"
+  );
+  Assert.equal(
+    await WhimsyWebKit.evaluateInTab(tab, "typeof window.__whimsyEpoch"),
+    "undefined",
+    "The page's own scripts can't see the epoch"
+  );
+
+  await WhimsyWebKit.loadURLInTab(tab, gServer.url("/page2"));
+  await TestUtils.waitForCondition(
+    () => tab.label == "WebKit Test Page Two" && WhimsyWebKit.currentEpochOf(tab) != first,
+    "The next page has its own epoch"
+  );
+  await Assert.rejects(
+    WhimsyWebKit.evaluateGuardedInTab(tab, "return document.title;", first),
+    e => e?.name == "AbortError",
+    "A script made for the previous page is dropped with an AbortError"
+  );
+  Assert.equal(
+    await WhimsyWebKit.evaluateGuardedInTab(tab, "return document.title;"),
+    "WebKit Test Page Two",
+    "An unpinned guarded script runs on the current page"
+  );
 });
