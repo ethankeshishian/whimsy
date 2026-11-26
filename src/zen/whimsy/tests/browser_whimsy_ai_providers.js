@@ -1230,3 +1230,118 @@ add_task(async function legacy_single_account_prefs_keep_their_identity() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// W31 (aievals builder): with an API key, the request's MCP tools reach
+// Claude (they used to be dropped, so write_plugin was never offered). The
+// API path runs them itself: a read-only server's tools run on their own,
+// any other asks the run's guard (confirmTool), and is refused without one.
+add_task(async function test_claude_api_runs_mcp_tools() {
+  OSKeyStoreTestUtils.setup();
+  registerCleanupFunction(() => OSKeyStoreTestUtils.cleanup());
+  const { HttpServer } = ChromeUtils.importESModule("resource://testing-common/httpd.sys.mjs");
+  const { NetUtil: Net } = ChromeUtils.importESModule("resource://gre/modules/NetUtil.sys.mjs");
+  const { WhimsyAIRouter } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIRouter.sys.mjs");
+  const { WhimsyConnectors } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyConnectors.sys.mjs");
+  const server = new HttpServer();
+  server.start(-1);
+  const saved = { ...ENDPOINTS };
+  ENDPOINTS.claude = `http://localhost:${server.identity.primaryPort}/claude`;
+  const bodies = [];
+  let replies = [];
+  server.registerPrefixHandler("/claude/", (request, response) => {
+    const stream = request.bodyInputStream;
+    bodies.push(JSON.parse(Net.readInputStreamToString(stream, stream.available()) || "{}"));
+    const reply = replies.shift() ?? { stop_reason: "end_turn", content: [{ type: "text", text: "none left" }] };
+    response.setStatusLine(request.httpVersion, 200, "OK");
+    if (Array.isArray(reply)) {
+      response.setHeader("content-type", "text/event-stream");
+      response.write(reply.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(""));
+    } else {
+      response.setHeader("content-type", "application/json");
+      response.write(JSON.stringify(reply));
+    }
+  });
+  await WhimsyAIProviders.setClaudeKey("sk-ant-test");
+  Services.prefs.setStringPref("whimsy.ai.order", "claude");
+  Services.prefs.setStringPref("whimsy.ai.claude.model", "claude-test");
+  const wrote = [];
+  const changed = [];
+  const plugin = WhimsyConnectors.runTools(
+    "whimsy_plugins",
+    [{ name: "write_plugin", description: "Writes a plugin", inputSchema: { type: "object", properties: { name: { type: "string" } } }, run: args => (wrote.push(args), { isError: false, text: "Wrote it" }) }],
+    { readOnly: true }
+  );
+  const things = WhimsyConnectors.runTools("things", [{ name: "change_thing", description: "Changes a thing", inputSchema: { type: "object" }, run: args => (changed.push(args), "Changed") }]);
+  registerCleanupFunction(async () => {
+    plugin.dispose();
+    things.dispose();
+    Object.assign(ENDPOINTS, saved);
+    await WhimsyAIProviders.setClaudeKey("");
+    await new Promise(r => server.stop(r));
+  });
+  const ask = (extra = {}) =>
+    WhimsyAIRouter.run({ task: "chat", tools: [], messages: [{ role: "user", content: "Make an extension that hides cookie banners" }], userStarted: true, ...extra });
+
+  // A streamed tool call, then a plain answer.
+  replies = [
+    [
+      { type: "message_start", message: { role: "assistant" } },
+      { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Writing it." } },
+      { type: "content_block_stop", index: 0 },
+      { type: "content_block_start", index: 1, content_block: { type: "tool_use", id: "tu_1", name: "write_plugin", input: {} } },
+      { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: "{\"name\":" } },
+      { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: "\"No banners\"}" } },
+      { type: "content_block_stop", index: 1 },
+      { type: "message_delta", delta: { stop_reason: "tool_use" } },
+      { type: "message_stop" },
+    ],
+    { stop_reason: "end_turn", content: [{ type: "text", text: "It hides cookie banners." }] },
+  ];
+  let result = await ask({ extraTools: [plugin.server] });
+  is(bodies.length, 2, "One round for the tool, one for the answer");
+  Assert.deepEqual(bodies[0].tools?.map(t => t.name), ["write_plugin"], "write_plugin is offered to Claude by its own name");
+  Assert.deepEqual(wrote, [{ name: "No banners" }], "The read-only tool ran with the streamed input");
+  const sent = bodies[1].messages;
+  Assert.deepEqual(sent.at(-2).content.map(b => b.type), ["text", "tool_use"], "Claude's turn goes back as it was");
+  Assert.deepEqual(sent.at(-2).content[1].input, { name: "No banners" }, "with the parsed input");
+  const toolResult = sent.at(-1).content[0];
+  is(toolResult.type, "tool_result", "The tool's answer goes back");
+  is(toolResult.tool_use_id, "tu_1", "for that call");
+  is(toolResult.content, "Wrote it", "with its text");
+  ok(!toolResult.is_error, "not as an error");
+  is(result.text, "Writing it.\n\nIt hides cookie banners.", "Both turns' words reach the chat");
+
+  // A tool that may change something, with nobody to ask: refused.
+  const useThing = { stop_reason: "tool_use", content: [{ type: "tool_use", id: "tu_2", name: "change_thing", input: { id: 7 } }] };
+  const done = { stop_reason: "end_turn", content: [{ type: "text", text: "Done." }] };
+  bodies.length = 0;
+  replies = [useThing, done];
+  await ask({ extraTools: [things.server] });
+  is(changed.length, 0, "Without a guard it doesn't run");
+  ok(bodies[1].messages.at(-1).content[0].is_error, "and Claude hears it was refused");
+  ok(!bodies[0].tools.some(t => /confirm/.test(t.name)), "The guard is never offered as a tool");
+
+  // With the run's guard: the person's answer decides.
+  const asked = [];
+  for (const allow of [false, true]) {
+    bodies.length = 0;
+    replies = [useThing, done];
+    await ask({ extraTools: [things.server], confirmTool: question => (asked.push(question), allow) });
+    is(changed.length, allow ? 1 : 0, allow ? "Allow once runs it" : "Don't allow keeps it from running");
+    is(!!bodies[1].messages.at(-1).content[0].is_error, !allow, "and Claude hears which");
+  }
+  is(asked.length, 2, "The person was asked each time");
+  is(asked[0].server, "things", "named for the server");
+  is(asked[0].tool, "change_thing", "and the tool");
+  Assert.deepEqual(asked[0].args, { id: 7 }, "with what it would do");
+
+  // No tools: the request is as before.
+  bodies.length = 0;
+  replies = [done];
+  result = await ask();
+  ok(!("tools" in bodies[0]), "No tools, no tools field");
+  is(result.text, "Done.", "A plain answer");
+  Services.prefs.clearUserPref("whimsy.ai.order");
+  Services.prefs.clearUserPref("whimsy.ai.claude.model");
+});

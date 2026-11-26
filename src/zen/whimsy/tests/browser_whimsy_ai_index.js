@@ -360,7 +360,7 @@ add_task(async function related_never_indexes_sign_in_or_empty_pages() {
     WhimsyAIReader.readTab = async () => "Loading…";
     await WhimsyAIIndex._captureVisit(fakeWin, fakeBrowser);
     is(await WhimsyAIIndex.count(), 0, `A page under ${WhimsyAIIndex.MIN_TEXT_CHARS} characters of text isn't indexed`);
-    WhimsyAIReader.readTab = async () => "Coffee beans and espresso. ".repeat(20);
+    WhimsyAIReader.readTab = async () => "Coffee beans from Ethiopia and Colombia, roasted light for espresso, ground fine, brewed hot, and served with steamed milk and sugar in small cups. ".repeat(3);
     await WhimsyAIIndex._captureVisit(fakeWin, fakeBrowser);
     is(await WhimsyAIIndex.count(), 1, "...one with real text is");
   } finally {
@@ -468,21 +468,140 @@ add_task(async function related_none_for_a_question_matching_only_a_thin_title()
 add_task(async function real_model_question_vs_thin_title() {
   WhimsyAIIndex._setTestEmbedder(null);
   try {
+    if (!WhimsyAIIndex.available()) {
+      ok(true, "No on-device word list here; nothing to calibrate");
+      return;
+    }
     const q = "how much fat to eat per day";
     const scores = [
       ["HOW TO BATTLESTATION", WhimsyAIIndex._similarityForTesting(q, "HOW TO BATTLESTATION")],
       ["HOW TO BATTLESTATION + guide text", WhimsyAIIndex._similarityForTesting(q, "HOW TO BATTLESTATION\nBuild the PC battlestation of your dreams. Our guide covers desks, monitors, lighting, cable management, and chairs for gaming setups.")],
-      ["title vs thin page", WhimsyAIIndex._similarityForTesting("HOW TO BATTLESTATION", "HOW TO BATTLESTATION\nGet started")],
-      ["title vs real page", WhimsyAIIndex._similarityForTesting("Sourdough bread recipe", "Sourdough bread recipe\nFeed your starter, mix flour and water, rest the dough, shape the loaf, and bake at 450 degrees.")],
     ];
     info(`real model scores: ${JSON.stringify(scores)}`);
-    if (scores.some(([, x]) => x == null)) {
-      ok(true, "No on-device sentence model here; nothing to calibrate");
-      return;
-    }
-    Assert.greaterOrEqual(scores[2][1], 0.75, "A thin page is mostly its title");
-    Assert.less(scores[3][1], 0.75, "A real page isn't");
+    ok(scores.every(([, x]) => x == null || x < WhimsyAIIndex.MIN_SCORE), "The question never matches a page on its title's form words");
+    ok(!(await WhimsyAIIndex.add({ url: "https://pcbattlestations.com/lander", title: "HOW TO BATTLESTATION", text: "Get started. ".repeat(20), thin: true })),
+      "A page that's mostly its title isn't indexed");
+    ok(await WhimsyAIIndex.add({ url: "https://example.org/sourdough", title: "Sourdough bread recipe", thin: true,
+      text: "Feed your starter the night before, then mix flour, water, and salt into a shaggy dough. Rest it, fold it every half hour, shape the loaf, proof it overnight in the fridge, and bake in a hot covered pot until the crust is deep brown." }),
+    "A real page is");
   } finally {
     WhimsyAIIndex._setTestEmbedder(vectorFor);
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+// W31 (aievals related-01, related-02): the sentence model lost a long
+// page's topic, so the laptop review below scored 0.03 for "thin laptop
+// battery life" and the recipe 0.29 for "pasta recipe for dinner", both
+// under the cut-off. The text is the eval fixtures' own (laptops.html,
+// recipe_en.html, as read for the index).
+const LAPTOPS_TEXT = [
+  "Gadget Ledger · By Priya Natarajan · 7 min read",
+  "We spent three weeks with the three thin laptops people ask us about most. All three have good keyboards and all-day batteries, so the choice comes down to weight, screen size, and price.",
+  "Model · Screen · Weight · Battery (our test) · Price",
+  "Aero 13 · 13.6 inch · 2.7 lb (1.24 kg) · 14 h 10 min · $1,099",
+  "Aero 15 · 15.3 inch · 3.3 lb (1.51 kg) · 15 h 40 min · $1,299",
+  "Slate Pro · 14.2 inch · 3.4 lb (1.55 kg) · 12 h 05 min · $1,599",
+  "The Aero 13 is the lightest of the three and the cheapest. Its 13.6-inch screen is the smallest, but it is bright enough for a sunny cafe table.",
+  "The Aero 15 lasted longest in our battery test, more than fifteen and a half hours of mixed web browsing and video calls. It is the one to get if the screen matters more than the weight.",
+  "The Slate Pro is the fastest for heavy work like video export, but it ran hot under load and is the most expensive. It has the only fan of the three.",
+  "Our pick for most people is the Aero 13. Students who travel a lot will like the weight; anyone who edits video should look at the Slate Pro instead.",
+].join("\n");
+const RECIPE_TEXT = [
+  "This pasta takes twenty minutes and uses six ingredients. It serves four people.",
+  "Ingredients", "400 g spaghetti", "4 cloves of garlic, thinly sliced", "1 lemon, zest and juice", "60 ml olive oil", "50 g grated parmesan", "A handful of parsley, chopped",
+  "Method",
+  "Boil the spaghetti in salted water until just tender, about nine minutes. Keep a cup of the cooking water.",
+  "Warm the olive oil in a wide pan over low heat and cook the garlic until it is golden, not brown. This takes about three minutes.",
+  "Add the drained pasta, the lemon zest and juice, and half a cup of the cooking water. Toss until the sauce coats the pasta.",
+  "Turn off the heat, add the parmesan and parsley, and toss again. Add more cooking water if it looks dry.",
+  "Serve at once with black pepper. Leftovers keep for two days in the fridge.",
+].join("\n");
+const LAPTOPS_PAGE = `Three thin laptops compared: Aero 13, Aero 15, and Slate Pro\n${LAPTOPS_TEXT}`;
+const RECIPE_PAGE = `Weeknight lemon garlic pasta\n${RECIPE_TEXT}`;
+
+add_task(async function real_model_long_pages_keep_their_topic() {
+  WhimsyAIIndex._setTestEmbedder(null);
+  try {
+    if (!WhimsyAIIndex.available()) {
+      ok(true, "No on-device word list here; nothing to calibrate");
+      return;
+    }
+    const laptop = "thin laptop battery life";
+    const pasta = "pasta recipe for dinner";
+    const scores = {
+      laptopVsLaptops: WhimsyAIIndex._similarityForTesting(laptop, LAPTOPS_PAGE),
+      laptopVsRecipe: WhimsyAIIndex._similarityForTesting(laptop, RECIPE_PAGE),
+      pastaVsRecipe: WhimsyAIIndex._similarityForTesting(pasta, RECIPE_PAGE),
+      pastaVsLaptops: WhimsyAIIndex._similarityForTesting(pasta, LAPTOPS_PAGE),
+      physicsVsLaptops: WhimsyAIIndex._similarityForTesting("lattice quantum chromodynamics", LAPTOPS_PAGE),
+    };
+    info(`real model scores (cut-off ${WhimsyAIIndex.MIN_SCORE}): ${JSON.stringify(scores)}`);
+    Assert.greaterOrEqual(scores.laptopVsLaptops, WhimsyAIIndex.MIN_SCORE, "A long laptop review scores over the cut-off for a laptop question");
+    Assert.greaterOrEqual(scores.pastaVsRecipe, WhimsyAIIndex.MIN_SCORE, "...and a long recipe for a pasta one");
+    Assert.less(Math.max(scores.laptopVsRecipe, scores.pastaVsLaptops, scores.physicsVsLaptops), WhimsyAIIndex.MIN_SCORE, "Off-topic pages stay under it");
+  } finally {
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+  }
+});
+
+// The same, with stub word vectors under the real averaging: a topic's few
+// words among many everyday ones still decide what a page is about (one
+// vector for the whole text, the sentence model's, gave the review 0.03).
+const TOPIC_WORDS = {
+  laptop: 0, laptops: 0, battery: 0, batteries: 0, screen: 1, keyboards: 0, thin: 0, inch: 0, weight: 0, video: 1,
+  pasta: 2, recipe: 2, spaghetti: 2, garlic: 2, lemon: 2, parmesan: 2, parsley: 2, dinner: 2, cooking: 2, ingredients: 2,
+};
+function stubWordVector(word) {
+  if (/^\d|^(?:aero|slate|natarajan|priya|zzqxvbn)$/.test(word)) {
+    return null; // Not in the word list.
+  }
+  const v = new Array(12).fill(0);
+  if (word in TOPIC_WORDS) {
+    v[TOPIC_WORDS[word]] = 1;
+  } else {
+    // An everyday word: one of nine shared directions, by spelling.
+    v[3 + ([...word].reduce((h, c) => h * 31 + c.charCodeAt(0), 7) % 9)] = 1;
+  }
+  return v;
+}
+
+add_task(async function related_long_pages_keep_their_topic() {
+  WhimsyAIIndex._setTestEmbedder(null);
+  WhimsyAIIndex._setTestWordVectors(stubWordVector);
+  try {
+    await WhimsyAIIndex.clear({});
+    ok(await WhimsyAIIndex.add({ url: "https://gadgetledger.example/laptops", title: "Three thin laptops compared", text: LAPTOPS_TEXT, thin: true }), "The laptop review is indexed");
+    ok(await WhimsyAIIndex.add({ url: "https://cooking.example/pasta", title: "Weeknight lemon garlic pasta", text: RECIPE_TEXT, thin: true }), "...and the recipe");
+    const scores = await WhimsyAIIndex._scoresForTesting("thin laptop battery life");
+    info(`"thin laptop battery life": ${JSON.stringify(scores)}`);
+    Assert.deepEqual((await WhimsyAIIndex.query("thin laptop battery life", 3)).map(r => r.url), ["https://gadgetledger.example/laptops"],
+      "A laptop question finds the long review, and only it");
+    Assert.deepEqual((await WhimsyAIIndex.query("pasta recipe for dinner", 3)).map(r => r.url), ["https://cooking.example/pasta"],
+      "A pasta question finds the recipe, and only it");
+    Assert.deepEqual(await WhimsyAIIndex.query("zzqxvbn", 3), [], "An unknown word finds nothing");
+    ok(!(await WhimsyAIIndex.add({ url: "https://cooking.example/lander", title: "Weeknight pasta", text: "Get started with pasta. ".repeat(20), thin: true })),
+      "A landing page that says little beyond its title still isn't indexed");
+  } finally {
+    WhimsyAIIndex._setTestWordVectors(null);
+    WhimsyAIIndex._setTestEmbedder(vectorFor);
+    await WhimsyAIIndex.clear({});
+  }
+});
+
+// Vectors from before W31 (the sentence model, another length) mean nothing
+// next to a word mean: they leave the index at the first query.
+add_task(async function related_drops_vectors_from_the_old_model() {
+  const file = PathUtils.join(await WhimsyAIStore.folder("index"), "index.bin");
+  await IOUtils.writeJSON(file, { entries: [
+    { url: "https://old.example/coffee", title: "Coffee", vector: new Array(512).fill(0.1), date: 1, chars: 900 },
+    { url: "https://new.example/coffee", title: "Coffee", vector: vectorFor("coffee"), date: 2, chars: 900 },
+  ] });
+  WhimsyAIIndex._resetForTesting();
+  try {
+    Assert.deepEqual((await WhimsyAIIndex.query("coffee", 3)).map(r => r.url), ["https://new.example/coffee"], "Only the comparable entry answers");
+    Assert.deepEqual((await IOUtils.readJSON(file)).entries.map(e => e.url), ["https://new.example/coffee"], "...and the old one is gone from disk");
+  } finally {
+    await WhimsyAIIndex.clear({});
   }
 });

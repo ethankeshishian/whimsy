@@ -40,11 +40,18 @@ const AUTH_HOST = /^(?:login|logon|signin|auth|sso|accounts?|id|idp|oauth)\./i;
 const AUTH_TITLE = /^\s*(?:log\s?in|sign\s?(?:in|on|up)|single sign-on|authoriz(?:e|ation)|redirecting)\s*(?:$|[|·–—:.…-])|\b(?:log|sign)\s?in (?:to|with)\b|[|·–—-]\s*(?:log\s?in|sign\s?(?:in|up))\s*$/i;
 const RELATED_ICON = "chrome://browser/skin/zen-icons/search-page.svg";
 const MAX_RESULTS = 3;
-// Below this cosine similarity a page isn't "about" the query. Apple's
-// sentence vectors score unrelated text 0.28-0.36 and same-topic text
-// 0.39-0.51 (browser_whimsy_ai_index.js logs them), so > 0 alone offered a
-// Related row for nearly every query; 0.45 keeps only clear matches.
-const MIN_SCORE = 0.45;
+// W31 (aievals): a page's vector is the mean of its words' vectors (Apple's
+// word embedding), less the mean of everyday words (CENTER_WORDS), never the
+// sentence model's one vector for the whole page. That model loses a long
+// input's topic: a review of thin laptops, title alone 0.37 for "thin laptop
+// battery life", fell steadily as its text was added, to 0.03 at 1,200
+// characters (a pasta recipe: 0.29 for "pasta recipe for dinner"). Word
+// means keep it (0.52, 0.61). Without the centering every text shares one
+// "ordinary English" direction and unrelated pages score 0.5-0.65.
+// Below this cosine similarity a page isn't "about" the query: centered
+// word means score unrelated pages -0.2-0.28 and same-topic ones 0.52-0.76
+// (browser_whimsy_ai_index.js logs them).
+const MIN_SCORE = 0.4;
 // W30: the sentence model gives a word outside its vocabulary (a product
 // name like "opencode", a half-typed word like "artif") no meaning: such a
 // query lands on the same generic vector as gibberish, which sits closest
@@ -55,17 +62,36 @@ const MIN_SCORE = 0.45;
 // only, and needs at least one that says something.
 const MIN_QUERY_CHARS = 3;
 const MIN_WORD_CHARS = 3;
-const STOP_WORDS = new Set(["the", "and", "for", "with", "from", "that", "this", "what", "how", "why", "who", "are", "was", "you", "your"]);
+const STOP_WORDS = new Set(("the and for with from that this these those what how why who whom which when where are was were you your " +
+  "yours our ours his her hers its their theirs they them she him not but can will just does did has have had about into over " +
+  "after before than then too very also any all each few both more most other some such only own same out off once here there " +
+  "been being would could should may might must shall").split(" "));
+// Everyday words across topics: their mean is the direction every text
+// shares, taken off each vector so only what a page is about is compared.
+const CENTER_WORDS = ("weather cold windy week bought new pair running shoes meeting moved thursday afternoon team won game final " +
+  "minute planted tomatoes basil garden museum opens ten morning prices electricity rose again winter train airport leaves " +
+  "every twenty minutes scientists discovered species frog company announced quarterly earnings today forgot umbrella " +
+  "restaurant children painted pictures families click sign account read privacy policy terms service band released third " +
+  "album last spring add onions cook until soft hotel room view harbor install update restart computer election results " +
+  "tonight grandmother tells best stories bridge closed repairs learn write better emails work doctor recommended sleep " +
+  "exercise office near central station movie longer expected download app track orders river flooded days heavy rain " +
+  "students submit essays friday recipe needs two cups flour adopted puppy shelter startup raised money investors traffic " +
+  "highway library thousands old maps free shipping fifty dollars painting sold record price auction learning play guitar " +
+  "phone bigger screen city plans build bike lanes subscribe newsletter weekly updates volcano erupted first time century");
+// A word's vector is asked for once (bounded).
+const WORD_CACHE_MAX = 20000;
 // ...and a page that is mostly its title (a login form, a redirect, a
-// landing page, an app shell still loading) is that same kind of catch-all
-// vector, keyed on the title's form words: "HOW TO BATTLESTATION", a thin
-// /lander page, scored 0.46 for "how much fat to eat per day" (and 0.60 for
-// "how to bake bread") while the site's real guide scored 0.04. So a page
-// with under MIN_TEXT_CHARS of text isn't indexed, nor one whose vector is
-// within TITLE_HEAVY of its title's alone (thin pages measure 0.80-0.81,
-// real articles 0.07-0.62). An entry stored before W30 (no `chars`) gets the
-// same title check at query time.
+// landing page, an app shell still loading) is a catch-all keyed on the
+// title's form words: "HOW TO BATTLESTATION", a thin /lander page, scored
+// 0.46 for "how much fat to eat per day" (and 0.60 for "how to bake bread")
+// while the site's real guide scored 0.04. So a page with under
+// MIN_TEXT_CHARS of text isn't indexed, nor (W31) one whose text has under
+// MIN_PAGE_WORDS meaningful words its title doesn't already say ("Get
+// started" twenty times has two). An entry stored before W30 (no `chars`)
+// is dropped at query time if its vector is within TITLE_HEAVY of its
+// title's alone.
 const MIN_TEXT_CHARS = 200;
+const MIN_PAGE_WORDS = 12;
 const TITLE_HEAVY = 0.75;
 
 const FOLDER_KIND = "index";
@@ -85,6 +111,9 @@ let state = null; // { entries: [{url, title, vector, date}] }
 let loading = null;
 let testEmbedder = null;
 let testKnows = null;
+let testWordVector = null;
+let wordCache = new Map();
+let centerVector; // undefined: not yet worked out; null: none (no word list)
 
 function service() {
   if (!embedderChecked) {
@@ -102,24 +131,68 @@ function locale() {
   return Services.locale.appLocalesAsBCP47[0] ?? "en-US";
 }
 
+// The meaning of `input`: the mean of its words' unit vectors, less the
+// everyday-words mean (see MIN_SCORE). null when no word in it is known.
 function embed(input) {
   const text = String(input ?? "").slice(0, EMBED_CHARS);
   if (testEmbedder) {
     return testEmbedder(text);
   }
-  const svc = service();
-  if (!svc) {
+  const mean = wordMean(contentWords(text));
+  if (!mean) {
     return null;
   }
-  try {
-    if (!svc.available(locale())) {
-      return null;
+  centerVector === undefined && (centerVector = wordMean(contentWords(CENTER_WORDS)));
+  return centerVector?.length == mean.length ? mean.map((x, i) => x - centerVector[i]) : mean;
+}
+
+// One word's vector from the on-device word list, or null.
+function wordVector(word) {
+  if (wordCache.has(word)) {
+    return wordCache.get(word);
+  }
+  let vector = null;
+  if (testWordVector) {
+    vector = testWordVector(word) ?? null;
+  } else {
+    try {
+      const raw = service()?.wordVector(word, locale());
+      vector = raw && raw.length >= VECTOR_DIM_GUARD ? Array.from(raw) : null;
+    } catch {
+      vector = null;
     }
-    const vector = svc.embed(text, locale());
-    return vector && vector.length >= VECTOR_DIM_GUARD ? Array.from(vector) : null;
-  } catch {
-    return null;
   }
+  if (wordCache.size >= WORD_CACHE_MAX) {
+    wordCache.clear();
+  }
+  wordCache.set(word, vector);
+  return vector;
+}
+
+// The words of `text` that can say what it's about (lowercase, three
+// letters or more, not a stop word), in order, repeats kept.
+function contentWords(text) {
+  return (String(text ?? "").toLowerCase().match(/[\p{L}\p{N}]+(?:'[\p{L}]+)?/gu) ?? [])
+    .filter(w => w.length >= MIN_WORD_CHARS && !STOP_WORDS.has(w));
+}
+
+// The mean of the unit vectors of the known `words`, or null.
+function wordMean(words) {
+  let sum = null;
+  let n = 0;
+  for (const word of words) {
+    const v = wordVector(word);
+    const len = v && Math.hypot(...v);
+    if (!len || (sum && v.length != sum.length)) {
+      continue;
+    }
+    sum ??= new Array(v.length).fill(0);
+    for (let i = 0; i < v.length; i++) {
+      sum[i] += v[i] / len;
+    }
+    n++;
+  }
+  return n ? sum.map(x => x / n) : null;
 }
 
 // Whether the on-device word list knows `word`; with no word list for this
@@ -127,6 +200,9 @@ function embed(input) {
 function knows(word) {
   if (testKnows) {
     return testKnows(word);
+  }
+  if (testWordVector) {
+    return !!wordVector(word);
   }
   try {
     return service()?.knowsWord(word, locale()) ?? true;
@@ -153,7 +229,20 @@ function isAuthPage(url, title = "") {
   }
 }
 
-// Whether `vector` is mostly what the title alone says.
+// Whether a page's text says little its title doesn't (MIN_PAGE_WORDS).
+function thinText(title, text) {
+  const titleWords = new Set(contentWords(title));
+  const words = new Set(contentWords(String(text ?? "").slice(0, TEXT_CHARS)).filter(w => !titleWords.has(w)));
+  let known = 0;
+  for (const word of words) {
+    if (knows(word) && ++known >= MIN_PAGE_WORDS) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Whether `vector` (an entry stored before W30) is mostly what the title alone says.
 function titleHeavy(title, vector) {
   const titleVector = embed(String(title ?? "").slice(0, TITLE_CHARS).trim());
   return !titleVector || cosine(titleVector, vector) >= TITLE_HEAVY;
@@ -203,6 +292,19 @@ async function load() {
   return loading;
 }
 
+// The index with only entries comparable to `vector`: one stored from the
+// sentence model before W31 (another length) means nothing next to a word
+// mean, so it's dropped, and the page is indexed again on its next visit.
+async function current(vector) {
+  const s = await load();
+  const kept = s.entries.filter(e => e.vector?.length == vector.length);
+  if (kept.length != s.entries.length) {
+    s.entries = kept;
+    await save().catch(() => {});
+  }
+  return s;
+}
+
 async function save() {
   await lazy.WhimsyAIStore.writeFile(await path(), state);
 }
@@ -219,7 +321,7 @@ export const WhimsyAIIndex = {
 
   /** Whether an on-device embedding model is available on this Mac at all. */
   available() {
-    return testEmbedder ? true : !!embed("x");
+    return testEmbedder ? true : !!embed("page");
   },
 
   init() {
@@ -238,7 +340,7 @@ export const WhimsyAIIndex = {
       return false;
     }
     const vector = embed(`${String(title ?? "").slice(0, TITLE_CHARS)}\n${String(text).slice(0, TEXT_CHARS)}`.trim());
-    if (!vector || (thin && titleHeavy(title, vector))) {
+    if (!vector || (thin && thinText(title, text))) {
       return false;
     }
     this.init();
@@ -282,7 +384,7 @@ export const WhimsyAIIndex = {
     if (!vector) {
       return [];
     }
-    const s = await load();
+    const s = await current(vector);
     const candidates = s.entries
       .map(e => ({ entry: e, score: cosine(vector, e.vector) }))
       .filter(c => c.score >= MIN_SCORE)
@@ -343,6 +445,13 @@ export const WhimsyAIIndex = {
     testKnows = fn ? (knowsFn ?? (() => true)) : null;
   },
 
+  /** Tests: stub word vectors (word -> array, or null for an unknown word) under the real averaging. */
+  _setTestWordVectors(fn) {
+    testWordVector = fn;
+    wordCache = new Map();
+    centerVector = undefined;
+  },
+
   // Tests: every stored page's cosine score for `text`, threshold ignored,
   // best first: what query() saw before MIN_SCORE and the per-site filter.
   async _scoresForTesting(text) {
@@ -351,7 +460,7 @@ export const WhimsyAIIndex = {
     if (!vector) {
       return [];
     }
-    const s = await load();
+    const s = await current(vector);
     return s.entries.map(e => ({ url: e.url, score: cosine(vector, e.vector) })).sort((a, b) => b.score - a.score);
   },
 

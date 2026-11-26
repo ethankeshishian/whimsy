@@ -31,7 +31,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
   OSKeyStore: "resource://gre/modules/OSKeyStore.sys.mjs",
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
   WhimsyAI: "resource:///modules/whimsy/WhimsyAI.sys.mjs",
+  WhimsyAIClaudeCode: "resource:///modules/whimsy/WhimsyAIClaudeCode.sys.mjs",
   WhimsyAIRouter: "resource:///modules/whimsy/WhimsyAIRouter.sys.mjs",
+  WhimsyMCPClient: "resource:///modules/whimsy/WhimsyMCPClient.sys.mjs",
   ndjson: "resource:///modules/whimsy/WhimsyAIStream.sys.mjs",
   sseJSON: "resource:///modules/whimsy/WhimsyAIStream.sys.mjs",
 });
@@ -89,6 +91,9 @@ const MODEL_PREFS = { claude: CLAUDE_MODEL_PREF, openai: OPENAI_MODEL_PREF, gemi
 const NOT_TEXT_MODEL = /embed|tts|whisper|dall-e|moderation|image|audio|realtime|transcribe|search|computer-use|davinci|babbage|aqa/i;
 // Latest Claude (user: "Default model: latest Claude").
 const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
+// The most tool rounds one Claude API answer may take.
+const CLAUDE_TOOL_TURNS = 8;
+const CLAUDE_TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 // Tests point these at a local server.
 export const ENDPOINTS = {
   claude: "https://api.anthropic.com/v1",
@@ -1241,7 +1246,11 @@ export const WhimsyAIProviders = {
     return Services.prefs.getStringPref(CLAUDE_MODEL_PREF, "") || DEFAULT_CLAUDE_MODEL;
   },
 
-  async *_claudeStream({ messages, system, maxTokens, signal, thinking, model: chosen }) {
+  // W31 (aievals builder): request.tools (MCP servers: connectors, the
+  // plugin writer, the run's guard) reach the model here too, not only on
+  // the Claude Code plan path. The API path runs the tools itself, with the
+  // same permission rules as Claude Code (WhimsyAIClaudeCode._mcpConfig).
+  async *_claudeStream({ messages, system, maxTokens, signal, thinking, model: chosen, tools: servers = [] }) {
     const key = await this.getClaudeKey();
     if (!key) {
       throw new WhimsyAIError("no-key");
@@ -1270,41 +1279,96 @@ export const WhimsyAIProviders = {
     if (system) {
       body.system = system;
     }
-    const response = await this._post(
-      `${ENDPOINTS.claude}/messages`,
-      { "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body,
-      signal
-    );
-    this.observeUsage("claude", response.headers);
-    if (!response.ok) {
-      throw await this._httpError("claude", response);
+    const toolbox = servers?.length ? await this._claudeToolbox(servers, signal) : null;
+    if (toolbox?.tools.length) {
+      body.tools = toolbox.tools;
     }
+    const turn = { citations: 0, wrote: false };
+    for (let round = 0; ; round++) {
+      const response = await this._post(
+        `${ENDPOINTS.claude}/messages`,
+        { "x-api-key": key, "anthropic-version": "2023-06-01" },
+        body,
+        signal
+      );
+      this.observeUsage("claude", response.headers);
+      if (!response.ok) {
+        throw await this._httpError("claude", response);
+      }
+      const out = { content: [], stop: null };
+      yield* this._claudeTurn(response, out, turn);
+      const uses = out.content.filter(block => block.type == "tool_use");
+      if (out.stop != "tool_use" || !uses.length || !body.tools || round >= CLAUDE_TOOL_TURNS) {
+        return;
+      }
+      body.messages.push({ role: "assistant", content: out.content });
+      body.messages.push({ role: "user", content: await toolbox.run(uses, signal) });
+    }
+  },
+
+  // One Messages answer as AIEvents; out gets its content blocks (to send
+  // back after a tool round) and its stop reason.
+  async *_claudeTurn(response, out, turn) {
+    const text = delta => {
+      const lead = turn.wrote && !out.wrote ? "\n\n" : "";
+      turn.wrote = out.wrote = true;
+      return { type: "text", delta: lead + delta };
+    };
     if (!isStream(response)) {
       const data = await response.json();
       if (data.stop_reason == "refusal") {
         throw new WhimsyAIError("refused");
       }
+      out.stop = data.stop_reason ?? null;
       for (const block of data.content || []) {
         if (block.type == "thinking" && block.thinking) {
           yield { type: "thinking", text: block.thinking };
-        } else if (block.type == "text") {
-          yield { type: "text", delta: block.text };
+        } else if (block.type == "text" && block.text) {
+          yield text(block.text);
+        }
+        if (block.type != "text" || block.text) {
+          out.content.push(block.type == "text" ? { type: "text", text: block.text } : block);
         }
       }
       return;
     }
-    let citations = 0;
+    const blocks = [];
     for await (const { json } of lazy.sseJSON(response.body)) {
       switch (json.type) {
+        case "content_block_start": {
+          const block = { ...(json.content_block ?? {}) };
+          if (block.type == "tool_use") {
+            block.partial = "";
+          } else if (block.type == "text") {
+            block.text = block.text ?? "";
+            delete block.citations;
+          }
+          blocks[json.index] = block;
+          break;
+        }
         case "content_block_delta": {
           const delta = json.delta ?? {};
+          const block = blocks[json.index];
           if (delta.type == "text_delta") {
-            yield { type: "text", delta: delta.text ?? "" };
-          } else if (delta.type == "thinking_delta" && delta.thinking) {
-            yield { type: "thinking", text: delta.thinking };
+            if (delta.text) {
+              yield text(delta.text);
+            }
+            if (block) {
+              block.text += delta.text ?? "";
+            }
+          } else if (delta.type == "thinking_delta") {
+            if (delta.thinking) {
+              yield { type: "thinking", text: delta.thinking };
+            }
+            if (block) {
+              block.thinking = (block.thinking ?? "") + (delta.thinking ?? "");
+            }
+          } else if (delta.type == "signature_delta" && block) {
+            block.signature = (block.signature ?? "") + (delta.signature ?? "");
+          } else if (delta.type == "input_json_delta" && block) {
+            block.partial += delta.partial_json ?? "";
           } else if (delta.type == "citations_delta" && delta.citation?.url) {
-            yield { type: "citation", n: ++citations, source: { url: delta.citation.url, title: delta.citation.title ?? "" } };
+            yield { type: "citation", n: ++turn.citations, source: { url: delta.citation.url, title: delta.citation.title ?? "" } };
           }
           break;
         }
@@ -1312,14 +1376,119 @@ export const WhimsyAIProviders = {
           if (json.delta?.stop_reason == "refusal") {
             throw new WhimsyAIError("refused");
           }
+          out.stop = json.delta?.stop_reason ?? out.stop;
           break;
         case "error":
           throw this._withReportedReset(streamError(json.error?.type, json.error?.message), "claude", response.headers);
         case "message_stop":
+          for (const block of blocks.filter(Boolean)) {
+            if (block.type == "text" && !block.text) {
+              continue;
+            }
+            if (block.type == "tool_use") {
+              try {
+                block.input = block.partial ? JSON.parse(block.partial) : (block.input ?? {});
+              } catch {
+                block.input = {};
+              }
+              delete block.partial;
+            }
+            out.content.push(block);
+          }
           return;
       }
     }
     throw new WhimsyAIError("bad-response", "The Claude stream ended early");
+  },
+
+  /**
+   * The request's MCP servers as Messages API tools: { tools, run(uses, signal) }.
+   * A tool runs without asking only when Claude Code would allow it
+   * (a read-only server or tool); any other asks the run's guard, and is
+   * refused when the run has none. The guard itself isn't offered.
+   */
+  async _claudeToolbox(servers, signal) {
+    const { config, allowed, permissionTool } = lazy.WhimsyAIClaudeCode._mcpConfig(servers);
+    const guardName = permissionTool ? permissionTool.slice("mcp__".length, -"__confirm".length) : null;
+    const guard = guardName ? config.mcpServers[guardName] : null;
+    const clean = value => String(value ?? "").replace(/[^A-Za-z0-9_-]/g, "_");
+    const found = [];
+    for (const [name, entry] of Object.entries(config.mcpServers)) {
+      if (name == guardName || entry.type != "http") {
+        continue;
+      }
+      let listed;
+      try {
+        listed = await lazy.WhimsyMCPClient.connect(entry.url, { headers: entry.headers ?? {}, signal });
+      } catch (e) {
+        if (signal?.aborted) {
+          throw new WhimsyAIError("aborted");
+        }
+        console.warn(`Whimsy AI: couldn't list the tools of ${name}`, e);
+        continue;
+      }
+      for (const tool of listed.tools) {
+        const full = `mcp__${name}__${clean(tool.name)}`;
+        found.push({ server: entry, tool: tool.name, full, allowed: allowed.includes(`mcp__${name}`) || allowed.includes(full), description: String(tool.description ?? ""), schema: tool.inputSchema });
+      }
+    }
+    // The model sees a tool's own name unless two servers share it.
+    const count = new Map();
+    for (const item of found) {
+      count.set(item.tool, (count.get(item.tool) ?? 0) + 1);
+    }
+    const byName = new Map();
+    for (const item of found) {
+      let name = count.get(item.tool) == 1 && CLAUDE_TOOL_NAME.test(item.tool) ? item.tool : item.full.slice("mcp__".length, "mcp__".length + 64);
+      while (byName.has(name)) {
+        name = name.slice(0, 63) + "_";
+      }
+      byName.set(name, item);
+    }
+    const ask = async (item, input) => {
+      if (!guard) {
+        return false;
+      }
+      const said = await lazy.WhimsyMCPClient.callTool(guard.url, "confirm", { tool_name: item.full, input }, { headers: guard.headers ?? {}, signal });
+      try {
+        return JSON.parse(said)?.behavior == "allow";
+      } catch {
+        return false;
+      }
+    };
+    return {
+      tools: [...byName].map(([name, item]) => ({
+        name,
+        description: item.description.slice(0, 10000),
+        input_schema: item.schema && typeof item.schema == "object" && item.schema.type == "object" ? item.schema : { type: "object", properties: {} },
+      })),
+      run: async uses => {
+        const results = [];
+        for (const use of uses) {
+          const item = byName.get(use.name);
+          const input = use.input && typeof use.input == "object" ? use.input : {};
+          let content;
+          let isError = false;
+          try {
+            if (!item) {
+              throw new Error(`There is no tool named ${use.name}.`);
+            }
+            if (!item.allowed && !(await ask(item, input))) {
+              throw new Error("The person didn't allow this. Don't try it another way; say what you would have done.");
+            }
+            content = await lazy.WhimsyMCPClient.callTool(item.server.url, item.tool, input, { headers: item.server.headers ?? {}, signal });
+          } catch (e) {
+            if (signal?.aborted) {
+              throw new WhimsyAIError("aborted");
+            }
+            content = String(e?.message || e || "The tool failed.");
+            isError = true;
+          }
+          results.push({ type: "tool_result", tool_use_id: use.id, content: String(content ?? "") || "(no output)", ...(isError ? { is_error: true } : {}) });
+        }
+        return results;
+      },
+    };
   },
 
   get _keyPath() {

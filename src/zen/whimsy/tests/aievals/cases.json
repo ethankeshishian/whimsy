@@ -365,57 +365,6 @@
       "fake": "A student should buy the Aero 13: it is the lightest and cheapest."
     },
     {
-      "id": "chat-14",
-      "feature": "chat",
-      "title": "Fill wording goes to form fill, which fills but never sends",
-      "tabs": [
-        "form.html"
-      ],
-      "active": 0,
-      "input": "Fill in this contact form: full name Dana Reyes, email dana@example.com, topic Billing, message \"My invoice shows two charges for October.\" Then send it.",
-      "checks": [
-        {
-          "type": "field_value",
-          "selector": "#name",
-          "equals": "Dana Reyes"
-        },
-        {
-          "type": "field_value",
-          "selector": "#email",
-          "equals": "dana@example.com"
-        },
-        {
-          "type": "field_value",
-          "selector": "#topic",
-          "equals": "billing"
-        },
-        {
-          "type": "field_value",
-          "selector": "#message",
-          "contains": "two charges"
-        },
-        {
-          "type": "page_attr",
-          "selector": "body",
-          "attr": "data-submitted",
-          "absent": true
-        },
-        {
-          "type": "request_count",
-          "min": 1
-        }
-      ],
-      "fake": {
-        "fields": {
-          "full name": "Dana Reyes",
-          "email": "dana@example.com",
-          "topic": "Billing",
-          "message": "My invoice shows two charges for October."
-        }
-      },
-      "notes": "The fill feature is documented as never submitting; the dropped \"then send it\" is a known product gap, recorded here rather than hidden."
-    },
-    {
       "id": "hover-01",
       "feature": "hover",
       "title": "Hover summary of an article",
@@ -1873,7 +1822,7 @@
           }
         ]
       },
-      "notes": "Phrased as a task on purpose: \"fill in this form\" wording is routed to the form-fill feature, which never sends (see chat-14)."
+      "notes": "Phrased as a task; agent-06 covers \"fill in this form\" wording that also asks to send."
     },
     {
       "id": "agent-02",
@@ -2100,6 +2049,120 @@
         "plan": [],
         "actions": []
       }
+    },
+    {
+      "id": "agent-06",
+      "feature": "agent",
+      "title": "Fill wording that also asks to send goes to the agent, which fills and sends",
+      "tabs": [
+        "form.html"
+      ],
+      "active": 0,
+      "input": "Fill in this contact form: full name Dana Reyes, email dana@example.com, topic Billing, message \"My invoice shows two charges for October.\" Then send it.",
+      "checks": [
+        {
+          "type": "field_value",
+          "selector": "#name",
+          "equals": "Dana Reyes"
+        },
+        {
+          "type": "field_value",
+          "selector": "#email",
+          "equals": "dana@example.com"
+        },
+        {
+          "type": "field_value",
+          "selector": "#topic",
+          "equals": "billing"
+        },
+        {
+          "type": "field_value",
+          "selector": "#message",
+          "contains": "two charges"
+        },
+        {
+          "type": "page_attr",
+          "selector": "body",
+          "attr": "data-submitted",
+          "equals": "1"
+        },
+        {
+          "type": "equals",
+          "field": "outcome",
+          "value": "done"
+        }
+      ],
+      "fake": {
+        "plan": [
+          "Fill the form",
+          "Send it"
+        ],
+        "actions": [
+          {
+            "step": 0,
+            "say": "Reading the form",
+            "tool": "read_page",
+            "args": {
+              "tabId": "$tab",
+              "filter": "interactive"
+            }
+          },
+          {
+            "step": 0,
+            "say": "Name",
+            "tool": "form_input",
+            "args": {
+              "tabId": "$tab",
+              "ref": "$ref:Full name",
+              "value": "Dana Reyes"
+            }
+          },
+          {
+            "step": 0,
+            "say": "Email",
+            "tool": "form_input",
+            "args": {
+              "tabId": "$tab",
+              "ref": "$ref:Email address",
+              "value": "dana@example.com"
+            }
+          },
+          {
+            "step": 0,
+            "say": "Topic",
+            "tool": "form_input",
+            "args": {
+              "tabId": "$tab",
+              "ref": "$ref:Topic",
+              "value": "billing"
+            }
+          },
+          {
+            "step": 0,
+            "say": "Message",
+            "tool": "form_input",
+            "args": {
+              "tabId": "$tab",
+              "ref": "$ref:Message",
+              "value": "My invoice shows two charges for October."
+            }
+          },
+          {
+            "step": 1,
+            "say": "Sending",
+            "tool": "click",
+            "args": {
+              "tabId": "$tab",
+              "ref": "$ref:Send message"
+            }
+          },
+          {
+            "done": "Sent the message.",
+            "keep": []
+          }
+        ]
+      },
+      "notes": "Was chat-14, which recorded form fill taking this and dropping \"then send it\" (form fill never submits). W31: with the agent on, a fill that also asks to send is planned as a task."
     }
   ]
 }

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Whimsy's meaning index (WhimsyAIIndex): on-device sentence embeddings
+// Whimsy's meaning index (WhimsyAIIndex): on-device sentence and word embeddings
 // through Apple's NaturalLanguage framework, so a page's title and text
 // (and a command-bar query) become comparable vectors without ever
 // leaving the Mac. One NLEmbedding per language, cached: building one is
@@ -144,6 +144,33 @@ nsWhimsyEmbedding::KnowsWord(const nsACString& aWord, const nsACString& aLocale,
                                               encoding:NSUTF8StringEncoding];
     *aKnows = word.length && [words containsString:word];
     [word release];
+  }
+  return NS_OK;
+
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
+}
+
+NS_IMETHODIMP
+nsWhimsyEmbedding::WordVector(const nsACString& aWord, const nsACString& aLocale, nsTArray<float>& aResult) {
+  MOZ_ASSERT(NS_IsMainThread());
+  aResult.Clear();
+
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
+
+  @autoreleasepool {
+    NLEmbedding* words = WordEmbeddingFor(LanguageFor(aLocale));
+    if (!words) {
+      return NS_ERROR_NOT_AVAILABLE;
+    }
+    NSString* word = [[NSString alloc] initWithBytes:aWord.BeginReading()
+                                                length:aWord.Length()
+                                              encoding:NSUTF8StringEncoding];
+    NSArray<NSNumber*>* vector = word.length ? [words vectorForString:word] : nil;
+    [word release];
+    aResult.SetCapacity(vector.count);
+    for (NSNumber* value in vector) {
+      aResult.AppendElement(value.floatValue);
+    }
   }
   return NS_OK;
 

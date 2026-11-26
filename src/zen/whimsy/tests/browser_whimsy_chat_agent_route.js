@@ -50,6 +50,11 @@ const CORPUS = [
   ["Can you play the video?", true],
   ["Dismiss the cookie banner", true],
   ["Load the next page of results", true],
+  // W31 (aievals agent-06, was chat-14): a fill that should also go out is the agent's;
+  // form fill only fills, and the send was dropped.
+  ["Fill in this form with my name and email, then send it", true],
+  ["Please fill out the contact form and submit it", true],
+  ["can you fill in the form and then post it", true],
   ["What is this page about?", false],
   ["Why is the build failing?", false],
   ["Summarize this page", false],
@@ -64,6 +69,7 @@ const CORPUS = [
   ["Write a reply to this review", false],
   ["Translate this paragraph into French", false],
   ["Fill this form for me", false],
+  ["Fill out this form with my work address", false],
   ["Hide the sidebar", false], // a page edit: chat changes the page itself
   ["The second paragraph is confusing", false],
   ["Thanks, that helps!", false],
@@ -194,6 +200,23 @@ add_task(async function expand_diffs_gets_a_drive_plan() {
   const [task] = WhimsyAgentTasks.list();
   is(task.mode, "drive", "The task drives the current tab");
   is(chatCalls().length, 0, "Chat didn't answer instead");
+  await closeAll(tab);
+});
+
+// W31 (aievals agent-06, was chat-14): with the agent on, "fill in this form…, then send
+// it" gets a plan; form fill used to take it, fill the fields, and never send.
+add_task(async function fill_and_send_gets_a_plan() {
+  await fresh();
+  Services.prefs.setStringPref(MODE, "drive");
+  planReply = { ...DIFFS_PLAN, title: "Fill and send the form", line: "I’ll fill in the form and send it.", readsOnly: false };
+  const tab = await openOn();
+  const { WhimsyAIFill } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyAIFill.sys.mjs");
+  ok(WhimsyAIFill.isFillAsk("Fill in this form with my name and email, then send it"), "Sanity: it reads as a form fill too");
+  type("Fill in this form with my name and email, then send it");
+  await TestUtils.waitForCondition(() => part(".whimsy-agent-card[data-card='agent-plan'] [data-choice='start']"), "The plan is ready");
+  is(plannerCalls().length, 1, "The request reached the planner");
+  is(calls.length, plannerCalls().length, "Form fill never asked the model for field values (it would have run first)");
+  is(chatCalls().length, 0, "Nor did chat answer");
   await closeAll(tab);
 });
 
