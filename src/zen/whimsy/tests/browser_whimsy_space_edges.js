@@ -231,7 +231,7 @@ add_task(async function test_switcher_arrows_skip_hidden_and_enforce_edges() {
 // the Library module for them) until its first swipe, nor at all while
 // the feature is off.
 add_task(async function test_edge_actions_wrapped_on_first_swipe() {
-  const win = await BrowserTestUtils.openNewBrowserWindow();
+  const win = await BrowserTestUtils.openNewBrowserWindow({ zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false) });
   try {
     await win.gZenWorkspaces.promiseInitialized;
     await TestUtils.waitForCondition(() => WhimsySpaceSwitchQueue.debugState(win), "The switch queue set up the window");

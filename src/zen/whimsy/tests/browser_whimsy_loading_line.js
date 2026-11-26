@@ -135,12 +135,10 @@ add_task(async function test_timer_stops_when_the_load_finishes() {
   ok(!line.ticking, "The timer stays off");
 
   // A load in a background tab shows no bar, so it needs no timer.
-  const background = BrowserTestUtils.addTab(gBrowser, "about:blank");
-  await BrowserTestUtils.browserLoaded(background.linkedBrowser);
   const url = `${SLOW_URL}?delay=800&r=${Math.random()}`;
-  const done = BrowserTestUtils.browserLoaded(background.linkedBrowser, false, url);
-  BrowserTestUtils.startLoadingURIString(background.linkedBrowser, url);
   let ticked = false;
+  const background = BrowserTestUtils.addTab(gBrowser, url);
+  const done = BrowserTestUtils.browserLoaded(background.linkedBrowser, false, url);
   const watch = setInterval(() => (ticked ||= line.ticking), 20);
   await done;
   clearInterval(watch);

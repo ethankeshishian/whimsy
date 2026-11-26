@@ -494,7 +494,17 @@ add_task(async function test_row_built_on_first_use_and_only_when_on() {
     await TestUtils.waitForCondition(() => win._whimsyPageTint, "Match the page set up the window");
   };
 
-  const win = await BrowserTestUtils.openNewBrowserWindow();
+  // A window of its own, so no tab of it syncs into this one.
+  const newWindow = () => BrowserTestUtils.openNewBrowserWindow({ zenSyncedWindow: Services.prefs.getBoolPref("zen.window-sync.prefer-unsynced-windows", false) });
+  const tabsBefore = new Set(gBrowser.tabs);
+  registerCleanupFunction(async () => {
+    for (const tab of [...gBrowser.tabs]) {
+      if (!tabsBefore.has(tab)) {
+        await BrowserTestUtils.removeTab(tab);
+      }
+    }
+  });
+  const win = await newWindow();
   try {
     await ready(win);
     ok(!win.document.getElementById("whimsy-match-page-row"), "A new window has no row yet");
@@ -516,7 +526,7 @@ add_task(async function test_row_built_on_first_use_and_only_when_on() {
   }
 
   Services.prefs.setBoolPref(FEATURE, false);
-  const off = await BrowserTestUtils.openNewBrowserWindow();
+  const off = await newWindow();
   try {
     await ready(off);
     await opened(off);

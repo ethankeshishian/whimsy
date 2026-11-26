@@ -890,7 +890,7 @@ export const WhimsyTabs = {
   initLoadingLine(win) {
     const { gBrowser } = win;
     const panelOf = browser => gBrowser.getPanel?.(browser);
-    const states = new Map(); // panel -> { real, startedAt, sawBar }
+    const states = new Map(); // panel -> { real, startedAt, sawBar, done }
     const barOf = panel => panel.querySelector(`:scope > #${BAR_ID}`);
     let timer = null;
     const paint = (panel, state) => {
@@ -939,8 +939,9 @@ export const WhimsyTabs = {
         if (barOf(panel)) {
           state.sawBar = true;
           paint(panel, state);
-        } else if (state.sawBar) {
-          // Zen removed the bar: the next load starts over.
+        } else if (state.sawBar && state.done) {
+          // Zen removed the bar after the load: the next one starts over.
+          // (Mid-load, as when a page replaces itself, Zen puts it back.)
           states.delete(panel);
           panel.style.setProperty(PROGRESS_VAR, "0");
         }
@@ -961,7 +962,7 @@ export const WhimsyTabs = {
     const track = panel => {
       let state = states.get(panel);
       if (!state) {
-        state = { real: 0, startedAt: Date.now(), sawBar: !!barOf(panel) };
+        state = { real: 0, startedAt: Date.now(), sawBar: !!barOf(panel), done: false };
         states.set(panel, state);
       }
       if (!watched.has(panel)) {
@@ -977,8 +978,9 @@ export const WhimsyTabs = {
       }
       const state = track(panel);
       state.real = Math.max(state.real, value);
+      state.done ||= value >= 1;
       paint(panel, state);
-      if (state.real >= 1 && !barOf(panel)) {
+      if (state.done && !barOf(panel)) {
         // Done with no bar up (a background tab): nothing to wait for.
         states.delete(panel);
       }
@@ -991,6 +993,7 @@ export const WhimsyTabs = {
       }
       // Progress never goes back while the bar is up; a fresh load starts at 0.
       if (barOf(panel) && states.has(panel)) {
+        states.get(panel).done = false;
         return;
       }
       states.delete(panel);
@@ -1016,8 +1019,16 @@ export const WhimsyTabs = {
         }
         if (flags & STATE_START) {
           restart(browser);
-        } else if (flags & STATE_STOP && Components.isSuccessCode(status) && !webProgress.isLoadingDocument) {
-          raise(browser, 1);
+        } else if (flags & STATE_STOP && !webProgress.isLoadingDocument) {
+          if (Components.isSuccessCode(status)) {
+            raise(browser, 1);
+          } else {
+            // Stopped or failed: no fill, but the load is over.
+            const state = states.get(panelOf(browser));
+            if (state) {
+              state.done = true;
+            }
+          }
         }
       },
       onProgressChange: (browser, webProgress, request, curSelf, maxSelf, curTotal, maxTotal) => {
