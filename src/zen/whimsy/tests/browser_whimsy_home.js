@@ -434,3 +434,192 @@ add_task(async function test_reduced_motion_tab_switches_are_instant() {
     await SpecialPowers.popPrefEnv();
   }
 });
+
+// perf (W32 P7): Home does less before its first frame (the hidden
+// Changelog renders when idle, the tab indicator is placed after layout,
+// the season module is imported once) and, as the new tab page, is
+// preloaded like Firefox Home. None of it may change what the page shows.
+
+const { WhimsySeasons } = ChromeUtils.importESModule(
+  "resource:///modules/whimsy/WhimsySeasons.sys.mjs"
+);
+
+// The static strings of the header, the Home panel, and the footer, in order.
+const HOME_STRINGS = [
+  "whimsy-home-brand",
+  "whimsy-home-tab-home",
+  "whimsy-home-tab-changelog",
+  "whimsy-home-tab-privacy",
+  "whimsy-home-hero-title",
+  "whimsy-home-blurb",
+  "whimsy-home-hero-hint",
+  "whimsy-home-balloon",
+  "whimsy-home-features-title",
+  "whimsy-home-feature-spaces-title",
+  "whimsy-home-feature-spaces-text",
+  "whimsy-home-feature-keys-title",
+  "whimsy-home-feature-keys-text",
+  "whimsy-home-feature-split-title",
+  "whimsy-home-feature-split-text",
+  "whimsy-home-feature-quiet-title",
+  "whimsy-home-feature-quiet-text",
+  "whimsy-home-links-title",
+  "whimsy-home-link-settings",
+  "whimsy-home-link-settings-text",
+  "whimsy-home-link-shortcuts",
+  "whimsy-home-link-shortcuts-text",
+  "whimsy-home-link-import",
+  "whimsy-home-link-import-text",
+  "whimsy-home-link-feedback",
+  "whimsy-home-link-feedback-text",
+  "whimsy-home-footer",
+];
+
+function buildIds(doc) {
+  return [...doc.querySelectorAll("#whimsy-changelog-list > .whimsy-changelog-group")].map(build => build.id);
+}
+
+async function assertRenderedHome(doc, label) {
+  await doc.l10n.ready;
+  await doc.l10n.translateRoots();
+  const nodes = [...doc.querySelectorAll(
+    ".wh-nav [data-l10n-id], #whimsy-panel-home [data-l10n-id], .wh-footer [data-l10n-id]"
+  )];
+  Assert.deepEqual(nodes.map(node => node.dataset.l10nId), HOME_STRINGS, `${label}: every Home string, in order`);
+  for (const node of nodes) {
+    if (node.id == "whimsy-home-balloon") {
+      ok(node.getAttribute("aria-label"), `${label}: the balloon is named`);
+      ok(node.querySelector("svg.wh-balloon-svg"), `${label}: ...and keeps its artwork`);
+    } else {
+      ok(node.textContent.trim(), `${label}: ${node.dataset.l10nId} is translated`);
+    }
+  }
+  is(doc.querySelectorAll(".wh-feature .wh-icon svg").length, 4, `${label}: four feature icons`);
+  is(doc.querySelectorAll(".whimsy-home-link .wh-icon svg").length, 4, `${label}: four quick-link icons`);
+  is(doc.getElementById("whimsy-tab-home").getAttribute("aria-selected"), "true", `${label}: Home is selected`);
+  is([...doc.querySelectorAll('[role="tabpanel"]')].filter(panel => !panel.hidden).map(panel => panel.id).join(),
+    "whimsy-panel-home", `${label}: only the Home panel shows`);
+
+  const look = WhimsySeasons.look();
+  is(doc.documentElement.getAttribute("whimsy-season"), look?.season ?? null, `${label}: the balloon wears today's season`);
+  is(doc.documentElement.getAttribute("whimsy-season-decor"), look?.id ?? null, `${label}: ...and the Changelog today's art`);
+
+  // Placed after layout rather than by a forced one at DOMContentLoaded.
+  const button = doc.getElementById("whimsy-tab-home");
+  const indicator = doc.getElementById("whimsy-tab-indicator");
+  await TestUtils.waitForCondition(
+    () => indicator.style.width == `${button.offsetWidth}px` &&
+      indicator.style.transform == `translate(${button.offsetLeft}px, ${button.offsetTop}px)`,
+    `${label}: the indicator sits on the Home tab`
+  );
+  is(indicator.style.height, `${button.offsetHeight}px`, `${label}: ...at its height`);
+}
+
+add_task(async function test_perf_rendered_home_is_unchanged() {
+  await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+    await assertRenderedHome(browser.contentDocument, "about:whimsy");
+    ok(browser.contentDocument.documentElement.classList.contains("wh-home-entrance"), "A shown Home plays its entrance");
+  });
+});
+
+add_task(async function test_perf_indicator_starts_on_the_requested_tab() {
+  await BrowserTestUtils.withNewTab("about:whimsy?tab=privacy", async browser => {
+    const doc = browser.contentDocument;
+    const button = doc.getElementById("whimsy-tab-privacy");
+    const indicator = doc.getElementById("whimsy-tab-indicator");
+    await doc.l10n.ready;
+    await TestUtils.waitForCondition(
+      () => indicator.style.transform == `translate(${button.offsetLeft}px, ${button.offsetTop}px)` &&
+        indicator.style.width == `${button.offsetWidth}px`,
+      "The indicator is placed on the tab the URL asks for"
+    );
+  });
+});
+
+add_task(async function test_perf_deferred_changelog_still_fills_in() {
+  let expected;
+  await BrowserTestUtils.withNewTab("about:whimsy?tab=changelog", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => buildIds(doc).length, "The Changelog asked for renders");
+    expected = buildIds(doc);
+  });
+
+  await BrowserTestUtils.withNewTab("about:whimsy", async browser => {
+    const doc = browser.contentDocument;
+    await TestUtils.waitForCondition(() => buildIds(doc).length, "The hidden Changelog fills in by itself");
+    Assert.deepEqual(buildIds(doc), expected, "...with every build, as when it's opened directly");
+    ok(doc.getElementById("whimsy-panel-changelog").hidden, "...without showing");
+    is(doc.getElementById("whimsy-tab-home").getAttribute("aria-selected"), "true", "...or taking the selection");
+    ok(doc.getElementById("whimsy-changelog-empty").hidden, "...and with no empty state");
+    is(doc.querySelectorAll("#whimsy-changelog-list .is-latest").length, 1, "...and the newest build highlighted");
+
+    EventUtils.synthesizeMouseAtCenter(doc.getElementById("whimsy-tab-changelog"), {}, browser.contentWindow);
+    ok(!doc.getElementById("whimsy-panel-changelog").hidden, "Opening the Changelog shows the notes");
+    Assert.deepEqual(buildIds(doc), expected, "...already rendered, not again");
+  });
+});
+
+add_task(async function test_perf_whimsy_home_new_tab_is_preloaded() {
+  const { AboutNewTab } = ChromeUtils.importESModule("resource:///modules/AboutNewTab.sys.mjs");
+  const preloading = window.NewTabPagePreloading;
+  await SpecialPowers.pushPrefEnv({ set: [
+    ["browser.newtab.preload", true],
+    ["browser.newtabpage.enabled", true],
+    ["whimsy.newtab.page", "whimsy"],
+  ] });
+  try {
+    is(AboutNewTab.newTabURL, "about:whimsy", "New tabs open Whimsy Home");
+    ok(AboutNewTab.newTabURLOverridden, "...which Firefox counts as a replaced new tab page");
+    ok(preloading.enabled, "...and still preloads, like Firefox Home");
+
+    preloading.maybeCreatePreloadedBrowser(window);
+    const preloaded = gBrowser.preloadedBrowser;
+    ok(preloaded, "A window keeps a preloaded new tab page");
+    await TestUtils.waitForCondition(
+      () => preloaded.currentURI?.spec == "about:whimsy" &&
+        preloaded.contentDocument?.readyState == "complete" &&
+        preloaded.contentDocument.getElementById("whimsy-home"),
+      "The preloaded page is Whimsy Home"
+    );
+    const doc = preloaded.contentDocument;
+    ok(doc.hidden, "The preloaded page is hidden");
+    ok(!doc.documentElement.classList.contains("wh-home-entrance"), "...so its entrance waits to be seen");
+    await TestUtils.waitForCondition(() => buildIds(doc).length, "Its Changelog fills in while it waits");
+
+    const tab = BrowserTestUtils.addTab(gBrowser, window.BROWSER_NEW_TAB_URL);
+    try {
+      is(tab.linkedBrowser, preloaded, "A new tab takes the preloaded page instead of loading one");
+      const shown = BrowserTestUtils.waitForEvent(doc, "visibilitychange", false, () => !doc.hidden);
+      gBrowser.selectedTab = tab;
+      await shown;
+      ok(doc.documentElement.classList.contains("wh-home-entrance"), "Shown, it plays its entrance");
+      await assertRenderedHome(doc, "Preloaded new tab");
+    } finally {
+      BrowserTestUtils.removeTab(tab);
+    }
+
+    // An add-on's new tab page isn't preloaded, as in Firefox.
+    AboutNewTab.newTabURL = "about:robots";
+    ok(!preloading.enabled, "No preloading while an add-on's page is the new tab page");
+    AboutNewTab.resetNewTabURL();
+    is(AboutNewTab.newTabURL, "about:whimsy", "Whimsy Home comes back when it lets go");
+    ok(preloading.enabled, "...and preloads again");
+
+    // A preload of the old choice is never what a new tab shows.
+    preloading.maybeCreatePreloadedBrowser(window);
+    const stale = gBrowser.preloadedBrowser;
+    await TestUtils.waitForCondition(
+      () => stale.currentURI?.spec == "about:whimsy" && stale.contentDocument?.readyState == "complete",
+      "Whimsy Home is preloaded"
+    );
+    Services.prefs.setStringPref("whimsy.newtab.page", "home");
+    // Keep the idle rebuild from loading Firefox Home in this test.
+    Services.prefs.setBoolPref("browser.newtab.preload", false);
+    is(AboutNewTab.newTabURL, "about:newtab", "New tabs are Firefox Home again");
+    isnot(gBrowser.preloadedBrowser, stale, "The preloaded Whimsy Home is dropped");
+    ok(!stale.isConnected, "...and removed");
+  } finally {
+    preloading.removePreloadedBrowser(window);
+    await SpecialPowers.popPrefEnv();
+  }
+});
