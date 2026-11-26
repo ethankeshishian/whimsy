@@ -1367,21 +1367,23 @@ add_webkit_task(async function test_w32_alert_confirm_prompt_use_tab_prompts() {
   await PromptTestUtils.handlePrompt(dialog);
   Assert.equal(await result, "done", "alert() returns once the prompt closes");
 
-  result = WhimsyWebKit.evaluateInTab(tab, "confirm('Sure?')");
+  // evaluateInTab hands back primitives as strings, so the page reports
+  // what it got with JSON.stringify.
+  result = WhimsyWebKit.evaluateInTab(tab, "JSON.stringify(confirm('Sure?'))");
   await PromptTestUtils.handleNextPrompt(browser, { modalType, promptType: "confirm" }, { buttonNumClick: 0 });
-  Assert.strictEqual(await result, true, "confirm() returns true for OK");
-  result = WhimsyWebKit.evaluateInTab(tab, "confirm('Sure?')");
+  Assert.equal(await result, "true", "confirm() returns true for OK");
+  result = WhimsyWebKit.evaluateInTab(tab, "JSON.stringify(confirm('Sure?'))");
   await PromptTestUtils.handleNextPrompt(browser, { modalType, promptType: "confirm" }, { buttonNumClick: 1 });
-  Assert.strictEqual(await result, false, "confirm() returns false for Cancel");
+  Assert.equal(await result, "false", "confirm() returns false for Cancel");
 
-  result = WhimsyWebKit.evaluateInTab(tab, "prompt('Name?', 'default')");
+  result = WhimsyWebKit.evaluateInTab(tab, "JSON.stringify(prompt('Name?', 'default'))");
   dialog = await PromptTestUtils.waitForPrompt(browser, { modalType, promptType: "prompt" });
   Assert.equal(dialog.ui.loginTextbox.value, "default", "prompt() fills in its default value");
   await PromptTestUtils.handlePrompt(dialog, { loginInput: "Whimsy" });
-  Assert.equal(await result, "Whimsy", "prompt() returns what was typed");
-  result = WhimsyWebKit.evaluateInTab(tab, "prompt('Name?')");
+  Assert.equal(await result, '"Whimsy"', "prompt() returns what was typed");
+  result = WhimsyWebKit.evaluateInTab(tab, "JSON.stringify(prompt('Name?'))");
   await PromptTestUtils.handleNextPrompt(browser, { modalType, promptType: "prompt" }, { buttonNumClick: 1 });
-  Assert.strictEqual(await result, null, "prompt() returns null when cancelled");
+  Assert.equal(await result, "null", "prompt() returns null when cancelled");
 });
 
 add_webkit_task(async function test_w32_file_input_uses_firefox_file_picker() {
@@ -1432,10 +1434,20 @@ add_webkit_task(async function test_w32_http_auth_uses_firefox_auth_prompt() {
   });
   WhimsyWebKit.loadURLInTab(tab, gServer.url("/auth"), { waitForLoad: false });
   const dialog = await prompted;
-  Assert.ok(
-    dialog.args.text.includes("Whimsy Test Realm") || dialog.args.text.includes("127.0.0.1"),
-    "Firefox's auth prompt names the site asking"
-  );
+  if (modalType == Services.prompt.MODAL_TYPE_TAB) {
+    // Tab-modal auth prompts carry Firefox's standard sign-in message; the
+    // dialog's title names the site.
+    const bundle = Services.strings.createBundle(
+      "chrome://global/locale/commonDialogs.properties"
+    );
+    Assert.equal(
+      dialog.args.text,
+      bundle.GetStringFromName("EnterCredentials"),
+      "Firefox's own auth prompt asks for the login"
+    );
+  } else {
+    Assert.ok(dialog.args.text.includes("127.0.0.1"), "Firefox's auth prompt names the site asking");
+  }
   await PromptTestUtils.handlePrompt(dialog, {
     loginInput: "whimsy",
     passwordInput: "secret",

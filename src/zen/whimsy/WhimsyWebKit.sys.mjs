@@ -954,8 +954,11 @@ export const WhimsyWebKit = {
         }
         const uri = safeNewURI(data);
         if (uri) {
-          if (state.uri?.specIgnoringRef != uri.specIgnoringRef) {
-            // Leaving the page withdraws its camera/microphone request.
+          // Leaving the page withdraws its camera/microphone request. Only
+          // WebKit's own location reports set committedPage: loadURLInTab
+          // updates state.uri before the page actually changes.
+          if (state.committedPage != uri.specIgnoringRef) {
+            state.committedPage = uri.specIgnoringRef;
             this._cancelMediaPrompts(state);
           }
           state.url = uri.spec;
