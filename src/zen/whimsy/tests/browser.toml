@@ -1203,6 +1203,13 @@ support-files = ["whimsy_claude_code_install.sjs", "whimsy_claude_code_manifest.
 # W23 settings-ai: Settings › AI page
 ["browser_whimsy_ai_settings.js"]
 ["browser_whimsy_screens_w23_settings-ai.js"]
+support-files = ["head_settings_ai.js"]
+
+["browser_whimsy_screens_w23_settings-ai-sheets.js"]
+support-files = ["head_settings_ai.js"]
+
+["browser_whimsy_screens_w23_settings-ai-motion.js"]
+support-files = ["head_settings_ai.js"]
 
 # W23 connectors
 ["browser_whimsy_connectors.js"]
