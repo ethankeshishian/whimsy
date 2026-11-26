@@ -66,15 +66,23 @@ run_with_retry() { # run_with_retry <name> <path>
   if ! [ "$3" -gt 0 ] 2>/dev/null || ! [ "$4" -gt 0 ] 2>/dev/null; then
     return 1
   fi
-  if grep -Eq 'PROCESS-CRASH|TEST-UNEXPECTED-(CRASH|TIMEOUT)|Traceback' ".surfer/verify/$1.log"; then
+  if grep -Eq 'PROCESS-CRASH|TEST-UNEXPECTED-CRASH|Traceback' ".surfer/verify/$1.log"; then
     return 1
   fi
-  retry_files=$(grep -E "TEST_START|TEST_END: Test FAIL" ".surfer/verify/$1.log" |
-    awk '/TEST_START/{f=$NF} /TEST_END: Test FAIL/{print f}' | sort -u)
+  # Any file that didn't end PASS, OK, or SKIP failed: FAIL, but also
+  # TIMEOUT or ERROR, which once went unretried and left the run green.
+  retry_files=$(grep -E "TEST_START|TEST_END" ".surfer/verify/$1.log" |
+    awk '/TEST_START/{f=$NF} /TEST_END/ && !/TEST_END: (Test )?(PASS|OK|SKIP)/{print f}' | sort -u)
   [ -n "$retry_files" ] || return 1
+  # A timeout ends the harness's browser, so the files after the last one
+  # to start never ran (W31: 142 files): when that file failed, its retry
+  # runs it and the rest of the suite.
+  last=$(grep -E "TEST_START" ".surfer/verify/$1.log" | tail -1 | awk '{print $NF}')
   bad=""
   for f in $retry_files; do
-    if run "$1-retry-$(basename "$f" .js)" "$f"; then
+    target=$f rest=""
+    if [ "$f" = "$last" ]; then target=$2 rest="--start-at=$(basename "$f")"; fi
+    if run "$1-retry-$(basename "$f" .js)" $rest "$target"; then
       echo "  $f passed on retry (flaky)"
       echo "$f" >> .surfer/verify/flaky.txt
     else
