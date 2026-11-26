@@ -48,6 +48,19 @@ const TABS_SOURCE = 4; // UrlbarShared.RESULT_SOURCE.TABS
 const EMPTY_PAGES = new Set(["about:blank", "about:newtab", "about:home", "about:privatebrowsing"]);
 const OPEN_AGAIN_COMMAND = "cmd_whimsyOpenAgainInNewTab";
 
+const tabsearchWindows = new WeakSet();
+function loadTabsearchSheet(win) {
+  if (tabsearchWindows.has(win)) {
+    return;
+  }
+  tabsearchWindows.add(win);
+  try {
+    win.windowUtils.loadSheetUsingURIString(TABSEARCH_SHEET, win.windowUtils.AUTHOR_SHEET);
+  } catch (e) {
+    console.error("Whimsy: tabsearch sheet", e);
+  }
+}
+
 export const WhimsyAlreadyOpen = {
   get enabled() {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
@@ -168,6 +181,9 @@ export const WhimsyAlreadyOpen = {
       }
       if (badge) {
         if (url.textContent != badge || !url.hasAttribute("data-whimsy-space-badge")) {
+          // W32 P2: every rule keys off this attribute, so the sheet loads
+          // just before the first badge, not with every window.
+          loadTabsearchSheet(win);
           url.textContent = badge;
           url.setAttribute("data-whimsy-space-badge", "true");
         }
@@ -432,11 +448,6 @@ export const WhimsyAlreadyOpen = {
       return;
     }
     urlbar._whimsyAlreadyOpen = true;
-    try {
-      win.windowUtils.loadSheetUsingURIString(TABSEARCH_SHEET, win.windowUtils.AUTHOR_SHEET);
-    } catch (e) {
-      console.error("Whimsy: tabsearch sheet", e);
-    }
     const original = urlbar.pickResult;
     urlbar.pickResult = function (params = {}) {
       try {

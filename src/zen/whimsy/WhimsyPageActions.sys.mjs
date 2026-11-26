@@ -87,6 +87,21 @@ export class WhimsyPageActionsParent extends JSWindowActorParent {
   }
 }
 
+// W32 P2: whimsy-navigation.css now holds only the trail and Cook mode
+// rules (the address bar's are in whimsy-browser.css), so it loads the
+// first time one of those opens. The flag is shared with WhimsyTrails and WhimsyKeysToPage.
+function loadNavigationSheet(win) {
+  if (win._whimsyNavigationSheet) {
+    return;
+  }
+  win._whimsyNavigationSheet = true;
+  try {
+    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+  } catch (e) {
+    console.error("Whimsy: navigation sheet", e);
+  }
+}
+
 export const WhimsyPageActions = {
   // browser -> { spec, action }
   _actions: new WeakMap(),
@@ -126,10 +141,6 @@ export const WhimsyPageActions = {
       return;
     }
     win._whimsyPageActions = true;
-    if (!win._whimsyNavigationSheet) {
-      win._whimsyNavigationSheet = true;
-      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-    }
     win.gBrowser.addTabsProgressListener({
       onLocationChange: (browser, webProgress, request, location, flags) => {
         if (!webProgress?.isTopLevel || flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) {
@@ -664,6 +675,7 @@ export const WhimsyPageActions = {
   // --- Recipe: Cook mode ---
 
   openCookMode(win, action) {
+    loadNavigationSheet(win);
     const doc = win.document;
     doc.getElementById(COOK_ID)?.remove();
     const HTML = "http://www.w3.org/1999/xhtml";

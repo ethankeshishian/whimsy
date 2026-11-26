@@ -41,6 +41,8 @@ ChromeUtils.defineLazyGetter(lazy, "l10n", () => new Localization(["browser/whim
 
 const FEATURE = "ambient-audio";
 const SHEET_CSS = "chrome://browser/content/whimsy/whimsy-ambient.css";
+// Windows whose ambient sheet is loaded (W32 P2: loaded on first open).
+const sheetWindows = new WeakSet();
 const SHEET_ID = "whimsy-ambient-sheet";
 const COMMAND_OPEN = "whimsy-ambient-open";
 const COMMAND_STOP = "whimsy-ambient-stop";
@@ -130,12 +132,21 @@ export const WhimsyAmbient = {
     return state(win).sound;
   },
 
-  initWindow(win) {
+  // W32 P2: the sheet styles only the ambient sheet, so it loads the first
+  // time that sheet opens rather than with every window.
+  loadSheet(win) {
+    if (sheetWindows.has(win)) {
+      return;
+    }
+    sheetWindows.add(win);
     try {
       win.windowUtils.loadSheetUsingURIString(SHEET_CSS, win.windowUtils.AUTHOR_SHEET);
     } catch (e) {
       console.error("Whimsy: ambient sheet", e);
     }
+  },
+
+  initWindow(win) {
     lazy.WhimsyCommands.register(win, {
       id: COMMAND_OPEN,
       l10nId: "whimsy-action-ambient-sound",
@@ -290,6 +301,7 @@ export const WhimsyAmbient = {
       lazy.WhimsySurface.close(existing);
       return;
     }
+    this.loadSheet(win);
     const s = state(win);
     const parts = lazy.WhimsySurface.create(win, {
       id: SHEET_ID,

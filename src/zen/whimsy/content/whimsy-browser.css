@@ -2075,8 +2075,10 @@ tab[whimsy-devmode][selected] {
   font-size: 0.85em;
 }
 /* The bar's toolbar layer stacks above the page's, where toasts live: they
-   start below the bar so their top and ✕ take clicks (WhimsyDevMode). */
-:root:has(#whimsy-devmode-bar:not([hidden])) #zen-toast-container {
+   start below the bar so their top and ✕ take clicks (WhimsyDevMode). W32
+   P2 (A7): the bar is always a child of the navbar container, so the :has()
+   names that parent, which keeps unrelated DOM changes from re-testing it. */
+:root:has(#zen-appcontent-navbar-container > #whimsy-devmode-bar:not([hidden])) #zen-toast-container {
   top: calc(var(--whimsy-devmode-bar-bottom, 0px) + var(--zen-toast-spacing));
 }
 
@@ -9313,4 +9315,280 @@ browser[whimsy-webkit="true"] {
 
 #whimsy-webkit-extensions-engine-section {
   padding: 10px 12px;
+}
+
+/* ---- W23 dictation: the command bar mic (WhimsyDictation.mountMic) ----
+   W32 P2: moved here from whimsy-dictation.css, in the same order, since the
+   mic is in the bar from window start; the rest of that sheet loads the
+   first time dictation shows anything else. */
+
+.whimsy-dictation-mic {
+  appearance: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  -moz-context-properties: fill;
+  fill: currentColor;
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 9%, transparent);
+  }
+
+  &:focus-visible {
+    outline: var(--focus-outline, 2px solid AccentColor);
+    outline-offset: 1px;
+  }
+
+  &[listening] {
+    background: var(--zen-primary-color, AccentColor);
+    color: #fff;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition: background-color 150ms var(--whimsy-ease, ease-out), color 150ms var(--whimsy-ease, ease-out);
+  }
+}
+
+.whimsy-dictation-mic-glyph {
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  mask: url("chrome://browser/content/whimsy/icons/mic.svg") center / 16px no-repeat;
+}
+
+/* Beside the mic, not under it: the bar clips what hangs below its input row. */
+.whimsy-dictation-tip {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  inset-inline-end: calc(100% + 8px);
+  z-index: 3;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--zen-colors-tertiary, Field);
+  color: var(--toolbar-color, FieldText);
+  box-shadow: 0 0 0 0.5px light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.14)), 0 6px 16px -6px rgba(0, 0, 0, 0.3);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+
+  & kbd {
+    font: inherit;
+    padding: 0 4px;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 30%, transparent);
+  }
+}
+
+.whimsy-dictation-mic:is(:focus-visible, :hover):not([listening]) > .whimsy-dictation-tip {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .whimsy-dictation-mic:hover > .whimsy-dictation-tip {
+    transition: opacity 120ms ease-out 600ms, visibility 0s 600ms;
+  }
+}
+
+/* The mic shows in the command bar, not in the resting address field. */
+#urlbar:not([open], [focused]) .whimsy-dictation-mic {
+  display: none;
+}
+
+/* ---- wave6 navigation: address bar page actions, smart buttons, and
+   Pass Keys (WhimsyPageActions, WhimsyKeysToPage). W32 P2: moved here from
+   whimsy-navigation.css, in the same order, since they show from window
+   start; the trail and Cook mode rules stay there and load on first open. */
+
+/* Page actions: one labelled button in the address bar ("Add to Calendar",
+   "Maps · Open now", "Cook mode"...).
+   W13 F05 (wave12 F05, option B): a plain address bar button with a label.
+   Its neighbours' shape (Zen's --urlbar-icon-border-radius, 8px; 6px
+   compact; 26px tall), no tint at rest (78% text), and their own hover and
+   pressed fills (Firefox's --urlbar-box-hover-bgcolor /
+   --urlbar-box-active-bgcolor, 100ms). While what it opened is showing
+   (Cook mode's panel; Firefox puts [open] on a panel's anchor) it takes
+   the selected fill, the space colour at 22%, in full-strength text. */
+#whimsy-page-action {
+  flex-shrink: 0;
+  gap: 4px;
+  margin-inline: 2px;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: var(--urlbar-icon-border-radius, 8px);
+  background-color: transparent;
+  color: color-mix(in srgb, currentColor 78%, transparent);
+  font-size: 0.85em;
+  /* The default arrow, like its .urlbar-page-action neighbours (star,
+     reader view, translate): a toolbar button, not a link. */
+  cursor: default;
+  transition: background-color 100ms ease-out;
+  animation: whimsy-page-action-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+#whimsy-page-action:hover {
+  background-color: var(--urlbar-box-hover-bgcolor, color-mix(in srgb, currentColor 9%, transparent));
+}
+#whimsy-page-action:hover:active {
+  background-color: var(--urlbar-box-active-bgcolor, color-mix(in srgb, currentColor 14%, transparent));
+}
+#whimsy-page-action[open] {
+  background-color: color-mix(in srgb, var(--zen-primary-color, AccentColor) 22%, transparent);
+  color: inherit;
+}
+#whimsy-page-action:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 1px;
+}
+.whimsy-page-action-icon {
+  width: 12px;
+  height: 12px;
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+}
+.whimsy-page-action-label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* 05-page 9.1: the site's name keeps room ahead of the page pills. In a
+   narrow address field (the sidebar's; WhimsyPageActions.watchWidth sets
+   [whimsy-narrow]) every pill is its icon alone. The words stay in the
+   accessibility tree (and the tooltip), only out of sight. */
+#urlbar[whimsy-narrow] .whimsy-page-action:not([hidden]) {
+  padding-inline: 5px;
+  gap: 0;
+
+  & > .whimsy-page-action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@keyframes whimsy-page-action-in {
+  from { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-page-action { animation: none; transition: none; }
+}
+@media (forced-colors: active) {
+  #whimsy-page-action[open] {
+    outline: 1px solid Highlight;
+  }
+}
+
+/* batch9: W9-06 smart address bar buttons (Reader, Translate, media, Downloads in progress) */
+:root[whimsy-smart-buttons] #page-action-buttons {
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+}
+
+:root[whimsy-smart-buttons] #page-action-buttons > .urlbar-page-action {
+  flex-shrink: 0;
+}
+
+:root[whimsy-smart-buttons] #reader-mode-button:not([hidden]) {
+  display: flex !important;
+}
+
+:root[whimsy-smart-buttons] #picture-in-picture-button:not([hidden]) {
+  display: flex !important;
+}
+
+:root[whimsy-smart-buttons] #translations-button:not([hidden]) {
+  display: flex !important;
+}
+
+
+/* W29 Pass Keys to Page (WhimsyKeysToPage): while the page gets every key,
+   a filled pill in the address field says so (the shared accent pair,
+   --whimsy-accent-fill under --whimsy-on-accent, which clears WCAG AA).
+   It springs in on the momentum curve; with Reduce Motion it just appears.
+   Clicking it gives the keys back. */
+#whimsy-pass-keys-pill {
+  flex-shrink: 0;
+  gap: 5px;
+  margin-inline: 2px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background-color: var(--whimsy-accent-fill);
+  color: var(--whimsy-on-accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 100ms ease-out;
+  animation: whimsy-pass-keys-in 260ms var(--whimsy-ease-momentum, cubic-bezier(0.3, 1.5, 0.5, 1)) both;
+
+  & > .whimsy-page-action-icon {
+    width: 13px;
+    height: 13px;
+  }
+  &:hover {
+    background-color: color-mix(in srgb, var(--whimsy-accent-fill), black 12%);
+  }
+  &:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: 1px;
+  }
+  &[hidden] {
+    display: none;
+  }
+}
+@keyframes whimsy-pass-keys-in {
+  from {
+    opacity: 0;
+    scale: 0.8;
+  }
+}
+
+/* The hold-Esc notice's ring (a toast's leading mark): it fills linearly
+   over the whole hold, showing already part-filled (the notice comes after
+   the first 0.5s); with Reduce Motion in three steps. */
+@property --whimsy-pass-keys-progress {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+.whimsy-pass-keys-ring {
+  border-radius: 50%;
+  background: conic-gradient(var(--whimsy-accent-fill) calc(var(--whimsy-pass-keys-progress) * 1turn), color-mix(in srgb, currentColor 14%, transparent) 0);
+  mask: radial-gradient(circle, transparent 5.5px, #000 6px);
+  animation: whimsy-pass-keys-fill var(--whimsy-pass-keys-hold, 1500ms) linear var(--whimsy-pass-keys-shown, -500ms) both;
+}
+@keyframes whimsy-pass-keys-fill {
+  to {
+    --whimsy-pass-keys-progress: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #whimsy-pass-keys-pill {
+    animation: none;
+  }
+  .whimsy-pass-keys-ring {
+    animation-timing-function: steps(3, end);
+  }
+}
+@media (forced-colors: active) {
+  #whimsy-pass-keys-pill {
+    background-color: ButtonText;
+    color: ButtonFace;
+  }
 }

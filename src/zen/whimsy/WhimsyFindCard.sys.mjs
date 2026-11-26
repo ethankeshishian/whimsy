@@ -25,6 +25,8 @@ const HTML = "http://www.w3.org/1999/xhtml";
 
 const imageMatchers = new Set();
 const windows = new WeakSet();
+// Windows whose card sheet is loaded (W32 P2: loaded on first attach).
+const sheetWindows = new WeakSet();
 
 export const WhimsyFindCard = {
   get enabled() {
@@ -37,11 +39,6 @@ export const WhimsyFindCard = {
     }
     windows.add(win);
     win.gBrowser.tabContainer.addEventListener("TabSelect", () => this.syncToasts(win));
-    try {
-      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-    } catch (e) {
-      console.error("Whimsy: find card sheet", e);
-    }
     lazy.WhimsyCommands?.register?.(win, {
       id: COMMAND,
       l10nId: "whimsy-find-options-command",
@@ -59,6 +56,18 @@ export const WhimsyFindCard = {
         this.openMenu(w, findbar);
       },
     });
+  },
+
+  loadSheet(win) {
+    if (sheetWindows.has(win)) {
+      return;
+    }
+    sheetWindows.add(win);
+    try {
+      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
+    } catch (e) {
+      console.error("Whimsy: find card sheet", e);
+    }
   },
 
   isCard(findbar) {
@@ -81,6 +90,9 @@ export const WhimsyFindCard = {
     }
     findbar._whimsyFindCard = true;
     const doc = win.document;
+    // W32 P2: every rule keys off this attribute, so the sheet loads here,
+    // just before it is set, rather than with every window.
+    this.loadSheet(win);
     findbar.setAttribute("whimsy-find-card", "true");
     const wrapper = findbar.getElement("findbar-textbox-wrapper");
     const field = findbar._findField;
@@ -240,6 +252,7 @@ export const WhimsyFindCard = {
   },
 
   openMenu(win, findbar) {
+    this.loadSheet(win);
     const doc = win.document;
     const more = findbar.querySelector(".whimsy-find-more");
     const parts = lazy.WhimsySurface.create(win, {
