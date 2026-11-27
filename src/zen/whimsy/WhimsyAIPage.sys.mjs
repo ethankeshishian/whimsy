@@ -892,6 +892,11 @@ export const WhimsyAIPage = {
       const text = await lazy.WhimsyAIReader.readTab(browser, { removeBoilerplate: true, sufficientLength: 15000 })
         .catch(() => "");
       throwIfAborted(shared);
+      // The tab closed while it was read (its reader went with it): nobody
+      // is left to show a description to.
+      if (!tab.isConnected) {
+        throw abortedError();
+      }
       // W30 S5: a hover is not a request. A signed-in page (mail, a bank, a
       // workspace) stays on this Mac unless the person asks about it
       // themselves: the history index skips such pages the same way, and

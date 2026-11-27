@@ -33,6 +33,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 });
 
 const LOAD_TIMEOUT_MS = 25 * 1000;
+// How long readTab waits for an open tab's page to settle before reading it
+// anyway: PageExtractorChild's own idle wait is at most 2s, plus two frames.
+const TAB_READY_MS = 2500;
 const BROWSER_SIZE = { width: 1280, height: 900 };
 
 export const WhimsyAIReader = {
@@ -168,6 +171,19 @@ export const WhimsyAIReader = {
     if (!actor) {
       return "";
     }
+    // PageExtractorChild.waitForPageReady (which getText runs first) ends on
+    // two animation frames when the page was showing at its idle callback.
+    // A page that stops showing in between (the tab switched away from, or
+    // a warmed tab cooling off) paints no frames until it's shown again, so
+    // getText waited that long: a hovered background tab's card loaded until
+    // the tab was selected or closed. Wait for the page here, bounded; past
+    // the bound, getText's own wait starts over and finds the page hidden.
+    let timer;
+    await Promise.race([
+      actor.waitForPageReady().catch(() => {}),
+      new Promise(resolve => (timer = setTimeout(resolve, TAB_READY_MS))),
+    ]);
+    clearTimeout(timer);
     const result = await actor.getText({ sufficientLength, removeBoilerplate, useSimpleText: true });
     return result?.text ?? "";
   },
