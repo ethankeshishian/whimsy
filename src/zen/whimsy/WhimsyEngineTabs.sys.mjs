@@ -240,10 +240,19 @@ export const WhimsyEngineTabs = {
 
   // SessionStore's hook (whimsy-SessionStore-sys-mjs.patch): Gecko's
   // history for an engine tab's parked <browser> becomes the engine's page.
+  // A closing tab (or window) loses its engine state before its <browser>
+  // sends its final update, and that update (the parked about:blank) is
+  // what SessionStore copies into the closed tab, so the rewrite outlives
+  // the engine state. Only leaving the engine for Firefox
+  // (_resyncGeckoSession) or a newer engine state for the tab ends it.
   rewriteSessionUpdate(permanentKey, update) {
     const state = permanentKey && this._sessionStates.get(permanentKey);
     const data = update?.data;
-    if (!state || !data || state.tab?._whimsyEngineState != state) {
+    if (!state || !data) {
+      return;
+    }
+    const current = state.tab?._whimsyEngineState;
+    if (current && current != state) {
       return;
     }
     if (!("history" in data) && !("historychange" in data)) {
@@ -278,6 +287,9 @@ export const WhimsyEngineTabs = {
   // Gecko <browser>'s own history again.
   _resyncGeckoSession(tab) {
     const browser = tab?.linkedBrowser;
+    if (browser?.permanentKey) {
+      this._sessionStates.delete(browser.permanentKey);
+    }
     const sh = browser?.browsingContext?.sessionHistory;
     if (!sh || !browser.permanentKey) {
       return;
@@ -501,6 +513,12 @@ export const WhimsyEngineTabs = {
         this._resumeTab(state.tab);
       }
       return true;
+    }
+    // W32: a load from Gecko's network or certificate error page (⌘K, a
+    // link, the address bar) leaves the error page: the engine's view shows
+    // the new page, and the Gecko <browser> parks again.
+    if (state.geckoPage == "certerror" || state.geckoPage == "neterror") {
+      this._exitGeckoPage(state.tab, state, { repark: true });
     }
     const promise = waitForLoad ? this._waitForNextLoad(state) : null;
     this._svc(state)?.loadURL(state.id, uri.spec);

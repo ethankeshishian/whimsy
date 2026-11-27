@@ -157,9 +157,9 @@ let gServer = null;
 add_setup(async function setup() {
   gServer = startServer();
   Services.prefs.setStringPref("whimsy.webkit.sites", "[]");
-  registerCleanupFunction(() => {
+  registerCleanupFunction(async () => {
     Services.prefs.setStringPref("whimsy.webkit.sites", "[]");
-    Services.logins.removeAllUserFacingLogins();
+    await Services.logins.removeAllUserFacingLoginsAsync();
     gServer?.close();
   });
 });
@@ -212,16 +212,22 @@ async function openWebKitTab(path, title) {
 
 const evaluate = (tab, script) => WhimsyWebKit.evaluateInTab(tab, script);
 
-// Stands in for one method of the real WebKit service while fn runs.
+// Stands in for one method of the real WebKit service while fn runs. The
+// proxy's target is a plain object: XPConnect defines the service's methods
+// as non-configurable, read-only own properties, so a proxy over the service
+// itself can't report a different method (the get trap throws a TypeError).
 async function withServiceMethod(name, impl, fn) {
   const real = WhimsyWebKit.service;
-  WhimsyWebKit._service = new Proxy(real, {
-    get(target, key) {
+  WhimsyWebKit._service = new Proxy(Object.create(null), {
+    get(_target, key) {
       if (key == name) {
         return impl;
       }
-      const value = target[key];
-      return typeof value == "function" ? value.bind(target) : value;
+      const value = real[key];
+      return typeof value == "function" ? value.bind(real) : value;
+    },
+    has(_target, key) {
+      return key == name || key in real;
     },
   });
   try {
@@ -244,9 +250,17 @@ add_webkit_task(async function test_session_keeps_webkit_page_and_engine() {
     () => tab.label == "Gaps Page Two" && !tab.hasAttribute("busy"),
     "WebKit went to page two"
   );
+  // browser.currentURI reports the WebKit page (WhimsyEngineTabs._hookURI);
+  // the Gecko document underneath is the parked about:blank.
   Assert.equal(
     tab.linkedBrowser.currentURI.spec,
-    "about:blank",
+    gServer.url("/page2"),
+    "The tab's browser reports the WebKit page as its address"
+  );
+  await TestUtils.waitForCondition(
+    () =>
+      tab.linkedBrowser.browsingContext?.currentWindowGlobal?.documentURI
+        ?.spec == "about:blank",
     "The tab's Gecko browser is parked on about:blank"
   );
   await TestUtils.waitForCondition(() => {
@@ -511,7 +525,7 @@ add_webkit_task(async function test_login_fill_uses_saved_logins_on_its_origin_o
   if (!requireWebKit()) {
     return;
   }
-  Services.logins.removeAllUserFacingLogins();
+  await Services.logins.removeAllUserFacingLoginsAsync();
   await addLogin(gServer.origin, "alice", "alice-secret");
   const other = await addLogin(gServer.otherOrigin, "mallory", "other-secret");
   const events = spyLoginEvents();
@@ -632,7 +646,7 @@ add_webkit_task(async function test_login_fill_uses_saved_logins_on_its_origin_o
     Assert.ok(!WhimsyEngineLogins._sessions.has(tab), "Navigating ends the tab's login session");
   } finally {
     events.restore();
-    Services.logins.removeAllUserFacingLogins();
+    await Services.logins.removeAllUserFacingLoginsAsync();
   }
 });
 
@@ -640,7 +654,7 @@ add_webkit_task(async function test_login_submit_offers_to_save() {
   if (!requireWebKit()) {
     return;
   }
-  Services.logins.removeAllUserFacingLogins();
+  await Services.logins.removeAllUserFacingLoginsAsync();
   const tab = await openWebKitTab("/login", "Login Page");
   await evaluate(
     tab,
@@ -669,5 +683,5 @@ add_webkit_task(async function test_login_submit_offers_to_save() {
     const logins = await Services.logins.searchLoginsAsync({ origin: gServer.origin });
     return logins.some(l => l.username == "bob" && l.password == "bob-secret");
   }, "Saving stores the login for the page's origin");
-  Services.logins.removeAllUserFacingLogins();
+  await Services.logins.removeAllUserFacingLoginsAsync();
 });
