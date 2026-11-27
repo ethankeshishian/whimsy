@@ -515,6 +515,11 @@ function spyLoginEvents() {
   return events;
 }
 
+// The unit-test profile turns password saving off (signon.rememberSignons);
+// Firefox's default, and what a user has, is on.
+const enableLogins = () =>
+  SpecialPowers.pushPrefEnv({ set: [["signon.rememberSignons", true]] });
+
 const fieldValues = tab =>
   evaluate(
     tab,
@@ -525,6 +530,7 @@ add_webkit_task(async function test_login_fill_uses_saved_logins_on_its_origin_o
   if (!requireWebKit()) {
     return;
   }
+  await enableLogins();
   await Services.logins.removeAllUserFacingLoginsAsync();
   await addLogin(gServer.origin, "alice", "alice-secret");
   const other = await addLogin(gServer.otherOrigin, "mallory", "other-secret");
@@ -533,7 +539,9 @@ add_webkit_task(async function test_login_fill_uses_saved_logins_on_its_origin_o
     const tab = await openWebKitTab("/login", "Login Page");
     const state = WhimsyWebKit.stateOf(tab);
     await TestUtils.waitForCondition(
-      async () => (await evaluate(tab, "document.getElementById('frame').contentWindow != null")) === true,
+      async () =>
+        (await evaluate(tab, "JSON.stringify(document.getElementById('frame').contentWindow != null)")) ==
+        "true",
       "The frame is there"
     );
     await new Promise(r => setTimeout(r, 300));
@@ -552,7 +560,7 @@ add_webkit_task(async function test_login_fill_uses_saved_logins_on_its_origin_o
     WhimsyWebKit.focusTab(tab);
     await evaluate(tab, "document.getElementById('frame').contentWindow.postMessage('focus', '*'), true");
     await TestUtils.waitForCondition(
-      async () => (await evaluate(tab, "!!window.__frameFocused")) === true,
+      async () => (await evaluate(tab, "JSON.stringify(!!window.__frameFocused)")) == "true",
       "The frame's login field took focus"
     );
     await new Promise(r => setTimeout(r, 500));
@@ -654,6 +662,7 @@ add_webkit_task(async function test_login_submit_offers_to_save() {
   if (!requireWebKit()) {
     return;
   }
+  await enableLogins();
   await Services.logins.removeAllUserFacingLoginsAsync();
   const tab = await openWebKitTab("/login", "Login Page");
   await evaluate(
