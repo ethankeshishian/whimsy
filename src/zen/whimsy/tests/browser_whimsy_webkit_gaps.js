@@ -609,21 +609,23 @@ add_webkit_task(async function test_login_fill_uses_saved_logins_on_its_origin_o
     Assert.deepEqual(await fieldValues(tab), ["", ""], "Another origin's login is never filled");
 
     // The native bridge refuses a fill for a different origin or document.
+    // (NS_ERROR_INVALID_ARG and NS_ERROR_ILLEGAL_VALUE are one code, which
+    // XPConnect names NS_ERROR_ILLEGAL_VALUE.)
     const svc = WhimsyWebKit.service;
     const fill = JSON.stringify({ k: "fill", username: "x", password: "y" });
     Assert.throws(
       () => svc.loginAction(state.id, session.epoch, gServer.otherOrigin, fill),
-      /NS_ERROR_INVALID_ARG/,
+      /NS_ERROR_ILLEGAL_VALUE/,
       "A fill for another origin is refused natively"
     );
     Assert.throws(
       () => svc.loginAction(state.id, "not-the-epoch", gServer.origin, fill),
-      /NS_ERROR_INVALID_ARG/,
+      /NS_ERROR_ILLEGAL_VALUE/,
       "A fill for another document is refused natively"
     );
     Assert.throws(
       () => svc.loginAction(state.id, session.epoch, gServer.origin, JSON.stringify({ k: "read" })),
-      /NS_ERROR_INVALID_ARG/,
+      /NS_ERROR_ILLEGAL_VALUE/,
       "The bridge only fills and tracks the popup"
     );
     await new Promise(r => setTimeout(r, 300));
@@ -686,7 +688,11 @@ add_webkit_task(async function test_login_submit_offers_to_save() {
     "The doorhanger shows the submitted username"
   );
   const hidden = BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popuphidden");
-  PopupNotifications.panel.querySelector("button.popup-notification-primary-button").click();
+  // The primary button is a <moz-button>; the notification element exposes
+  // it, as Firefox's own password manager tests use it.
+  const doorhanger = document.getElementById("password-notification");
+  Assert.ok(doorhanger?.button, "The doorhanger has its Save button");
+  doorhanger.button.click();
   await hidden;
   await TestUtils.waitForCondition(async () => {
     const logins = await Services.logins.searchLoginsAsync({ origin: gServer.origin });

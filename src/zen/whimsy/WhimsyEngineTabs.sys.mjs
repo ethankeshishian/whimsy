@@ -726,6 +726,7 @@ export const WhimsyEngineTabs = {
       case "loading": {
         const loading = data == "true";
         state.loading = loading;
+        lazy.WhimsyEngineLogins.closeIfStale(tab);
         if (loading) {
           tab.setAttribute("busy", "true");
         } else {

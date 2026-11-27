@@ -473,6 +473,16 @@ export const WhimsyEngineLogins = {
     }
   },
 
+  // Ends the session of a document the tab no longer shows. A reload or a
+  // load of the same URL sends no location change, so the engine's load
+  // reports check the document too.
+  closeIfStale(tab) {
+    const session = this._sessions.get(tab);
+    if (session && !session.isCurrent()) {
+      this.close(tab);
+    }
+  },
+
   async _onSubmit(tab, state, svc, data) {
     const LoginHelper = lazy.LoginHelper;
     const browser = tab.linkedBrowser;
