@@ -1,0 +1,16 @@
+diff --git a/browser/components/preferences/findInPage.js b/browser/components/preferences/findInPage.js
+index 92cd707..0990054 100644
+--- a/browser/components/preferences/findInPage.js
++++ b/browser/components/preferences/findInPage.js
+@@ -80,8 +80,9 @@ var gSearchResultsPane = {
+         this.searchInput.updateComplete.then(() => {
+           this.searchInput.focus();
+         });
+-        // Initialize other panes in an idle callback.
+-        window.requestIdleCallback(() => this.initializeCategories());
++        // Whimsy (perf I6): panes are set up when first shown, and the first
++        // search (handleEvent, handleSearchResultsBack) sets up the rest, so
++        // Settings doesn't build every pane at idle right after it opens.
+       });
+     }
+   },

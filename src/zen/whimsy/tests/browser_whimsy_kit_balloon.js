@@ -85,7 +85,10 @@ add_task(async function test_logo_glyphs_are_whimsy() {
 });
 
 add_task(async function test_settings_default_browser_promo() {
-  await BrowserTestUtils.withNewTab("about:preferences#general", async browser => {
+  // With Zen's Home pane hidden, the default-browser promo lives in Tab
+  // Management (gWhimsySettings.insertFirefoxTabs), and panes are built when
+  // they're first shown, so open the pane that has it.
+  await BrowserTestUtils.withNewTab("about:preferences#zenTabManagement", async browser => {
     const doc = browser.contentDocument;
     const isDefault = await TestUtils.waitForCondition(
       () => doc.getElementById("isDefaultPane"),

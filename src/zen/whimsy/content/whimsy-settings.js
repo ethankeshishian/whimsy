@@ -2880,8 +2880,38 @@ Object.assign(gWhimsySettings, {
   },
 });
 
+// perf (I6): each pane is built when it's first shown, not all at idle
+// right after Settings opens (whimsy-findInPage-js.patch); the first search
+// builds the rest, as before.
+Object.assign(gWhimsySettings, {
+  // A link to a setting (#privacy-vpn) is spotlit before the pane's Whimsy
+  // groups go in (they go in when the pane is shown), so once they're in,
+  // the spotlight takes in the ones it missed.
+  spotlightInserted(category, subcategory) {
+    if (!subcategory || typeof spotlight != "function") {
+      return;
+    }
+    const matches = [...document.querySelectorAll(`[data-subcategory~="${CSS.escape(subcategory)}"]`)];
+    if (matches.some(el => !el.classList.contains("spotlight"))) {
+      spotlight(subcategory, category);
+    }
+  },
+});
+
 gWhimsySettings.hookSearch();
 document.addEventListener("DOMContentLoaded", () => gWhimsySettings.hookSearch(), { once: true });
+document.addEventListener(
+  "DOMContentLoaded",
+  () =>
+    // Registered last, so every pane's groups are in by the time it runs.
+    document.addEventListener("paneshown", event => {
+      const { category, subcategory } = event.detail ?? {};
+      if (subcategory) {
+        Promise.resolve().then(() => gWhimsySettings.spotlightInserted(category, subcategory));
+      }
+    }),
+  { once: true }
+);
 
 // fix/panes: Firefox 159's Appearance and Tabs and browsing panes overlap
 // Zen's Look and Feel and Tab Management. Their settings move into Zen's two
