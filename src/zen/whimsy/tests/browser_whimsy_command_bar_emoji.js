@@ -266,14 +266,20 @@ add_task(async function test_stale_state_does_not_hijack_a_later_enter() {
   // popuphidden) — the capture-phase keydown listener used to keep acting
   // on the now-stale grid state and swallow this Enter instead of letting
   // it load.
+  // Enter loads in place in a blank tab, so it must be a tab of this
+  // task's own: loaded into the window's first tab, the address stays
+  // behind for later files (a tab whose page is the current one is never
+  // offered as "Switch to Tab", so browser_whimsy_tab_search_spaces.js
+  // then lost every https://example.com/ row when it ran after this one).
+  const tabsBefore = new Set(gBrowser.tabs);
+  await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
   const el = await openEmoji("party");
   ok(el.querySelector(".whimsy-emoji-cell"), "The grid was showing");
   const url = "https://example.com/";
   await UrlbarTestUtils.promiseAutocompleteResultPopup({ window, waitForFocus, value: url });
   // Whether Enter loads in a new tab or in place depends on the selected
-  // tab (a blank one is reused), which in turn depends on what earlier
-  // files left open. What matters here is that the URL loads at all.
-  const tabsBefore = new Set(gBrowser.tabs);
+  // tab (a blank one is reused). What matters here is that the URL loads
+  // at all; every tab this task made is closed below.
   const loaded = BrowserTestUtils.waitForLocationChange(gBrowser, url);
   EventUtils.synthesizeKey("KEY_Enter", {}, window);
   await loaded;

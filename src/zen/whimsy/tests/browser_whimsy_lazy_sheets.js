@@ -99,10 +99,17 @@ add_setup(async function () {
       ["browser.navigation.requireUserInteraction", false],
     ],
   });
+  const before = new Set(gBrowser.tabs);
   win = await BrowserTestUtils.openNewBrowserWindow();
   registerCleanupFunction(async () => {
     WhimsyAmbient.stop?.(win, { immediate: true });
     await BrowserTestUtils.closeWindow(win);
+    // Zen's window sync mirrors the tabs opened in `win` into this window,
+    // and closing `win` can leave this window a copy (an unloaded
+    // about:blank); browser_whimsy_minimap.js cleans up the same way.
+    for (const extra of gBrowser.tabs.filter(t => !before.has(t))) {
+      BrowserTestUtils.removeTab(extra);
+    }
   });
 });
 

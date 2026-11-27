@@ -27,7 +27,6 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
-  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
@@ -40,7 +39,6 @@ const ATTR = "whimsy-pass-keys";
 const COMMAND_ID = "cmd_whimsyPassKeysToPage";
 const PILL_ID = "whimsy-pass-keys-pill";
 const ICON = "chrome://browser/content/whimsy/icons/keyboard.svg";
-const SHEET = "chrome://browser/content/whimsy/whimsy-navigation.css";
 const HOLD_TOAST_KEY = "whimsy-pass-keys-hold";
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const KEY_EVENTS = ["keydown", "keypress", "keyup"];
@@ -243,7 +241,9 @@ export const WhimsyKeysToPage = {
       return null;
     }
     if (!pill) {
-      lazy.WhimsySheets.load(win, SHEET);
+      // W32 P2: the pill's rules (with the other address bar page actions)
+      // live in whimsy-browser.css; whimsy-navigation.css holds only the
+      // trail and Cook mode, so nothing loads here.
       pill = doc.createXULElement("hbox");
       pill.id = PILL_ID;
       pill.className = "whimsy-page-action whimsy-pass-keys-action";
