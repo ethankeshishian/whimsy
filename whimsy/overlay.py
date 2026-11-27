@@ -115,6 +115,23 @@ HOTFIXES = [
                "            .WhimsySpaceExtensions.isVisibleInWindow(addon.id, window) &&",
     },
     {
+        "id": "command-bar-idle-commands",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "Whimsy registers some commands in a window's idle init (W32 P1); "
+               "the command bar must run it before listing or running them.",
+        "old": "  async #getAvailableActions(window) {\n",
+        "new": "  async #getAvailableActions(window) {\n"
+               "    ChromeUtils.importESModule(\"resource:///modules/whimsy/WhimsyCommands.sys.mjs\").WhimsyCommands.ready(window); // Whimsy: idle init first\n",
+    },
+    {
+        "id": "command-bar-idle-command-run",
+        "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
+        "why": "Running a command from the command bar must find commands registered in idle init.",
+        "old": "    const commandToRun = ownerGlobal.document.getElementById(command);\n",
+        "new": "    const commandToRun = ChromeUtils.importESModule(\"resource:///modules/whimsy/WhimsyCommands.sys.mjs\")\n"
+               "      .WhimsyCommands.command(ownerGlobal, command); // Whimsy: after idle init\n",
+    },
+    {
         "id": "command-bar-ranking-candidates",
         "file": "src/zen/urlbar/ZenUBActionsProvider.sys.mjs",
         "why": "The shared muxer ranks all command candidates before limiting rows.",

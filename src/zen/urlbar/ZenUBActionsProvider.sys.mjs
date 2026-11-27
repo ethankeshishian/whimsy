@@ -35,7 +35,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlUtils: "resource://gre/modules/UrlUtils.sys.mjs",
   ZenKeyboardShortcuts:
     "resource:///modules/zen/kbs/ZenKeyboardShortcuts.sys.mjs",
-  WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
 XPCOMUtils.defineLazyPreferenceGetter(
@@ -244,8 +243,7 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
    * @returns {Array} All the available global actions.
    */
   async #getAvailableActions(window) {
-    // Whimsy: a window's idle init registers some commands; run it first.
-    lazy.WhimsyCommands.ready(window);
+    ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs").WhimsyCommands.ready(window); // Whimsy: idle init first
     return globalActions
       .filter(a => a.isAvailable(window))
       .concat(this.#getWorkspaceActions(window))
@@ -603,7 +601,8 @@ export class ZenUrlbarProviderGlobalActions extends UrlbarProvider {
     if (!command) {
       return;
     }
-    const commandToRun = lazy.WhimsyCommands.command(ownerGlobal, command); // Whimsy: after idle init
+    const commandToRun = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyCommands.sys.mjs")
+      .WhimsyCommands.command(ownerGlobal, command); // Whimsy: after idle init
     if (commandToRun) {
       commandToRun.doCommand();
     }
