@@ -882,7 +882,7 @@
 # W29 side panels: each site's popover width in pixels, by host, as JSON
 # ({"x.com": 420}); a site that isn't listed gets 380 (320 in a narrow window).
 - name: whimsy.side-panel.widths
-  value: "{}"
+  value: "{ }"
 
 # The AI-off ⌘E toast has shown; the next ⌘E opens setup. Reset when AI turns on.
 - name: whimsy.chat.ai-off-toast-seen
