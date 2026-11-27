@@ -162,13 +162,14 @@ add_task(async function test_registry_runs_idle_steps_first() {
   ok(seen.ran, "Running it through the registry succeeded");
   ok(seen.after, "and the window has the command");
   is(WhimsyPasteGuard.active, !wasOn, "The command did what it does");
-  const steps = WhimsyPerfMarks.forWindow(win).steps;
-  is(steps.filter(s => s.name == "paste-guard").length, 1, "Its step ran once");
-  ok(!steps.some(s => s.name == "paste-guard" && s.tier == "window"), "and not in initWindow");
+  // forWindow returns a copy, so each check reads the steps afresh.
+  const steps = () => stepsOf(win).steps;
+  is(steps().filter(s => s.name == "paste-guard").length, 1, "Its step ran once");
+  ok(!steps().some(s => s.name == "paste-guard" && s.tier == "window"), "and not in initWindow");
   await win.whimsyDeferredInit;
-  is(steps.filter(s => s.name == "paste-guard").length, 1, "The idle callback didn't run it again");
+  is(steps().filter(s => s.name == "paste-guard").length, 1, "The idle callback didn't run it again");
   WhimsyCommands.ready(win);
-  is(steps.filter(s => s.name == "settings-commands").length, 1, "Every idle step ran once");
+  is(steps().filter(s => s.name == "settings-commands").length, 1, "Every idle step ran once");
   await BrowserTestUtils.closeWindow(win);
   await SpecialPowers.popPrefEnv();
 });

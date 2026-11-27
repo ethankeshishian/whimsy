@@ -21,6 +21,12 @@ const { WhimsyCommands } = ChromeUtils.importESModule("resource:///modules/whims
 const { globalActions } = ChromeUtils.importESModule("resource:///modules/ZenUBGlobalActions.sys.mjs");
 
 const { SETTINGS } = WhimsySettingsCommands;
+
+// W32 perf: the window registers its settings commands once it's idle; the
+// tasks below read their <command>s straight from the document.
+add_setup(async function () {
+  await window.whimsyDeferredInit;
+});
 const CONTROLS =
   "checkbox, moz-checkbox, moz-toggle, moz-select, moz-radio-group, menulist, radiogroup, input, textarea, [role='radiogroup']";
 

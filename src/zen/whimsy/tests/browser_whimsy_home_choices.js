@@ -31,6 +31,9 @@ const EXTENSION_PREF = "browser.newtab.extensionControlled";
 const FEATURE_PREF = "whimsy.feature.home";
 
 add_setup(async function () {
+  // W32 perf: the window registers its settings commands once it's idle;
+  // a task below reads their <command>s straight from the document.
+  await window.whimsyDeferredInit;
   await SpecialPowers.pushPrefEnv({
     set: [
       ["identity.fxaccounts.account.device.name", ""],
