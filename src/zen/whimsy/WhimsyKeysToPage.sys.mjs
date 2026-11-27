@@ -27,6 +27,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsyShortcuts: "resource:///modules/whimsy/WhimsyShortcuts.sys.mjs",
 });
@@ -242,11 +243,7 @@ export const WhimsyKeysToPage = {
       return null;
     }
     if (!pill) {
-      // Loaded once per window, shared with WhimsyPageActions.sys.mjs:129.
-      if (!win._whimsyNavigationSheet) {
-        win._whimsyNavigationSheet = true;
-        win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-      }
+      lazy.WhimsySheets.load(win, SHEET);
       pill = doc.createXULElement("hbox");
       pill.id = PILL_ID;
       pill.className = "whimsy-page-action whimsy-pass-keys-action";

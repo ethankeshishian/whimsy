@@ -22,6 +22,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
 });
 
@@ -68,19 +69,6 @@ function readState(data) {
 
 // W32 P2: the sheet styles only the minimap, so it loads when a window
 // builds its first one rather than with every window.
-const sheetWindows = new WeakSet();
-function loadSheet(win) {
-  if (sheetWindows.has(win)) {
-    return;
-  }
-  sheetWindows.add(win);
-  try {
-    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-  } catch (e) {
-    console.error("Whimsy: minimap sheet", e);
-  }
-}
-
 class MapView {
   constructor(browser) {
     this.browser = browser;
@@ -122,7 +110,7 @@ class MapView {
     if (!container) {
       return;
     }
-    loadSheet(this.win);
+    lazy.WhimsySheets.load(this.win, SHEET);
     const el = doc.createElementNS(HTML, "div");
     el.className = "whimsy-minimap whimsy-surface-tokens is-idle";
     el.hidden = true;

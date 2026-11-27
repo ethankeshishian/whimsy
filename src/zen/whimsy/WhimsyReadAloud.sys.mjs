@@ -13,6 +13,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -25,8 +26,6 @@ const VOICE_PREF = "whimsy.read-aloud.voice";
 const RATE_PREF = "whimsy.read-aloud.rate";
 const ICON = "chrome://browser/content/whimsy/icons/listen.svg";
 const SHEET = "chrome://browser/content/whimsy/whimsy-read-aloud.css";
-// Windows whose player sheet is loaded (W32 P2: loaded with the first player).
-const sheetWindows = new WeakSet();
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 // Words a minute at 1×, for progress and time left (macOS voices are near it).
 const WPM = 175;
@@ -524,14 +523,7 @@ export const WhimsyReadAloud = {
     }
     // W32 P2: the sheet styles only the player, so it loads just before
     // the first one is made rather than with every window.
-    if (!sheetWindows.has(win)) {
-      sheetWindows.add(win);
-      try {
-        win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-      } catch (e) {
-        console.error("Whimsy: read aloud sheet", e);
-      }
-    }
+    lazy.WhimsySheets.load(win, SHEET);
     holder = doc.createXULElement("vbox");
     holder.id = "whimsy-read-aloud-player";
     holder.hidden = true;

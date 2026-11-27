@@ -11,6 +11,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -25,8 +26,6 @@ const HTML = "http://www.w3.org/1999/xhtml";
 
 const imageMatchers = new Set();
 const windows = new WeakSet();
-// Windows whose card sheet is loaded (W32 P2: loaded on first attach).
-const sheetWindows = new WeakSet();
 
 export const WhimsyFindCard = {
   get enabled() {
@@ -59,15 +58,7 @@ export const WhimsyFindCard = {
   },
 
   loadSheet(win) {
-    if (sheetWindows.has(win)) {
-      return;
-    }
-    sheetWindows.add(win);
-    try {
-      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-    } catch (e) {
-      console.error("Whimsy: find card sheet", e);
-    }
+    lazy.WhimsySheets.load(win, SHEET);
   },
 
   isCard(findbar) {

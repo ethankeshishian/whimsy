@@ -14,6 +14,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   pickLocale: "resource:///modules/whimsy/WhimsyLiveSpeech.sys.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
@@ -71,19 +72,6 @@ function h(doc, tag, attrs = {}, ...kids) {
 // W32 P2: the mic's rules live in whimsy-browser.css; this sheet styles
 // only what dictation shows once it starts (bar, pill, and panels), so it
 // loads just before the first of those is made.
-const sheetWindows = new WeakSet();
-function loadSheet(win) {
-  if (sheetWindows.has(win)) {
-    return;
-  }
-  sheetWindows.add(win);
-  try {
-    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-  } catch (e) {
-    console.error("Whimsy: dictation sheet", e);
-  }
-}
-
 function wave(doc) {
   const box = h(doc, "span", { class: "whimsy-dictation-wave", "aria-hidden": "true" });
   for (let i = 0; i < 7; i++) {
@@ -604,7 +592,7 @@ export const WhimsyDictation = {
   },
 
   mirror(win) {
-    loadSheet(win);
+    lazy.WhimsySheets.load(win, SHEET);
     const box = win.gURLBar.querySelector(".urlbar-input-box");
     if (!box) {
       return null;
@@ -648,7 +636,7 @@ export const WhimsyDictation = {
   // ---- What it looks like.
   showListening(state) {
     const { win, target, trigger } = state;
-    loadSheet(win);
+    lazy.WhimsySheets.load(win, SHEET);
     const urlbar = win.gURLBar;
     const mic = this.mic(win);
     if (target == "field") {
@@ -710,7 +698,7 @@ export const WhimsyDictation = {
 
   // The pill under the caret (media-5.5): listening, waiting, done.
   pill(win) {
-    loadSheet(win);
+    lazy.WhimsySheets.load(win, SHEET);
     const doc = win.document;
     let pill = doc.getElementById("whimsy-dictation-pill");
     if (pill) {
@@ -781,7 +769,7 @@ export const WhimsyDictation = {
 
   // ---- Panels (WhimsySurface).
   panel(win, { id, titleL10nId, icon, text, buttonL10nId, page }) {
-    loadSheet(win);
+    lazy.WhimsySheets.load(win, SHEET);
     const S = lazy.WhimsySurface;
     const doc = win.document;
     const urlbar = win.gURLBar;

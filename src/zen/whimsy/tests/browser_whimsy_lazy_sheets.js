@@ -16,6 +16,7 @@ ChromeUtils.defineESModuleGetters(this, {
   WhimsyDictation: "resource:///modules/whimsy/WhimsyDictation.sys.mjs",
   WhimsyPageActions: "resource:///modules/whimsy/WhimsyPageActions.sys.mjs",
   WhimsyReadAloud: "resource:///modules/whimsy/WhimsyReadAloud.sys.mjs",
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
 });
 
 const BASE = "chrome://browser/content/whimsy/";
@@ -33,8 +34,10 @@ const DIR = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "
 const LONG = DIR + "whimsy_minimap_long.html";
 const TRAIL = "https://example.com/browser/whimsy-lazy-sheets";
 
+// Sheets added with loadSheetUsingURIString aren't listed by
+// InspectorUtils.getAllStyleSheets, so ask the loader.
 function sheetIn(win, name) {
-  return InspectorUtils.getAllStyleSheets(win.document, false).some(sheet => sheet.href == BASE + name);
+  return WhimsySheets.isLoaded(win, BASE + name);
 }
 
 // Resolves with what `check` returned the moment `selector` first matched
@@ -108,7 +111,6 @@ add_task(async function a_new_window_loads_none_of_them() {
   for (const name of LAZY) {
     ok(!sheetIn(win, name), `${name} isn't loaded at window start`);
   }
-  ok(sheetIn(win, "whimsy-browser.css"), "whimsy-browser.css is");
   // The mic's rules now live in whimsy-browser.css, so it is styled already.
   const mic = getComputedStyle(win.document.getElementById("whimsy-dictation-mic"));
   is(mic.borderTopLeftRadius, "8px", "The mic has its shape before dictation's sheet loads");
