@@ -1594,6 +1594,15 @@ skip-if = ["headless"] # needs a real WKWebView; the runners run whimsy-headed f
 # runs headless.
 ["browser_whimsy_webkit_drm.js"]
 
+# W32 webkit-gaps: a WebKit tab in SessionStore and closed tabs, the tab
+# unloader's criteria, Gecko's network error page, the Save dialog for
+# downloads, and saved logins (own origin only, never a cross-origin frame,
+# filled only when picked, and the save doorhanger on submit).
+["browser_whimsy_webkit_gaps.js"]
+run-if = ["os == 'mac'"]
+tags = "whimsy-headed"
+skip-if = ["headless"] # needs a real WKWebView; the runners run whimsy-headed files headed
+
 
 # W30 svg-save: Save Image As on SVGs (menu rows, the dialog, PNG/JPG output
 # decoded, the original SVG bytes, Esc and Enter).

@@ -1,0 +1,55 @@
+diff --git a/browser/components/tabbrowser/TabUnloader.sys.mjs b/browser/components/tabbrowser/TabUnloader.sys.mjs
+--- a/browser/components/tabbrowser/TabUnloader.sys.mjs
++++ b/browser/components/tabbrowser/TabUnloader.sys.mjs
+@@ -13,6 +13,7 @@
+ const lazy = XPCOMUtils.declareLazy({
+   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+   webrtcUI: "resource:///modules/webrtcUI.sys.mjs",
++  WhimsyEngineTabs: "resource:///modules/whimsy/WhimsyEngineTabs.sys.mjs",
+ });
+ 
+ // If there are only this many or fewer tabs open, just sort by weight, and close
+@@ -72,7 +73,11 @@
+   },
+ 
+   playingMedia(tab, weight) {
+-    return tab.soundPlaying ? weight : 0;
++    // Whimsy (W32): an engine tab's sound comes from its engine's page.
++    return tab.soundPlaying ||
++      lazy.WhimsyEngineTabs.unloaderActivity(tab)?.audio
++      ? weight
++      : 0;
+   },
+ 
+   usingWebRTC(tab, weight) {
+@@ -84,7 +89,8 @@
+     // No need to iterate browser contexts for hasActivePeerConnection
+     // because hasActivePeerConnection is set only in the top window.
+     return lazy.webrtcUI.browserHasStreams(browser) ||
+-      browser.browsingContext?.currentWindowGlobal?.hasActivePeerConnections()
++      browser.browsingContext?.currentWindowGlobal?.hasActivePeerConnections() ||
++      lazy.WhimsyEngineTabs.unloaderActivity(tab)?.capture
+       ? weight
+       : 0;
+   },
+@@ -119,6 +125,12 @@
+   },
+ 
+   *iterateProcesses(tab) {
++    // Whimsy (W32): an engine tab's page lives in its engine's process; the
++    // first pid is the tab's top-level one.
++    const enginePid = lazy.WhimsyEngineTabs.unloaderActivity(tab)?.pid;
++    if (enginePid) {
++      yield enginePid;
++    }
+     let bc = tab?.linkedBrowser?.browsingContext;
+     if (!bc) {
+       return;
+@@ -149,6 +161,7 @@
+       }
+       processInfo.memory = childProcInfo.memory;
+     }
++    lazy.WhimsyEngineTabs.addUnloaderMemory(processMap);
+   },
+ };
+ 
