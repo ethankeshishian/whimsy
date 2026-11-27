@@ -1698,9 +1698,26 @@ add_webkit_task(async function test_w32_untrusted_certificate_uses_gecko_error_p
     overrides.rememberValidityOverride("127.0.0.1", tls.port, {}, tls.cert, false);
     browser.reload();
     await TestUtils.waitForCondition(
-      () => !state.geckoPage && tab.label == "Secure Page" && !tab.hasAttribute("busy"),
+      () =>
+        !state.geckoPage &&
+        // WebKit's own title and load state, not just the tab's: Gecko's
+        // load of the same page also labels the tab "Secure Page".
+        state.title == "Secure Page" &&
+        !state.loading &&
+        tab.label == "Secure Page" &&
+        !tab.hasAttribute("busy"),
       "With Gecko's exception the site loads in WebKit"
-    );
+    ).catch(e => {
+      // Name the part that didn't settle, so a failure says where it stuck.
+      info(
+        `geckoPage=${state.geckoPage} label=${JSON.stringify(tab.label)} ` +
+          `title=${JSON.stringify(state.title)} busy=${tab.hasAttribute("busy")} ` +
+          `loading=${state.loading} webkit=${WhimsyWebKit.isWebKitTab(tab)} ` +
+          `url=${state.url} gecko=${browser.currentURI?.spec} ` +
+          `certRetry=${JSON.stringify(state.certRetry)}`
+      );
+      throw e;
+    });
     Assert.ok(WhimsyWebKit.isWebKitTab(tab), "The tab is still a WebKit tab");
     Assert.equal(WhimsyWebKit.currentURIOf(tab)?.spec, tls.url, "WebKit shows the site");
     Assert.equal(

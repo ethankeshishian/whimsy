@@ -2,15 +2,16 @@ diff --git a/browser/components/sessionstore/SessionStore.sys.mjs b/browser/comp
 index f9d5771..d0cc502 100644
 --- a/browser/components/sessionstore/SessionStore.sys.mjs
 +++ b/browser/components/sessionstore/SessionStore.sys.mjs
-@@ -356,6 +356,7 @@
+@@ -356,6 +356,8 @@
      "moz-src:///browser/components/sessionstore/SessionStartup.sys.mjs",
    SessionStoreHelper:
      "resource://gre/modules/sessionstore/SessionStoreHelper.sys.mjs",
++  WhimsyEngineTabs: "resource:///modules/whimsy/WhimsyEngineTabs.sys.mjs",
 +  WhimsyFormDrafts: "resource:///modules/whimsy/WhimsyFormProtection.sys.mjs",
    TabAttributes:
      "moz-src:///browser/components/sessionstore/TabAttributes.sys.mjs",
    TabCrashHandler: "resource:///modules/ContentCrashHandlers.sys.mjs",
-@@ -1446,6 +1447,11 @@
+@@ -1446,6 +1448,14 @@
      if (this.#crashedBrowsers.has(permanentKey)) {
        return;
      }
@@ -19,10 +20,13 @@ index f9d5771..d0cc502 100644
 +    // nothing built from it (closed tabs, windows, backups, the file) ever
 +    // holds one either; whimsy-handoff/wave13/r1-v2-design.md §7.
 +    lazy.WhimsyFormDrafts?.stripSessionUpdate(update);
++    // Whimsy (W32): a WebKit tab's Gecko <browser> sits parked on
++    // about:blank; the tab's history is the page WebKit shows.
++    lazy.WhimsyEngineTabs?.rewriteSessionUpdate(permanentKey, update);
  
      lazy.TabState.update(permanentKey, update);
      this.#saveStateDelayed(win);
-@@ -7862,6 +7868,8 @@ class _SessionStore {
+@@ -7862,6 +7872,8 @@
          aTabState.entries.length == 1 &&
          (entryUrl == "about:blank" ||
            (entryUrl == "about:home" && !aTabState.splitViewId) ||

@@ -13,10 +13,14 @@ ChromeUtils.defineESModuleGetters(lazy, {
   DownloadPaths: "resource://gre/modules/DownloadPaths.sys.mjs",
   Downloads: "resource://gre/modules/Downloads.sys.mjs",
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
+  nsUnknownContentTypeDialog: "resource://gre/modules/HelperAppDlg.sys.mjs",
   NetUtil: "resource://gre/modules/NetUtil.sys.mjs",
+  SessionHistory: "resource://gre/modules/sessionstore/SessionHistory.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
+  TabStateCache: "moz-src:///browser/components/sessionstore/TabStateCache.sys.mjs",
   WebRTCParent: "resource:///actors/WebRTCParent.sys.mjs",
+  WhimsyEngineLogins: "resource:///modules/whimsy/WhimsyEngineLogins.sys.mjs",
 });
 
 // Map XUL VK_* keycode names to macOS Carbon virtual key codes so keyset
@@ -85,7 +89,10 @@ export const WhimsyEngineTabs = {
   //   tabAttribute: the attribute marking its tabs and their <browser>s;
   //   availableForTab(tab), switchTab(tab, engine, options);
   //   isCertError(info): whether a "neterror" is a certificate failure;
+  //   netErrorKind(info): "certerror", "neterror", or null for a failed load;
   //   refreshWindowUI(win): its own window UI (refreshUI runs it);
+  //   sessionChoice(tab): what SessionStore keeps of a tab's engine choice;
+  //   restoreSessionChoice(tab, choice, url): puts that choice back;
   //   onGeckoLocationChange(tab, location): a Firefox tab navigated.
   _engines: new Map(),
 
@@ -153,7 +160,7 @@ export const WhimsyEngineTabs = {
     // checks.
     const listener = (id, type, data) => {
       if (type == "download" || type == "download-destination") {
-        this._onDownloadEvent(type, data, engine);
+        this._onDownloadEvent(type, data, engine, tab.documentGlobal);
         return;
       }
       this._onNativeEvent(tab, id, type, data);
@@ -172,6 +179,7 @@ export const WhimsyEngineTabs = {
     tab._whimsyEngineState = state;
     tab.setAttribute(state.tabAttribute, "true");
     browser.setAttribute(state.tabAttribute, "true");
+    this._sessionStates.set(browser.permanentKey, state);
 
     // Expose the engine tab's live nsIURI through browser.currentURI so
     // WhimsySiteSettings, ZenSiteDataPanel, gURLBar, and ⌘K see the live site
@@ -189,7 +197,182 @@ export const WhimsyEngineTabs = {
     this.syncReservedShortcuts(win, state);
     svc.setVisible(state.id, win.gBrowser.selectedTab == tab);
     this.syncLayout(win);
+    this._writeSession(state);
     return state;
+  },
+
+  // -------------------------------------------------------------------------
+  // W32: SessionStore. An engine tab's Gecko <browser> sits parked on
+  // about:blank, so SessionStore (and the Archive, closed tabs, and the
+  // session file, all built from its cache) would keep that. Its history
+  // entry is the engine's page instead, and the tab's engine choice is a
+  // custom tab value, so a restored tab opens its page in the same engine.
+
+  SESSION_KEY: "whimsy-engine",
+
+  // Gecko <browser> permanentKey -> engine tab state.
+  _sessionStates: new WeakMap(),
+
+  _sessionHistory(state) {
+    const uri = safeNewURI((state.geckoPage && state.certURL) || state.url);
+    if (!isWebURI(uri)) {
+      return null;
+    }
+    let triggeringPrincipal_base64 = lazy.E10SUtils.SERIALIZED_SYSTEMPRINCIPAL;
+    try {
+      triggeringPrincipal_base64 = lazy.E10SUtils.serializePrincipal(
+        Services.scriptSecurityManager.createContentPrincipal(uri, {
+          userContextId: state.tab?.userContextId || 0,
+        })
+      );
+    } catch {}
+    return {
+      entries: [
+        {
+          url: uri.spec,
+          title: state.title || uri.spec,
+          triggeringPrincipal_base64,
+        },
+      ],
+      index: 1,
+    };
+  },
+
+  // SessionStore's hook (whimsy-SessionStore-sys-mjs.patch): Gecko's
+  // history for an engine tab's parked <browser> becomes the engine's page.
+  // A closing tab (or window) loses its engine state before its <browser>
+  // sends its final update, and that update (the parked about:blank) is
+  // what SessionStore copies into the closed tab, so the rewrite outlives
+  // the engine state. Only leaving the engine for Firefox
+  // (_resyncGeckoSession) or a newer engine state for the tab ends it.
+  rewriteSessionUpdate(permanentKey, update) {
+    const state = permanentKey && this._sessionStates.get(permanentKey);
+    const data = update?.data;
+    if (!state || !data) {
+      return;
+    }
+    const current = state.tab?._whimsyEngineState;
+    if (current && current != state) {
+      return;
+    }
+    if (!("history" in data) && !("historychange" in data)) {
+      return;
+    }
+    delete data.historychange;
+    const history = this._sessionHistory(state);
+    if (history) {
+      data.history = history;
+    } else {
+      delete data.history;
+    }
+  },
+
+  // Puts the engine's page in SessionStore's cache and saves soon.
+  _writeSession(state) {
+    const { tab, browser } = state ?? {};
+    if (!tab || tab._whimsyEngineState != state || !browser?.permanentKey) {
+      return;
+    }
+    const history = this._sessionHistory(state);
+    if (!history) {
+      return;
+    }
+    try {
+      lazy.TabStateCache.update(browser.permanentKey, { history });
+    } catch {}
+    this.saveEngineChoice(tab, { force: true });
+  },
+
+  // The tab left its engine for Firefox: SessionStore's cache follows the
+  // Gecko <browser>'s own history again.
+  _resyncGeckoSession(tab) {
+    const browser = tab?.linkedBrowser;
+    if (browser?.permanentKey) {
+      this._sessionStates.delete(browser.permanentKey);
+    }
+    const sh = browser?.browsingContext?.sessionHistory;
+    if (!sh || !browser.permanentKey) {
+      return;
+    }
+    try {
+      const history = lazy.SessionHistory.collectFromParent(
+        browser.currentURI?.spec,
+        true,
+        sh
+      );
+      if (history) {
+        lazy.TabStateCache.update(browser.permanentKey, { history });
+      }
+    } catch (e) {
+      console.error("WhimsyEngineTabs: couldn't resync session history", e);
+    }
+    this.saveEngineChoice(tab);
+  },
+
+  // Saves the tab's engine choice as a custom tab value (SessionStore saves
+  // it with the tab, closed tabs and the Archive included). Never removed
+  // when a tab closes: its closed-tab data shares the value.
+  saveEngineChoice(tab, { force = false } = {}) {
+    if (!tab?.isConnected || tab.closing) {
+      return;
+    }
+    const choice = { engine: this.stateOf(tab)?.engine ?? null };
+    let any = !!choice.engine;
+    for (const [name, adapter] of this._engines) {
+      const own = adapter.sessionChoice?.(tab);
+      if (own) {
+        choice[name] = own;
+        any = true;
+      }
+    }
+    const value = any ? JSON.stringify(choice) : "";
+    if (!force && value == (tab._whimsyEngineSaved ?? "")) {
+      return;
+    }
+    try {
+      if (value) {
+        lazy.SessionStore.setCustomTabValue(tab, this.SESSION_KEY, value);
+      } else if (tab._whimsyEngineSaved) {
+        lazy.SessionStore.deleteCustomTabValue(tab, this.SESSION_KEY);
+      }
+      tab._whimsyEngineSaved = value;
+    } catch {}
+  },
+
+  // A tab is being restored (session restore, Undo Close Tab, the
+  // Archive): its saved engine choice comes back, so loading its page
+  // opens it in that engine.
+  _onSessionRestoring(tab) {
+    if (!tab || this.stateOf(tab)) {
+      return;
+    }
+    let choice = null;
+    try {
+      choice = parseJSON(
+        lazy.SessionStore.getCustomTabValue(tab, this.SESSION_KEY) || "{}"
+      );
+    } catch {}
+    tab._whimsyEngineSaved = choice && Object.keys(choice).length
+      ? JSON.stringify(choice)
+      : "";
+    if (!choice) {
+      return;
+    }
+    let url = "";
+    try {
+      const tabState = JSON.parse(lazy.SessionStore.getTabState(tab));
+      const entry = tabState.entries?.[(tabState.index || 1) - 1];
+      url = entry?.url || "";
+    } catch {}
+    for (const [name, adapter] of this._engines) {
+      try {
+        adapter.restoreSessionChoice?.(tab, choice[name] ?? null, url, {
+          engine: choice.engine ?? null,
+        });
+      } catch (e) {
+        console.error("WhimsyEngineTabs: couldn't restore the engine choice", e);
+      }
+    }
   },
 
   _destroyTabState(tab) {
@@ -201,6 +384,7 @@ export const WhimsyEngineTabs = {
     tab.removeAttribute(state.tabAttribute);
     const { browser, id } = state;
     this._cancelMediaPrompts(state);
+    this._closeLoginPopup(tab);
     if (state.crashed) {
       tab.removeAttribute("crashed");
     }
@@ -329,6 +513,12 @@ export const WhimsyEngineTabs = {
         this._resumeTab(state.tab);
       }
       return true;
+    }
+    // W32: a load from Gecko's network or certificate error page (⌘K, a
+    // link, the address bar) leaves the error page: the engine's view shows
+    // the new page, and the Gecko <browser> parks again.
+    if (state.geckoPage == "certerror" || state.geckoPage == "neterror") {
+      this._exitGeckoPage(state.tab, state, { repark: true });
     }
     const promise = waitForLoad ? this._waitForNextLoad(state) : null;
     this._svc(state)?.loadURL(state.id, uri.spec);
@@ -506,6 +696,7 @@ export const WhimsyEngineTabs = {
         if (tab.selected) {
           win.gBrowser.updateTitlebar?.();
         }
+        this._writeSession(state);
         break;
       }
       case "location": {
@@ -520,6 +711,7 @@ export const WhimsyEngineTabs = {
           if (state.committedPage != uri.specIgnoringRef) {
             state.committedPage = uri.specIgnoringRef;
             this._cancelMediaPrompts(state);
+            this._closeLoginPopup(tab);
           }
           state.url = uri.spec;
           state.uri = uri;
@@ -527,6 +719,7 @@ export const WhimsyEngineTabs = {
             this._syncAddressBar(win, tab);
             this.refreshUI(win);
           }
+          this._writeSession(state);
         }
         break;
       }
@@ -543,6 +736,13 @@ export const WhimsyEngineTabs = {
               resolve();
             } catch {}
           }
+        }
+        // A reload sends no location change; end the old document's login
+        // session here. Never let it stop the load bookkeeping above.
+        try {
+          lazy.WhimsyEngineLogins.closeIfStale(tab);
+        } catch (e) {
+          console.error("WhimsyEngineTabs: closing a stale login session failed", e);
         }
         if (tab.selected) {
           this._syncNavigationCommands(win, tab);
@@ -609,6 +809,16 @@ export const WhimsyEngineTabs = {
           console.error("WhimsyWebKit: media request failed", e);
         });
         break;
+      // W32: Firefox's password manager (WhimsyEngineLogins).
+      case "login":
+        lazy.WhimsyEngineLogins.onEvent(
+          this,
+          tab,
+          state,
+          this._svc(state),
+          parseJSON(data)
+        );
+        break;
     }
   },
 
@@ -664,7 +874,7 @@ export const WhimsyEngineTabs = {
     }
     const svc = this._svc(state);
     let saved = "";
-    if (state.geckoPage == "certerror") {
+    if (state.geckoPage == "certerror" || state.geckoPage == "neterror") {
       // Load the failing URL again when the tab comes back.
       state.url = state.certURL || state.url;
       state.uri = safeNewURI(state.url) || state.uri;
@@ -674,6 +884,7 @@ export const WhimsyEngineTabs = {
       } catch {}
     }
     this._cancelMediaPrompts(state);
+    this._closeLoginPopup(tab);
     try {
       svc.destroyTab(state.id);
     } catch {}
@@ -693,6 +904,52 @@ export const WhimsyEngineTabs = {
     }
   },
 
+  // Gecko's tab unloader (whimsy-TabUnloader-sys-mjs.patch) asks this for
+  // what its parked <browser> can't tell it: whether the engine's page plays
+  // sound or captures, and the engine's content process. Null for a tab with
+  // no engine view (a Gecko tab, or a discarded one).
+  unloaderActivity(tab) {
+    const state = this._live(tab);
+    if (!state) {
+      return null;
+    }
+    let activity;
+    try {
+      activity = parseJSON(this._svc(state).tabActivity?.(state.id));
+    } catch {
+      return null;
+    }
+    const pid =
+      Number.isInteger(activity.pid) && activity.pid > 0 ? activity.pid : 0;
+    if (pid) {
+      this._unloaderFootprints.set(pid, Number(activity.footprint) || 0);
+    }
+    return {
+      pid,
+      audio: !!activity.audio,
+      capture: !!activity.capture,
+    };
+  },
+
+  // Fills in the memory of the engine processes unloaderActivity() named
+  // (Gecko's process list doesn't hold them), in the unloader's process map.
+  addUnloaderMemory(processMap) {
+    for (const [pid, footprint] of this._unloaderFootprints) {
+      const info = processMap.get(pid);
+      if (info && !info.memory) {
+        info.memory = footprint;
+      }
+    }
+    this._unloaderFootprints.clear();
+  },
+
+  _unloaderFootprints: new Map(),
+
+  // W32: the login popup belongs to the page and tab it opened for.
+  _closeLoginPopup(tab) {
+    lazy.WhimsyEngineLogins.close(tab);
+  },
+
   _onBrowserInserted(tab) {
     const state = this.stateOf(tab);
     if (!state || state.id) {
@@ -705,6 +962,10 @@ export const WhimsyEngineTabs = {
       "currentURI"
     );
     this._hookURI(state);
+    this._sessionStates.set(state.browser.permanentKey, state);
+    // SessionStore restored about:blank (see onInsertCapture); its cache
+    // gets the engine's page back.
+    this._writeSession(state);
     // SessionStore restores the Gecko browser's own history; park it again
     // once that load stops.
     state.parkAfterInsert = true;
@@ -811,6 +1072,7 @@ export const WhimsyEngineTabs = {
     if (repark) {
       this._parkGecko(tab, state);
     }
+    this._writeSession(state);
     const { win } = state;
     if (state.id) {
       try {
@@ -829,10 +1091,28 @@ export const WhimsyEngineTabs = {
   // The parked Gecko <browser>'s location changed while it shows a Gecko
   // page for this tab.
   _onGeckoPageLocation(tab, state, location, flags) {
-    if (state.geckoPage != "certerror") {
+    if (state.geckoPage != "certerror" && state.geckoPage != "neterror") {
       return;
     }
     if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
+      return;
+    }
+    if (isWebURI(location) && state.geckoPage == "neterror") {
+      // "Try Again" reached the site: WebKit loads it again.
+      state.netRetry = {
+        host: location.asciiHost,
+        until: Date.now() + CERT_RETRY_MS,
+      };
+      const uri = location;
+      this._exitGeckoPage(tab, state, { repark: true });
+      state.url = uri.spec;
+      state.uri = uri;
+      if (state.id) {
+        try {
+          this._svc(state).loadURL(state.id, uri.spec);
+        } catch {}
+      }
+      this._syncAddressBar(state.win, tab);
       return;
     }
     if (isWebURI(location)) {
@@ -863,19 +1143,35 @@ export const WhimsyEngineTabs = {
     }
   },
 
+  _netErrorKind(state, info) {
+    const adapter = this._adapterOf(state);
+    if (adapter?.netErrorKind) {
+      return adapter.netErrorKind(info);
+    }
+    return adapter?.isCertError(info) ? "certerror" : null;
+  },
+
+  // W32: a failed load shows Gecko's own error page. The parked <browser>
+  // loads the failing URL, so Gecko meets the same failure and shows its
+  // certificate error or connection error page, with its own Try Again.
   _onNetError(tab, state, info) {
-    if (!this._adapterOf(state)?.isCertError(info)) {
+    const kind = this._netErrorKind(state, info);
+    if (!kind) {
       return;
     }
     const uri = safeNewURI(info.url);
-    if (!uri || !uri.schemeIs("https") || state.geckoPage) {
+    if (!uri || !isWebURI(uri) || state.geckoPage) {
       return;
     }
-    const retry = state.certRetry;
+    if (kind == "certerror" && !uri.schemeIs("https")) {
+      return;
+    }
+    const retry = kind == "certerror" ? state.certRetry : state.netRetry;
     state.certRetry = null;
+    state.netRetry = null;
     if (retry && retry.host == uri.asciiHost && Date.now() < retry.until) {
-      // Gecko accepts the certificate and WebKit still doesn't: open the
-      // site in Firefox rather than loop back to the error page.
+      // Gecko reaches the site and WebKit still doesn't: open it in
+      // Firefox rather than loop back to the error page.
       this._adapterOf(state).switchTab(tab, "firefox", {
         url: uri.spec,
         waitForLoad: false,
@@ -886,14 +1182,15 @@ export const WhimsyEngineTabs = {
     if (!browser?.isConnected) {
       return;
     }
-    this._enterGeckoPage(tab, state, "certerror");
+    this._enterGeckoPage(tab, state, kind);
+    // The failing URL (both kinds), loaded again when the tab comes back.
     state.certURL = uri.spec;
     try {
       browser.fixupAndLoadURIString(uri.spec, {
         triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
       });
     } catch (e) {
-      console.error("WhimsyWebKit: couldn't show the certificate error page", e);
+      console.error("WhimsyWebKit: couldn't show the error page", e);
       this._exitGeckoPage(tab, state);
       return;
     }
@@ -1335,10 +1632,10 @@ export const WhimsyEngineTabs = {
   // Download in the downloads list), saved where Firefox saves downloads.
   _downloads: new Map(),
 
-  _onDownloadEvent(type, data, engine) {
+  _onDownloadEvent(type, data, engine, win) {
     const info = parseJSON(data);
     if (type == "download-destination") {
-      this._startDownload(info, engine).catch(e => {
+      this._startDownload(info, engine, win).catch(e => {
         console.error("WhimsyWebKit: download failed to start", e);
         this._respond(0, info.req, {}, engine);
       });
@@ -1368,16 +1665,71 @@ export const WhimsyEngineTabs = {
     }
   },
 
-  async _startDownload(info, engine) {
+  // W32: where a download goes, chosen by Firefox's own download dialog
+  // code: the download folder when browser.download.useDownloadDir is on
+  // (a unique name there), otherwise Firefox's Save dialog, which starts in
+  // the folder last used for that site. Resolves to an nsIFile, or null
+  // when the Save dialog is cancelled.
+  _chooseDownloadTarget(info, leaf, win) {
+    const { nsUnknownContentTypeDialog } = lazy;
+    const source = safeNewURI(info.url) || Services.io.newURI("about:blank");
+    const dot = leaf.lastIndexOf(".");
+    const ext = dot > 0 ? leaf.slice(dot) : "";
+    let mimeInfo = null;
+    try {
+      mimeInfo = Cc["@mozilla.org/mime;1"]
+        .getService(Ci.nsIMIMEService)
+        .getFromTypeAndExtension(String(info.mime || ""), ext.slice(1));
+    } catch {}
+    // The Save dialog reads the type's description and extension.
+    mimeInfo ??= { description: "", primaryExtension: ext.slice(1) };
+    return new Promise(resolve => {
+      const launcher = {
+        source,
+        suggestedFileName: leaf,
+        MIMEInfo: mimeInfo,
+        saveDestinationAvailable: file => resolve(file || null),
+      };
+      const context = {
+        getInterface: iid => {
+          if (win && !win.closed && iid.equals(Ci.nsIDOMWindow)) {
+            return win;
+          }
+          throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
+        },
+      };
+      try {
+        new nsUnknownContentTypeDialog().promptForSaveToFileAsync(
+          launcher,
+          context,
+          leaf,
+          ext,
+          false
+        );
+      } catch (e) {
+        console.error("WhimsyWebKit: couldn't choose where to save", e);
+        resolve(null);
+      }
+    });
+  },
+
+  async _startDownload(info, engine, win) {
     const { Downloads, DownloadPaths } = lazy;
     const dir = await Downloads.getPreferredDownloadsDirectory();
-    await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+    if (Services.prefs.getBoolPref("browser.download.useDownloadDir", true)) {
+      await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+    }
     const leaf = DownloadPaths.sanitize(String(info.filename || "")) || "download";
-    const template = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-    template.initWithPath(PathUtils.join(dir, leaf));
-    // Reserves a unique name; WebKit writes to the path itself, which must
-    // not exist yet.
-    const path = DownloadPaths.createNiceUniqueFile(template).path;
+    const file = await this._chooseDownloadTarget(info, leaf, win);
+    if (!file) {
+      // Cancelled in the Save dialog: WebKit drops the download.
+      this._respond(0, info.req, {}, engine);
+      return;
+    }
+    // Firefox's dialog code reserves the name (or the person chose to
+    // replace a file); WebKit writes to the path itself, which must not
+    // exist yet.
+    const path = file.path;
     await IOUtils.remove(path, { ignoreAbsent: true });
     const source = safeNewURI(info.url)?.spec || "about:blank";
     const download = await Downloads.createDownload({
@@ -1786,6 +2138,9 @@ export const WhimsyEngineTabs = {
           continue;
         }
         const isSelected = tab == selected;
+        if (!isSelected) {
+          this._closeLoginPopup(tab);
+        }
         if (isSelected && !state.id && tab.linkedPanel) {
           // W32: a discarded tab comes back.
           this._resumeTab(tab);
@@ -1837,6 +2192,33 @@ export const WhimsyEngineTabs = {
     };
     gBrowser.tabContainer.addEventListener("TabBrowserDiscarded", onTabDiscarded);
     gBrowser.tabContainer.addEventListener("TabBrowserInserted", onTabInserted);
+    // W32: runs before SessionStore's own TabBrowserInserted listener. A
+    // discarded engine tab's Gecko <browser> restores about:blank, not the
+    // engine's page, so Gecko doesn't load the site as well.
+    const onInsertCapture = event => {
+      const tab = event.target;
+      const state = this.stateOf(tab);
+      if (!state || state.id || !tab.linkedBrowser?.permanentKey) {
+        return;
+      }
+      try {
+        lazy.TabStateCache.update(tab.linkedBrowser.permanentKey, {
+          history: {
+            entries: [
+              {
+                url: "about:blank",
+                triggeringPrincipal_base64:
+                  lazy.E10SUtils.SERIALIZED_SYSTEMPRINCIPAL,
+              },
+            ],
+            index: 1,
+          },
+        });
+      } catch {}
+    };
+    win.addEventListener("TabBrowserInserted", onInsertCapture, true);
+    const onSessionRestoring = event => this._onSessionRestoring(event.target);
+    gBrowser.tabContainer.addEventListener("SSTabRestoring", onSessionRestoring);
     this._installCrashRevive();
 
     // Intercept Back, Forward, Reload, Stop, and ⌘L focus hand-off commands
@@ -1851,7 +2233,10 @@ export const WhimsyEngineTabs = {
       if (state.geckoPage) {
         // W32: Gecko's error and tab-crashed pages run their own commands,
         // except Back (to the WebKit page) and Reload (restores the tab).
-        if (id == "Browser:Back" && state.geckoPage == "certerror") {
+        if (
+          id == "Browser:Back" &&
+          (state.geckoPage == "certerror" || state.geckoPage == "neterror")
+        ) {
           event.stopPropagation();
           event.preventDefault();
           this._exitGeckoPage(tab, state, { repark: true });
@@ -2012,6 +2397,11 @@ export const WhimsyEngineTabs = {
         gBrowser.tabContainer.removeEventListener(
           "TabBrowserInserted",
           onTabInserted
+        );
+        win.removeEventListener("TabBrowserInserted", onInsertCapture, true);
+        gBrowser.tabContainer.removeEventListener(
+          "SSTabRestoring",
+          onSessionRestoring
         );
         win.removeEventListener("resize", onPopupChange);
         ro.disconnect();

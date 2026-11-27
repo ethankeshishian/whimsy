@@ -9,6 +9,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <Security/Security.h>
 #include <dlfcn.h>
+#include <libproc.h>
 #include <signal.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
@@ -354,6 +355,259 @@ static NSString* const kEpochScript =
      "  addEventListener('pagehide', () => post('scroll'));"
      "})();";
 
+// W32: logins. Runs in Whimsy's isolated world of the main frame only (a
+// login field in any subframe never reaches the password manager). It
+// reports a trusted focus on a login field (never the password's value), the
+// keys the open login popup needs, and a submitted username and password;
+// loginAction() fills the field the user chose an entry for. The page's
+// scripts can't see this world, its handler, or its fill function.
+static NSString* const kLoginScript =
+    @"(() => {\n"
+     "  if (globalThis.__whimsyLogin) {\n"
+     "    return;\n"
+     "  }\n"
+     "  const L = { field: null, open: false, selected: false, lastSubmit: \"\" };\n"
+     "  Object.defineProperty(globalThis, \"__whimsyLogin\", { value: L });\n"
+     "  const post = (k, m) => {\n"
+     "    try {\n"
+     "      webkit.messageHandlers.whimsy.postMessage(\n"
+     "        Object.assign({ e: globalThis.__whimsyEpoch, t: \"login\", k }, m)\n"
+     "      );\n"
+     "    } catch (_) {}\n"
+     "  };\n"
+     "  const TEXT = [\"text\", \"email\", \"tel\"];\n"
+     "  const seenPassword = new WeakSet();\n"
+     "  const isInput = el => el instanceof HTMLInputElement;\n"
+     "  const isPassword = el =>\n"
+     "    isInput(el) && (el.type == \"password\" || seenPassword.has(el));\n"
+     "  const usable = el =>\n"
+     "    isInput(el) &&\n"
+     "    el.type != \"hidden\" &&\n"
+     "    !el.disabled &&\n"
+     "    !el.readOnly &&\n"
+     "    el.getClientRects().length > 0;\n"
+     "  const inputsNear = el =>\n"
+     "    Array.from((el.form || el.ownerDocument).querySelectorAll(\"input\"));\n"
+     "  const passwordsNear = el =>\n"
+     "    inputsNear(el).filter(i => isPassword(i) && usable(i));\n"
+     "  const usernameFor = pw => {\n"
+     "    const all = inputsNear(pw);\n"
+     "    for (let j = all.indexOf(pw) - 1; j >= 0; j--) {\n"
+     "      if (TEXT.includes(all[j].type) && usable(all[j])) {\n"
+     "        return all[j];\n"
+     "      }\n"
+     "    }\n"
+     "    return null;\n"
+     "  };\n"
+     "  const roleOf = el => {\n"
+     "    if (!usable(el)) {\n"
+     "      return null;\n"
+     "    }\n"
+     "    if (el.type == \"password\") {\n"
+     "      seenPassword.add(el);\n"
+     "    }\n"
+     "    if (isPassword(el)) {\n"
+     "      return \"password\";\n"
+     "    }\n"
+     "    if (!TEXT.includes(el.type)) {\n"
+     "      return null;\n"
+     "    }\n"
+     "    const pws = passwordsNear(el);\n"
+     "    return pws.length && usernameFor(pws[0]) == el ? \"username\" : null;\n"
+     "  };\n"
+     "  const actionOf = el => {\n"
+     "    try {\n"
+     "      return el.form ? el.form.action || location.href : location.href;\n"
+     "    } catch (_) {\n"
+     "      return location.href;\n"
+     "    }\n"
+     "  };\n"
+     "  const darkBehind = el => {\n"
+     "    for (let n = el; n && n.nodeType == 1; n = n.parentElement) {\n"
+     "      const m = getComputedStyle(n).backgroundColor.match(/[0-9.]+/g);\n"
+     "      if (m && m.length >= 3 && (m.length < 4 || Number(m[3]) > 0)) {\n"
+     "        const [r, g, b] = m.map(Number);\n"
+     "        return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128;\n"
+     "      }\n"
+     "    }\n"
+     "    return matchMedia(\"(prefers-color-scheme: dark)\").matches;\n"
+     "  };\n"
+     "  const show = el => {\n"
+     "    const role = roleOf(el);\n"
+     "    if (!role) {\n"
+     "      return;\n"
+     "    }\n"
+     "    L.field = el;\n"
+     "    const r = el.getBoundingClientRect();\n"
+     "    post(\"show\", {\n"
+     "      role,\n"
+     "      value: role == \"username\" ? String(el.value).slice(0, 256) : \"\",\n"
+     "      empty: !el.value,\n"
+     "      rect: { x: r.left, y: r.top, w: r.width, h: r.height },\n"
+     "      dpr: window.devicePixelRatio || 1,\n"
+     "      dir: getComputedStyle(el).direction,\n"
+     "      dark: darkBehind(el),\n"
+     "      action: actionOf(el),\n"
+     "    });\n"
+     "  };\n"
+     "  const submitFrom = el => {\n"
+     "    const pws = passwordsNear(el).filter(i => i.value);\n"
+     "    if (!pws.length) {\n"
+     "      return;\n"
+     "    }\n"
+     "    const user = usernameFor(pws[0]);\n"
+     "    const m = {\n"
+     "      username: user ? String(user.value) : \"\",\n"
+     "      usernameName: user ? user.name || user.id : \"\",\n"
+     "      passwords: pws.slice(0, 3).map(i => ({\n"
+     "        value: String(i.value),\n"
+     "        name: i.name || i.id,\n"
+     "      })),\n"
+     "      action: actionOf(pws[0]),\n"
+     "    };\n"
+     "    const key = JSON.stringify(m);\n"
+     "    if (key == L.lastSubmit) {\n"
+     "      return;\n"
+     "    }\n"
+     "    L.lastSubmit = key;\n"
+     "    setTimeout(() => {\n"
+     "      if (L.lastSubmit == key) {\n"
+     "        L.lastSubmit = \"\";\n"
+     "      }\n"
+     "    }, 2000);\n"
+     "    post(\"submit\", m);\n"
+     "  };\n"
+     "  L.fill = (username, password) => {\n"
+     "    const f = L.field;\n"
+     "    if (!f || !f.isConnected || !usable(f)) {\n"
+     "      return false;\n"
+     "    }\n"
+     "    let user = null;\n"
+     "    let pw = null;\n"
+     "    if (isPassword(f)) {\n"
+     "      pw = f;\n"
+     "      user = usernameFor(f);\n"
+     "    } else {\n"
+     "      user = f;\n"
+     "      pw = passwordsNear(f)[0] || null;\n"
+     "    }\n"
+     "    const set = (el, v) => {\n"
+     "      if (!el || !usable(el)) {\n"
+     "        return;\n"
+     "      }\n"
+     "      el.value = v;\n"
+     "      el.dispatchEvent(new Event(\"input\", { bubbles: true }));\n"
+     "      el.dispatchEvent(new Event(\"change\", { bubbles: true }));\n"
+     "    };\n"
+     "    if (username) {\n"
+     "      set(user, username);\n"
+     "    }\n"
+     "    set(pw, password);\n"
+     "    return true;\n"
+     "  };\n"
+     "  addEventListener(\n"
+     "    \"focusin\",\n"
+     "    ev => {\n"
+     "      if (ev.isTrusted) {\n"
+     "        show(ev.target);\n"
+     "      }\n"
+     "    },\n"
+     "    true\n"
+     "  );\n"
+     "  addEventListener(\n"
+     "    \"mousedown\",\n"
+     "    ev => {\n"
+     "      if (ev.isTrusted && ev.target == document.activeElement && !L.open) {\n"
+     "        show(ev.target);\n"
+     "      }\n"
+     "    },\n"
+     "    true\n"
+     "  );\n"
+     "  addEventListener(\n"
+     "    \"focusout\",\n"
+     "    ev => {\n"
+     "      if (ev.target == L.field) {\n"
+     "        post(\"blur\", {});\n"
+     "      }\n"
+     "    },\n"
+     "    true\n"
+     "  );\n"
+     "  addEventListener(\n"
+     "    \"input\",\n"
+     "    ev => {\n"
+     "      if (ev.isTrusted && ev.target == L.field && !isPassword(L.field)) {\n"
+     "        post(\"input\", { value: String(L.field.value).slice(0, 256) });\n"
+     "      }\n"
+     "    },\n"
+     "    true\n"
+     "  );\n"
+     "  addEventListener(\n"
+     "    \"keydown\",\n"
+     "    ev => {\n"
+     "      if (!ev.isTrusted || ev.target != L.field) {\n"
+     "        return;\n"
+     "      }\n"
+     "      const key = ev.key;\n"
+     "      if (!L.open) {\n"
+     "        if (key == \"ArrowDown\" && !ev.altKey) {\n"
+     "          show(L.field);\n"
+     "        } else if (key == \"Enter\" && isPassword(L.field)) {\n"
+     "          submitFrom(L.field);\n"
+     "        }\n"
+     "        return;\n"
+     "      }\n"
+     "      if (\n"
+     "        key == \"ArrowDown\" ||\n"
+     "        key == \"ArrowUp\" ||\n"
+     "        key == \"Escape\" ||\n"
+     "        (key == \"Enter\" && L.selected)\n"
+     "      ) {\n"
+     "        ev.preventDefault();\n"
+     "        ev.stopImmediatePropagation();\n"
+     "        post(\"key\", { key });\n"
+     "      } else if (key == \"Tab\" || key == \"Enter\") {\n"
+     "        post(\"key\", { key });\n"
+     "      }\n"
+     "    },\n"
+     "    true\n"
+     "  );\n"
+     "  addEventListener(\n"
+     "    \"submit\",\n"
+     "    ev => {\n"
+     "      if (ev.target instanceof HTMLFormElement) {\n"
+     "        const pw = Array.from(ev.target.querySelectorAll(\"input\")).find(\n"
+     "          i => isPassword(i) || i.type == \"password\"\n"
+     "        );\n"
+     "        if (pw) {\n"
+     "          submitFrom(pw);\n"
+     "        }\n"
+     "      }\n"
+     "    },\n"
+     "    true\n"
+     "  );\n"
+     "  addEventListener(\n"
+     "    \"click\",\n"
+     "    ev => {\n"
+     "      if (!ev.isTrusted) {\n"
+     "        return;\n"
+     "      }\n"
+     "      const b =\n"
+     "        ev.target instanceof Element &&\n"
+     "        ev.target.closest(\"button, input[type=submit], input[type=button]\");\n"
+     "      if (!b || b.form) {\n"
+     "        return;\n"
+     "      }\n"
+     "      const f = L.field;\n"
+     "      const pw =\n"
+     "        f && f.isConnected ? (isPassword(f) ? f : passwordsNear(f)[0]) : null;\n"
+     "      if (pw) {\n"
+     "        submitFrom(pw);\n"
+     "      }\n"
+     "    },\n"
+     "    true\n"
+     "  );\n"
+     "})();\n";
+
 static id WhimsyContentWorld() {
   Class worldClass = NSClassFromString(@"WKContentWorld");
   if (![worldClass respondsToSelector:@selector(worldWithName:)]) {
@@ -381,8 +635,9 @@ static NSString* ResultToString(id aResult) {
 // main frame still shows the document with aEpoch (nil: the current one).
 // aDone gets the result, or a failure ("stale" when the document changed).
 typedef void (^WhimsyGuardedDone)(id aResult, NSString* aFailure);
-static void RunGuarded(uint32_t aTabId, NSString* aEpoch, NSString* aBody,
-                       WhimsyGuardedDone aDone) {
+static void RunGuardedWithArguments(uint32_t aTabId, NSString* aEpoch,
+                                    NSString* aBody, NSDictionary* aArguments,
+                                    WhimsyGuardedDone aDone) {
   TabEntry* entry = FindEntry(aTabId);
   if (!entry || !entry->mWebView) {
     aDone(nil, @"gone");
@@ -423,9 +678,51 @@ static void RunGuarded(uint32_t aTabId, NSString* aEpoch, NSString* aBody,
     }
     done(aResult, nil);
   };
+  NSMutableDictionary* arguments = [NSMutableDictionary dictionary];
+  if (aArguments) {
+    [arguments addEntriesFromDictionary:aArguments];
+  }
+  arguments[@"__e"] = held;
   ((void (*)(id, SEL, NSString*, NSDictionary*, id, id,
              void (^)(id, NSError*)))objc_msgSend)(
-      entry->mWebView, sel, script, @{@"__e" : held}, nil, world, handler);
+      entry->mWebView, sel, script, arguments, nil, world, handler);
+}
+
+static void RunGuarded(uint32_t aTabId, NSString* aEpoch, NSString* aBody,
+                       WhimsyGuardedDone aDone) {
+  RunGuardedWithArguments(aTabId, aEpoch, aBody, nil, aDone);
+}
+
+// W32: the origin of the page a WKWebView shows, in OriginString's form
+// ("" unless it is http or https).
+static NSString* URLOrigin(NSURL* aURL) {
+  NSString* scheme = [[aURL scheme] lowercaseString];
+  NSString* host = [[aURL host] lowercaseString];
+  if (!host.length ||
+      !([scheme isEqualToString:@"https"] || [scheme isEqualToString:@"http"])) {
+    return @"";
+  }
+  if ([host containsString:@":"]) {
+    host = [NSString stringWithFormat:@"[%@]", host];
+  }
+  NSNumber* port = [aURL port];
+  if (port && !(([scheme isEqualToString:@"https"] && port.intValue == 443) ||
+                ([scheme isEqualToString:@"http"] && port.intValue == 80))) {
+    return [NSString stringWithFormat:@"%@://%@:%d", scheme, host,
+                                      port.intValue];
+  }
+  return [NSString stringWithFormat:@"%@://%@", scheme, host];
+}
+
+// W32: the origin a login message or fill may act for: the main frame's
+// security origin, and only while it is the origin of the page's URL.
+static NSString* VerifiedMainFrameOrigin(NSView* aWebView, id aFrameInfo) {
+  NSString* frame = [FrameOrigin(aFrameInfo) lowercaseString];
+  NSString* page = URLOrigin([aWebView valueForKey:@"URL"]);
+  if (!frame.length || ![frame isEqualToString:page]) {
+    return nil;
+  }
+  return page;
 }
 
 static void StartWebKitDownload(uint32_t aTabId, id aDownload);
@@ -1036,6 +1333,22 @@ static void StartWebKitDownload(uint32_t aTabId, id aDownload);
         ![type isKindOfClass:[NSString class]]) {
       return;
     }
+    if ([type isEqualToString:@"login"]) {
+      // W32: only the current document of the main frame, and only while its
+      // security origin is the origin of the page's URL. The origin Gecko
+      // gets is the one checked here, never one the message names.
+      NSString* origin = VerifiedMainFrameOrigin(
+          entry->mWebView, [aMessage valueForKey:@"frameInfo"]);
+      if (!origin || ![epoch isEqualToString:entry->mEpoch] ||
+          ![body[@"k"] isKindOfClass:[NSString class]]) {
+        return;
+      }
+      NSMutableDictionary* payload = [[body mutableCopy] autorelease];
+      [payload removeObjectForKey:@"t"];
+      payload[@"origin"] = origin;
+      NotifyListener(_tabId, "login", ToJSON(payload));
+      return;
+    }
     if ([type isEqualToString:@"epoch"]) {
       if (![epoch isEqualToString:entry->mEpoch]) {
         [entry->mEpoch release];
@@ -1626,6 +1939,13 @@ nsWhimsyWebKit::CreateTab(mozIDOMWindowProxy* aWindow,
       [userContent performSelector:@selector(addUserScript:)
                         withObject:userScript];
       [userScript release];
+      id loginScript =
+          ((id (*)(id, SEL, NSString*, NSInteger, BOOL, id))objc_msgSend)(
+              [userScriptClass alloc], initScriptSel, kLoginScript,
+              0 /* WKUserScriptInjectionTimeAtDocumentStart */, YES, world);
+      [userContent performSelector:@selector(addUserScript:)
+                        withObject:loginScript];
+      [loginScript release];
       scriptHandler = [[WhimsyWebKitScriptHandler alloc] initWithTabId:newId];
       ((void (*)(id, SEL, id, id, NSString*))objc_msgSend)(
           userContent, addHandlerSel, scriptHandler, world, @"whimsy");
@@ -2440,6 +2760,109 @@ nsWhimsyWebKit::DefaultCaptureDevices(nsAString& aOut) {
         autorelease];
     nsCocoaUtils::GetStringForNSString(str, aOut);
   }
+  return NS_OK;
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
+}
+
+NS_IMETHODIMP
+nsWhimsyWebKit::LoginAction(uint32_t aId, const nsAString& aEpoch,
+                            const nsAString& aOrigin,
+                            const nsAString& aActionJson) {
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
+  TabEntry* entry = FindEntry(aId);
+  if (!entry || !entry->mWebView) {
+    return NS_ERROR_INVALID_ARG;
+  }
+  NSString* epoch = nsCocoaUtils::ToNSString(aEpoch);
+  NSString* origin = nsCocoaUtils::ToNSString(aOrigin);
+  NSDictionary* action = DictFromJSON(aActionJson);
+  NSString* kind = action[@"k"];
+  // The page must still be the document and origin the login message came
+  // from: checked here, again in the page before it is touched, and the
+  // guarded call drops a document that changed in between.
+  if (!epoch.length || !entry->mEpoch ||
+      ![epoch isEqualToString:entry->mEpoch] || !origin.length ||
+      ![origin isEqualToString:URLOrigin(
+                                   [entry->mWebView valueForKey:@"URL"])] ||
+      ![kind isKindOfClass:[NSString class]]) {
+    return NS_ERROR_INVALID_ARG;
+  }
+  NSString* body;
+  NSMutableDictionary* args = [NSMutableDictionary dictionary];
+  args[@"__o"] = origin;
+  if ([kind isEqualToString:@"fill"]) {
+    NSString* username = action[@"username"];
+    NSString* password = action[@"password"];
+    if (![username isKindOfClass:[NSString class]] ||
+        ![password isKindOfClass:[NSString class]]) {
+      return NS_ERROR_INVALID_ARG;
+    }
+    args[@"__u"] = username;
+    args[@"__p"] = password;
+    body = @"const L = globalThis.__whimsyLogin;"
+            "if (!L || location.origin !== __o) { return false; }"
+            "return L.fill(__u, __p);";
+  } else if ([kind isEqualToString:@"popup"]) {
+    args[@"__open"] = @([action[@"open"] boolValue]);
+    args[@"__sel"] = @([action[@"selected"] boolValue]);
+    body = @"const L = globalThis.__whimsyLogin;"
+            "if (!L || location.origin !== __o) { return false; }"
+            "L.open = __open; L.selected = __open && __sel; return true;";
+  } else {
+    return NS_ERROR_INVALID_ARG;
+  }
+  RunGuardedWithArguments(aId, epoch, body, args,
+                          ^(id aResult, NSString* aFailure) {
+                          });
+  return NS_OK;
+  NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
+}
+
+NS_IMETHODIMP
+nsWhimsyWebKit::TabActivity(uint32_t aId, nsAString& aOut) {
+  NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
+  aOut.AssignLiteral("{}");
+  TabEntry* entry = FindEntry(aId);
+  if (!entry || !entry->mWebView) {
+    return NS_OK;
+  }
+  NSView* webView = entry->mWebView;
+  pid_t pid = 0;
+  SEL pidSel = NSSelectorFromString(@"_webProcessIdentifier");
+  if ([webView respondsToSelector:pidSel]) {
+    pid = ((pid_t (*)(id, SEL))objc_msgSend)(webView, pidSel);
+  }
+  uint64_t footprint = 0;
+  if (pid > 0 && pid != getpid()) {
+    rusage_info_current info;
+    if (proc_pid_rusage(pid, RUSAGE_INFO_CURRENT, (rusage_info_t*)&info) ==
+        0) {
+      footprint = info.ri_phys_footprint;
+    }
+  } else {
+    pid = 0;
+  }
+  bool audio = false;
+  SEL audioSel = NSSelectorFromString(@"_isPlayingAudio");
+  if ([webView respondsToSelector:audioSel]) {
+    audio = ((BOOL (*)(id, SEL))objc_msgSend)(webView, audioSel);
+  }
+  bool capture = false;
+  // WKMediaCaptureState: 0 none, 1 active, 2 muted (still holding the
+  // device, as Gecko's webrtcUI counts a muted stream).
+  for (NSString* name in @[ @"cameraCaptureState", @"microphoneCaptureState" ]) {
+    SEL sel = NSSelectorFromString(name);
+    if ([webView respondsToSelector:sel] &&
+        ((NSInteger (*)(id, SEL))objc_msgSend)(webView, sel) != 0) {
+      capture = true;
+    }
+  }
+  nsAutoString json;
+  json.AppendPrintf("{\"pid\":%d,\"footprint\":%llu,\"audio\":%s,"
+                    "\"capture\":%s}",
+                    int(pid), (unsigned long long)footprint,
+                    audio ? "true" : "false", capture ? "true" : "false");
+  aOut.Assign(json);
   return NS_OK;
   NS_OBJC_END_TRY_BLOCK_RETURN(NS_ERROR_FAILURE);
 }

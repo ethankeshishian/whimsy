@@ -129,6 +129,23 @@ interface nsIWhimsyEngineTab : nsISupports
   // (a missing device is left out).
   AString defaultCaptureDevices();
 
+  // W32: logins. A trusted focus on a login field, a key the open login
+  // popup takes, or a submitted login in the page's main frame reaches the
+  // listener as a "login" event, its JSON "origin" verified natively (the
+  // main frame's security origin, which must be the origin of the page's
+  // URL). This acts on that page only while it is still on aEpoch and
+  // aOrigin: {k: "fill", username, password} fills the focused login field
+  // and its partner; {k: "popup", open, selected} tells the page whether the
+  // login popup is open and has a selected row.
+  void loginAction(in uint32_t aId, in AString aEpoch, in AString aOrigin,
+                   in AString aActionJson);
+
+  // W32: what Gecko's tab unloader weighs, as JSON {pid, footprint, audio,
+  // capture}: the tab's content process and its memory footprint in bytes
+  // (0 when unknown), and whether the page plays sound or captures from the
+  // camera or microphone.
+  AString tabActivity(in uint32_t aId);
+
   // Tests only: kills the tab's content process (WebKit's WebContent
   // process).
   void killContentProcessForTesting(in uint32_t aId);

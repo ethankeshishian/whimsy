@@ -47,6 +47,11 @@ function isWebURI(uri) {
 // through NSURLErrorClientCertificateRejected).
 const CERT_ERROR_CODES = new Set([-1200, -1201, -1202, -1203, -1204, -1205]);
 
+// NSURLErrorDomain connection failures Gecko has an error page for: timed
+// out, host not found, can't connect, connection lost, DNS lookup failed,
+// and not connected to the internet.
+const NET_ERROR_CODES = new Set([-1001, -1003, -1004, -1005, -1006, -1009]);
+
 function safeNewURI(spec) {
   if (!spec || typeof spec != "string") {
     return null;
@@ -345,10 +350,12 @@ export const WhimsyWebKit = {
     if (engine == "webkit") {
       tab._whimsyWebKitOverride = "webkit";
       tab._whimsyWebKitOverrideHost = host;
+      WhimsyEngineTabs.saveEngineChoice(tab);
       return this.switchTab(tab, "webkit", { waitForLoad });
     }
     tab._whimsyWebKitOverride = "firefox";
     tab._whimsyWebKitOverrideHost = host;
+    WhimsyEngineTabs.saveEngineChoice(tab);
     return this.switchTab(tab, "firefox", { waitForLoad });
   },
 
@@ -365,6 +372,7 @@ export const WhimsyWebKit = {
       this.addSite(host, userContextId);
       tab._whimsyWebKitOverride = "webkit";
       tab._whimsyWebKitOverrideHost = host;
+      WhimsyEngineTabs.saveEngineChoice(tab);
       if (!this.isWebKitTab(tab)) {
         await this.switchTab(tab, "webkit");
       } else {
@@ -375,6 +383,7 @@ export const WhimsyWebKit = {
     this.removeSite(host, userContextId);
     tab._whimsyWebKitOverride = null;
     tab._whimsyWebKitOverrideHost = null;
+    WhimsyEngineTabs.saveEngineChoice(tab);
     if (this.isWebKitTab(tab)) {
       await this.switchTab(tab, "firefox");
     } else {
@@ -489,6 +498,8 @@ export const WhimsyWebKit = {
     }
 
     this._destroyTabState(tab);
+    // W32: SessionStore follows the Gecko <browser> again.
+    WhimsyEngineTabs._resyncGeckoSession(tab);
 
     let loadedPromise = null;
     if (waitForLoad && browser?.isConnected && reloadSpec != "about:blank") {
@@ -1081,6 +1092,54 @@ export const WhimsyWebKit = {
     );
   },
 
+  // Which Gecko error page a failed WebKit load shows: "certerror",
+  // "neterror" (no connection), or null (cancelled loads, policy changes,
+  // and errors with no Gecko page stay in WebKit).
+  netErrorKind(info) {
+    if (this.isCertError(info)) {
+      return "certerror";
+    }
+    if (
+      info.domain == "NSURLErrorDomain" &&
+      NET_ERROR_CODES.has(Number(info.code))
+    ) {
+      return "neterror";
+    }
+    return null;
+  },
+
+  // W32: SessionStore keeps a tab's engine choice for its site: the
+  // per-tab override ("webkit" or "firefox") and, for a WebKit tab, WebKit.
+  sessionChoice(tab) {
+    const override = tab._whimsyWebKitOverride;
+    if (override == "webkit" || override == "firefox") {
+      return { override, host: tab._whimsyWebKitOverrideHost || "" };
+    }
+    if (this.isWebKitTab(tab)) {
+      return { override: "webkit", host: this.currentHostOf(tab) };
+    }
+    return null;
+  },
+
+  // A restored tab gets its override back. Its page then loads in Gecko
+  // and onGeckoLocationChange opens it in WebKit, as when the tab was
+  // switched; a different site than the one chosen for clears it there.
+  restoreSessionChoice(tab, choice, url) {
+    if (!choice || (choice.override != "webkit" && choice.override != "firefox")) {
+      return;
+    }
+    let host = String(choice.host || "").toLowerCase();
+    if (!host) {
+      const uri = safeNewURI(url);
+      host = isWebURI(uri) ? (uri.asciiHost || "").toLowerCase() : "";
+    }
+    if (!host) {
+      return;
+    }
+    tab._whimsyWebKitOverride = choice.override;
+    tab._whimsyWebKitOverrideHost = host;
+  },
+
   // A Firefox tab navigated: opening a URL whose host is in
   // whimsy.webkit.sites automatically switches that tab to WebKit.
   onGeckoLocationChange(tab, location) {
@@ -1097,6 +1156,7 @@ export const WhimsyWebKit = {
     ) {
       tab._whimsyWebKitOverride = null;
       tab._whimsyWebKitOverrideHost = null;
+      WhimsyEngineTabs.saveEngineChoice(tab);
     }
     if (tab._whimsyWebKitOverride == "firefox") {
       return;
