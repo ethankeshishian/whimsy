@@ -166,7 +166,11 @@ export class WhimsyImageTextChild extends JSWindowActorChild {
     this.images.clear();
     this.host?.remove();
     this.host = this.root = null;
-    this.sendAsyncMessage("Whimsy:ImageText:Reset");
+    // Only the top page's reset means anything to the parent (it forgets
+    // the tab's text): a frame going away sends nothing.
+    if (this.browsingContext?.top == this.browsingContext) {
+      this.sendAsyncMessage("Whimsy:ImageText:Reset");
+    }
   }
 
   didDestroy() {
