@@ -60,7 +60,7 @@ add_setup(async () => {
   // page. An earlier file can leave it over the tab strip, and a tab laid
   // out under it then gets a real hover, which reopens a card this file has
   // just closed.
-  EventUtils.synthesizeMouse(document.documentElement, 2, 2, { type: "mousemove" });
+  pointerAway();
   imageBytes = new Uint8Array(await (await fetch(IMAGE)).arrayBuffer());
   // Descriptions kept from an earlier run go (as Fire does), so each run reads.
   Services.obs.notifyObservers(null, "whimsy-ai-store-cleared");
@@ -96,6 +96,15 @@ add_setup(async () => {
     WhimsyHoverCards.fillExtra = realFillExtra;
   });
 });
+
+// Gecko's pointer to the window's corner, off the tabs and the page. A
+// synthesized mouse event leaves it where it went, and a tab the strip
+// then lays out under it gets a real TabHoverStart (tab.mjs _mouseenter,
+// also when the tab moves under a still pointer), whose card replaces the
+// one a test opened with hoverTab.
+function pointerAway() {
+  EventUtils.synthesizeMouse(document.documentElement, 2, 2, { type: "mousemove" });
+}
 
 function reset() {
   asked = [];
@@ -795,6 +804,9 @@ add_task(async function one_click_on_the_next_tab() {
     whimsyMouseAt(at.x, at.y);
     await TestUtils.waitForCondition(() => gBrowser.selectedTab == first, "One click selected the tab");
   } finally {
+    // The click left the pointer on the tab strip, where later tasks' new
+    // tabs are laid out.
+    pointerAway();
     await closeAll();
     BrowserTestUtils.removeTab(last);
     BrowserTestUtils.removeTab(hovered);
@@ -1238,6 +1250,10 @@ add_task(async function signed_in_tabs_stay_off_the_cloud() {
   Object.defineProperty(WhimsyAIProviders, "isCloud", { configurable: true, get: () => true });
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, ROOT + "whimsy_secfix_account.html");
   const other = await BrowserTestUtils.openNewForegroundTab(gBrowser, LINKS);
+  // As in openMailTab: a native hover while the tabs loaded may have opened
+  // a card (for a page still at about:blank, which gets no description).
+  // Close it so enter() starts this tab's card afresh.
+  await closeAll();
   try {
     hoverTab(tab);
     const card = await openTabCard();

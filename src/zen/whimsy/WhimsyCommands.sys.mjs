@@ -64,6 +64,9 @@ const MINI_STANDIN_KEYSET_ID = "whimsyMiniKeyset";
 const entries = new Map();
 // Documents inside batchKeys().
 const batching = new WeakSet();
+// w32 tiers: window → the function that runs its idle init steps now
+// (Whimsy.runDeferred), until they've run. See ready().
+const pendingInit = new Map();
 
 function normalizeModifiers(modifiers) {
   return (modifiers ?? "")
@@ -202,18 +205,68 @@ export const WhimsyCommands = {
     return Services.prefs.getBoolPref(FEATURE_PREF, true);
   },
 
+  /**
+   * w32 tiers: a window's idle init steps register some of its commands
+   * after it opens. Whimsy.runDeferred() hands their runner here, and any
+   * lookup or run through the registry (ready() below: the registry's own
+   * getters, the command bar, whimsy:// commands, menus) runs them first,
+   * once, so a command reached with no key or click is never missing.
+   */
+  whenReady(win, run) {
+    pendingInit.set(win, run);
+    win.addEventListener("unload", () => pendingInit.delete(win), { once: true });
+  },
+
+  // Runs the pending idle init of `win`, or of every window, now.
+  ready(win = null) {
+    for (const w of win ? [win] : [...pendingInit.keys()]) {
+      const run = pendingInit.get(w);
+      if (!run) {
+        continue;
+      }
+      pendingInit.delete(w);
+      try {
+        run();
+      } catch (e) {
+        console.error("Whimsy: idle init", e);
+      }
+    }
+  },
+
+  // A window's <command> for `id`, once its idle init has run.
+  command(win, id) {
+    this.ready(win);
+    return win.document.getElementById(id);
+  },
+
+  // Runs a command in a window, as its key or menu item does. Returns
+  // whether it ran (false when it's missing or disabled).
+  run(win, id) {
+    const command = this.command(win, id);
+    if (!command || command.getAttribute("disabled") == "true") {
+      return false;
+    }
+    command.doCommand();
+    return true;
+  },
+
   // Every registered command, for about:keyboard, the cheat sheet and tests.
   get entries() {
+    this.ready();
     return [...entries.values()];
   },
 
   get(id) {
+    if (!entries.has(id)) {
+      this.ready();
+    }
     return entries.get(id) ?? null;
   },
 
   // The entry whose <key> has this id.
   forKey(keyId) {
-    return this.entries.find(entry => entry.keyId == keyId) ?? null;
+    const find = () => entries.values().find(entry => entry.keyId == keyId) ?? null;
+    return find() ?? (this.ready(), find());
   },
 
   // wave8/cheatsheet: the menu-bar menu id a command or <key> belongs to
@@ -223,7 +276,7 @@ export const WhimsyCommands = {
       if (!id) {
         continue;
       }
-      const entry = entries.get(id) ?? this.forKey(id);
+      const entry = this.get(id) ?? this.forKey(id);
       const menu = entry?.menu ?? MENU_BY_ID.get(id) ?? (entry && (MENU_BY_ID.get(entry.id) ?? MENU_BY_ID.get(entry.keyId)));
       if (menu) {
         return menu;
@@ -440,7 +493,19 @@ export const WhimsyCommands = {
     if (!wanted) {
       return null;
     }
-    for (const keyEl of document.querySelectorAll("key")) {
+    // W32 perf: a window's init asks this about every default shortcut it
+    // registers. Most keys differ in their key, so that's compared first,
+    // and only a key on the same one has its modifiers normalised.
+    const what = wanted.slice(wanted.indexOf("|") + 1);
+    for (const keyEl of document.getElementsByTagName("key")) {
+      const keycode = keyEl.getAttribute("keycode");
+      const key = keycode ? null : keyEl.getAttribute("key");
+      if (!keycode && !key) {
+        continue;
+      }
+      if ((keycode ? `code:${keycode.toUpperCase()}` : `key:${key.toUpperCase()}`) != what) {
+        continue;
+      }
       if (keyEl.id && keyEl.id == exceptId) {
         continue;
       }
