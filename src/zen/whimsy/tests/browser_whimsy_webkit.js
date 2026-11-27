@@ -1306,7 +1306,7 @@ add_webkit_task(async function test_w32_crash_shows_tabcrashed_and_restores() {
   const tab = await openWebKitTab();
   const state = WhimsyWebKit.stateOf(tab);
   const browser = tab.linkedBrowser;
-  WhimsyWebKit.service.killWebContentProcessForTesting(state.id);
+  WhimsyWebKit.service.killContentProcessForTesting(state.id);
   await TestUtils.waitForCondition(
     () => browser.contentDocument?.documentURI?.startsWith("about:tabcrashed"),
     "A crashed WebKit tab shows Gecko's tab-crashed page"
@@ -1339,7 +1339,7 @@ add_webkit_task(async function test_w32_crash_shows_tabcrashed_and_restores() {
     gBrowser,
     gServer.url("/page2")
   );
-  WhimsyWebKit.service.killWebContentProcessForTesting(state.id);
+  WhimsyWebKit.service.killContentProcessForTesting(state.id);
   await TestUtils.waitForCondition(() => state.crashed, "The background page crashed");
   Assert.ok(!state.geckoPage, "A background crash waits for the tab to be selected");
   gBrowser.selectedTab = tab;

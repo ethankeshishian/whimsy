@@ -115,9 +115,11 @@ export const WhimsyWebKit = {
   get service() {
     if (this._service === undefined) {
       try {
+        // W32: WebKit's engine tab service.
         this._service =
-          Cc["@mozilla.org/whimsy/webkit;1"]?.getService(Ci.nsIWhimsyWebKit) ??
-          null;
+          Cc["@mozilla.org/whimsy/engine-tab;1?engine=webkit"]?.getService(
+            Ci.nsIWhimsyEngineTab
+          ) ?? null;
       } catch {
         this._service = null;
       }

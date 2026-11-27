@@ -1,0 +1,24 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# W32 engine seam: the interface every engine tab service implements
+# (nsIWhimsyEngineTab) and the window helpers they share (the colour
+# read-back, the hit-test and paint holes in Gecko's view, and the reserved
+# shortcut key monitor). Only built on macOS (see ../moz.build).
+
+XPIDL_SOURCES += [
+    "nsIWhimsyEngineTab.idl",
+]
+
+XPIDL_MODULE = "whimsy_engine"
+
+EXPORTS.mozilla.whimsy += [
+    "WhimsyEngineWindow.h",
+]
+
+UNIFIED_SOURCES += [
+    "WhimsyEngineWindow.mm",
+]
+
+FINAL_LIBRARY = "xul"
