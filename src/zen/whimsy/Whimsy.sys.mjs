@@ -857,7 +857,7 @@ export const Whimsy = {
     ChromeUtils.defineESModuleGetters(win, {
       WhimsyNetProbe: "resource:///modules/whimsy/WhimsyNetErrorParent.sys.mjs",
     });
-    const initStart = Cu.now();
+    const initStart = ChromeUtils.now();
     // W32 perf: each step is timed when whimsy.perf.marks is on.
     const exec = (name, tier, fn) => {
       try {

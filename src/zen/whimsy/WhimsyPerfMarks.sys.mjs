@@ -58,11 +58,11 @@ export const WhimsyPerfMarks = {
     if (!isEnabled()) {
       return fn();
     }
-    const start = Cu.now();
+    const start = ChromeUtils.now();
     try {
       return fn();
     } finally {
-      const ms = Cu.now() - start;
+      const ms = ChromeUtils.now() - start;
       const record = recordFor(win);
       record.steps.push({ name, tier, ms: Math.round(ms * 1000) / 1000 });
       record.ran[tier] = (record.ran[tier] ?? 0) + 1;
@@ -75,7 +75,7 @@ export const WhimsyPerfMarks = {
   },
 
   // How many steps win planned per tier, and how long its synchronous
-  // window init took (startTime from Cu.now()).
+  // window init took (startTime from ChromeUtils.now()).
   planned(win, counts, startTime = null) {
     if (!isEnabled()) {
       return;
@@ -83,7 +83,7 @@ export const WhimsyPerfMarks = {
     const record = recordFor(win);
     record.planned = { ...counts };
     if (startTime !== null) {
-      record.initMs = Math.round((Cu.now() - startTime) * 1000) / 1000;
+      record.initMs = Math.round((ChromeUtils.now() - startTime) * 1000) / 1000;
       try {
         ChromeUtils.addProfilerMarker("Whimsy init", { startTime, category: "JavaScript" }, "window init");
       } catch {
