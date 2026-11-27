@@ -1,6 +1,28 @@
 {
   "groups": [
     {
+      "version": "1.24b-w3-dev.1487",
+      "date": "2026-11-27",
+      "title": "WebKit tabs save your passwords",
+      "new": [
+        "WebKit tabs offer to save the passwords you type and fill your saved logins for that site, the same way Firefox tabs do."
+      ],
+      "improved": [
+        "WebKit tabs come back when you restore a session, sleep and wake like other tabs, and recover from crashes.",
+        "WebKit tabs use Firefox's error pages, prompts, and Save dialog.",
+        "New windows open faster: Whimsy sets up menus, panels, and stylesheets the first time you use them instead of at launch.",
+        "Settings opens faster, since each section is built the first time you visit it.",
+        "Whimsy Home appears sooner and is ready ahead of time when you open a new tab.",
+        "Reading text in images and indexing pages for Related happen in idle time, so browsing stays smooth."
+      ],
+      "fixed": [
+        "Tab search finds other tabs on the same page as the one you're on.",
+        "Hover cards for background tabs no longer get stuck waiting.",
+        "After a WebKit page loads, the address bar shows its address.",
+        "A broken default setting no longer causes an error at every launch."
+      ]
+    },
+    {
       "version": "1.24b-w3-dev.1423",
       "date": "2026-11-26",
       "title": "Folder tabs come back where you left them",
