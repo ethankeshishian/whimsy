@@ -726,7 +726,6 @@ export const WhimsyEngineTabs = {
       case "loading": {
         const loading = data == "true";
         state.loading = loading;
-        lazy.WhimsyEngineLogins.closeIfStale(tab);
         if (loading) {
           tab.setAttribute("busy", "true");
         } else {
@@ -737,6 +736,13 @@ export const WhimsyEngineTabs = {
               resolve();
             } catch {}
           }
+        }
+        // A reload sends no location change; end the old document's login
+        // session here. Never let it stop the load bookkeeping above.
+        try {
+          lazy.WhimsyEngineLogins.closeIfStale(tab);
+        } catch (e) {
+          console.error("WhimsyEngineTabs: closing a stale login session failed", e);
         }
         if (tab.selected) {
           this._syncNavigationCommands(win, tab);
