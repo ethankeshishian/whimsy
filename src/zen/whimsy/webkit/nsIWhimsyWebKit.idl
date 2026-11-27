@@ -12,7 +12,7 @@ interface nsIWhimsyWebKitListener : nsISupports
   void onEvent(in uint32_t aId, in AString aType, in AString aData);
 };
 
-[scriptable, uuid(c48a2b19-6f3d-4e91-8a52-1d7f3e9b0c41)]
+[scriptable, uuid(5b1e7d42-93a0-4c6f-b8d1-2e4a7f9c0d63)]
 interface nsIWhimsyWebKit : nsISupports
 {
   boolean available(in mozIDOMWindowProxy aWindow);
@@ -85,4 +85,42 @@ interface nsIWhimsyWebKit : nsISupports
   Promise setCookies(in AString aDataStoreId,
                      in AString aBaseDomain,
                      in AString aCookiesJson);
+
+  // W32: discards. Returns JSON {state (base64 WKWebView.interactionState),
+  // url, title, scrollX, scrollY} so a discarded tab can come back with its
+  // back/forward list and scroll position. state is empty when WebKit has
+  // none to give.
+  AString saveSessionState(in uint32_t aId);
+  // Applies what saveSessionState returned to a new tab and loads its current
+  // entry. Returns false when the state can't be applied (the caller then
+  // loads the URL instead).
+  boolean restoreSessionState(in uint32_t aId, in AString aStateJson);
+
+  // W32: WKUIDelegate/WKNavigationDelegate requests ("dialog", "openpanel",
+  // "auth", "servertrust", "media", "download-destination") reach the
+  // listener with a JSON payload carrying "req"; this answers one with a JSON
+  // object. Every request is answered exactly once: an unanswered one is
+  // cancelled when its tab is destroyed. Credentials pass straight through to
+  // WebKit and are never kept or logged.
+  void respond(in uint32_t aId, in uint32_t aRequestId, in AString aResponseJson);
+  // Cancels a running WKDownload ("download-*" events carry its "dl" id).
+  void cancelDownload(in uint32_t aDownloadId);
+
+  // W32: epoch guard. Each main-frame document gets a random epoch from an
+  // injected script (a bfcache restore brings its document's epoch back);
+  // script messages and guarded calls from any other document are dropped.
+  AString currentEpoch(in uint32_t aId);
+  // Runs aScript (a function body; it may await and return) in Whimsy's
+  // isolated world, only if the page is still on aEpoch (empty means the
+  // current one). Rejects with an AbortError when the document changed.
+  [implicit_jscontext]
+  Promise evaluateGuarded(in uint32_t aId, in AString aEpoch, in AString aScript);
+
+  // W32: the system default camera and microphone, the devices WebKit
+  // captures from, as JSON {camera: {name, id}, microphone: {name, id}}
+  // (a missing device is left out).
+  AString defaultCaptureDevices();
+
+  // Tests only: kills the tab's WebContent process.
+  void killWebContentProcessForTesting(in uint32_t aId);
 };
