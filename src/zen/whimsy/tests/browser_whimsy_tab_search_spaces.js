@@ -271,6 +271,67 @@ add_task(async function shots_tabsearch_rows() {
   await gZenWorkspaces.changeWorkspace(homeSpace);
 });
 
+// W32: the current-tab skip used to compare the url only, so with the
+// selected tab on a site, the same site open in another profile (container)
+// or another space was never offered. Only the selected tab itself is
+// skipped now.
+add_task(async function test_same_url_in_other_container_or_space_is_offered() {
+  const LABEL = "Tabsearch example.com twin";
+  const here = await addTab("https://example.com/");
+  labelTab(here, LABEL);
+
+  const spaceE = await containerSpace("Tabsearch space E", "🅴", 1);
+  await gZenWorkspaces.changeWorkspace(spaceE);
+  const contained = await addTab("https://example.com/");
+  labelTab(contained, LABEL);
+
+  const spaceF = await containerSpace("Tabsearch space F", "🅵");
+  await gZenWorkspaces.changeWorkspace(spaceF);
+  const elsewhere = await addTab("https://example.com/");
+  labelTab(elsewhere, LABEL);
+
+  await gZenWorkspaces.changeWorkspace(homeSpace);
+  gBrowser.selectedTab = here;
+  await TestUtils.waitForCondition(
+    () => gBrowser.selectedTab == here && gBrowser.currentURI.spec == "https://example.com/",
+    "The selected tab is on https://example.com/"
+  );
+  is(WhimsyAlreadyOpen.userContextOf(here), 0, "The selected tab is in the default container");
+  is(WhimsyAlreadyOpen.userContextOf(contained), 1, "The other-space tab is in container 1");
+  await collectSidebarData();
+
+  const rows = await searchSidebarRows("tabsearch example.com");
+  Assert.equal(rows.length, 2, "Both other tabs on the same url are offered");
+  ok(
+    rows.every(r => r.result.payload.url == "https://example.com/"),
+    "...each for https://example.com/"
+  );
+  ok(
+    rows.some(
+      r => r.result.payload.userContext?.id == 1 && getSpaceBadge(r.result)?.includes(spaceE.name)
+    ),
+    "The container 1 tab is offered, labelled with its space"
+  );
+  ok(
+    rows.some(
+      r => (r.result.payload.userContext?.id ?? 0) == 0 && getSpaceBadge(r.result)?.includes(spaceF.name)
+    ),
+    "The same-container tab in another space is offered, labelled with its space"
+  );
+  ok(
+    !rows.some(r => !getSpaceBadge(r.result)),
+    "The selected tab itself (current space, no label) is not offered"
+  );
+
+  await UrlbarTestUtils.promisePopupClose(window);
+  BrowserTestUtils.removeTab(here);
+  await gZenWorkspaces.changeWorkspace(spaceE);
+  BrowserTestUtils.removeTab(contained);
+  await gZenWorkspaces.changeWorkspace(spaceF);
+  BrowserTestUtils.removeTab(elsewhere);
+  await gZenWorkspaces.changeWorkspace(homeSpace);
+});
+
 add_task(async function test_dedup_drops_firefoxs_own_row_for_the_same_tab() {
   const TAB_SWITCH = UrlbarShared.RESULT_TYPE.TAB_SWITCH;
   const ours = {

@@ -111,11 +111,18 @@ export class ZenUrlbarProviderSidebar extends UrlbarProvider {
           continue;
         }
         const url = entry?.url;
-        if (!url || url == queryContext.currentPage) {
-          // Don't suggest switching to the current tab.
+        const userContextId = tabData.userContextId || 0;
+        // Whimsy hotfix: don't suggest switching to the current tab, but
+        // only that tab (its url in its own container and space); the same
+        // site in another profile or space is still offered.
+        if (
+          !url ||
+          (url == queryContext.currentPage &&
+            userContextId == (queryContext.userContextId || 0) &&
+            inSameSpace)
+        ) {
           continue;
         }
-        const userContextId = tabData.userContextId || 0;
         // The sidebar data can lag behind a navigation, only offer tabs that
         // are still registered as open with this url.
         const openTab = [...(openTabUrls.get(url) || [])].find(

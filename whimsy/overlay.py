@@ -1751,6 +1751,28 @@ HOTFIXES = [
                "    if (!/^https?:\\/\\//i.test(data.url)) {\n      return;\n    }\n"
                "    try {\n      const state = JSON.parse(win.SessionStore.getTabState(tab));",
     },
+    {
+        "id": "tab-search-current-tab-only",
+        "file": "src/zen/urlbar/ZenUBSidebarProvider.sys.mjs",
+        "why": "W32: the current-tab skip compared the url only, so the same site in another profile (container) or space was never offered; skip only the selected tab's url in its own container and space, as Firefox's UrlbarProviderPlaces does.",
+        "old": "        if (!url || url == queryContext.currentPage) {\n"
+               "          // Don't suggest switching to the current tab.\n"
+               "          continue;\n"
+               "        }\n"
+               "        const userContextId = tabData.userContextId || 0;\n",
+        "new": "        const userContextId = tabData.userContextId || 0;\n"
+               "        // Whimsy hotfix: don't suggest switching to the current tab, but\n"
+               "        // only that tab (its url in its own container and space); the same\n"
+               "        // site in another profile or space is still offered.\n"
+               "        if (\n"
+               "          !url ||\n"
+               "          (url == queryContext.currentPage &&\n"
+               "            userContextId == (queryContext.userContextId || 0) &&\n"
+               "            inSameSpace)\n"
+               "        ) {\n"
+               "          continue;\n"
+               "        }\n",
+    },
 ]
 
 # Prefs Zen declares whose defaults Whimsy changes: {name: value}.
