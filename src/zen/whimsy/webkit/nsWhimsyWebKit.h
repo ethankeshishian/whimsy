@@ -5,14 +5,15 @@
 #ifndef mozilla_whimsy_nsWhimsyWebKit_h
 #define mozilla_whimsy_nsWhimsyWebKit_h
 
-#include "nsIWhimsyWebKit.h"
+#include "nsIWhimsyEngineTab.h"
 
 namespace whimsy {
 
-class nsWhimsyWebKit final : public nsIWhimsyWebKit {
+// W32: WebKit's engine tab service (nsIWhimsyEngineTab, engine "webkit").
+class nsWhimsyWebKit final : public nsIWhimsyEngineTab {
  public:
   NS_DECL_ISUPPORTS
-  NS_DECL_NSIWHIMSYWEBKIT
+  NS_DECL_NSIWHIMSYENGINETAB
 
   nsWhimsyWebKit() = default;
 

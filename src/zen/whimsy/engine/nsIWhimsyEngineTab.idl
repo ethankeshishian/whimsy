@@ -6,21 +6,29 @@
 
 interface mozIDOMWindowProxy;
 
-[scriptable, function, uuid(7e3c9b14-4d8a-4f32-9b61-0c8e5a2d1f90)]
-interface nsIWhimsyWebKitListener : nsISupports
+// W32: one interface for every engine Whimsy can show a tab in (it was
+// nsIWhimsyWebKit). Each engine is a service under
+// @mozilla.org/whimsy/engine-tab;1?engine=<name>; WebKit's also keeps its old
+// contract, @mozilla.org/whimsy/webkit;1.
+
+[scriptable, function, uuid(22804b07-918c-41ce-9c2c-5239db6f739c)]
+interface nsIWhimsyEngineTabListener : nsISupports
 {
   void onEvent(in uint32_t aId, in AString aType, in AString aData);
 };
 
-[scriptable, uuid(5b1e7d42-93a0-4c6f-b8d1-2e4a7f9c0d63)]
-interface nsIWhimsyWebKit : nsISupports
+[scriptable, uuid(a78c49ce-fc6e-45bc-b539-c5f2fb1438a1)]
+interface nsIWhimsyEngineTab : nsISupports
 {
+  // The engine this service runs: "webkit".
+  readonly attribute ACString engine;
+
   boolean available(in mozIDOMWindowProxy aWindow);
 
   uint32_t createTab(in mozIDOMWindowProxy aWindow,
                      in AString aDataStoreId,
                      in AString aLayerMode,
-                     in nsIWhimsyWebKitListener aListener);
+                     in nsIWhimsyEngineTabListener aListener);
 
   void setFrame(in uint32_t aId,
                 in double aX,
@@ -61,7 +69,7 @@ interface nsIWhimsyWebKit : nsISupports
 
   // Reads back what the window server actually shows for a rect of aWindow
   // (CSS pixels, relative to the window's content), so a test can check the
-  // composited colour of a WebKit tab. Returns JSON {r, g, b, a, min, max}:
+  // composited colour of an engine tab (the same from every engine). Returns JSON {r, g, b, a, min, max}:
   // sRGB channel averages (0-255) plus the lowest and highest channel value
   // seen. Throws when the window can't be read.
   AString sampleWindowColor(in mozIDOMWindowProxy aWindow,
@@ -121,6 +129,7 @@ interface nsIWhimsyWebKit : nsISupports
   // (a missing device is left out).
   AString defaultCaptureDevices();
 
-  // Tests only: kills the tab's WebContent process.
-  void killWebContentProcessForTesting(in uint32_t aId);
+  // Tests only: kills the tab's content process (WebKit's WebContent
+  // process).
+  void killContentProcessForTesting(in uint32_t aId);
 };

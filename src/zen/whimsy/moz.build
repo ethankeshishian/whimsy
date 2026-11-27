@@ -75,6 +75,7 @@ EXTRA_JS_MODULES.whimsy += [
     "WhimsyEmojiChild.sys.mjs",
     "WhimsyEmojiFrequent.sys.mjs",
     "WhimsyEmojiIndex.sys.mjs",
+    "WhimsyEngineTabs.sys.mjs",
     "WhimsyExtensionPins.sys.mjs",
     "WhimsyExternalLinks.sys.mjs",
     "WhimsyFaviconHome.sys.mjs",
@@ -486,7 +487,8 @@ BROWSER_CHROME_MANIFESTS += [
 # Whimsy's Touch ID passkeys, C++ over a Swift Secure Enclave helper).
 # equalizer/ is W29's per-site equalizer DSP (plain C++, every platform).
 # emoji/ (W30) tells dark pages and Boosts which pictures are emoji, so their
-# colours are left alone.
+# colours are left alone. engine/ (W32) is the engine tab interface and the
+# window helpers WebKit tabs (webkit/) share with the engines after it.
 DIRS += ["audiotap", "emoji", "equalizer"]
 
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
@@ -496,6 +498,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
         "bonjour",
         "calendar",
         "embedding",
+        "engine",
         "hotkey",
         "passkeys",
         "share",

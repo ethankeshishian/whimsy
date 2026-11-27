@@ -2,11 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-XPIDL_SOURCES += [
-    "nsIWhimsyWebKit.idl",
-]
-
-XPIDL_MODULE = "whimsy_webkit"
+# W32: the interface (nsIWhimsyEngineTab) and the window helpers live in
+# ../engine/.
 
 EXPORTS.mozilla.whimsy += [
     "nsWhimsyWebKit.h",
