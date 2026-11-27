@@ -25,6 +25,7 @@ const { AppConstants } = ChromeUtils.importESModule("resource://gre/modules/AppC
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   WhimsyAIProviders: "resource:///modules/whimsy/WhimsyAIProviders.sys.mjs",
   WhimsyAICompare: "resource:///modules/whimsy/WhimsyAICompare.sys.mjs",
   FileUtils: "resource://gre/modules/FileUtils.sys.mjs",
@@ -87,6 +88,9 @@ export class WhimsyPageActionsParent extends JSWindowActorParent {
   }
 }
 
+// W32 P2: whimsy-navigation.css now holds only the trail and Cook mode
+// rules (the address bar's are in whimsy-browser.css), so it loads the
+// first time one of those opens.
 export const WhimsyPageActions = {
   // browser -> { spec, action }
   _actions: new WeakMap(),
@@ -126,10 +130,6 @@ export const WhimsyPageActions = {
       return;
     }
     win._whimsyPageActions = true;
-    if (!win._whimsyNavigationSheet) {
-      win._whimsyNavigationSheet = true;
-      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-    }
     win.gBrowser.addTabsProgressListener({
       onLocationChange: (browser, webProgress, request, location, flags) => {
         if (!webProgress?.isTopLevel || flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) {
@@ -664,6 +664,7 @@ export const WhimsyPageActions = {
   // --- Recipe: Cook mode ---
 
   openCookMode(win, action) {
+    lazy.WhimsySheets.load(win, SHEET);
     const doc = win.document;
     doc.getElementById(COOK_ID)?.remove();
     const HTML = "http://www.w3.org/1999/xhtml";

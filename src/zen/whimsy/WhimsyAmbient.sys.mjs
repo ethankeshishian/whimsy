@@ -33,6 +33,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -130,12 +131,13 @@ export const WhimsyAmbient = {
     return state(win).sound;
   },
 
+  // W32 P2: the sheet styles only the ambient sheet, so it loads the first
+  // time that sheet opens rather than with every window.
+  loadSheet(win) {
+    lazy.WhimsySheets.load(win, SHEET_CSS);
+  },
+
   initWindow(win) {
-    try {
-      win.windowUtils.loadSheetUsingURIString(SHEET_CSS, win.windowUtils.AUTHOR_SHEET);
-    } catch (e) {
-      console.error("Whimsy: ambient sheet", e);
-    }
     lazy.WhimsyCommands.register(win, {
       id: COMMAND_OPEN,
       l10nId: "whimsy-action-ambient-sound",
@@ -290,6 +292,7 @@ export const WhimsyAmbient = {
       lazy.WhimsySurface.close(existing);
       return;
     }
+    this.loadSheet(win);
     const s = state(win);
     const parts = lazy.WhimsySurface.create(win, {
       id: SHEET_ID,

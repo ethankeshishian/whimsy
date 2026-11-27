@@ -13,6 +13,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   Whimsy: "resource:///modules/whimsy/Whimsy.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -123,7 +124,6 @@ export const WhimsyReadAloud = {
       return;
     }
     this.init();
-    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
     const available = w => this.enabled && this.readable(w);
     lazy.WhimsyCommands.register(win, {
       id: "cmd_whimsyListenPage",
@@ -521,6 +521,9 @@ export const WhimsyReadAloud = {
     if (!zen) {
       return null;
     }
+    // W32 P2: the sheet styles only the player, so it loads just before
+    // the first one is made rather than with every window.
+    lazy.WhimsySheets.load(win, SHEET);
     holder = doc.createXULElement("vbox");
     holder.id = "whimsy-read-aloud-player";
     holder.hidden = true;

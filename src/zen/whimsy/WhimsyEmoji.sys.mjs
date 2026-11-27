@@ -21,6 +21,7 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.sys.mjs",
   ProvidersManager: "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
@@ -64,6 +65,8 @@ const insertTargets = new WeakMap();
 // options.private, when given, is exact: `"private" in options` alone (even
 // undefined) would stop BrowserWindowTracker from matching any window, so
 // the key is only present when the caller actually knows which side.
+// W32 P2: the sheet styles only the emoji grid row, so it loads with the
+// first emoji query (before its row exists), not with every window.
 function topWindow(isPrivate) {
   return lazy.BrowserWindowTracker.getTopWindow(typeof isPrivate == "boolean" ? { private: isPrivate } : {});
 }
@@ -160,6 +163,7 @@ export class WhimsyEmojiProvider extends UrlbarProvider {
     // would permanently skip re-checking and wedge the footer on "Copy".
     // `states` is set unconditionally below every call, so it can't go
     // stale the same way.
+    lazy.WhimsySheets.load(win, SHEET);
     const resuming = win && states.has(win);
     const state = computeState(context.searchString.slice(1));
     if (win) {
@@ -219,7 +223,6 @@ export const WhimsyEmoji = {
 
   initWindow(win) {
     this.init();
-    win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
     const urlbar = win.gURLBar;
     if (urlbar?.inputField && !urlbar.inputField._whimsyEmojiKeys) {
       urlbar.inputField._whimsyEmojiKeys = true;
@@ -287,6 +290,9 @@ export const WhimsyEmoji = {
   },
 
   mountGrid(win, el) {
+    // The query's window normally loaded it already; this covers a row
+    // rendered in another window.
+    lazy.WhimsySheets.load(win, SHEET);
     mounts.set(win, { ...mounts.get(win), el });
     // Marks #urlbar itself (whimsy-emoji.css), rather than relying on
     // `#urlbar:has(.urlbarView-row[dynamicType=...])`: the urlbarView's

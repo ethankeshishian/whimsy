@@ -30,6 +30,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore: "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs",
   WhimsyCommands: "resource:///modules/whimsy/WhimsyCommands.sys.mjs",
@@ -168,6 +169,9 @@ export const WhimsyAlreadyOpen = {
       }
       if (badge) {
         if (url.textContent != badge || !url.hasAttribute("data-whimsy-space-badge")) {
+          // W32 P2: every rule keys off this attribute, so the sheet loads
+          // just before the first badge, not with every window.
+          lazy.WhimsySheets.load(win, TABSEARCH_SHEET);
           url.textContent = badge;
           url.setAttribute("data-whimsy-space-badge", "true");
         }
@@ -432,11 +436,6 @@ export const WhimsyAlreadyOpen = {
       return;
     }
     urlbar._whimsyAlreadyOpen = true;
-    try {
-      win.windowUtils.loadSheetUsingURIString(TABSEARCH_SHEET, win.windowUtils.AUTHOR_SHEET);
-    } catch (e) {
-      console.error("Whimsy: tabsearch sheet", e);
-    }
     const original = urlbar.pickResult;
     urlbar.pickResult = function (params = {}) {
       try {

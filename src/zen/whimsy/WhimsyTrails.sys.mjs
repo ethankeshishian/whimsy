@@ -26,6 +26,7 @@
 
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
+  WhimsySheets: "resource:///modules/whimsy/WhimsySheets.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   WhimsySurface: "resource:///modules/whimsy/WhimsySurface.sys.mjs",
@@ -47,6 +48,9 @@ function isWebUrl(spec) {
   return /^https?:/i.test(spec || "");
 }
 
+// W32 P2: whimsy-navigation.css now holds only the trail and Cook mode
+// rules (the address bar's are in whimsy-browser.css), so it loads the
+// first time one of those opens.
 export const WhimsyTrails = {
   // browser -> { sh, listener, branches: [{ anchorId, anchorUrl, entries }] }
   _records: new WeakMap(),
@@ -74,10 +78,6 @@ export const WhimsyTrails = {
       return;
     }
     win._whimsyTrails = true;
-    if (!win._whimsyNavigationSheet) {
-      win._whimsyNavigationSheet = true;
-      win.windowUtils.loadSheetUsingURIString(SHEET, win.windowUtils.AUTHOR_SHEET);
-    }
     gBrowser.addTabsProgressListener({
       onLocationChange: (browser, webProgress) => {
         if (webProgress?.isTopLevel) {
@@ -245,6 +245,7 @@ export const WhimsyTrails = {
     if (!this.enabled || event.defaultPrevented) {
       return;
     }
+    lazy.WhimsySheets.load(win, SHEET);
     // W10-54: the drawn trail instead of the native menu.
     if (popup.id == "backForwardMenu" || popup.parentNode?.id == "back-button" || popup.parentNode?.id == "forward-button") {
       const button = popup.triggerNode?.closest?.("#back-button, #forward-button") ??
@@ -408,6 +409,7 @@ export const WhimsyTrails = {
     if (!rows.length && !origin) {
       return null;
     }
+    lazy.WhimsySheets.load(win, SHEET);
     const parts = lazy.WhimsySurface.create(win, {
       id: PANEL_ID,
       width: PANEL_WIDTH,
