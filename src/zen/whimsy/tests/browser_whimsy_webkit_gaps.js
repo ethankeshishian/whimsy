@@ -23,7 +23,7 @@ const { TabUnloader } = ChromeUtils.importESModule(
   "moz-src:///browser/components/tabbrowser/TabUnloader.sys.mjs"
 );
 const { SessionStore } = ChromeUtils.importESModule(
-  "resource:///modules/sessionstore/SessionStore.sys.mjs"
+  "moz-src:///browser/components/sessionstore/SessionStore.sys.mjs"
 );
 
 // A loopback HTTP server. 127.0.0.1 and localhost are two origins on the
