@@ -604,7 +604,29 @@ class nsZenGlanceManager extends nsZenDOMOperatedFeature {
         // It is guaranteed that we will animate this opacity later on
         // when we start animating the glance.
         this.contentWrapper.style.opacity = 0;
+        const glanceId = this.#currentGlanceID; // Whimsy hotfix: closed while opening
         data.elementData = await this.#getElementPreviewData(data);
+        // Whimsy hotfix: the Glance closed (or began closing) with its tab,
+        // or another tab was selected, while the preview was drawn.
+        // Nothing is left to animate.
+        const glance = this.#glances.get(glanceId);
+        if (!glance || this.closingGlance || this.#currentGlanceID !== glanceId) {
+          if (glance) {
+            // #deleteGlance frees it with the entry.
+            glance.elementData = data.elementData;
+          } else if (typeof data.elementData === "string") {
+            URL.revokeObjectURL(data.elementData);
+          }
+          const open = glance && !this.closingGlance;
+          if (open) {
+            // Still open in its tab: shown again when that tab is.
+            this.contentWrapper.style.opacity = "";
+            this.#setAnimationState(false);
+          }
+          // A closing Glance's close owns the animation state.
+          resolve(open ? glance.tab : null);
+          return;
+        }
       }
       this.#glances.get(this.#currentGlanceID).elementData = data.elementData;
       this.#executeGlanceAnimation(data, browserElement, resolve);

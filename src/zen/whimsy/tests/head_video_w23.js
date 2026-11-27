@@ -133,9 +133,20 @@ async function closeChat() {
   }
 }
 
+// Summarize's own thread, drawn and answered, with its source note (the last
+// thing Summarize adds, after the answer and its chips). Closing chat keeps
+// the last thread drawn, and reopening shows it until the new one renders,
+// so an earlier summary's answer must never count (freshChatStore forgets
+// earlier summaries, so only this one is owned).
 async function summaryAnswered() {
-  await TestUtils.waitForCondition(
-    () => chatPanel().isOpen && chatPanel().thread?.video && chatPanel().body.querySelector(".whimsy-chat-msg[data-role='ai']:not([busy])"),
-    "The summary is in"
-  );
+  await TestUtils.waitForCondition(() => {
+    const panel = chatPanel();
+    return (
+      panel.isOpen &&
+      panel.ready &&
+      WhimsyVideoSummary.owns(panel.thread) &&
+      panel.body.querySelector(".whimsy-chat-msg[data-role='ai']:not([busy])") &&
+      panel.body.querySelector(".whimsy-chat-note[data-kind='video-source']")
+    );
+  }, "The summary is in");
 }

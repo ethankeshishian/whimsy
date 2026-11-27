@@ -259,6 +259,37 @@ add_task(async function test_menu_rows() {
   });
 });
 
+// The logo is a red dot, which Vision reads as "•". That isn't text: no
+// I-beam line goes over the image, so a right-click on it still gets
+// Save Image As once its text has been looked for (a run used to lose the
+// row when the right-click came after recognition).
+add_task(async function test_image_text_never_takes_the_image_row() {
+  const { WhimsyImageText } = ChromeUtils.importESModule("resource:///modules/whimsy/WhimsyImageText.sys.mjs");
+  await SpecialPowers.pushPrefEnv({ set: [["whimsy.feature.image-text", true]] });
+  const recognizer = WhimsyImageText.testRecognizer;
+  WhimsyImageText.testRecognizer = src => (src.endsWith("whimsy_svg_save_logo.svg") ? [{ text: "•", quad: [[0, 0], [1, 0], [1, 1], [0, 1]] }] : []);
+  try {
+    await onPage(async browser => {
+      const lines = await SpecialPowers.spawn(browser, [], async () => {
+        const img = content.document.getElementById("img");
+        let actor = null;
+        await ContentTaskUtils.waitForCondition(() => {
+          actor = content.windowGlobalChild.getExistingActor("WhimsyImageText");
+          return actor?.images.has(img);
+        }, "the logo's text was looked for");
+        return actor.images.get(img).lines.length;
+      });
+      is(lines, 0, "a dot read as a bullet is no text");
+      await openMenuOn(browser, "#img");
+      ok(shown(document.getElementById("context-saveimage")), "Save Image As still shows on the logo");
+      await closeMenu();
+    });
+  } finally {
+    WhimsyImageText.testRecognizer = recognizer;
+    await SpecialPowers.popPrefEnv();
+  }
+});
+
 add_task(async function test_dialog_first_state_and_ratio() {
   Services.prefs.clearUserPref(BACKGROUND_PREF);
   await onPage(async browser => {

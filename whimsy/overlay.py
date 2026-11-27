@@ -833,6 +833,44 @@ HOTFIXES = [
         "old": '    this.browserWrapper.style.width = "80%";\n',
         "new": "    this.browserWrapper.style.width = `${(this.whimsyWidthPercent ?? 0.8) * 100}%`; // Whimsy hotfix: Glance size\n",
     },
+    # W32 flaky: the opening awaits a snapshot of the clicked link, and the
+    # Glance can be closed with its tab (or left for another tab) during that
+    # wait. Zen then reads the gone Glance's entry and the opening throws
+    # ("this.#glances.get(...) is undefined"), leaving animatingOpen set.
+    {
+        "id": "glance-closed-while-opening",
+        "file": "src/zen/glance/ZenGlanceManager.mjs",
+        "why": "A Glance closed or left while its link preview is drawn "
+               "must not throw or stay stuck animating.",
+        "old": "        this.contentWrapper.style.opacity = 0;\n"
+               "        data.elementData = await this.#getElementPreviewData(data);\n"
+               "      }\n",
+        "new": "        this.contentWrapper.style.opacity = 0;\n"
+               "        const glanceId = this.#currentGlanceID; // Whimsy hotfix: closed while opening\n"
+               "        data.elementData = await this.#getElementPreviewData(data);\n"
+               "        // Whimsy hotfix: the Glance closed (or began closing) with its tab,\n"
+               "        // or another tab was selected, while the preview was drawn.\n"
+               "        // Nothing is left to animate.\n"
+               "        const glance = this.#glances.get(glanceId);\n"
+               "        if (!glance || this.closingGlance || this.#currentGlanceID !== glanceId) {\n"
+               "          if (glance) {\n"
+               "            // #deleteGlance frees it with the entry.\n"
+               "            glance.elementData = data.elementData;\n"
+               "          } else if (typeof data.elementData === \"string\") {\n"
+               "            URL.revokeObjectURL(data.elementData);\n"
+               "          }\n"
+               "          const open = glance && !this.closingGlance;\n"
+               "          if (open) {\n"
+               "            // Still open in its tab: shown again when that tab is.\n"
+               "            this.contentWrapper.style.opacity = \"\";\n"
+               "            this.#setAnimationState(false);\n"
+               "          }\n"
+               "          // A closing Glance's close owns the animation state.\n"
+               "          resolve(open ? glance.tab : null);\n"
+               "          return;\n"
+               "        }\n"
+               "      }\n",
+    },
     {
         "id": "window-sync-restore-events",
         "file": "src/zen/sessionstore/ZenWindowSync.sys.mjs",

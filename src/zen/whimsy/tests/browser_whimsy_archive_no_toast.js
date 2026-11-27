@@ -43,6 +43,13 @@ add_setup(async function () {
 // Records every toast (Zen's toast, which Whimsy uses too) that
 // appears while `fn` runs, and for a moment after it.
 async function toastsDuring(fn) {
+  // W32 flaky: a toast shown after the setup's sweep (while the task opened
+  // its tabs, say) stayed up through every task (a toast holds while it's
+  // hovered, or one with buttons while the window is in the background) and
+  // read as archiving's. Only what `fn` shows counts, so each measure starts
+  // with none up.
+  closeToasts();
+  ok(!currentToast(), "No toast is up before archiving");
   const container = document.getElementById("zen-toast-container");
   const seen = [];
   const observer = container
@@ -65,7 +72,8 @@ async function toastsDuring(fn) {
 
 function noToast(seen, what) {
   is(seen.length, 0, `${what}: no toast appears`);
-  ok(!currentToast(), `${what}: no toast is up`);
+  const up = currentToast();
+  ok(!up, `${what}: no toast is up${up ? ` (${up.messageId})` : ""}`);
   ok(!document.getElementById("whimsy-undo-toast-button"), `${what}: no Undo button`);
 }
 
